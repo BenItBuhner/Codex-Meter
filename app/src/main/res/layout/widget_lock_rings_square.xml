@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/lock_graphic_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ImageView
+        android:id="@+id/lock_graphic_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/lock_preview_rings_square"
+        android:scaleType="fitCenter"
+        android:contentDescription="@string/lock_widget_graphic_preview_description"/>
+    <TextView
+        android:textSize="9.5sp"
+        android:textColor="@android:color/white"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:id="@+id/lock_graphic_center_value"
+        android:paddingBottom="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="5H 36\10W 68"
+        android:maxLines="3"
+        android:includeFontPadding="false"
+        android:fontFamily="sec"
+        android:paddingStart="3dp"
+        android:paddingEnd="3dp"
+        android:textFontWeight="700"/>
+    <Chronometer
+        android:textSize="6.5sp"
+        android:textColor="#c8ffffff"
+        android:layout_gravity="bottom|center_horizontal"
+        android:id="@+id/lock_countdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="1dp"
+        android:maxLines="1"
+        android:includeFontPadding="false"
+        android:fontFamily="sec"/>
+</FrameLayout>

@@ -1,0 +1,18 @@
+package dev.bennett.codexmeter;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+
+/* JADX INFO: loaded from: classes.dex */
+public final class BootReceiver extends BroadcastReceiver {
+    @Override // android.content.BroadcastReceiver
+    public void onReceive(Context context, Intent intent) {
+        String action = intent == null ? null : intent.getAction();
+        if ("android.intent.action.BOOT_COMPLETED".equals(action) || "android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
+            RefreshScheduler.schedulePeriodic(context);
+            ResetAlertScheduler.scheduleFromSnapshot(context, AppPreferences.loadSnapshot(context));
+            WidgetRenderer.updateAll(context);
+        }
+    }
+}

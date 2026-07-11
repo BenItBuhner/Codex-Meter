@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="widget_support_cell_sizes">
+        <item>2x1</item>
+        <item>2x2</item>
+        <item>2x3</item>
+        <item>2x4</item>
+        <item>2x5</item>
+        <item>2x6</item>
+        <item>2x7</item>
+        <item>3x1</item>
+        <item>3x2</item>
+        <item>3x3</item>
+        <item>3x4</item>
+        <item>3x5</item>
+        <item>3x6</item>
+        <item>3x7</item>
+        <item>4x1</item>
+        <item>4x2</item>
+        <item>4x3</item>
+        <item>4x4</item>
+        <item>4x5</item>
+        <item>4x6</item>
+        <item>4x7</item>
+        <item>5x1</item>
+        <item>5x2</item>
+        <item>5x3</item>
+        <item>5x4</item>
+        <item>5x5</item>
+        <item>5x6</item>
+        <item>5x7</item>
+        <item>6x1</item>
+        <item>6x2</item>
+        <item>6x3</item>
+        <item>6x4</item>
+        <item>6x5</item>
+        <item>6x6</item>
+        <item>6x7</item>
+        <item>7x1</item>
+        <item>7x2</item>
+        <item>7x3</item>
+        <item>7x4</item>
+        <item>7x5</item>
+        <item>7x6</item>
+        <item>7x7</item>
+    </array>
+</resources>

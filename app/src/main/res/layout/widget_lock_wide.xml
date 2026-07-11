@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/lock_wide_root"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingStart="6dp"
+    android:paddingEnd="6dp">
+    <TextView
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/white"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:id="@+id/lock_wide_value"
+        android:paddingBottom="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="@string/lock_widget_wide_preview"
+        android:maxLines="2"
+        android:includeFontPadding="false"
+        android:fontFamily="sec"/>
+    <Chronometer
+        android:textSize="7sp"
+        android:textColor="#c8ffffff"
+        android:layout_gravity="bottom|center_horizontal"
+        android:id="@+id/lock_countdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:includeFontPadding="false"
+        android:fontFamily="sec"/>
+</FrameLayout>

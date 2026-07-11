@@ -1,0 +1,11 @@
+Codex Meter 1.7.0 reconstructed source compile check
+====================================================
+
+Result: PASS
+Framework: Android API 36 android.jar
+Language level: Java 8 source/target
+Compiled application classes: 116 class files including inner classes
+Errors: 0
+Warnings: 75
+
+The warnings are primarily raw/unchecked collection warnings caused by generic type erasure in DEX decompilation. See SOURCE_RECOVERY.md.

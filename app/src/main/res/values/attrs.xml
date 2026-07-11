@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="allowMultipleSizes" format="boolean">
+    </attr>
+    <attr name="featuredWidget" format="integer">
+        <flag name="extraLarge" value="0x20" />
+        <flag name="extraLargeLong" value="0x40" />
+        <flag name="large" value="0x10" />
+        <flag name="medium" value="0x8" />
+        <flag name="small" value="0x2" />
+        <flag name="tiny" value="0x1" />
+        <flag name="wideSmall" value="0x4" />
+    </attr>
+    <attr name="initialLayoutMedium" format="reference">
+    </attr>
+    <attr name="initialLayoutSmall" format="reference">
+    </attr>
+    <attr name="initialLayoutTiny" format="reference">
+    </attr>
+    <attr name="monotoneInitialLayoutMedium" format="reference">
+    </attr>
+    <attr name="monotoneInitialLayoutSmall" format="reference">
+    </attr>
+    <attr name="monotoneInitialLayoutTiny" format="reference">
+    </attr>
+    <attr name="monotonePreviewLayoutMedium" format="reference">
+    </attr>
+    <attr name="monotonePreviewLayoutSmall" format="reference">
+    </attr>
+    <attr name="monotonePreviewLayoutTiny" format="reference">
+    </attr>
+    <attr name="previewLayoutExtraLarge" format="reference">
+    </attr>
+    <attr name="previewLayoutExtraLargeLong" format="reference">
+    </attr>
+    <attr name="previewLayoutLarge" format="reference">
+    </attr>
+    <attr name="previewLayoutMedium" format="reference">
+    </attr>
+    <attr name="previewLayoutSmall" format="reference">
+    </attr>
+    <attr name="previewLayoutTiny" format="reference">
+    </attr>
+    <attr name="previewLayoutWideSmall" format="reference">
+    </attr>
+    <attr name="targetHost" format="integer">
+        <flag name="cover" value="0x4" />
+        <flag name="dex_home" value="0x10" />
+        <flag name="edge" value="0x8" />
+        <flag name="home" value="0x1" />
+        <flag name="lock_and_aod" value="0x2" />
+        <flag name="smart_page" value="0x20" />
+    </attr>
+    <attr name="widgetSize" format="integer">
+        <flag name="extraLarge" value="0x20" />
+        <flag name="extraLargeLong" value="0x40" />
+        <flag name="large" value="0x10" />
+        <flag name="medium" value="0x8" />
+        <flag name="small" value="0x2" />
+        <flag name="tiny" value="0x1" />
+        <flag name="wideSmall" value="0x4" />
+    </attr>
+    <attr name="widgetStyle" format="integer">
+        <flag name="colorful" value="0x1" />
+        <flag name="monotone" value="0x2" />
+    </attr>
+</resources>

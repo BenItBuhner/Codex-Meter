@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Codex Meter</string>
+    <string name="five_hour">5-hour</string>
+    <string name="lock_widget_bars_square_description">Compact horizontal Codex allowance bars for supported Samsung lock screens</string>
+    <string name="lock_widget_bars_square_name">Codex · Bars · Square</string>
+    <string name="lock_widget_bars_wide_description">Two horizontal Codex allowance bars for supported Samsung lock screens</string>
+    <string name="lock_widget_bars_wide_name">Codex · Bars · Wide</string>
+    <string name="lock_widget_dials_square_description">Compact Codex allowance gauges for supported Samsung lock screens</string>
+    <string name="lock_widget_dials_square_name">Codex · Gauges · Square</string>
+    <string name="lock_widget_dials_wide_description">Two Codex allowance gauges for supported Samsung lock screens</string>
+    <string name="lock_widget_dials_wide_name">Codex · Gauges · Wide</string>
+    <string name="lock_widget_graphic_preview_description">Codex usage preview</string>
+    <string name="lock_widget_rings_square_description">Compact circular Codex allowance rings for supported Samsung lock screens</string>
+    <string name="lock_widget_rings_square_name">Codex · Rings · Square</string>
+    <string name="lock_widget_rings_wide_description">Two circular Codex allowance rings for supported Samsung lock screens</string>
+    <string name="lock_widget_rings_wide_name">Codex · Rings · Wide</string>
+    <string name="lock_widget_square_description">Square numeric five-hour and weekly Codex allowance for supported Samsung lock screens</string>
+    <string name="lock_widget_square_name">Codex · Numbers · Square</string>
+    <string name="lock_widget_square_preview">5H — W —</string>
+    <string name="lock_widget_wide_description">Wide numeric five-hour and weekly Codex allowance for supported Samsung lock screens</string>
+    <string name="lock_widget_wide_name">Codex · Numbers · Wide</string>
+    <string name="lock_widget_wide_preview">5H — · W —</string>
+    <string name="oauth_channel_description">Shown only while completing browser sign-in</string>
+    <string name="oauth_channel_name">ChatGPT sign-in</string>
+    <string name="refresh">Refresh</string>
+    <string name="refreshing">Refreshing…</string>
+    <string name="weekly">Weekly</string>
+    <string name="widget_description">Adaptive bars, rings, and dials for five-hour and weekly Codex usage</string>
+    <string name="widget_name">Codex usage</string>
+    <string name="widget_sample_compact_reset">5h resets 3:42 PM · Week resets Mon 11:00 AM</string>
+    <string name="widget_sample_five_hour_short">5h</string>
+    <string name="widget_sample_plan">PLUS</string>
+    <string name="widget_sample_primary_percent">73% left</string>
+    <string name="widget_sample_primary_percent_short">73%</string>
+    <string name="widget_sample_primary_reset">Resets today at 3:42 PM</string>
+    <string name="widget_sample_secondary_percent">44% left</string>
+    <string name="widget_sample_secondary_percent_short">44%</string>
+    <string name="widget_sample_secondary_reset">Resets Monday at 11:00 AM</string>
+    <string name="widget_sample_updated">Updated just now</string>
+    <string name="widget_sample_week_short">Week</string>
+    <string name="widget_title">CODEX</string>
+</resources>
