@@ -28,7 +28,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-import dev.oneuiproject.oneui.widget.CardItemView;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -208,8 +207,6 @@ public final class MainActivity extends AppCompatActivity {
                 Ui.addSpacer(this.content, 20);
             }
             this.content.addView(buildResetCreditsCard());
-            Ui.addSpacer(this.content, 20);
-            this.content.addView(buildPrivacyCard());
         }
     }
 
@@ -370,20 +367,6 @@ public final class MainActivity extends AppCompatActivity {
         });
         linearLayoutCard.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f)));
         return linearLayoutCard;
-    }
-
-    private LinearLayout buildPrivacyCard() {
-        LinearLayout card = Ui.card(this, this.dark);
-        card.setPadding(0, 0, 0, 0);
-        CardItemView row = Ui.actionRow(
-                this,
-                "Local data and privacy",
-                "OAuth tokens are encrypted with Android Keystore. Requests go only to OpenAI for authentication and ChatGPT & Codex endpoints.",
-                R.drawable.ic_oui_privacy,
-                null);
-        row.getSummaryView().setMaxLines(6);
-        card.addView(row);
-        return card;
     }
 
     private LinearLayout buildWidgetCard() {

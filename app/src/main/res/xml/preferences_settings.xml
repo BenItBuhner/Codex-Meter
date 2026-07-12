@@ -59,6 +59,15 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Privacy">
+        <Preference
+            android:icon="@drawable/ic_oui_privacy"
+            android:summary="OAuth tokens are encrypted with Android Keystore. Requests go only to OpenAI for authentication and ChatGPT &amp; Codex endpoints."
+            android:title="Local data and privacy"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+    </PreferenceCategory>
+
     <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="20dp" />
 
     <Preference
