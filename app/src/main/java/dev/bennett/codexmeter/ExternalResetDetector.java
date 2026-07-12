@@ -13,11 +13,10 @@ public final class ExternalResetDetector {
     public static boolean isUnexpectedReset(int previousUsedPercent, long expectedResetAtMillis,
             UsageWindow current, long observedAtMillis, boolean manualResetPending) {
         if (manualResetPending || current == null || previousUsedPercent <= 0
-                || current.usedPercent != 0) {
+                || current.usedPercent != 0 || expectedResetAtMillis <= 0L) {
             return false;
         }
-        return expectedResetAtMillis <= 0L
-                || observedAtMillis < expectedResetAtMillis - NATURAL_RESET_TOLERANCE_MS;
+        return observedAtMillis < expectedResetAtMillis - NATURAL_RESET_TOLERANCE_MS;
     }
 
     public static long expectedResetAt(UsageWindow window, long fetchedAtMillis) {

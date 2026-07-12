@@ -222,6 +222,7 @@ public final class SettingsActivity extends AppCompatActivity {
             });
 
             SwitchPreferenceCompat externalReset = findPreference("external_reset_enabled_ui");
+            externalReset.setPersistent(false);
             externalReset.setChecked(ResetAlertPreferences.externalResetEnabled(requireContext()));
             externalReset.setOnPreferenceChangeListener((preference, value) -> {
                 ResetAlertPreferences.setExternalResetEnabled(requireContext(), (Boolean) value);
@@ -231,6 +232,7 @@ public final class SettingsActivity extends AppCompatActivity {
             });
 
             ListPreference externalResetStyle = findPreference("external_reset_style_ui");
+            externalResetStyle.setPersistent(false);
             externalResetStyle.setValue(ResetAlertPreferences.getExternalResetStyle(requireContext()));
             externalResetStyle.setOnPreferenceChangeListener((preference, value) -> {
                 ResetAlertPreferences.setExternalResetStyle(requireContext(), String.valueOf(value));

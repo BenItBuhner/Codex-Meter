@@ -16,6 +16,8 @@ import android.os.Build;
 public final class ResetNotificationManager {
     private static final String CHANNEL_ALARM = "codex_reset_alarm";
     private static final String CHANNEL_EXTERNAL_CELEBRATION = "codex_external_reset_celebration_v1";
+    private static final String CHANNEL_EXTERNAL_NOTIFY = "codex_external_reset_notify_v1";
+    private static final String CHANNEL_EXTERNAL_SILENT = "codex_external_reset_silent_v1";
     private static final String CHANNEL_NOTIFY = "codex_reset_notify";
     private static final String CHANNEL_SILENT = "codex_reset_silent";
     private static final String PREFS = "codex_meter_notification_state_v1";
@@ -29,6 +31,7 @@ public final class ResetNotificationManager {
     private static final String KEY_CREDIT_COUNT = "known_reset_credit_count";
     private static final long MANUAL_RESET_SUPPRESSION_MS = 5 * 60_000L;
     private static final int NOTIFICATION_TEST = 74400;
+    private static final int NOTIFICATION_EXTERNAL_RESET_TEST = 74410;
     private static final int NOTIFICATION_EXTERNAL_RESET = 74411;
     private static final int NOTIFICATION_RESET_FIVE_HOUR = 74405;
     private static final int NOTIFICATION_RESET_WEEKLY = 74407;
@@ -60,10 +63,14 @@ public final class ResetNotificationManager {
         }
     }
 
-    public static void markManualReset(Context context, long resetAtMillis) {
+    public static void markManualReset(Context context, long observedAtMillis) {
         if (context == null) return;
-        state(context).edit().putLong(KEY_MANUAL_RESET_PENDING_UNTIL,
-                resetAtMillis + MANUAL_RESET_SUPPRESSION_MS).apply();
+        state(context).edit()
+                .putLong(KEY_MANUAL_RESET_PENDING_UNTIL,
+                        observedAtMillis + MANUAL_RESET_SUPPRESSION_MS)
+                .putInt(KEY_FIVE_HOUR_LAST_USED, 0)
+                .putInt(KEY_WEEKLY_LAST_USED, 0)
+                .apply();
     }
 
     public static void onResetCreditsUpdated(Context context, ResetCreditsSnapshot snapshot) {
@@ -108,7 +115,7 @@ public final class ResetNotificationManager {
                 && ResetAlertPreferences.externalResetEnabled(context)
                 && postExternalReset(context,
                         ExternalResetDetector.FIVE_HOUR | ExternalResetDetector.WEEKLY,
-                        NOTIFICATION_TEST);
+                        NOTIFICATION_EXTERNAL_RESET_TEST);
     }
 
     public static void ensureChannel(Context context) {
@@ -180,8 +187,9 @@ public final class ResetNotificationManager {
             editor.remove(usedKey).remove(resetAtKey);
             return;
         }
+        long observedAt = fetchedAt > 0L ? fetchedAt : System.currentTimeMillis();
         editor.putInt(usedKey, window.usedPercent)
-                .putLong(resetAtKey, ExternalResetDetector.expectedResetAt(window, fetchedAt));
+                .putLong(resetAtKey, ExternalResetDetector.expectedResetAt(window, observedAt));
     }
 
     private static boolean postExternalReset(Context context, int resets, int notificationId) {
@@ -195,7 +203,7 @@ public final class ResetNotificationManager {
         }
         return postWithChannel(context, notificationId, "Surprise! Codex limits restored",
                 "Your " + label + " jumped back to 100% before the countdown ended. "
-                        + "Looks like someone reset it for you!",
+                        + "Looks like someone reset your Codex limits for you!",
                 notificationId, true);
     }
 
@@ -276,20 +284,38 @@ public final class ResetNotificationManager {
     }
 
     private static String createExternalChannel(NotificationManager manager, String style) {
+        String channelId;
+        String channelName;
+        int importance;
         if (ResetAlertPreferences.EXTERNAL_STYLE_SILENT.equals(style)) {
-            return createChannel(manager, ResetAlertPreferences.STYLE_SILENT);
+            channelId = CHANNEL_EXTERNAL_SILENT;
+            channelName = "Silent surprise Codex resets";
+            importance = NotificationManager.IMPORTANCE_LOW;
+        } else if (ResetAlertPreferences.EXTERNAL_STYLE_NOTIFICATION.equals(style)) {
+            channelId = CHANNEL_EXTERNAL_NOTIFY;
+            channelName = "Surprise Codex resets";
+            importance = NotificationManager.IMPORTANCE_DEFAULT;
+        } else {
+            channelId = CHANNEL_EXTERNAL_CELEBRATION;
+            channelName = "Surprise Codex reset celebrations";
+            importance = NotificationManager.IMPORTANCE_HIGH;
         }
-        if (ResetAlertPreferences.EXTERNAL_STYLE_NOTIFICATION.equals(style)) {
-            return createChannel(manager, ResetAlertPreferences.STYLE_NOTIFICATION);
-        }
-        NotificationChannel channel = new NotificationChannel(CHANNEL_EXTERNAL_CELEBRATION,
-                "Surprise Codex resets", NotificationManager.IMPORTANCE_HIGH);
+        NotificationChannel channel = new NotificationChannel(channelId, channelName, importance);
         channel.setDescription("Celebrations when an unexplained reset restores your allowance");
+        if (ResetAlertPreferences.EXTERNAL_STYLE_SILENT.equals(style)) {
+            channel.setSound(null, null);
+            channel.enableVibration(false);
+            manager.createNotificationChannel(channel);
+            return channelId;
+        }
         channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                 new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
-        channel.enableVibration(true);
+        if (ResetAlertPreferences.EXTERNAL_STYLE_CELEBRATION.equals(style)) {
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0L, 180L, 90L, 180L, 90L, 360L});
+        }
         manager.createNotificationChannel(channel);
-        return CHANNEL_EXTERNAL_CELEBRATION;
+        return channelId;
     }
 }

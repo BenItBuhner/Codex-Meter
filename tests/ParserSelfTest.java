@@ -135,8 +135,15 @@ public final class ParserSelfTest {
                 full, observedAt, false), "99% to 100% surprise reset");
         check(ExternalResetDetector.isUnexpectedReset(2, observedAt + 3_600_000L,
                 full, observedAt, false), "98% to 100% surprise reset");
+        check(ExternalResetDetector.isUnexpectedReset(100, observedAt + 3_600_000L,
+                full, observedAt, false), "empty to full surprise reset");
         check(!ExternalResetDetector.isUnexpectedReset(90, observedAt - 1L,
                 full, observedAt, false), "natural reset excluded");
+        check(!ExternalResetDetector.isUnexpectedReset(90,
+                observedAt + ExternalResetDetector.NATURAL_RESET_TOLERANCE_MS,
+                full, observedAt, false), "natural reset tolerance boundary excluded");
+        check(!ExternalResetDetector.isUnexpectedReset(90, 0L,
+                full, observedAt, false), "unknown countdown excluded");
         check(!ExternalResetDetector.isUnexpectedReset(90, observedAt + 3_600_000L,
                 full, observedAt, true), "manual reset excluded");
         check(!ExternalResetDetector.isUnexpectedReset(0, observedAt + 3_600_000L,
