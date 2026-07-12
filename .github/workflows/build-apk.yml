@@ -74,22 +74,23 @@ jobs:
         if: github.ref_type == 'tag'
         shell: bash
         env:
-          ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
           ANDROID_SIGNING_PASSWORD: ${{ secrets.ANDROID_SIGNING_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "$ANDROID_SIGNING_KEYSTORE_BASE64" || -z "$ANDROID_SIGNING_PASSWORD" ]]; then
-            echo "::error::Configure ANDROID_SIGNING_KEYSTORE_BASE64 and ANDROID_SIGNING_PASSWORD repository secrets"
+          if [[ -z "$ANDROID_SIGNING_PASSWORD" ]]; then
+            echo "::error::Add the ANDROID_SIGNING_PASSWORD repository Actions secret"
             exit 1
           fi
           mkdir -p .local-signing
-          printf '%s' "$ANDROID_SIGNING_KEYSTORE_BASE64" |
-            base64 --decode > .local-signing/codex-meter-local.jks
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -in ci/release-keystore.p12.enc \
+            -out .local-signing/codex-meter-local.jks \
+            -pass env:ANDROID_SIGNING_PASSWORD
           printf '%s' "$ANDROID_SIGNING_PASSWORD" > .local-signing/password
           chmod 600 .local-signing/codex-meter-local.jks .local-signing/password
           "$JAVA_HOME/bin/keytool" -list \
             -keystore .local-signing/codex-meter-local.jks \
-            -storepass "$ANDROID_SIGNING_PASSWORD" \
+            -storepass:env ANDROID_SIGNING_PASSWORD \
             -alias codexmeter >/dev/null
 
       - name: Build and verify APK
@@ -135,13 +136,7 @@ jobs:
           VERSION_NAME: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            IS_DRAFT="$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)"
-            if [[ "$IS_DRAFT" != "true" ]]; then
-              echo "::error::Release $GITHUB_REF_NAME is already published"
-              exit 1
-            fi
-          else
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release create "$GITHUB_REF_NAME" \
               --draft \
               --verify-tag \
