@@ -62,6 +62,10 @@ Requirements:
 
 `build.sh` assembles the release APK with Gradle and signs it with a local development key under `.local-signing/`. That locally signed APK will not install over the distributed release build.
 
+## Releases
+
+Creating a `v*` tag that matches the Gradle `versionName` (for example `v2.0.0`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases.
+
 ## Source provenance for this archive
 
 The original transient 1.7.0 build workspace was not retained after the signed APK was delivered. This archive was reconstructed from the clean 1.5.0 project and the distributed 1.7.0 APK. The current 1.7 Java classes and resources were recovered from the APK, decompiler control-flow damage was repaired in the affected methods, and the complete Java source set was compiled against Android API 36.
