@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 VERSION_NAME="2.0.0"
 DIST="$ROOT/dist"
 SIGNING_DIR="$ROOT/.local-signing"
-KEYSTORE="$SIGNING_DIR/codex-meter-local.jks"
+KEYSTORE="$SIGNING_DIR/codex-meter-local.p12"
 PASS_FILE="$SIGNING_DIR/password"
 
 if [[ -z "${JAVA_HOME:-}" && -d "/Applications/Android Studio.app/Contents/jbr/Contents/Home" ]]; then
@@ -21,7 +21,7 @@ if [[ ! -f "$KEYSTORE" ]]; then
   chmod 600 "$PASS_FILE"
   STORE_PASS="$(<"$PASS_FILE")"
   "$JAVA_HOME/bin/keytool" -genkeypair \
-    -storetype JKS \
+    -storetype PKCS12 \
     -keystore "$KEYSTORE" -storepass "$STORE_PASS" -keypass "$STORE_PASS" \
     -alias codexmeter -keyalg RSA -keysize 3072 -validity 10000 \
     -dname "CN=Codex Meter Local Build, OU=Personal Android App, O=Local Build" \

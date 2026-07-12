@@ -82,14 +82,28 @@ jobs:
             exit 1
           fi
           mkdir -p .local-signing
+          INTEGRITY_KEY="$(
+            printf 'Codex Meter release integrity\n%s' "$ANDROID_SIGNING_PASSWORD" |
+              sha256sum | awk '{print $1}'
+          )"
+          EXPECTED_HMAC="$(tr -d '\n' < ci/release-keystore.p12.enc.hmac)"
+          ACTUAL_HMAC="$(
+            openssl dgst -sha256 -mac HMAC -macopt "hexkey:$INTEGRITY_KEY" \
+              ci/release-keystore.p12.enc | awk '{print $NF}'
+          )"
+          if [[ "$ACTUAL_HMAC" != "$EXPECTED_HMAC" ]]; then
+            echo "::error::Release keystore authentication failed"
+            exit 1
+          fi
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
             -in ci/release-keystore.p12.enc \
-            -out .local-signing/codex-meter-local.jks \
+            -out .local-signing/codex-meter-local.p12 \
             -pass env:ANDROID_SIGNING_PASSWORD
           printf '%s' "$ANDROID_SIGNING_PASSWORD" > .local-signing/password
-          chmod 600 .local-signing/codex-meter-local.jks .local-signing/password
+          chmod 600 .local-signing/codex-meter-local.p12 .local-signing/password
           "$JAVA_HOME/bin/keytool" -list \
-            -keystore .local-signing/codex-meter-local.jks \
+            -keystore .local-signing/codex-meter-local.p12 \
+            -storetype PKCS12 \
             -storepass:env ANDROID_SIGNING_PASSWORD \
             -alias codexmeter >/dev/null
 

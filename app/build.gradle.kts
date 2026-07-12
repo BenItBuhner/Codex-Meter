@@ -17,10 +17,11 @@ android {
     signingConfigs {
         create("localRelease") {
             val signingDir = rootProject.file(".local-signing")
-            val keyStore = signingDir.resolve("codex-meter-local.jks")
+            val keyStore = signingDir.resolve("codex-meter-local.p12")
             val passwordFile = signingDir.resolve("password")
             if (keyStore.isFile && passwordFile.isFile) {
                 storeFile = keyStore
+                storeType = "PKCS12"
                 storePassword = passwordFile.readText().trim()
                 keyAlias = "codexmeter"
                 keyPassword = storePassword

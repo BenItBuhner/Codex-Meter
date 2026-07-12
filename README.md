@@ -64,7 +64,7 @@ Requirements:
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` (for example `v2.0.0`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI decrypts the persistent release keystore `ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases.
+Creating a `v*` tag that matches the Gradle `versionName` (for example `v2.0.0`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases.
 
 ## Source provenance for this archive
 
