@@ -48,6 +48,21 @@
             android:key="notification_threshold_ui"
             android:title="Low when remaining reaches"
             app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="external_reset_enabled_ui"
+            android:title="Celebrate surprise resets"
+            android:summary="Notify when an allowance returns to 100% before its countdown ends" />
+        <ListPreference
+            android:entries="@array/settings_external_reset_style_entries"
+            android:entryValues="@array/settings_external_reset_style_values"
+            android:key="external_reset_style_ui"
+            android:title="Surprise reset alert"
+            app:useSimpleSummaryProvider="true" />
+        <Preference
+            android:key="external_reset_test"
+            android:title="Preview surprise reset"
+            android:summary="Send the celebration notification now"
+            app:iconSpaceReserved="false" />
         <Preference
             android:key="notification_permission"
             android:title="Notification permission"

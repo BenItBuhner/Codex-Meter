@@ -221,6 +221,33 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            SwitchPreferenceCompat externalReset = findPreference("external_reset_enabled_ui");
+            externalReset.setChecked(ResetAlertPreferences.externalResetEnabled(requireContext()));
+            externalReset.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setExternalResetEnabled(requireContext(), (Boolean) value);
+                if ((Boolean) value) ResetNotificationManager.ensureChannel(requireContext());
+                updateExternalResetControls();
+                return true;
+            });
+
+            ListPreference externalResetStyle = findPreference("external_reset_style_ui");
+            externalResetStyle.setValue(ResetAlertPreferences.getExternalResetStyle(requireContext()));
+            externalResetStyle.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setExternalResetStyle(requireContext(), String.valueOf(value));
+                ResetNotificationManager.ensureChannel(requireContext());
+                return true;
+            });
+
+            Preference externalResetTest = findPreference("external_reset_test");
+            externalResetTest.setOnPreferenceClickListener(preference -> {
+                boolean sent = ResetNotificationManager.sendExternalResetTestNotification(requireContext());
+                Toast.makeText(requireContext(), sent
+                        ? "Surprise reset preview sent."
+                        : "Enable surprise resets and allow notifications first.",
+                        sent ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                return true;
+            });
+
             permissionPreference = findPreference("notification_permission");
             permissionPreference.setOnPreferenceClickListener(preference -> {
                 startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -237,6 +264,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             updatePermissionSummary();
+            updateExternalResetControls();
         }
 
         private void setNotificationsEnabled(boolean enabled) {
@@ -253,6 +281,7 @@ public final class SettingsActivity extends AppCompatActivity {
             } else {
                 ResetNotificationManager.clearState(requireContext());
             }
+            updateExternalResetControls();
         }
 
         private void saveAlert(String style, String metric, int threshold) {
@@ -276,6 +305,19 @@ public final class SettingsActivity extends AppCompatActivity {
             if (testNotificationPreference != null) {
                 testNotificationPreference.setEnabled(allowed && ResetAlertPreferences.enabled(requireContext()));
             }
+        }
+
+        private void updateExternalResetControls() {
+            if (getContext() == null) return;
+            boolean notificationsEnabled = ResetAlertPreferences.enabled(requireContext());
+            boolean celebrationEnabled = notificationsEnabled
+                    && ResetAlertPreferences.externalResetEnabled(requireContext());
+            Preference toggle = findPreference("external_reset_enabled_ui");
+            Preference style = findPreference("external_reset_style_ui");
+            Preference preview = findPreference("external_reset_test");
+            if (toggle != null) toggle.setEnabled(notificationsEnabled);
+            if (style != null) style.setEnabled(celebrationEnabled);
+            if (preview != null) preview.setEnabled(celebrationEnabled);
         }
     }
 }

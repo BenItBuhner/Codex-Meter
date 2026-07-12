@@ -33,4 +33,10 @@
     <string-array name="settings_threshold_values">
         <item>100</item><item>10</item><item>25</item><item>50</item><item>75</item>
     </string-array>
+    <string-array name="settings_external_reset_style_entries">
+        <item>Celebration</item><item>Standard notification</item><item>Silent</item>
+    </string-array>
+    <string-array name="settings_external_reset_style_values">
+        <item>celebration</item><item>notification</item><item>silent</item>
+    </string-array>
 </resources>

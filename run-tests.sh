@@ -29,6 +29,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ExternalResetDetector.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
@@ -54,6 +55,9 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
 grep -q 'scheduleFromSnapshot' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
 grep -q 'POST_NOTIFICATIONS' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'external_reset_enabled' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertPreferences.java"
+grep -q 'markManualReset' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditApi.java"
+grep -q 'Celebrate surprise resets' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 
 grep -R -q '<Chronometer' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
 grep -q 'setChronometerCountDown' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"

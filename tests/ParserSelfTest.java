@@ -15,7 +15,8 @@ public final class ParserSelfTest {
         testJwtMerge();
         testPkce();
         testWidgetOptions();
-        System.out.println("All parser, PKCE, and widget-option self-tests passed.");
+        testUnexpectedResetDetection();
+        System.out.println("All parser, PKCE, widget-option, and reset-detection self-tests passed.");
     }
 
     private static void testStandardUsage() throws Exception {
@@ -125,6 +126,27 @@ public final class ParserSelfTest {
         check(WidgetOptions.SURFACE_ONE_UI.equals(transparent.surfaceStyle), "One UI widget style");
         check(WidgetOptions.GRAPHIC_MAX.equals(transparent.graphicScale), "maximum graphic scale");
         check(!WidgetOptions.defaults().showTitle, "widget title defaults off");
+    }
+
+    private static void testUnexpectedResetDetection() {
+        long observedAt = 1_000_000L;
+        UsageWindow full = new UsageWindow(0, 18_000L, 0L, 0L);
+        check(ExternalResetDetector.isUnexpectedReset(1, observedAt + 3_600_000L,
+                full, observedAt, false), "99% to 100% surprise reset");
+        check(ExternalResetDetector.isUnexpectedReset(2, observedAt + 3_600_000L,
+                full, observedAt, false), "98% to 100% surprise reset");
+        check(!ExternalResetDetector.isUnexpectedReset(90, observedAt - 1L,
+                full, observedAt, false), "natural reset excluded");
+        check(!ExternalResetDetector.isUnexpectedReset(90, observedAt + 3_600_000L,
+                full, observedAt, true), "manual reset excluded");
+        check(!ExternalResetDetector.isUnexpectedReset(0, observedAt + 3_600_000L,
+                full, observedAt, false), "already-full allowance excluded");
+        check(!ExternalResetDetector.isUnexpectedReset(90, observedAt + 3_600_000L,
+                new UsageWindow(1, 18_000L, 0L, 0L), observedAt, false),
+                "partial refill excluded");
+        check(ExternalResetDetector.expectedResetAt(
+                new UsageWindow(40, 18_000L, 600L, 0L), observedAt)
+                == observedAt + 600_000L, "relative countdown fallback");
     }
 
     private static String jwt(String payload) {
