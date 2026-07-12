@@ -98,6 +98,8 @@ public final class Ui {
     public static void configureReachToolbar(ToolbarLayout toolbar, String title, boolean back) {
         toolbar.setTitle(title);
         toolbar.setShowNavigationButtonAsBack(back);
+        // Force SESL to recalculate its responsive app-bar height after XML inflation.
+        toolbar.setExpandable(false);
         toolbar.setExpandable(true);
         toolbar.setExpanded(true, false);
     }
