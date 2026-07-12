@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <stroke android:width="2dp" android:color="@color/widget_setting_seek_bar_thumb_tint" />
+    <solid android:color="@color/widget_setting_seek_bar_thumb_background_tint" />
+    <size android:width="20dp" android:height="20dp" />
+</shape>

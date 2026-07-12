@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.0.0 — 2026-07-12
+
+### Added
+
+- Samsung One UI-native dashboard, settings, widget configuration, and About surfaces.
+- Responsive ring, four-dial, and battery-list home-screen widget layouts.
+- Dedicated five-hour and weekly Samsung lock-screen widget providers.
+- Updated adaptive icons, theme assets, previews, opacity controls, and usage wave presentation.
+- Gradle wrapper and reproducible Android build configuration with vendored OneUI-Design metadata.
+
+### Changed
+
+- Reworked navigation, account controls, refresh preferences, and notification settings around SESL components.
+- Updated widget rendering and sizing to follow the dimensions supplied by Android and One UI hosts.
+- Simplified the release build script to use the Gradle Android plugin.
+
+### Fixed
+
+- Prevented the One UI pull-to-refresh indicator from crashing when its four-dot drawable starts.
+- Added deduplicated low-usage alerts for both usage windows and notifications when reset-credit inventory increases.
+- Decoupled reset-time reminders from the low-usage threshold and added an immediate notification test action.
+
 ## 1.7.0 — 2026-07-11
 
 ### Added

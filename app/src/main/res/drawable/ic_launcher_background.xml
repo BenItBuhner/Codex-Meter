@@ -1,8 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient
-        android:startColor="#07130f"
-        android:endColor="#143d2e"
-        android:angle="315"
-        android:centerColor="#0c241b"/>
-</shape>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="fill"
+    android:src="@drawable/codex_meter_icon_bg" />

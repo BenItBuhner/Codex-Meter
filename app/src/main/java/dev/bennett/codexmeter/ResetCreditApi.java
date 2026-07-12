@@ -40,6 +40,7 @@ public final class ResetCreditApi {
         if (!AppPreferences.saveResetCredits(context, resetCreditsSnapshot)) {
             throw new Exception("Reset credits were received, but could not be saved on this device.");
         }
+        ResetNotificationManager.onResetCreditsUpdated(context, resetCreditsSnapshot);
         notifyUpdated(context);
         return resetCreditsSnapshot;
     }

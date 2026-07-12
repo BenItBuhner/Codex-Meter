@@ -1,0 +1,3051 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
+        errorLine1="        StringBuilder sbAppend = new StringBuilder(&quot;Codex &quot;).append(styleLabel(style).toLowerCase()).append(&quot;, &quot;);"
+        errorLine2="                                                                                      ~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="366"
+            column="87"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
+        errorLine1="        String value = label == null ? &quot;&quot; : label.toLowerCase();"
+        errorLine2="                                                  ~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="285"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk = 36"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="12"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="            Toast.makeText(this, &quot;No lock-screen widget was selected.&quot;, 1).show();"
+        errorLine2="                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            line="32"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="        Toast.makeText(this, &quot;Lock-screen widget updated.&quot;, 0).show();"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            line="91"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="                Toast.makeText(mainActivity, stringExtra2, 1).show();"
+        errorLine2="                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="55"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="            Toast.makeText(this, str, 0).show();"
+        errorLine2="                                      ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="403"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="            Toast.makeText(this, &quot;Could not start sign-in: &quot; + safeMessage(e), 1).show();"
+        errorLine2="                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="406"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="                Toast.makeText(this, &quot;No browser is available to complete sign-in.&quot;, 1).show();"
+        errorLine2="                                                                                     ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="416"
+            column="86"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="                            Toast.makeText(MainActivity.this, &quot;Usage updated.&quot;, 0).show();"
+        errorLine2="                                                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="434"
+            column="81"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), 1).show();"
+        errorLine2="                                                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="444"
+            column="92"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="            Toast.makeText(this, &quot;Choose a size and place the widget on your home screen.&quot;, 1).show();"
+        errorLine2="                                                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="484"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="                            Toast.makeText(ResetCreditActivity.this, resetConsumeResultConsumeBestAvailable.userMessage(), 1).show();"
+        errorLine2="                                                                                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            line="146"
+            column="124"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="                            Toast.makeText(ResetCreditActivity.this, ResetCreditActivity.safeMessage(e), 1).show();"
+        errorLine2="                                                                                                         ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            line="159"
+            column="106"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="                        Toast.makeText(SettingsActivity.this, &quot;Precise alarm settings are unavailable on this device.&quot;, 1).show();"
+        errorLine2="                                                                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            line="113"
+            column="121"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="        Toast.makeText(this, &quot;Settings saved.&quot;, 0).show();"
+        errorLine2="                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            line="308"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="            Toast.makeText(this, &quot;No widget was selected.&quot;, 1).show();"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            line="48"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="ShowToast"
+        message="Expected duration `Toast.LENGTH_SHORT` or `Toast.LENGTH_LONG`, a custom duration value is not supported"
+        errorLine1="        Toast.makeText(this, &quot;Widget updated.&quot;, 0).show();"
+        errorLine2="                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            line="210"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_square_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_bars_square&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_square_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_square_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_square_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_wide_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_bars_wide&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_wide_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_wide_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_bars_wide_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_square_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_dials_square&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_square_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_square_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_square_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_wide_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_dials_wide&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_wide_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_wide_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_dials_wide_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_square_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_rings_square&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_square_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_square_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_square_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_wide_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_rings_wide&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_wide_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_wide_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_rings_wide_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_square_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_square&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_square_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_square_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_square_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `widgetFeatures` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="    android:widgetFeatures=&quot;reconfigurable&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_wide_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_lock_wide&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_wide_info.xml"
+            line="13"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_wide_info.xml"
+            line="14"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/samsung_lock_wide_info.xml"
+            line="15"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="45"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="100"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="45"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="100"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="        android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_square.xml"
+            line="28"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="38"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="76"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="        android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_square.xml"
+            line="28"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="38"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `textFontWeight` is only used in API level 28 and higher (current min is 26)"
+        errorLine1="                android:textFontWeight=&quot;700&quot;/>"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="76"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="            Toast.makeText(this, &quot;No lock-screen widget was selected.&quot;, 1).show();"
+        errorLine2="                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            line="32"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="        Toast.makeText(this, &quot;Lock-screen widget updated.&quot;, 0).show();"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            line="91"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="                Toast.makeText(mainActivity, stringExtra2, 1).show();"
+        errorLine2="                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="55"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: Context.RECEIVER_VISIBLE_TO_INSTANT_APPS, Context.RECEIVER_EXPORTED, Context.RECEIVER_NOT_EXPORTED"
+        errorLine1="                registerReceiver(this.authReceiver, intentFilter, &quot;dev.bennett.codexmeter.permission.INTERNAL&quot;, null, 4);"
+        errorLine2="                                                                                                                      ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="120"
+            column="119"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="            Toast.makeText(this, str, 0).show();"
+        errorLine2="                                      ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="403"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="            Toast.makeText(this, &quot;Could not start sign-in: &quot; + safeMessage(e), 1).show();"
+        errorLine2="                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="406"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="                Toast.makeText(this, &quot;No browser is available to complete sign-in.&quot;, 1).show();"
+        errorLine2="                                                                                     ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="416"
+            column="86"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="                            Toast.makeText(MainActivity.this, &quot;Usage updated.&quot;, 0).show();"
+        errorLine2="                                                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="434"
+            column="81"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), 1).show();"
+        errorLine2="                                                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="444"
+            column="92"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="            Toast.makeText(this, &quot;Choose a size and place the widget on your home screen.&quot;, 1).show();"
+        errorLine2="                                                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="484"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: JobScheduler.RESULT_FAILURE, JobScheduler.RESULT_SUCCESS"
+        errorLine1="        if (jobSchedulerScheduler.schedule(jobInfo) == 1) {"
+        errorLine2="                                                       ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/RefreshScheduler.java"
+            line="140"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: JobInfo.NETWORK_TYPE_NONE, JobInfo.NETWORK_TYPE_ANY, JobInfo.NETWORK_TYPE_UNMETERED, JobInfo.NETWORK_TYPE_NOT_ROAMING, JobInfo.NETWORK_TYPE_CELLULAR"
+        errorLine1="        return new JobInfo.Builder(i, new ComponentName(context, (Class&lt;?>) UsageRefreshJobService.class)).setRequiredNetworkType(1).setExtras(persistableBundle);"
+        errorLine2="                                                                                                                                  ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/RefreshScheduler.java"
+            line="151"
+            column="131"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Context.POWER_SERVICE, Context.WINDOW_SERVICE, Context.LAYOUT_INFLATER_SERVICE, Context.ACCOUNT_SERVICE, Context.ACTIVITY_SERVICE, Context.ALARM_SERVICE, Context.NOTIFICATION_SERVICE, Context.ACCESSIBILITY_SERVICE, Context.CAPTIONING_SERVICE, Context.KEYGUARD_SERVICE, Context.LOCATION_SERVICE, Context.HEALTHCONNECT_SERVICE, Context.SEARCH_SERVICE, Context.SENSOR_SERVICE, Context.STORAGE_SERVICE, Context.STORAGE_STATS_SERVICE, Context.WALLPAPER_SERVICE, Context.VIBRATOR_MANAGER_SERVICE, Context.VIBRATOR_SERVICE, Context.CONNECTIVITY_SERVICE, Context.TETHERING_SERVICE, Context.IPSEC_SERVICE, Context.VPN_MANAGEMENT_SERVICE, Context.NETWORK_STATS_SERVICE, Context.WIFI_SERVICE, Context.WIFI_AWARE_SERVICE, Context.WIFI_P2P_SERVICE, Context.WIFI_RTT_RANGING_SERVICE, Context.NSD_SERVICE, Context.AUDIO_SERVICE, Context.FINGERPRINT_SERVICE, Context.BIOMETRIC_SERVICE, Context.MEDIA_ROUTER_SERVICE, Context.TELEPHONY_SERVICE, Context.TELEPHONY_SUBSCRIPTION_SERVICE, Context.CARRIER_CONFIG_SERVICE, Context.EUICC_SERVICE, Context.TELECOM_SERVICE, Context.CLIPBOARD_SERVICE, Context.INPUT_METHOD_SERVICE, Context.TEXT_SERVICES_MANAGER_SERVICE, Context.TEXT_CLASSIFICATION_SERVICE, Context.APPWIDGET_SERVICE, Context.DROPBOX_SERVICE, Context.DEVICE_POLICY_SERVICE, Context.UI_MODE_SERVICE, Context.DOWNLOAD_SERVICE, Context.NFC_SERVICE, Context.BLUETOOTH_SERVICE, Context.USB_SERVICE, Context.LAUNCHER_APPS_SERVICE, Context.INPUT_SERVICE, Context.DISPLAY_SERVICE, Context.USER_SERVICE, Context.RESTRICTIONS_SERVICE, Context.APP_OPS_SERVICE, Context.ROLE_SERVICE, Context.CAMERA_SERVICE, Context.PRINT_SERVICE, Context.CONSUMER_IR_SERVICE, Context.TV_INTERACTIVE_APP_SERVICE, Context.TV_INPUT_SERVICE, Context.USAGE_STATS_SERVICE, Context.MEDIA_SESSION_SERVICE, Context.MEDIA_COMMUNICATION_SERVICE, Context.BATTERY_SERVICE, Context.JOB_SCHEDULER_SERVICE, Context.PERSISTENT_DATA_BLOCK_SERVICE, Context.MEDIA_PROJECTION_SERVICE, Context.MIDI_SERVICE, Context.HARDWARE_PROPERTIES_SERVICE, Context.SHORTCUT_SERVICE, Context.SYSTEM_HEALTH_SERVICE, Context.COMPANION_DEVICE_SERVICE, Context.VIRTUAL_DEVICE_SERVICE, Context.CROSS_PROFILE_APPS_SERVICE, Context.LOCALE_SERVICE, Context.MEDIA_METRICS_SERVICE, Context.DISPLAY_HASH_SERVICE, Context.CREDENTIAL_SERVICE, Context.DEVICE_LOCK_SERVICE, Context.GRAMMATICAL_INFLECTION_SERVICE, Context.SECURITY_STATE_SERVICE, Context.CONTACT_KEYS_SERVICE, Context.MEDIA_QUALITY_SERVICE, Context.ADVANCED_PROTECTION_SERVICE"
+        errorLine1="        return (JobScheduler) context.getSystemService(&quot;jobscheduler&quot;);"
+        errorLine2="                                                       ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/RefreshScheduler.java"
+            line="155"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Context.POWER_SERVICE, Context.WINDOW_SERVICE, Context.LAYOUT_INFLATER_SERVICE, Context.ACCOUNT_SERVICE, Context.ACTIVITY_SERVICE, Context.ALARM_SERVICE, Context.NOTIFICATION_SERVICE, Context.ACCESSIBILITY_SERVICE, Context.CAPTIONING_SERVICE, Context.KEYGUARD_SERVICE, Context.LOCATION_SERVICE, Context.HEALTHCONNECT_SERVICE, Context.SEARCH_SERVICE, Context.SENSOR_SERVICE, Context.STORAGE_SERVICE, Context.STORAGE_STATS_SERVICE, Context.WALLPAPER_SERVICE, Context.VIBRATOR_MANAGER_SERVICE, Context.VIBRATOR_SERVICE, Context.CONNECTIVITY_SERVICE, Context.TETHERING_SERVICE, Context.IPSEC_SERVICE, Context.VPN_MANAGEMENT_SERVICE, Context.NETWORK_STATS_SERVICE, Context.WIFI_SERVICE, Context.WIFI_AWARE_SERVICE, Context.WIFI_P2P_SERVICE, Context.WIFI_RTT_RANGING_SERVICE, Context.NSD_SERVICE, Context.AUDIO_SERVICE, Context.FINGERPRINT_SERVICE, Context.BIOMETRIC_SERVICE, Context.MEDIA_ROUTER_SERVICE, Context.TELEPHONY_SERVICE, Context.TELEPHONY_SUBSCRIPTION_SERVICE, Context.CARRIER_CONFIG_SERVICE, Context.EUICC_SERVICE, Context.TELECOM_SERVICE, Context.CLIPBOARD_SERVICE, Context.INPUT_METHOD_SERVICE, Context.TEXT_SERVICES_MANAGER_SERVICE, Context.TEXT_CLASSIFICATION_SERVICE, Context.APPWIDGET_SERVICE, Context.DROPBOX_SERVICE, Context.DEVICE_POLICY_SERVICE, Context.UI_MODE_SERVICE, Context.DOWNLOAD_SERVICE, Context.NFC_SERVICE, Context.BLUETOOTH_SERVICE, Context.USB_SERVICE, Context.LAUNCHER_APPS_SERVICE, Context.INPUT_SERVICE, Context.DISPLAY_SERVICE, Context.USER_SERVICE, Context.RESTRICTIONS_SERVICE, Context.APP_OPS_SERVICE, Context.ROLE_SERVICE, Context.CAMERA_SERVICE, Context.PRINT_SERVICE, Context.CONSUMER_IR_SERVICE, Context.TV_INTERACTIVE_APP_SERVICE, Context.TV_INPUT_SERVICE, Context.USAGE_STATS_SERVICE, Context.MEDIA_SESSION_SERVICE, Context.MEDIA_COMMUNICATION_SERVICE, Context.BATTERY_SERVICE, Context.JOB_SCHEDULER_SERVICE, Context.PERSISTENT_DATA_BLOCK_SERVICE, Context.MEDIA_PROJECTION_SERVICE, Context.MIDI_SERVICE, Context.HARDWARE_PROPERTIES_SERVICE, Context.SHORTCUT_SERVICE, Context.SYSTEM_HEALTH_SERVICE, Context.COMPANION_DEVICE_SERVICE, Context.VIRTUAL_DEVICE_SERVICE, Context.CROSS_PROFILE_APPS_SERVICE, Context.LOCALE_SERVICE, Context.MEDIA_METRICS_SERVICE, Context.DISPLAY_HASH_SERVICE, Context.CREDENTIAL_SERVICE, Context.DEVICE_LOCK_SERVICE, Context.GRAMMATICAL_INFLECTION_SERVICE, Context.SECURITY_STATE_SERVICE, Context.CONTACT_KEYS_SERVICE, Context.MEDIA_QUALITY_SERVICE, Context.ADVANCED_PROTECTION_SERVICE"
+        errorLine1="        if ((Build.VERSION.SDK_INT &lt; 33 || context.checkSelfPermission(&quot;android.permission.POST_NOTIFICATIONS&quot;) == 0) &amp;&amp; (notificationManager = (NotificationManager) context.getSystemService(ResetAlertPreferences.STYLE_NOTIFICATION)) != null) {"
+        errorLine2="                                                                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="46"
+            column="192"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: PackageManager.PERMISSION_GRANTED, PackageManager.PERMISSION_DENIED"
+        errorLine1="        if ((Build.VERSION.SDK_INT &lt; 33 || context.checkSelfPermission(&quot;android.permission.POST_NOTIFICATIONS&quot;) == 0) &amp;&amp; (notificationManager = (NotificationManager) context.getSystemService(ResetAlertPreferences.STYLE_NOTIFICATION)) != null) {"
+        errorLine2="                                                                                                                   ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="46"
+            column="116"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Notification.VISIBILITY_PUBLIC, Notification.VISIBILITY_PRIVATE, Notification.VISIBILITY_SECRET"
+        errorLine1="            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_oui_alarm).setContentTitle(&quot;Codex &quot; + str2 + &quot; usage reset&quot;).setContentText(&quot;Your &quot; + str2 + &quot; allowance should be available again. Refreshing usage now.&quot;).setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory(&quot;reminder&quot;).setVisibility(0).setShowWhen(true).build());"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="50"
+            column="519"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: Intent.FLAG_GRANT_READ_URI_PERMISSION, Intent.FLAG_GRANT_WRITE_URI_PERMISSION, Intent.FLAG_FROM_BACKGROUND, Intent.FLAG_DEBUG_LOG_RESOLUTION, Intent.FLAG_EXCLUDE_STOPPED_PACKAGES, Intent.FLAG_INCLUDE_STOPPED_PACKAGES, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION, Intent.FLAG_GRANT_PREFIX_URI_PERMISSION, Intent.FLAG_ACTIVITY_MATCH_EXTERNAL, Intent.FLAG_ACTIVITY_NO_HISTORY, Intent.FLAG_ACTIVITY_SINGLE_TOP, Intent.FLAG_ACTIVITY_NEW_TASK, Intent.FLAG_ACTIVITY_MULTIPLE_TASK, Intent.FLAG_ACTIVITY_CLEAR_TOP, Intent.FLAG_ACTIVITY_FORWARD_RESULT, Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP, Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS, Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT, Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED, Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NEW_DOCUMENT, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NO_USER_ACTION, Intent.FLAG_ACTIVITY_REORDER_TO_FRONT, Intent.FLAG_ACTIVITY_NO_ANIMATION, Intent.FLAG_ACTIVITY_CLEAR_TASK, Intent.FLAG_ACTIVITY_TASK_ON_HOME, Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS, Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT, Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER, Intent.FLAG_ACTIVITY_REQUIRE_DEFAULT, Intent.FLAG_RECEIVER_REGISTERED_ONLY, Intent.FLAG_RECEIVER_REPLACE_PENDING, Intent.FLAG_RECEIVER_FOREGROUND, Intent.FLAG_RECEIVER_NO_ABORT, Intent.FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS"
+        errorLine1="            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_oui_alarm).setContentTitle(&quot;Codex &quot; + str2 + &quot; usage reset&quot;).setContentText(&quot;Your &quot; + str2 + &quot; allowance should be available again. Refreshing usage now.&quot;).setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory(&quot;reminder&quot;).setVisibility(0).setShowWhen(true).build());"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                    ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="50"
+            column="437"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: PendingIntent.FLAG_ONE_SHOT, PendingIntent.FLAG_NO_CREATE, PendingIntent.FLAG_CANCEL_CURRENT, PendingIntent.FLAG_UPDATE_CURRENT, PendingIntent.FLAG_IMMUTABLE, PendingIntent.FLAG_MUTABLE, PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, Intent.FILL_IN_ACTION, Intent.FILL_IN_DATA, Intent.FILL_IN_CATEGORIES, Intent.FILL_IN_COMPONENT, Intent.FILL_IN_PACKAGE, Intent.FILL_IN_SOURCE_BOUNDS, Intent.FILL_IN_SELECTOR, Intent.FILL_IN_CLIP_DATA"
+        errorLine1="            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_oui_alarm).setContentTitle(&quot;Codex &quot; + str2 + &quot; usage reset&quot;).setContentText(&quot;Your &quot; + str2 + &quot; allowance should be available again. Refreshing usage now.&quot;).setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory(&quot;reminder&quot;).setVisibility(0).setShowWhen(true).build());"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="50"
+            column="449"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: NotificationManager.IMPORTANCE_UNSPECIFIED, NotificationManager.IMPORTANCE_NONE, NotificationManager.IMPORTANCE_MIN, NotificationManager.IMPORTANCE_LOW, NotificationManager.IMPORTANCE_DEFAULT, NotificationManager.IMPORTANCE_HIGH"
+        errorLine1="            NotificationChannel notificationChannel = new NotificationChannel(CHANNEL_SILENT, &quot;Codex reset reminders&quot;, 2);"
+        errorLine2="                                                                                                                       ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="56"
+            column="120"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: NotificationManager.IMPORTANCE_UNSPECIFIED, NotificationManager.IMPORTANCE_NONE, NotificationManager.IMPORTANCE_MIN, NotificationManager.IMPORTANCE_LOW, NotificationManager.IMPORTANCE_DEFAULT, NotificationManager.IMPORTANCE_HIGH"
+        errorLine1="            NotificationChannel notificationChannel2 = new NotificationChannel(CHANNEL_ALARM, &quot;Codex reset alarms&quot;, 4);"
+        errorLine2="                                                                                                                    ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="63"
+            column="117"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: AudioAttributes.CONTENT_TYPE_UNKNOWN, AudioAttributes.CONTENT_TYPE_SPEECH, AudioAttributes.CONTENT_TYPE_MUSIC, AudioAttributes.CONTENT_TYPE_MOVIE, AudioAttributes.CONTENT_TYPE_SONIFICATION"
+        errorLine1="            notificationChannel2.setSound(RingtoneManager.getDefaultUri(4), new AudioAttributes.Builder().setUsage(4).setContentType(4).build());"
+        errorLine2="                                                                                                                                     ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="64"
+            column="134"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: AudioAttributes.USAGE_UNKNOWN, AudioAttributes.USAGE_MEDIA, AudioAttributes.USAGE_VOICE_COMMUNICATION, AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING, AudioAttributes.USAGE_ALARM, AudioAttributes.USAGE_NOTIFICATION, AudioAttributes.USAGE_NOTIFICATION_RINGTONE, AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_REQUEST, AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT, AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED, AudioAttributes.USAGE_NOTIFICATION_EVENT, AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY, AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE, AudioAttributes.USAGE_ASSISTANCE_SONIFICATION, AudioAttributes.USAGE_GAME, AudioAttributes.USAGE_ASSISTANT"
+        errorLine1="            notificationChannel2.setSound(RingtoneManager.getDefaultUri(4), new AudioAttributes.Builder().setUsage(4).setContentType(4).build());"
+        errorLine2="                                                                                                                   ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="64"
+            column="116"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: NotificationManager.IMPORTANCE_UNSPECIFIED, NotificationManager.IMPORTANCE_NONE, NotificationManager.IMPORTANCE_MIN, NotificationManager.IMPORTANCE_LOW, NotificationManager.IMPORTANCE_DEFAULT, NotificationManager.IMPORTANCE_HIGH"
+        errorLine1="        NotificationChannel notificationChannel3 = new NotificationChannel(CHANNEL_NOTIFY, &quot;Codex reset notifications&quot;, 3);"
+        errorLine2="                                                                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="69"
+            column="121"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: AudioAttributes.CONTENT_TYPE_UNKNOWN, AudioAttributes.CONTENT_TYPE_SPEECH, AudioAttributes.CONTENT_TYPE_MUSIC, AudioAttributes.CONTENT_TYPE_MOVIE, AudioAttributes.CONTENT_TYPE_SONIFICATION"
+        errorLine1="        notificationChannel3.setSound(RingtoneManager.getDefaultUri(2), new AudioAttributes.Builder().setUsage(5).setContentType(4).build());"
+        errorLine2="                                                                                                                                 ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="70"
+            column="130"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: AudioAttributes.USAGE_UNKNOWN, AudioAttributes.USAGE_MEDIA, AudioAttributes.USAGE_VOICE_COMMUNICATION, AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING, AudioAttributes.USAGE_ALARM, AudioAttributes.USAGE_NOTIFICATION, AudioAttributes.USAGE_NOTIFICATION_RINGTONE, AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_REQUEST, AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT, AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED, AudioAttributes.USAGE_NOTIFICATION_EVENT, AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY, AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE, AudioAttributes.USAGE_ASSISTANCE_SONIFICATION, AudioAttributes.USAGE_GAME, AudioAttributes.USAGE_ASSISTANT"
+        errorLine1="        notificationChannel3.setSound(RingtoneManager.getDefaultUri(2), new AudioAttributes.Builder().setUsage(5).setContentType(4).build());"
+        errorLine2="                                                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            line="70"
+            column="112"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Context.POWER_SERVICE, Context.WINDOW_SERVICE, Context.LAYOUT_INFLATER_SERVICE, Context.ACCOUNT_SERVICE, Context.ACTIVITY_SERVICE, Context.ALARM_SERVICE, Context.NOTIFICATION_SERVICE, Context.ACCESSIBILITY_SERVICE, Context.CAPTIONING_SERVICE, Context.KEYGUARD_SERVICE, Context.LOCATION_SERVICE, Context.HEALTHCONNECT_SERVICE, Context.SEARCH_SERVICE, Context.SENSOR_SERVICE, Context.STORAGE_SERVICE, Context.STORAGE_STATS_SERVICE, Context.WALLPAPER_SERVICE, Context.VIBRATOR_MANAGER_SERVICE, Context.VIBRATOR_SERVICE, Context.CONNECTIVITY_SERVICE, Context.TETHERING_SERVICE, Context.IPSEC_SERVICE, Context.VPN_MANAGEMENT_SERVICE, Context.NETWORK_STATS_SERVICE, Context.WIFI_SERVICE, Context.WIFI_AWARE_SERVICE, Context.WIFI_P2P_SERVICE, Context.WIFI_RTT_RANGING_SERVICE, Context.NSD_SERVICE, Context.AUDIO_SERVICE, Context.FINGERPRINT_SERVICE, Context.BIOMETRIC_SERVICE, Context.MEDIA_ROUTER_SERVICE, Context.TELEPHONY_SERVICE, Context.TELEPHONY_SUBSCRIPTION_SERVICE, Context.CARRIER_CONFIG_SERVICE, Context.EUICC_SERVICE, Context.TELECOM_SERVICE, Context.CLIPBOARD_SERVICE, Context.INPUT_METHOD_SERVICE, Context.TEXT_SERVICES_MANAGER_SERVICE, Context.TEXT_CLASSIFICATION_SERVICE, Context.APPWIDGET_SERVICE, Context.DROPBOX_SERVICE, Context.DEVICE_POLICY_SERVICE, Context.UI_MODE_SERVICE, Context.DOWNLOAD_SERVICE, Context.NFC_SERVICE, Context.BLUETOOTH_SERVICE, Context.USB_SERVICE, Context.LAUNCHER_APPS_SERVICE, Context.INPUT_SERVICE, Context.DISPLAY_SERVICE, Context.USER_SERVICE, Context.RESTRICTIONS_SERVICE, Context.APP_OPS_SERVICE, Context.ROLE_SERVICE, Context.CAMERA_SERVICE, Context.PRINT_SERVICE, Context.CONSUMER_IR_SERVICE, Context.TV_INTERACTIVE_APP_SERVICE, Context.TV_INPUT_SERVICE, Context.USAGE_STATS_SERVICE, Context.MEDIA_SESSION_SERVICE, Context.MEDIA_COMMUNICATION_SERVICE, Context.BATTERY_SERVICE, Context.JOB_SCHEDULER_SERVICE, Context.PERSISTENT_DATA_BLOCK_SERVICE, Context.MEDIA_PROJECTION_SERVICE, Context.MIDI_SERVICE, Context.HARDWARE_PROPERTIES_SERVICE, Context.SHORTCUT_SERVICE, Context.SYSTEM_HEALTH_SERVICE, Context.COMPANION_DEVICE_SERVICE, Context.VIRTUAL_DEVICE_SERVICE, Context.CROSS_PROFILE_APPS_SERVICE, Context.LOCALE_SERVICE, Context.MEDIA_METRICS_SERVICE, Context.DISPLAY_HASH_SERVICE, Context.CREDENTIAL_SERVICE, Context.DEVICE_LOCK_SERVICE, Context.GRAMMATICAL_INFLECTION_SERVICE, Context.SECURITY_STATE_SERVICE, Context.CONTACT_KEYS_SERVICE, Context.MEDIA_QUALITY_SERVICE, Context.ADVANCED_PROTECTION_SERVICE"
+        errorLine1="        if (contextAppContext != null &amp;&amp; (alarmManager = (AlarmManager) contextAppContext.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {"
+        errorLine2="                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            line="40"
+            column="108"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Context.POWER_SERVICE, Context.WINDOW_SERVICE, Context.LAYOUT_INFLATER_SERVICE, Context.ACCOUNT_SERVICE, Context.ACTIVITY_SERVICE, Context.ALARM_SERVICE, Context.NOTIFICATION_SERVICE, Context.ACCESSIBILITY_SERVICE, Context.CAPTIONING_SERVICE, Context.KEYGUARD_SERVICE, Context.LOCATION_SERVICE, Context.HEALTHCONNECT_SERVICE, Context.SEARCH_SERVICE, Context.SENSOR_SERVICE, Context.STORAGE_SERVICE, Context.STORAGE_STATS_SERVICE, Context.WALLPAPER_SERVICE, Context.VIBRATOR_MANAGER_SERVICE, Context.VIBRATOR_SERVICE, Context.CONNECTIVITY_SERVICE, Context.TETHERING_SERVICE, Context.IPSEC_SERVICE, Context.VPN_MANAGEMENT_SERVICE, Context.NETWORK_STATS_SERVICE, Context.WIFI_SERVICE, Context.WIFI_AWARE_SERVICE, Context.WIFI_P2P_SERVICE, Context.WIFI_RTT_RANGING_SERVICE, Context.NSD_SERVICE, Context.AUDIO_SERVICE, Context.FINGERPRINT_SERVICE, Context.BIOMETRIC_SERVICE, Context.MEDIA_ROUTER_SERVICE, Context.TELEPHONY_SERVICE, Context.TELEPHONY_SUBSCRIPTION_SERVICE, Context.CARRIER_CONFIG_SERVICE, Context.EUICC_SERVICE, Context.TELECOM_SERVICE, Context.CLIPBOARD_SERVICE, Context.INPUT_METHOD_SERVICE, Context.TEXT_SERVICES_MANAGER_SERVICE, Context.TEXT_CLASSIFICATION_SERVICE, Context.APPWIDGET_SERVICE, Context.DROPBOX_SERVICE, Context.DEVICE_POLICY_SERVICE, Context.UI_MODE_SERVICE, Context.DOWNLOAD_SERVICE, Context.NFC_SERVICE, Context.BLUETOOTH_SERVICE, Context.USB_SERVICE, Context.LAUNCHER_APPS_SERVICE, Context.INPUT_SERVICE, Context.DISPLAY_SERVICE, Context.USER_SERVICE, Context.RESTRICTIONS_SERVICE, Context.APP_OPS_SERVICE, Context.ROLE_SERVICE, Context.CAMERA_SERVICE, Context.PRINT_SERVICE, Context.CONSUMER_IR_SERVICE, Context.TV_INTERACTIVE_APP_SERVICE, Context.TV_INPUT_SERVICE, Context.USAGE_STATS_SERVICE, Context.MEDIA_SESSION_SERVICE, Context.MEDIA_COMMUNICATION_SERVICE, Context.BATTERY_SERVICE, Context.JOB_SCHEDULER_SERVICE, Context.PERSISTENT_DATA_BLOCK_SERVICE, Context.MEDIA_PROJECTION_SERVICE, Context.MIDI_SERVICE, Context.HARDWARE_PROPERTIES_SERVICE, Context.SHORTCUT_SERVICE, Context.SYSTEM_HEALTH_SERVICE, Context.COMPANION_DEVICE_SERVICE, Context.VIRTUAL_DEVICE_SERVICE, Context.CROSS_PROFILE_APPS_SERVICE, Context.LOCALE_SERVICE, Context.MEDIA_METRICS_SERVICE, Context.DISPLAY_HASH_SERVICE, Context.CREDENTIAL_SERVICE, Context.DEVICE_LOCK_SERVICE, Context.GRAMMATICAL_INFLECTION_SERVICE, Context.SECURITY_STATE_SERVICE, Context.CONTACT_KEYS_SERVICE, Context.MEDIA_QUALITY_SERVICE, Context.ADVANCED_PROTECTION_SERVICE"
+        errorLine1="        AlarmManager alarmManager = (AlarmManager) context.getSystemService(ResetAlertPreferences.STYLE_ALARM);"
+        errorLine2="                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            line="50"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Context.POWER_SERVICE, Context.WINDOW_SERVICE, Context.LAYOUT_INFLATER_SERVICE, Context.ACCOUNT_SERVICE, Context.ACTIVITY_SERVICE, Context.ALARM_SERVICE, Context.NOTIFICATION_SERVICE, Context.ACCESSIBILITY_SERVICE, Context.CAPTIONING_SERVICE, Context.KEYGUARD_SERVICE, Context.LOCATION_SERVICE, Context.HEALTHCONNECT_SERVICE, Context.SEARCH_SERVICE, Context.SENSOR_SERVICE, Context.STORAGE_SERVICE, Context.STORAGE_STATS_SERVICE, Context.WALLPAPER_SERVICE, Context.VIBRATOR_MANAGER_SERVICE, Context.VIBRATOR_SERVICE, Context.CONNECTIVITY_SERVICE, Context.TETHERING_SERVICE, Context.IPSEC_SERVICE, Context.VPN_MANAGEMENT_SERVICE, Context.NETWORK_STATS_SERVICE, Context.WIFI_SERVICE, Context.WIFI_AWARE_SERVICE, Context.WIFI_P2P_SERVICE, Context.WIFI_RTT_RANGING_SERVICE, Context.NSD_SERVICE, Context.AUDIO_SERVICE, Context.FINGERPRINT_SERVICE, Context.BIOMETRIC_SERVICE, Context.MEDIA_ROUTER_SERVICE, Context.TELEPHONY_SERVICE, Context.TELEPHONY_SUBSCRIPTION_SERVICE, Context.CARRIER_CONFIG_SERVICE, Context.EUICC_SERVICE, Context.TELECOM_SERVICE, Context.CLIPBOARD_SERVICE, Context.INPUT_METHOD_SERVICE, Context.TEXT_SERVICES_MANAGER_SERVICE, Context.TEXT_CLASSIFICATION_SERVICE, Context.APPWIDGET_SERVICE, Context.DROPBOX_SERVICE, Context.DEVICE_POLICY_SERVICE, Context.UI_MODE_SERVICE, Context.DOWNLOAD_SERVICE, Context.NFC_SERVICE, Context.BLUETOOTH_SERVICE, Context.USB_SERVICE, Context.LAUNCHER_APPS_SERVICE, Context.INPUT_SERVICE, Context.DISPLAY_SERVICE, Context.USER_SERVICE, Context.RESTRICTIONS_SERVICE, Context.APP_OPS_SERVICE, Context.ROLE_SERVICE, Context.CAMERA_SERVICE, Context.PRINT_SERVICE, Context.CONSUMER_IR_SERVICE, Context.TV_INTERACTIVE_APP_SERVICE, Context.TV_INPUT_SERVICE, Context.USAGE_STATS_SERVICE, Context.MEDIA_SESSION_SERVICE, Context.MEDIA_COMMUNICATION_SERVICE, Context.BATTERY_SERVICE, Context.JOB_SCHEDULER_SERVICE, Context.PERSISTENT_DATA_BLOCK_SERVICE, Context.MEDIA_PROJECTION_SERVICE, Context.MIDI_SERVICE, Context.HARDWARE_PROPERTIES_SERVICE, Context.SHORTCUT_SERVICE, Context.SYSTEM_HEALTH_SERVICE, Context.COMPANION_DEVICE_SERVICE, Context.VIRTUAL_DEVICE_SERVICE, Context.CROSS_PROFILE_APPS_SERVICE, Context.LOCALE_SERVICE, Context.MEDIA_METRICS_SERVICE, Context.DISPLAY_HASH_SERVICE, Context.CREDENTIAL_SERVICE, Context.DEVICE_LOCK_SERVICE, Context.GRAMMATICAL_INFLECTION_SERVICE, Context.SECURITY_STATE_SERVICE, Context.CONTACT_KEYS_SERVICE, Context.MEDIA_QUALITY_SERVICE, Context.ADVANCED_PROTECTION_SERVICE"
+        errorLine1="            if ((i2 >= 100 || usageWindow.remainingPercent() &lt;= i2) &amp;&amp; (alarmManager = (AlarmManager) context.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {"
+        errorLine2="                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            line="57"
+            column="128"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: AlarmManager.RTC_WAKEUP, AlarmManager.RTC, AlarmManager.ELAPSED_REALTIME_WAKEUP, AlarmManager.ELAPSED_REALTIME"
+        errorLine1="                        alarmManager.setExactAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);"
+        errorLine2="                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            line="62"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: AlarmManager.RTC_WAKEUP, AlarmManager.RTC, AlarmManager.ELAPSED_REALTIME_WAKEUP, AlarmManager.ELAPSED_REALTIME"
+        errorLine1="                        alarmManager.setAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);"
+        errorLine2="                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            line="64"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: AlarmManager.RTC_WAKEUP, AlarmManager.RTC, AlarmManager.ELAPSED_REALTIME_WAKEUP, AlarmManager.ELAPSED_REALTIME"
+        errorLine1="                    alarmManager.setAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);"
+        errorLine2="                                                      ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            line="67"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: PendingIntent.FLAG_ONE_SHOT, PendingIntent.FLAG_NO_CREATE, PendingIntent.FLAG_CANCEL_CURRENT, PendingIntent.FLAG_UPDATE_CURRENT, PendingIntent.FLAG_IMMUTABLE, PendingIntent.FLAG_MUTABLE, PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, Intent.FILL_IN_ACTION, Intent.FILL_IN_DATA, Intent.FILL_IN_CATEGORIES, Intent.FILL_IN_COMPONENT, Intent.FILL_IN_PACKAGE, Intent.FILL_IN_SOURCE_BOUNDS, Intent.FILL_IN_SELECTOR, Intent.FILL_IN_CLIP_DATA"
+        errorLine1="        return PendingIntent.getBroadcast(context, i, new Intent(context, (Class&lt;?>) ResetAlertReceiver.class).setAction(AppConstants.ACTION_RESET_ALERT).putExtra(EXTRA_METRIC, str).putExtra(EXTRA_RESET_AT, j), 201326592);"
+        errorLine2="                                                                                                                                                                                                                   ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            line="74"
+            column="212"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="                            Toast.makeText(ResetCreditActivity.this, resetConsumeResultConsumeBestAvailable.userMessage(), 1).show();"
+        errorLine2="                                                                                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            line="146"
+            column="124"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="                            Toast.makeText(ResetCreditActivity.this, ResetCreditActivity.safeMessage(e), 1).show();"
+        errorLine2="                                                                                                         ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            line="159"
+            column="106"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_bar_primary_group, 0);"
+        errorLine2="                                                                       ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="160"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, 8);"
+        errorLine2="                                                                         ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="161"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, 8);"
+        errorLine2="                                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="165"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, zShowsFiveHour ? 0 : 8);"
+        errorLine2="                                                                                    ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="170"
+            column="85"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, zShowsFiveHour ? 0 : 8);"
+        errorLine2="                                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="170"
+            column="89"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, zShowsWeekly ? 0 : 8);"
+        errorLine2="                                                                                    ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="171"
+            column="85"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, zShowsWeekly ? 0 : 8);"
+        errorLine2="                                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="171"
+            column="89"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, zShowsFiveHour ? 0 : 8);"
+        errorLine2="                                                                                       ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="172"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, zShowsFiveHour ? 0 : 8);"
+        errorLine2="                                                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="172"
+            column="92"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, zShowsWeekly ? 0 : 8);"
+        errorLine2="                                                                                       ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="173"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, zShowsWeekly ? 0 : 8);"
+        errorLine2="                                                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="173"
+            column="92"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="                remoteViews.setViewVisibility(R.id.lock_graphic_center_value, 8);"
+        errorLine2="                                                                              ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="206"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="                remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, 8);"
+        errorLine2="                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="208"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="                remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, 8);"
+        errorLine2="                                                                                 ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="209"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, 0);"
+        errorLine2="                                                                           ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="223"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, 8);"
+        errorLine2="                                                                             ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="224"
+            column="78"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, zShowsFiveHour ? 0 : 8);"
+        errorLine2="                                                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="231"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, zShowsFiveHour ? 0 : 8);"
+        errorLine2="                                                                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="231"
+            column="97"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, zShowsWeekly ? 0 : 8);"
+        errorLine2="                                                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="232"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, zShowsWeekly ? 0 : 8);"
+        errorLine2="                                                                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="232"
+            column="97"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(i, 8);"
+        errorLine2="                                             ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="308"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(i, 0);"
+        errorLine2="                                         ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="312"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: Intent.FLAG_GRANT_READ_URI_PERMISSION, Intent.FLAG_GRANT_WRITE_URI_PERMISSION, Intent.FLAG_FROM_BACKGROUND, Intent.FLAG_DEBUG_LOG_RESOLUTION, Intent.FLAG_EXCLUDE_STOPPED_PACKAGES, Intent.FLAG_INCLUDE_STOPPED_PACKAGES, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION, Intent.FLAG_GRANT_PREFIX_URI_PERMISSION, Intent.FLAG_ACTIVITY_MATCH_EXTERNAL, Intent.FLAG_ACTIVITY_NO_HISTORY, Intent.FLAG_ACTIVITY_SINGLE_TOP, Intent.FLAG_ACTIVITY_NEW_TASK, Intent.FLAG_ACTIVITY_MULTIPLE_TASK, Intent.FLAG_ACTIVITY_CLEAR_TOP, Intent.FLAG_ACTIVITY_FORWARD_RESULT, Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP, Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS, Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT, Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED, Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NEW_DOCUMENT, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NO_USER_ACTION, Intent.FLAG_ACTIVITY_REORDER_TO_FRONT, Intent.FLAG_ACTIVITY_NO_ANIMATION, Intent.FLAG_ACTIVITY_CLEAR_TASK, Intent.FLAG_ACTIVITY_TASK_ON_HOME, Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS, Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT, Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER, Intent.FLAG_ACTIVITY_REQUIRE_DEFAULT, Intent.FLAG_RECEIVER_REGISTERED_ONLY, Intent.FLAG_RECEIVER_REPLACE_PENDING, Intent.FLAG_RECEIVER_FOREGROUND, Intent.FLAG_RECEIVER_NO_ABORT, Intent.FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS"
+        errorLine1="        Intent intentAddFlags = new Intent(context, (Class&lt;?>) (z2 ? ResetCreditActivity.class : MainActivity.class)).addFlags(335544320);"
+        errorLine2="                                                                                                                               ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="327"
+            column="128"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: PendingIntent.FLAG_ONE_SHOT, PendingIntent.FLAG_NO_CREATE, PendingIntent.FLAG_CANCEL_CURRENT, PendingIntent.FLAG_UPDATE_CURRENT, PendingIntent.FLAG_IMMUTABLE, PendingIntent.FLAG_MUTABLE, PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, Intent.FILL_IN_ACTION, Intent.FILL_IN_DATA, Intent.FILL_IN_CATEGORIES, Intent.FILL_IN_COMPONENT, Intent.FILL_IN_PACKAGE, Intent.FILL_IN_SOURCE_BOUNDS, Intent.FILL_IN_SELECTOR, Intent.FILL_IN_CLIP_DATA"
+        errorLine1="        remoteViews.setOnClickPendingIntent(i, PendingIntent.getActivity(context, 82000 + i2 + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (z2 ? 50000 : 0), intentAddFlags, 201326592));"
+        errorLine2="                                                                                                                                                                                      ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            line="331"
+            column="183"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: KeyProperties.BLOCK_MODE_ECB, KeyProperties.BLOCK_MODE_CBC, KeyProperties.BLOCK_MODE_CTR, KeyProperties.BLOCK_MODE_GCM"
+        errorLine1="        keyGenerator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, 3).setBlockModes(&quot;GCM&quot;).setEncryptionPaddings(&quot;NoPadding&quot;).setRandomizedEncryptionRequired(true).build());"
+        errorLine2="                                                                                      ~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SecureTokenStore.java"
+            line="94"
+            column="87"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: KeyProperties.ENCRYPTION_PADDING_NONE, KeyProperties.ENCRYPTION_PADDING_PKCS7, KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1, KeyProperties.ENCRYPTION_PADDING_RSA_OAEP"
+        errorLine1="        keyGenerator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, 3).setBlockModes(&quot;GCM&quot;).setEncryptionPaddings(&quot;NoPadding&quot;).setRandomizedEncryptionRequired(true).build());"
+        errorLine2="                                                                                                                   ~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SecureTokenStore.java"
+            line="94"
+            column="116"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: KeyProperties.PURPOSE_ENCRYPT, KeyProperties.PURPOSE_DECRYPT, KeyProperties.PURPOSE_SIGN, KeyProperties.PURPOSE_VERIFY, KeyProperties.PURPOSE_WRAP_KEY, KeyProperties.PURPOSE_AGREE_KEY, KeyProperties.PURPOSE_ATTEST_KEY"
+        errorLine1="        keyGenerator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, 3).setBlockModes(&quot;GCM&quot;).setEncryptionPaddings(&quot;NoPadding&quot;).setRandomizedEncryptionRequired(true).build());"
+        errorLine2="                                                                     ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SecureTokenStore.java"
+            line="94"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="                        Toast.makeText(SettingsActivity.this, &quot;Precise alarm settings are unavailable on this device.&quot;, 1).show();"
+        errorLine2="                                                                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            line="113"
+            column="121"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: LinearLayout.HORIZONTAL, LinearLayout.VERTICAL"
+        errorLine1="        linearLayout.setOrientation(1);"
+        errorLine2="                                    ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            line="204"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: PackageManager.PERMISSION_GRANTED, PackageManager.PERMISSION_DENIED"
+        errorLine1="        if (!ResetAlertPreferences.STYLE_OFF.equals(str3) &amp;&amp; Build.VERSION.SDK_INT >= 33 &amp;&amp; checkSelfPermission(&quot;android.permission.POST_NOTIFICATIONS&quot;) != 0) {"
+        errorLine2="                                                                                                                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            line="302"
+            column="157"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="        Toast.makeText(this, &quot;Settings saved.&quot;, 0).show();"
+        errorLine2="                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            line="308"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Typeface.NORMAL, Typeface.BOLD, Typeface.ITALIC, Typeface.BOLD_ITALIC"
+        errorLine1="        return Typeface.create(isOneUi(context) ? &quot;sec&quot; : &quot;sans-serif&quot;, 0);"
+        errorLine2="                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="166"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Typeface.NORMAL, Typeface.BOLD, Typeface.ITALIC, Typeface.BOLD_ITALIC"
+        errorLine1="        return Typeface.create(isOneUi(context) ? &quot;sec&quot; : &quot;sans-serif-medium&quot;, 1);"
+        errorLine2="                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="170"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: LinearLayout.HORIZONTAL, LinearLayout.VERTICAL"
+        errorLine1="        linearLayout.setOrientation(1);"
+        errorLine2="                                    ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="206"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS, WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS, WindowInsetsController.APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND, WindowInsetsController.APPEARANCE_LIGHT_CAPTION_BARS"
+        errorLine1="                insetsController.setSystemBarsAppearance(z ? 0 : 24, 24);"
+        errorLine2="                                                                 ~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="400"
+            column="66"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS, WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS, WindowInsetsController.APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND, WindowInsetsController.APPEARANCE_LIGHT_CAPTION_BARS"
+        errorLine1="                insetsController.setSystemBarsAppearance(z ? 0 : 24, 24);"
+        errorLine2="                                                                     ~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="400"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: LinearLayout.HORIZONTAL, LinearLayout.VERTICAL"
+        errorLine1="        linearLayout.setOrientation(0);"
+        errorLine2="                                    ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="425"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="            Toast.makeText(this, &quot;No widget was selected.&quot;, 1).show();"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            line="48"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Toast.LENGTH_SHORT, Toast.LENGTH_LONG"
+        errorLine1="        Toast.makeText(this, &quot;Widget updated.&quot;, 0).show();"
+        errorLine2="                                                ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            line="210"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Typeface.NORMAL, Typeface.BOLD, Typeface.ITALIC, Typeface.BOLD_ITALIC"
+        errorLine1="        paint.setTypeface(Typeface.create(&quot;sec&quot;, 1));"
+        errorLine2="                                                 ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            line="61"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Typeface.NORMAL, Typeface.BOLD, Typeface.ITALIC, Typeface.BOLD_ITALIC"
+        errorLine1="        paint.setTypeface(Typeface.create(&quot;sans-serif&quot;, 1));"
+        errorLine2="                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            line="101"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Typeface.NORMAL, Typeface.BOLD, Typeface.ITALIC, Typeface.BOLD_ITALIC"
+        errorLine1="        paint.setTypeface(Typeface.create(&quot;sans-serif-medium&quot;, 0));"
+        errorLine2="                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            line="105"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.LAYER_TYPE_NONE, View.LAYER_TYPE_SOFTWARE, View.LAYER_TYPE_HARDWARE"
+        errorLine1="        setLayerType(1, null);"
+        errorLine2="                     ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            line="24"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Typeface.NORMAL, Typeface.BOLD, Typeface.ITALIC, Typeface.BOLD_ITALIC"
+        errorLine1="        this.paint.setTypeface(Typeface.create(WidgetOptions.SURFACE_ONE_UI.equals(this.options.surfaceStyle) ? &quot;sec&quot; : &quot;sans-serif&quot;, z ? 1 : 0));"
+        errorLine2="                                                                                                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            line="311"
+            column="139"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: Typeface.NORMAL, Typeface.BOLD, Typeface.ITALIC, Typeface.BOLD_ITALIC"
+        errorLine1="        this.paint.setTypeface(Typeface.create(WidgetOptions.SURFACE_ONE_UI.equals(this.options.surfaceStyle) ? &quot;sec&quot; : &quot;sans-serif&quot;, z ? 1 : 0));"
+        errorLine2="                                                                                                                                              ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            line="311"
+            column="143"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                   ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="177"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                                      ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="177"
+            column="103"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                                                 ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="180"
+            column="114"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                                                     ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="180"
+            column="118"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                       ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="182"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="182"
+            column="107"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: Intent.FLAG_GRANT_READ_URI_PERMISSION, Intent.FLAG_GRANT_WRITE_URI_PERMISSION, Intent.FLAG_FROM_BACKGROUND, Intent.FLAG_DEBUG_LOG_RESOLUTION, Intent.FLAG_EXCLUDE_STOPPED_PACKAGES, Intent.FLAG_INCLUDE_STOPPED_PACKAGES, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION, Intent.FLAG_GRANT_PREFIX_URI_PERMISSION, Intent.FLAG_ACTIVITY_MATCH_EXTERNAL, Intent.FLAG_ACTIVITY_NO_HISTORY, Intent.FLAG_ACTIVITY_SINGLE_TOP, Intent.FLAG_ACTIVITY_NEW_TASK, Intent.FLAG_ACTIVITY_MULTIPLE_TASK, Intent.FLAG_ACTIVITY_CLEAR_TOP, Intent.FLAG_ACTIVITY_FORWARD_RESULT, Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP, Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS, Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT, Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED, Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NEW_DOCUMENT, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NO_USER_ACTION, Intent.FLAG_ACTIVITY_REORDER_TO_FRONT, Intent.FLAG_ACTIVITY_NO_ANIMATION, Intent.FLAG_ACTIVITY_CLEAR_TASK, Intent.FLAG_ACTIVITY_TASK_ON_HOME, Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS, Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT, Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER, Intent.FLAG_ACTIVITY_REQUIRE_DEFAULT, Intent.FLAG_RECEIVER_REGISTERED_ONLY, Intent.FLAG_RECEIVER_REPLACE_PENDING, Intent.FLAG_RECEIVER_FOREGROUND, Intent.FLAG_RECEIVER_NO_ABORT, Intent.FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS"
+        errorLine1="        remoteViews.setOnClickPendingIntent(android.R.id.background, PendingIntent.getActivity(context, 74000 + i, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592));"
+        errorLine2="                                                                                                                                                                               ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="187"
+            column="176"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: PendingIntent.FLAG_ONE_SHOT, PendingIntent.FLAG_NO_CREATE, PendingIntent.FLAG_CANCEL_CURRENT, PendingIntent.FLAG_UPDATE_CURRENT, PendingIntent.FLAG_IMMUTABLE, PendingIntent.FLAG_MUTABLE, PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, Intent.FILL_IN_ACTION, Intent.FILL_IN_DATA, Intent.FILL_IN_CATEGORIES, Intent.FILL_IN_COMPONENT, Intent.FILL_IN_PACKAGE, Intent.FILL_IN_SOURCE_BOUNDS, Intent.FILL_IN_SELECTOR, Intent.FILL_IN_CLIP_DATA"
+        errorLine1="        remoteViews.setOnClickPendingIntent(android.R.id.background, PendingIntent.getActivity(context, 74000 + i, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592));"
+        errorLine2="                                                                                                                                                                                           ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="187"
+            column="188"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: PendingIntent.FLAG_ONE_SHOT, PendingIntent.FLAG_NO_CREATE, PendingIntent.FLAG_CANCEL_CURRENT, PendingIntent.FLAG_UPDATE_CURRENT, PendingIntent.FLAG_IMMUTABLE, PendingIntent.FLAG_MUTABLE, PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, Intent.FILL_IN_ACTION, Intent.FILL_IN_DATA, Intent.FILL_IN_CATEGORIES, Intent.FILL_IN_COMPONENT, Intent.FILL_IN_PACKAGE, Intent.FILL_IN_SOURCE_BOUNDS, Intent.FILL_IN_SELECTOR, Intent.FILL_IN_CLIP_DATA"
+        errorLine1="        remoteViews.setOnClickPendingIntent(R.id.refresh_button, PendingIntent.getBroadcast(context, 75000 + i, new Intent(context, (Class&lt;?>) WidgetRefreshReceiver.class).setAction(AppConstants.ACTION_REFRESH_WIDGET).putExtra(&quot;appWidgetId&quot;, i), 201326592));"
+        errorLine2="                                                                                                                                                                                                                                                      ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="188"
+            column="247"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: Intent.FLAG_GRANT_READ_URI_PERMISSION, Intent.FLAG_GRANT_WRITE_URI_PERMISSION, Intent.FLAG_FROM_BACKGROUND, Intent.FLAG_DEBUG_LOG_RESOLUTION, Intent.FLAG_EXCLUDE_STOPPED_PACKAGES, Intent.FLAG_INCLUDE_STOPPED_PACKAGES, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION, Intent.FLAG_GRANT_PREFIX_URI_PERMISSION, Intent.FLAG_ACTIVITY_MATCH_EXTERNAL, Intent.FLAG_ACTIVITY_NO_HISTORY, Intent.FLAG_ACTIVITY_SINGLE_TOP, Intent.FLAG_ACTIVITY_NEW_TASK, Intent.FLAG_ACTIVITY_MULTIPLE_TASK, Intent.FLAG_ACTIVITY_CLEAR_TOP, Intent.FLAG_ACTIVITY_FORWARD_RESULT, Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP, Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS, Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT, Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED, Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NEW_DOCUMENT, Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET, Intent.FLAG_ACTIVITY_NO_USER_ACTION, Intent.FLAG_ACTIVITY_REORDER_TO_FRONT, Intent.FLAG_ACTIVITY_NO_ANIMATION, Intent.FLAG_ACTIVITY_CLEAR_TASK, Intent.FLAG_ACTIVITY_TASK_ON_HOME, Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS, Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT, Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER, Intent.FLAG_ACTIVITY_REQUIRE_DEFAULT, Intent.FLAG_RECEIVER_REGISTERED_ONLY, Intent.FLAG_RECEIVER_REPLACE_PENDING, Intent.FLAG_RECEIVER_FOREGROUND, Intent.FLAG_RECEIVER_NO_ABORT, Intent.FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS"
+        errorLine1="        remoteViews.setOnClickPendingIntent(R.id.reset_credit_button, PendingIntent.getActivity(context, 76000 + i, new Intent(context, (Class&lt;?>) ResetCreditActivity.class).addFlags(335544320), 201326592));"
+        errorLine2="                                                                                                                                                                                       ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="189"
+            column="184"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: PendingIntent.FLAG_ONE_SHOT, PendingIntent.FLAG_NO_CREATE, PendingIntent.FLAG_CANCEL_CURRENT, PendingIntent.FLAG_UPDATE_CURRENT, PendingIntent.FLAG_IMMUTABLE, PendingIntent.FLAG_MUTABLE, PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, Intent.FILL_IN_ACTION, Intent.FILL_IN_DATA, Intent.FILL_IN_CATEGORIES, Intent.FILL_IN_COMPONENT, Intent.FILL_IN_PACKAGE, Intent.FILL_IN_SOURCE_BOUNDS, Intent.FILL_IN_SELECTOR, Intent.FILL_IN_CLIP_DATA"
+        errorLine1="        remoteViews.setOnClickPendingIntent(R.id.reset_credit_button, PendingIntent.getActivity(context, 76000 + i, new Intent(context, (Class&lt;?>) ResetCreditActivity.class).addFlags(335544320), 201326592));"
+        errorLine2="                                                                                                                                                                                                   ~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="189"
+            column="196"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, widgetState.primaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="218"
+            column="96"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, widgetState.primaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                                   ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="218"
+            column="100"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, widgetState.secondaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                                   ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="219"
+            column="100"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, widgetState.secondaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="219"
+            column="104"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, 8);"
+        errorLine2="                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="249"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, 8);"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="250"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.updated_label, 8);"
+        errorLine2="                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="251"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, str.isEmpty() ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="289"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, str.isEmpty() ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                              ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="289"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, 8);"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="290"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_label, 8);"
+        errorLine2="                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="323"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_label, 8);"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="324"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, 8);"
+        errorLine2="                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="327"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, 8);"
+        errorLine2="                                                            ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="328"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.updated_label, (!widgetOptions.showUpdated || widgetState.updated.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                                                          ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="335"
+            column="123"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.updated_label, (!widgetOptions.showUpdated || widgetState.updated.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
+        errorLine2="                                                                                                                              ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="335"
+            column="127"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_section, widgetOptions.showsFiveHour() ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                            ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="339"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.primary_section, widgetOptions.showsFiveHour() ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="339"
+            column="112"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_section, widgetOptions.showsWeekly() ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                            ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="340"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.secondary_section, widgetOptions.showsWeekly() ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                                               ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="340"
+            column="112"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);"
+        errorLine2="                                                                 ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="348"
+            column="66"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);"
+        errorLine2="                                                                 ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="358"
+            column="66"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_row, GRAPHIC_STANDARD);"
+        errorLine2="                                                             ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="361"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                   ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="362"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                      ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="362"
+            column="87"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                     ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="363"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: View.VISIBLE, View.INVISIBLE, View.GONE"
+        errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? GRAPHIC_STANDARD : 8);"
+        errorLine2="                                                                                        ~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            line="363"
+            column="89"/>
+    </issue>
+
+    <issue
+        id="InflateParams"
+        message="Avoid passing `null` as the view root (needed to resolve layout parameters on the inflated layout&apos;s root element)"
+        errorLine1="        View root = LayoutInflater.from(activity).inflate(R.layout.activity_oneui_dashboard, null, false);"
+        errorLine2="                                                                                             ~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="65"
+            column="94"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of `compileSdk` than 36 is available: 37"
+        errorLine1="    compileSdk = 36"
+        errorLine2="    ~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
+        errorLine1="        if (Build.VERSION.SDK_INT >= 31 &amp;&amp; (identifier = context.getResources().getIdentifier(str, &quot;color&quot;, &quot;android&quot;)) != 0) {"
+        errorLine2="                                                                                ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="454"
+            column="81"/>
+    </issue>
+
+    <issue
+        id="UseCompatLoadingForDrawables"
+        message="Use `AppCompatResources.getDrawable()`"
+        errorLine1="        page.toolbar.setNavigationButtonIcon(getDrawable(R.drawable.ic_oui_settings));"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            line="74"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="UseCompatLoadingForDrawables"
+        message="Use `AppCompatResources.getDrawable()`"
+        errorLine1="        Drawable fiveHourIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_time);"
+        errorLine2="                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockGraphics.java"
+            line="44"
+            column="58"/>
+    </issue>
+
+    <issue
+        id="UseCompatLoadingForDrawables"
+        message="Use `AppCompatResources.getDrawable()`"
+        errorLine1="        Drawable weeklyIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_calendar_week);"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/SamsungLockGraphics.java"
+            line="45"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="UseCompatLoadingForDrawables"
+        message="Use `AppCompatResources.getDrawable()`"
+        errorLine1="        row.setIcon(context.getDrawable(icon));"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="438"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseCompatLoadingForDrawables"
+        message="Use `AppCompatResources.getDrawable()`"
+        errorLine1="            Drawable icon = context.getDrawable(iconRes);"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            line="49"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="UseCompatTextViewDrawableApis"
+        message="Use `TextViewCompat.setCompoundDrawableTintList()`"
+        errorLine1="            button.setCompoundDrawableTintList(ColorStateList.valueOf(iOnAccent));"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="247"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseCompatTextViewDrawableApis"
+        message="Use `TextViewCompat.setCompoundDrawableTintList()`"
+        errorLine1="        button.setCompoundDrawableTintList(ColorStateList.valueOf(mainText(z)));"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            line="279"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ExportedReceiver"
+        message="Exported receiver does not require permission"
+        errorLine1="        &lt;receiver"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="107"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="DrawAllocation"
+        message="Avoid object allocations during draw/layout operations (preallocate and reuse instead)"
+        errorLine1="            this.paint.setPathEffect(new DashPathEffect(new float[]{5.0f * f, 5.0f * f}, 0.0f));"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            line="65"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="DrawAllocation"
+        message="Avoid object allocations during draw/layout operations (preallocate and reuse instead)"
+        errorLine1="            this.paint.setPathEffect(new DashPathEffect(new float[]{5.0f * f, 5.0f * f}, 0.0f));"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            line="65"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="DisableBaselineAlignment"
+        message="Set `android:baselineAligned=&quot;false&quot;` on this element for better performance"
+        errorLine1="    &lt;LinearLayout"
+        errorLine2="     ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="13"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="DisableBaselineAlignment"
+        message="Set `android:baselineAligned=&quot;false&quot;` on this element for better performance"
+        errorLine1="    &lt;LinearLayout"
+        errorLine2="     ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="13"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="            android:layout_weight=&quot;1&quot;>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials.xml"
+            line="59"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="            android:layout_weight=&quot;1&quot;>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_large.xml"
+            line="59"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="            android:layout_weight=&quot;1&quot;>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_max.xml"
+            line="59"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="            android:layout_weight=&quot;1&quot;>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_micro.xml"
+            line="58"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="            android:layout_weight=&quot;1&quot;>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings.xml"
+            line="59"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="            android:layout_weight=&quot;1&quot;>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_large.xml"
+            line="59"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="            android:layout_weight=&quot;1&quot;>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_max.xml"
+            line="59"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MonochromeLauncherIcon"
+        message="The application adaptive icon is missing a monochrome tag"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi/ic_launcher.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_compact.xml"
+            line="161"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_compact.xml"
+            line="171"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_detailed.xml"
+            line="175"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_detailed.xml"
+            line="185"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials.xml"
+            line="131"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials.xml"
+            line="141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_large.xml"
+            line="131"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_large.xml"
+            line="141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_max.xml"
+            line="131"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_max.xml"
+            line="141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="25"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10.5sp`"
+        errorLine1="                android:textSize=&quot;10.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="36"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6sp`"
+        errorLine1="            android:textSize=&quot;6sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="57"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="80"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10.5sp`"
+        errorLine1="                android:textSize=&quot;10.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="91"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6sp`"
+        errorLine1="            android:textSize=&quot;6sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="112"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="25"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10.5sp`"
+        errorLine1="                android:textSize=&quot;10.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="36"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6sp`"
+        errorLine1="            android:textSize=&quot;6sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="57"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="80"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10.5sp`"
+        errorLine1="                android:textSize=&quot;10.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="91"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6sp`"
+        errorLine1="            android:textSize=&quot;6sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="112"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9.5sp`"
+        errorLine1="        android:textSize=&quot;9.5sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_square.xml"
+            line="14"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6.5sp`"
+        errorLine1="        android:textSize=&quot;6.5sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_square.xml"
+            line="30"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="40"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6.5sp`"
+        errorLine1="                android:textSize=&quot;6.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="50"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="78"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6.5sp`"
+        errorLine1="                android:textSize=&quot;6.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="88"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9.5sp`"
+        errorLine1="        android:textSize=&quot;9.5sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_square.xml"
+            line="14"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6.5sp`"
+        errorLine1="        android:textSize=&quot;6.5sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_square.xml"
+            line="30"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="40"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6.5sp`"
+        errorLine1="                android:textSize=&quot;6.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="50"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7.5sp`"
+        errorLine1="                android:textSize=&quot;7.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="78"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6.5sp`"
+        errorLine1="                android:textSize=&quot;6.5sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="88"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `6.5sp`"
+        errorLine1="        android:textSize=&quot;6.5sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_square.xml"
+            line="22"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `7sp`"
+        errorLine1="        android:textSize=&quot;7sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_wide.xml"
+            line="25"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings.xml"
+            line="131"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings.xml"
+            line="141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_large.xml"
+            line="131"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_large.xml"
+            line="141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_max.xml"
+            line="131"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="            android:textSize=&quot;10sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_max.xml"
+            line="141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            this.useButton.setText(&quot;Applying…&quot;);"
+        errorLine2="                                   ~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            line="135"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_compact.xml"
+            line="167"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_compact.xml"
+            line="180"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_detailed.xml"
+            line="181"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_detailed.xml"
+            line="194"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials.xml"
+            line="137"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials.xml"
+            line="150"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_large.xml"
+            line="137"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_large.xml"
+            line="150"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_max.xml"
+            line="137"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_dials_max.xml"
+            line="150"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;5H&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;5H&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="30"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;36&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;36&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="41"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;W&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;W&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="85"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;68&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;68&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_square.xml"
+            line="96"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;5H&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;5H&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="30"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;36&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;36&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="41"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;W&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;W&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="85"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;68&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;68&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_bars_wide.xml"
+            line="96"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;5H 36\10W 68&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;5H 36\10W 68&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_square.xml"
+            line="22"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;36&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;36&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="34"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;5H&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;5H&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="45"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;68&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;68&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="72"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;W&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;W&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_dials_wide.xml"
+            line="83"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;5H 36\10W 68&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;5H 36\10W 68&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_square.xml"
+            line="22"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;36&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;36&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="34"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;5H&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;5H&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="45"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;68&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;68&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="72"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;W&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;W&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_lock_rings_wide.xml"
+            line="83"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings.xml"
+            line="137"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings.xml"
+            line="150"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_large.xml"
+            line="137"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_large.xml"
+            line="150"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;2 resets · next expires in 3d&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;2 resets · next expires in 3d&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_max.xml"
+            line="137"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Use reset&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Use reset&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_rings_max.xml"
+            line="150"
+            column="13"/>
+    </issue>
+
+</issues>

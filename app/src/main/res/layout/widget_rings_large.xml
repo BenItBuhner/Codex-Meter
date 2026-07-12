@@ -4,12 +4,12 @@
     android:orientation="vertical"
     android:id="@android:id/background"
     android:background="@drawable/widget_bg_dark_88"
-    android:paddingTop="11dp"
-    android:paddingBottom="10dp"
+    android:paddingTop="0dp"
+    android:paddingBottom="0dp"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingStart="14dp"
-    android:paddingEnd="11dp">
+    android:paddingStart="0dp"
+    android:paddingEnd="0dp">
     <LinearLayout
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -30,6 +30,7 @@
             android:textSize="11sp"
             android:textColor="#afffffff"
             android:id="@+id/plan_label"
+            android:visibility="gone"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/widget_sample_plan"
@@ -37,10 +38,11 @@
             android:layout_marginEnd="5dp"/>
         <ImageView
             android:id="@+id/refresh_button"
+            android:visibility="gone"
             android:padding="6dp"
             android:layout_width="28dp"
             android:layout_height="28dp"
-            android:src="@drawable/ic_refresh"
+            android:src="@drawable/ic_oui_refresh_widget_light"
             android:contentDescription="@string/refresh"/>
     </LinearLayout>
     <LinearLayout
@@ -60,14 +62,15 @@
             <ImageView
                 android:id="@+id/primary_graphic"
                 android:layout_width="match_parent"
-                android:layout_height="116dp"
+                android:layout_height="match_parent"
                 android:scaleType="centerInside"
-                android:adjustViewBounds="true"
+                android:adjustViewBounds="false"
                 android:contentDescription="@string/five_hour"/>
             <TextView
                 android:textSize="12sp"
                 android:textColor="#e8ffffff"
                 android:id="@+id/primary_label"
+                android:visibility="gone"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/five_hour"
@@ -78,6 +81,7 @@
                 android:ellipsize="end"
                 android:gravity="center"
                 android:id="@+id/primary_reset"
+                android:visibility="gone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
@@ -94,14 +98,15 @@
             <ImageView
                 android:id="@+id/secondary_graphic"
                 android:layout_width="match_parent"
-                android:layout_height="116dp"
+                android:layout_height="match_parent"
                 android:scaleType="centerInside"
-                android:adjustViewBounds="true"
+                android:adjustViewBounds="false"
                 android:contentDescription="@string/weekly"/>
             <TextView
                 android:textSize="12sp"
                 android:textColor="#e8ffffff"
                 android:id="@+id/secondary_label"
+                android:visibility="gone"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/weekly"
@@ -112,6 +117,7 @@
                 android:ellipsize="end"
                 android:gravity="center"
                 android:id="@+id/secondary_reset"
+                android:visibility="gone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
@@ -157,6 +163,7 @@
         android:ellipsize="end"
         android:gravity="center"
         android:id="@+id/updated_label"
+        android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/widget_sample_updated"

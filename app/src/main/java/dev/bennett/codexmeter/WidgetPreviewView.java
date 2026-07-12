@@ -45,7 +45,8 @@ public final class WidgetPreviewView extends View {
         int iArgb = zPreviewDark ? Color.argb(210, 255, 255, 255) : Color.argb(205, 17, 19, 21);
         int iArgb2 = zPreviewDark ? Color.argb(145, 255, 255, 255) : Color.argb(145, 17, 19, 21);
         int iTrackColor = WidgetGraphics.trackColor(zPreviewDark);
-        int iAccentColor = WidgetGraphics.accentColor(this.options.accent, zPreviewDark);
+        int iAccentColor = WidgetGraphics.accentColor(getContext(), this.options.accent,
+                zPreviewDark);
         if (zEquals) {
             iRgb = zPreviewDark ? Color.rgb(26, 29, 33) : Color.rgb(250, 250, 252);
         } else {

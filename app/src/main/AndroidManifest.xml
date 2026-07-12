@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="dev.bennett.codexmeter">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <permission
         android:name="dev.bennett.codexmeter.permission.INTERNAL"
         android:protectionLevel="signature"/>
@@ -44,6 +43,9 @@
             android:name="dev.bennett.codexmeter.SettingsActivity"
             android:exported="false"/>
         <activity
+            android:name="dev.bennett.codexmeter.AboutActivity"
+            android:exported="false"/>
+        <activity
             android:name="dev.bennett.codexmeter.ResetCreditActivity"
             android:exported="false"
             android:excludeFromRecents="true"/>
@@ -78,62 +80,6 @@
                 android:resource="@xml/widget_supported_cell_size_info"/>
         </receiver>
         <receiver
-            android:label="@string/lock_widget_wide_name"
-            android:name="dev.bennett.codexmeter.SamsungLockWideWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/samsung_lock_wide_info"/>
-            <meta-data
-                android:name="samsung.appwidget.monotone.info"
-                android:resource="@xml/samsung_lock_wide_oneui_info"/>
-        </receiver>
-        <receiver
-            android:label="@string/lock_widget_square_name"
-            android:name="dev.bennett.codexmeter.SamsungLockSquareWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/samsung_lock_square_info"/>
-            <meta-data
-                android:name="samsung.appwidget.monotone.info"
-                android:resource="@xml/samsung_lock_square_oneui_info"/>
-        </receiver>
-        <receiver
-            android:label="@string/lock_widget_rings_wide_name"
-            android:name="dev.bennett.codexmeter.SamsungLockRingsWideWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/samsung_lock_rings_wide_info"/>
-            <meta-data
-                android:name="samsung.appwidget.monotone.info"
-                android:resource="@xml/samsung_lock_rings_wide_oneui_info"/>
-        </receiver>
-        <receiver
-            android:label="@string/lock_widget_rings_square_name"
-            android:name="dev.bennett.codexmeter.SamsungLockRingsSquareWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/samsung_lock_rings_square_info"/>
-            <meta-data
-                android:name="samsung.appwidget.monotone.info"
-                android:resource="@xml/samsung_lock_rings_square_oneui_info"/>
-        </receiver>
-        <receiver
             android:label="@string/lock_widget_dials_wide_name"
             android:name="dev.bennett.codexmeter.SamsungLockDialsWideWidget"
             android:exported="true">
@@ -148,46 +94,32 @@
                 android:resource="@xml/samsung_lock_dials_wide_oneui_info"/>
         </receiver>
         <receiver
-            android:label="@string/lock_widget_dials_square_name"
-            android:name="dev.bennett.codexmeter.SamsungLockDialsSquareWidget"
+            android:label="@string/lock_widget_five_hour_name"
+            android:name="dev.bennett.codexmeter.SamsungLockFiveHourWidget"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/samsung_lock_dials_square_info"/>
+                android:resource="@xml/samsung_lock_five_hour_info"/>
             <meta-data
                 android:name="samsung.appwidget.monotone.info"
-                android:resource="@xml/samsung_lock_dials_square_oneui_info"/>
+                android:resource="@xml/samsung_lock_five_hour_oneui_info"/>
         </receiver>
         <receiver
-            android:label="@string/lock_widget_bars_wide_name"
-            android:name="dev.bennett.codexmeter.SamsungLockBarsWideWidget"
+            android:label="@string/lock_widget_weekly_name"
+            android:name="dev.bennett.codexmeter.SamsungLockWeeklyWidget"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/samsung_lock_bars_wide_info"/>
+                android:resource="@xml/samsung_lock_weekly_info"/>
             <meta-data
                 android:name="samsung.appwidget.monotone.info"
-                android:resource="@xml/samsung_lock_bars_wide_oneui_info"/>
-        </receiver>
-        <receiver
-            android:label="@string/lock_widget_bars_square_name"
-            android:name="dev.bennett.codexmeter.SamsungLockBarsSquareWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/samsung_lock_bars_square_info"/>
-            <meta-data
-                android:name="samsung.appwidget.monotone.info"
-                android:resource="@xml/samsung_lock_bars_square_oneui_info"/>
+                android:resource="@xml/samsung_lock_weekly_oneui_info"/>
         </receiver>
         <receiver
             android:name="dev.bennett.codexmeter.SamsungLockServiceBoxReceiver"

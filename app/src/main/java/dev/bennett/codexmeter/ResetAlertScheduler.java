@@ -23,12 +23,11 @@ public final class ResetAlertScheduler {
             cancelAll(contextAppContext);
             if (usageSnapshot != null && SecureTokenStore.isSignedIn(contextAppContext) && ResetAlertPreferences.enabled(contextAppContext)) {
                 String metric = ResetAlertPreferences.getMetric(contextAppContext);
-                int threshold = ResetAlertPreferences.getThreshold(contextAppContext);
                 if (!"weekly".equals(metric)) {
-                    scheduleWindow(contextAppContext, usageSnapshot.fiveHour, "five_hour", REQUEST_FIVE_HOUR, threshold);
+                    scheduleWindow(contextAppContext, usageSnapshot.fiveHour, "five_hour", REQUEST_FIVE_HOUR);
                 }
                 if (!"five_hour".equals(metric)) {
-                    scheduleWindow(contextAppContext, usageSnapshot.weekly, "weekly", REQUEST_WEEKLY, threshold);
+                    scheduleWindow(contextAppContext, usageSnapshot.weekly, "weekly", REQUEST_WEEKLY);
                 }
             }
         }
@@ -51,10 +50,10 @@ public final class ResetAlertScheduler {
         return alarmManager != null && alarmManager.canScheduleExactAlarms();
     }
 
-    private static void scheduleWindow(Context context, UsageWindow usageWindow, String str, int i, int i2) {
+    private static void scheduleWindow(Context context, UsageWindow usageWindow, String str, int i) {
         AlarmManager alarmManager;
         if (usageWindow != null && usageWindow.resetAtMillis() > System.currentTimeMillis()) {
-            if ((i2 >= 100 || usageWindow.remainingPercent() <= i2) && (alarmManager = (AlarmManager) context.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {
+            if ((alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE)) != null) {
                 long jResetAtMillis = usageWindow.resetAtMillis() + DELIVERY_GRACE_MS;
                 PendingIntent pendingIntentPending = pending(context, str, usageWindow.resetAtMillis(), i);
                 try {

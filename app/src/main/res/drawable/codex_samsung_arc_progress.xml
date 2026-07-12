@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Geometry copied from the One UI battery widget bundled in Settings Suggestions. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="46dp"
+    android:height="46dp"
+    android:viewportWidth="138"
+    android:viewportHeight="138">
+    <path
+        android:name="android:background"
+        android:pathData="M 14 93 A 60 60 0 1 1 124 93"
+        android:strokeColor="#30000000"
+        android:strokeWidth="18"
+        android:strokeLineCap="round" />
+    <path
+        android:name="android:progress"
+        android:pathData="M 14 93 A 60 60 0 1 1 124 93"
+        android:strokeColor="#ff0381fe"
+        android:strokeWidth="18"
+        android:trimPathEnd="0"
+        android:strokeLineCap="round" />
+</vector>

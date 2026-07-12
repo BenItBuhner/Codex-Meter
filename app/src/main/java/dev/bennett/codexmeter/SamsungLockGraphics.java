@@ -6,126 +6,134 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.util.DisplayMetrics;
-import dev.bennett.codexmeter.SamsungLockWidgetSupport;
 
-/* JADX INFO: loaded from: classes.dex */
+/** Battery-widget-inspired monochrome dials for Samsung lock and AOD surfaces. */
 final class SamsungLockGraphics {
-    private static final float SAFE = 3.0f;
-    private static final int TRACK = Color.argb(66, 255, 255, 255);
-    private static final int WHITE = -1;
+    private static final int TRACK = Color.argb(51, 0, 0, 0);
+    private static final int FOREGROUND = Color.BLACK;
 
     private SamsungLockGraphics() {
     }
 
-    static Bitmap render(Context context, SamsungLockWidgetSupport.Shape shape, SamsungLockWidgetSupport.Style style, int i, int i2, boolean z, int i3, int i4, LockWidgetOptions lockWidgetOptions, int i5) {
-        int iClamp = clamp(i3, 44, shape == SamsungLockWidgetSupport.Shape.SQUARE ? 96 : 200, shape == SamsungLockWidgetSupport.Shape.SQUARE ? 56 : 124);
-        int iClamp2 = clamp(i4, 44, 96, 56);
-        DisplayMetrics displayMetrics = context == null ? null : context.getResources().getDisplayMetrics();
-        float fMax = Math.max(4.0f, Math.min(4.5f, (displayMetrics == null || displayMetrics.density <= 0.0f) ? 1.0f : displayMetrics.density));
-        Bitmap bitmapCreateBitmap = Bitmap.createBitmap(Math.max(1, Math.round(iClamp * fMax)), Math.max(1, Math.round(iClamp2 * fMax)), Bitmap.Config.ARGB_8888);
-        bitmapCreateBitmap.setDensity(Math.round(160.0f * fMax));
-        bitmapCreateBitmap.eraseColor(0);
-        if (!z) {
-            return bitmapCreateBitmap;
+    static Bitmap render(Context context, SamsungLockWidgetSupport.Shape shape,
+            SamsungLockWidgetSupport.Style style, int fiveHour, int weekly, boolean signedIn,
+            int requestedWidth, int requestedHeight, LockWidgetOptions options, int resetCredits) {
+        int width = clamp(requestedWidth, 44, shape == SamsungLockWidgetSupport.Shape.SQUARE ? 96 : 200,
+                shape == SamsungLockWidgetSupport.Shape.SQUARE ? 56 : 124);
+        int height = clamp(requestedHeight, 44, 96, 56);
+        DisplayMetrics metrics = context == null ? null : context.getResources().getDisplayMetrics();
+        float scale = Math.max(4.0f, Math.min(4.5f,
+                metrics == null || metrics.density <= 0.0f ? 1.0f : metrics.density));
+        Bitmap bitmap = Bitmap.createBitmap(Math.max(1, Math.round(width * scale)),
+                Math.max(1, Math.round(height * scale)), Bitmap.Config.ARGB_8888);
+        bitmap.setDensity(Math.round(160.0f * scale));
+        bitmap.eraseColor(Color.TRANSPARENT);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.scale(scale, scale);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG);
+        if (!signedIn) {
+            return bitmap;
         }
-        Canvas canvas = new Canvas(bitmapCreateBitmap);
-        canvas.scale(fMax, fMax);
-        Paint paint = new Paint(7);
-        paint.setDither(true);
-        paint.setFilterBitmap(true);
+        float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 124.0f));
+        float top = (height - (56.0f * dialScale)) / 2.0f;
+        float spacer = (width - (92.0f * dialScale)) / 3.0f;
+        Drawable fiveHourIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_time);
+        Drawable weeklyIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_calendar_week);
+        drawDial(canvas, paint, spacer + (23.0f * dialScale), top, dialScale,
+                fiveHour, fiveHourIcon);
+        drawDial(canvas, paint, (2.0f * spacer) + (69.0f * dialScale), top, dialScale,
+                weekly, weeklyIcon);
+        return bitmap;
+    }
+
+    static Bitmap renderSingle(Context context, SamsungLockWidgetSupport.Metric metric, int value,
+            boolean signedIn, int requestedWidth, int requestedHeight) {
+        int width = clamp(requestedWidth, 44, 96, 56);
+        int height = clamp(requestedHeight, 44, 96, 56);
+        DisplayMetrics metrics = context == null ? null : context.getResources().getDisplayMetrics();
+        float bitmapScale = Math.max(4.0f, Math.min(4.5f,
+                metrics == null || metrics.density <= 0.0f ? 1.0f : metrics.density));
+        Bitmap bitmap = Bitmap.createBitmap(Math.max(1, Math.round(width * bitmapScale)),
+                Math.max(1, Math.round(height * bitmapScale)), Bitmap.Config.ARGB_8888);
+        bitmap.setDensity(Math.round(160.0f * bitmapScale));
+        bitmap.eraseColor(Color.TRANSPARENT);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.scale(bitmapScale, bitmapScale);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG);
+        if (!signedIn) {
+            drawSignIn(canvas, paint, width, height);
+            return bitmap;
+        }
+        float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 46.0f));
+        float top = (height - (56.0f * dialScale)) / 2.0f;
+        Drawable icon = context == null ? null : context.getDrawable(
+                metric == SamsungLockWidgetSupport.Metric.FIVE_HOUR
+                        ? R.drawable.ic_oui_time
+                        : R.drawable.ic_oui_calendar_week);
+        drawDial(canvas, paint, width / 2.0f, top, dialScale, value, icon);
+        return bitmap;
+    }
+
+    private static void drawSignIn(Canvas canvas, Paint paint, int width, int height) {
+        paint.setStyle(Paint.Style.FILL);
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setColor(FOREGROUND);
+        paint.setTypeface(Build.VERSION.SDK_INT >= 28
+                ? Typeface.create(Typeface.create("sec", Typeface.NORMAL), 600, false)
+                : Typeface.create("sec", Typeface.BOLD));
+        paint.setTextSize(9.0f);
+        Paint.FontMetrics metrics = paint.getFontMetrics();
+        float baseline = (height / 2.0f) - ((metrics.ascent + metrics.descent) / 2.0f);
+        canvas.drawText("SIGN IN", width / 2.0f, baseline, paint);
+    }
+
+    private static void drawDial(Canvas canvas, Paint paint, float cx, float top, float scale,
+            int value, Drawable icon) {
+        float graphicTop = top + (3.0f * scale);
+        float cy = graphicTop + (23.0f * scale);
+        float radius = 20.0f * scale;
+        float stroke = 6.0f * scale;
+        RectF arc = new RectF(cx - radius, cy - radius, cx + radius, cy + radius);
+        paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setStrokeJoin(Paint.Join.ROUND);
-        LockWidgetOptions lockWidgetOptionsDefaults = lockWidgetOptions == null ? LockWidgetOptions.defaults() : lockWidgetOptions;
-        RectF rectF = new RectF(SAFE, SAFE, iClamp - SAFE, iClamp2 - SAFE);
-        if (style == SamsungLockWidgetSupport.Style.RINGS) {
-            drawRings(canvas, paint, shape, i, i2, lockWidgetOptionsDefaults, rectF);
-        } else if (style == SamsungLockWidgetSupport.Style.DIALS) {
-            drawDials(canvas, paint, shape, i, i2, lockWidgetOptionsDefaults, rectF);
-        }
-        return bitmapCreateBitmap;
-    }
-
-    private static void drawRings(Canvas canvas, Paint paint, SamsungLockWidgetSupport.Shape shape, int i, int i2, LockWidgetOptions lockWidgetOptions, RectF rectF) {
-        if (lockWidgetOptions.singleMetric()) {
-            int i3 = lockWidgetOptions.showsFiveHour() ? i : i2;
-            float fMin = Math.min(rectF.width(), rectF.height()) * 0.43f;
-            drawRing(canvas, paint, rectF.centerX(), rectF.centerY(), fMin, Math.max(3.1f, fMin * 0.18f), i3);
-        } else {
-            if (shape == SamsungLockWidgetSupport.Shape.SQUARE) {
-                float fMin2 = Math.min(rectF.width(), rectF.height()) * 0.43f;
-                float f = fMin2 * 0.66f;
-                drawRing(canvas, paint, rectF.centerX(), rectF.centerY(), fMin2, Math.max(2.8f, 0.14f * fMin2), i2);
-                drawRing(canvas, paint, rectF.centerX(), rectF.centerY(), f, Math.max(2.6f, 0.19f * f), i);
-                return;
-            }
-            float fWidth = rectF.width() / 2.0f;
-            float fMin3 = Math.min(fWidth, rectF.height()) * 0.4f;
-            float fMax = Math.max(SAFE, fMin3 * 0.18f);
-            drawRing(canvas, paint, rectF.left + (0.5f * fWidth), rectF.centerY(), fMin3, fMax, i);
-            drawRing(canvas, paint, rectF.left + (1.5f * fWidth), rectF.centerY(), fMin3, fMax, i2);
-        }
-    }
-
-    private static void drawRing(Canvas canvas, Paint paint, float f, float f2, float f3, float f4, int i) {
-        float f5 = (f4 / 2.0f) + 0.3f;
-        RectF rectF = new RectF((f - f3) + f5, (f2 - f3) + f5, (f + f3) - f5, (f2 + f3) - f5);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(f4);
+        paint.setStrokeWidth(stroke);
         paint.setColor(TRACK);
-        canvas.drawArc(rectF, -90.0f, 360.0f, false, paint);
-        if (i >= 0) {
-            paint.setColor(WHITE);
-            canvas.drawArc(rectF, -90.0f, (percent(i) * 360.0f) / 100.0f, false, paint);
+        canvas.drawArc(arc, 156.43f, 227.14f, false, paint);
+        if (value >= 0) {
+            paint.setColor(FOREGROUND);
+            canvas.drawArc(arc, 156.43f, clampPercent(value) * 2.2714f, false, paint);
         }
-    }
 
-    private static void drawDials(Canvas canvas, Paint paint, SamsungLockWidgetSupport.Shape shape, int i, int i2, LockWidgetOptions lockWidgetOptions, RectF rectF) {
-        if (lockWidgetOptions.singleMetric()) {
-            if (lockWidgetOptions.showsFiveHour()) {
-                i2 = i;
-            }
-            float fMin = Math.min(rectF.width(), rectF.height()) * 0.9f;
-            drawDial(canvas, paint, centered(rectF.centerX(), rectF.centerY() + 1.0f, fMin), i2, Math.max(3.4f, fMin * 0.1f));
-            return;
+        if (icon != null) {
+            int size = Math.max(7, Math.round(20.0f * scale));
+            int left = Math.round(cx - (size / 2.0f));
+            int iconTop = Math.round(graphicTop + (12.0f * scale));
+            icon.setBounds(left, iconTop, left + size, iconTop + size);
+            icon.setTint(FOREGROUND);
+            icon.draw(canvas);
         }
-        if (shape == SamsungLockWidgetSupport.Shape.SQUARE) {
-            float fMin2 = Math.min(rectF.width(), rectF.height()) * 0.9f;
-            float f = 0.66f * fMin2;
-            drawDial(canvas, paint, centered(rectF.centerX(), rectF.centerY() + 1.0f, fMin2), i2, Math.max(SAFE, fMin2 * 0.085f));
-            drawDial(canvas, paint, centered(rectF.centerX(), rectF.centerY() + 1.0f, f), i, Math.max(2.8f, f * 0.11f));
-            return;
-        }
-        float fWidth = rectF.width() / 2.0f;
-        float fMin3 = Math.min(0.86f * fWidth, rectF.height() * 0.9f);
-        float fMax = Math.max(3.4f, fMin3 * 0.1f);
-        drawDial(canvas, paint, centered(rectF.left + (0.5f * fWidth), rectF.centerY() + 1.0f, fMin3), i, fMax);
-        drawDial(canvas, paint, centered((fWidth * 1.5f) + rectF.left, rectF.centerY() + 1.0f, fMin3), i2, fMax);
+
+        paint.setStyle(Paint.Style.FILL);
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setColor(FOREGROUND);
+        Typeface sec = Typeface.create("sec", Typeface.NORMAL);
+        paint.setTypeface(Build.VERSION.SDK_INT >= 28
+                ? Typeface.create(sec, 600, false)
+                : Typeface.create("sec", Typeface.BOLD));
+        paint.setTextSize(11.0f * scale);
+        canvas.drawText(value < 0 ? "—" : clampPercent(value) + "%", cx,
+                top + (48.0f * scale), paint);
     }
 
-    private static void drawDial(Canvas canvas, Paint paint, RectF rectF, int i, float f) {
-        float f2 = (f / 2.0f) + 0.3f;
-        RectF rectF2 = new RectF(rectF.left + f2, rectF.top + f2, rectF.right - f2, rectF.bottom - f2);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(f);
-        paint.setColor(TRACK);
-        canvas.drawArc(rectF2, 135.0f, 270.0f, false, paint);
-        if (i >= 0) {
-            paint.setColor(WHITE);
-            canvas.drawArc(rectF2, 135.0f, (percent(i) * 270.0f) / 100.0f, false, paint);
-        }
+    private static int clampPercent(int value) {
+        return Math.max(0, Math.min(100, value));
     }
 
-    private static RectF centered(float f, float f2, float f3) {
-        float f4 = f3 / 2.0f;
-        return new RectF(f - f4, f2 - f4, f + f4, f4 + f2);
-    }
-
-    private static int percent(int i) {
-        return Math.max(0, Math.min(100, i));
-    }
-
-    private static int clamp(int i, int i2, int i3, int i4) {
-        return i <= 0 ? i4 : Math.max(i2, Math.min(i3, i));
+    private static int clamp(int value, int min, int max, int fallback) {
+        return value <= 0 ? fallback : Math.max(min, Math.min(max, value));
     }
 }

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <dev.oneuiproject.oneui.preference.LayoutPreference
+        android:key="account_card"
+        android:layout="@layout/preference_account_card"
+        app:allowDividerAbove="false"
+        app:allowDividerBelow="false" />
+
+    <PreferenceCategory android:title="Appearance">
+        <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
+            android:key="app_theme"
+            app:entries="@array/preferences_darkmode_entries"
+            app:entriesImage="@array/preferences_darkmode_entries_image"
+            app:entryValues="@array/preferences_darkmode_values"
+            app:viewType="image" />
+        <SwitchPreferenceCompat
+            android:key="theme_system_ui"
+            android:title="System default" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Refresh">
+        <SwitchPreferenceCompat
+            android:key="refresh_on_launch"
+            android:title="Refresh on launch" />
+        <ListPreference
+            android:entries="@array/settings_refresh_entries"
+            android:entryValues="@array/settings_refresh_values"
+            android:key="refresh_interval_ui"
+            android:title="Refresh interval"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Notifications">
+        <SwitchPreferenceCompat
+            android:key="notifications_allowed_ui"
+            android:title="Allow notifications" />
+        <ListPreference
+            android:entries="@array/settings_metric_entries"
+            android:entryValues="@array/settings_metric_values"
+            android:key="notification_metric_ui"
+            android:title="Low usage alerts"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_threshold_entries"
+            android:entryValues="@array/settings_threshold_values"
+            android:key="notification_threshold_ui"
+            android:title="Low when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+        <Preference
+            android:key="notification_permission"
+            android:title="Notification permission"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="notification_test"
+            android:title="Send test notification"
+            android:summary="Verify alert delivery now"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="20dp" />
+
+    <Preference
+        android:key="about_codex_meter"
+        android:title="About Codex Meter"
+        app:iconSpaceReserved="false" />
+</PreferenceScreen>

@@ -14,7 +14,20 @@ public final class UsageFormat {
     }
 
     public static String planLabel(String str) {
-        return (str == null || str.trim().isEmpty()) ? "" : str.replace('_', ' ').toUpperCase(Locale.US);
+        if (str == null || str.trim().isEmpty()) {
+            return "";
+        }
+        String normalized = str.trim().toLowerCase(Locale.US).replace("_", "").replace("-", "");
+        switch (normalized) {
+            case "free": return "Free";
+            case "go": return "Go";
+            case "plus": return "Plus";
+            case "prolite":
+            case "pro5x": return "Pro 5x";
+            case "pro":
+            case "pro20x": return "Pro 20x";
+            default: return "";
+        }
     }
 
     public static String percent(UsageWindow usageWindow, String str, boolean z) {

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_setting_progress_color_control_normal">#6669696C</color>
+    <color name="widget_setting_seek_bar_thumb_background_tint">#1F1F22</color>
+    <color name="widget_setting_seek_bar_thumb_tint">#66A4FF</color>
+    <color name="widget_setting_seek_bar_tick_mark_solid_color">#77777A</color>
+    <color name="widget_config_divider">#3A3A3D</color>
+    <color name="oneui_bg">#010102</color>
+    <color name="oneui_card_bg">#17171A</color>
+    <color name="oneui_text_primary">#FFFFFF</color>
+    <color name="oneui_text_secondary">#A3A3A7</color>
+    <color name="oneui_divider">#3A3A3D</color>
+    <color name="about_gradient_start">#010102</color>
+    <color name="about_gradient_center">#242148</color>
+    <color name="about_gradient_end">#263A68</color>
+</resources>
