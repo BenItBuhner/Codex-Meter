@@ -31,11 +31,7 @@ public final class SettingsActivity extends AppCompatActivity {
         AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
         setContentView(R.layout.activity_settings);
         ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
-        toolbar.setTitle("Settings");
-        toolbar.setExpandable(false);
-        toolbar.setExpanded(false, false);
-        toolbar.setShowNavigationButtonAsBack(true);
-        Ui.configureSystemBars(this, toolbar, Ui.isDark(this));
+        Ui.configureReachToolbar(toolbar, "Settings", true);
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, new SettingsFragment())

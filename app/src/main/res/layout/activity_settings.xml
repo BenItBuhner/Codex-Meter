@@ -4,8 +4,8 @@
     android:id="@+id/settings_toolbar_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:expanded="false"
-    app:expandable="false"
+    app:expanded="true"
+    app:expandable="true"
     app:showNavButtonAsBack="true"
     app:title="Settings">
 
