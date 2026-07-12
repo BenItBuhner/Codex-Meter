@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_dark_88">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <FrameLayout
+            android:id="@+id/primary_section"
+            android:layout_width="match_parent"
+            android:layout_height="26dp">
+            <ProgressBar
+                android:id="@+id/primary_list_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="26dp"
+                android:indeterminateOnly="false"
+                android:max="100"
+                android:progress="76"
+                android:progressDrawable="@drawable/codex_samsung_list_progress" />
+            <ImageView
+                android:id="@+id/primary_list_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="10dp"
+                android:src="@drawable/ic_oui_time"
+                android:contentDescription="@string/five_hour" />
+            <TextView
+                android:id="@+id/primary_list_value"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="end"
+                android:layout_marginEnd="10dp"
+                android:fontFamily="sec"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="@string/widget_sample_primary_value"
+                android:textColor="#ff111315"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+            <TextView android:id="@+id/primary_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+            <TextView android:id="@+id/primary_reset" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/list_spacer_1"
+            android:layout_width="1dp"
+            android:layout_height="6dp" />
+
+        <FrameLayout
+            android:id="@+id/secondary_section"
+            android:layout_width="match_parent"
+            android:layout_height="26dp">
+            <ProgressBar
+                android:id="@+id/secondary_list_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="26dp"
+                android:indeterminateOnly="false"
+                android:max="100"
+                android:progress="75"
+                android:progressDrawable="@drawable/codex_samsung_list_progress" />
+            <ImageView
+                android:id="@+id/secondary_list_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="10dp"
+                android:src="@drawable/ic_oui_calendar_week"
+                android:contentDescription="@string/weekly" />
+            <TextView
+                android:id="@+id/secondary_list_value"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="end"
+                android:layout_marginEnd="10dp"
+                android:fontFamily="sec"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="@string/widget_sample_secondary_value"
+                android:textColor="#ff111315"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+            <TextView android:id="@+id/secondary_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+            <TextView android:id="@+id/secondary_reset" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/list_spacer_2"
+            android:layout_width="1dp"
+            android:layout_height="6dp" />
+
+        <FrameLayout
+            android:id="@+id/reset_time_section"
+            android:layout_width="match_parent"
+            android:layout_height="26dp">
+            <ProgressBar
+                android:id="@+id/reset_time_list_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="26dp"
+                android:indeterminateOnly="false"
+                android:max="100"
+                android:progress="45"
+                android:progressDrawable="@drawable/codex_samsung_list_progress" />
+            <ImageView
+                android:id="@+id/reset_time_list_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="10dp"
+                android:src="@drawable/ic_oui_alarm"
+                android:contentDescription="@string/widget_next_reset" />
+            <TextView
+                android:id="@+id/reset_time_list_value"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="end"
+                android:layout_marginEnd="10dp"
+                android:fontFamily="sec"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="@string/widget_sample_reset_time"
+                android:textColor="#ff111315"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/list_spacer_3"
+            android:layout_width="1dp"
+            android:layout_height="6dp" />
+
+        <FrameLayout
+            android:id="@+id/reset_count_section"
+            android:layout_width="match_parent"
+            android:layout_height="26dp">
+            <ProgressBar
+                android:id="@+id/reset_count_list_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="26dp"
+                android:indeterminateOnly="false"
+                android:max="4"
+                android:progress="2"
+                android:progressDrawable="@drawable/codex_samsung_list_progress" />
+            <ImageView
+                android:id="@+id/reset_count_list_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="10dp"
+                android:src="@drawable/ic_oui_refresh"
+                android:contentDescription="@string/widget_reset_credits" />
+            <TextView
+                android:id="@+id/reset_count_list_value"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="end"
+                android:layout_marginEnd="10dp"
+                android:fontFamily="sec"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="@string/widget_sample_reset_count"
+                android:textColor="#ff111315"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <TextView android:id="@+id/widget_title" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/plan_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+    <ImageView android:id="@+id/refresh_button" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" android:contentDescription="@null" />
+    <LinearLayout android:id="@+id/reset_credit_row" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp">
+        <TextView android:id="@+id/reset_credit_info" android:layout_width="0dp" android:layout_height="0dp" />
+        <TextView android:id="@+id/reset_credit_button" android:layout_width="0dp" android:layout_height="0dp" />
+    </LinearLayout>
+    <TextView android:id="@+id/updated_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+</FrameLayout>

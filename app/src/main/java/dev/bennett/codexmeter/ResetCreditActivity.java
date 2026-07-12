@@ -1,6 +1,5 @@
 package dev.bennett.codexmeter;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -14,9 +13,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import androidx.appcompat.app.AppCompatActivity;
 
 /* JADX INFO: loaded from: classes.dex */
-public final class ResetCreditActivity extends Activity {
+public final class ResetCreditActivity extends AppCompatActivity {
     private LinearLayout content;
     private boolean dark;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -27,16 +27,7 @@ public final class ResetCreditActivity extends Activity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         this.dark = Ui.isDark(this);
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(Ui.background(this, this.dark));
-        this.content = new LinearLayout(this);
-        this.content.setOrientation(1);
-        int iPageHorizontalPadding = Ui.pageHorizontalPadding(this);
-        this.content.setPadding(iPageHorizontalPadding, Ui.pageTopPadding(this), iPageHorizontalPadding, Ui.dp(this, 38.0f));
-        scrollView.addView(this.content, new FrameLayout.LayoutParams(-1, -2));
-        setContentView(scrollView);
-        Ui.configureSystemBars(this, scrollView, this.dark);
+        this.content = Ui.installPage(this, "Codex reset", true).content;
         rebuild();
         refreshDetailsIfNeeded();
     }
@@ -50,20 +41,6 @@ public final class ResetCreditActivity extends Activity {
     public void rebuild() {
         String str;
         this.content.removeAllViews();
-        LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);
-        Button buttonBackAction = Ui.backAction(this, this.dark);
-        buttonBackAction.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.1
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                ResetCreditActivity.this.finish();
-            }
-        });
-        linearLayoutHorizontal.addView(buttonBackAction, new LinearLayout.LayoutParams(Ui.dp(this, 48.0f), Ui.dp(this, 48.0f)));
-        TextView textViewTitle = Ui.title(this, "Codex reset", this.dark);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
-        layoutParams.setMargins(Ui.dp(this, 12.0f), 0, 0, 0);
-        linearLayoutHorizontal.addView(textViewTitle, layoutParams);
-        this.content.addView(linearLayoutHorizontal);
         this.content.addView(Ui.sectionTitle(this, "Available credits", this.dark));
         LinearLayout linearLayoutCard = Ui.card(this, this.dark);
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
@@ -144,12 +121,13 @@ public final class ResetCreditActivity extends Activity {
     }
 
     public void confirmUse() {
-        new AlertDialog.Builder(this).setTitle("Use one Codex reset?").setMessage("This action consumes one available reset credit and cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one Codex reset?").setMessage("This action consumes one available reset credit and cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 ResetCreditActivity.this.consume();
             }
-        }).show();
+        }).create();
+        dialog.show();
     }
 
     public void consume() {

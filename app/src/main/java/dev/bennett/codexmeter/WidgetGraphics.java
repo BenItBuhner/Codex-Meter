@@ -1,11 +1,13 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class WidgetGraphics {
@@ -17,48 +19,65 @@ public final class WidgetGraphics {
     }
 
     public static Bitmap ring(int i, int i2, int i3, int i4, String str, float f) {
-        float fClampScale = clampScale(f);
-        int iRound = Math.round(220.0f * fClampScale);
-        Bitmap bitmapCreateBitmap = Bitmap.createBitmap(iRound, iRound, Bitmap.Config.ARGB_8888);
+        return batteryDial(null, i, 0, i2, i3, i4, f);
+    }
+
+    public static Bitmap batteryDial(Context context, int value, int iconRes, int progressColor,
+            int trackColor, int textColor, float scale) {
+        return compactDial(context, value, iconRes, progressColor, trackColor, textColor,
+                value < 0 ? "—" : Integer.toString(clamp(value)), scale);
+    }
+
+    public static Bitmap compactDial(Context context, int value, int iconRes, int progressColor,
+            int trackColor, int textColor, String valueText, float scale) {
+        float fClampScale = clampScale(scale);
+        // Match the established 56x56 One UI dial geometry once fit into a 58dp row.
+        // Keeping this canvas tight prevents four-column widgets from scaling the arc down
+        // merely to accommodate unused horizontal bitmap padding.
+        int width = Math.round(150.0f * fClampScale);
+        int height = Math.round(132.0f * fClampScale);
+        Bitmap bitmapCreateBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         bitmapCreateBitmap.setDensity(160);
         Canvas canvas = new Canvas(bitmapCreateBitmap);
         Paint paint = new Paint(1);
-        float f2 = 20.0f * fClampScale;
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setStrokeWidth(18.0f * fClampScale);
-        RectF rectF = new RectF(f2, f2, iRound - f2, iRound - f2);
-        paint.setColor(i3);
-        canvas.drawArc(rectF, -90.0f, 360.0f, false, paint);
-        if (i >= 0) {
-            paint.setColor(i2);
-            float fClamp = (360.0f * clamp(i)) / 100.0f;
-            canvas.drawArc(rectF, -90.0f, fClamp, false, paint);
-            if (fClamp > 1.0f) {
-                double radians = Math.toRadians((-90.0f) + fClamp);
-                float fWidth = rectF.width() / 2.0f;
-                float fCenterX = rectF.centerX() + (((float) Math.cos(radians)) * fWidth);
-                float fCenterY = rectF.centerY() + (((float) Math.sin(radians)) * fWidth);
-                paint.setStyle(Paint.Style.FILL);
-                canvas.drawCircle(fCenterX, fCenterY, 8.5f * fClampScale, paint);
-                paint.setColor(withAlpha(i4, 0.22f));
-                canvas.drawCircle(fCenterX, fCenterY, 4.0f * fClampScale, paint);
+        paint.setStrokeWidth(17.0f * fClampScale);
+        float cx = width / 2.0f;
+        float cy = 64.0f * fClampScale;
+        float radius = 56.0f * fClampScale;
+        RectF rectF = new RectF(cx - radius, cy - radius, cx + radius, cy + radius);
+        paint.setColor(trackColor);
+        // One UI's dial leaves a wider opening at the bottom (roughly 228 degrees),
+        // rather than curling the arc ends inward like a 270-degree gauge.
+        final float arcStart = 156.0f;
+        final float arcSweep = 228.0f;
+        canvas.drawArc(rectF, arcStart, arcSweep, false, paint);
+        if (value >= 0) {
+            paint.setColor(progressColor);
+            canvas.drawArc(rectF, arcStart, (arcSweep * clamp(value)) / 100.0f,
+                    false, paint);
+        }
+
+        if (context != null && iconRes != 0) {
+            Drawable icon = context.getDrawable(iconRes);
+            if (icon != null) {
+                int iconSize = Math.round(52.0f * fClampScale);
+                int left = Math.round(cx - (iconSize / 2.0f));
+                int top = Math.round(cy - (iconSize / 2.0f));
+                icon.setBounds(left, top, left + iconSize, top + iconSize);
+                icon.setTint(textColor);
+                icon.draw(canvas);
             }
         }
+
         paint.setStyle(Paint.Style.FILL);
-        paint.setTypeface(Typeface.create("sans-serif", 1));
+        paint.setTypeface(Typeface.create("sec", 1));
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setColor(i4);
-        paint.setTextSize(48.0f * fClampScale);
-        Paint.FontMetrics fontMetrics = paint.getFontMetrics();
-        canvas.drawText(i < 0 ? "—" : clamp(i) + "%", iRound / 2.0f, ((iRound / 2.0f) - ((fontMetrics.ascent + fontMetrics.descent) / 2.0f)) - (8.0f * fClampScale), paint);
-        paint.setTypeface(Typeface.create("sans-serif-medium", 0));
-        paint.setTextSize(20.0f * fClampScale);
-        paint.setColor(withAlpha(i4, 0.68f));
-        if (str == null) {
-            str = "";
-        }
-        canvas.drawText(str, iRound / 2.0f, (iRound / 2.0f) + (42.0f * fClampScale), paint);
+        paint.setColor(textColor);
+        paint.setTextSize((valueText != null && valueText.length() > 5 ? 24.0f : 33.0f)
+                * fClampScale);
+        canvas.drawText(valueText == null ? "—" : valueText, cx, 121.0f * fClampScale, paint);
         return bitmapCreateBitmap;
     }
 
@@ -108,9 +127,16 @@ public final class WidgetGraphics {
         return bitmapCreateBitmap;
     }
 
+    public static int accentColor(Context context, String str, boolean z) {
+        if (WidgetOptions.ACCENT_APP.equals(str)) {
+            return Ui.accent(context, z);
+        }
+        return accentColor(str, z);
+    }
+
     public static int accentColor(String str, boolean z) {
         if (WidgetOptions.ACCENT_BLUE.equals(str)) {
-            return Color.rgb(91, 167, 255);
+            return z ? Color.rgb(92, 169, 255) : Color.rgb(3, 129, 254);
         }
         if (WidgetOptions.ACCENT_AMBER.equals(str)) {
             return Color.rgb(244, 185, 95);

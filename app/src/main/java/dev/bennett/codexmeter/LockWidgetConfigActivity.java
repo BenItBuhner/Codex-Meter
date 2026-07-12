@@ -1,23 +1,26 @@
 package dev.bennett.codexmeter;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
+import android.widget.AdapterView;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
-public final class LockWidgetConfigActivity extends Activity {
+public final class LockWidgetConfigActivity extends AppCompatActivity {
     private int appWidgetId = 0;
     private boolean dark;
     private Spinner metricSpinner;
+    private ImageView preview;
     private CheckBox showCountdown;
     private CheckBox showResetAction;
     private CheckBox showResetCredits;
@@ -37,78 +40,90 @@ public final class LockWidgetConfigActivity extends Activity {
         }
     }
 
+    @Override
+    public boolean onSupportNavigateUp() {
+        finish();
+        return true;
+    }
+
     private void build() {
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(Ui.background(this, this.dark));
-        LinearLayout linearLayout = new LinearLayout(this);
-        linearLayout.setOrientation(1);
-        int iPageHorizontalPadding = Ui.pageHorizontalPadding(this);
-        linearLayout.setPadding(iPageHorizontalPadding, Ui.pageTopPadding(this), iPageHorizontalPadding, Ui.dp(this, 38.0f));
-        scrollView.addView(linearLayout, new FrameLayout.LayoutParams(-1, -2));
-        setContentView(scrollView);
-        Ui.configureSystemBars(this, scrollView, this.dark);
-        LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);
-        Button buttonBackAction = Ui.backAction(this, this.dark);
-        buttonBackAction.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.LockWidgetConfigActivity.1
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                LockWidgetConfigActivity.this.finish();
-            }
-        });
-        linearLayoutHorizontal.addView(buttonBackAction, new LinearLayout.LayoutParams(Ui.dp(this, 48.0f), Ui.dp(this, 48.0f)));
-        TextView textViewTitle = Ui.title(this, "Lock-screen widget", this.dark);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
-        layoutParams.setMargins(Ui.dp(this, 12.0f), 0, 0, 0);
-        linearLayoutHorizontal.addView(textViewTitle, layoutParams);
-        linearLayout.addView(linearLayoutHorizontal);
-        View viewText = Ui.text(this, "The visual style and square or wide size come from the lock-screen picker. These options control which allowance is shown and whether the tile exposes reset-credit status.", 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams2.setMargins(0, Ui.dp(this, 8.0f), 0, 0);
-        linearLayout.addView(viewText, layoutParams2);
-        linearLayout.addView(Ui.sectionTitle(this, "Contents", this.dark));
-        LinearLayout linearLayoutCard = Ui.card(this, this.dark);
+        Ui.ConfigPage page = Ui.installConfigPage(this, "Lock-screen widget");
+        LinearLayout linearLayout = page.content;
+        page.preview.setBackgroundColor(Ui.controlSurface(this, this.dark));
+        this.preview = new ImageView(this);
+        this.preview.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        this.preview.setPadding(Ui.dp(this, 28.0f), Ui.dp(this, 28.0f), Ui.dp(this, 28.0f), Ui.dp(this, 28.0f));
+        page.preview.addView(this.preview, new FrameLayout.LayoutParams(-1, -1));
+
+        linearLayout.addView(Ui.separator(this, "Content"));
+        RoundedLinearLayout contentCard = Ui.seslCard(this, this.dark);
         LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions = AppPreferences.loadLockWidgetOptions(this, this.appWidgetId);
         this.metricSpinner = Ui.spinner(this, WidgetOptionCatalog.METRIC_LABELS, this.dark);
-        SettingsActivity.selectString(this.metricSpinner, WidgetOptionCatalog.METRIC_VALUES, lockWidgetOptionsLoadLockWidgetOptions.metricMode);
-        Ui.addLabeledSpinner(linearLayoutCard, "Usage windows", this.metricSpinner, this.dark);
+        WidgetOptionCatalog.selectString(this.metricSpinner, WidgetOptionCatalog.METRIC_VALUES, lockWidgetOptionsLoadLockWidgetOptions.metricMode);
+        Ui.addLabeledSpinner(contentCard, "Usage windows", this.metricSpinner, this.dark);
         this.showCountdown = Ui.checkbox(this, "Show live time until reset", lockWidgetOptionsLoadLockWidgetOptions.showCountdown, this.dark);
         this.showResetCredits = Ui.checkbox(this, "Show reset-credit count", lockWidgetOptionsLoadLockWidgetOptions.showResetCredits, this.dark);
         this.showResetAction = Ui.checkbox(this, "Tap tile to open Use reset confirmation", lockWidgetOptionsLoadLockWidgetOptions.showResetAction, this.dark);
-        linearLayoutCard.addView(this.showCountdown);
-        linearLayoutCard.addView(this.showResetCredits);
-        linearLayoutCard.addView(this.showResetAction);
+        contentCard.addView(this.showCountdown);
+        contentCard.addView(this.showResetCredits);
+        contentCard.addView(this.showResetAction);
         TextView textViewText = Ui.text(this, "A reset is never consumed directly from the lock screen. The tile opens a confirmation screen first.", 12.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams3 = new LinearLayout.LayoutParams(-1, -2);
         layoutParams3.setMargins(0, Ui.dp(this, 12.0f), 0, 0);
-        linearLayoutCard.addView(textViewText, layoutParams3);
-        linearLayout.addView(linearLayoutCard);
-        LinearLayout linearLayoutHorizontal2 = Ui.horizontal(this, 16);
-        Button button = Ui.button(this, "Cancel", false, this.dark);
-        button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.LockWidgetConfigActivity.2
+        contentCard.addView(textViewText, layoutParams3);
+        linearLayout.addView(contentCard);
+
+        AdapterView.OnItemSelectedListener previewSelectionListener = new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                LockWidgetConfigActivity.this.updatePreview();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        };
+        this.metricSpinner.setOnItemSelectedListener(previewSelectionListener);
+        CompoundButton.OnCheckedChangeListener previewCheckListener = new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                LockWidgetConfigActivity.this.updatePreview();
+            }
+        };
+        this.showCountdown.setOnCheckedChangeListener(previewCheckListener);
+        this.showResetCredits.setOnCheckedChangeListener(previewCheckListener);
+        this.showResetAction.setOnCheckedChangeListener(previewCheckListener);
+
+        page.cancel.setOnClickListener(new View.OnClickListener() {
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
                 LockWidgetConfigActivity.this.finish();
             }
         });
-        linearLayoutHorizontal2.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 54.0f), 1.0f));
-        Button button2 = Ui.button(this, "Save tile", true, this.dark);
-        LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(0, Ui.dp(this, 54.0f), 1.0f);
-        layoutParams4.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
-        linearLayoutHorizontal2.addView(button2, layoutParams4);
-        button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.LockWidgetConfigActivity.3
+        page.save.setOnClickListener(new View.OnClickListener() {
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
                 LockWidgetConfigActivity.this.save();
             }
         });
-        LinearLayout.LayoutParams layoutParams5 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams5.setMargins(0, Ui.dp(this, 24.0f), 0, 0);
-        linearLayout.addView(linearLayoutHorizontal2, layoutParams5);
+        updatePreview();
+    }
+
+    private LockWidgetOptions currentOptions() {
+        return new LockWidgetOptions(WidgetOptionCatalog.METRIC_VALUES[this.metricSpinner.getSelectedItemPosition()], this.showResetCredits.isChecked(), this.showResetAction.isChecked(), this.showCountdown.isChecked());
+    }
+
+    private void updatePreview() {
+        if (this.preview == null || this.metricSpinner == null || this.showCountdown == null) {
+            return;
+        }
+        this.preview.setImageBitmap(SamsungLockGraphics.render(this,
+                SamsungLockWidgetSupport.Shape.WIDE, SamsungLockWidgetSupport.Style.DIALS,
+                73, 44, true, 180, 82, currentOptions(), 2));
     }
 
     public void save() {
-        AppPreferences.saveLockWidgetOptions(this, this.appWidgetId, new LockWidgetOptions(WidgetOptionCatalog.METRIC_VALUES[this.metricSpinner.getSelectedItemPosition()], this.showResetCredits.isChecked(), this.showResetAction.isChecked(), this.showCountdown.isChecked()));
+        AppPreferences.saveLockWidgetOptions(this, this.appWidgetId, currentOptions());
         SamsungLockWidgetSupport.updateById(this, this.appWidgetId);
         setResult(-1, new Intent().putExtra("appWidgetId", this.appWidgetId));
         Toast.makeText(this, "Lock-screen widget updated.", 0).show();

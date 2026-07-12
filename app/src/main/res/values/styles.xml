@@ -1,25 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <style name="AppTheme" parent="OneUITheme">
+        <item name="colorPrimary">#387aff</item>
+        <item name="android:fontFamily">sec</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#16a879</item>
-        <item name="android:statusBarColor">#f6f7f8</item>
-        <item name="android:navigationBarColor">#f6f7f8</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/oui_des_round_and_bgcolor</item>
+        <item name="android:navigationBarColor">@color/oui_des_round_and_bgcolor</item>
+        <item name="android:statusBarColor">@color/oui_des_round_and_bgcolor</item>
     </style>
-    <style name="AppThemeDark" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#42d6a4</item>
-        <item name="android:statusBarColor">#0e1012</item>
-        <item name="android:navigationBarColor">#0e1012</item>
-        <item name="android:windowLightStatusBar">false</item>
-    </style>
-    <style name="AppThemeLight" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#16a879</item>
-        <item name="android:statusBarColor">#f6f7f8</item>
-        <item name="android:navigationBarColor">#f6f7f8</item>
-        <item name="android:windowLightStatusBar">true</item>
-    </style>
+
+    <style name="AppThemeDark" parent="AppTheme" />
+    <style name="AppThemeLight" parent="AppTheme" />
 </resources>

@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="widget_config_cancel">Cancel</string>
+    <string name="widget_config_save">Save</string>
+    <string name="widget_opacity">Opacity</string>
+    <string name="widget_next_reset">Time remaining until the next usage reset</string>
+    <string name="widget_reset_credits">Available Codex reset credits</string>
+    <string name="widget_sample_reset_time">2h 14m</string>
+    <string name="widget_sample_reset_count">2</string>
     <string name="app_name">Codex Meter</string>
     <string name="five_hour">5-hour</string>
     <string name="lock_widget_bars_square_description">Compact horizontal Codex allowance bars for supported Samsung lock screens</string>
@@ -10,6 +17,8 @@
     <string name="lock_widget_dials_square_name">Codex · Gauges · Square</string>
     <string name="lock_widget_dials_wide_description">Two Codex allowance gauges for supported Samsung lock screens</string>
     <string name="lock_widget_dials_wide_name">Codex · Gauges · Wide</string>
+    <string name="lock_widget_five_hour_description">Five-hour Codex allowance gauge for Samsung lock screens and AOD</string>
+    <string name="lock_widget_five_hour_name">Codex · 5-hour</string>
     <string name="lock_widget_graphic_preview_description">Codex usage preview</string>
     <string name="lock_widget_rings_square_description">Compact circular Codex allowance rings for supported Samsung lock screens</string>
     <string name="lock_widget_rings_square_name">Codex · Rings · Square</string>
@@ -21,6 +30,8 @@
     <string name="lock_widget_wide_description">Wide numeric five-hour and weekly Codex allowance for supported Samsung lock screens</string>
     <string name="lock_widget_wide_name">Codex · Numbers · Wide</string>
     <string name="lock_widget_wide_preview">5H — · W —</string>
+    <string name="lock_widget_weekly_description">Weekly Codex allowance gauge for Samsung lock screens and AOD</string>
+    <string name="lock_widget_weekly_name">Codex · Weekly</string>
     <string name="oauth_channel_description">Shown only while completing browser sign-in</string>
     <string name="oauth_channel_name">ChatGPT sign-in</string>
     <string name="refresh">Refresh</string>
@@ -33,11 +44,28 @@
     <string name="widget_sample_plan">PLUS</string>
     <string name="widget_sample_primary_percent">73% left</string>
     <string name="widget_sample_primary_percent_short">73%</string>
+    <string name="widget_sample_primary_value">76%</string>
     <string name="widget_sample_primary_reset">Resets today at 3:42 PM</string>
     <string name="widget_sample_secondary_percent">44% left</string>
     <string name="widget_sample_secondary_percent_short">44%</string>
+    <string name="widget_sample_secondary_value">75%</string>
     <string name="widget_sample_secondary_reset">Resets Monday at 11:00 AM</string>
     <string name="widget_sample_updated">Updated just now</string>
     <string name="widget_sample_week_short">Week</string>
     <string name="widget_title">CODEX</string>
+    <string name="about_summary">Your Codex allowance, without having to go looking for it.</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_made_by">Made by</string>
+    <string name="about_original_creator">Original creator</string>
+    <string name="about_projects">Open source projects</string>
+    <string name="about_legal">Legal</string>
+    <string name="about_tjg_title">TJG</string>
+    <string name="about_tjg_summary">Design, development and maintenance. Far too much caffeine consumed in the process.</string>
+    <string name="about_benit_title">BenIt Buhner</string>
+    <string name="about_benit_summary">Created the original Codex Meter app.</string>
+    <string name="about_oneui_title">One UI Design Library</string>
+    <string name="about_oneui_summary">The SESL and One UI components behind the app’s interface.</string>
+    <string name="about_privacy_title">Privacy and security</string>
+    <string name="about_privacy_summary">Tokens stay encrypted on this device. Codex Meter contains no analytics SDK and is not affiliated with OpenAI.</string>
+    <string name="account_avatar">Account avatar</string>
 </resources>

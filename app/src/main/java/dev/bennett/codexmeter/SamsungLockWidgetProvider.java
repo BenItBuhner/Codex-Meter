@@ -12,17 +12,21 @@ abstract class SamsungLockWidgetProvider extends AppWidgetProvider {
 
     protected abstract SamsungLockWidgetSupport.Style style();
 
+    protected SamsungLockWidgetSupport.Metric metric() {
+        return SamsungLockWidgetSupport.Metric.BOTH;
+    }
+
     SamsungLockWidgetProvider() {
     }
 
     @Override // android.appwidget.AppWidgetProvider
     public final void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] iArr) {
-        SamsungLockWidgetSupport.updateIds(context, appWidgetManager, iArr, shape(), style());
+        SamsungLockWidgetSupport.updateIds(context, appWidgetManager, iArr, shape(), style(), metric());
     }
 
     @Override // android.appwidget.AppWidgetProvider
     public final void onAppWidgetOptionsChanged(Context context, AppWidgetManager appWidgetManager, int i, Bundle bundle) {
-        SamsungLockWidgetSupport.update(context, appWidgetManager, i, shape(), style());
+        SamsungLockWidgetSupport.update(context, appWidgetManager, i, shape(), style(), metric());
     }
 
     @Override // android.appwidget.AppWidgetProvider
@@ -34,7 +38,7 @@ abstract class SamsungLockWidgetProvider extends AppWidgetProvider {
                 AppPreferences.deleteLockWidgetOptions(context, iArr[i]);
             }
         }
-        SamsungLockWidgetSupport.updateIds(context, AppWidgetManager.getInstance(context), iArr2, shape(), style());
+        SamsungLockWidgetSupport.updateIds(context, AppWidgetManager.getInstance(context), iArr2, shape(), style(), metric());
     }
 
     @Override // android.appwidget.AppWidgetProvider

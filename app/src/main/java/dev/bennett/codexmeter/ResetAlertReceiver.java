@@ -47,7 +47,7 @@ public final class ResetAlertReceiver extends BroadcastReceiver {
             String strCreateChannel = createChannel(notificationManager, ResetAlertPreferences.getStyle(context));
             boolean zEquals = "weekly".equals(str);
             String str2 = zEquals ? "Weekly" : "5-hour";
-            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_reset_notification).setContentTitle("Codex " + str2 + " usage reset").setContentText("Your " + str2 + " allowance should be available again. Refreshing usage now.").setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class<?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory("reminder").setVisibility(0).setShowWhen(true).build());
+            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_oui_alarm).setContentTitle("Codex " + str2 + " usage reset").setContentText("Your " + str2 + " allowance should be available again. Refreshing usage now.").setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class<?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory("reminder").setVisibility(0).setShowWhen(true).build());
         }
     }
 

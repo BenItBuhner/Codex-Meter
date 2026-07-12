@@ -2,9 +2,9 @@
 
 Codex Meter is an unofficial native Android application and widget for viewing the Codex allowance attached to a signed-in ChatGPT account. It displays the rolling five-hour and weekly limits, reset times, reset credits, home-screen widgets, Samsung One UI lock-screen widgets, and optional reset notifications.
 
-## Version 1.7.0
+## Version 2.0.0
 
-Version 1.7 adds locally updating reset countdowns and threshold-based reset alerts without increasing the frequency of requests to OpenAI.
+Version 2.0 introduces a Samsung One UI-native dashboard and settings experience, responsive home-screen widget layouts, dedicated five-hour and weekly lock-screen widgets, and a reproducible Gradle build. It retains the local reset countdowns and threshold-based alerts introduced in 1.7.
 
 ### Live countdowns
 
@@ -18,12 +18,12 @@ Users can choose silent, notification-sound, or alarm-sound alerts for the five-
 
 The app includes:
 
-- Adaptive home-screen widgets with bars, minimal layouts, rings, and gauges.
+- Responsive home-screen widgets with ring, four-dial, and battery-list layouts selected for the available size.
 - Both-window, five-hour-only, and weekly-only configurations.
 - Optional reset-credit inventory, expiration, and redemption controls.
 - Transparent through opaque backgrounds.
-- Material expressive and One UI presentation modes.
-- Samsung lock/AOD providers for Numbers, Rings, Gauges, and Bars in square and wide sizes.
+- Samsung One UI presentation throughout the dashboard, settings, and widget configuration surfaces.
+- Samsung lock/AOD providers for both usage windows together or dedicated five-hour and weekly views.
 - High-resolution supersampled lock-screen geometry with native Android text overlays.
 - Optional live time-to-reset labels on supported lock-screen hosts.
 
@@ -45,7 +45,7 @@ The app includes:
 
 ## Build from source
 
-The project deliberately avoids Gradle and third-party Android runtime libraries. The included build script invokes Android SDK tools directly.
+The project uses Gradle with the OneUI-Design and oneui-icons libraries so its dashboards use Samsung-style SESL components, typography, and iconography.
 
 Requirements:
 
@@ -53,23 +53,14 @@ Requirements:
 - Android SDK Platform 36
 - Android Build Tools 36.x
 - `ANDROID_SDK_ROOT` or `ANDROID_HOME` configured
+- A GitHub Packages token in `GH_ACCESS_TOKEN` (with `read:packages`) and your username in `GH_USERNAME` when the OneUI-Design dependencies are not already cached
 
 ```bash
 ./run-tests.sh
 ./build.sh
 ```
 
-`build.sh` compiles resources with `aapt2`, compiles Java, runs D8, assembles an aligned APK, and signs it. Unless signing environment variables are supplied, it creates a local development key under `.local-signing/`. That locally signed APK will not install over the distributed release build.
-
-To use an existing signing key, provide:
-
-```bash
-export CODEX_METER_KEYSTORE=/path/to/codex-meter.jks
-export CODEX_METER_KEY_ALIAS=codexmeter
-export CODEX_METER_STORE_PASS='...'
-export CODEX_METER_KEY_PASS='...'
-./build.sh
-```
+`build.sh` assembles the release APK with Gradle and signs it with a local development key under `.local-signing/`. That locally signed APK will not install over the distributed release build.
 
 ## Source provenance for this archive
 

@@ -9,13 +9,18 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.SizeF;
+import android.view.View;
 import android.widget.RemoteViews;
 import java.util.ArrayList;
 import java.util.List;
 
 /* JADX INFO: loaded from: classes.dex */
 final class SamsungLockWidgetSupport {
-    private static final ProviderSpec[] PROVIDERS = {new ProviderSpec(SamsungLockWideWidget.class, Shape.WIDE, Style.NUMBERS), new ProviderSpec(SamsungLockSquareWidget.class, Shape.SQUARE, Style.NUMBERS), new ProviderSpec(SamsungLockRingsWideWidget.class, Shape.WIDE, Style.RINGS), new ProviderSpec(SamsungLockRingsSquareWidget.class, Shape.SQUARE, Style.RINGS), new ProviderSpec(SamsungLockDialsWideWidget.class, Shape.WIDE, Style.DIALS), new ProviderSpec(SamsungLockDialsSquareWidget.class, Shape.SQUARE, Style.DIALS), new ProviderSpec(SamsungLockBarsWideWidget.class, Shape.WIDE, Style.BARS), new ProviderSpec(SamsungLockBarsSquareWidget.class, Shape.SQUARE, Style.BARS)};
+    private static final ProviderSpec[] PROVIDERS = {
+            new ProviderSpec(SamsungLockDialsWideWidget.class, Shape.WIDE, Style.DIALS, Metric.BOTH),
+            new ProviderSpec(SamsungLockFiveHourWidget.class, Shape.SQUARE, Style.DIALS, Metric.FIVE_HOUR),
+            new ProviderSpec(SamsungLockWeeklyWidget.class, Shape.SQUARE, Style.DIALS, Metric.WEEKLY)
+    };
 
     enum Shape {
         WIDE,
@@ -29,18 +34,32 @@ final class SamsungLockWidgetSupport {
         BARS
     }
 
+    enum Metric {
+        BOTH,
+        FIVE_HOUR,
+        WEEKLY
+    }
+
     static final class LockInstance {
         final int appWidgetId;
         final Shape shape;
         final Style style;
+        final Metric metric;
 
-        LockInstance(int i, Shape shape, Style style) {
+        LockInstance(int i, Shape shape, Style style, Metric metric) {
             this.appWidgetId = i;
             this.shape = shape;
             this.style = style;
+            this.metric = metric;
         }
 
         String label() {
+            if (this.metric == Metric.FIVE_HOUR) {
+                return "5-hour · Tiny";
+            }
+            if (this.metric == Metric.WEEKLY) {
+                return "Weekly · Tiny";
+            }
             return SamsungLockWidgetSupport.styleLabel(this.style) + " · " + (this.shape == Shape.SQUARE ? "Square" : "Wide");
         }
     }
@@ -49,11 +68,13 @@ final class SamsungLockWidgetSupport {
         final Class<?> provider;
         final Shape shape;
         final Style style;
+        final Metric metric;
 
-        ProviderSpec(Class<?> cls, Shape shape, Style style) {
+        ProviderSpec(Class<?> cls, Shape shape, Style style, Metric metric) {
             this.provider = cls;
             this.shape = shape;
             this.style = style;
+            this.metric = metric;
         }
     }
 
@@ -65,7 +86,7 @@ final class SamsungLockWidgetSupport {
             Context contextApplication = application(context);
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(contextApplication);
             for (ProviderSpec providerSpec : PROVIDERS) {
-                updateComponent(contextApplication, appWidgetManager, providerSpec.provider, providerSpec.shape, providerSpec.style);
+                updateComponent(contextApplication, appWidgetManager, providerSpec.provider, providerSpec.shape, providerSpec.style, providerSpec.metric);
             }
         }
     }
@@ -75,7 +96,7 @@ final class SamsungLockWidgetSupport {
         AppWidgetManager appWidgetManager;
         ProviderSpec providerSpecFindSpec;
         if (context != null && i != 0 && (providerSpecFindSpec = findSpec((appWidgetManager = AppWidgetManager.getInstance((contextApplication = application(context)))), contextApplication, i)) != null) {
-            update(contextApplication, appWidgetManager, i, providerSpecFindSpec.shape, providerSpecFindSpec.style);
+            update(contextApplication, appWidgetManager, i, providerSpecFindSpec.shape, providerSpecFindSpec.style, providerSpecFindSpec.metric);
         }
     }
 
@@ -91,7 +112,7 @@ final class SamsungLockWidgetSupport {
             for (ProviderSpec providerSpec : PROVIDERS) {
                 try {
                     for (int i : appWidgetManager.getAppWidgetIds(new ComponentName(contextApplication, providerSpec.provider))) {
-                        arrayList.add(new LockInstance(i, providerSpec.shape, providerSpec.style));
+                        arrayList.add(new LockInstance(i, providerSpec.shape, providerSpec.style, providerSpec.metric));
                     }
                 } catch (RuntimeException e) {
                     Log.w("CodexMeterLock", "Unable to enumerate lock widgets", e);
@@ -102,17 +123,25 @@ final class SamsungLockWidgetSupport {
     }
 
     static void updateIds(Context context, AppWidgetManager appWidgetManager, int[] iArr, Shape shape, Style style) {
+        updateIds(context, appWidgetManager, iArr, shape, style, Metric.BOTH);
+    }
+
+    static void updateIds(Context context, AppWidgetManager appWidgetManager, int[] iArr, Shape shape, Style style, Metric metric) {
         if (context != null && appWidgetManager != null && iArr != null) {
             for (int i : iArr) {
-                update(context, appWidgetManager, i, shape, style);
+                update(context, appWidgetManager, i, shape, style, metric);
             }
         }
     }
 
     static void update(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style) {
+        update(context, appWidgetManager, i, shape, style, Metric.BOTH);
+    }
+
+    static void update(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
         if (context != null && appWidgetManager != null && i != 0) {
             try {
-                appWidgetManager.updateAppWidget(i, buildViews(context, appWidgetManager, i, shape, style));
+                appWidgetManager.updateAppWidget(i, buildViews(context, appWidgetManager, i, shape, style, metric));
             } catch (RuntimeException e) {
                 Log.w("CodexMeterLock", "Samsung lock widget update failed", e);
             }
@@ -120,10 +149,14 @@ final class SamsungLockWidgetSupport {
     }
 
     static RemoteViews buildViews(Context context, Shape shape, Style style) {
-        return buildViews(context, null, 0, shape, style);
+        return buildViews(context, null, 0, shape, style, Metric.BOTH);
     }
 
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style) {
+        return buildViews(context, appWidgetManager, i, shape, style, Metric.BOTH);
+    }
+
+    static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
         RemoteViews remoteViewsBuildArcViews;
         int i2;
         boolean zIsSignedIn = SecureTokenStore.isSignedIn(context);
@@ -133,16 +166,22 @@ final class SamsungLockWidgetSupport {
         LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions = AppPreferences.loadLockWidgetOptions(context, i);
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(context);
         int i3 = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
-        if (style == Style.NUMBERS) {
-            remoteViewsBuildArcViews = buildNumberViews(context, shape, zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = shape == Shape.SQUARE ? R.id.lock_square_root : R.id.lock_wide_root;
-        } else if (style == Style.BARS) {
-            remoteViewsBuildArcViews = buildNativeBarViews(context, shape, zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = R.id.lock_graphic_root;
-        } else {
-            remoteViewsBuildArcViews = buildArcViews(context, appWidgetManager, i, shape, style, zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = R.id.lock_graphic_root;
+        if (metric != Metric.BOTH) {
+            int value = metric == Metric.FIVE_HOUR ? iRemaining : iRemaining2;
+            int[] size = grantedSize(appWidgetManager, i, Shape.SQUARE);
+            RemoteViews single = new RemoteViews(context.getPackageName(), R.layout.widget_lock_dial_single);
+            single.setImageViewBitmap(R.id.lock_graphic_image,
+                    SamsungLockGraphics.renderSingle(context, metric, value, zIsSignedIn, size[0], size[1]));
+            String metricName = metric == Metric.FIVE_HOUR ? "five hour" : "weekly";
+            single.setContentDescription(R.id.lock_graphic_root, zIsSignedIn
+                    ? "Codex " + metricName + " " + value(value) + " remaining"
+                    : "Codex Meter, sign in required");
+            applyOpenIntent(context, single, R.id.lock_graphic_root, i, shape, style,
+                    lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
+            return single;
         }
+        remoteViewsBuildArcViews = buildArcViews(context, appWidgetManager, i, shape, Style.DIALS, zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
+        i2 = R.id.lock_graphic_root;
         applyCountdowns(remoteViewsBuildArcViews, shape, style, lockWidgetOptionsLoadLockWidgetOptions, usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.fiveHour, usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.weekly);
         remoteViewsBuildArcViews.setContentDescription(i2, contentDescription(zIsSignedIn, iRemaining, iRemaining2, style, lockWidgetOptionsLoadLockWidgetOptions, i3));
         applyOpenIntent(context, remoteViewsBuildArcViews, i2, i, shape, style, lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
@@ -165,20 +204,20 @@ final class SamsungLockWidgetSupport {
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), shape == Shape.SQUARE ? R.layout.widget_lock_bars_square : R.layout.widget_lock_bars_wide);
         boolean z2 = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
         if (!z) {
-            remoteViews.setViewVisibility(R.id.lock_bar_primary_group, 0);
-            remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, 8);
+            remoteViews.setViewVisibility(R.id.lock_bar_primary_group, View.VISIBLE);
+            remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, View.GONE);
             remoteViews.setTextViewText(R.id.lock_bar_primary_label, "");
             remoteViews.setTextViewText(R.id.lock_bar_primary_value, "SIGN IN");
             remoteViews.setTextViewTextSize(R.id.lock_bar_primary_value, 2, shape == Shape.SQUARE ? 10.0f : 12.0f);
-            remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, 8);
+            remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, View.GONE);
             return remoteViews;
         }
         boolean zShowsFiveHour = lockWidgetOptions.showsFiveHour();
         boolean zShowsWeekly = lockWidgetOptions.showsWeekly();
-        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, zShowsFiveHour ? 0 : 8);
-        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, zShowsWeekly ? 0 : 8);
-        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, zShowsFiveHour ? 0 : 8);
-        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, zShowsWeekly ? 0 : 8);
+        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, zShowsFiveHour ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, zShowsWeekly ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, zShowsFiveHour ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, zShowsWeekly ? View.VISIBLE : View.GONE);
         boolean z3 = z2 && zShowsFiveHour;
         boolean z4 = z2 && !zShowsFiveHour && zShowsWeekly;
         remoteViews.setTextViewText(R.id.lock_bar_primary_label, labelWithReset("5H", z3, i3));
@@ -207,8 +246,37 @@ final class SamsungLockWidgetSupport {
     private static RemoteViews buildArcViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, boolean z, int i2, int i3, LockWidgetOptions lockWidgetOptions, int i4) {
         String strSquareGraphicText;
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), graphicLayout(shape, style));
+        if (shape == Shape.WIDE) {
+            int[] size = grantedSize(appWidgetManager, i, shape);
+            remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
+                    SamsungLockGraphics.render(context, shape, style, i2, i3, z, size[0], size[1],
+                            lockWidgetOptions, i4));
+            if (!z) {
+                remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
+                remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
+                remoteViews.setViewVisibility(R.id.lock_graphic_primary_progress, View.GONE);
+                remoteViews.setViewVisibility(R.id.lock_graphic_primary_icon, View.GONE);
+                remoteViews.setTextViewText(R.id.lock_graphic_primary_value, "SIGN IN");
+                remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, 2, 11.0f);
+                return remoteViews;
+            }
+            boolean showFiveHour = lockWidgetOptions.showsFiveHour();
+            boolean showWeekly = lockWidgetOptions.showsWeekly();
+            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.GONE);
+            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
+            return remoteViews;
+        }
         int[] iArrGrantedSize = grantedSize(appWidgetManager, i, shape);
         remoteViews.setImageViewBitmap(R.id.lock_graphic_image, SamsungLockGraphics.render(context, shape, style, i2, i3, z, iArrGrantedSize[0], iArrGrantedSize[1], lockWidgetOptions, i4));
+        if (z) {
+            if (shape == Shape.SQUARE) {
+                remoteViews.setViewVisibility(R.id.lock_graphic_center_value, View.GONE);
+            } else {
+                remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.GONE);
+                remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
+            }
+            return remoteViews;
+        }
         boolean z2 = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
         if (shape == Shape.SQUARE) {
             if (z) {
@@ -219,16 +287,16 @@ final class SamsungLockWidgetSupport {
             remoteViews.setTextViewText(R.id.lock_graphic_center_value, strSquareGraphicText);
             remoteViews.setTextViewTextSize(R.id.lock_graphic_center_value, 2, z ? squareGraphicTextSize(lockWidgetOptions, z2) : 10.0f);
         } else if (!z) {
-            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, 0);
-            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, 8);
+            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
+            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
             remoteViews.setTextViewText(R.id.lock_graphic_primary_value, "SIGN IN");
             remoteViews.setTextViewText(R.id.lock_graphic_primary_label, "");
             remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, 2, 11.0f);
         } else {
             boolean zShowsFiveHour = lockWidgetOptions.showsFiveHour();
             boolean zShowsWeekly = lockWidgetOptions.showsWeekly();
-            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, zShowsFiveHour ? 0 : 8);
-            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, zShowsWeekly ? 0 : 8);
+            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, zShowsFiveHour ? View.VISIBLE : View.GONE);
+            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, zShowsWeekly ? View.VISIBLE : View.GONE);
             remoteViews.setTextViewText(R.id.lock_graphic_primary_value, compactValue(i2));
             remoteViews.setTextViewText(R.id.lock_graphic_secondary_value, compactValue(i3));
             remoteViews.setTextViewText(R.id.lock_graphic_primary_label, labelWithReset("5H", z2 && zShowsFiveHour, i4));
@@ -304,18 +372,18 @@ final class SamsungLockWidgetSupport {
         long jCurrentTimeMillis = System.currentTimeMillis();
         long jResetAtMillis = usageWindow == null ? 0L : usageWindow.resetAtMillis();
         if (!z || jResetAtMillis <= jCurrentTimeMillis) {
-            remoteViews.setViewVisibility(i, 8);
+            remoteViews.setViewVisibility(i, View.GONE);
             return;
         }
         long jElapsedRealtime = SystemClock.elapsedRealtime() + Math.max(1000L, jResetAtMillis - jCurrentTimeMillis);
-        remoteViews.setViewVisibility(i, 0);
+        remoteViews.setViewVisibility(i, View.VISIBLE);
         remoteViews.setChronometer(i, jElapsedRealtime, null, true);
         remoteViews.setChronometerCountDown(i, true);
     }
 
-    private static void updateComponent(Context context, AppWidgetManager appWidgetManager, Class<?> cls, Shape shape, Style style) {
+    private static void updateComponent(Context context, AppWidgetManager appWidgetManager, Class<?> cls, Shape shape, Style style, Metric metric) {
         try {
-            updateIds(context, appWidgetManager, appWidgetManager.getAppWidgetIds(new ComponentName(context, cls)), shape, style);
+            updateIds(context, appWidgetManager, appWidgetManager.getAppWidgetIds(new ComponentName(context, cls)), shape, style, metric);
         } catch (RuntimeException e) {
             Log.w("CodexMeterLock", "Unable to enumerate lock widgets", e);
         }

@@ -1,7 +1,6 @@
 package dev.bennett.codexmeter;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
@@ -13,9 +12,13 @@ import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -23,16 +26,21 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import dev.oneuiproject.oneui.widget.CardItemView;
 
 /* JADX INFO: loaded from: classes.dex */
-public final class MainActivity extends Activity {
-    private String appliedStyle;
+public final class MainActivity extends AppCompatActivity {
+    private static final int MENU_SETTINGS = 8101;
     private String appliedTheme;
     private LinearLayout content;
+    private SwipeRefreshLayout swipeRefresh;
     private boolean dark;
     private boolean receiverRegistered;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String lastLaunchedAuthUrl = "";
+    private boolean launchSignInRequested;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -65,23 +73,35 @@ public final class MainActivity extends Activity {
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
         this.appliedTheme = AppPreferences.getAppTheme(this);
-        this.appliedStyle = AppPreferences.getAppStyle(this);
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         this.dark = Ui.isDark(this);
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(Ui.background(this, this.dark));
-        this.content = new LinearLayout(this);
-        this.content.setOrientation(1);
-        int iPageHorizontalPadding = Ui.pageHorizontalPadding(this);
-        this.content.setPadding(iPageHorizontalPadding, Ui.pageTopPadding(this), iPageHorizontalPadding, Ui.dp(this, 38.0f));
-        scrollView.addView(this.content, new FrameLayout.LayoutParams(-1, -2));
-        setContentView(scrollView);
-        Ui.configureSystemBars(this, scrollView, this.dark);
+        Ui.Page page = Ui.installPage(this, "Codex Meter", false);
+        this.content = page.content;
+        this.swipeRefresh = findViewById(R.id.dashboard_refresh);
+        this.swipeRefresh.setColorSchemeColors(Ui.accent(this, this.dark));
+        this.swipeRefresh.setProgressBackgroundColorSchemeColor(Ui.cardColor(this, this.dark));
+        this.swipeRefresh.setOnRefreshListener(this::refreshFromPull);
         handleLaunchIntent(getIntent());
         rebuild();
         RefreshScheduler.schedulePeriodic(this);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
+                .setIcon(R.drawable.ic_oui_settings_outline)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_SETTINGS) {
+            Ui.startSecondaryActivity(this, SettingsActivity.class);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override // android.app.Activity
@@ -96,9 +116,8 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         String appTheme = AppPreferences.getAppTheme(this);
-        String appStyle = AppPreferences.getAppStyle(this);
         boolean zIsDark = Ui.isDark(this);
-        if (!appTheme.equals(this.appliedTheme) || !appStyle.equals(this.appliedStyle) || zIsDark != this.dark) {
+        if (!appTheme.equals(this.appliedTheme) || zIsDark != this.dark) {
             recreate();
         } else {
             handleLaunchIntent(getIntent());
@@ -127,10 +146,15 @@ public final class MainActivity extends Activity {
             AppPreferences.setSchedulerError(this, "App update receiver: " + safeMessage(e));
         }
         rebuild();
+        if (this.launchSignInRequested) {
+            this.launchSignInRequested = false;
+            startOrContinueSignIn();
+        }
         if (SecureTokenStore.isSignedIn(this)) {
             AppPreferences.setOAuthPending(this, false, "");
             UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(this);
-            if (usageSnapshotLoadSnapshot == null || System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis > 300000) {
+            if (AppPreferences.getRefreshOnLaunch(this)
+                    && (usageSnapshotLoadSnapshot == null || System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis > 300000)) {
                 RefreshScheduler.scheduleImmediate(this);
             }
         }
@@ -155,6 +179,10 @@ public final class MainActivity extends Activity {
     }
 
     private void handleLaunchIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
+            this.launchSignInRequested = true;
+            intent.removeExtra("start_sign_in");
+        }
         Uri data = intent == null ? null : intent.getData();
         if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
             AppPreferences.setOAuthPending(this, false, "");
@@ -168,78 +196,98 @@ public final class MainActivity extends Activity {
     public void rebuild() {
         if (this.content != null) {
             this.content.removeAllViews();
-            addHeader();
-            this.content.addView(Ui.sectionTitle(this, "Account & usage", this.dark));
-            this.content.addView(buildUsageCard());
-            this.content.addView(Ui.sectionTitle(this, "Codex resets", this.dark));
+            this.content.addView(buildUsageDashboard());
+            Ui.addSpacer(this.content, 20);
+            if (!SecureTokenStore.isSignedIn(this)) {
+                Button signIn = Ui.nativePrimaryButton(this,
+                        AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
+                signIn.setOnClickListener(view -> startOrContinueSignIn());
+                this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+                Ui.addSpacer(this.content, 20);
+            }
             this.content.addView(buildResetCreditsCard());
-            this.content.addView(Ui.sectionTitle(this, "Home screen", this.dark));
-            this.content.addView(buildWidgetCard());
-            this.content.addView(Ui.sectionTitle(this, "Operation", this.dark));
-            this.content.addView(buildOperationCard());
-            TextView textViewText = Ui.text(this, "Unofficial client · No analytics · Tokens remain encrypted on this device\nVersion 1.6.0", 11.0f, Ui.secondaryText(this.dark));
-            textViewText.setGravity(17);
-            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams.setMargins(0, Ui.dp(this, 28.0f), 0, 0);
-            this.content.addView(textViewText, layoutParams);
+            Ui.addSpacer(this.content, 20);
+            this.content.addView(buildPrivacyCard());
         }
     }
 
     private void addHeader() {
-        LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);
-        linearLayoutHorizontal.addView(Ui.title(this, "Codex Meter", this.dark), new LinearLayout.LayoutParams(0, -2, 1.0f));
-        Button button = Ui.topAction(this, "Settings", this.dark);
-        button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.2
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                MainActivity.this.startActivity(new Intent(MainActivity.this, (Class<?>) SettingsActivity.class));
-            }
-        });
-        linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(-2, Ui.dp(this, 48.0f)));
-        this.content.addView(linearLayoutHorizontal);
-        TextView textViewText = Ui.text(this, "Native Android status for your ChatGPT Codex allowance.", 14.0f, Ui.secondaryText(this.dark));
+        TextView textViewText = Ui.text(this, "Your Codex allowance at a glance.", 15.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams.setMargins(0, Ui.dp(this, 7.0f), 0, 0);
+        layoutParams.setMargins(Ui.dp(this, 4.0f), Ui.dp(this, 4.0f), 0, Ui.dp(this, 2.0f));
         this.content.addView(textViewText, layoutParams);
     }
 
+    private LinearLayout buildUsageDashboard() {
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        boolean signedIn = SecureTokenStore.isSignedIn(this);
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.addView(buildMetricCard("5 hour", signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, false));
+        Ui.addSpacer(column, 20);
+        column.addView(buildMetricCard("Weekly", signedIn && snapshot != null ? snapshot.weekly : null, signedIn, true));
+        return column;
+    }
+
+    private LinearLayout buildMetricCard(String label, UsageWindow window, boolean signedIn, boolean invertedWave) {
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setPadding(0, 0, 0, 0);
+        card.setMinimumHeight(Ui.dp(this, 103.0f));
+        String reset = window == null
+                ? (signedIn ? "Waiting for data" : "Not connected")
+                : UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE, System.currentTimeMillis());
+        UsageWaveView wave = new UsageWaveView(this);
+        wave.setUsage(label, reset, window == null ? 0 : window.remainingPercent(),
+                "Weekly".equals(label) ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
+                invertedWave);
+        card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
+        return card;
+    }
+
     private LinearLayout buildUsageCard() {
-        String str;
         LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        AuthTokens authTokensLoad = SecureTokenStore.load(this);
-        UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(this);
-        boolean z = authTokensLoad != null;
-        if (z) {
-            str = authTokensLoad.email.isEmpty() ? "ChatGPT connected" : authTokensLoad.email;
-        } else {
-            str = "Not connected";
+        linearLayoutCard.setPadding(Ui.dp(this, 20.0f), Ui.dp(this, 20.0f), Ui.dp(this, 20.0f), Ui.dp(this, 10.0f));
+        AuthTokens tokens = SecureTokenStore.load(this);
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        boolean signedIn = tokens != null;
+
+        LinearLayout account = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        ImageView avatar = new ImageView(this);
+        avatar.setImageResource(R.drawable.codex_profile_avatar);
+        Ui.makeAvatar(avatar);
+        account.addView(avatar, new LinearLayout.LayoutParams(Ui.dp(this, 44.0f), Ui.dp(this, 44.0f)));
+        LinearLayout identity = new LinearLayout(this);
+        identity.setOrientation(LinearLayout.VERTICAL);
+        String titleText = signedIn ? "ChatGPT account" : "Not connected";
+        TextView title = Ui.text(this, titleText, 18.0f, Ui.mainText(this.dark));
+        title.setSingleLine(true);
+        identity.addView(title);
+        TextView subtitle = Ui.text(this, signedIn && !tokens.email.isEmpty() ? tokens.email : (signedIn ? "Connected" : "Sign in to view your usage"), 14.0f, Ui.secondaryText(this.dark));
+        subtitle.setSingleLine(true);
+        subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        identity.addView(subtitle);
+        LinearLayout.LayoutParams identityParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        identityParams.setMargins(Ui.dp(this, 20.0f), 0, Ui.dp(this, 10.0f), 0);
+        account.addView(identity, identityParams);
+        if (signedIn && snapshot != null) {
+            String plan = UsageFormat.planLabel(snapshot.planType);
+            TextView badge = Ui.text(this, plan.isEmpty() ? "Codex" : plan, 14.0f, Ui.mainText(this.dark));
+            badge.setTypeface(Ui.mediumTypeface(this));
+            badge.setGravity(Gravity.CENTER);
+            badge.setPadding(Ui.dp(this, 13.0f), Ui.dp(this, 6.0f), Ui.dp(this, 13.0f), Ui.dp(this, 6.0f));
+            badge.setBackground(Ui.pillBackground(this, this.dark));
+            account.addView(badge);
         }
-        TextView textViewText = Ui.text(this, str, 16.0f, Ui.mainText(this.dark));
-        textViewText.setTypeface(Ui.mediumTypeface(this));
-        linearLayoutCard.addView(textViewText);
-        if (z && usageSnapshotLoadSnapshot != null) {
-            String strPlanLabel = UsageFormat.planLabel(usageSnapshotLoadSnapshot.planType);
-            View viewText = Ui.text(this, strPlanLabel.isEmpty() ? UsageFormat.updated(usageSnapshotLoadSnapshot.fetchedAtMillis, System.currentTimeMillis()) : strPlanLabel + " · " + UsageFormat.updated(usageSnapshotLoadSnapshot.fetchedAtMillis, System.currentTimeMillis()), 12.0f, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams.setMargins(0, Ui.dp(this, 3.0f), 0, Ui.dp(this, 16.0f));
-            linearLayoutCard.addView(viewText, layoutParams);
-            addUsageRow(linearLayoutCard, "5-hour window", usageSnapshotLoadSnapshot.fiveHour);
-            addUsageRow(linearLayoutCard, "Weekly window", usageSnapshotLoadSnapshot.weekly);
-            String visibleRefreshError = AppPreferences.getVisibleRefreshError(this);
-            if (!visibleRefreshError.isEmpty()) {
-                View viewText2 = Ui.text(this, "Last refresh issue: " + visibleRefreshError, 12.0f, Ui.danger(this.dark));
-                LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-                layoutParams2.setMargins(0, Ui.dp(this, 8.0f), 0, 0);
-                linearLayoutCard.addView(viewText2, layoutParams2);
-            }
-        } else {
-            View viewText3 = Ui.text(this, z ? "Connected. Refresh once to load the current Codex windows." : "Sign in through OpenAI in your browser. Codex Meter never receives your password.", 13.0f, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams layoutParams3 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams3.setMargins(0, Ui.dp(this, 7.0f), 0, Ui.dp(this, 16.0f));
-            linearLayoutCard.addView(viewText3, layoutParams3);
-        }
+        linearLayoutCard.addView(account, new LinearLayout.LayoutParams(-1, Ui.dp(this, 55.0f)));
+
+        View divider = new View(this);
+        divider.setBackgroundColor(Ui.divider(this.dark));
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 1.0f));
+        dividerParams.setMargins(0, Ui.dp(this, 10.0f), 0, Ui.dp(this, 10.0f));
+        linearLayoutCard.addView(divider, dividerParams);
+
         LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);
-        if (!z) {
+        if (!signedIn) {
             Button button = Ui.button(this, AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT", true, this.dark);
             button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.3
                 @Override // android.view.View.OnClickListener
@@ -249,16 +297,18 @@ public final class MainActivity extends Activity {
             });
             linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
         } else {
-            final Button button2 = Ui.button(this, "Refresh now", true, this.dark);
+            final Button button2 = Ui.button(this, "Refresh", true, this.dark);
+            button2.setCompoundDrawables(null, null, null, null);
             button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.4
                 @Override // android.view.View.OnClickListener
                 public void onClick(View view) {
                     MainActivity.this.refreshNow(button2);
                 }
             });
-            linearLayoutHorizontal.addView(button2, new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
+            linearLayoutHorizontal.addView(button2, new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f));
             Button button3 = Ui.button(this, "Sign out", false, this.dark);
-            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(-2, Ui.dp(this, 50.0f));
+            button3.setCompoundDrawables(null, null, null, null);
+            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f);
             layoutParams4.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
             linearLayoutHorizontal.addView(button3, layoutParams4);
             button3.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.5
@@ -268,7 +318,7 @@ public final class MainActivity extends Activity {
                 }
             });
         }
-        linearLayoutCard.addView(linearLayoutHorizontal);
+        linearLayoutCard.addView(linearLayoutHorizontal, new LinearLayout.LayoutParams(-1, Ui.dp(this, 74.0f)));
         return linearLayoutCard;
     }
 
@@ -291,43 +341,24 @@ public final class MainActivity extends Activity {
     }
 
     private LinearLayout buildResetCreditsCard() {
-        String str;
-        String str2;
         LinearLayout linearLayoutCard = Ui.card(this, this.dark);
+        linearLayoutCard.setPadding(Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f));
         boolean zIsSignedIn = SecureTokenStore.isSignedIn(this);
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
         int i = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
-        if (zIsSignedIn) {
-            str = i + " reset credit" + (i == 1 ? "" : "s") + " available";
-        } else {
-            str = "Sign in to view reset credits";
-        }
-        TextView textViewText = Ui.text(this, str, 16.0f, Ui.mainText(this.dark));
-        textViewText.setTypeface(Ui.mediumTypeface(this));
-        linearLayoutCard.addView(textViewText);
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        long jNextExpiryMillis = resetCreditsSnapshotLoadResetCredits == null ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(jCurrentTimeMillis);
-        if (!zIsSignedIn) {
-            str2 = "Reset credits are attached to eligible ChatGPT Codex accounts.";
-        } else if (jNextExpiryMillis > 0) {
-            str2 = "Next credit expires " + UsageFormat.absolute(this, jNextExpiryMillis, jCurrentTimeMillis) + " (" + UsageFormat.relative(jNextExpiryMillis, jCurrentTimeMillis) + ").";
-        } else if (i > 0) {
-            str2 = "Expiry details were not included in the cached response. OpenAI will choose an eligible credit.";
-        } else {
-            str2 = "No reset credit is currently available. The inventory is refreshed with usage updates.";
-        }
-        TextView textViewText2 = Ui.text(this, str2, 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams.setMargins(0, Ui.dp(this, 7.0f), 0, Ui.dp(this, 14.0f));
-        linearLayoutCard.addView(textViewText2, layoutParams);
-        String visibleResetCreditsError = AppPreferences.getVisibleResetCreditsError(this);
-        if (!visibleResetCreditsError.isEmpty()) {
-            TextView textViewText3 = Ui.text(this, visibleResetCreditsError, 12.0f, Ui.danger(this.dark));
-            LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams2.setMargins(0, 0, 0, Ui.dp(this, 12.0f));
-            linearLayoutCard.addView(textViewText3, layoutParams2);
-        }
-        Button button = Ui.button(this, i > 0 ? "Use a reset" : "Reset unavailable", true, this.dark);
+
+        LinearLayout countRow = Ui.horizontal(this, Gravity.CENTER);
+        TextView count = Ui.text(this, zIsSignedIn ? String.valueOf(i) : "—", 30.0f, Ui.mainText(this.dark));
+        count.setTypeface(Ui.mediumTypeface(this));
+        countRow.addView(count);
+        TextView label = Ui.text(this, zIsSignedIn ? "Resets available" : "Sign in to view resets", 18.0f, Ui.mainText(this.dark));
+        label.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
+        labelParams.setMargins(Ui.dp(this, 18.0f), 0, 0, 0);
+        countRow.addView(label, labelParams);
+        linearLayoutCard.addView(countRow, new LinearLayout.LayoutParams(-1, Ui.dp(this, 66.0f)));
+
+        Button button = Ui.nativePrimaryButton(this, i > 0 ? "Use 1 reset" : "No resets available");
         button.setEnabled(zIsSignedIn && i > 0);
         button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.6
             @Override // android.view.View.OnClickListener
@@ -335,8 +366,22 @@ public final class MainActivity extends Activity {
                 MainActivity.this.startActivity(new Intent(MainActivity.this, (Class<?>) ResetCreditActivity.class));
             }
         });
-        linearLayoutCard.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 50.0f)));
+        linearLayoutCard.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f)));
         return linearLayoutCard;
+    }
+
+    private LinearLayout buildPrivacyCard() {
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setPadding(0, 0, 0, 0);
+        CardItemView row = Ui.actionRow(
+                this,
+                "Local data and privacy",
+                "OAuth tokens are encrypted with Android Keystore. Requests go only to OpenAI for authentication and ChatGPT & Codex endpoints.",
+                R.drawable.ic_oui_privacy,
+                null);
+        row.getSummaryView().setMaxLines(6);
+        card.addView(row);
+        return card;
     }
 
     private LinearLayout buildWidgetCard() {
@@ -351,7 +396,7 @@ public final class MainActivity extends Activity {
         TextView textViewText = Ui.text(this, str, 16.0f, Ui.mainText(this.dark));
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutCard.addView(textViewText);
-        View viewText = Ui.text(this, "Choose adaptive bars, circular rings, gauge dials, or a minimal layout. On compatible Galaxy devices, the lock-screen picker now includes numbers, rings, gauges, and bars in both square and wide sizes, while home widgets can use One UI Home’s native frame and blur.", 13.0f, Ui.secondaryText(this.dark));
+        View viewText = Ui.text(this, "Home and Galaxy lock-screen widgets use two battery-style dials for 5-hour and weekly usage remaining, with One UI Home handling the native frame and blur.", 13.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
         layoutParams.setMargins(0, Ui.dp(this, 7.0f), 0, Ui.dp(this, 15.0f));
         linearLayoutCard.addView(viewText, layoutParams);
@@ -371,7 +416,7 @@ public final class MainActivity extends Activity {
         button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.8
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
-                MainActivity.this.startActivity(new Intent(MainActivity.this, (Class<?>) SettingsActivity.class));
+                Ui.startSecondaryActivity(MainActivity.this, SettingsActivity.class);
             }
         });
         linearLayoutCard.addView(linearLayoutHorizontal);
@@ -461,13 +506,42 @@ public final class MainActivity extends Activity {
         });
     }
 
+    private void refreshFromPull() {
+        if (!SecureTokenStore.isSignedIn(this)) {
+            this.swipeRefresh.setRefreshing(false);
+            Toast.makeText(this, "Sign in from Settings to refresh usage.", Toast.LENGTH_SHORT).show();
+            Ui.startSecondaryActivity(this, SettingsActivity.class);
+            return;
+        }
+        final Context applicationContext = getApplicationContext();
+        this.executor.execute(() -> {
+            try {
+                RefreshScheduler.scheduleAtNextReset(applicationContext, UsageApi.refreshAndCache(applicationContext));
+                WidgetRenderer.updateAll(applicationContext);
+                runOnUiThread(() -> {
+                    this.swipeRefresh.setRefreshing(false);
+                    rebuild();
+                });
+            } catch (Exception e) {
+                AppPreferences.setLastError(applicationContext, safeMessage(e));
+                WidgetRenderer.updateAll(applicationContext);
+                runOnUiThread(() -> {
+                    this.swipeRefresh.setRefreshing(false);
+                    Toast.makeText(this, safeMessage(e), Toast.LENGTH_LONG).show();
+                    rebuild();
+                });
+            }
+        });
+    }
+
     public void confirmSignOut() {
-        new AlertDialog.Builder(this).setTitle("Sign out?").setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Sign out", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.10
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Sign out?").setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Sign out", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.10
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 MainActivity.this.signOut();
             }
-        }).show();
+        }).create();
+        dialog.show();
     }
 
     public void signOut() {
@@ -494,7 +568,8 @@ public final class MainActivity extends Activity {
             appWidgetManager.requestPinAppWidget(componentName, null, null);
             Toast.makeText(this, "Choose a size and place the widget on your home screen.", 1).show();
         } else {
-            new AlertDialog.Builder(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).show();
+            AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
+            dialog.show();
         }
     }
 
