@@ -56,6 +56,7 @@ public final class AppPreferences {
 
     public static void clearSnapshot(Context context) {
         prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT).remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).apply();
+        ResetNotificationManager.clearState(context);
     }
 
     public static void setLastError(Context context, String str) {

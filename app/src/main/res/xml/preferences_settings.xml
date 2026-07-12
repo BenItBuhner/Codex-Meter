@@ -40,17 +40,22 @@
             android:entries="@array/settings_metric_entries"
             android:entryValues="@array/settings_metric_values"
             android:key="notification_metric_ui"
-            android:title="Select limit refresh alert"
+            android:title="Low usage alerts"
             app:useSimpleSummaryProvider="true" />
         <ListPreference
             android:entries="@array/settings_threshold_entries"
             android:entryValues="@array/settings_threshold_values"
             android:key="notification_threshold_ui"
-            android:title="Notify after limit reaches"
+            android:title="Low when remaining reaches"
             app:useSimpleSummaryProvider="true" />
         <Preference
             android:key="notification_permission"
             android:title="Notification permission"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="notification_test"
+            android:title="Send test notification"
+            android:summary="Verify alert delivery now"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

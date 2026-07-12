@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -44,6 +45,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private Preference permissionPreference;
+        private Preference testNotificationPreference;
 
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
@@ -225,6 +227,15 @@ public final class SettingsActivity extends AppCompatActivity {
                         .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
                 return true;
             });
+            testNotificationPreference = findPreference("notification_test");
+            testNotificationPreference.setOnPreferenceClickListener(preference -> {
+                boolean sent = ResetNotificationManager.sendTestNotification(requireContext());
+                Toast.makeText(requireContext(), sent
+                        ? "Test notification sent."
+                        : "Enable notifications and allow permission first.",
+                        sent ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                return true;
+            });
             updatePermissionSummary();
         }
 
@@ -233,20 +244,38 @@ public final class SettingsActivity extends AppCompatActivity {
                     ResetAlertPreferences.getMetric(requireContext()),
                     ResetAlertPreferences.getThreshold(requireContext()));
             if (enabled && Build.VERSION.SDK_INT >= 33
-                    && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS") != 0) {
+                    && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 8601);
+            }
+            if (enabled) {
+                ResetNotificationManager.ensureChannel(requireContext());
+            } else {
+                ResetNotificationManager.clearState(requireContext());
             }
         }
 
         private void saveAlert(String style, String metric, int threshold) {
             ResetAlertPreferences.save(requireContext(), style, metric, threshold);
+            if (!ResetAlertPreferences.STYLE_OFF.equals(style)) {
+                ResetNotificationManager.ensureChannel(requireContext());
+                ResetNotificationManager.onUsageUpdated(requireContext(), AppPreferences.loadSnapshot(requireContext()));
+                ResetNotificationManager.onResetCreditsUpdated(requireContext(), AppPreferences.loadResetCredits(requireContext()));
+            }
             ResetAlertScheduler.scheduleFromSnapshot(requireContext(), AppPreferences.loadSnapshot(requireContext()));
         }
 
         private void updatePermissionSummary() {
             if (permissionPreference == null || getContext() == null) return;
             NotificationManager manager = (NotificationManager) requireContext().getSystemService(NOTIFICATION_SERVICE);
-            permissionPreference.setSummary(manager.areNotificationsEnabled() ? "Allowed" : "Not allowed");
+            boolean allowed = manager != null && manager.areNotificationsEnabled()
+                    && (Build.VERSION.SDK_INT < 33
+                    || requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    == PackageManager.PERMISSION_GRANTED);
+            permissionPreference.setSummary(allowed ? "Allowed" : "Not allowed");
+            if (testNotificationPreference != null) {
+                testNotificationPreference.setEnabled(allowed && ResetAlertPreferences.enabled(requireContext()));
+            }
         }
     }
 }

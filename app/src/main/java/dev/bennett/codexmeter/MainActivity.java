@@ -79,7 +79,9 @@ public final class MainActivity extends AppCompatActivity {
         Ui.Page page = Ui.installPage(this, "Codex Meter", false);
         this.content = page.content;
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
-        this.swipeRefresh.setColorSchemeColors(Ui.accent(this, this.dark));
+        int refreshAccent = Ui.accent(this, this.dark);
+        // OneUI's four-dot SwipeRefresh drawable indexes two palette entries while drawing.
+        this.swipeRefresh.setColorSchemeColors(refreshAccent, refreshAccent);
         this.swipeRefresh.setProgressBackgroundColorSchemeColor(Ui.cardColor(this, this.dark));
         this.swipeRefresh.setOnRefreshListener(this::refreshFromPull);
         handleLaunchIntent(getIntent());
