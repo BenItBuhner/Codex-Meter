@@ -36,5 +36,5 @@ cp "$SOURCE_APK" "$OUT"
 
 APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -1)"
 "$APKSIGNER" verify --verbose --print-certs "$OUT"
-sha256sum "$OUT" | tee "$DIST/SHA256SUMS.txt"
+(cd "$DIST" && sha256sum "$(basename "$OUT")") | tee "$DIST/SHA256SUMS.txt"
 echo "Built $OUT"
