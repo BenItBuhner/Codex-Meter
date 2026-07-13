@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class OAuthService extends Service {
     public static final String ACTION_START = "dev.bennett.codexmeter.oauth.START";
     public static final String ACTION_CANCEL = "dev.bennett.codexmeter.oauth.CANCEL";
+    public static final String ACTION_CANCEL_SILENT = "dev.bennett.codexmeter.oauth.CANCEL_SILENT";
     private static final String CHANNEL_ID = "oauth_sign_in";
     private static final int NOTIFICATION_ID = 7301;
 
@@ -51,8 +52,8 @@ public final class OAuthService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? ACTION_START : intent.getAction();
-        if (ACTION_CANCEL.equals(action)) {
-            cancelFlow("Sign-in cancelled.");
+        if (ACTION_CANCEL.equals(action) || ACTION_CANCEL_SILENT.equals(action)) {
+            cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
             return START_NOT_STICKY;
         }
         if (SecureTokenStore.isSignedIn(this)) {
@@ -290,11 +291,13 @@ public final class OAuthService extends Service {
         socket.getOutputStream().flush();
     }
 
-    private void cancelFlow(String message) {
+    private void cancelFlow(String message, boolean broadcast) {
         cancelled = true;
         AppPreferences.setOAuthPending(this, false, "");
         closeServer();
-        broadcastResult(false, message);
+        if (broadcast) {
+            broadcastResult(false, message);
+        }
         finishService();
     }
 

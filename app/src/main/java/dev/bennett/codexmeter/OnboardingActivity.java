@@ -399,7 +399,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.oauthRequested = false;
         try {
             startService(new Intent(this, OAuthService.class)
-                    .setAction(OAuthService.ACTION_CANCEL));
+                    .setAction(OAuthService.ACTION_CANCEL_SILENT));
         } catch (RuntimeException ignored) {
             // The service may already have stopped after the browser returned.
         }
