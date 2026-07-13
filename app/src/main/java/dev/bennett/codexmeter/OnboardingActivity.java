@@ -10,14 +10,11 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
@@ -35,6 +32,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private boolean dark;
     private int step;
     private boolean receiverRegistered;
+    private boolean oauthRequested;
     private String authMessage = "";
     private String lastLaunchedAuthUrl = "";
 
@@ -52,6 +50,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                 return;
             }
             if (AppConstants.ACTION_OAUTH_RESULT.equals(action)) {
+                oauthRequested = false;
                 boolean success = intent.getBooleanExtra(AppConstants.EXTRA_SUCCESS, false);
                 String message = intent.getStringExtra(AppConstants.EXTRA_MESSAGE);
                 if (success || SecureTokenStore.isSignedIn(OnboardingActivity.this)) {
@@ -79,6 +78,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.content = this.page.content;
         findViewById(R.id.dashboard_refresh).setEnabled(false);
         boolean oauthReturn = getIntent().getBooleanExtra(EXTRA_AUTH_RETURN, false);
+        this.oauthRequested = AppPreferences.isOAuthPending(this);
         this.step = OnboardingFlow.initialStep(
                 AppPreferences.getOnboardingStep(this),
                 SecureTokenStore.isSignedIn(this),
@@ -104,6 +104,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        this.oauthRequested = AppPreferences.isOAuthPending(this);
         if (SecureTokenStore.isSignedIn(this)) {
             showStep(OnboardingFlow.STEP_COMPLETE);
         } else if (intent.getBooleanExtra(EXTRA_AUTH_RETURN, false)) {
@@ -357,6 +358,7 @@ public final class OnboardingActivity extends AppCompatActivity {
             return;
         }
         boolean resuming = AppPreferences.isOAuthPending(this);
+        this.oauthRequested = true;
         this.authMessage = resuming
                 ? "Resuming secure ChatGPT sign-in…"
                 : "Preparing secure ChatGPT sign-in…";
@@ -365,6 +367,7 @@ public final class OnboardingActivity extends AppCompatActivity {
             startForegroundService(new Intent(this, OAuthService.class)
                     .setAction(OAuthService.ACTION_START));
         } catch (RuntimeException exception) {
+            this.oauthRequested = false;
             AppPreferences.setOAuthPending(this, false, "");
             this.authMessage = "Could not start sign-in: " + safeMessage(exception);
             render();
@@ -384,8 +387,23 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void completeAndOpenMain() {
+        cancelPendingSignIn();
         AppPreferences.completeOnboarding(this);
         openMain();
+    }
+
+    private void cancelPendingSignIn() {
+        if (!this.oauthRequested && !AppPreferences.isOAuthPending(this)) {
+            return;
+        }
+        this.oauthRequested = false;
+        try {
+            startService(new Intent(this, OAuthService.class)
+                    .setAction(OAuthService.ACTION_CANCEL));
+        } catch (RuntimeException ignored) {
+            // The service may already have stopped after the browser returned.
+        }
+        AppPreferences.setOAuthPending(this, false, "");
     }
 
     private void openMain() {

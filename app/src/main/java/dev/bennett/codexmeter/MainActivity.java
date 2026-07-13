@@ -192,8 +192,8 @@ public final class MainActivity extends AppCompatActivity {
         }
         Uri data = intent == null ? null : intent.getData();
         if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
-            AppPreferences.setOAuthPending(this, false, "");
             if (SecureTokenStore.isSignedIn(this)) {
+                AppPreferences.setOAuthPending(this, false, "");
                 RefreshScheduler.scheduleImmediate(this);
             }
             intent.setData(null);
@@ -215,7 +215,9 @@ public final class MainActivity extends AppCompatActivity {
             return false;
         }
         if (oauthReturn) {
-            AppPreferences.setOAuthPending(this, false, "");
+            if (SecureTokenStore.isSignedIn(this)) {
+                AppPreferences.setOAuthPending(this, false, "");
+            }
             intent.setData(null);
         }
         startActivity(new Intent(this, OnboardingActivity.class)
