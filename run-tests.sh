@@ -29,6 +29,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \

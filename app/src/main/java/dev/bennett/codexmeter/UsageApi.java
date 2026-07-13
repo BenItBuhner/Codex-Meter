@@ -45,10 +45,11 @@ public final class UsageApi {
             if (usageSnapshot.fiveHour == null && usageSnapshot.weekly == null) {
                 throw new Exception("OpenAI returned no recognizable Codex usage windows.");
             }
+            UsageSnapshot previousSnapshot = AppPreferences.loadSnapshot(context);
             if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
                 throw new Exception("Usage was received, but it could not be saved on this device.");
             }
-            ResetNotificationManager.onUsageUpdated(context, usageSnapshot);
+            ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
             try {
                 ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);
             } catch (RuntimeException e) {
@@ -56,6 +57,8 @@ public final class UsageApi {
             try {
                 ResetCreditApi.refreshAndCacheLocked(context, authTokens);
             } catch (Exception e2) {
+                ResetNotificationManager.onResetCreditSummaryUpdated(context,
+                        usageSnapshot.resetCreditsAvailable);
                 AppPreferences.setResetCreditsError(context, safeMessage(e2));
             }
         }

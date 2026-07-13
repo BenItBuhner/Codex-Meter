@@ -12,10 +12,11 @@ public final class ParserSelfTest {
         testPrimaryLimitWinsOverAdditional();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
+        testCelebrationDetection();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
-        System.out.println("All parser, PKCE, and widget-option self-tests passed.");
+        System.out.println("All parser, celebration, PKCE, and widget-option self-tests passed.");
     }
 
     private static void testStandardUsage() throws Exception {
@@ -81,6 +82,65 @@ public final class ParserSelfTest {
         UsageSnapshot snapshot = UsageParser.parse(json, 1L);
         check(snapshot.fiveHour == null && snapshot.weekly == null,
                 "zero-duration usage window ignored");
+    }
+
+    private static void testCelebrationDetection() {
+        long firstFetch = 1_000_000L;
+        UsageSnapshot previous = snapshot(2, 1, 3600L, firstFetch);
+        UsageSnapshot earlyFull = snapshot(0, 0, 7200L, firstFetch + 1000L);
+        int both = CelebrationDetector.detectUnexpectedRefills(previous, earlyFull);
+        check(both == (CelebrationDetector.FIVE_HOUR | CelebrationDetector.WEEKLY),
+                "98% and 99% remaining refills both celebrate");
+
+        UsageSnapshot fullyUsed = snapshot(100, 50, 3600L, firstFetch);
+        UsageSnapshot weeklyOnlyFull = snapshot(0, 0, 7200L, firstFetch + 2000L);
+        int refill = CelebrationDetector.detectUnexpectedRefills(fullyUsed, weeklyOnlyFull);
+        check(refill == (CelebrationDetector.FIVE_HOUR | CelebrationDetector.WEEKLY),
+                "any non-full percentage reaching 100% celebrates");
+
+        UsageSnapshot notFull = snapshot(1, 1, 7200L, firstFetch + 2000L);
+        check(CelebrationDetector.detectUnexpectedRefills(previous, notFull) == 0,
+                "99% is not a complete refill");
+
+        UsageSnapshot atNaturalReset = snapshot(0, 0, 7200L, firstFetch + 3_600_000L);
+        check(CelebrationDetector.detectUnexpectedRefills(previous, atNaturalReset) == 0,
+                "countdown expiry is a natural reset");
+
+        UsageSnapshot withoutCountdown = snapshot(50, 50, 0L, firstFetch);
+        check(CelebrationDetector.detectUnexpectedRefills(withoutCountdown, earlyFull) == 0,
+                "unknown reset time does not guess");
+        check(CelebrationDetector.detectUnexpectedRefills(null, earlyFull) == 0,
+                "first snapshot establishes a baseline");
+
+        int allRefills = CelebrationDetector.FIVE_HOUR | CelebrationDetector.WEEKLY;
+        check(CelebrationDetector.withoutUserResetRefills(allRefills, firstFetch + 1000L,
+                firstFetch + 5000L, firstFetch + 5000L) == 0,
+                "manual reset suppresses both refill celebrations");
+        check(CelebrationDetector.withoutUserResetRefills(allRefills, firstFetch + 6000L,
+                firstFetch + 5000L, firstFetch + 5000L) == allRefills,
+                "expired manual reset suppression does not hide external refills");
+
+        check(CelebrationDetector.resetCreditsAdded(-1, 2) == 0,
+                "first reset-credit count establishes a baseline");
+        check(CelebrationDetector.resetCreditsAdded(2, 3) == 1,
+                "single reset-credit increase");
+        check(CelebrationDetector.resetCreditsAdded(2, 5) == 3,
+                "multiple reset-credit increase");
+        check(CelebrationDetector.resetCreditsAdded(3, 2) == 0,
+                "reset-credit decrease is not celebrated");
+
+        System.out.println("Celebration demo: 98% and 99% remaining -> surprise refill for both windows.");
+        System.out.println("Celebration demo: countdown elapsed -> natural reset, no surprise notification.");
+        System.out.println("Celebration demo: user reset marker -> no surprise notification.");
+        System.out.println("Celebration demo: reset credits 2 -> 5 -> notification reports 3 added credits.");
+    }
+
+    private static UsageSnapshot snapshot(int fiveHourUsed, int weeklyUsed,
+            long resetAfterSeconds, long fetchedAtMillis) {
+        return new UsageSnapshot("pro", true, false,
+                new UsageWindow(fiveHourUsed, 18_000L, resetAfterSeconds, 0L),
+                new UsageWindow(weeklyUsed, 604_800L, resetAfterSeconds, 0L),
+                fetchedAtMillis);
     }
 
     private static void testJwtMerge() {
