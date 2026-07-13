@@ -6,28 +6,28 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
 
 # Environment files and secrets
 .env
 .env.*
 !.env.example
 
-# Dependencies and build output
-node_modules/
-dist/
+# Android and Gradle build output
 build/
 app/build/
 dist/
 .gradle/
 .local-signing/
 out/
-.next/
-coverage/
-venv/
-.venv/
-__pycache__/
-*.py[cod]
 
-# Local tooling
+# Temporary files and local tooling
 .cache/
 .tmp/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.log
