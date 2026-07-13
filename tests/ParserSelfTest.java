@@ -22,7 +22,10 @@ public final class ParserSelfTest {
         testWidgetOptions();
         testOnboardingFlow();
         testOAuthBrowserPage();
-        System.out.println("All parser, OAuth, onboarding, and widget-option self-tests passed.");
+        testReleaseVersions();
+        testGitHubReleases();
+        testReleaseChecksums();
+        System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
     private static void testStandardUsage() throws Exception {
@@ -281,6 +284,92 @@ public final class ParserSelfTest {
 
         String escapedScript = OAuthBrowserPage.javascriptString("x'\\\n\u2028");
         check("x\\'\\\\\\n\\u2028".equals(escapedScript), "browser script escaping");
+    }
+
+    private static void testReleaseVersions() {
+        check(ReleaseVersion.compare("v2.2.0", "2.1.9") > 0,
+                "release tag version ordering");
+        check(ReleaseVersion.compare("2.1", "2.1.0") == 0,
+                "short release version normalization");
+        check(ReleaseVersion.compare("3.0.0", "3.0.0-rc.2") > 0,
+                "stable release follows prerelease");
+        check(ReleaseVersion.compare("3.0.0-rc.10", "3.0.0-rc.2") > 0,
+                "numeric prerelease ordering");
+        check(ReleaseVersion.parse("release-2.0") == null,
+                "invalid release tag rejected");
+    }
+
+    private static void testGitHubReleases() throws Exception {
+        String json = "["
+                + releaseJson("v2.2.0", false, false, true, true)
+                + "," + releaseJson("v3.0.0-beta.1", false, true, true, true)
+                + "," + releaseJson("v9.0.0", true, false, true, true)
+                + "," + releaseJson("v2.3.0", false, false, true, false)
+                + "]";
+        java.util.List<GitHubRelease> releases = GitHubReleaseParser.parse(json);
+        check(releases.size() == 2, "only complete published releases accepted");
+        check("3.0.0-beta.1".equals(releases.get(0).version),
+                "release history sorted semantically");
+        GitHubRelease latest = GitHubReleaseParser.latestStable(releases);
+        check(latest != null && "2.2.0".equals(latest.version),
+                "automatic updates exclude prereleases");
+        check(latest.isNewerThan("2.1.0"), "new release detected");
+        check(GitHubReleaseParser.findVersion(releases, "v2.2") == latest,
+                "release version lookup normalized");
+        check(GitHubReleaseParser.parse("[]").isEmpty(), "empty release history accepted");
+        check(!GitHubReleaseParser.isGitHubHttps("http://github.com/file.apk"),
+                "non-HTTPS release URL rejected");
+        check(!GitHubReleaseParser.isGitHubHttps("https://github.com.evil.example/file.apk"),
+                "lookalike GitHub host rejected");
+        String localFixture = "[" + releaseJson(
+                "v2.2.0", false, false, true, true).replace(
+                "https://github.com/thatjoshguy67/Codex-Meter",
+                "http://10.0.2.2:8765") + "]";
+        check(GitHubReleaseParser.parse(localFixture).isEmpty(),
+                "local fixture rejected by production parser");
+        check(GitHubReleaseParser.parse(localFixture, true).size() == 1,
+                "local fixture accepted only in explicit debug mode");
+    }
+
+    private static String releaseJson(String tag, boolean draft, boolean prerelease,
+            boolean apk, boolean checksum) {
+        String normalized = tag.startsWith("v") ? tag.substring(1) : tag;
+        StringBuilder assets = new StringBuilder();
+        if (apk) {
+            assets.append("{\"name\":\"CodexMeter-").append(normalized)
+                    .append(".apk\",\"size\":123,\"browser_download_url\":")
+                    .append("\"https://github.com/thatjoshguy67/Codex-Meter/releases/download/")
+                    .append(tag).append("/CodexMeter-").append(normalized).append(".apk\"}");
+        }
+        if (checksum) {
+            if (assets.length() > 0) assets.append(',');
+            assets.append("{\"name\":\"SHA256SUMS.txt\",\"size\":90,")
+                    .append("\"browser_download_url\":")
+                    .append("\"https://github.com/thatjoshguy67/Codex-Meter/releases/download/")
+                    .append(tag).append("/SHA256SUMS.txt\"}");
+        }
+        return "{\"tag_name\":\"" + tag + "\",\"name\":\"Codex Meter " + normalized
+                + "\",\"body\":\"Changes\",\"published_at\":\"2026-07-13T00:00:00Z\","
+                + "\"html_url\":\"https://github.com/thatjoshguy67/Codex-Meter/releases/tag/"
+                + tag + "\",\"draft\":" + draft + ",\"prerelease\":" + prerelease
+                + ",\"assets\":[" + assets + "]}";
+    }
+
+    private static void testReleaseChecksums() {
+        String digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        String checksums = digest + "  CodexMeter-2.2.0.apk\n"
+                + "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                + "  other.apk\n";
+        check(digest.equals(ReleaseIntegrity.expectedSha256(
+                        checksums, "CodexMeter-2.2.0.apk")),
+                "matching APK checksum selected");
+        check(ReleaseIntegrity.expectedSha256(checksums, "../other.apk").isEmpty(),
+                "unsafe checksum filename rejected");
+        check(ReleaseIntegrity.expectedSha256("not-a-checksum", "app.apk").isEmpty(),
+                "malformed checksum rejected");
+        check(ReleaseIntegrity.expectedSha256(checksums + digest
+                        + "  CodexMeter-2.2.0.apk\n", "CodexMeter-2.2.0.apk").isEmpty(),
+                "duplicate APK checksum rejected");
     }
 
     private static String jwt(String payload) {

@@ -65,6 +65,10 @@ public final class MainActivity extends AppCompatActivity {
             }
             if (AppConstants.ACTION_USAGE_UPDATED.equals(action) || AppConstants.ACTION_RESET_CREDITS_UPDATED.equals(action)) {
                 MainActivity.this.rebuild();
+                return;
+            }
+            if (AppConstants.ACTION_RELEASES_UPDATED.equals(action)) {
+                MainActivity.this.rebuild();
             }
         }
     };
@@ -87,8 +91,10 @@ public final class MainActivity extends AppCompatActivity {
         this.swipeRefresh.setProgressBackgroundColorSchemeColor(Ui.cardColor(this, this.dark));
         this.swipeRefresh.setOnRefreshListener(this::refreshFromPull);
         handleLaunchIntent(getIntent());
+        WidgetUpgradeRepair.runIfNeeded(this);
         rebuild();
         RefreshScheduler.schedulePeriodic(this);
+        ReleaseUpdateScheduler.ensureScheduled(this);
     }
 
     @Override
@@ -141,6 +147,7 @@ public final class MainActivity extends AppCompatActivity {
         intentFilter.addAction(AppConstants.ACTION_OAUTH_RESULT);
         intentFilter.addAction(AppConstants.ACTION_USAGE_UPDATED);
         intentFilter.addAction(AppConstants.ACTION_RESET_CREDITS_UPDATED);
+        intentFilter.addAction(AppConstants.ACTION_RELEASES_UPDATED);
         try {
             if (Build.VERSION.SDK_INT >= 33) {
                 registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null, 4);
@@ -239,6 +246,11 @@ public final class MainActivity extends AppCompatActivity {
     public void rebuild() {
         if (this.content != null) {
             this.content.removeAllViews();
+            GitHubRelease update = UpdatePreferences.availableUpdate(this);
+            if (update != null) {
+                this.content.addView(buildUpdateCard(update));
+                Ui.addSpacer(this.content, 20);
+            }
             this.content.addView(buildUsageDashboard());
             Ui.addSpacer(this.content, 20);
             if (!SecureTokenStore.isSignedIn(this)) {
@@ -250,6 +262,26 @@ public final class MainActivity extends AppCompatActivity {
             }
             this.content.addView(buildResetCreditsCard());
         }
+    }
+
+    private LinearLayout buildUpdateCard(GitHubRelease release) {
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "Codex Meter " + release.version + " is ready", 18,
+                Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        TextView summary = Ui.text(this,
+                "A signed GitHub release is available. The APK will be checksum-verified before "
+                        + "Android asks you to approve installation.",
+                13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
+        summaryParams.setMargins(0, Ui.dp(this, 7), 0, Ui.dp(this, 14));
+        card.addView(summary, summaryParams);
+        Button update = Ui.nativePrimaryButton(this, "Review update");
+        update.setOnClickListener(view -> startActivity(new Intent(this, UpdateActivity.class)
+                .putExtra(UpdateActivity.EXTRA_VERSION, release.version)));
+        card.addView(update, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+        return card;
     }
 
     private void addHeader() {

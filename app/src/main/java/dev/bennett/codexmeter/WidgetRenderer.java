@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -247,16 +248,21 @@ public final class WidgetRenderer {
             rootAction = PendingIntent.getBroadcast(context, 74000 + i,
                     new Intent(context, (Class<?>) WidgetRefreshReceiver.class)
                             .setAction(AppConstants.ACTION_REFRESH_WIDGET)
+                            .setData(widgetUri(i, "root-refresh"))
                             .putExtra("appWidgetId", i),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else if (WidgetOptions.TAP_USE_RESET.equals(tapAction)) {
             rootAction = PendingIntent.getActivity(context, 74000 + i,
                     new Intent(context, (Class<?>) ResetCreditActivity.class)
+                            .setAction("dev.bennett.codexmeter.action.WIDGET_RESET")
+                            .setData(widgetUri(i, "root-reset"))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else {
             rootAction = PendingIntent.getActivity(context, 74000 + i,
                     new Intent(context, (Class<?>) MainActivity.class)
+                            .setAction("dev.bennett.codexmeter.action.WIDGET_OPEN")
+                            .setData(widgetUri(i, "root-open"))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
@@ -265,14 +271,22 @@ public final class WidgetRenderer {
                 PendingIntent.getBroadcast(context, 75000 + i,
                         new Intent(context, (Class<?>) WidgetRefreshReceiver.class)
                                 .setAction(AppConstants.ACTION_REFRESH_WIDGET)
+                                .setData(widgetUri(i, "refresh"))
                                 .putExtra("appWidgetId", i),
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         remoteViews.setOnClickPendingIntent(R.id.reset_credit_button,
                 PendingIntent.getActivity(context, 76000 + i,
                         new Intent(context, (Class<?>) ResetCreditActivity.class)
+                                .setAction("dev.bennett.codexmeter.action.WIDGET_RESET")
+                                .setData(widgetUri(i, "reset"))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                                         | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+    }
+
+    private static Uri widgetUri(int appWidgetId, String action) {
+        return Uri.parse("codexmeter://widget/home/v" + AppConstants.VERSION_CODE + "/"
+                + appWidgetId + "/" + action);
     }
 
     private static void renderBars(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z, WidgetState widgetState, Bundle bundle) {

@@ -32,6 +32,28 @@
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="App updates">
+        <SwitchPreferenceCompat
+            android:key="automatic_update_checks_ui"
+            android:title="Check automatically"
+            android:summary="Check signed GitHub releases about once a day" />
+        <Preference
+            android:key="update_status"
+            android:title="Installed version"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+        <Preference
+            android:key="check_for_updates"
+            android:title="Check for updates"
+            android:summary="Check GitHub now"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="release_history"
+            android:title="Advanced release history"
+            android:summary="View available versions and downgrade requirements"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Notifications">
         <SwitchPreferenceCompat
             android:key="notifications_allowed_ui"
