@@ -2,10 +2,18 @@ package dev.bennett.codexmeter;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class ResetAlertPreferences {
     private static final String KEY_METRIC = "metric";
+    private static final String KEY_RESET_CREDIT_EXPIRY = "reset_credit_expiry";
+    private static final String KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES =
+            "reset_credit_expiry_lead_times";
     private static final String KEY_RESET_CREDIT_INCREASES = "reset_credit_increases";
     private static final String KEY_STYLE = "style";
     private static final String KEY_THRESHOLD = "threshold";
@@ -18,6 +26,8 @@ public final class ResetAlertPreferences {
     public static final String STYLE_NOTIFICATION = "notification";
     public static final String STYLE_OFF = "off";
     public static final String STYLE_SILENT = "silent";
+    public static final long DEFAULT_RESET_CREDIT_EXPIRY_LEAD_TIME_MS =
+            24L * 60L * 60L * 1000L;
 
     private ResetAlertPreferences() {
     }
@@ -75,6 +85,52 @@ public final class ResetAlertPreferences {
 
     public static void setResetCreditIncreasesEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_RESET_CREDIT_INCREASES, enabled).apply();
+    }
+
+    public static boolean resetCreditExpiryEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_RESET_CREDIT_EXPIRY, true);
+    }
+
+    public static void setResetCreditExpiryEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_RESET_CREDIT_EXPIRY, enabled).apply();
+    }
+
+    public static List<Long> getResetCreditExpiryLeadTimes(Context context) {
+        SharedPreferences preferences = prefs(context);
+        if (!preferences.contains(KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES)) {
+            return Collections.singletonList(DEFAULT_RESET_CREDIT_EXPIRY_LEAD_TIME_MS);
+        }
+        Set<String> stored = preferences.getStringSet(KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES,
+                Collections.emptySet());
+        List<Long> values = new ArrayList<>();
+        if (stored != null) {
+            for (String value : stored) {
+                try {
+                    long parsed = Long.parseLong(value);
+                    if (validExpiryLeadTime(parsed)) values.add(parsed);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        Collections.sort(values);
+        return values;
+    }
+
+    public static void setResetCreditExpiryLeadTimes(Context context, List<Long> leadTimes) {
+        Set<String> stored = new HashSet<>();
+        if (leadTimes != null) {
+            for (Long leadTime : leadTimes) {
+                if (leadTime != null && validExpiryLeadTime(leadTime)) {
+                    stored.add(String.valueOf(leadTime));
+                }
+            }
+        }
+        prefs(context).edit().putStringSet(KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES, stored).apply();
+    }
+
+    private static boolean validExpiryLeadTime(long value) {
+        return value >= ResetCreditExpiryReminder.MIN_LEAD_TIME_MS
+                && value <= ResetCreditExpiryReminder.MAX_LEAD_TIME_MS;
     }
 
     private static boolean isValidThreshold(int i) {

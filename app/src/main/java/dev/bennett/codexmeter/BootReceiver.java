@@ -13,6 +13,8 @@ public final class BootReceiver extends BroadcastReceiver {
             RefreshScheduler.schedulePeriodic(context);
             ReleaseUpdateScheduler.ensureScheduled(context);
             ResetAlertScheduler.scheduleFromSnapshot(context, AppPreferences.loadSnapshot(context));
+            ResetCreditExpiryScheduler.scheduleFromSnapshot(context,
+                    AppPreferences.loadResetCredits(context));
             if ("android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
                 WidgetUpgradeRepair.afterPackageReplaced(context);
             } else {

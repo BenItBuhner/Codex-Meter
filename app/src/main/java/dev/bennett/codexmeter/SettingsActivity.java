@@ -7,11 +7,16 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.InputType;
 import android.text.format.DateUtils;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
@@ -22,6 +27,11 @@ import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
 import dev.oneuiproject.oneui.preference.LayoutPreference;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
+import java.math.BigDecimal;
+import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /** Settings built from the One UI Design Library preference components used by its sample app. */
 public final class SettingsActivity extends AppCompatActivity {
@@ -41,6 +51,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
+        private Preference expiryTimesPreference;
         private Preference permissionPreference;
         private Preference testNotificationPreference;
         private Preference updateStatusPreference;
@@ -293,6 +304,28 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            SwitchPreferenceCompat resetCreditExpiry =
+                    findPreference("reset_credit_expiry_ui");
+            resetCreditExpiry.setPersistent(false);
+            resetCreditExpiry.setChecked(
+                    ResetAlertPreferences.resetCreditExpiryEnabled(requireContext()));
+            resetCreditExpiry.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                ResetAlertPreferences.setResetCreditExpiryEnabled(requireContext(), enabled);
+                expiryTimesPreference.setEnabled(enabled);
+                scheduleResetCreditExpiryReminders();
+                return true;
+            });
+
+            expiryTimesPreference = findPreference("reset_credit_expiry_times_ui");
+            expiryTimesPreference.setEnabled(
+                    ResetAlertPreferences.resetCreditExpiryEnabled(requireContext()));
+            expiryTimesPreference.setOnPreferenceClickListener(preference -> {
+                showExpiryReminderTimesDialog();
+                return true;
+            });
+            updateExpiryTimesSummary();
+
             permissionPreference = findPreference("notification_permission");
             permissionPreference.setOnPreferenceClickListener(preference -> {
                 startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -309,6 +342,161 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             updatePermissionSummary();
+        }
+
+        private void showExpiryReminderTimesDialog() {
+            List<Long> leadTimes = ResetAlertPreferences.getResetCreditExpiryLeadTimes(
+                    requireContext());
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext())
+                    .setTitle("Reminder times")
+                    .setNeutralButton("Add", (dialog, which) ->
+                            showAddExpiryReminderDialog())
+                    .setNegativeButton("Done", null);
+            if (leadTimes.isEmpty()) {
+                builder.setMessage("No reminder times are configured. Add one to choose how "
+                        + "long before expiry Codex Meter should notify you.");
+            } else {
+                String[] labels = new String[leadTimes.size()];
+                for (int i = 0; i < leadTimes.size(); i++) {
+                    labels[i] = formatLeadTime(leadTimes.get(i))
+                            + " before expiry — tap to remove";
+                }
+                builder.setItems(labels, (dialog, which) -> {
+                    List<Long> updated = new ArrayList<>(leadTimes);
+                    long removed = updated.remove(which);
+                    saveExpiryLeadTimes(updated);
+                    Toast.makeText(requireContext(),
+                            formatLeadTime(removed) + " reminder removed.",
+                            Toast.LENGTH_SHORT).show();
+                });
+            }
+            builder.show();
+        }
+
+        private void showAddExpiryReminderDialog() {
+            boolean dark = Ui.isDark(requireContext());
+            LinearLayout container = new LinearLayout(requireContext());
+            container.setOrientation(LinearLayout.VERTICAL);
+            container.setPadding(Ui.dp(requireContext(), 24), Ui.dp(requireContext(), 8),
+                    Ui.dp(requireContext(), 24), 0);
+            TextView explanation = Ui.text(requireContext(),
+                    "Notify me this long before each available reset credit expires.",
+                    14.0f, Ui.secondaryText(dark));
+            container.addView(explanation, new LinearLayout.LayoutParams(-1, -2));
+
+            LinearLayout inputRow = Ui.horizontal(requireContext(), 12);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+            rowParams.setMargins(0, Ui.dp(requireContext(), 16), 0, 0);
+            EditText amount = new EditText(requireContext());
+            amount.setHint("Amount");
+            amount.setSingleLine(true);
+            amount.setTextColor(Ui.mainText(dark));
+            amount.setHintTextColor(Ui.secondaryText(dark));
+            amount.setInputType(InputType.TYPE_CLASS_NUMBER
+                    | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            inputRow.addView(amount, new LinearLayout.LayoutParams(0,
+                    Ui.dp(requireContext(), 54), 1.0f));
+            String[] units = {"Minutes", "Hours", "Days", "Weeks"};
+            Spinner unit = Ui.spinner(requireContext(), units, dark);
+            unit.setSelection(1);
+            LinearLayout.LayoutParams unitParams = new LinearLayout.LayoutParams(
+                    Ui.dp(requireContext(), 142), Ui.dp(requireContext(), 54));
+            unitParams.setMargins(Ui.dp(requireContext(), 8), 0, 0, 0);
+            inputRow.addView(unit, unitParams);
+            container.addView(inputRow, rowParams);
+
+            AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                    .setTitle("Add reminder time")
+                    .setView(container)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Add", null)
+                    .create();
+            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(view -> {
+                        Long leadTime = parseLeadTime(amount.getText().toString(),
+                                unit.getSelectedItemPosition());
+                        if (leadTime == null) {
+                            amount.setError("Enter a time from 1 minute to 1 year, "
+                                    + "in whole minutes.");
+                            return;
+                        }
+                        List<Long> updated = new ArrayList<>(
+                                ResetAlertPreferences.getResetCreditExpiryLeadTimes(
+                                        requireContext()));
+                        if (!updated.contains(leadTime)) updated.add(leadTime);
+                        saveExpiryLeadTimes(updated);
+                        dialog.dismiss();
+                    }));
+            dialog.show();
+        }
+
+        private Long parseLeadTime(String amount, int unitPosition) {
+            long[] unitMillis = {
+                    TimeUnit.MINUTES.toMillis(1),
+                    TimeUnit.HOURS.toMillis(1),
+                    TimeUnit.DAYS.toMillis(1),
+                    TimeUnit.DAYS.toMillis(7)
+            };
+            if (amount == null || amount.trim().isEmpty()
+                    || unitPosition < 0 || unitPosition >= unitMillis.length) {
+                return null;
+            }
+            try {
+                char decimalSeparator = DecimalFormatSymbols.getInstance()
+                        .getDecimalSeparator();
+                String normalized = decimalSeparator == '.'
+                        ? amount.trim() : amount.trim().replace(decimalSeparator, '.');
+                long value = new BigDecimal(normalized)
+                        .multiply(BigDecimal.valueOf(unitMillis[unitPosition]))
+                        .longValueExact();
+                return value >= ResetCreditExpiryReminder.MIN_LEAD_TIME_MS
+                        && value <= ResetCreditExpiryReminder.MAX_LEAD_TIME_MS
+                        && value % ResetCreditExpiryReminder.MIN_LEAD_TIME_MS == 0L
+                        ? value : null;
+            } catch (ArithmeticException | NumberFormatException exception) {
+                return null;
+            }
+        }
+
+        private void saveExpiryLeadTimes(List<Long> leadTimes) {
+            ResetAlertPreferences.setResetCreditExpiryLeadTimes(requireContext(), leadTimes);
+            updateExpiryTimesSummary();
+            scheduleResetCreditExpiryReminders();
+        }
+
+        private void updateExpiryTimesSummary() {
+            if (expiryTimesPreference == null) return;
+            List<Long> leadTimes = ResetAlertPreferences.getResetCreditExpiryLeadTimes(
+                    requireContext());
+            if (leadTimes.isEmpty()) {
+                expiryTimesPreference.setSummary("No reminder times configured");
+                return;
+            }
+            List<String> labels = new ArrayList<>();
+            for (Long leadTime : leadTimes) labels.add(formatLeadTime(leadTime));
+            expiryTimesPreference.setSummary(String.join(", ", labels) + " before expiry");
+        }
+
+        private String formatLeadTime(long millis) {
+            if (millis % TimeUnit.DAYS.toMillis(7) == 0L) {
+                long weeks = millis / TimeUnit.DAYS.toMillis(7);
+                return weeks + " week" + (weeks == 1 ? "" : "s");
+            }
+            if (millis % TimeUnit.DAYS.toMillis(1) == 0L) {
+                long days = millis / TimeUnit.DAYS.toMillis(1);
+                return days + " day" + (days == 1 ? "" : "s");
+            }
+            if (millis % TimeUnit.HOURS.toMillis(1) == 0L) {
+                long hours = millis / TimeUnit.HOURS.toMillis(1);
+                return hours + " hour" + (hours == 1 ? "" : "s");
+            }
+            long minutes = millis / TimeUnit.MINUTES.toMillis(1);
+            return minutes + " minute" + (minutes == 1 ? "" : "s");
+        }
+
+        private void scheduleResetCreditExpiryReminders() {
+            ResetNotificationManager.onResetCreditExpirySettingsChanged(requireContext(),
+                    AppPreferences.loadResetCredits(requireContext()));
         }
 
         private void setNotificationsEnabled(boolean enabled) {
@@ -335,6 +523,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 ResetNotificationManager.onResetCreditsUpdated(requireContext(), AppPreferences.loadResetCredits(requireContext()));
             }
             ResetAlertScheduler.scheduleFromSnapshot(requireContext(), AppPreferences.loadSnapshot(requireContext()));
+            scheduleResetCreditExpiryReminders();
         }
 
         private void updatePermissionSummary() {

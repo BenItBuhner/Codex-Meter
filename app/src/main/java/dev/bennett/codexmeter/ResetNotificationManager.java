@@ -11,7 +11,9 @@ import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.os.Build;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 /** Posts and deduplicates Codex usage, reset-time, and reset-credit notifications. */
 public final class ResetNotificationManager {
@@ -22,6 +24,8 @@ public final class ResetNotificationManager {
     private static final String KEY_FIVE_HOUR_WINDOW = "low_five_hour_window";
     private static final String KEY_WEEKLY_WINDOW = "low_weekly_window";
     private static final String KEY_CREDIT_COUNT = "known_reset_credit_count";
+    private static final String KEY_CREDIT_EXPIRY_ANNOUNCED =
+            "reset_credit_expiry_announced";
     private static final String KEY_USER_RESET_FIVE_HOUR_UNTIL = "user_reset_five_hour_until";
     private static final String KEY_USER_RESET_WEEKLY_UNTIL = "user_reset_weekly_until";
     private static final long UNKNOWN_USER_RESET_SUPPRESSION_MS = 15 * 60 * 1000L;
@@ -31,9 +35,11 @@ public final class ResetNotificationManager {
     private static final int NOTIFICATION_LOW_FIVE_HOUR = 74505;
     private static final int NOTIFICATION_LOW_WEEKLY = 74507;
     private static final int NOTIFICATION_NEW_CREDIT = 74509;
+    private static final int NOTIFICATION_CREDIT_EXPIRY_BASE = 74600;
     private static final int NOTIFICATION_REFILL_FIVE_HOUR = 74511;
     private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
     private static final int NOTIFICATION_REFILL_BOTH = 74513;
+    private static final Object EXPIRY_STATE_LOCK = new Object();
 
     private ResetNotificationManager() {
     }
@@ -66,6 +72,11 @@ public final class ResetNotificationManager {
     public static void onResetCreditsUpdated(Context context, ResetCreditsSnapshot snapshot) {
         if (context == null || snapshot == null) return;
         onResetCreditCountUpdated(context, snapshot.availableCount);
+        pruneResetCreditExpiryHistory(context, snapshot);
+        try {
+            ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     static void onResetCreditSummaryUpdated(Context context, int availableCount) {
@@ -121,6 +132,62 @@ public final class ResetNotificationManager {
                 weekly ? NOTIFICATION_RESET_WEEKLY : NOTIFICATION_RESET_FIVE_HOUR);
     }
 
+    public static boolean showResetCreditExpiryNotification(Context context, String creditId,
+            long expiresAtMillis, long leadTimeMillis) {
+        if (context == null || expiresAtMillis <= System.currentTimeMillis()
+                || !ResetAlertPreferences.enabled(context)
+                || !ResetAlertPreferences.resetCreditExpiryEnabled(context)) {
+            return false;
+        }
+        String token = ResetCreditExpiryReminder.token(creditId, expiresAtMillis,
+                leadTimeMillis);
+        synchronized (EXPIRY_STATE_LOCK) {
+            if (isResetCreditExpiryReminderAnnouncedLocked(context, token)) return false;
+            int notificationId = notificationIdForCredit(creditId, token);
+            long now = System.currentTimeMillis();
+            String text = "One reset credit expires "
+                    + UsageFormat.absolute(context, expiresAtMillis, now) + " ("
+                    + UsageFormat.relative(expiresAtMillis, now)
+                    + "). Use it before it expires.";
+            if (!postResetCreditExpiry(context, notificationId,
+                    "Codex reset credit expires soon", text)) {
+                return false;
+            }
+            Set<String> announced = new HashSet<>(state(context).getStringSet(
+                    KEY_CREDIT_EXPIRY_ANNOUNCED, new HashSet<>()));
+            announced.add(token);
+            state(context).edit().putStringSet(
+                    KEY_CREDIT_EXPIRY_ANNOUNCED, announced).apply();
+            return true;
+        }
+    }
+
+    static boolean isResetCreditExpiryReminderAnnounced(Context context, String token) {
+        if (context == null || token == null) return false;
+        synchronized (EXPIRY_STATE_LOCK) {
+            return isResetCreditExpiryReminderAnnouncedLocked(context, token);
+        }
+    }
+
+    public static void onResetCreditExpirySettingsChanged(Context context,
+            ResetCreditsSnapshot snapshot) {
+        if (context == null) return;
+        if (!ResetAlertPreferences.resetCreditExpiryEnabled(context)) {
+            clearResetCreditExpiryReminderHistory(context);
+        } else if (snapshot != null) {
+            pruneResetCreditExpiryHistory(context, snapshot);
+        }
+        ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
+    }
+
+    public static void dismissResetCreditExpiryNotification(Context context,
+            int notificationId) {
+        NotificationManager notificationManager = context == null ? null : manager(context);
+        if (notificationManager != null && notificationId >= NOTIFICATION_CREDIT_EXPIRY_BASE) {
+            notificationManager.cancel(notificationId);
+        }
+    }
+
     public static boolean sendTestNotification(Context context) {
         if (context == null || !ResetAlertPreferences.enabled(context)) {
             return false;
@@ -137,7 +204,10 @@ public final class ResetNotificationManager {
     }
 
     public static void clearState(Context context) {
-        if (context != null) state(context).edit().clear().apply();
+        if (context == null) return;
+        synchronized (EXPIRY_STATE_LOCK) {
+            state(context).edit().clear().apply();
+        }
     }
 
     public static void clearNotificationHistory(Context context) {
@@ -147,6 +217,43 @@ public final class ResetNotificationManager {
                 .remove(KEY_WEEKLY_WINDOW)
                 .remove(KEY_CREDIT_COUNT)
                 .apply();
+        clearResetCreditExpiryReminderHistory(context);
+    }
+
+    private static void pruneResetCreditExpiryHistory(Context context,
+            ResetCreditsSnapshot snapshot) {
+        Set<String> active = new HashSet<>();
+        for (ResetCreditExpiryReminder reminder : ResetCreditExpiryReminder.plan(
+                snapshot.credits, ResetAlertPreferences.getResetCreditExpiryLeadTimes(context),
+                System.currentTimeMillis())) {
+            active.add(reminder.token());
+        }
+        synchronized (EXPIRY_STATE_LOCK) {
+            Set<String> announced = new HashSet<>(state(context).getStringSet(
+                    KEY_CREDIT_EXPIRY_ANNOUNCED, new HashSet<>()));
+            if (announced.retainAll(active)) {
+                state(context).edit().putStringSet(
+                        KEY_CREDIT_EXPIRY_ANNOUNCED, announced).apply();
+            }
+        }
+    }
+
+    private static void clearResetCreditExpiryReminderHistory(Context context) {
+        synchronized (EXPIRY_STATE_LOCK) {
+            state(context).edit().remove(KEY_CREDIT_EXPIRY_ANNOUNCED).apply();
+        }
+    }
+
+    private static boolean isResetCreditExpiryReminderAnnouncedLocked(
+            Context context, String token) {
+        return state(context).getStringSet(
+                KEY_CREDIT_EXPIRY_ANNOUNCED, new HashSet<>()).contains(token);
+    }
+
+    private static int notificationIdForCredit(String creditId, String fallbackToken) {
+        return NOTIFICATION_CREDIT_EXPIRY_BASE
+                + Math.floorMod((creditId == null || creditId.isEmpty()
+                ? fallbackToken : creditId).hashCode(), 1000);
     }
 
     private static void notifyLowWindow(Context context, UsageWindow window, long fetchedAt,
@@ -241,6 +348,40 @@ public final class ResetNotificationManager {
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_REMINDER)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setShowWhen(true)
+                .build();
+        manager.notify(id, notification);
+        return true;
+    }
+
+    private static boolean postResetCreditExpiry(Context context, int id, String title,
+            String text) {
+        NotificationManager manager = manager(context);
+        if (manager == null) return false;
+        String channel = createChannel(manager, ResetAlertPreferences.getStyle(context));
+        if (!canPost(context, manager, channel)) return false;
+        Intent detailsIntent = new Intent(context, ResetCreditActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent details = PendingIntent.getActivity(context, id, detailsIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent useIntent = new Intent(context, ResetCreditActivity.class)
+                .setAction("dev.bennett.codexmeter.action.USE_RESET_FROM_NOTIFICATION")
+                .putExtra(AppConstants.EXTRA_PROMPT_USE_RESET, true)
+                .putExtra(AppConstants.EXTRA_NOTIFICATION_ID, id)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent useReset = PendingIntent.getActivity(context, id + 10_000, useIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification notification = new Notification.Builder(context, channel)
+                .setSmallIcon(R.drawable.ic_reset_notification)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(new Notification.BigTextStyle().bigText(text))
+                .setContentIntent(details)
+                .addAction(new Notification.Action.Builder(R.drawable.ic_reset_notification,
+                        "Use reset", useReset).build())
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)

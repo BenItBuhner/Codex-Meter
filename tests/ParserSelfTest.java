@@ -2,7 +2,10 @@ package dev.bennett.codexmeter;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 
 public final class ParserSelfTest {
     public static void main(String[] args) throws Exception {
@@ -13,6 +16,7 @@ public final class ParserSelfTest {
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
         testCelebrationDetection();
+        testResetCreditExpiryReminders();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
@@ -138,6 +142,43 @@ public final class ParserSelfTest {
         System.out.println("Celebration demo: countdown elapsed -> natural reset, no surprise notification.");
         System.out.println("Celebration demo: user reset marker -> no surprise notification.");
         System.out.println("Celebration demo: reset credits 2 -> 5 -> notification reports 3 added credits.");
+    }
+
+    private static void testResetCreditExpiryReminders() {
+        long now = 1_000_000L;
+        RateLimitResetCredit soon = new RateLimitResetCredit("soon", "both", "available",
+                now - 1, now + TimeUnit.HOURS.toMillis(48), "", "");
+        RateLimitResetCredit later = new RateLimitResetCredit("later", "both", "available",
+                now - 1, now + TimeUnit.DAYS.toMillis(7), "", "");
+        RateLimitResetCredit redeemed = new RateLimitResetCredit("used", "both", "redeemed",
+                now - 1, now + TimeUnit.HOURS.toMillis(2), "", "");
+        RateLimitResetCredit expired = new RateLimitResetCredit("expired", "both", "available",
+                now - 1, now - 1, "", "");
+        long ninetyMinutes = TimeUnit.MINUTES.toMillis(90);
+        List<ResetCreditExpiryReminder> reminders = ResetCreditExpiryReminder.plan(
+                Arrays.asList(soon, later, redeemed, expired),
+                Arrays.asList(TimeUnit.HOURS.toMillis(1), TimeUnit.HOURS.toMillis(24),
+                        ninetyMinutes, ninetyMinutes, 1L,
+                        ResetCreditExpiryReminder.MAX_LEAD_TIME_MS + 1L),
+                now);
+        check(reminders.size() == 6,
+                "every available credit gets each valid unique expiry reminder");
+        check(reminders.get(0).creditId.equals("soon")
+                        && reminders.get(0).leadTimeMillis == TimeUnit.HOURS.toMillis(24),
+                "expiry reminders are sorted by trigger time");
+        check(reminders.stream().anyMatch(reminder ->
+                        reminder.creditId.equals("later")
+                                && reminder.leadTimeMillis == ninetyMinutes),
+                "arbitrary whole-minute reminder time is accepted");
+        check(reminders.stream().noneMatch(reminder ->
+                        reminder.creditId.equals("used")
+                                || reminder.creditId.equals("expired")),
+                "redeemed and expired credits are excluded");
+        check(reminders.stream().map(ResetCreditExpiryReminder::token).distinct().count()
+                        == reminders.size(),
+                "reminder identities are unique across credits and lead times");
+        System.out.println("Reset-credit expiry demo: multiple custom lead times planned for "
+                + "every available credit.");
     }
 
     private static UsageSnapshot snapshot(int fiveHourUsed, int weeklyUsed,

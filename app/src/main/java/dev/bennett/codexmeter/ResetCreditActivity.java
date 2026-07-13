@@ -3,6 +3,7 @@ package dev.bennett.codexmeter;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -20,6 +21,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
     private LinearLayout content;
     private boolean dark;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private int expiryNotificationId = -1;
     private Button useButton;
 
     @Override // android.app.Activity
@@ -30,6 +32,17 @@ public final class ResetCreditActivity extends AppCompatActivity {
         this.content = Ui.installPage(this, "Codex reset", true).content;
         rebuild();
         refreshDetailsIfNeeded();
+        if (bundle == null) {
+            maybePromptUseReset(getIntent());
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        rebuild();
+        maybePromptUseReset(intent);
     }
 
     @Override // android.app.Activity
@@ -130,6 +143,22 @@ public final class ResetCreditActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    private void maybePromptUseReset(Intent intent) {
+        if (intent == null || !intent.getBooleanExtra(
+                AppConstants.EXTRA_PROMPT_USE_RESET, false)) {
+            return;
+        }
+        this.expiryNotificationId = intent.getIntExtra(
+                AppConstants.EXTRA_NOTIFICATION_ID, -1);
+        intent.removeExtra(AppConstants.EXTRA_PROMPT_USE_RESET);
+        intent.removeExtra(AppConstants.EXTRA_NOTIFICATION_ID);
+        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
+        if (snapshot != null && snapshot.availableCount > 0
+                && SecureTokenStore.isSignedIn(this)) {
+            confirmUse();
+        }
+    }
+
     public void consume() {
         if (this.useButton != null) {
             this.useButton.setEnabled(false);
@@ -148,6 +177,9 @@ public final class ResetCreditActivity extends AppCompatActivity {
                             if (!resetConsumeResultConsumeBestAvailable.applied()) {
                                 ResetCreditActivity.this.rebuild();
                             } else {
+                                ResetNotificationManager.dismissResetCreditExpiryNotification(
+                                        ResetCreditActivity.this,
+                                        ResetCreditActivity.this.expiryNotificationId);
                                 ResetCreditActivity.this.finish();
                             }
                         }
