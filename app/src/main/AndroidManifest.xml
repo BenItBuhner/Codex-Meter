@@ -52,6 +52,7 @@
         <activity
             android:name="dev.bennett.codexmeter.ResetCreditActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:excludeFromRecents="true"/>
         <activity
             android:theme="@style/AppTheme"
@@ -137,6 +138,9 @@
             android:exported="false"/>
         <receiver
             android:name="dev.bennett.codexmeter.ResetAlertReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name="dev.bennett.codexmeter.ResetCreditExpiryReceiver"
             android:exported="false"/>
         <receiver
             android:name="dev.bennett.codexmeter.BootReceiver"
