@@ -32,6 +32,17 @@ public final class CelebrationDetector {
         return current - previous;
     }
 
+    public static int withoutUserResetRefills(int refills, long observedAtMillis,
+            long fiveHourSuppressUntil, long weeklySuppressUntil) {
+        if (fiveHourSuppressUntil > observedAtMillis) {
+            refills &= ~FIVE_HOUR;
+        }
+        if (weeklySuppressUntil > observedAtMillis) {
+            refills &= ~WEEKLY;
+        }
+        return refills;
+    }
+
     static long expectedResetMillis(UsageSnapshot snapshot, UsageWindow window) {
         if (snapshot == null || window == null) return 0L;
         long resetAt = window.resetAtMillis();

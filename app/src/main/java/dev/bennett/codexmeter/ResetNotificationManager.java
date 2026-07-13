@@ -184,30 +184,24 @@ public final class ResetNotificationManager {
     private static int suppressUserResetRefills(Context context, int refills, long observedAt) {
         SharedPreferences preferences = state(context);
         SharedPreferences.Editor editor = preferences.edit();
-        int filtered = suppressUserResetWindow(preferences, editor,
-                KEY_USER_RESET_FIVE_HOUR_UNTIL, CelebrationDetector.FIVE_HOUR,
-                refills, observedAt);
-        filtered = suppressUserResetWindow(preferences, editor,
-                KEY_USER_RESET_WEEKLY_UNTIL, CelebrationDetector.WEEKLY,
-                filtered, observedAt);
+        long fiveHourUntil = preferences.getLong(KEY_USER_RESET_FIVE_HOUR_UNTIL, 0L);
+        long weeklyUntil = preferences.getLong(KEY_USER_RESET_WEEKLY_UNTIL, 0L);
+        int filtered = CelebrationDetector.withoutUserResetRefills(refills, observedAt,
+                fiveHourUntil, weeklyUntil);
+        clearUsedSuppression(editor, KEY_USER_RESET_FIVE_HOUR_UNTIL,
+                CelebrationDetector.FIVE_HOUR, refills, filtered, observedAt, fiveHourUntil);
+        clearUsedSuppression(editor, KEY_USER_RESET_WEEKLY_UNTIL,
+                CelebrationDetector.WEEKLY, refills, filtered, observedAt, weeklyUntil);
         editor.apply();
         return filtered;
     }
 
-    private static int suppressUserResetWindow(SharedPreferences preferences,
-            SharedPreferences.Editor editor, String key, int window, int refills,
-            long observedAt) {
-        long suppressUntil = preferences.getLong(key, 0L);
-        if (suppressUntil <= 0L) return refills;
-        if (observedAt >= suppressUntil) {
+    private static void clearUsedSuppression(SharedPreferences.Editor editor, String key,
+            int window, int before, int after, long observedAt, long suppressUntil) {
+        if (suppressUntil > 0L && (observedAt >= suppressUntil
+                || ((before & window) != 0 && (after & window) == 0))) {
             editor.remove(key);
-            return refills;
         }
-        if ((refills & window) != 0) {
-            editor.remove(key);
-            return refills & ~window;
-        }
-        return refills;
     }
 
     private static void markUserResetWindow(SharedPreferences.Editor editor, String key,

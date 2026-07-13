@@ -112,6 +112,14 @@ public final class ParserSelfTest {
         check(CelebrationDetector.detectUnexpectedRefills(null, earlyFull) == 0,
                 "first snapshot establishes a baseline");
 
+        int allRefills = CelebrationDetector.FIVE_HOUR | CelebrationDetector.WEEKLY;
+        check(CelebrationDetector.withoutUserResetRefills(allRefills, firstFetch + 1000L,
+                firstFetch + 5000L, firstFetch + 5000L) == 0,
+                "manual reset suppresses both refill celebrations");
+        check(CelebrationDetector.withoutUserResetRefills(allRefills, firstFetch + 6000L,
+                firstFetch + 5000L, firstFetch + 5000L) == allRefills,
+                "expired manual reset suppression does not hide external refills");
+
         check(CelebrationDetector.resetCreditsAdded(-1, 2) == 0,
                 "first reset-credit count establishes a baseline");
         check(CelebrationDetector.resetCreditsAdded(2, 3) == 1,
@@ -123,6 +131,7 @@ public final class ParserSelfTest {
 
         System.out.println("Celebration demo: 98% and 99% remaining -> surprise refill for both windows.");
         System.out.println("Celebration demo: countdown elapsed -> natural reset, no surprise notification.");
+        System.out.println("Celebration demo: user reset marker -> no surprise notification.");
         System.out.println("Celebration demo: reset credits 2 -> 5 -> notification reports 3 added credits.");
     }
 
