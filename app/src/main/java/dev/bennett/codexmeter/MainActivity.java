@@ -32,6 +32,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
     private static final int MENU_SETTINGS = 8101;
+    private String appliedStyle;
     private String appliedTheme;
     private LinearLayout content;
     private SwipeRefreshLayout swipeRefresh;
@@ -71,6 +72,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
+        this.appliedStyle = AppPreferences.getAppStyle(this);
         this.appliedTheme = AppPreferences.getAppTheme(this);
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
@@ -122,9 +124,11 @@ public final class MainActivity extends AppCompatActivity {
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        String appStyle = AppPreferences.getAppStyle(this);
         String appTheme = AppPreferences.getAppTheme(this);
         boolean zIsDark = Ui.isDark(this);
-        if (!appTheme.equals(this.appliedTheme) || zIsDark != this.dark) {
+        if (!appStyle.equals(this.appliedStyle) || !appTheme.equals(this.appliedTheme)
+                || zIsDark != this.dark) {
             recreate();
         } else {
             handleLaunchIntent(getIntent());

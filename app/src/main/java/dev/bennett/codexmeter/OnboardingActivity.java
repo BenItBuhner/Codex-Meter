@@ -165,8 +165,8 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void render() {
         if (this.content == null) return;
         this.content.removeAllViews();
-        this.page.toolbar.setTitle("Codex Meter");
-        this.page.toolbar.setShowNavigationButtonAsBack(this.step > OnboardingFlow.STEP_WELCOME);
+        this.page.setTitle("Codex Meter");
+        this.page.setShowNavigationButtonAsBack(this.step > OnboardingFlow.STEP_WELCOME);
 
         addProgress();
         if (this.step == OnboardingFlow.STEP_WELCOME) {

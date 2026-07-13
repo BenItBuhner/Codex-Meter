@@ -215,16 +215,22 @@ public final class AppPreferences {
     }
 
     public static String getAppStyle(Context context) {
-        return WidgetOptions.SURFACE_ONE_UI;
+        String value = prefs(context).getString(KEY_APP_STYLE, WidgetOptions.SURFACE_ONE_UI);
+        return WidgetOptions.SURFACE_MATERIAL.equals(value)
+                ? WidgetOptions.SURFACE_MATERIAL
+                : WidgetOptions.SURFACE_ONE_UI;
     }
 
-    public static void setAppStyle(Context context, String str) {
-        prefs(context).edit().putString(KEY_APP_STYLE, WidgetOptions.SURFACE_ONE_UI).apply();
+    public static void setAppStyle(Context context, String style) {
+        String value = WidgetOptions.SURFACE_MATERIAL.equals(style)
+                ? WidgetOptions.SURFACE_MATERIAL
+                : WidgetOptions.SURFACE_ONE_UI;
+        prefs(context).edit().putString(KEY_APP_STYLE, value).commit();
     }
 
     public static WidgetOptions loadDefaultWidgetOptions(Context context) {
         SharedPreferences sharedPreferencesPrefs = prefs(context);
-        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString("default_style", WidgetOptions.STYLE_RINGS), sharedPreferencesPrefs.getString("default_density", "auto"), sharedPreferencesPrefs.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI), sharedPreferencesPrefs.getString("default_graphic_scale", "auto"), sharedPreferencesPrefs.getString("default_theme", WidgetOptions.THEME_SYSTEM), sharedPreferencesPrefs.getString("default_accent", WidgetOptions.ACCENT_BLUE), sharedPreferencesPrefs.getInt("default_opacity", 88), sharedPreferencesPrefs.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE), sharedPreferencesPrefs.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING), "both", false, sharedPreferencesPrefs.getBoolean("default_show_plan", false), sharedPreferencesPrefs.getBoolean("default_show_updated", false), sharedPreferencesPrefs.getBoolean("default_show_refresh", true), sharedPreferencesPrefs.getBoolean("default_show_reset_credits", false), sharedPreferencesPrefs.getBoolean("default_show_reset_action", false)))
+        return batteryStyle(context, new WidgetOptions(sharedPreferencesPrefs.getString("default_style", WidgetOptions.STYLE_RINGS), sharedPreferencesPrefs.getString("default_density", "auto"), sharedPreferencesPrefs.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI), sharedPreferencesPrefs.getString("default_graphic_scale", "auto"), sharedPreferencesPrefs.getString("default_theme", WidgetOptions.THEME_SYSTEM), sharedPreferencesPrefs.getString("default_accent", WidgetOptions.ACCENT_BLUE), sharedPreferencesPrefs.getInt("default_opacity", 88), sharedPreferencesPrefs.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE), sharedPreferencesPrefs.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING), "both", false, sharedPreferencesPrefs.getBoolean("default_show_plan", false), sharedPreferencesPrefs.getBoolean("default_show_updated", false), sharedPreferencesPrefs.getBoolean("default_show_refresh", true), sharedPreferencesPrefs.getBoolean("default_show_reset_credits", false), sharedPreferencesPrefs.getBoolean("default_show_reset_action", false)))
                 .withPercentSymbol(sharedPreferencesPrefs.getBoolean(
                         "default_show_percent_symbol", true));
     }
@@ -240,7 +246,7 @@ public final class AppPreferences {
         SharedPreferences sharedPreferencesPrefs = prefs(context);
         WidgetOptions widgetOptionsLoadDefaultWidgetOptions = loadDefaultWidgetOptions(context);
         String str = "widget_" + i + "_";
-        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString(str + "style", widgetOptionsLoadDefaultWidgetOptions.layout), sharedPreferencesPrefs.getString(str + "density", widgetOptionsLoadDefaultWidgetOptions.density), sharedPreferencesPrefs.getString(str + "surface_style", widgetOptionsLoadDefaultWidgetOptions.surfaceStyle), sharedPreferencesPrefs.getString(str + "graphic_scale", widgetOptionsLoadDefaultWidgetOptions.graphicScale), sharedPreferencesPrefs.getString(str + "theme", widgetOptionsLoadDefaultWidgetOptions.theme), sharedPreferencesPrefs.getString(str + "accent", widgetOptionsLoadDefaultWidgetOptions.accent), sharedPreferencesPrefs.getInt(str + "opacity", widgetOptionsLoadDefaultWidgetOptions.opacity), sharedPreferencesPrefs.getString(str + "reset_mode", widgetOptionsLoadDefaultWidgetOptions.resetMode), sharedPreferencesPrefs.getString(str + "display_mode", widgetOptionsLoadDefaultWidgetOptions.displayMode), "both", false, sharedPreferencesPrefs.getBoolean(str + "show_plan", widgetOptionsLoadDefaultWidgetOptions.showPlan), sharedPreferencesPrefs.getBoolean(str + "show_updated", widgetOptionsLoadDefaultWidgetOptions.showUpdated), sharedPreferencesPrefs.getBoolean(str + "show_refresh", widgetOptionsLoadDefaultWidgetOptions.showRefresh), sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", widgetOptionsLoadDefaultWidgetOptions.showResetCredits), sharedPreferencesPrefs.getBoolean(str + "show_reset_action", widgetOptionsLoadDefaultWidgetOptions.showResetAction)))
+        return batteryStyle(context, new WidgetOptions(sharedPreferencesPrefs.getString(str + "style", widgetOptionsLoadDefaultWidgetOptions.layout), sharedPreferencesPrefs.getString(str + "density", widgetOptionsLoadDefaultWidgetOptions.density), sharedPreferencesPrefs.getString(str + "surface_style", widgetOptionsLoadDefaultWidgetOptions.surfaceStyle), sharedPreferencesPrefs.getString(str + "graphic_scale", widgetOptionsLoadDefaultWidgetOptions.graphicScale), sharedPreferencesPrefs.getString(str + "theme", widgetOptionsLoadDefaultWidgetOptions.theme), sharedPreferencesPrefs.getString(str + "accent", widgetOptionsLoadDefaultWidgetOptions.accent), sharedPreferencesPrefs.getInt(str + "opacity", widgetOptionsLoadDefaultWidgetOptions.opacity), sharedPreferencesPrefs.getString(str + "reset_mode", widgetOptionsLoadDefaultWidgetOptions.resetMode), sharedPreferencesPrefs.getString(str + "display_mode", widgetOptionsLoadDefaultWidgetOptions.displayMode), "both", false, sharedPreferencesPrefs.getBoolean(str + "show_plan", widgetOptionsLoadDefaultWidgetOptions.showPlan), sharedPreferencesPrefs.getBoolean(str + "show_updated", widgetOptionsLoadDefaultWidgetOptions.showUpdated), sharedPreferencesPrefs.getBoolean(str + "show_refresh", widgetOptionsLoadDefaultWidgetOptions.showRefresh), sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", widgetOptionsLoadDefaultWidgetOptions.showResetCredits), sharedPreferencesPrefs.getBoolean(str + "show_reset_action", widgetOptionsLoadDefaultWidgetOptions.showResetAction)))
                 .withPercentSymbol(sharedPreferencesPrefs.getBoolean(str + "show_percent_symbol",
                         widgetOptionsLoadDefaultWidgetOptions.showPercentSymbol));
     }
@@ -261,9 +267,9 @@ public final class AppPreferences {
         }
     }
 
-    private static WidgetOptions batteryStyle(WidgetOptions options) {
+    private static WidgetOptions batteryStyle(Context context, WidgetOptions options) {
         return new WidgetOptions(WidgetOptions.STYLE_RINGS, WidgetOptions.DENSITY_AUTO,
-                WidgetOptions.SURFACE_ONE_UI, "auto", options.theme, options.accent,
+                getAppStyle(context), "auto", options.theme, options.accent,
                 options.opacity, WidgetOptions.RESET_HIDDEN, options.displayMode, "both",
                 false, false, false, false, false, false);
     }

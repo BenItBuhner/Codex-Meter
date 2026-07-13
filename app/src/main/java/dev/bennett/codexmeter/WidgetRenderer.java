@@ -222,7 +222,10 @@ public final class WidgetRenderer {
     }
 
     private static void applyRootAndHeader(Context context, RemoteViews remoteViews, int i, WidgetOptions widgetOptions, boolean z, WidgetState widgetState) {
-        if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
+        if (WidgetOptions.SURFACE_MATERIAL.equals(widgetOptions.surfaceStyle)) {
+            remoteViews.setInt(android.R.id.background, "setBackgroundResource",
+                    materialBackground(z, mapOpacityBucket(widgetOptions.opacity)));
+        } else if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
             int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
             remoteViews.setInt(android.R.id.background, "setBackgroundColor",
                     z ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
@@ -608,6 +611,9 @@ public final class WidgetRenderer {
         if (i == 0) {
             return R.drawable.widget_bg_transparent;
         }
+        if (WidgetOptions.SURFACE_MATERIAL.equals(str)) {
+            return materialBackground(z, mapOpacityBucket(i));
+        }
         boolean zEquals = WidgetOptions.SURFACE_ONE_UI.equals(str);
         if (zEquals && isSamsung(context)) {
             if (z) {
@@ -661,6 +667,48 @@ public final class WidgetRenderer {
             return R.drawable.widget_bg_light_72;
         }
         return i == 100 ? R.drawable.widget_bg_light_100 : R.drawable.widget_bg_light_88;
+    }
+
+    private static int mapOpacityBucket(int opacity) {
+        if (opacity <= 0) {
+            return 0;
+        }
+        if (opacity <= 56) {
+            return 56;
+        }
+        if (opacity <= 72) {
+            return 72;
+        }
+        if (opacity <= 88) {
+            return 88;
+        }
+        return 100;
+    }
+
+    private static int materialBackground(boolean dark, int opacity) {
+        if (opacity == 0) {
+            return R.drawable.widget_bg_transparent;
+        }
+        if (dark) {
+            if (opacity == 56) {
+                return R.drawable.widget_bg_material_dark_56;
+            }
+            if (opacity == 72) {
+                return R.drawable.widget_bg_material_dark_72;
+            }
+            return opacity == 100
+                    ? R.drawable.widget_bg_material_dark_100
+                    : R.drawable.widget_bg_material_dark_88;
+        }
+        if (opacity == 56) {
+            return R.drawable.widget_bg_material_light_56;
+        }
+        if (opacity == 72) {
+            return R.drawable.widget_bg_material_light_72;
+        }
+        return opacity == 100
+                ? R.drawable.widget_bg_material_light_100
+                : R.drawable.widget_bg_material_light_88;
     }
 
     private static boolean isSamsung(Context context) {

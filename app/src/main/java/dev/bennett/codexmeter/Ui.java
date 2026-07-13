@@ -32,6 +32,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.AppCompatCheckBox;
 import androidx.appcompat.widget.AppCompatSpinner;
+import androidx.appcompat.widget.Toolbar;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.ktx.ActivityKt;
 import dev.oneuiproject.oneui.popover.PopOverOptions;
@@ -42,29 +43,89 @@ import dev.oneuiproject.oneui.widget.Separator;
 /* JADX INFO: loaded from: classes.dex */
 public final class Ui {
     public static final class Page {
-        public final ToolbarLayout toolbar;
         public final LinearLayout content;
+        private final AppCompatActivity activity;
+        private final ToolbarLayout oneUiToolbar;
+        private final Toolbar materialToolbar;
 
-        private Page(ToolbarLayout toolbar, LinearLayout content) {
-            this.toolbar = toolbar;
+        private Page(AppCompatActivity activity, ToolbarLayout oneUiToolbar,
+                Toolbar materialToolbar, LinearLayout content) {
+            this.activity = activity;
+            this.oneUiToolbar = oneUiToolbar;
+            this.materialToolbar = materialToolbar;
             this.content = content;
+        }
+
+        public void setTitle(String title) {
+            if (oneUiToolbar != null) {
+                oneUiToolbar.setTitle(title);
+            } else if (materialToolbar != null) {
+                materialToolbar.setTitle(title);
+                if (activity.getSupportActionBar() != null) {
+                    activity.getSupportActionBar().setTitle(title);
+                }
+            }
+        }
+
+        public void setShowNavigationButtonAsBack(boolean back) {
+            if (oneUiToolbar != null) {
+                oneUiToolbar.setShowNavigationButtonAsBack(back);
+            } else if (materialToolbar != null) {
+                if (activity.getSupportActionBar() != null) {
+                    activity.getSupportActionBar().setDisplayHomeAsUpEnabled(back);
+                }
+                materialToolbar.setNavigationIcon(back ? R.drawable.ic_oui_back : 0);
+                materialToolbar.setNavigationOnClickListener(back
+                        ? view -> activity.onSupportNavigateUp()
+                        : null);
+            }
         }
     }
 
     public static final class ConfigPage {
-        public final ToolbarLayout toolbar;
         public final LinearLayout content;
         public final FrameLayout preview;
         public final TextView cancel;
         public final TextView save;
+        private final AppCompatActivity activity;
+        private final ToolbarLayout oneUiToolbar;
+        private final Toolbar materialToolbar;
 
-        private ConfigPage(ToolbarLayout toolbar, LinearLayout content, FrameLayout preview,
+        private ConfigPage(AppCompatActivity activity, ToolbarLayout oneUiToolbar,
+                Toolbar materialToolbar, LinearLayout content, FrameLayout preview,
                 TextView cancel, TextView save) {
-            this.toolbar = toolbar;
+            this.activity = activity;
+            this.oneUiToolbar = oneUiToolbar;
+            this.materialToolbar = materialToolbar;
             this.content = content;
             this.preview = preview;
             this.cancel = cancel;
             this.save = save;
+        }
+
+        public void setTitle(String title) {
+            if (oneUiToolbar != null) {
+                oneUiToolbar.setTitle(title);
+            } else if (materialToolbar != null) {
+                materialToolbar.setTitle(title);
+                if (activity.getSupportActionBar() != null) {
+                    activity.getSupportActionBar().setTitle(title);
+                }
+            }
+        }
+
+        public void setShowNavigationButtonAsBack(boolean back) {
+            if (oneUiToolbar != null) {
+                oneUiToolbar.setShowNavigationButtonAsBack(back);
+            } else if (materialToolbar != null) {
+                if (activity.getSupportActionBar() != null) {
+                    activity.getSupportActionBar().setDisplayHomeAsUpEnabled(back);
+                }
+                materialToolbar.setNavigationIcon(back ? R.drawable.ic_oui_back : 0);
+                materialToolbar.setNavigationOnClickListener(back
+                        ? view -> activity.onSupportNavigateUp()
+                        : null);
+            }
         }
     }
 
@@ -82,17 +143,35 @@ public final class Ui {
             }
             ((AppCompatActivity) activity).getDelegate().setLocalNightMode(mode);
         }
-        activity.setTheme(R.style.AppTheme);
+        activity.setTheme(isOneUi(activity) ? R.style.AppTheme : R.style.AppThemeMaterial);
     }
 
     public static Page installPage(AppCompatActivity activity, String title, boolean back) {
         ViewGroup parent = activity.findViewById(android.R.id.content);
-        View root = LayoutInflater.from(activity).inflate(R.layout.activity_oneui_dashboard, parent, false);
-        ToolbarLayout toolbar = root.findViewById(R.id.toolbar_layout);
+        View root;
+        ToolbarLayout toolbar = null;
+        Toolbar materialToolbar = null;
+        if (isOneUi(activity)) {
+            root = LayoutInflater.from(activity).inflate(R.layout.activity_oneui_dashboard, parent, false);
+            toolbar = root.findViewById(R.id.toolbar_layout);
+            configureReachToolbar(toolbar, title, back);
+        } else {
+            root = LayoutInflater.from(activity).inflate(R.layout.activity_material_dashboard, parent, false);
+            materialToolbar = root.findViewById(R.id.toolbar_layout);
+        }
         LinearLayout content = root.findViewById(R.id.dashboard_content);
-        configureReachToolbar(toolbar, title, back);
         activity.setContentView(root);
-        return new Page(toolbar, content);
+        if (materialToolbar != null) {
+            activity.setSupportActionBar(materialToolbar);
+            if (activity.getSupportActionBar() != null) {
+                activity.getSupportActionBar().setTitle(title);
+                activity.getSupportActionBar().setDisplayHomeAsUpEnabled(back);
+            }
+            if (back) {
+                materialToolbar.setNavigationOnClickListener(view -> activity.onSupportNavigateUp());
+            }
+        }
+        return new Page(activity, toolbar, materialToolbar, content);
     }
 
     public static void configureReachToolbar(ToolbarLayout toolbar, String title, boolean back) {
@@ -109,7 +188,7 @@ public final class Ui {
         boolean largeOneUiDevice = Build.MANUFACTURER != null
                 && "samsung".equalsIgnoreCase(Build.MANUFACTURER)
                 && activity.getResources().getConfiguration().smallestScreenWidthDp >= 600;
-        if (largeOneUiDevice) {
+        if (isOneUi(activity) && largeOneUiDevice) {
             ActivityKt.startPopOverActivity(
                     activity,
                     intent,
@@ -129,17 +208,33 @@ public final class Ui {
 
     public static ConfigPage installConfigPage(AppCompatActivity activity, String title) {
         ViewGroup parent = activity.findViewById(android.R.id.content);
-        View root = LayoutInflater.from(activity).inflate(R.layout.activity_widget_settings, parent, false);
-        ToolbarLayout toolbar = root.findViewById(R.id.widget_settings_root);
+        View root;
+        ToolbarLayout toolbar = null;
+        Toolbar materialToolbar = null;
+        if (isOneUi(activity)) {
+            root = LayoutInflater.from(activity).inflate(R.layout.activity_widget_settings, parent, false);
+            toolbar = root.findViewById(R.id.widget_settings_root);
+            toolbar.setTitle(title);
+            toolbar.setShowNavigationButtonAsBack(true);
+        } else {
+            root = LayoutInflater.from(activity).inflate(R.layout.activity_material_widget_settings, parent, false);
+            materialToolbar = root.findViewById(R.id.widget_settings_root);
+        }
         LinearLayout content = root.findViewById(R.id.widget_settings_content);
         FrameLayout preview = root.findViewById(R.id.widget_preview_container);
         TextView cancel = root.findViewById(R.id.config_cancel);
         TextView save = root.findViewById(R.id.config_save);
-        toolbar.setTitle(title);
-        toolbar.setShowNavigationButtonAsBack(true);
         activity.setContentView(root);
+        if (materialToolbar != null) {
+            activity.setSupportActionBar(materialToolbar);
+            if (activity.getSupportActionBar() != null) {
+                activity.getSupportActionBar().setTitle(title);
+                activity.getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            }
+            materialToolbar.setNavigationOnClickListener(view -> activity.onSupportNavigateUp());
+        }
         configureSystemBars(activity, root, isDark(activity));
-        return new ConfigPage(toolbar, content, preview, cancel, save);
+        return new ConfigPage(activity, toolbar, materialToolbar, content, preview, cancel, save);
     }
 
     public static boolean isDark(Context context) {
@@ -151,7 +246,7 @@ public final class Ui {
     }
 
     public static boolean isOneUi(Context context) {
-        return true;
+        return WidgetOptions.SURFACE_ONE_UI.equals(AppPreferences.getAppStyle(context));
     }
 
     public static int pageHorizontalPadding(Context context) {
@@ -288,7 +383,7 @@ public final class Ui {
         int i = zIsOneUi ? 22 : 20;
         int i2 = zIsOneUi ? 20 : 19;
         linearLayout.setPadding(dp(context, i), dp(context, i2), dp(context, i), dp(context, i2));
-        linearLayout.setBackground(shape(cardColor(context, z), dp(context, 28.0f)));
+        linearLayout.setBackground(shape(cardColor(context, z), dp(context, zIsOneUi ? 28.0f : 32.0f)));
         linearLayout.setElevation(0.0f);
         linearLayout.setClipToOutline(true);
         linearLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
@@ -366,7 +461,9 @@ public final class Ui {
     }
 
     public static Button nativePrimaryButton(Context context, String text) {
-        Button button = (Button) LayoutInflater.from(context).inflate(R.layout.view_oneui_primary_button, null, false);
+        Button button = (Button) LayoutInflater.from(context).inflate(
+                isOneUi(context) ? R.layout.view_oneui_primary_button : R.layout.view_material_primary_button,
+                null, false);
         button.setText(text);
         boolean dark = isDark(context);
         int accent = accent(context, dark);

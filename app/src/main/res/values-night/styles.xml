@@ -12,4 +12,11 @@
 
     <style name="AppThemeDark" parent="AppTheme" />
     <style name="AppThemeLight" parent="AppTheme" />
+
+    <style name="AppThemeMaterial" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
 </resources>

@@ -194,6 +194,7 @@
     <public type="style" name="AppTheme" id="0x7f080000" />
     <public type="style" name="AppThemeDark" id="0x7f080001" />
     <public type="style" name="AppThemeLight" id="0x7f080002" />
+    <public type="style" name="AppThemeMaterial" id="0x7f080003" />
     <public type="xml" name="codex_widget_info" id="0x7f090000" />
     <public type="xml" name="data_extraction_rules" id="0x7f090001" />
     <public type="xml" name="samsung_lock_bars_square_info" id="0x7f090002" />

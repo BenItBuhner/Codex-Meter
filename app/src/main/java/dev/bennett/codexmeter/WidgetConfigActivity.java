@@ -334,7 +334,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private WidgetOptions currentOptions() {
         return new WidgetOptions(WidgetOptions.STYLE_RINGS,
                 WidgetOptions.DENSITY_AUTO,
-                WidgetOptions.SURFACE_ONE_UI, WidgetOptions.GRAPHIC_AUTO,
+                AppPreferences.getAppStyle(this), WidgetOptions.GRAPHIC_AUTO,
                 WidgetOptionCatalog.THEME_VALUES[this.themeSpinner.getSelectedItemPosition()],
                 WidgetOptionCatalog.ACCENT_VALUES[this.accentSpinner.getSelectedItemPosition()],
                 WidgetOptionCatalog.OPACITY_VALUES[this.opacitySlider.getProgress()],

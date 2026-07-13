@@ -17,6 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -24,7 +25,6 @@ import androidx.preference.SwitchPreferenceCompat;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
 import dev.oneuiproject.oneui.preference.LayoutPreference;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
@@ -38,15 +38,33 @@ public final class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
-        AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
-        setContentView(R.layout.activity_settings);
-        ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
-        Ui.configureReachToolbar(toolbar, "Settings", true);
+        if (Ui.isOneUi(this)) {
+            setContentView(R.layout.activity_settings);
+            ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
+            Ui.configureReachToolbar(toolbar, "Settings", true);
+        } else {
+            setContentView(R.layout.activity_material_settings);
+            Toolbar toolbar = findViewById(R.id.settings_toolbar_layout);
+            setSupportActionBar(toolbar);
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setTitle("Settings");
+                getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            }
+        }
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, new SettingsFragment())
                     .commit();
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(android.view.MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            getOnBackPressedDispatcher().onBackPressed();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
@@ -57,7 +75,9 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
             getPreferenceManager().setSharedPreferencesName("codex_meter_settings_v1");
-            addPreferencesFromResource(R.xml.preferences_settings);
+            addPreferencesFromResource(Ui.isOneUi(requireContext())
+                    ? R.xml.preferences_settings
+                    : R.xml.preferences_settings_material);
             bindAccount();
             bindAppearance();
             bindRefresh();
@@ -83,7 +103,10 @@ public final class SettingsActivity extends AppCompatActivity {
         private void bindAccount() {
             boolean dark = Ui.isDark(requireContext());
             LayoutPreference preference = findPreference("account_card");
-            RoundedLinearLayout card = preference.findViewById(R.id.settings_account_card);
+            if (preference == null) {
+                return;
+            }
+            View card = preference.findViewById(R.id.settings_account_card);
             card.setBackground(Ui.card(requireContext(), dark).getBackground());
             ImageView avatar = preference.findViewById(R.id.settings_account_avatar);
             GradientDrawable avatarBackground = new GradientDrawable();
@@ -97,7 +120,7 @@ public final class SettingsActivity extends AppCompatActivity {
             TextView title = preference.findViewById(R.id.settings_account_title);
             TextView summary = preference.findViewById(R.id.settings_account_summary);
             TextView plan = preference.findViewById(R.id.settings_account_plan);
-            CardItemView action = preference.findViewById(R.id.settings_account_action);
+            View actionView = preference.findViewById(R.id.settings_account_action);
             title.setTextColor(Ui.mainText(dark));
             summary.setTextColor(Ui.secondaryText(dark));
             plan.setTextColor(Ui.mainText(dark));
@@ -115,11 +138,7 @@ public final class SettingsActivity extends AppCompatActivity {
             } else {
                 plan.setVisibility(View.GONE);
             }
-            action.getTitleView().setText(tokens == null ? "Sign in with ChatGPT" : "Sign out");
-            action.getTitleView().setTextColor(tokens == null
-                    ? Ui.accent(requireContext(), dark)
-                    : (dark ? 0xFFFF6B6B : 0xFFFF3B30));
-            action.setOnClickListener(view -> {
+            View.OnClickListener actionListener = view -> {
                 if (SecureTokenStore.isSignedIn(requireContext())) {
                     confirmSignOut();
                 } else {
@@ -127,7 +146,22 @@ public final class SettingsActivity extends AppCompatActivity {
                             .putExtra("start_sign_in", true));
                     requireActivity().finish();
                 }
-            });
+            };
+            int actionColor = tokens == null
+                    ? Ui.accent(requireContext(), dark)
+                    : (dark ? 0xFFFF6B6B : 0xFFFF3B30);
+            String actionText = tokens == null ? "Sign in with ChatGPT" : "Sign out";
+            if (actionView instanceof CardItemView) {
+                CardItemView action = (CardItemView) actionView;
+                action.getTitleView().setText(actionText);
+                action.getTitleView().setTextColor(actionColor);
+                action.setOnClickListener(actionListener);
+            } else if (actionView instanceof TextView) {
+                TextView action = (TextView) actionView;
+                action.setText(actionText);
+                action.setTextColor(actionColor);
+                action.setOnClickListener(actionListener);
+            }
         }
 
         private void confirmSignOut() {
@@ -157,24 +191,54 @@ public final class SettingsActivity extends AppCompatActivity {
             String selected = AppPreferences.getAppTheme(requireContext());
             boolean useSystem = WidgetOptions.THEME_SYSTEM.equals(selected);
             HorizontalRadioPreference theme = findPreference("app_theme");
+            ListPreference themeList = findPreference("app_theme_list");
             SwitchPreferenceCompat system = findPreference("theme_system_ui");
             system.setEnabled(true);
-            // The visual radio shows the effective light/dark mode while AppPreferences also
-            // stores the third "system" state under app_theme. Do not let setValue() overwrite
-            // that system state with the currently resolved light/dark entry.
-            theme.setPersistent(false);
-            theme.setDividerEnabled(false);
-            theme.setTouchEffectEnabled(false);
-            theme.setValue(useSystem
-                    ? (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT)
-                    : selected);
-            theme.setEnabled(!useSystem);
+            SwitchPreferenceCompat material = findPreference("material_u_mode");
+            if (material != null) {
+                material.setPersistent(false);
+                material.setChecked(WidgetOptions.SURFACE_MATERIAL.equals(
+                        AppPreferences.getAppStyle(requireContext())));
+                material.setOnPreferenceChangeListener((preference, value) -> {
+                    boolean enabled = (Boolean) value;
+                    AppPreferences.setAppStyle(requireContext(), enabled
+                            ? WidgetOptions.SURFACE_MATERIAL
+                            : WidgetOptions.SURFACE_ONE_UI);
+                    WidgetRenderer.updateAll(requireContext());
+                    requireActivity().recreate();
+                    return true;
+                });
+            }
+            if (theme != null) {
+                // The visual radio shows the effective light/dark mode while AppPreferences also
+                // stores the third "system" state under app_theme. Do not let setValue() overwrite
+                // that system state with the currently resolved light/dark entry.
+                theme.setPersistent(false);
+                theme.setDividerEnabled(false);
+                theme.setTouchEffectEnabled(false);
+                theme.setValue(useSystem
+                        ? (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT)
+                        : selected);
+                theme.setEnabled(!useSystem);
+                theme.setOnPreferenceChangeListener((preference, value) -> {
+                    AppPreferences.setAppTheme(requireContext(), String.valueOf(value));
+                    requireActivity().recreate();
+                    return true;
+                });
+            }
+            if (themeList != null) {
+                themeList.setPersistent(false);
+                themeList.setValue(useSystem
+                        ? (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT)
+                        : selected);
+                themeList.setEnabled(!useSystem);
+                themeList.setOnPreferenceChangeListener((preference, value) -> {
+                    AppPreferences.setAppTheme(requireContext(), String.valueOf(value));
+                    requireActivity().recreate();
+                    return true;
+                });
+            }
             system.setChecked(useSystem);
-            theme.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setAppTheme(requireContext(), String.valueOf(value));
-                requireActivity().recreate();
-                return true;
-            });
             system.setOnPreferenceChangeListener((preference, value) -> {
                 boolean enabled = (Boolean) value;
                 AppPreferences.setAppTheme(requireContext(), enabled

@@ -228,6 +228,16 @@ public final class ParserSelfTest {
         check(WidgetOptions.SURFACE_ONE_UI.equals(transparent.surfaceStyle), "One UI widget style");
         check(WidgetOptions.GRAPHIC_MAX.equals(transparent.graphicScale), "maximum graphic scale");
         check(!WidgetOptions.defaults().showTitle, "widget title defaults off");
+
+        WidgetOptions material = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_MATERIAL,
+                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_APP,
+                94, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                WidgetOptions.METRIC_BOTH, false, false, false, false, false, false);
+        check(WidgetOptions.SURFACE_MATERIAL.equals(material.surfaceStyle),
+                "Material widget style");
+        check(WidgetOptions.SURFACE_ONE_UI.equals(WidgetOptions.defaults().surfaceStyle),
+                "default widget style remains One UI");
     }
 
     private static void testOnboardingFlow() {

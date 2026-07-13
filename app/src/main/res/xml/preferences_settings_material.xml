@@ -4,24 +4,25 @@
 
     <dev.oneuiproject.oneui.preference.LayoutPreference
         android:key="account_card"
-        android:layout="@layout/preference_account_card"
+        android:layout="@layout/preference_account_card_material"
+        android:selectable="false"
         app:allowDividerAbove="false"
         app:allowDividerBelow="false" />
 
     <PreferenceCategory android:title="Appearance">
-        <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
-            android:key="app_theme"
-            app:entries="@array/preferences_darkmode_entries"
-            app:entriesImage="@array/preferences_darkmode_entries_image"
-            app:entryValues="@array/preferences_darkmode_values"
-            app:viewType="image" />
+        <SwitchPreferenceCompat
+            android:key="material_u_mode"
+            android:summary="Use Material Expressive design for the app and widgets"
+            android:title="Material You" />
         <SwitchPreferenceCompat
             android:key="theme_system_ui"
             android:title="System default" />
-        <SwitchPreferenceCompat
-            android:key="material_u_mode"
-            android:title="Material You"
-            android:summary="Use Material Expressive design for the app and widgets" />
+        <ListPreference
+            android:entries="@array/preferences_darkmode_entries"
+            android:entryValues="@array/preferences_darkmode_values"
+            android:key="app_theme_list"
+            android:title="Theme"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Refresh">
@@ -54,16 +55,16 @@
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             android:key="unexpected_refills_ui"
-            android:title="Surprise limit refills"
-            android:summary="Celebrate when an allowance reaches 100% before its scheduled reset" />
+            android:summary="Celebrate when an allowance reaches 100% before its scheduled reset"
+            android:title="Surprise limit refills" />
         <SwitchPreferenceCompat
             android:key="reset_credit_increases_ui"
-            android:title="New reset credits"
-            android:summary="Notify when your available reset-credit count increases" />
+            android:summary="Notify when your available reset-credit count increases"
+            android:title="New reset credits" />
         <SwitchPreferenceCompat
             android:key="reset_credit_expiry_ui"
-            android:title="Expiring reset credits"
-            android:summary="Remind me before an available reset credit expires" />
+            android:summary="Remind me before an available reset credit expires"
+            android:title="Expiring reset credits" />
         <Preference
             android:key="reset_credit_expiry_times_ui"
             android:title="Reminder times"
@@ -74,8 +75,8 @@
             app:iconSpaceReserved="false" />
         <Preference
             android:key="notification_test"
-            android:title="Send test notification"
             android:summary="Verify alert delivery now"
+            android:title="Send test notification"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
@@ -87,8 +88,6 @@
             app:iconSpaceReserved="false"
             app:selectable="false" />
     </PreferenceCategory>
-
-    <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="20dp" />
 
     <Preference
         android:key="about_codex_meter"

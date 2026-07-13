@@ -35,8 +35,12 @@ public final class AboutActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         dark = Ui.isDark(this);
-        EdgeToEdge.apply(this, () -> new kotlin.Pair<>(dark, dark));
-        setContentView(R.layout.activity_about);
+        if (Ui.isOneUi(this)) {
+            EdgeToEdge.apply(this, () -> new kotlin.Pair<>(dark, dark));
+            setContentView(R.layout.activity_about);
+        } else {
+            setContentView(R.layout.activity_material_about);
+        }
         applySystemBarInsets();
         setupToolbar();
         setupCollapsingContent();
