@@ -57,6 +57,8 @@ public final class UsageApi {
             try {
                 ResetCreditApi.refreshAndCacheLocked(context, authTokens);
             } catch (Exception e2) {
+                ResetNotificationManager.onResetCreditSummaryUpdated(context,
+                        usageSnapshot.resetCreditsAvailable);
                 AppPreferences.setResetCreditsError(context, safeMessage(e2));
             }
         }

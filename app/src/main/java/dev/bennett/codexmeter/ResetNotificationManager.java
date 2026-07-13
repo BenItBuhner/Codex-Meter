@@ -48,9 +48,6 @@ public final class ResetNotificationManager {
         int unexpectedRefills = suppressUserResetRefills(context,
                 CelebrationDetector.detectUnexpectedRefills(previous, snapshot),
                 snapshot.fetchedAtMillis);
-        if (snapshot.resetCreditsAvailable >= 0) {
-            onResetCreditCountUpdated(context, snapshot.resetCreditsAvailable);
-        }
         if (!ResetAlertPreferences.enabled(context)) return;
         String metric = ResetAlertPreferences.getMetric(context);
         if (!ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
@@ -69,6 +66,11 @@ public final class ResetNotificationManager {
     public static void onResetCreditsUpdated(Context context, ResetCreditsSnapshot snapshot) {
         if (context == null || snapshot == null) return;
         onResetCreditCountUpdated(context, snapshot.availableCount);
+    }
+
+    static void onResetCreditSummaryUpdated(Context context, int availableCount) {
+        if (context == null || availableCount < 0) return;
+        onResetCreditCountUpdated(context, availableCount);
     }
 
     private static void onResetCreditCountUpdated(Context context, int current) {
@@ -242,9 +244,11 @@ public final class ResetNotificationManager {
     }
 
     private static boolean canPost(Context context) {
-        return Build.VERSION.SDK_INT < 33
+        NotificationManager manager = manager(context);
+        return manager != null && manager.areNotificationsEnabled()
+                && (Build.VERSION.SDK_INT < 33
                 || context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
-                == PackageManager.PERMISSION_GRANTED;
+                == PackageManager.PERMISSION_GRANTED);
     }
 
     private static NotificationManager manager(Context context) {
