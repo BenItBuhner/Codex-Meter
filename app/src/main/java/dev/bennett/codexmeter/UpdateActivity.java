@@ -245,7 +245,7 @@ public final class UpdateActivity extends AppCompatActivity {
         progress.setVisibility(View.VISIBLE);
         progress.setProgress(0);
         status.setTextColor(Ui.secondaryText(dark));
-        status.setText("Downloading checksum and APK…");
+        status.setText(R.string.update_downloading);
         executor.execute(() -> {
             try {
                 UpdateInstaller.PreparedUpdate prepared = UpdateInstaller.prepare(
@@ -256,12 +256,11 @@ public final class UpdateActivity extends AppCompatActivity {
                                                 downloaded * 1000L / total));
                                     }
                                 }));
-                runOnUiThread(() -> status.setText(
-                        "Verified. Opening Android’s install confirmation…"));
+                runOnUiThread(() -> status.setText(R.string.update_opening_installer));
                 UpdateInstaller.commit(getApplicationContext(), prepared);
                 runOnUiThread(() -> {
                     operationRunning = false;
-                    status.setText("Waiting for Android’s install confirmation.");
+                    status.setText(R.string.update_waiting_for_installer);
                 });
             } catch (Exception exception) {
                 UpdatePreferences.setInstallError(getApplicationContext(),

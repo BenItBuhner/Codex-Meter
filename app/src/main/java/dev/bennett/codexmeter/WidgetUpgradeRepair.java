@@ -43,7 +43,7 @@ public final class WidgetUpgradeRepair {
         WidgetRenderer.updateAll(context);
         if (version > 0L) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .edit().putLong(KEY_REPAIRED_VERSION, version).commit();
+                    .edit().putLong(KEY_REPAIRED_VERSION, version).apply();
         }
     }
 

@@ -53,7 +53,7 @@ public final class UpdatePreferences {
         } else {
             editor.putString(KEY_ETAG, etag.trim());
         }
-        editor.commit();
+        editor.apply();
         broadcast(context);
     }
 
