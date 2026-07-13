@@ -27,6 +27,7 @@ public final class UpdateInstallReceiver extends BroadcastReceiver {
                 confirmation = legacy;
             }
             if (confirmation == null) {
+                abandon(context, intent);
                 UpdatePreferences.setInstallError(context,
                         "Android did not provide an update confirmation screen.");
                 return;
@@ -35,6 +36,7 @@ public final class UpdateInstallReceiver extends BroadcastReceiver {
                 confirmation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(confirmation);
             } catch (RuntimeException exception) {
+                abandon(context, intent);
                 UpdatePreferences.setInstallError(context,
                         "Could not open Android's update confirmation screen.");
             }
@@ -49,5 +51,15 @@ public final class UpdateInstallReceiver extends BroadcastReceiver {
             message = "Android rejected the update (status " + status + ").";
         }
         UpdatePreferences.setInstallError(context, message);
+    }
+
+    private static void abandon(Context context, Intent intent) {
+        int sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1);
+        if (sessionId >= 0) {
+            try {
+                context.getPackageManager().getPackageInstaller().abandonSession(sessionId);
+            } catch (RuntimeException ignored) {
+            }
+        }
     }
 }

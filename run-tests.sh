@@ -60,6 +60,7 @@ grep -q 'ResetAlertReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'MY_PACKAGE_REPLACED' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseUpdateJobService' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'WidgetRepairJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 

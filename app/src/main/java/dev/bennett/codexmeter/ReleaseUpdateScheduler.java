@@ -28,7 +28,11 @@ public final class ReleaseUpdateScheduler {
                 return false;
             }
             boolean scheduled = true;
-            if (scheduler.getPendingJob(PERIODIC_JOB_ID) == null) {
+            JobInfo existing = scheduler.getPendingJob(PERIODIC_JOB_ID);
+            if (existing == null || existing.getIntervalMillis() != PERIOD
+                    || existing.getFlexMillis() != FLEX
+                    || existing.getNetworkType() != JobInfo.NETWORK_TYPE_ANY
+                    || !existing.isPersisted()) {
                 JobInfo periodic = base(app, PERIODIC_JOB_ID)
                         .setPeriodic(PERIOD, FLEX)
                         .setPersisted(true)

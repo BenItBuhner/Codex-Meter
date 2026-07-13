@@ -39,4 +39,8 @@ public final class AppConstants {
     public static String userAgent() {
         return "codex-meter-android/2.1.0 (Android " + (Build.VERSION.RELEASE == null ? "unknown" : Build.VERSION.RELEASE) + "; " + (Build.MODEL == null ? "Android" : Build.MODEL) + ")";
     }
+
+    public static String updaterUserAgent() {
+        return "codex-meter-android/" + VERSION_NAME + " updater";
+    }
 }

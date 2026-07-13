@@ -15,6 +15,9 @@ public final class UpdatePreferences {
     private static final String KEY_LAST_ERROR = "last_error";
     private static final String KEY_INSTALL_ERROR = "install_error";
     private static final int MAX_CACHE_LENGTH = 512 * 1024;
+    private static final Object CACHE_LOCK = new Object();
+    private static String cachedJson;
+    private static List<GitHubRelease> cachedReleases;
 
     private UpdatePreferences() {
     }
@@ -43,7 +46,7 @@ public final class UpdatePreferences {
         if (json == null || json.length() > MAX_CACHE_LENGTH) {
             throw new IllegalArgumentException("GitHub returned too much release metadata.");
         }
-        GitHubReleaseParser.parse(json);
+        List<GitHubRelease> parsed = GitHubReleaseParser.parse(json);
         SharedPreferences.Editor editor = prefs(context).edit()
                 .putString(KEY_RELEASES, json)
                 .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
@@ -54,6 +57,10 @@ public final class UpdatePreferences {
             editor.putString(KEY_ETAG, etag.trim());
         }
         editor.apply();
+        synchronized (CACHE_LOCK) {
+            cachedJson = json;
+            cachedReleases = parsed;
+        }
         broadcast(context);
     }
 
@@ -75,11 +82,39 @@ public final class UpdatePreferences {
 
     public static List<GitHubRelease> releases(Context context) {
         String json = prefs(context).getString(KEY_RELEASES, "[]");
+        synchronized (CACHE_LOCK) {
+            if (json.equals(cachedJson) && cachedReleases != null) {
+                return cachedReleases;
+            }
+        }
         try {
-            return GitHubReleaseParser.parse(json);
+            List<GitHubRelease> parsed = GitHubReleaseParser.parse(json);
+            synchronized (CACHE_LOCK) {
+                cachedJson = json;
+                cachedReleases = parsed;
+            }
+            return parsed;
         } catch (Exception exception) {
             return Collections.emptyList();
         }
+    }
+
+    public static boolean hasUsableCache(Context context) {
+        SharedPreferences preferences = prefs(context);
+        if (!preferences.contains(KEY_RELEASES)) {
+            return false;
+        }
+        String json = preferences.getString(KEY_RELEASES, "");
+        try {
+            GitHubReleaseParser.parse(json);
+            return true;
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    public static void clearEtag(Context context) {
+        prefs(context).edit().remove(KEY_ETAG).apply();
     }
 
     public static GitHubRelease latestStable(Context context) {

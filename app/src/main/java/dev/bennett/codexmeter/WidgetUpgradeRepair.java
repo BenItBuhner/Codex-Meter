@@ -1,5 +1,7 @@
 package dev.bennett.codexmeter;
 
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageInfo;
@@ -9,7 +11,9 @@ import java.io.File;
 
 /** Rebinds widget components and RemoteViews after APK replacement or restore. */
 public final class WidgetUpgradeRepair {
+    private static final int JOB_ID = 73500;
     private static final String PREFS = "codex_meter_migrations_v1";
+    private static final String KEY_CLEAN_AFTER_REPLACE = "clean_after_replace";
     private static final String KEY_REPAIRED_VERSION = "widget_repaired_version";
 
     private WidgetUpgradeRepair() {
@@ -18,17 +22,52 @@ public final class WidgetUpgradeRepair {
     public static void runIfNeeded(Context context) {
         Context app = application(context);
         long version = versionCode(app);
-        long repaired = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getLong(KEY_REPAIRED_VERSION, -1L);
-        if (version <= 0L || repaired != version) {
-            repair(app, version);
+        android.content.SharedPreferences preferences =
+                app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        long repaired = preferences.getLong(KEY_REPAIRED_VERSION, -1L);
+        if (preferences.getBoolean(KEY_CLEAN_AFTER_REPLACE, false)
+                || version <= 0L || repaired != version) {
+            schedule(app);
         }
     }
 
     public static void afterPackageReplaced(Context context) {
         Context app = application(context);
-        repair(app, versionCode(app));
-        clearVerifiedDownloads(app);
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_CLEAN_AFTER_REPLACE, true).apply();
+        schedule(app);
+    }
+
+    static void perform(Context context) {
+        Context app = application(context);
+        android.content.SharedPreferences preferences =
+                app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        boolean clean = preferences.getBoolean(KEY_CLEAN_AFTER_REPLACE, false);
+        long version = versionCode(app);
+        long repaired = preferences.getLong(KEY_REPAIRED_VERSION, -1L);
+        if (clean || version <= 0L || repaired != version) {
+            repair(app, version);
+        }
+        if (clean) {
+            clearVerifiedDownloads(app);
+            preferences.edit().remove(KEY_CLEAN_AFTER_REPLACE).apply();
+        }
+    }
+
+    private static void schedule(Context context) {
+        try {
+            JobScheduler scheduler = (JobScheduler) context.getSystemService(
+                    Context.JOB_SCHEDULER_SERVICE);
+            if (scheduler != null) {
+                JobInfo job = new JobInfo.Builder(JOB_ID,
+                        new ComponentName(context, WidgetRepairJobService.class))
+                        .setMinimumLatency(0L)
+                        .setOverrideDeadline(60_000L)
+                        .build();
+                scheduler.schedule(job);
+            }
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private static void repair(Context context, long version) {

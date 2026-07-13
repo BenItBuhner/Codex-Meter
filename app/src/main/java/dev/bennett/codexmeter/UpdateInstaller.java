@@ -158,7 +158,7 @@ public final class UpdateInstaller {
             throw new SecurityException("The APK version does not match the selected release.");
         }
         PackageInfo installed = manager.getPackageInfo(context.getPackageName(), flags);
-        if (!sameSigners(signatures(installed), signatures(archive))) {
+        if (!sameSigners(currentSigners(installed), currentSigners(archive))) {
             throw new SecurityException(
                     "The APK signing certificate does not match this installation.");
         }
@@ -173,11 +173,9 @@ public final class UpdateInstaller {
         return new PreparedUpdate(apk, archive.versionName, archiveCode);
     }
 
-    private static Signature[] signatures(PackageInfo info) {
+    private static Signature[] currentSigners(PackageInfo info) {
         if (Build.VERSION.SDK_INT >= 28 && info.signingInfo != null) {
-            return info.signingInfo.hasMultipleSigners()
-                    ? info.signingInfo.getApkContentsSigners()
-                    : info.signingInfo.getSigningCertificateHistory();
+            return info.signingInfo.getApkContentsSigners();
         }
         return info.signatures == null ? new Signature[0] : info.signatures;
     }
@@ -185,15 +183,7 @@ public final class UpdateInstaller {
     private static boolean sameSigners(Signature[] installed, Signature[] archive) {
         Set<String> installedValues = signatureValues(installed);
         Set<String> archiveValues = signatureValues(archive);
-        if (installedValues.isEmpty() || archiveValues.isEmpty()) {
-            return false;
-        }
-        for (String signer : archiveValues) {
-            if (installedValues.contains(signer)) {
-                return true;
-            }
-        }
-        return false;
+        return !installedValues.isEmpty() && installedValues.equals(archiveValues);
     }
 
     private static Set<String> signatureValues(Signature[] signatures) {
@@ -274,7 +264,8 @@ public final class UpdateInstaller {
         connection.setReadTimeout(60_000);
         connection.setInstanceFollowRedirects(true);
         connection.setRequestProperty("Accept", "application/octet-stream");
-        connection.setRequestProperty("User-Agent", AppConstants.userAgent());
+        connection.setRequestProperty("Accept-Encoding", "identity");
+        connection.setRequestProperty("User-Agent", AppConstants.updaterUserAgent());
         return connection;
     }
 

@@ -318,6 +318,9 @@ public final class ParserSelfTest {
                 "unsafe checksum filename rejected");
         check(ReleaseIntegrity.expectedSha256("not-a-checksum", "app.apk").isEmpty(),
                 "malformed checksum rejected");
+        check(ReleaseIntegrity.expectedSha256(checksums + digest
+                        + "  CodexMeter-2.2.0.apk\n", "CodexMeter-2.2.0.apk").isEmpty(),
+                "duplicate APK checksum rejected");
     }
 
     private static String jwt(String payload) {

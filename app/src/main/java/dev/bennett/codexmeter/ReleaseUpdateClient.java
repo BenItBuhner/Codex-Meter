@@ -24,39 +24,55 @@ public final class ReleaseUpdateClient {
             app = context;
         }
         synchronized (LOCK) {
-            HttpsURLConnection connection = null;
             try {
-                connection = (HttpsURLConnection) new URL(RELEASES_URL).openConnection();
-                connection.setConnectTimeout(15_000);
-                connection.setReadTimeout(25_000);
-                connection.setInstanceFollowRedirects(false);
-                connection.setRequestProperty("Accept", "application/vnd.github+json");
-                connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-                connection.setRequestProperty("User-Agent", AppConstants.userAgent());
-                String etag = UpdatePreferences.etag(app);
-                if (!etag.isEmpty()) {
-                    connection.setRequestProperty("If-None-Match", etag);
-                }
-                int status = connection.getResponseCode();
-                if (status == HttpsURLConnection.HTTP_NOT_MODIFIED) {
-                    UpdatePreferences.markNotModified(app);
-                    return UpdatePreferences.releases(app);
-                }
-                if (status != HttpsURLConnection.HTTP_OK) {
-                    String detail = read(connection.getErrorStream(), 16 * 1024);
-                    throw new IllegalStateException(githubError(status, detail));
-                }
-                String json = read(connection.getInputStream(), MAX_RESPONSE_BYTES);
-                GitHubReleaseParser.parse(json);
-                UpdatePreferences.saveSuccess(app, json, connection.getHeaderField("ETag"));
-                return UpdatePreferences.releases(app);
+                return request(app, true);
             } catch (Exception exception) {
                 UpdatePreferences.saveError(app, safeMessage(exception));
                 throw exception;
-            } finally {
-                if (connection != null) {
-                    connection.disconnect();
+            }
+        }
+    }
+
+    private static List<GitHubRelease> request(Context app, boolean conditional)
+            throws Exception {
+        HttpsURLConnection connection = null;
+        try {
+            connection = (HttpsURLConnection) new URL(RELEASES_URL).openConnection();
+            connection.setConnectTimeout(15_000);
+            connection.setReadTimeout(25_000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("Accept", "application/vnd.github+json");
+            connection.setRequestProperty("Accept-Encoding", "identity");
+            connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+            connection.setRequestProperty("User-Agent", AppConstants.updaterUserAgent());
+            String etag = conditional ? UpdatePreferences.etag(app) : "";
+            if (!etag.isEmpty()) {
+                connection.setRequestProperty("If-None-Match", etag);
+            }
+            int status = connection.getResponseCode();
+            URL finalUrl = connection.getURL();
+            if (!"https".equalsIgnoreCase(finalUrl.getProtocol())
+                    || !"api.github.com".equalsIgnoreCase(finalUrl.getHost())) {
+                throw new SecurityException("GitHub redirected the update check to an untrusted host.");
+            }
+            if (status == HttpsURLConnection.HTTP_NOT_MODIFIED) {
+                if (!UpdatePreferences.hasUsableCache(app)) {
+                    UpdatePreferences.clearEtag(app);
+                    return request(app, false);
                 }
+                UpdatePreferences.markNotModified(app);
+                return UpdatePreferences.releases(app);
+            }
+            if (status != HttpsURLConnection.HTTP_OK) {
+                String detail = read(connection.getErrorStream(), 16 * 1024);
+                throw new IllegalStateException(githubError(status, detail));
+            }
+            String json = read(connection.getInputStream(), MAX_RESPONSE_BYTES);
+            UpdatePreferences.saveSuccess(app, json, connection.getHeaderField("ETag"));
+            return UpdatePreferences.releases(app);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
             }
         }
     }

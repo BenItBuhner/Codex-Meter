@@ -16,6 +16,7 @@ public final class ReleaseIntegrity {
                 || fileName.contains("\\") || fileName.trim().isEmpty()) {
             return "";
         }
+        String found = "";
         for (String rawLine : checksumFile.split("\\r?\\n")) {
             String line = rawLine.trim();
             if (line.length() < 66) {
@@ -30,10 +31,13 @@ public final class ReleaseIntegrity {
                 listedName = listedName.substring(1);
             }
             if (fileName.equals(listedName)) {
-                return digest.toLowerCase(Locale.US);
+                if (!found.isEmpty()) {
+                    return "";
+                }
+                found = digest.toLowerCase(Locale.US);
             }
         }
-        return "";
+        return found;
     }
 
     public static String sha256(File file) throws Exception {

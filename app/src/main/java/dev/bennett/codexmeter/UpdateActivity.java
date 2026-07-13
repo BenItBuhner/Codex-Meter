@@ -94,13 +94,13 @@ public final class UpdateActivity extends AppCompatActivity {
                     selected = GitHubReleaseParser.latestStable(releases);
                 }
                 GitHubRelease result = selected;
-                runOnUiThread(() -> {
+                postUi(() -> {
                     operationRunning = false;
                     release = result;
                     render();
                 });
             } catch (Exception exception) {
-                runOnUiThread(() -> {
+                postUi(() -> {
                     operationRunning = false;
                     renderError(ReleaseUpdateClient.safeMessage(exception));
                 });
@@ -250,22 +250,22 @@ public final class UpdateActivity extends AppCompatActivity {
             try {
                 UpdateInstaller.PreparedUpdate prepared = UpdateInstaller.prepare(
                         getApplicationContext(), release, (downloaded, total) ->
-                                runOnUiThread(() -> {
+                                postUi(() -> {
                                     if (progress != null && total > 0L) {
                                         progress.setProgress((int) Math.min(1000L,
                                                 downloaded * 1000L / total));
                                     }
                                 }));
-                runOnUiThread(() -> status.setText(R.string.update_opening_installer));
+                postUi(() -> status.setText(R.string.update_opening_installer));
                 UpdateInstaller.commit(getApplicationContext(), prepared);
-                runOnUiThread(() -> {
+                postUi(() -> {
                     operationRunning = false;
                     status.setText(R.string.update_waiting_for_installer);
                 });
             } catch (Exception exception) {
                 UpdatePreferences.setInstallError(getApplicationContext(),
                         safeMessage(exception));
-                runOnUiThread(() -> {
+                postUi(() -> {
                     operationRunning = false;
                     progress.setVisibility(View.GONE);
                     status.setTextColor(Ui.danger(dark));
@@ -300,5 +300,13 @@ public final class UpdateActivity extends AppCompatActivity {
             message = "The update could not be prepared.";
         }
         return message.length() <= 240 ? message : message.substring(0, 240);
+    }
+
+    private void postUi(Runnable action) {
+        runOnUiThread(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                action.run();
+            }
+        });
     }
 }
