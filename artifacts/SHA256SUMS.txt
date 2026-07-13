@@ -1,2 +1,0 @@
-df2a0b3caa619c19333772488bbb0c56eded57a15833ec270968d60d9897d09a  artifacts/CodexMeter-1.7.0.apk
-741cc443b78234261c25dde937a271e20ca0d7fa765bf1950e0bc420bd61c44b  artifacts/CodexMeter-source-1.7.0.zip
