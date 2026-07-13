@@ -74,6 +74,9 @@ public final class MainActivity extends AppCompatActivity {
         this.appliedTheme = AppPreferences.getAppTheme(this);
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        if (routeToOnboarding(getIntent())) {
+            return;
+        }
         this.dark = Ui.isDark(this);
         Ui.Page page = Ui.installPage(this, "Codex Meter", false);
         this.content = page.content;
@@ -109,6 +112,9 @@ public final class MainActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        if (routeToOnboarding(intent)) {
+            return;
+        }
         handleLaunchIntent(intent);
         rebuild();
     }
@@ -192,6 +198,40 @@ public final class MainActivity extends AppCompatActivity {
             }
             intent.setData(null);
         }
+    }
+
+    private boolean routeToOnboarding(Intent intent) {
+        boolean oauthReturn = isOAuthReturnIntent(intent);
+        int action = OnboardingFlow.launchAction(
+                AppPreferences.isOnboardingComplete(this),
+                SecureTokenStore.isSignedIn(this),
+                oauthReturn);
+        if (action == OnboardingFlow.LAUNCH_MAIN_AND_COMPLETE) {
+            // Existing signed-in installs predate onboarding and should not be interrupted.
+            AppPreferences.completeOnboarding(this);
+            return false;
+        }
+        if (action != OnboardingFlow.LAUNCH_ONBOARDING) {
+            return false;
+        }
+        if (oauthReturn) {
+            AppPreferences.setOAuthPending(this, false, "");
+            intent.setData(null);
+        }
+        startActivity(new Intent(this, OnboardingActivity.class)
+                .putExtra(OnboardingActivity.EXTRA_AUTH_RETURN, oauthReturn)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finish();
+        return true;
+    }
+
+    private static boolean isOAuthReturnIntent(Intent intent) {
+        Uri data = intent == null ? null : intent.getData();
+        return data != null
+                && "codexmeter".equals(data.getScheme())
+                && "auth".equals(data.getHost())
+                && data.getPath() != null
+                && data.getPath().startsWith("/complete");
     }
 
     public void rebuild() {

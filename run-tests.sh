@@ -33,6 +33,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingFlow.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthBrowserPage.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
@@ -47,6 +49,7 @@ grep -q 'android.permission.ACCESS_NETWORK_STATE' "$ROOT/app/src/main/AndroidMan
 grep -q 'android.permission.POST_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.SCHEDULE_EXACT_ALARM' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android:scheme="codexmeter"' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'OnboardingActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ResetAlertReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'MY_PACKAGE_REPLACED' "$ROOT/app/src/main/AndroidManifest.xml"
 
@@ -84,5 +87,11 @@ grep -R -q 'app:widgetStyle="monotone"' "$ROOT/app/src/main/res/xml/samsung_lock
 grep -q 'RESET_CREDITS_CONSUME_URL' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'ResetCreditActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'showResetAction' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java"
+grep -q 'dev.oneuiproject.oneui.widget.CardItemView' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
+grep -q 'Ui.nativePrimaryButton' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
+grep -q 'OAuthBrowserPage.render' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
 
-echo "Parser, OAuth metadata, reset-credit, countdown, alert, and Samsung widget source checks passed."
+echo "Parser, OAuth, onboarding, reset-credit, countdown, alert, and Samsung widget source checks passed."

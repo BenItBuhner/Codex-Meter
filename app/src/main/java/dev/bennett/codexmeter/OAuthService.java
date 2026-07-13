@@ -276,27 +276,7 @@ public final class OAuthService extends Service {
     }
 
     private static void writeBrowser(Socket socket, int status, String message, boolean success) throws Exception {
-        String safe = htmlEscape(message);
-        String accent = success ? "#42d6a4" : "#f4b95f";
-        String title = success ? "Signed in" : "Sign-in issue";
-        String openButton = success
-                ? "<a class=\"button\" href=\"" + AppConstants.APP_LINK + "\">Open Codex Meter</a>"
-                : "";
-        String script = success
-                ? "<script>setTimeout(function(){try{location.href='" + AppConstants.APP_LINK
-                    + "';}catch(e){}},450);</script>"
-                : "";
-        String html = "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                + "<title>Codex Meter</title><style>body{margin:0;background:#0e1012;color:#f6f7f8;font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh}"
-                + ".c{box-sizing:border-box;width:min(440px,calc(100% - 40px));padding:28px;border:1px solid #33383d;border-radius:24px;background:#15181b}"
-                + "i{display:block;width:14px;height:14px;border-radius:50%;background:" + accent + ";margin-bottom:18px}"
-                + "h1{font-size:26px;margin:0 0 10px}p{line-height:1.5;color:#c5cbd0;margin:0 0 20px}"
-                + ".button{display:inline-block;padding:12px 17px;border-radius:13px;background:#42d6a4;color:#09271e;text-decoration:none;font-weight:700}"
-                + ".hint{font-size:12px;color:#89939a;margin-top:16px}</style></head>"
-                + "<body><main class=\"c\"><i></i><h1>" + title + "</h1><p>" + safe + "</p>"
-                + openButton
-                + (success ? "<div class=\"hint\">If the app does not open automatically, use the button above.</div>" : "")
-                + "</main>" + script + "</body></html>";
+        String html = OAuthBrowserPage.render(message, success, AppConstants.APP_LINK);
         byte[] body = html.getBytes(StandardCharsets.UTF_8);
         String reason = status >= 200 && status < 300 ? "OK" : "Error";
         ByteArrayOutputStream response = new ByteArrayOutputStream(body.length + 256);
@@ -432,12 +412,6 @@ public final class OAuthService extends Service {
         String message = exception.getMessage();
         if (message == null || message.trim().isEmpty()) return exception.getClass().getSimpleName();
         return message.length() > 200 ? message.substring(0, 200) : message;
-    }
-
-    private static String htmlEscape(String value) {
-        if (value == null) return "";
-        return value.replace("&", "&amp;").replace("<", "&lt;")
-                .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
     }
 
     private static final class Callback {

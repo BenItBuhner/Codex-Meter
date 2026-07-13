@@ -16,7 +16,9 @@ public final class ParserSelfTest {
         testJwtMerge();
         testPkce();
         testWidgetOptions();
-        System.out.println("All parser, celebration, PKCE, and widget-option self-tests passed.");
+        testOnboardingFlow();
+        testOAuthBrowserPage();
+        System.out.println("All parser, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
     private static void testStandardUsage() throws Exception {
@@ -185,6 +187,59 @@ public final class ParserSelfTest {
         check(WidgetOptions.SURFACE_ONE_UI.equals(transparent.surfaceStyle), "One UI widget style");
         check(WidgetOptions.GRAPHIC_MAX.equals(transparent.graphicScale), "maximum graphic scale");
         check(!WidgetOptions.defaults().showTitle, "widget title defaults off");
+    }
+
+    private static void testOnboardingFlow() {
+        check(OnboardingFlow.launchAction(false, false, false)
+                        == OnboardingFlow.LAUNCH_ONBOARDING,
+                "fresh install opens onboarding");
+        check(OnboardingFlow.launchAction(false, true, false)
+                        == OnboardingFlow.LAUNCH_MAIN_AND_COMPLETE,
+                "signed-in upgrade is not interrupted");
+        check(OnboardingFlow.launchAction(false, true, true)
+                        == OnboardingFlow.LAUNCH_ONBOARDING,
+                "OAuth return reaches onboarding completion");
+        check(OnboardingFlow.launchAction(true, false, false)
+                        == OnboardingFlow.LAUNCH_MAIN,
+                "completed onboarding stays completed after sign-out");
+        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_USAGE, false, false)
+                        == OnboardingFlow.STEP_USAGE,
+                "incomplete onboarding resumes saved page");
+        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_WELCOME, true, true)
+                        == OnboardingFlow.STEP_COMPLETE,
+                "successful OAuth opens completion page");
+        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_WELCOME, false, true)
+                        == OnboardingFlow.STEP_ACCOUNT,
+                "failed OAuth returns to account page");
+        check(OnboardingFlow.nextStep(OnboardingFlow.STEP_COMPLETE)
+                        == OnboardingFlow.STEP_COMPLETE,
+                "next step clamps at completion");
+        check(OnboardingFlow.previousStep(OnboardingFlow.STEP_WELCOME)
+                        == OnboardingFlow.STEP_WELCOME,
+                "previous step clamps at welcome");
+        check(OnboardingFlow.normalizeStep(99) == OnboardingFlow.STEP_WELCOME,
+                "invalid persisted page resets safely");
+    }
+
+    private static void testOAuthBrowserPage() {
+        String success = OAuthBrowserPage.render(
+                "Connected <securely> & ready.", true, "codexmeter://auth/complete");
+        check(success.contains("You’re connected"), "browser success title");
+        check(success.contains("Codex Meter</a>"), "browser app return action");
+        check(success.contains("prefers-color-scheme:dark"), "browser One UI light and dark themes");
+        check(success.contains("border-radius:28px"), "browser One UI rounded card");
+        check(success.contains("Connected &lt;securely&gt; &amp; ready."),
+                "browser message HTML escaping");
+        check(success.contains("setTimeout"), "successful browser page automatically returns");
+
+        String failure = OAuthBrowserPage.render(
+                "Denied", false, "codexmeter://auth/complete");
+        check(failure.contains("Let’s try that again"), "browser failure title");
+        check(failure.contains("Back to Codex Meter"), "browser failure return action");
+        check(!failure.contains("setTimeout"), "failure page waits for user");
+
+        String escapedScript = OAuthBrowserPage.javascriptString("x'\\\n\u2028");
+        check("x\\'\\\\\\n\\u2028".equals(escapedScript), "browser script escaping");
     }
 
     private static String jwt(String payload) {

@@ -13,6 +13,8 @@ public final class AppPreferences {
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
     private static final String KEY_OAUTH_STARTED_AT = "oauth_started_at";
     private static final String KEY_OAUTH_URL = "oauth_url";
+    private static final String KEY_ONBOARDING_COMPLETE = "onboarding_complete";
+    private static final String KEY_ONBOARDING_STEP = "onboarding_step";
     private static final String KEY_REFRESH_MINUTES = "refresh_minutes";
     private static final String KEY_REFRESH_ON_LAUNCH = "refresh_on_launch";
     private static final String KEY_RESET_CREDITS = "reset_credits_snapshot";
@@ -329,6 +331,28 @@ public final class AppPreferences {
 
     public static String getOAuthUrl(Context context) {
         return isOAuthPending(context) ? prefs(context).getString(KEY_OAUTH_URL, "") : "";
+    }
+
+    public static boolean isOnboardingComplete(Context context) {
+        return prefs(context).getBoolean(KEY_ONBOARDING_COMPLETE, false);
+    }
+
+    public static int getOnboardingStep(Context context) {
+        return OnboardingFlow.normalizeStep(
+                prefs(context).getInt(KEY_ONBOARDING_STEP, OnboardingFlow.STEP_WELCOME));
+    }
+
+    public static void setOnboardingStep(Context context, int step) {
+        prefs(context).edit()
+                .putInt(KEY_ONBOARDING_STEP, OnboardingFlow.normalizeStep(step))
+                .apply();
+    }
+
+    public static void completeOnboarding(Context context) {
+        prefs(context).edit()
+                .putBoolean(KEY_ONBOARDING_COMPLETE, true)
+                .remove(KEY_ONBOARDING_STEP)
+                .apply();
     }
 
     private static String trim(String str, String str2) {
