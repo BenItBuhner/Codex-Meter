@@ -6,6 +6,8 @@ import android.os.Build;
 public final class AppConstants {
     public static final String ACTION_OAUTH_READY = "dev.bennett.codexmeter.action.OAUTH_READY";
     public static final String ACTION_OAUTH_RESULT = "dev.bennett.codexmeter.action.OAUTH_RESULT";
+    public static final String ACTION_INSTALL_STATUS = "dev.bennett.codexmeter.action.INSTALL_STATUS";
+    public static final String ACTION_RELEASES_UPDATED = "dev.bennett.codexmeter.action.RELEASES_UPDATED";
     public static final String ACTION_REFRESH_WIDGET = "dev.bennett.codexmeter.action.REFRESH_WIDGET";
     public static final String ACTION_RESET_ALERT = "dev.bennett.codexmeter.action.RESET_ALERT";
     public static final String ACTION_RESET_CREDITS_UPDATED = "dev.bennett.codexmeter.action.RESET_CREDITS_UPDATED";

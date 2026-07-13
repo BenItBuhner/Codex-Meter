@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter;
 
 import android.content.Intent;
+import android.appwidget.AppWidgetManager;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.AdapterView;
@@ -30,7 +31,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         setResult(0);
-        this.appWidgetId = getIntent().getIntExtra("appWidgetId", 0);
+        this.appWidgetId = getIntent().getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 0);
         if (this.appWidgetId == 0) {
             Toast.makeText(this, "No lock-screen widget was selected.", 1).show();
             finish();
@@ -125,7 +126,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
     public void save() {
         AppPreferences.saveLockWidgetOptions(this, this.appWidgetId, currentOptions());
         SamsungLockWidgetSupport.updateById(this, this.appWidgetId);
-        setResult(-1, new Intent().putExtra("appWidgetId", this.appWidgetId));
+        setResult(-1, new Intent().putExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_ID, this.appWidgetId));
         Toast.makeText(this, "Lock-screen widget updated.", 0).show();
         finish();
     }

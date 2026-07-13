@@ -35,6 +35,10 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingFlow.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthBrowserPage.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseVersion.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubRelease.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
@@ -54,6 +58,10 @@ grep -q 'android:scheme="codexmeter"' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'OnboardingActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ResetAlertReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'MY_PACKAGE_REPLACED' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'ReleaseUpdateJobService' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
 grep -q 'app:expandable="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
@@ -82,6 +90,18 @@ for style in rings dials bars; do
   done
 done
 
+for provider in \
+  SamsungLockSquareWidget SamsungLockWideWidget \
+  SamsungLockRingsSquareWidget SamsungLockRingsWideWidget \
+  SamsungLockDialsSquareWidget SamsungLockDialsWideWidget \
+  SamsungLockBarsSquareWidget SamsungLockBarsWideWidget \
+  SamsungLockFiveHourWidget SamsungLockWeeklyWidget; do
+  grep -q "android:name=\"dev.bennett.codexmeter.$provider\"" \
+    "$ROOT/app/src/main/AndroidManifest.xml"
+  grep -q "$provider.class" \
+    "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+done
+
 grep -R -q 'android:widgetCategory="0x2000"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
 grep -R -q 'app:widgetStyle="monotone"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
 ! grep -R -q 'com.samsung.systemui.permission.FACE_WIDGET' "$ROOT/app/src/main"
@@ -96,4 +116,4 @@ grep -q 'Ui.nativePrimaryButton' \
 grep -q 'OAuthBrowserPage.render' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
 
-echo "Parser, OAuth, onboarding, reset-credit, countdown, alert, and Samsung widget source checks passed."
+echo "Parser, updater, OAuth, onboarding, reset-credit, alert, and widget source checks passed."
