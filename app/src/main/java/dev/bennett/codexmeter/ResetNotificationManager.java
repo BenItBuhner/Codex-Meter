@@ -80,17 +80,21 @@ public final class ResetNotificationManager {
             return;
         }
         int previous = state.getInt(KEY_CREDIT_COUNT, current);
-        state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
         int added = CelebrationDetector.resetCreditsAdded(previous, current);
         if (!ResetAlertPreferences.enabled(context)
                 || !ResetAlertPreferences.resetCreditIncreasesEnabled(context)
-                || added <= 0) return;
+                || added <= 0) {
+            state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
+            return;
+        }
         String text = added == 1
                 ? "One Codex reset credit was added. You now have " + current + "."
                 : added + " Codex reset credits were added. You now have " + current + ".";
-        post(context, NOTIFICATION_NEW_CREDIT,
+        if (post(context, NOTIFICATION_NEW_CREDIT,
                 added == 1 ? "Codex reset credit added" : "Codex reset credits added", text,
-                NOTIFICATION_NEW_CREDIT);
+                NOTIFICATION_NEW_CREDIT)) {
+            state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
+        }
     }
 
     /**
