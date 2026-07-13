@@ -122,7 +122,7 @@ public final class ResetNotificationManager {
     }
 
     public static boolean sendTestNotification(Context context) {
-        if (context == null || !ResetAlertPreferences.enabled(context) || !canPost(context)) {
+        if (context == null || !ResetAlertPreferences.enabled(context)) {
             return false;
         }
         return post(context, NOTIFICATION_TEST, "Codex Meter notifications are working",
@@ -189,25 +189,28 @@ public final class ResetNotificationManager {
 
     private static int suppressUserResetRefills(Context context, int refills, long observedAt) {
         SharedPreferences preferences = state(context);
-        SharedPreferences.Editor editor = preferences.edit();
         long fiveHourUntil = preferences.getLong(KEY_USER_RESET_FIVE_HOUR_UNTIL, 0L);
         long weeklyUntil = preferences.getLong(KEY_USER_RESET_WEEKLY_UNTIL, 0L);
+        if (fiveHourUntil <= 0L && weeklyUntil <= 0L) return refills;
         int filtered = CelebrationDetector.withoutUserResetRefills(refills, observedAt,
                 fiveHourUntil, weeklyUntil);
-        clearUsedSuppression(editor, KEY_USER_RESET_FIVE_HOUR_UNTIL,
-                CelebrationDetector.FIVE_HOUR, refills, filtered, observedAt, fiveHourUntil);
-        clearUsedSuppression(editor, KEY_USER_RESET_WEEKLY_UNTIL,
-                CelebrationDetector.WEEKLY, refills, filtered, observedAt, weeklyUntil);
-        editor.apply();
+        boolean clearFiveHour = shouldClearSuppression(CelebrationDetector.FIVE_HOUR,
+                refills, filtered, observedAt, fiveHourUntil);
+        boolean clearWeekly = shouldClearSuppression(CelebrationDetector.WEEKLY,
+                refills, filtered, observedAt, weeklyUntil);
+        if (clearFiveHour || clearWeekly) {
+            SharedPreferences.Editor editor = preferences.edit();
+            if (clearFiveHour) editor.remove(KEY_USER_RESET_FIVE_HOUR_UNTIL);
+            if (clearWeekly) editor.remove(KEY_USER_RESET_WEEKLY_UNTIL);
+            editor.apply();
+        }
         return filtered;
     }
 
-    private static void clearUsedSuppression(SharedPreferences.Editor editor, String key,
-            int window, int before, int after, long observedAt, long suppressUntil) {
-        if (suppressUntil > 0L && (observedAt >= suppressUntil
-                || ((before & window) != 0 && (after & window) == 0))) {
-            editor.remove(key);
-        }
+    private static boolean shouldClearSuppression(int window, int before, int after,
+            long observedAt, long suppressUntil) {
+        return suppressUntil > 0L && (observedAt >= suppressUntil
+                || ((before & window) != 0 && (after & window) == 0));
     }
 
     private static void markUserResetWindow(SharedPreferences.Editor editor, String key,
@@ -224,10 +227,10 @@ public final class ResetNotificationManager {
     }
 
     private static boolean post(Context context, int id, String title, String text, int requestCode) {
-        if (!canPost(context)) return false;
         NotificationManager manager = manager(context);
         if (manager == null) return false;
         String channel = createChannel(manager, ResetAlertPreferences.getStyle(context));
+        if (!canPost(context, manager, channel)) return false;
         PendingIntent contentIntent = PendingIntent.getActivity(context, requestCode,
                 new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -247,12 +250,16 @@ public final class ResetNotificationManager {
         return true;
     }
 
-    private static boolean canPost(Context context) {
-        NotificationManager manager = manager(context);
-        return manager != null && manager.areNotificationsEnabled()
-                && (Build.VERSION.SDK_INT < 33
-                || context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
-                == PackageManager.PERMISSION_GRANTED);
+    private static boolean canPost(Context context, NotificationManager manager,
+            String channelId) {
+        if (!manager.areNotificationsEnabled()
+                || (Build.VERSION.SDK_INT >= 33
+                && context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                != PackageManager.PERMISSION_GRANTED)) {
+            return false;
+        }
+        NotificationChannel channel = manager.getNotificationChannel(channelId);
+        return channel != null && channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
     }
 
     private static NotificationManager manager(Context context) {
