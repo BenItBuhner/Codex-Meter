@@ -321,6 +321,14 @@ public final class ParserSelfTest {
                 "non-HTTPS release URL rejected");
         check(!GitHubReleaseParser.isGitHubHttps("https://github.com.evil.example/file.apk"),
                 "lookalike GitHub host rejected");
+        String localFixture = "[" + releaseJson(
+                "v2.2.0", false, false, true, true).replace(
+                "https://github.com/thatjoshguy67/Codex-Meter",
+                "http://10.0.2.2:8765") + "]";
+        check(GitHubReleaseParser.parse(localFixture).isEmpty(),
+                "local fixture rejected by production parser");
+        check(GitHubReleaseParser.parse(localFixture, true).size() == 1,
+                "local fixture accepted only in explicit debug mode");
     }
 
     private static String releaseJson(String tag, boolean draft, boolean prerelease,

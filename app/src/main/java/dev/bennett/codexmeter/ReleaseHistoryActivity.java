@@ -69,7 +69,8 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
     private void render(List<GitHubRelease> releases, boolean failed) {
         content.removeAllViews();
         LinearLayout notice = Ui.card(this, dark);
-        TextView current = Ui.text(this, "Installed version " + AppConstants.VERSION_NAME, 18,
+        TextView current = Ui.text(this, "Installed version "
+                + UpdatePreferences.installedVersion(this), 18,
                 Ui.mainText(dark));
         current.setTypeface(Ui.mediumTypeface(this));
         notice.addView(current);
@@ -118,7 +119,8 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
     }
 
     private void addRelease(GitHubRelease release) {
-        int comparison = ReleaseVersion.compare(release.version, AppConstants.VERSION_NAME);
+        int comparison = ReleaseVersion.compare(release.version,
+                UpdatePreferences.installedVersion(this));
         LinearLayout card = Ui.card(this, dark);
         String suffix = release.prerelease ? " · Prerelease"
                 : comparison > 0 ? " · Update"

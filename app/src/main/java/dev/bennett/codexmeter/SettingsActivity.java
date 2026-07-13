@@ -241,7 +241,8 @@ public final class SettingsActivity extends AppCompatActivity {
             GitHubRelease available = UpdatePreferences.availableUpdate(requireContext());
             GitHubRelease latest = UpdatePreferences.latestStable(requireContext());
             long checkedAt = UpdatePreferences.lastCheckMillis(requireContext());
-            StringBuilder summary = new StringBuilder("v").append(AppConstants.VERSION_NAME);
+            StringBuilder summary = new StringBuilder("v")
+                    .append(UpdatePreferences.installedVersion(requireContext()));
             if (available != null) {
                 summary.append(" installed · v").append(available.version).append(" available");
             } else if (checkedAt == 0L) {

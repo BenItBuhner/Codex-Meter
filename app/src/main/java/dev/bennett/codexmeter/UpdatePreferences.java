@@ -46,7 +46,7 @@ public final class UpdatePreferences {
         if (json == null || json.length() > MAX_CACHE_LENGTH) {
             throw new IllegalArgumentException("GitHub returned too much release metadata.");
         }
-        List<GitHubRelease> parsed = GitHubReleaseParser.parse(json);
+        List<GitHubRelease> parsed = GitHubReleaseParser.parse(json, BuildConfig.DEBUG);
         SharedPreferences.Editor editor = prefs(context).edit()
                 .putString(KEY_RELEASES, json)
                 .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
@@ -88,7 +88,7 @@ public final class UpdatePreferences {
             }
         }
         try {
-            List<GitHubRelease> parsed = GitHubReleaseParser.parse(json);
+            List<GitHubRelease> parsed = GitHubReleaseParser.parse(json, BuildConfig.DEBUG);
             synchronized (CACHE_LOCK) {
                 cachedJson = json;
                 cachedReleases = parsed;
@@ -106,7 +106,7 @@ public final class UpdatePreferences {
         }
         String json = preferences.getString(KEY_RELEASES, "");
         try {
-            GitHubReleaseParser.parse(json);
+            GitHubReleaseParser.parse(json, BuildConfig.DEBUG);
             return true;
         } catch (Exception exception) {
             return false;
@@ -127,7 +127,18 @@ public final class UpdatePreferences {
 
     public static GitHubRelease availableUpdate(Context context) {
         GitHubRelease latest = latestStable(context);
-        return latest != null && latest.isNewerThan(AppConstants.VERSION_NAME) ? latest : null;
+        return latest != null && latest.isNewerThan(installedVersion(context)) ? latest : null;
+    }
+
+    public static String installedVersion(Context context) {
+        try {
+            String version = context.getPackageManager()
+                    .getPackageInfo(context.getPackageName(), 0).versionName;
+            return version == null || version.trim().isEmpty()
+                    ? AppConstants.VERSION_NAME : version;
+        } catch (Exception exception) {
+            return AppConstants.VERSION_NAME;
+        }
     }
 
     public static void setInstallError(Context context, String error) {

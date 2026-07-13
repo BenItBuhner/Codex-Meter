@@ -3,10 +3,10 @@ package dev.bennett.codexmeter;
 import android.content.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import javax.net.ssl.HttpsURLConnection;
 
 /** Public, unauthenticated GitHub release discovery client. */
 public final class ReleaseUpdateClient {
@@ -35,9 +35,11 @@ public final class ReleaseUpdateClient {
 
     private static List<GitHubRelease> request(Context app, boolean conditional)
             throws Exception {
-        HttpsURLConnection connection = null;
+        HttpURLConnection connection = null;
         try {
-            connection = (HttpsURLConnection) new URL(RELEASES_URL).openConnection();
+            String endpoint = BuildConfig.DEBUG ? BuildConfig.UPDATE_API_URL : RELEASES_URL;
+            boolean localDebugServer = isLocalDebugServer(endpoint);
+            connection = (HttpURLConnection) new URL(endpoint).openConnection();
             connection.setConnectTimeout(15_000);
             connection.setReadTimeout(25_000);
             connection.setInstanceFollowRedirects(true);
@@ -51,11 +53,10 @@ public final class ReleaseUpdateClient {
             }
             int status = connection.getResponseCode();
             URL finalUrl = connection.getURL();
-            if (!"https".equalsIgnoreCase(finalUrl.getProtocol())
-                    || !"api.github.com".equalsIgnoreCase(finalUrl.getHost())) {
+            if (!trustedApiUrl(finalUrl, localDebugServer)) {
                 throw new SecurityException("GitHub redirected the update check to an untrusted host.");
             }
-            if (status == HttpsURLConnection.HTTP_NOT_MODIFIED) {
+            if (status == HttpURLConnection.HTTP_NOT_MODIFIED) {
                 if (!UpdatePreferences.hasUsableCache(app)) {
                     UpdatePreferences.clearEtag(app);
                     return request(app, false);
@@ -63,7 +64,7 @@ public final class ReleaseUpdateClient {
                 UpdatePreferences.markNotModified(app);
                 return UpdatePreferences.releases(app);
             }
-            if (status != HttpsURLConnection.HTTP_OK) {
+            if (status != HttpURLConnection.HTTP_OK) {
                 String detail = read(connection.getErrorStream(), 16 * 1024);
                 throw new IllegalStateException(githubError(status, detail));
             }
@@ -75,6 +76,28 @@ public final class ReleaseUpdateClient {
                 connection.disconnect();
             }
         }
+    }
+
+    private static boolean isLocalDebugServer(String value) {
+        try {
+            URL url = new URL(value);
+            return BuildConfig.DEBUG
+                    && "http".equalsIgnoreCase(url.getProtocol())
+                    && "10.0.2.2".equals(url.getHost())
+                    && url.getPort() == 8765;
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    private static boolean trustedApiUrl(URL url, boolean localDebugServer) {
+        if (localDebugServer) {
+            return "http".equalsIgnoreCase(url.getProtocol())
+                    && "10.0.2.2".equals(url.getHost())
+                    && url.getPort() == 8765;
+        }
+        return "https".equalsIgnoreCase(url.getProtocol())
+                && "api.github.com".equalsIgnoreCase(url.getHost());
     }
 
     private static String read(InputStream input, int limit) throws Exception {

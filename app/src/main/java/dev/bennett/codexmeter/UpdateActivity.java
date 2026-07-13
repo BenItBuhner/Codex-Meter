@@ -117,7 +117,8 @@ public final class UpdateActivity extends AppCompatActivity {
                     : error);
             return;
         }
-        int comparison = ReleaseVersion.compare(release.version, AppConstants.VERSION_NAME);
+        String installedVersion = UpdatePreferences.installedVersion(this);
+        int comparison = ReleaseVersion.compare(release.version, installedVersion);
         LinearLayout card = Ui.card(this, dark);
         TextView title = Ui.text(this,
                 comparison > 0 ? "Codex Meter " + release.version + " is available"
@@ -127,10 +128,10 @@ public final class UpdateActivity extends AppCompatActivity {
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         String detail = comparison > 0
-                ? "Installed: " + AppConstants.VERSION_NAME + " · Verified GitHub upgrade"
+                ? "Installed: " + installedVersion + " · Verified GitHub upgrade"
                 : comparison == 0
                 ? "This version is currently installed. You can verify and reinstall it."
-                : "Installed: " + AppConstants.VERSION_NAME
+                : "Installed: " + installedVersion
                         + " · Android requires uninstalling before this downgrade.";
         TextView summary = Ui.text(this, detail, 14, Ui.secondaryText(dark));
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);

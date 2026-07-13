@@ -18,6 +18,11 @@ public final class GitHubReleaseParser {
     }
 
     public static List<GitHubRelease> parse(String json) throws Exception {
+        return parse(json, false);
+    }
+
+    static List<GitHubRelease> parse(String json, boolean allowLocalDebugServer)
+            throws Exception {
         JSONArray releases = new JSONArray(json == null ? "[]" : json);
         ArrayList<GitHubRelease> parsed = new ArrayList<>();
         Set<String> versions = new HashSet<>();
@@ -55,8 +60,9 @@ public final class GitHubReleaseParser {
             String apkUrl = apk.optString("browser_download_url", "");
             String checksumUrl = checksum.optString("browser_download_url", "");
             String pageUrl = release.optString("html_url", "");
-            if (!isGitHubHttps(apkUrl) || !isGitHubHttps(checksumUrl)
-                    || !isGitHubHttps(pageUrl)) {
+            if (!isTrustedReleaseUrl(apkUrl, allowLocalDebugServer)
+                    || !isTrustedReleaseUrl(checksumUrl, allowLocalDebugServer)
+                    || !isTrustedReleaseUrl(pageUrl, allowLocalDebugServer)) {
                 continue;
             }
             long apkSize = apk.optLong("size", -1L);
@@ -111,13 +117,21 @@ public final class GitHubReleaseParser {
     }
 
     static boolean isGitHubHttps(String value) {
+        return isTrustedReleaseUrl(value, false);
+    }
+
+    private static boolean isTrustedReleaseUrl(String value, boolean allowLocalDebugServer) {
         try {
             URI uri = URI.create(value);
             String host = uri.getHost();
-            return "https".equalsIgnoreCase(uri.getScheme())
+            boolean github = "https".equalsIgnoreCase(uri.getScheme())
                     && host != null
                     && ("github.com".equalsIgnoreCase(host)
                     || host.toLowerCase(java.util.Locale.US).endsWith(".github.com"));
+            return github || (allowLocalDebugServer
+                    && "http".equalsIgnoreCase(uri.getScheme())
+                    && "10.0.2.2".equals(host)
+                    && uri.getPort() == 8765);
         } catch (RuntimeException exception) {
             return false;
         }

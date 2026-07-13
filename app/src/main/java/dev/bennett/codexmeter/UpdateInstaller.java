@@ -15,11 +15,11 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
-import javax.net.ssl.HttpsURLConnection;
 
 /** Downloads, authenticates, and submits one release APK to Android's package installer. */
 public final class UpdateInstaller {
@@ -199,7 +199,7 @@ public final class UpdateInstaller {
     }
 
     private static String downloadText(String url, int limit) throws Exception {
-        HttpsURLConnection connection = open(url);
+        HttpURLConnection connection = open(url);
         try {
             requireOk(connection);
             try (InputStream input = connection.getInputStream();
@@ -223,7 +223,7 @@ public final class UpdateInstaller {
 
     private static void downloadFile(String url, File destination, long expected,
             ProgressListener listener) throws Exception {
-        HttpsURLConnection connection = open(url);
+        HttpURLConnection connection = open(url);
         try {
             requireOk(connection);
             long declared = connection.getContentLengthLong();
@@ -254,12 +254,12 @@ public final class UpdateInstaller {
         }
     }
 
-    private static HttpsURLConnection open(String value) throws Exception {
+    private static HttpURLConnection open(String value) throws Exception {
         URL url = new URL(value);
-        if (!"https".equalsIgnoreCase(url.getProtocol()) || !allowedHost(url.getHost())) {
+        if (!trustedDownloadUrl(url)) {
             throw new SecurityException("The release download URL is not trusted.");
         }
-        HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setConnectTimeout(20_000);
         connection.setReadTimeout(60_000);
         connection.setInstanceFollowRedirects(true);
@@ -269,13 +269,13 @@ public final class UpdateInstaller {
         return connection;
     }
 
-    private static void requireOk(HttpsURLConnection connection) throws Exception {
+    private static void requireOk(HttpURLConnection connection) throws Exception {
         int status = connection.getResponseCode();
         URL finalUrl = connection.getURL();
-        if (!"https".equalsIgnoreCase(finalUrl.getProtocol()) || !allowedHost(finalUrl.getHost())) {
+        if (!trustedDownloadUrl(finalUrl)) {
             throw new SecurityException("GitHub redirected the download to an untrusted host.");
         }
-        if (status != HttpsURLConnection.HTTP_OK) {
+        if (status != HttpURLConnection.HTTP_OK) {
             throw new IllegalStateException("GitHub download failed with HTTP " + status + ".");
         }
     }
@@ -289,6 +289,16 @@ public final class UpdateInstaller {
                 || normalized.endsWith(".github.com")
                 || "githubusercontent.com".equals(normalized)
                 || normalized.endsWith(".githubusercontent.com");
+    }
+
+    private static boolean trustedDownloadUrl(URL url) {
+        if ("https".equalsIgnoreCase(url.getProtocol()) && allowedHost(url.getHost())) {
+            return true;
+        }
+        return BuildConfig.DEBUG
+                && "http".equalsIgnoreCase(url.getProtocol())
+                && "10.0.2.2".equals(url.getHost())
+                && url.getPort() == 8765;
     }
 
     private static void copy(File source, File destination) throws Exception {
