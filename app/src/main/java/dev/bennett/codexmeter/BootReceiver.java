@@ -12,6 +12,8 @@ public final class BootReceiver extends BroadcastReceiver {
         if ("android.intent.action.BOOT_COMPLETED".equals(action) || "android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
             RefreshScheduler.schedulePeriodic(context);
             ResetAlertScheduler.scheduleFromSnapshot(context, AppPreferences.loadSnapshot(context));
+            ResetCreditExpiryScheduler.scheduleFromSnapshot(context,
+                    AppPreferences.loadResetCredits(context));
             WidgetRenderer.updateAll(context);
         }
     }

@@ -139,6 +139,9 @@
             android:name="dev.bennett.codexmeter.ResetAlertReceiver"
             android:exported="false"/>
         <receiver
+            android:name="dev.bennett.codexmeter.ResetCreditExpiryReceiver"
+            android:exported="false"/>
+        <receiver
             android:name="dev.bennett.codexmeter.BootReceiver"
             android:exported="false"
             android:directBootAware="false">

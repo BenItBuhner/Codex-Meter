@@ -56,6 +56,14 @@
             android:key="reset_credit_increases_ui"
             android:title="New reset credits"
             android:summary="Notify when your available reset-credit count increases" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_expiry_ui"
+            android:title="Expiring reset credits"
+            android:summary="Remind me before an available reset credit expires" />
+        <Preference
+            android:key="reset_credit_expiry_times_ui"
+            android:title="Reminder times"
+            app:iconSpaceReserved="false" />
         <Preference
             android:key="notification_permission"
             android:title="Notification permission"
