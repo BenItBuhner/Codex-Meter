@@ -75,7 +75,7 @@ public final class OnboardingActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        this.page = Ui.installPage(this, "Set up Codex Meter", false);
+        this.page = Ui.installPage(this, "Codex Meter", false);
         this.content = this.page.content;
         findViewById(R.id.dashboard_refresh).setEnabled(false);
         boolean oauthReturn = getIntent().getBooleanExtra(EXTRA_AUTH_RETURN, false);
@@ -164,7 +164,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void render() {
         if (this.content == null) return;
         this.content.removeAllViews();
-        this.page.toolbar.setTitle("Set up Codex Meter");
+        this.page.toolbar.setTitle("Codex Meter");
         this.page.toolbar.setShowNavigationButtonAsBack(this.step > OnboardingFlow.STEP_WELCOME);
 
         addProgress();
