@@ -11,6 +11,7 @@ import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.os.Build;
+import java.util.Locale;
 
 /** Posts and deduplicates Codex usage, reset-time, and reset-credit notifications. */
 public final class ResetNotificationManager {
@@ -154,7 +155,8 @@ public final class ResetNotificationManager {
         if (state.getLong(stateKey, 0L) == windowId) return;
         int remaining = window.remainingPercent();
         if (post(context, notificationId, label + " Codex usage is low",
-                remaining + "% remaining in the current " + label.toLowerCase() + " window.",
+                remaining + "% remaining in the current "
+                        + label.toLowerCase(Locale.ROOT) + " window.",
                 notificationId)) {
             state.edit().putLong(stateKey, windowId).apply();
         }
