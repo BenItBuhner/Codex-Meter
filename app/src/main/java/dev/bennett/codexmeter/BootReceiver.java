@@ -14,6 +14,7 @@ public final class BootReceiver extends BroadcastReceiver {
             ResetAlertScheduler.scheduleFromSnapshot(context, AppPreferences.loadSnapshot(context));
             ResetCreditExpiryScheduler.scheduleFromSnapshot(context,
                     AppPreferences.loadResetCredits(context));
+            NowBarManager.restore(context);
             WidgetRenderer.updateAll(context);
         }
     }

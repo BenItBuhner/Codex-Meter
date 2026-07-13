@@ -49,6 +49,7 @@ public final class UsageApi {
             if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
                 throw new Exception("Usage was received, but it could not be saved on this device.");
             }
+            NowBarManager.onUsageUpdated(context, usageSnapshot);
             ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
             try {
                 ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);

@@ -15,6 +15,7 @@ public final class ParserSelfTest {
         testPrimaryLimitWinsOverAdditional();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
+        testNextResetSelection();
         testCelebrationDetection();
         testResetCreditExpiryReminders();
         testJwtMerge();
@@ -88,6 +89,26 @@ public final class ParserSelfTest {
         UsageSnapshot snapshot = UsageParser.parse(json, 1L);
         check(snapshot.fiveHour == null && snapshot.weekly == null,
                 "zero-duration usage window ignored");
+    }
+
+    private static void testNextResetSelection() {
+        long now = 1_000_000L;
+        UsageWindow fiveHour = new UsageWindow(10, 18_000L, 0L, 1_100L);
+        UsageWindow weekly = new UsageWindow(20, 604_800L, 0L, 1_200L);
+        check(new UsageSnapshot("pro", true, false, fiveHour, weekly, now)
+                        .nextResetMillis(now) == 1_100_000L,
+                "earliest active reset ends the live monitor");
+        check(new UsageSnapshot("pro", true, false, null, weekly, now)
+                        .nextResetMillis(now) == 1_200_000L,
+                "weekly-only account still has a monitor end time");
+
+        UsageWindow expiredFiveHour = new UsageWindow(10, 18_000L, 0L, 900L);
+        check(new UsageSnapshot("pro", true, false, expiredFiveHour, weekly, now)
+                        .nextResetMillis(now) == 1_200_000L,
+                "expired five-hour reset falls back to weekly");
+        check(new UsageSnapshot("pro", true, false, expiredFiveHour, null, now)
+                        .nextResetMillis(now) == 0L,
+                "no future reset does not create an unbounded monitor");
     }
 
     private static void testCelebrationDetection() {

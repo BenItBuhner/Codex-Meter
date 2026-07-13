@@ -75,6 +75,22 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Now Bar">
+        <SwitchPreferenceCompat
+            android:key="now_bar_monitor_ui"
+            android:title="Monitor until reset"
+            android:summary="Show remaining Codex allowance until the next available usage reset" />
+        <Preference
+            android:key="now_bar_preview"
+            android:title="Start sample preview"
+            android:summary="Show a 20-minute sample activity for device testing"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="now_bar_permission"
+            android:title="Live notification access"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Privacy">
         <Preference
             android:icon="@drawable/ic_oui_privacy"

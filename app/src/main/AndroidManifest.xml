@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
@@ -141,6 +142,9 @@
             android:exported="false"/>
         <receiver
             android:name="dev.bennett.codexmeter.ResetCreditExpiryReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name="dev.bennett.codexmeter.NowBarActionReceiver"
             android:exported="false"/>
         <receiver
             android:name="dev.bennett.codexmeter.BootReceiver"

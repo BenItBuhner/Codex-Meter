@@ -55,6 +55,8 @@ grep -q 'android.permission.SCHEDULE_EXACT_ALARM' "$ROOT/app/src/main/AndroidMan
 grep -q 'android:scheme="codexmeter"' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'OnboardingActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ResetAlertReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'android.permission.POST_PROMOTED_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'NowBarActionReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'MY_PACKAGE_REPLACED' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
@@ -79,6 +81,18 @@ grep -q '"Use reset", useReset' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetNotificationManager.java"
 grep -q 'EXTRA_PROMPT_USE_RESET' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarActionReceiver.java"
+grep -q 'Build.VERSION.SDK_INT >= 36' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'nowbarPrimaryInfo' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'setDeleteIntent(stopIntent)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'hasStoredActiveState' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NowBarManager.onUsageUpdated' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
 
 grep -R -q '<Chronometer' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
 grep -q 'setChronometerCountDown' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"

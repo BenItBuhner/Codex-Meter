@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
@@ -53,6 +54,8 @@ public final class SettingsActivity extends AppCompatActivity {
         private Preference expiryTimesPreference;
         private Preference permissionPreference;
         private Preference testNotificationPreference;
+        private SwitchPreferenceCompat nowBarMonitorPreference;
+        private Preference nowBarPermissionPreference;
 
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
@@ -62,6 +65,7 @@ public final class SettingsActivity extends AppCompatActivity {
             bindAppearance();
             bindRefresh();
             bindNotifications();
+            bindNowBar();
             findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
                 Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
                 return true;
@@ -78,6 +82,7 @@ public final class SettingsActivity extends AppCompatActivity {
         public void onResume() {
             super.onResume();
             updatePermissionSummary();
+            updateNowBarSummary();
         }
 
         private void bindAccount() {
@@ -437,6 +442,103 @@ public final class SettingsActivity extends AppCompatActivity {
         private void scheduleResetCreditExpiryReminders() {
             ResetNotificationManager.onResetCreditExpirySettingsChanged(requireContext(),
                     AppPreferences.loadResetCredits(requireContext()));
+        }
+
+        private void bindNowBar() {
+            nowBarMonitorPreference = findPreference("now_bar_monitor_ui");
+            nowBarMonitorPreference.setPersistent(false);
+            nowBarMonitorPreference.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (!enabled) {
+                    NowBarManager.stop(requireContext());
+                    updateNowBarSummary();
+                    return true;
+                }
+                if (!ensureNotificationPermission()) return false;
+                boolean started = NowBarManager.start(requireContext());
+                if (!started) {
+                    Toast.makeText(requireContext(),
+                            "Refresh your signed-in usage before starting the monitor.",
+                            Toast.LENGTH_LONG).show();
+                }
+                updateNowBarSummary();
+                return started;
+            });
+
+            Preference preview = findPreference("now_bar_preview");
+            preview.setVisible((requireContext().getApplicationInfo().flags
+                    & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
+            preview.setOnPreferenceClickListener(preference -> {
+                if (!ensureNotificationPermission()) return true;
+                boolean started = NowBarManager.startPreview(requireContext());
+                Toast.makeText(requireContext(), started
+                        ? "Sample Live Update started for 20 minutes."
+                        : "Allow notifications first.",
+                        started ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                updateNowBarSummary();
+                return true;
+            });
+
+            nowBarPermissionPreference = findPreference("now_bar_permission");
+            nowBarPermissionPreference.setOnPreferenceClickListener(preference -> {
+                if (Build.VERSION.SDK_INT >= 36) {
+                    Intent promotion = new Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName());
+                    try {
+                        startActivity(promotion);
+                        return true;
+                    } catch (RuntimeException ignored) {
+                    }
+                }
+                startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
+                return true;
+            });
+            updateNowBarSummary();
+        }
+
+        private boolean ensureNotificationPermission() {
+            if (Build.VERSION.SDK_INT >= 33
+                    && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 8602);
+                Toast.makeText(requireContext(),
+                        "Allow notifications, then start the monitor again.", Toast.LENGTH_LONG).show();
+                return false;
+            }
+            if (NowBarManager.canPostNotifications(requireContext())) return true;
+            Toast.makeText(requireContext(),
+                    "Enable app notifications, then start the monitor again.",
+                    Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        private void updateNowBarSummary() {
+            if (nowBarMonitorPreference == null || getContext() == null) return;
+            boolean active = NowBarManager.isActive(requireContext());
+            nowBarMonitorPreference.setChecked(active);
+            if (active) {
+                String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview" : "Live monitor";
+                nowBarMonitorPreference.setSummary(kind + " active · ends "
+                        + UsageFormat.absolute(requireContext(), NowBarManager.activeUntil(requireContext()),
+                        System.currentTimeMillis()));
+            } else {
+                nowBarMonitorPreference.setSummary(
+                        "Show remaining Codex allowance until the next available usage reset");
+            }
+            if (nowBarPermissionPreference != null) {
+                String summary;
+                if (!NowBarManager.canPostNotifications(requireContext())) {
+                    summary = "App notifications disabled · tap to enable";
+                } else if (Build.VERSION.SDK_INT < 36) {
+                    summary = "Notifications allowed · Live display depends on your device";
+                } else if (NowBarManager.canPostPromotedNotifications(requireContext())) {
+                    summary = "Live notifications allowed";
+                } else {
+                    summary = "Live notifications not allowed · tap to enable";
+                }
+                nowBarPermissionPreference.setSummary(summary);
+            }
         }
 
         private void setNotificationsEnabled(boolean enabled) {
