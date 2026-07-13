@@ -19,6 +19,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.widget.NestedScrollView;
 
@@ -85,6 +86,17 @@ public final class OnboardingActivity extends AppCompatActivity {
         if (oauthReturn && !SecureTokenStore.isSignedIn(this)) {
             this.authMessage = "Sign-in did not complete. You can safely try again.";
         }
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (step > OnboardingFlow.STEP_WELCOME) {
+                    goBack();
+                } else {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        });
         render();
     }
 
@@ -147,15 +159,6 @@ public final class OnboardingActivity extends AppCompatActivity {
     public boolean onSupportNavigateUp() {
         goBack();
         return true;
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (this.step > OnboardingFlow.STEP_WELCOME) {
-            goBack();
-        } else {
-            super.onBackPressed();
-        }
     }
 
     private void render() {
