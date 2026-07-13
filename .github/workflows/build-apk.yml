@@ -130,6 +130,9 @@ jobs:
       actions: read
       contents: write
     steps:
+      - name: Check out release sources
+        uses: actions/checkout@v7
+
       - name: Download verified APK
         uses: actions/download-artifact@v8
         with:
@@ -143,6 +146,26 @@ jobs:
           cd release-dist
           sha256sum -c SHA256SUMS.txt
 
+      - name: Prepare release notes
+        shell: bash
+        env:
+          VERSION_NAME: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk -v version="$VERSION_NAME" '
+            $0 == "## " version || index($0, "## " version " —") == 1 {
+              found = 1
+              next
+            }
+            found && /^## / { exit }
+            found { print }
+            END { if (!found) exit 2 }
+          ' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no release notes for $VERSION_NAME"
+            exit 1
+          fi
+
       - name: Publish GitHub release
         shell: bash
         env:
@@ -155,7 +178,11 @@ jobs:
             gh release create "$GITHUB_REF_NAME" \
               --draft \
               --verify-tag \
-              --generate-notes \
+              --notes-file release-notes.md \
+              --title "Codex Meter $VERSION_NAME"
+          else
+            gh release edit "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md \
               --title "Codex Meter $VERSION_NAME"
           fi
           gh release upload "$GITHUB_REF_NAME" \

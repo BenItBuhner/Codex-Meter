@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.1.0 — 2026-07-13
+
+### Added
+
+- A resumable four-step One UI onboarding flow for first launch, including sign-in, skip, upgrade, and predictive-back handling (#13).
+- A responsive light/dark OAuth completion page that returns users to the app after browser sign-in (#13).
+- Optional notifications when five-hour or weekly allowances unexpectedly refill before their scheduled reset (#12).
+- An independent notification preference for increases in available reset credits (#12).
+
+### Changed
+
+- Settings now uses an expanded, collapsible One UI toolbar that keeps primary controls within one-hand reach (#9).
+- Local-data and privacy details now live in a dedicated Settings section instead of the dashboard (#10).
+- Reset-credit observations are coalesced across usage and detail responses to prevent duplicate increase notifications (#12).
+
+### Fixed
+
+- Suppressed false refill celebrations after reset-credit redemption, including delayed backend propagation (#12).
+- Retried credit notifications when Android previously blocked application- or channel-level delivery (#12).
+- Cleaned up abandoned OAuth services when onboarding is skipped and hardened callback handling across Android versions (#13).
+
+### Development
+
+- Removed obsolete release binaries, recovery documents, generated caches, and superseded direct-build tools (#11).
+- Documented the Android toolchain, package-authentication requirements, and release validation path for cloud builds (#8).
+
 ## 2.0.0 — 2026-07-12
 
 ### Added
