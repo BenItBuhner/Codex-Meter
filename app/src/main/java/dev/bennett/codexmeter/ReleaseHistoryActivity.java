@@ -6,6 +6,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -22,6 +23,12 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         dark = Ui.isDark(this);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                finish();
+            }
+        });
         content = Ui.installPage(this, "Release history", true).content;
         List<GitHubRelease> cached = UpdatePreferences.releases(this);
         if (cached.isEmpty()) {
