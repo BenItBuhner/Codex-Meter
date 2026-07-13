@@ -217,6 +217,22 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            SwitchPreferenceCompat unexpectedRefills = findPreference("unexpected_refills_ui");
+            unexpectedRefills.setPersistent(false);
+            unexpectedRefills.setChecked(ResetAlertPreferences.unexpectedRefillsEnabled(requireContext()));
+            unexpectedRefills.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setUnexpectedRefillsEnabled(requireContext(), (Boolean) value);
+                return true;
+            });
+
+            SwitchPreferenceCompat resetCreditIncreases = findPreference("reset_credit_increases_ui");
+            resetCreditIncreases.setPersistent(false);
+            resetCreditIncreases.setChecked(ResetAlertPreferences.resetCreditIncreasesEnabled(requireContext()));
+            resetCreditIncreases.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditIncreasesEnabled(requireContext(), (Boolean) value);
+                return true;
+            });
+
             permissionPreference = findPreference("notification_permission");
             permissionPreference.setOnPreferenceClickListener(preference -> {
                 startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -247,7 +263,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (enabled) {
                 ResetNotificationManager.ensureChannel(requireContext());
             } else {
-                ResetNotificationManager.clearState(requireContext());
+                ResetNotificationManager.clearNotificationHistory(requireContext());
             }
         }
 

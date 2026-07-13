@@ -6,8 +6,10 @@ import android.content.SharedPreferences;
 /* JADX INFO: loaded from: classes.dex */
 public final class ResetAlertPreferences {
     private static final String KEY_METRIC = "metric";
+    private static final String KEY_RESET_CREDIT_INCREASES = "reset_credit_increases";
     private static final String KEY_STYLE = "style";
     private static final String KEY_THRESHOLD = "threshold";
+    private static final String KEY_UNEXPECTED_REFILLS = "unexpected_refills";
     public static final String METRIC_BOTH = "both";
     public static final String METRIC_FIVE_HOUR = "five_hour";
     public static final String METRIC_WEEKLY = "weekly";
@@ -57,6 +59,22 @@ public final class ResetAlertPreferences {
 
     public static boolean enabled(Context context) {
         return !STYLE_OFF.equals(getStyle(context));
+    }
+
+    public static boolean unexpectedRefillsEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_UNEXPECTED_REFILLS, true);
+    }
+
+    public static void setUnexpectedRefillsEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_UNEXPECTED_REFILLS, enabled).apply();
+    }
+
+    public static boolean resetCreditIncreasesEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_RESET_CREDIT_INCREASES, true);
+    }
+
+    public static void setResetCreditIncreasesEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_RESET_CREDIT_INCREASES, enabled).apply();
     }
 
     private static boolean isValidThreshold(int i) {

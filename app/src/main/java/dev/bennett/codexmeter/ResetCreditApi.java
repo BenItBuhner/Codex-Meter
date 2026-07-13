@@ -89,6 +89,7 @@ public final class ResetCreditApi {
             String message = "";
 
             if (ResetConsumeResult.RESET.equals(code)) {
+                ResetNotificationManager.markUserReset(app, AppPreferences.loadSnapshot(app));
                 try {
                     UsageSnapshot snapshot = UsageApi.refreshAndCache(app);
                     RefreshScheduler.scheduleAtNextReset(app, snapshot);

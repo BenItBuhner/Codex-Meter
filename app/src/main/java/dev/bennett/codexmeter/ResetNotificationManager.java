@@ -21,18 +21,36 @@ public final class ResetNotificationManager {
     private static final String KEY_FIVE_HOUR_WINDOW = "low_five_hour_window";
     private static final String KEY_WEEKLY_WINDOW = "low_weekly_window";
     private static final String KEY_CREDIT_COUNT = "known_reset_credit_count";
+    private static final String KEY_USER_RESET_FIVE_HOUR_UNTIL = "user_reset_five_hour_until";
+    private static final String KEY_USER_RESET_WEEKLY_UNTIL = "user_reset_weekly_until";
+    private static final long UNKNOWN_USER_RESET_SUPPRESSION_MS = 15 * 60 * 1000L;
     private static final int NOTIFICATION_TEST = 74400;
     private static final int NOTIFICATION_RESET_FIVE_HOUR = 74405;
     private static final int NOTIFICATION_RESET_WEEKLY = 74407;
     private static final int NOTIFICATION_LOW_FIVE_HOUR = 74505;
     private static final int NOTIFICATION_LOW_WEEKLY = 74507;
     private static final int NOTIFICATION_NEW_CREDIT = 74509;
+    private static final int NOTIFICATION_REFILL_FIVE_HOUR = 74511;
+    private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
+    private static final int NOTIFICATION_REFILL_BOTH = 74513;
 
     private ResetNotificationManager() {
     }
 
     public static void onUsageUpdated(Context context, UsageSnapshot snapshot) {
-        if (context == null || snapshot == null || !ResetAlertPreferences.enabled(context)) return;
+        onUsageUpdated(context, null, snapshot);
+    }
+
+    public static void onUsageUpdated(Context context, UsageSnapshot previous,
+            UsageSnapshot snapshot) {
+        if (context == null || snapshot == null) return;
+        int unexpectedRefills = suppressUserResetRefills(context,
+                CelebrationDetector.detectUnexpectedRefills(previous, snapshot),
+                snapshot.fetchedAtMillis);
+        if (snapshot.resetCreditsAvailable >= 0) {
+            onResetCreditCountUpdated(context, snapshot.resetCreditsAvailable);
+        }
+        if (!ResetAlertPreferences.enabled(context)) return;
         String metric = ResetAlertPreferences.getMetric(context);
         if (!ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
             notifyLowWindow(context, snapshot.fiveHour, snapshot.fetchedAtMillis,
@@ -42,25 +60,49 @@ public final class ResetNotificationManager {
             notifyLowWindow(context, snapshot.weekly, snapshot.fetchedAtMillis,
                     "Weekly", KEY_WEEKLY_WINDOW, NOTIFICATION_LOW_WEEKLY);
         }
+        if (ResetAlertPreferences.unexpectedRefillsEnabled(context)) {
+            notifyUnexpectedRefill(context, unexpectedRefills);
+        }
     }
 
     public static void onResetCreditsUpdated(Context context, ResetCreditsSnapshot snapshot) {
         if (context == null || snapshot == null) return;
+        onResetCreditCountUpdated(context, snapshot.availableCount);
+    }
+
+    private static void onResetCreditCountUpdated(Context context, int current) {
         SharedPreferences state = state(context);
-        int current = snapshot.availableCount;
         if (!state.contains(KEY_CREDIT_COUNT)) {
             state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
             return;
         }
         int previous = state.getInt(KEY_CREDIT_COUNT, current);
         state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
-        if (!ResetAlertPreferences.enabled(context) || current <= previous) return;
-        int added = current - previous;
+        int added = CelebrationDetector.resetCreditsAdded(previous, current);
+        if (!ResetAlertPreferences.enabled(context)
+                || !ResetAlertPreferences.resetCreditIncreasesEnabled(context)
+                || added <= 0) return;
         String text = added == 1
-                ? "A new Codex reset is available. You now have " + current + "."
-                : added + " new Codex resets are available. You now have " + current + ".";
-        post(context, NOTIFICATION_NEW_CREDIT, "New Codex reset available", text,
+                ? "One Codex reset credit was added. You now have " + current + "."
+                : added + " Codex reset credits were added. You now have " + current + ".";
+        post(context, NOTIFICATION_NEW_CREDIT,
+                added == 1 ? "Codex reset credit added" : "Codex reset credits added", text,
                 NOTIFICATION_NEW_CREDIT);
+    }
+
+    /**
+     * Marks cached non-full windows as user-reset so delayed propagation cannot be mistaken for
+     * an external refill on a later refresh.
+     */
+    public static void markUserReset(Context context, UsageSnapshot snapshot) {
+        if (context == null || snapshot == null) return;
+        long now = System.currentTimeMillis();
+        SharedPreferences.Editor editor = state(context).edit();
+        markUserResetWindow(editor, KEY_USER_RESET_FIVE_HOUR_UNTIL,
+                snapshot, snapshot.fiveHour, now);
+        markUserResetWindow(editor, KEY_USER_RESET_WEEKLY_UNTIL,
+                snapshot, snapshot.weekly, now);
+        editor.apply();
     }
 
     public static void showResetNotification(Context context, String metric) {
@@ -77,7 +119,7 @@ public final class ResetNotificationManager {
             return false;
         }
         return post(context, NOTIFICATION_TEST, "Codex Meter notifications are working",
-                "You’ll be notified for low usage, usage-window resets, and new reset credits.",
+                "Low usage, scheduled resets, surprise refills, and reset-credit alerts are ready.",
                 NOTIFICATION_TEST);
     }
 
@@ -89,6 +131,15 @@ public final class ResetNotificationManager {
 
     public static void clearState(Context context) {
         if (context != null) state(context).edit().clear().apply();
+    }
+
+    public static void clearNotificationHistory(Context context) {
+        if (context == null) return;
+        state(context).edit()
+                .remove(KEY_FIVE_HOUR_WINDOW)
+                .remove(KEY_WEEKLY_WINDOW)
+                .remove(KEY_CREDIT_COUNT)
+                .apply();
     }
 
     private static void notifyLowWindow(Context context, UsageWindow window, long fetchedAt,
@@ -107,6 +158,67 @@ public final class ResetNotificationManager {
                 notificationId)) {
             state.edit().putLong(stateKey, windowId).apply();
         }
+    }
+
+    private static void notifyUnexpectedRefill(Context context, int refills) {
+        if (refills == 0) return;
+        boolean fiveHour = (refills & CelebrationDetector.FIVE_HOUR) != 0;
+        boolean weekly = (refills & CelebrationDetector.WEEKLY) != 0;
+        if (fiveHour && weekly) {
+            post(context, NOTIFICATION_REFILL_BOTH, "Surprise Codex refill",
+                    "Your 5-hour and weekly allowances jumped to 100% before their scheduled resets. Enjoy the bonus capacity.",
+                    NOTIFICATION_REFILL_BOTH);
+        } else if (weekly) {
+            post(context, NOTIFICATION_REFILL_WEEKLY, "Surprise weekly Codex refill",
+                    "Your weekly allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
+                    NOTIFICATION_REFILL_WEEKLY);
+        } else {
+            post(context, NOTIFICATION_REFILL_FIVE_HOUR, "Surprise 5-hour Codex refill",
+                    "Your 5-hour allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
+                    NOTIFICATION_REFILL_FIVE_HOUR);
+        }
+    }
+
+    private static int suppressUserResetRefills(Context context, int refills, long observedAt) {
+        SharedPreferences preferences = state(context);
+        SharedPreferences.Editor editor = preferences.edit();
+        int filtered = suppressUserResetWindow(preferences, editor,
+                KEY_USER_RESET_FIVE_HOUR_UNTIL, CelebrationDetector.FIVE_HOUR,
+                refills, observedAt);
+        filtered = suppressUserResetWindow(preferences, editor,
+                KEY_USER_RESET_WEEKLY_UNTIL, CelebrationDetector.WEEKLY,
+                filtered, observedAt);
+        editor.apply();
+        return filtered;
+    }
+
+    private static int suppressUserResetWindow(SharedPreferences preferences,
+            SharedPreferences.Editor editor, String key, int window, int refills,
+            long observedAt) {
+        long suppressUntil = preferences.getLong(key, 0L);
+        if (suppressUntil <= 0L) return refills;
+        if (observedAt >= suppressUntil) {
+            editor.remove(key);
+            return refills;
+        }
+        if ((refills & window) != 0) {
+            editor.remove(key);
+            return refills & ~window;
+        }
+        return refills;
+    }
+
+    private static void markUserResetWindow(SharedPreferences.Editor editor, String key,
+            UsageSnapshot snapshot, UsageWindow window, long now) {
+        if (window == null || window.usedPercent <= 0) {
+            editor.remove(key);
+            return;
+        }
+        long suppressUntil = CelebrationDetector.expectedResetMillis(snapshot, window);
+        if (suppressUntil <= now) {
+            suppressUntil = now + UNKNOWN_USER_RESET_SUPPRESSION_MS;
+        }
+        editor.putLong(key, suppressUntil);
     }
 
     private static boolean post(Context context, int id, String title, String text, int requestCode) {
@@ -151,7 +263,7 @@ public final class ResetNotificationManager {
         if (ResetAlertPreferences.STYLE_SILENT.equals(style)) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_SILENT,
                     "Codex usage alerts", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Low usage, reset times, and new reset credits");
+            channel.setDescription("Low usage, scheduled resets, surprise refills, and reset credits");
             channel.setSound(null, null);
             channel.enableVibration(false);
             manager.createNotificationChannel(channel);
@@ -160,7 +272,7 @@ public final class ResetNotificationManager {
         if (ResetAlertPreferences.STYLE_ALARM.equals(style)) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ALARM,
                     "Codex usage alarms", NotificationManager.IMPORTANCE_HIGH);
-            channel.setDescription("Low usage, reset times, and new reset credits");
+            channel.setDescription("Low usage, scheduled resets, surprise refills, and reset credits");
             channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
                     new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
@@ -170,7 +282,7 @@ public final class ResetNotificationManager {
         }
         NotificationChannel channel = new NotificationChannel(CHANNEL_NOTIFY,
                 "Codex usage alerts", NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription("Low usage, reset times, and new reset credits");
+        channel.setDescription("Low usage, scheduled resets, surprise refills, and reset credits");
         channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                 new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());

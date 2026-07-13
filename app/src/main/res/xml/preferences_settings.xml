@@ -48,6 +48,14 @@
             android:key="notification_threshold_ui"
             android:title="Low when remaining reaches"
             app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="unexpected_refills_ui"
+            android:title="Surprise limit refills"
+            android:summary="Celebrate when an allowance reaches 100% before its scheduled reset" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_increases_ui"
+            android:title="New reset credits"
+            android:summary="Notify when your available reset-credit count increases" />
         <Preference
             android:key="notification_permission"
             android:title="Notification permission"
