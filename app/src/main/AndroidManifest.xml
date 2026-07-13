@@ -45,10 +45,14 @@
             android:launchMode="singleTop"/>
         <activity
             android:name="dev.bennett.codexmeter.SettingsActivity"
-            android:exported="false"/>
+            android:exported="true"/>
         <activity
             android:name="dev.bennett.codexmeter.AboutActivity"
-            android:exported="false"/>
+            android:exported="true"/>
+        <activity
+            android:name="dev.bennett.codexmeter.DemoSeedActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme"/>
         <activity
             android:name="dev.bennett.codexmeter.ResetCreditActivity"
             android:exported="false"
