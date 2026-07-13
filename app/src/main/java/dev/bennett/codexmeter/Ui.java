@@ -461,11 +461,15 @@ public final class Ui {
     }
 
     public static Button nativePrimaryButton(Context context, String text) {
-        Button button = (Button) LayoutInflater.from(context).inflate(
-                isOneUi(context) ? R.layout.view_oneui_primary_button : R.layout.view_material_primary_button,
-                null, false);
-        button.setText(text);
         boolean dark = isDark(context);
+        if (!isOneUi(context)) {
+            // Material Expressive filled pill — reuse the programmatic Material button path so
+            // we get a solid tonal/accent surface instead of tinting a ripple-only background.
+            return button(context, text, true, dark);
+        }
+        Button button = (Button) LayoutInflater.from(context).inflate(
+                R.layout.view_oneui_primary_button, null, false);
+        button.setText(text);
         int accent = accent(context, dark);
         int onAccent = onAccent(context, dark);
         int disabledAccent = Color.argb(105, Color.red(accent), Color.green(accent), Color.blue(accent));
