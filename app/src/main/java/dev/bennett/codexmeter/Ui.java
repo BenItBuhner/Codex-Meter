@@ -90,11 +90,18 @@ public final class Ui {
         View root = LayoutInflater.from(activity).inflate(R.layout.activity_oneui_dashboard, parent, false);
         ToolbarLayout toolbar = root.findViewById(R.id.toolbar_layout);
         LinearLayout content = root.findViewById(R.id.dashboard_content);
-        toolbar.setTitle(title);
-        toolbar.setShowNavigationButtonAsBack(back);
-        toolbar.setExpanded(true, false);
+        configureReachToolbar(toolbar, title, back);
         activity.setContentView(root);
         return new Page(toolbar, content);
+    }
+
+    public static void configureReachToolbar(ToolbarLayout toolbar, String title, boolean back) {
+        toolbar.setTitle(title);
+        toolbar.setShowNavigationButtonAsBack(back);
+        // Force SESL to recalculate its responsive app-bar height after XML inflation.
+        toolbar.setExpandable(false);
+        toolbar.setExpandable(true);
+        toolbar.setExpanded(true, false);
     }
 
     public static void startSecondaryActivity(Activity activity, Class<? extends Activity> activityClass) {

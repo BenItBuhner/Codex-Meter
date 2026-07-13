@@ -49,6 +49,14 @@ grep -q 'android:scheme="codexmeter"' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ResetAlertReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'MY_PACKAGE_REPLACED' "$ROOT/app/src/main/AndroidManifest.xml"
 
+grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
+grep -q 'app:expandable="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
+grep -q 'Ui.configureReachToolbar(toolbar, "Settings", true);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'toolbar.setExpandable(false);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
+grep -q 'toolbar.setExpandable(true);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
+grep -q 'toolbar.setExpanded(true, false);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
+
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertPreferences.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
