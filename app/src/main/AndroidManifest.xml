@@ -52,6 +52,7 @@
         <activity
             android:name="dev.bennett.codexmeter.ResetCreditActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:excludeFromRecents="true"/>
         <activity
             android:theme="@style/AppTheme"

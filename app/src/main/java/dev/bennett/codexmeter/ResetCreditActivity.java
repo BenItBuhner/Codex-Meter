@@ -21,6 +21,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
     private LinearLayout content;
     private boolean dark;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private int expiryNotificationId = -1;
     private Button useButton;
 
     @Override // android.app.Activity
@@ -147,7 +148,10 @@ public final class ResetCreditActivity extends AppCompatActivity {
                 AppConstants.EXTRA_PROMPT_USE_RESET, false)) {
             return;
         }
+        this.expiryNotificationId = intent.getIntExtra(
+                AppConstants.EXTRA_NOTIFICATION_ID, -1);
         intent.removeExtra(AppConstants.EXTRA_PROMPT_USE_RESET);
+        intent.removeExtra(AppConstants.EXTRA_NOTIFICATION_ID);
         ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
         if (snapshot != null && snapshot.availableCount > 0
                 && SecureTokenStore.isSignedIn(this)) {
@@ -173,6 +177,9 @@ public final class ResetCreditActivity extends AppCompatActivity {
                             if (!resetConsumeResultConsumeBestAvailable.applied()) {
                                 ResetCreditActivity.this.rebuild();
                             } else {
+                                ResetNotificationManager.dismissResetCreditExpiryNotification(
+                                        ResetCreditActivity.this,
+                                        ResetCreditActivity.this.expiryNotificationId);
                                 ResetCreditActivity.this.finish();
                             }
                         }

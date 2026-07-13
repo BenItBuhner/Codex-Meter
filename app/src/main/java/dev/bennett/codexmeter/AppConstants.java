@@ -19,6 +19,7 @@ public final class AppConstants {
     public static final String EXTRA_AUTH_URL = "auth_url";
     public static final String EXTRA_CREDIT_ID = "credit_id";
     public static final String EXTRA_MESSAGE = "message";
+    public static final String EXTRA_NOTIFICATION_ID = "notification_id";
     public static final String EXTRA_PROMPT_USE_RESET = "prompt_use_reset";
     public static final String EXTRA_SUCCESS = "success";
     public static final String INTERNAL_PERMISSION = "dev.bennett.codexmeter.permission.INTERNAL";

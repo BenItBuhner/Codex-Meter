@@ -75,6 +75,10 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReceive
 grep -q 'ResetCreditExpiryReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'reset_credit_expiry_times_ui' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q '"Use reset", useReset' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetNotificationManager.java"
+grep -q 'EXTRA_PROMPT_USE_RESET' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
 
 grep -R -q '<Chronometer' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
 grep -q 'setChronometerCountDown' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"

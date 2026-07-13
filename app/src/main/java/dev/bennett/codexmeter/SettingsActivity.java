@@ -27,6 +27,7 @@ import dev.oneuiproject.oneui.preference.LayoutPreference;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import java.math.BigDecimal;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -381,7 +382,11 @@ public final class SettingsActivity extends AppCompatActivity {
                 return null;
             }
             try {
-                long value = new BigDecimal(amount.trim())
+                char decimalSeparator = DecimalFormatSymbols.getInstance()
+                        .getDecimalSeparator();
+                String normalized = decimalSeparator == '.'
+                        ? amount.trim() : amount.trim().replace(decimalSeparator, '.');
+                long value = new BigDecimal(normalized)
                         .multiply(BigDecimal.valueOf(unitMillis[unitPosition]))
                         .longValueExact();
                 return value >= ResetCreditExpiryReminder.MIN_LEAD_TIME_MS
@@ -430,7 +435,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void scheduleResetCreditExpiryReminders() {
-            ResetCreditExpiryScheduler.scheduleFromSnapshot(requireContext(),
+            ResetNotificationManager.onResetCreditExpirySettingsChanged(requireContext(),
                     AppPreferences.loadResetCredits(requireContext()));
         }
 
