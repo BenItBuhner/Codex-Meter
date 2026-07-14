@@ -2,9 +2,9 @@
 
 Codex Meter is an unofficial native Android application and widget for viewing the Codex allowance attached to a signed-in ChatGPT account. It displays the rolling five-hour and weekly limits, reset times, reset credits, home-screen widgets, Samsung One UI lock-screen widgets, and optional reset notifications.
 
-## Version 2.2.0
+## Version 2.3.0
 
-Version 2.2 adds configurable reset-credit expiry reminders, secure in-app update discovery and verified installation, upgrade recovery for existing widgets, and an optional live usage monitor for Android 16 and compatible Samsung Now Bar surfaces. Dashboard usage labels also remain readable in dark mode.
+Version 2.3 improves Android 16 Live Update promotion on compatible Samsung devices, fixes reset-label contrast and misleading full-window countdowns, and restores secure release discovery from the canonical GitHub repository.
 
 ### Live countdowns
 
@@ -68,7 +68,7 @@ Requirements:
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` (for example `v2.2.0`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases.
+Creating a `v*` tag that matches the Gradle `versionName` (for example `v2.3.0`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases.
 
 ## Platform stability
 
