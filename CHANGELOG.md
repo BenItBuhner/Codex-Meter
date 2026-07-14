@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.3.1 — 2026-07-14
+
+### Added
+
+- Configurable Now Bar auto-start when remaining allowance reaches a selected threshold for five-hour, weekly, or both windows, with dismiss suppression for the remainder of that monitor window (#26).
+- Rendered GitHub release-note Markdown (headings, lists, emphasis, and links) in the App update What's new section and on each Release history card (#25).
+
+### Changed
+
+- Treats every release before 2.3.0 as irreversible for in-app installs and sends users to the GitHub release page instead, because those builds lacked a working updater against the canonical repository (#25).
+
+### Development
+
+- Expanded regression coverage for Now Bar auto-start thresholds and release-note Markdown / irreversible-update policy (#25, #26).
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.3.0...v2.3.1 <!-- pragma: allowlist secret -->
+
 ## 2.3.0 — 2026-07-14
 
 ### Fixed
