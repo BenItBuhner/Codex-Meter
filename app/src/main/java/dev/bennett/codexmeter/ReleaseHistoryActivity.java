@@ -1,11 +1,13 @@
 package dev.bennett.codexmeter;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import java.util.List;
@@ -81,9 +83,13 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
                 Ui.mainText(dark));
         current.setTypeface(Ui.mediumTypeface(this));
         notice.addView(current);
-        String note = "Newer and matching releases are checksum- and signature-verified in the "
-                + "app. Older versions require uninstalling first, which removes local data and "
-                + "widgets.";
+        String note = "Newer and matching releases from Codex Meter "
+                + ReleaseUpdatePolicy.FIRST_IN_APP_UPDATE_VERSION
+                + " onward are checksum- and signature-verified in the app. Releases before "
+                + ReleaseUpdatePolicy.FIRST_IN_APP_UPDATE_VERSION
+                + " are irreversible and must be installed from GitHub because those builds lack "
+                + "working in-app updates. Other older versions still require uninstalling first, "
+                + "which removes local data and widgets.";
         TextView detail = Ui.text(this, note, 13, Ui.secondaryText(dark));
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.setMargins(0, Ui.dp(this, 8), 0, 0);
@@ -128,8 +134,10 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
     private void addRelease(GitHubRelease release) {
         int comparison = ReleaseVersion.compare(release.version,
                 UpdatePreferences.installedVersion(this));
+        boolean irreversible = ReleaseUpdatePolicy.isIrreversible(release.version);
         LinearLayout card = Ui.card(this, dark);
         String suffix = release.prerelease ? " · Prerelease"
+                : irreversible ? " · Irreversible"
                 : comparison > 0 ? " · Update"
                 : comparison == 0 ? " · Installed" : " · Older";
         TextView title = Ui.text(this, release.name, 18, Ui.mainText(dark));
@@ -138,18 +146,63 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
         String published = release.publishedAt.length() >= 10
                 ? release.publishedAt.substring(0, 10) : "Unknown date";
         TextView summary = Ui.text(this, "v" + release.version + suffix + " · " + published,
-                13, Ui.secondaryText(dark));
+                13, irreversible ? Ui.danger(dark) : Ui.secondaryText(dark));
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
-        summaryParams.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 14));
+        summaryParams.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, irreversible ? 8 : 14));
         card.addView(summary, summaryParams);
-        Button action = Ui.button(this,
-                comparison < 0 ? "View downgrade" : comparison == 0 ? "View reinstall"
-                        : "View update", comparison > 0, dark);
-        action.setOnClickListener(view -> startActivity(new Intent(this, UpdateActivity.class)
-                .putExtra(UpdateActivity.EXTRA_VERSION, release.version)));
-        card.addView(action, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
+
+        if (irreversible) {
+            TextView irreversibleNote = Ui.text(this,
+                    ReleaseUpdatePolicy.irreversibleSummary()
+                            + ". Update manually from the GitHub release page.",
+                    13, Ui.secondaryText(dark));
+            LinearLayout.LayoutParams irreversibleParams = new LinearLayout.LayoutParams(-1, -2);
+            irreversibleParams.setMargins(0, 0, 0, Ui.dp(this, 14));
+            card.addView(irreversibleNote, irreversibleParams);
+        }
+
+        if (!release.notes.isEmpty()) {
+            TextView notesHeading = Ui.text(this, "What’s new", 13, Ui.secondaryText(dark));
+            notesHeading.setTypeface(Ui.mediumTypeface(this));
+            LinearLayout.LayoutParams notesHeadingParams = new LinearLayout.LayoutParams(-1, -2);
+            notesHeadingParams.setMargins(0, 0, 0, Ui.dp(this, 8));
+            card.addView(notesHeading, notesHeadingParams);
+            card.addView(ReleaseNotesUi.create(this, release.notes, dark));
+            LinearLayout.LayoutParams spacer = new LinearLayout.LayoutParams(-1, Ui.dp(this, 14));
+            android.widget.Space space = new android.widget.Space(this);
+            card.addView(space, spacer);
+        }
+
+        if (irreversible) {
+            Button github = Ui.nativePrimaryButton(this, "Open on GitHub");
+            github.setOnClickListener(view -> openUrl(release.pageUrl));
+            card.addView(github, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
+            Button details = Ui.button(this, "View release details", false, dark);
+            details.setOnClickListener(view -> startActivity(new Intent(this, UpdateActivity.class)
+                    .putExtra(UpdateActivity.EXTRA_VERSION, release.version)));
+            LinearLayout.LayoutParams detailsParams =
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
+            detailsParams.setMargins(0, Ui.dp(this, 10), 0, 0);
+            card.addView(details, detailsParams);
+        } else {
+            Button action = Ui.button(this,
+                    comparison < 0 ? "View downgrade" : comparison == 0 ? "View reinstall"
+                            : "View update", comparison > 0, dark);
+            action.setOnClickListener(view -> startActivity(new Intent(this, UpdateActivity.class)
+                    .putExtra(UpdateActivity.EXTRA_VERSION, release.version)));
+            card.addView(action, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
+        }
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
         cardParams.setMargins(0, 0, 0, Ui.dp(this, 14));
         content.addView(card, cardParams);
+    }
+
+    private void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (RuntimeException exception) {
+            Toast.makeText(this, "No browser can open the GitHub release page.",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 }
