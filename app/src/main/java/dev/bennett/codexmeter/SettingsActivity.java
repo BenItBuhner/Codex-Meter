@@ -523,6 +523,10 @@ public final class SettingsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
+                View settingsView = getView();
+                if (started && settingsView != null) {
+                    settingsView.postDelayed(this::updateNowBarSummary, 1500L);
+                }
                 return started;
             });
 
@@ -580,7 +584,12 @@ public final class SettingsActivity extends AppCompatActivity {
             nowBarMonitorPreference.setChecked(active);
             if (active) {
                 String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview" : "Live monitor";
-                nowBarMonitorPreference.setSummary(kind + " active · ends "
+                String state = Build.VERSION.SDK_INT >= 36
+                        ? (NowBarManager.isPromoted(requireContext())
+                        ? "promoted as a Live Update"
+                        : "active, but not promoted by the system")
+                        : "active";
+                nowBarMonitorPreference.setSummary(kind + " " + state + " · ends "
                         + UsageFormat.absolute(requireContext(), NowBarManager.activeUntil(requireContext()),
                         System.currentTimeMillis()));
             } else {
@@ -593,10 +602,14 @@ public final class SettingsActivity extends AppCompatActivity {
                     summary = "App notifications disabled · tap to enable";
                 } else if (Build.VERSION.SDK_INT < 36) {
                     summary = "Notifications allowed · Live display depends on your device";
-                } else if (NowBarManager.canPostPromotedNotifications(requireContext())) {
-                    summary = "Live notifications allowed";
-                } else {
+                } else if (!NowBarManager.canPostPromotedNotifications(requireContext())) {
                     summary = "Live notifications not allowed · tap to enable";
+                } else if (active && NowBarManager.isPromoted(requireContext())) {
+                    summary = "Live notification promoted by Android";
+                } else if (active) {
+                    summary = "Access allowed · active notification was not promoted";
+                } else {
+                    summary = "Live notifications allowed";
                 }
                 nowBarPermissionPreference.setSummary(summary);
             }

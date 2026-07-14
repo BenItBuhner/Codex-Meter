@@ -267,6 +267,9 @@
         <meta-data
             android:name="SamsungBasicInteraction"
             android:value="SEP10"/>
+        <meta-data
+            android:name="com.samsung.android.support.ongoing_activity"
+            android:value="true"/>
         <service
             android:name="dev.bennett.codexmeter.UsageRefreshJobService"
             android:permission="android.permission.BIND_JOB_SERVICE"
