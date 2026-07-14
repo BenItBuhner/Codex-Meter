@@ -33,6 +33,7 @@ public final class NowBarManager {
 
     private static final String CHANNEL_ID = "codex_live_monitor_v2";
     private static final String EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing";
+    private static final String SAMSUNG_ONGOING_PREFIX = "android.ongoingActivityNoti.";
     private static final String KEY_ACTIVE = "active";
     private static final String KEY_PREVIEW = "preview";
     private static final String KEY_UNTIL = "until";
@@ -262,6 +263,7 @@ public final class NowBarManager {
             Api36.applyLiveUpdateStyle(context, builder, used,
                     (fiveHour == null ? "W " : "") + remaining + "%");
         }
+        addSamsungOngoingActivityExtras(context, builder, fiveHour, weekly, used);
         final Notification notification;
         try {
             notification = builder.build();
@@ -294,6 +296,50 @@ public final class NowBarManager {
             Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
         return true;
+    }
+
+    /**
+     * Supplies One UI's expanded and collapsed Now Bar fields while retaining the public
+     * Android Live Update style above. Samsung devices that do not consume these extras simply
+     * ignore them and continue to render the standard ongoing notification.
+     */
+    private static void addSamsungOngoingActivityExtras(Context context,
+            Notification.Builder builder, UsageWindow fiveHour, UsageWindow weekly, int used) {
+        if (fiveHour == null && weekly == null) return;
+        Icon icon = Icon.createWithResource(context, R.drawable.ic_notification);
+        String fiveHourText = limitText("5-hour", fiveHour);
+        String weeklyText = limitText("Weekly", weekly);
+        boolean hasBothWindows = fiveHour != null && weekly != null;
+        String focusLabel = fiveHour != null ? "5-hour" : "Weekly";
+        String primaryText = fiveHour != null ? fiveHourText : weeklyText;
+        String secondaryText = hasBothWindows ? weeklyText : null;
+        String combinedText = hasBothWindows ? fiveHourText + " · " + weeklyText : primaryText;
+        int focusRemaining = fiveHour != null
+                ? fiveHour.remainingPercent() : weekly.remainingPercent();
+
+        Bundle samsungExtras = new Bundle();
+        samsungExtras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
+        samsungExtras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", icon);
+        samsungExtras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
+                Color.rgb(56, 122, 255));
+        samsungExtras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
+                "Codex · " + focusLabel + " " + focusRemaining + "%");
+        samsungExtras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
+                combinedText);
+        samsungExtras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
+                hasBothWindows ? "Both usage windows" : focusLabel + " usage window");
+        samsungExtras.putString(SAMSUNG_ONGOING_PREFIX + "description",
+                "Codex usage limits");
+        samsungExtras.putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
+        samsungExtras.putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
+        samsungExtras.putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", icon);
+        samsungExtras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", primaryText);
+        if (secondaryText != null) {
+            samsungExtras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo",
+                    secondaryText);
+        }
+        samsungExtras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarIconType", "progress");
+        builder.addExtras(samsungExtras);
     }
 
     private static String limitText(String label, UsageWindow window) {
