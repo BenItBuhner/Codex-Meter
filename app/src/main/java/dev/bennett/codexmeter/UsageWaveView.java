@@ -84,6 +84,7 @@ public final class UsageWaveView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         float density = getResources().getDisplayMetrics().density;
+        boolean dark = Ui.isDark(getContext());
         float edge = getWidth() * percent / 100f;
         float amplitude = 8f * density;
         fillPath.reset();
@@ -99,12 +100,12 @@ public final class UsageWaveView extends View {
         }
         fillPath.lineTo(0, getHeight());
         fillPath.close();
-        fillPaint.setColor(Ui.desaturatedAccent(getContext(), Ui.isDark(getContext())));
+        fillPaint.setColor(Ui.desaturatedAccent(getContext(), dark));
         canvas.drawPath(fillPath, fillPaint);
 
-        titlePaint.setColor(0xFF000000);
+        titlePaint.setColor(Ui.mainText(dark));
         titlePaint.setTextSize(20f * density);
-        resetPaint.setColor(0x99000000);
+        resetPaint.setColor(Ui.secondaryText(dark));
         resetPaint.setTextSize(14f * density);
         canvas.drawText(title, 12f * density, 34f * density, titlePaint);
         canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
@@ -112,7 +113,6 @@ public final class UsageWaveView extends View {
             canvas.drawText(resetBottom, 12f * density, 87f * density, resetPaint);
         }
 
-        boolean dark = Ui.isDark(getContext());
         int foreground = Ui.mainText(dark);
         float rightCenter = getWidth() - 48f * density;
         if (icon != null) {
