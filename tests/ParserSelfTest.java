@@ -338,6 +338,12 @@ public final class ParserSelfTest {
     }
 
     private static void testGitHubReleases() throws Exception {
+        check("https://github.com/BenItBuhner/Codex-Meter".equals( // pragma: allowlist secret
+                        GitHubReleaseSource.REPOSITORY_URL),
+                "canonical release repository");
+        check("https://api.github.com/repos/BenItBuhner/Codex-Meter/releases?per_page=30" // pragma: allowlist secret
+                        .equals(GitHubReleaseSource.RELEASES_API_URL),
+                "canonical release API endpoint");
         String json = "["
                 + releaseJson("v2.2.0", false, false, true, true)
                 + "," + releaseJson("v3.0.0-beta.1", false, true, true, true)
@@ -361,7 +367,7 @@ public final class ParserSelfTest {
                 "lookalike GitHub host rejected");
         String localFixture = "[" + releaseJson(
                 "v2.2.0", false, false, true, true).replace(
-                "https://github.com/thatjoshguy67/Codex-Meter",
+                GitHubReleaseSource.REPOSITORY_URL,
                 "http://10.0.2.2:8765") + "]";
         check(GitHubReleaseParser.parse(localFixture).isEmpty(),
                 "local fixture rejected by production parser");
@@ -376,19 +382,21 @@ public final class ParserSelfTest {
         if (apk) {
             assets.append("{\"name\":\"CodexMeter-").append(normalized)
                     .append(".apk\",\"size\":123,\"browser_download_url\":")
-                    .append("\"https://github.com/thatjoshguy67/Codex-Meter/releases/download/")
+                    .append("\"").append(GitHubReleaseSource.REPOSITORY_URL)
+                    .append("/releases/download/")
                     .append(tag).append("/CodexMeter-").append(normalized).append(".apk\"}");
         }
         if (checksum) {
             if (assets.length() > 0) assets.append(',');
             assets.append("{\"name\":\"SHA256SUMS.txt\",\"size\":90,")
                     .append("\"browser_download_url\":")
-                    .append("\"https://github.com/thatjoshguy67/Codex-Meter/releases/download/")
+                    .append("\"").append(GitHubReleaseSource.REPOSITORY_URL)
+                    .append("/releases/download/")
                     .append(tag).append("/SHA256SUMS.txt\"}");
         }
         return "{\"tag_name\":\"" + tag + "\",\"name\":\"Codex Meter " + normalized
                 + "\",\"body\":\"Changes\",\"published_at\":\"2026-07-13T00:00:00Z\","
-                + "\"html_url\":\"https://github.com/thatjoshguy67/Codex-Meter/releases/tag/"
+                + "\"html_url\":\"" + GitHubReleaseSource.REPOSITORY_URL + "/releases/tag/"
                 + tag + "\",\"draft\":" + draft + ",\"prerelease\":" + prerelease
                 + ",\"assets\":[" + assets + "]}";
     }
