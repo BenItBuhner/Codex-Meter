@@ -21,7 +21,11 @@ import androidx.annotation.RequiresApi;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
-/** Posts a finite, user-initiated Live Update that Samsung may surface in the Now Bar. */
+/**
+ * Posts a finite Live Update that Samsung may surface in the Now Bar.
+ * Users can start it manually, or it can auto-start when remaining allowance hits a
+ * configured threshold (same metric/threshold pattern as low-usage notifications).
+ */
 public final class NowBarManager {
     static final String ACTION_END = "dev.bennett.codexmeter.action.NOW_BAR_END";
     static final String ACTION_REFRESH = "dev.bennett.codexmeter.action.NOW_BAR_REFRESH";
@@ -50,9 +54,10 @@ public final class NowBarManager {
         long now = System.currentTimeMillis();
         long until = snapshot.nextResetMillis(now);
         if (until <= now) return false;
+        NowBarPreferences.clearSuppression(context);
         saveState(context, false, until);
         if (post(context, snapshot, until, false)) return true;
-        stop(context);
+        stop(context, false);
         return false;
     }
 
@@ -63,44 +68,65 @@ public final class NowBarManager {
                 new UsageWindow(18, TimeUnit.DAYS.toSeconds(7),
                         TimeUnit.DAYS.toSeconds(4), (now + TimeUnit.DAYS.toMillis(4)) / 1000L),
                 now);
+        NowBarPreferences.clearSuppression(context);
         saveState(context, true, until);
         if (post(context, preview, until, true)) return true;
-        stop(context);
+        stop(context, false);
         return false;
     }
 
     public static synchronized void onUsageUpdated(Context context, UsageSnapshot snapshot) {
-        if (!hasStoredActiveState(context) || isPreview(context)) return;
-        if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
-            stop(context);
+        if (isPreview(context)) return;
+        if (hasStoredActiveState(context)) {
+            if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+                stop(context, false);
+                return;
+            }
+            long now = System.currentTimeMillis();
+            long until = activeUntil(context);
+            if (until <= now) {
+                stop(context, false);
+                return;
+            }
+            if (!post(context, snapshot, until, false)) stop(context, false);
             return;
         }
-        long now = System.currentTimeMillis();
-        long until = activeUntil(context);
-        if (until <= now) {
-            stop(context);
-            return;
-        }
-        if (!post(context, snapshot, until, false)) stop(context);
+        maybeAutoStart(context, snapshot);
+    }
+
+    /**
+     * Starts the live monitor when auto-start is enabled, notifications are allowed,
+     * the user has not dismissed the current window, and remaining usage meets the threshold.
+     */
+    public static synchronized boolean maybeAutoStart(Context context, UsageSnapshot snapshot) {
+        if (context == null || isActive(context) || isPreview(context)) return false;
+        if (!NowBarPreferences.isAutoStartEnabled(context)) return false;
+        if (NowBarPreferences.isSuppressed(context)) return false;
+        if (!canPostNotifications(context)) return false;
+        if (!NowBarPreferences.meetsThreshold(context, snapshot)) return false;
+        return start(context);
     }
 
     public static synchronized void restore(Context context) {
-        if (!hasStoredActiveState(context)) return;
-        long until = activeUntil(context);
-        if (until <= System.currentTimeMillis()) {
-            stop(context);
-            return;
+        if (hasStoredActiveState(context)) {
+            long until = activeUntil(context);
+            if (until <= System.currentTimeMillis()) {
+                stop(context, false);
+            } else if (isPreview(context)) {
+                if (!startPreviewWithEnd(context, until)) stop(context, false);
+                else return;
+            } else {
+                UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+                if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+                    stop(context, false);
+                } else if (!post(context, snapshot, until, false)) {
+                    stop(context, false);
+                } else {
+                    return;
+                }
+            }
         }
-        if (isPreview(context)) {
-            if (!startPreviewWithEnd(context, until)) stop(context);
-            return;
-        }
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-        if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
-            stop(context);
-        } else {
-            if (!post(context, snapshot, until, false)) stop(context);
-        }
+        maybeAutoStart(context, AppPreferences.loadSnapshot(context));
     }
 
     private static boolean startPreviewWithEnd(Context context, long until) {
@@ -111,7 +137,17 @@ public final class NowBarManager {
     }
 
     public static synchronized void stop(Context context) {
+        stop(context, true);
+    }
+
+    public static synchronized void stop(Context context, boolean suppressAutoRestart) {
+        long until = activeUntil(context);
+        boolean wasActive = hasStoredActiveState(context);
         state(context).edit().clear().apply();
+        if (suppressAutoRestart && wasActive && until > System.currentTimeMillis()) {
+            // Respect an explicit stop/dismiss until the window would have ended anyway.
+            NowBarPreferences.markSuppressedUntil(context, until);
+        }
         NotificationManager manager = manager(context);
         if (manager != null) {
             try {
@@ -268,7 +304,8 @@ public final class NowBarManager {
     private static void createChannel(NotificationManager manager) {
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                 "Codex live monitor", NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription("A user-started Codex allowance monitor that ends at the next reset");
+        channel.setDescription(
+                "Codex allowance monitor that ends at the next reset; may start from Settings or when remaining usage hits your threshold");
         channel.setSound(null, null);
         channel.enableVibration(false);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);

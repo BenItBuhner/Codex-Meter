@@ -56,6 +56,9 @@ public final class SettingsActivity extends AppCompatActivity {
         private Preference permissionPreference;
         private Preference testNotificationPreference;
         private SwitchPreferenceCompat nowBarMonitorPreference;
+        private SwitchPreferenceCompat nowBarAutoStartPreference;
+        private ListPreference nowBarMetricPreference;
+        private ListPreference nowBarThresholdPreference;
         private Preference nowBarPermissionPreference;
         private Preference updateStatusPreference;
 
@@ -511,7 +514,7 @@ public final class SettingsActivity extends AppCompatActivity {
             nowBarMonitorPreference.setOnPreferenceChangeListener((preference, value) -> {
                 boolean enabled = (Boolean) value;
                 if (!enabled) {
-                    NowBarManager.stop(requireContext());
+                    NowBarManager.stop(requireContext(), true);
                     updateNowBarSummary();
                     return true;
                 }
@@ -528,6 +531,39 @@ public final class SettingsActivity extends AppCompatActivity {
                     settingsView.postDelayed(this::updateNowBarSummary, 1500L);
                 }
                 return started;
+            });
+
+            nowBarAutoStartPreference = findPreference("now_bar_auto_start_ui");
+            nowBarAutoStartPreference.setPersistent(false);
+            nowBarAutoStartPreference.setChecked(
+                    NowBarPreferences.isAutoStartEnabled(requireContext()));
+            nowBarAutoStartPreference.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (enabled && !ensureNotificationPermission()) return false;
+                saveNowBarAutoStart(enabled, NowBarPreferences.getMetric(requireContext()),
+                        NowBarPreferences.getThreshold(requireContext()));
+                return true;
+            });
+
+            nowBarMetricPreference = findPreference("now_bar_metric_ui");
+            nowBarMetricPreference.setPersistent(false);
+            nowBarMetricPreference.setValue(NowBarPreferences.getMetric(requireContext()));
+            nowBarMetricPreference.setOnPreferenceChangeListener((preference, value) -> {
+                saveNowBarAutoStart(NowBarPreferences.isAutoStartEnabled(requireContext()),
+                        String.valueOf(value),
+                        NowBarPreferences.getThreshold(requireContext()));
+                return true;
+            });
+
+            nowBarThresholdPreference = findPreference("now_bar_threshold_ui");
+            nowBarThresholdPreference.setPersistent(false);
+            nowBarThresholdPreference.setValue(
+                    String.valueOf(NowBarPreferences.getThreshold(requireContext())));
+            nowBarThresholdPreference.setOnPreferenceChangeListener((preference, value) -> {
+                saveNowBarAutoStart(NowBarPreferences.isAutoStartEnabled(requireContext()),
+                        NowBarPreferences.getMetric(requireContext()),
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
             });
 
             Preference preview = findPreference("now_bar_preview");
@@ -559,7 +595,30 @@ public final class SettingsActivity extends AppCompatActivity {
                         .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
                 return true;
             });
+            updateNowBarAutoStartEnabledState();
             updateNowBarSummary();
+        }
+
+        private void saveNowBarAutoStart(boolean enabled, String metric, int threshold) {
+            NowBarPreferences.save(requireContext(), enabled, metric, threshold);
+            updateNowBarAutoStartEnabledState();
+            if (enabled) {
+                NowBarPreferences.clearSuppression(requireContext());
+                boolean started = NowBarManager.maybeAutoStart(requireContext(),
+                        AppPreferences.loadSnapshot(requireContext()));
+                if (started) {
+                    Toast.makeText(requireContext(),
+                            "Live monitor started from the current usage threshold.",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+            updateNowBarSummary();
+        }
+
+        private void updateNowBarAutoStartEnabledState() {
+            boolean enabled = NowBarPreferences.isAutoStartEnabled(requireContext());
+            if (nowBarMetricPreference != null) nowBarMetricPreference.setEnabled(enabled);
+            if (nowBarThresholdPreference != null) nowBarThresholdPreference.setEnabled(enabled);
         }
 
         private boolean ensureNotificationPermission() {
@@ -592,9 +651,16 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarMonitorPreference.setSummary(kind + " " + state + " · ends "
                         + UsageFormat.absolute(requireContext(), NowBarManager.activeUntil(requireContext()),
                         System.currentTimeMillis()));
+            } else if (NowBarPreferences.isAutoStartEnabled(requireContext())) {
+                nowBarMonitorPreference.setSummary(
+                        "Waiting to auto-start when remaining allowance hits the threshold");
             } else {
                 nowBarMonitorPreference.setSummary(
                         "Show remaining Codex allowance until the next available usage reset");
+            }
+            if (nowBarAutoStartPreference != null) {
+                nowBarAutoStartPreference.setChecked(
+                        NowBarPreferences.isAutoStartEnabled(requireContext()));
             }
             if (nowBarPermissionPreference != null) {
                 String summary;

@@ -42,6 +42,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubRelease.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
@@ -97,6 +98,8 @@ grep -q 'EXTRA_PROMPT_USE_RESET' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarActionReceiver.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPreferences.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java"
 grep -q 'Build.VERSION.SDK_INT >= 36' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'codex_live_monitor_v2' \
@@ -120,6 +123,18 @@ grep -q 'hasStoredActiveState' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'NowBarManager.onUsageUpdated' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
+grep -q 'maybeAutoStart' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'now_bar_auto_start_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'now_bar_threshold_ui' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'NowBarPreferences.isAutoStartEnabled' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'markSuppressedUntil' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NowBarAutoStart.shouldStart' \
+  "$ROOT/tests/ParserSelfTest.java"
 
 grep -R -q '<Chronometer' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
 grep -q 'setChronometerCountDown' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
