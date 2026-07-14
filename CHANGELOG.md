@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.3.0 — 2026-07-14
+
+### Fixed
+
+- Rebuilt the Android 16 live usage notification on a dedicated default-importance channel, removed conflicting legacy Samsung metadata, and exposed actual Live Update promotion state for compatible Samsung Now Bar surfaces (#21).
+- Improved reset-duration contrast on dashboard usage cards and hid misleading reset countdowns while a usage window remains completely unused, including home and lock-screen widgets (#23).
+- Restored in-app update discovery and project links by pointing them at the canonical repository instead of a stale fork (#24).
+
+### Development
+
+- Centralized production GitHub release URLs and added regression guards that prevent the stale update source from being reintroduced (#24).
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.2.0...v2.3.0 <!-- pragma: allowlist secret -->
+
 ## 2.2.0 — 2026-07-14
 
 ### Added

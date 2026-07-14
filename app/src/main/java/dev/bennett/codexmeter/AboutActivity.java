@@ -62,7 +62,8 @@ public final class AboutActivity extends AppCompatActivity {
             return true;
         }
         if (item.getItemId() == MENU_GITHUB) {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/thatjoshguy67/Codex-Meter")));
+            startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse(GitHubReleaseSource.REPOSITORY_URL)));
             return true;
         }
         if (item.getItemId() == MENU_APP_INFO) {

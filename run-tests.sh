@@ -38,6 +38,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingFlow.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthBrowserPage.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseVersion.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseSource.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubRelease.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
@@ -46,12 +47,15 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.2.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 12' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.2.0"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 12' "$ROOT/app/build.gradle.kts"
-grep -q 'codex-meter-android/2.2.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.2.0"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.3.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 13' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.3.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 13' "$ROOT/app/build.gradle.kts"
+grep -q 'codex-meter-android/2.3.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.3.0"' "$ROOT/build.sh"
+grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
+! grep -R -q 'thatjoshguy67/Codex-Meter' \
+  "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
 
 grep -q 'android.permission.ACCESS_NETWORK_STATE' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.POST_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"

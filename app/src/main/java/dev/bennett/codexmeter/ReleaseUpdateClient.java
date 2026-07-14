@@ -10,8 +10,6 @@ import java.util.List;
 
 /** Public, unauthenticated GitHub release discovery client. */
 public final class ReleaseUpdateClient {
-    static final String RELEASES_URL =
-            "https://api.github.com/repos/thatjoshguy67/Codex-Meter/releases?per_page=30";
     private static final int MAX_RESPONSE_BYTES = 512 * 1024;
     private static final Object LOCK = new Object();
 
@@ -37,7 +35,8 @@ public final class ReleaseUpdateClient {
             throws Exception {
         HttpURLConnection connection = null;
         try {
-            String endpoint = BuildConfig.DEBUG ? BuildConfig.UPDATE_API_URL : RELEASES_URL;
+            String endpoint = BuildConfig.DEBUG
+                    ? BuildConfig.UPDATE_API_URL : GitHubReleaseSource.RELEASES_API_URL;
             boolean localDebugServer = isLocalDebugServer(endpoint);
             connection = (HttpURLConnection) new URL(endpoint).openConnection();
             connection.setConnectTimeout(15_000);
