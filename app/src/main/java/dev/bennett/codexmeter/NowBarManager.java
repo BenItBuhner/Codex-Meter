@@ -255,8 +255,7 @@ public final class NowBarManager {
         try {
             scheduleEnd(context, until);
         } catch (RuntimeException exception) {
-            // setTimeoutAfter() remains the primary expiry path if an OEM rejects the backup alarm.
-            Log.w(TAG, "Could not schedule live monitor backup expiry", exception);
+            Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
         return true;
     }
