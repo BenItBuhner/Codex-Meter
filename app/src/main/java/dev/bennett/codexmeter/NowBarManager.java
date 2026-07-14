@@ -12,6 +12,10 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
 import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.service.notification.StatusBarNotification;
 import android.util.Log;
 import androidx.annotation.RequiresApi;
 import java.util.Collections;
@@ -23,9 +27,8 @@ public final class NowBarManager {
     static final String ACTION_REFRESH = "dev.bennett.codexmeter.action.NOW_BAR_REFRESH";
     static final String ACTION_STOP = "dev.bennett.codexmeter.action.NOW_BAR_STOP";
 
-    private static final String CHANNEL_ID = "codex_live_monitor";
+    private static final String CHANNEL_ID = "codex_live_monitor_v2";
     private static final String EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing";
-    private static final String SAMSUNG_ONGOING_PREFIX = "android.ongoingActivityNoti.";
     private static final String KEY_ACTIVE = "active";
     private static final String KEY_PREVIEW = "preview";
     private static final String KEY_UNTIL = "until";
@@ -154,6 +157,12 @@ public final class NowBarManager {
                 && Api36.canPostPromotedNotifications(manager);
     }
 
+    public static boolean isPromoted(Context context) {
+        NotificationManager manager = manager(context);
+        return Build.VERSION.SDK_INT >= 36 && manager != null
+                && Api36.isPostedNotificationPromoted(manager, NOTIFICATION_ID);
+    }
+
     private static boolean post(Context context, UsageSnapshot snapshot, long until,
             boolean preview) {
         NotificationManager manager = manager(context);
@@ -179,8 +188,6 @@ public final class NowBarManager {
         String weeklyText = limitText("Weekly", weekly);
         String title = "Codex usage";
         String text = fiveHourText + " · " + weeklyText;
-        String subText = preview ? "Now Bar preview" : "Until the next usage reset";
-
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
@@ -191,34 +198,34 @@ public final class NowBarManager {
         PendingIntent refreshIntent = PendingIntent.getBroadcast(context, REQUEST_REFRESH,
                 new Intent(context, NowBarActionReceiver.class).setAction(ACTION_REFRESH),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Icon stopActionIcon = Icon.createWithResource(context, R.drawable.ic_notification);
+        Icon refreshActionIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
 
         Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_oui_alarm)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
                 .setContentText(text)
-                .setSubText(subText)
-                .setProgress(100, used, false)
                 .setContentIntent(contentIntent)
                 .setDeleteIntent(stopIntent)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
-                .setCategory(Notification.CATEGORY_STATUS)
+                .setCategory(Notification.CATEGORY_PROGRESS)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setShowWhen(true)
-                .setWhen(until)
-                .setUsesChronometer(true)
-                .setChronometerCountDown(true)
-                .setTimeoutAfter(Math.max(1L, until - now))
-                .addAction(new Notification.Action.Builder(null, "Stop", stopIntent).build());
+                .setColor(Color.rgb(56, 122, 255))
+                .setShowWhen(false)
+                .addAction(new Notification.Action.Builder(
+                        stopActionIcon, "Stop", stopIntent).build());
         if (!preview) {
-            builder.addAction(new Notification.Action.Builder(null, "Refresh", refreshIntent).build());
+            builder.addAction(new Notification.Action.Builder(
+                    refreshActionIcon, "Refresh", refreshIntent).build());
         }
-        builder.getExtras().putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
+        Bundle promotionExtras = new Bundle();
+        promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
+        builder.addExtras(promotionExtras);
         if (Build.VERSION.SDK_INT >= 36) {
-            Api36.applyLiveUpdateStyle(builder, used,
+            Api36.applyLiveUpdateStyle(context, builder, used,
                     (fiveHour == null ? "W " : "") + remaining + "%");
         }
-        addSamsungOngoingActivityExtras(context, builder, fiveHour, weekly, used);
         final Notification notification;
         try {
             notification = builder.build();
@@ -233,6 +240,10 @@ public final class NowBarManager {
                 + " preview=" + preview + " remaining=" + remaining);
         try {
             manager.notify(NOTIFICATION_ID, notification);
+            if (Build.VERSION.SDK_INT >= 36) {
+                new Handler(Looper.getMainLooper()).postDelayed(
+                        () -> Api36.logPostedPromotionState(manager, NOTIFICATION_ID), 1000L);
+            }
         } catch (RuntimeException exception) {
             Log.w(TAG, "Could not post live monitor notification", exception);
             try {
@@ -244,41 +255,9 @@ public final class NowBarManager {
         try {
             scheduleEnd(context, until);
         } catch (RuntimeException exception) {
-            // setTimeoutAfter() remains the primary expiry path if an OEM rejects the backup alarm.
-            Log.w(TAG, "Could not schedule live monitor backup expiry", exception);
+            Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
         return true;
-    }
-
-    private static void addSamsungOngoingActivityExtras(Context context,
-            Notification.Builder builder, UsageWindow fiveHour, UsageWindow weekly, int used) {
-        Icon icon = Icon.createWithResource(context, R.drawable.ic_oui_alarm);
-        String fiveHourText = limitText("5-hour", fiveHour);
-        String weeklyText = limitText("Weekly", weekly);
-        int focusRemaining = fiveHour != null ? fiveHour.remainingPercent()
-                : weekly == null ? 0 : weekly.remainingPercent();
-
-        builder.getExtras().putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
-        builder.getExtras().putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", icon);
-        builder.getExtras().putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
-                Color.rgb(56, 122, 255));
-        builder.getExtras().putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
-                "Codex · " + (fiveHour == null ? "Weekly " : "5-hour ")
-                        + focusRemaining + "%");
-        builder.getExtras().putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
-                fiveHourText + " · " + weeklyText);
-        builder.getExtras().putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
-                "Both usage windows");
-        builder.getExtras().putString(SAMSUNG_ONGOING_PREFIX + "description",
-                "Codex usage limits");
-        builder.getExtras().putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
-        builder.getExtras().putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
-        builder.getExtras().putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", icon);
-        builder.getExtras().putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo",
-                fiveHourText);
-        builder.getExtras().putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo",
-                weeklyText);
-        builder.getExtras().putString(SAMSUNG_ONGOING_PREFIX + "nowbarIconType", "progress");
     }
 
     private static String limitText(String label, UsageWindow window) {
@@ -288,7 +267,7 @@ public final class NowBarManager {
 
     private static void createChannel(NotificationManager manager) {
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Codex live monitor", NotificationManager.IMPORTANCE_LOW);
+                "Codex live monitor", NotificationManager.IMPORTANCE_DEFAULT);
         channel.setDescription("A user-started Codex allowance monitor that ends at the next reset");
         channel.setSound(null, null);
         channel.enableVibration(false);
@@ -328,11 +307,13 @@ public final class NowBarManager {
     /** Keeps API 36 class references out of code paths verified on older Android releases. */
     @RequiresApi(36)
     private static final class Api36 {
-        static void applyLiveUpdateStyle(Notification.Builder builder, int used,
+        static void applyLiveUpdateStyle(Context context, Notification.Builder builder, int used,
                 String criticalText) {
             Notification.ProgressStyle style = new Notification.ProgressStyle()
                     .setProgress(used)
                     .setStyledByProgress(true)
+                    .setProgressTrackerIcon(
+                            Icon.createWithResource(context, R.drawable.ic_notification))
                     .setProgressSegments(Collections.singletonList(
                             new Notification.ProgressStyle.Segment(100)
                                     .setColor(Color.rgb(56, 122, 255))));
@@ -345,6 +326,40 @@ public final class NowBarManager {
 
         static boolean hasPromotableCharacteristics(Notification notification) {
             return notification.hasPromotableCharacteristics();
+        }
+
+        static boolean isPostedNotificationPromoted(NotificationManager manager,
+                int notificationId) {
+            try {
+                for (StatusBarNotification active : manager.getActiveNotifications()) {
+                    if (active.getId() == notificationId) {
+                        return (active.getNotification().flags
+                                & Notification.FLAG_PROMOTED_ONGOING) != 0;
+                    }
+                }
+            } catch (RuntimeException exception) {
+                Log.w(TAG, "Could not read live monitor promotion state", exception);
+            }
+            return false;
+        }
+
+        static void logPostedPromotionState(NotificationManager manager, int notificationId) {
+            try {
+                StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
+                for (StatusBarNotification active : activeNotifications) {
+                    if (active.getId() != notificationId) continue;
+                    Notification posted = active.getNotification();
+                    boolean promoted = (posted.flags & Notification.FLAG_PROMOTED_ONGOING) != 0;
+                    Log.i(TAG, "Posted live monitor state: promotedFlag=" + promoted
+                            + " flags=0x" + Integer.toHexString(posted.flags)
+                            + " requestExtra="
+                            + posted.extras.getBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, false));
+                    return;
+                }
+                Log.i(TAG, "Posted live monitor state: notification not found in active list");
+            } catch (RuntimeException exception) {
+                Log.w(TAG, "Could not read posted live monitor promotion state", exception);
+            }
         }
     }
 }

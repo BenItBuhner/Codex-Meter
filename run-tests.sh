@@ -67,6 +67,7 @@ grep -q 'ReleaseUpdateJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'WidgetRepairJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
 grep -q 'app:expandable="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
@@ -94,10 +95,23 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarActionReceiver.java"
 grep -q 'Build.VERSION.SDK_INT >= 36' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
-grep -q 'nowbarPrimaryInfo' \
+grep -q 'codex_live_monitor_v2' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NotificationManager.IMPORTANCE_DEFAULT' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'setSmallIcon(R.drawable.ic_notification)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+if grep -q 'android.ongoingActivityNoti.' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"; then
+  echo "Legacy Samsung notification extras must not be mixed with Android Live Updates" >&2
+  exit 1
+fi
 grep -q 'setDeleteIntent(stopIntent)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'FLAG_PROMOTED_ONGOING' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NowBarManager.isPromoted' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'hasStoredActiveState' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'NowBarManager.onUsageUpdated' \
