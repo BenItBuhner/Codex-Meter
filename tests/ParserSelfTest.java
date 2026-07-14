@@ -27,6 +27,8 @@ public final class ParserSelfTest {
         testReleaseVersions();
         testGitHubReleases();
         testReleaseChecksums();
+        testReleaseNotesMarkdown();
+        testReleaseUpdatePolicy();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
@@ -416,6 +418,59 @@ public final class ParserSelfTest {
         check(ReleaseIntegrity.expectedSha256(checksums + digest
                         + "  CodexMeter-2.2.0.apk\n", "CodexMeter-2.2.0.apk").isEmpty(),
                 "duplicate APK checksum rejected");
+    }
+
+    private static void testReleaseNotesMarkdown() {
+        String html = ReleaseNotesMarkdown.toHtml("### Fixed\n\n"
+                + "- Improved reset-duration contrast (#23).\n"
+                + "- Restored in-app update discovery (#24).\n\n"
+                + "### Development\n\n"
+                + "- Centralized production GitHub release URLs (#24).\n\n"
+                + "**Full Changelog**: https://github.com/example/Codex-Meter/compare/v2.2.0...v2.3.0 "
+                + "<!-- pragma: allowlist secret -->");
+        check(html.contains("<p><b>Fixed</b></p>"), "markdown heading rendered");
+        check(html.contains("<ul>"), "markdown list opened");
+        check(html.contains("<li>Improved reset-duration contrast (#23).</li>"),
+                "markdown bullet rendered");
+        check(html.contains("<li>Restored in-app update discovery (#24).</li>"),
+                "second markdown bullet rendered");
+        check(html.contains("<p><b>Development</b></p>"), "second markdown heading rendered");
+        check(html.contains("<b>Full Changelog</b>"), "markdown bold rendered");
+        check(html.contains("<a href=\"https://github.com/example/Codex-Meter/compare/v2.2.0...v2.3.0\">"),
+                "markdown autolink rendered");
+        check(!html.contains("pragma"), "html comments stripped from release notes");
+        check(!html.contains("###"), "raw heading markers removed");
+        check(!html.contains("- Improved"), "raw bullet markers removed");
+
+        String linked = ReleaseNotesMarkdown.toHtml("See [the release](https://github.com/example/x).");
+        check(linked.contains("<a href=\"https://github.com/example/x\">the release</a>"),
+                "markdown link rendered");
+        check(ReleaseNotesMarkdown.toHtml("").isEmpty(), "empty notes stay empty");
+        check(ReleaseNotesMarkdown.toHtml("[bad](javascript:alert(1))")
+                        .contains("javascript:alert(1)"),
+                "unsafe markdown links stay plain text");
+        check(!ReleaseNotesMarkdown.toHtml("[bad](javascript:alert(1))").contains("<a "),
+                "unsafe markdown links are not anchored");
+    }
+
+    private static void testReleaseUpdatePolicy() {
+        check(ReleaseUpdatePolicy.isIrreversible("2.2.0"),
+                "pre-2.3.0 release is irreversible");
+        check(ReleaseUpdatePolicy.isIrreversible("v2.1.0"),
+                "tagged pre-2.3.0 release is irreversible");
+        check(ReleaseUpdatePolicy.isIrreversible("2.2.9"),
+                "latest pre-threshold release is irreversible");
+        check(!ReleaseUpdatePolicy.isIrreversible("2.3.0"),
+                "first in-app update release is reversible");
+        check(!ReleaseUpdatePolicy.isIrreversible("2.3.1"),
+                "post-threshold release is reversible");
+        check(!ReleaseUpdatePolicy.isIrreversible("not-a-version"),
+                "invalid versions are not flagged irreversible");
+        check(ReleaseUpdatePolicy.irreversibleSummary().contains("Manual GitHub"),
+                "irreversible summary mentions GitHub");
+        check(ReleaseUpdatePolicy.irreversibleDetail()
+                        .contains(ReleaseUpdatePolicy.FIRST_IN_APP_UPDATE_VERSION),
+                "irreversible detail cites threshold version");
     }
 
     private static String jwt(String payload) {

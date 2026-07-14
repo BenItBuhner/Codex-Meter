@@ -119,6 +119,7 @@ public final class UpdateActivity extends AppCompatActivity {
         }
         String installedVersion = UpdatePreferences.installedVersion(this);
         int comparison = ReleaseVersion.compare(release.version, installedVersion);
+        boolean irreversible = ReleaseUpdatePolicy.isIrreversible(release.version);
         LinearLayout card = Ui.card(this, dark);
         TextView title = Ui.text(this,
                 comparison > 0 ? "Codex Meter " + release.version + " is available"
@@ -127,39 +128,61 @@ public final class UpdateActivity extends AppCompatActivity {
                 20, Ui.mainText(dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
-        String detail = comparison > 0
-                ? "Installed: " + installedVersion + " · Verified GitHub upgrade"
-                : comparison == 0
-                ? "This version is currently installed. You can verify and reinstall it."
-                : "Installed: " + installedVersion
-                        + " · Android requires uninstalling before this downgrade.";
-        TextView summary = Ui.text(this, detail, 14, Ui.secondaryText(dark));
+        String detail;
+        if (irreversible) {
+            detail = ReleaseUpdatePolicy.irreversibleSummary()
+                    + " · Installed: " + installedVersion;
+        } else if (comparison > 0) {
+            detail = "Installed: " + installedVersion + " · Verified GitHub upgrade";
+        } else if (comparison == 0) {
+            detail = "This version is currently installed. You can verify and reinstall it.";
+        } else {
+            detail = "Installed: " + installedVersion
+                    + " · Android requires uninstalling before this downgrade.";
+        }
+        TextView summary = Ui.text(this, detail, 14,
+                irreversible ? Ui.danger(dark) : Ui.secondaryText(dark));
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
         summaryParams.setMargins(0, Ui.dp(this, 8), 0, Ui.dp(this, 18));
         card.addView(summary, summaryParams);
 
-        Button action = Ui.nativePrimaryButton(this,
-                comparison < 0 ? "Download older APK" : comparison == 0 ? "Verify and reinstall"
-                        : "Download and install");
-        action.setOnClickListener(view -> {
-            if (comparison < 0) {
-                confirmOlderDownload();
-            } else {
-                requestInstall();
-            }
-        });
-        card.addView(action, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+        if (irreversible) {
+            TextView irreversibleDetail = Ui.text(this, ReleaseUpdatePolicy.irreversibleDetail(),
+                    13, Ui.secondaryText(dark));
+            LinearLayout.LayoutParams irreversibleParams = new LinearLayout.LayoutParams(-1, -2);
+            irreversibleParams.setMargins(0, 0, 0, Ui.dp(this, 18));
+            card.addView(irreversibleDetail, irreversibleParams);
+            Button github = Ui.nativePrimaryButton(this, "Open on GitHub");
+            github.setOnClickListener(view -> openReleasePage());
+            card.addView(github, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+            progress = null;
+            status = null;
+        } else {
+            Button action = Ui.nativePrimaryButton(this,
+                    comparison < 0 ? "Download older APK"
+                            : comparison == 0 ? "Verify and reinstall"
+                            : "Download and install");
+            action.setOnClickListener(view -> {
+                if (comparison < 0) {
+                    confirmOlderDownload();
+                } else {
+                    requestInstall();
+                }
+            });
+            card.addView(action, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
 
-        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        progress.setMax(1000);
-        progress.setVisibility(View.GONE);
-        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 8));
-        progressParams.setMargins(0, Ui.dp(this, 18), 0, 0);
-        card.addView(progress, progressParams);
-        status = Ui.text(this, "", 13, Ui.secondaryText(dark));
-        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
-        statusParams.setMargins(0, Ui.dp(this, 10), 0, 0);
-        card.addView(status, statusParams);
+            progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+            progress.setMax(1000);
+            progress.setVisibility(View.GONE);
+            LinearLayout.LayoutParams progressParams =
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 8));
+            progressParams.setMargins(0, Ui.dp(this, 18), 0, 0);
+            card.addView(progress, progressParams);
+            status = Ui.text(this, "", 13, Ui.secondaryText(dark));
+            LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
+            statusParams.setMargins(0, Ui.dp(this, 10), 0, 0);
+            card.addView(status, statusParams);
+        }
         content.addView(card);
 
         if (!release.notes.isEmpty()) {
@@ -169,7 +192,7 @@ public final class UpdateActivity extends AppCompatActivity {
             headingParams.setMargins(Ui.dp(this, 4), Ui.dp(this, 24), 0, Ui.dp(this, 10));
             content.addView(heading, headingParams);
             LinearLayout notesCard = Ui.card(this, dark);
-            notesCard.addView(Ui.text(this, release.notes, 14, Ui.mainText(dark)));
+            notesCard.addView(ReleaseNotesUi.create(this, release.notes, dark));
             content.addView(notesCard);
         }
 
@@ -206,7 +229,8 @@ public final class UpdateActivity extends AppCompatActivity {
     }
 
     private void requestInstall() {
-        if (operationRunning) {
+        if (operationRunning || release == null
+                || ReleaseUpdatePolicy.isIrreversible(release.version)) {
             return;
         }
         UpdatePreferences.setInstallError(this, "");
@@ -239,7 +263,8 @@ public final class UpdateActivity extends AppCompatActivity {
     }
 
     private void beginInstall() {
-        if (operationRunning || release == null) {
+        if (operationRunning || release == null
+                || ReleaseUpdatePolicy.isIrreversible(release.version)) {
             return;
         }
         operationRunning = true;
@@ -293,6 +318,19 @@ public final class UpdateActivity extends AppCompatActivity {
                     }
                 })
                 .show();
+    }
+
+    private void openReleasePage() {
+        String url = release == null ? "" : release.pageUrl;
+        if (url.isEmpty() && release != null) {
+            url = release.apkUrl;
+        }
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (RuntimeException exception) {
+            Toast.makeText(this, "No browser can open the GitHub release page.",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private static String safeMessage(Exception exception) {

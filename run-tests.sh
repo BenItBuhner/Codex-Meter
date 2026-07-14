@@ -42,6 +42,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubRelease.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
@@ -71,6 +73,20 @@ grep -q 'ReleaseUpdateJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'WidgetRepairJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'ReleaseNotesMarkdown.toHtml' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesUi.java"
+grep -q 'ReleaseNotesUi.create' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateActivity.java"
+grep -q 'ReleaseNotesUi.create' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseHistoryActivity.java"
+grep -q 'FIRST_IN_APP_UPDATE_VERSION = "2.3.0"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java"
+grep -q 'isIrreversible' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateActivity.java"
+grep -q 'Open on GitHub' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateActivity.java"
+grep -q 'Open on GitHub' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseHistoryActivity.java"
 grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
