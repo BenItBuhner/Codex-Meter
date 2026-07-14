@@ -34,14 +34,14 @@ public final class AppConstants {
     public static final String REVOKE_URL = "https://auth.openai.com/oauth/revoke";
     public static final String TOKEN_URL = "https://auth.openai.com/oauth/token";
     public static final String USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
-    public static final int VERSION_CODE = 11;
-    public static final String VERSION_NAME = "2.1.0";
+    public static final int VERSION_CODE = 12;
+    public static final String VERSION_NAME = "2.2.0";
 
     private AppConstants() {
     }
 
     public static String userAgent() {
-        return "codex-meter-android/2.1.0 (Android " + (Build.VERSION.RELEASE == null ? "unknown" : Build.VERSION.RELEASE) + "; " + (Build.MODEL == null ? "Android" : Build.MODEL) + ")";
+        return "codex-meter-android/2.2.0 (Android " + (Build.VERSION.RELEASE == null ? "unknown" : Build.VERSION.RELEASE) + "; " + (Build.MODEL == null ? "Android" : Build.MODEL) + ")";
     }
 
     public static String updaterUserAgent() {

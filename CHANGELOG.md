@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.2.0 — 2026-07-14
+
+### Added
+
+- Configurable reset-credit expiry reminders with multiple custom lead times, per-credit scheduling, reboot restoration, and automatic cancellation after sign-out or redemption (#15).
+- A reminder action that opens the existing in-app confirmation before redeeming an expiring reset credit (#15).
+- Secure in-app update discovery with daily checks, a dashboard update card, manual checks, and release history (#16).
+- Verified APK installation that checks HTTPS trust, file size, SHA-256 integrity, package identity, version code, and signing certificate before handing an update to Android (#16).
+- Upgrade recovery that preserves widget providers and options, then repairs existing widgets asynchronously after package replacement (#16).
+- An optional live usage monitor showing real five-hour and weekly allowance values in Android 16 Live Updates and compatible Samsung Now Bar surfaces, with a standard notification fallback on earlier Android versions (#18).
+
+### Changed
+
+- The live usage monitor refreshes from new usage snapshots, restores after reboot or app replacement, marks unavailable windows clearly, and stops at the next valid reset or when dismissed, stopped, or signed out (#18).
+- Reset-credit expiry reminders revalidate credit state immediately before notifying and coalesce duplicate scheduling state (#15).
+
+### Fixed
+
+- Dashboard usage-card labels now use theme-aware foreground colors and remain readable in dark mode (#19).
+- Release-history toolbar and Android back navigation now return through the update flow correctly (#16).
+- Expired five-hour usage windows no longer prevent the live monitor from falling back to a future weekly reset (#18).
+
+### Development
+
+- Added a debug-only local release fixture for end-to-end updater testing without weakening production update trust (#16).
+- Expanded regression coverage for expiry-reminder planning, release parsing and integrity checks, widget upgrade repair, live-monitor lifecycle, and dark-mode usage labels (#15, #16, #18, #19).
+
+### New Contributors
+
+- @Robertg761 made their first contribution in https://github.com/BenItBuhner/Codex-Meter/pull/18. <!-- pragma: allowlist secret -->
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.1.0...v2.2.0 <!-- pragma: allowlist secret -->
+
 ## 2.1.0 — 2026-07-13
 
 ### Added
