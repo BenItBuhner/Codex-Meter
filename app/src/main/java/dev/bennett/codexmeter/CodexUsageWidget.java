@@ -42,4 +42,26 @@ public final class CodexUsageWidget extends AppWidgetProvider {
             }
         }
     }
+
+    @Override
+    public void onRestored(Context context, int[] oldWidgetIds, int[] newWidgetIds) {
+        if (oldWidgetIds != null && newWidgetIds != null) {
+            int count = Math.min(oldWidgetIds.length, newWidgetIds.length);
+            for (int index = 0; index < count; index++) {
+                int oldId = oldWidgetIds[index];
+                int newId = newWidgetIds[index];
+                AppPreferences.saveWidgetOptions(context, newId,
+                        AppPreferences.loadWidgetOptions(context, oldId));
+                AppPreferences.saveWidgetTapAction(context, newId,
+                        AppPreferences.getWidgetTapAction(context, oldId));
+                AppPreferences.deleteWidgetOptions(context, oldId);
+            }
+        }
+        if (newWidgetIds != null) {
+            AppWidgetManager manager = AppWidgetManager.getInstance(context);
+            for (int appWidgetId : newWidgetIds) {
+                WidgetRenderer.update(context, manager, appWidgetId);
+            }
+        }
+    }
 }

@@ -9,6 +9,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.InputType;
+import android.text.format.DateUtils;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -56,6 +57,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private Preference testNotificationPreference;
         private SwitchPreferenceCompat nowBarMonitorPreference;
         private Preference nowBarPermissionPreference;
+        private Preference updateStatusPreference;
 
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
@@ -64,6 +66,7 @@ public final class SettingsActivity extends AppCompatActivity {
             bindAccount();
             bindAppearance();
             bindRefresh();
+            bindUpdates();
             bindNotifications();
             bindNowBar();
             findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
@@ -83,6 +86,7 @@ public final class SettingsActivity extends AppCompatActivity {
             super.onResume();
             updatePermissionSummary();
             updateNowBarSummary();
+            updateUpdateSummary();
         }
 
         private void bindAccount() {
@@ -206,6 +210,63 @@ public final class SettingsActivity extends AppCompatActivity {
                 RefreshScheduler.schedulePeriodic(requireContext());
                 return true;
             });
+        }
+
+        private void bindUpdates() {
+            SwitchPreferenceCompat automatic = findPreference("automatic_update_checks_ui");
+            automatic.setPersistent(false);
+            automatic.setChecked(UpdatePreferences.automaticChecks(requireContext()));
+            automatic.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                UpdatePreferences.setAutomaticChecks(requireContext(), enabled);
+                if (enabled) {
+                    ReleaseUpdateScheduler.ensureScheduled(requireContext());
+                } else {
+                    ReleaseUpdateScheduler.cancel(requireContext());
+                }
+                return true;
+            });
+            updateStatusPreference = findPreference("update_status");
+            findPreference("check_for_updates").setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(requireContext(), UpdateActivity.class)
+                        .putExtra(UpdateActivity.EXTRA_FORCE_CHECK, true));
+                return true;
+            });
+            findPreference("release_history").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), ReleaseHistoryActivity.class);
+                return true;
+            });
+            updateUpdateSummary();
+        }
+
+        private void updateUpdateSummary() {
+            if (updateStatusPreference == null || getContext() == null) {
+                return;
+            }
+            GitHubRelease available = UpdatePreferences.availableUpdate(requireContext());
+            GitHubRelease latest = UpdatePreferences.latestStable(requireContext());
+            long checkedAt = UpdatePreferences.lastCheckMillis(requireContext());
+            StringBuilder summary = new StringBuilder("v")
+                    .append(UpdatePreferences.installedVersion(requireContext()));
+            if (available != null) {
+                summary.append(" installed · v").append(available.version).append(" available");
+            } else if (checkedAt == 0L) {
+                summary.append(" · Not checked yet");
+            } else if (latest == null) {
+                summary.append(" · No published releases");
+            } else {
+                summary.append(" · Up to date");
+            }
+            if (checkedAt > 0L) {
+                summary.append(" · Checked ").append(DateUtils.getRelativeTimeSpanString(
+                        checkedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
+                        DateUtils.FORMAT_ABBREV_RELATIVE));
+            }
+            String error = UpdatePreferences.lastError(requireContext());
+            if (!error.isEmpty()) {
+                summary.append(" · ").append(error);
+            }
+            updateStatusPreference.setSummary(summary.toString());
         }
 
         private void bindNotifications() {

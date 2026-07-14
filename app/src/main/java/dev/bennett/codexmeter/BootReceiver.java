@@ -11,11 +11,16 @@ public final class BootReceiver extends BroadcastReceiver {
         String action = intent == null ? null : intent.getAction();
         if ("android.intent.action.BOOT_COMPLETED".equals(action) || "android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
             RefreshScheduler.schedulePeriodic(context);
+            ReleaseUpdateScheduler.ensureScheduled(context);
             ResetAlertScheduler.scheduleFromSnapshot(context, AppPreferences.loadSnapshot(context));
             ResetCreditExpiryScheduler.scheduleFromSnapshot(context,
                     AppPreferences.loadResetCredits(context));
             NowBarManager.restore(context);
-            WidgetRenderer.updateAll(context);
+            if ("android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
+                WidgetUpgradeRepair.afterPackageReplaced(context);
+            } else {
+                WidgetUpgradeRepair.runIfNeeded(context);
+            }
         }
     }
 }

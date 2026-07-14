@@ -5,6 +5,8 @@ import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
@@ -13,11 +15,19 @@ import android.view.View;
 import android.widget.RemoteViews;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /* JADX INFO: loaded from: classes.dex */
 final class SamsungLockWidgetSupport {
     private static final ProviderSpec[] PROVIDERS = {
+            new ProviderSpec(SamsungLockSquareWidget.class, Shape.SQUARE, Style.NUMBERS, Metric.BOTH),
+            new ProviderSpec(SamsungLockWideWidget.class, Shape.WIDE, Style.NUMBERS, Metric.BOTH),
+            new ProviderSpec(SamsungLockRingsSquareWidget.class, Shape.SQUARE, Style.RINGS, Metric.BOTH),
+            new ProviderSpec(SamsungLockRingsWideWidget.class, Shape.WIDE, Style.RINGS, Metric.BOTH),
+            new ProviderSpec(SamsungLockDialsSquareWidget.class, Shape.SQUARE, Style.DIALS, Metric.BOTH),
             new ProviderSpec(SamsungLockDialsWideWidget.class, Shape.WIDE, Style.DIALS, Metric.BOTH),
+            new ProviderSpec(SamsungLockBarsSquareWidget.class, Shape.SQUARE, Style.BARS, Metric.BOTH),
+            new ProviderSpec(SamsungLockBarsWideWidget.class, Shape.WIDE, Style.BARS, Metric.BOTH),
             new ProviderSpec(SamsungLockFiveHourWidget.class, Shape.SQUARE, Style.DIALS, Metric.FIVE_HOUR),
             new ProviderSpec(SamsungLockWeeklyWidget.class, Shape.SQUARE, Style.DIALS, Metric.WEEKLY)
     };
@@ -104,6 +114,21 @@ final class SamsungLockWidgetSupport {
         return placedWidgets(context).size();
     }
 
+    static void enableAllProviders(Context context) {
+        Context app = application(context);
+        PackageManager packageManager = app.getPackageManager();
+        for (ProviderSpec providerSpec : PROVIDERS) {
+            try {
+                packageManager.setComponentEnabledSetting(
+                        new ComponentName(app, providerSpec.provider),
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP);
+            } catch (RuntimeException exception) {
+                Log.w("CodexMeterLock", "Unable to re-enable a lock widget provider", exception);
+            }
+        }
+    }
+
     static List<LockInstance> placedWidgets(Context context) {
         ArrayList arrayList = new ArrayList();
         if (context != null) {
@@ -180,8 +205,19 @@ final class SamsungLockWidgetSupport {
                     lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
             return single;
         }
-        remoteViewsBuildArcViews = buildArcViews(context, appWidgetManager, i, shape, Style.DIALS, zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
-        i2 = R.id.lock_graphic_root;
+        if (style == Style.NUMBERS) {
+            remoteViewsBuildArcViews = buildNumberViews(context, shape, zIsSignedIn, iRemaining,
+                    iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
+            i2 = shape == Shape.SQUARE ? R.id.lock_square_root : R.id.lock_wide_root;
+        } else if (style == Style.BARS) {
+            remoteViewsBuildArcViews = buildNativeBarViews(context, shape, zIsSignedIn, iRemaining,
+                    iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
+            i2 = R.id.lock_graphic_root;
+        } else {
+            remoteViewsBuildArcViews = buildArcViews(context, appWidgetManager, i, shape, style,
+                    zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
+            i2 = R.id.lock_graphic_root;
+        }
         applyCountdowns(remoteViewsBuildArcViews, shape, style, lockWidgetOptionsLoadLockWidgetOptions, usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.fiveHour, usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.weekly);
         remoteViewsBuildArcViews.setContentDescription(i2, contentDescription(zIsSignedIn, iRemaining, iRemaining2, style, lockWidgetOptionsLoadLockWidgetOptions, i3));
         applyOpenIntent(context, remoteViewsBuildArcViews, i2, i, shape, style, lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
@@ -391,7 +427,17 @@ final class SamsungLockWidgetSupport {
 
     private static void applyOpenIntent(Context context, RemoteViews remoteViews, int i, int i2, Shape shape, Style style, LockWidgetOptions lockWidgetOptions, boolean z, int i3) {
         boolean z2 = lockWidgetOptions.showResetAction && z && i3 > 0;
-        Intent intentAddFlags = new Intent(context, (Class<?>) (z2 ? ResetCreditActivity.class : MainActivity.class)).addFlags(335544320);
+        String target = z2 ? "reset" : "open";
+        Intent intentAddFlags = new Intent(context,
+                (Class<?>) (z2 ? ResetCreditActivity.class : MainActivity.class))
+                .setAction("dev.bennett.codexmeter.action.LOCK_WIDGET_"
+                        + target.toUpperCase(Locale.US))
+                .setData(Uri.parse("codexmeter://widget/lock/v" + AppConstants.VERSION_CODE + "/"
+                        + i2 + "/"
+                        + shape.name().toLowerCase(Locale.US) + "/"
+                        + style.name().toLowerCase(Locale.US)
+                        + "/" + target))
+                .addFlags(335544320);
         if (i2 == 0) {
             i2 = 0;
         }

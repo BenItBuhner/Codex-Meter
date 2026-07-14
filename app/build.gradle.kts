@@ -12,6 +12,20 @@ android {
         targetSdk = 36
         versionCode = 11
         versionName = "2.1.0"
+        providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
+            versionCode = it
+        }
+        providers.gradleProperty("demoVersionName").orNull?.let {
+            versionName = it
+        }
+        val updateApiUrl = providers.gradleProperty("demoUpdateUrl").orNull
+            ?: "https://api.github.com/repos/thatjoshguy67/Codex-Meter/releases?per_page=30"
+        buildConfigField("String", "UPDATE_API_URL",
+            "\"${updateApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {

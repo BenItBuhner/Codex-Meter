@@ -62,4 +62,10 @@ public final class UsageSnapshot {
         }
         return jMin;
     }
+
+    static UsageWindow currentWindow(UsageWindow window, long now) {
+        if (window == null) return null;
+        long resetAt = window.resetAtMillis();
+        return resetAt > 0L && resetAt <= now ? null : window;
+    }
 }

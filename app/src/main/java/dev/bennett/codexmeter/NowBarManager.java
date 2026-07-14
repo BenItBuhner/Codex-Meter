@@ -168,6 +168,10 @@ public final class NowBarManager {
         long now = System.currentTimeMillis();
         UsageWindow fiveHour = snapshot == null ? null : snapshot.fiveHour;
         UsageWindow weekly = snapshot == null ? null : snapshot.weekly;
+        if (!preview) {
+            fiveHour = UsageSnapshot.currentWindow(fiveHour, now);
+            weekly = UsageSnapshot.currentWindow(weekly, now);
+        }
         UsageWindow progressWindow = fiveHour != null ? fiveHour : weekly;
         int remaining = progressWindow == null ? 0 : progressWindow.remainingPercent();
         int used = progressWindow == null ? 0 : progressWindow.usedPercent;
