@@ -141,9 +141,15 @@ grep -q 'Ui.nativePrimaryButton' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
 grep -q 'OAuthBrowserPage.render' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
-grep -q 'titlePaint.setColor(Ui.mainText(dark));' \
+grep -q 'titlePaint.setColor(foreground);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
-grep -q 'resetPaint.setColor(Ui.secondaryText(dark));' \
+grep -q 'resetPaint.setColor(foreground);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'showsResetCountdown' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
+grep -q '!usageWindow.showsResetCountdown()' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageFormat.java"
+! grep -q 'resetPaint.setColor(Ui.secondaryText(dark));' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 ! grep -q 'titlePaint.setColor(0xFF000000)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"

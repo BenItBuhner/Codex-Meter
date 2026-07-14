@@ -21,6 +21,14 @@ public final class UsageWindow {
         return clamp(100 - this.usedPercent);
     }
 
+    /**
+     * Full windows keep drifting the reset clock without real consumption.
+     * Hide countdown/reset labels until remaining drops to 99% or less.
+     */
+    public boolean showsResetCountdown() {
+        return remainingPercent() <= 99;
+    }
+
     public long resetAtMillis() {
         if (this.resetAtEpochSeconds > 0) {
             return this.resetAtEpochSeconds * 1000;

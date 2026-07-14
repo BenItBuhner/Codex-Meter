@@ -103,17 +103,19 @@ public final class UsageWaveView extends View {
         fillPaint.setColor(Ui.desaturatedAccent(getContext(), dark));
         canvas.drawPath(fillPath, fillPaint);
 
-        titlePaint.setColor(Ui.mainText(dark));
+        int foreground = Ui.mainText(dark);
+        titlePaint.setColor(foreground);
         titlePaint.setTextSize(20f * density);
-        resetPaint.setColor(Ui.secondaryText(dark));
+        // Reset duration must match title/percent contrast (black light / white dark).
+        resetPaint.setColor(foreground);
         resetPaint.setTextSize(14f * density);
         canvas.drawText(title, 12f * density, 34f * density, titlePaint);
-        canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
-        if (!resetBottom.isEmpty()) {
-            canvas.drawText(resetBottom, 12f * density, 87f * density, resetPaint);
+        if (!resetTop.isEmpty()) {
+            canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
+            if (!resetBottom.isEmpty()) {
+                canvas.drawText(resetBottom, 12f * density, 87f * density, resetPaint);
+            }
         }
-
-        int foreground = Ui.mainText(dark);
         float rightCenter = getWidth() - 48f * density;
         if (icon != null) {
             int size = Math.round(36f * density);

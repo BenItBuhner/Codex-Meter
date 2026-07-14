@@ -18,6 +18,7 @@ public final class ParserSelfTest {
         testNextResetSelection();
         testCelebrationDetection();
         testResetCreditExpiryReminders();
+        testFullWindowHidesResetCountdown();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
@@ -27,6 +28,18 @@ public final class ParserSelfTest {
         testGitHubReleases();
         testReleaseChecksums();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
+    }
+
+    private static void testFullWindowHidesResetCountdown() {
+        UsageWindow full = new UsageWindow(0, 18000L, 600L, 2000000000L);
+        UsageWindow almostFull = new UsageWindow(1, 18000L, 600L, 2000000000L);
+        UsageWindow used = new UsageWindow(37, 18000L, 600L, 2000000000L);
+        check(full.remainingPercent() == 100, "full window remaining");
+        check(!full.showsResetCountdown(), "100% remaining hides drifting reset countdown");
+        check(almostFull.remainingPercent() == 99, "1% used is 99% remaining");
+        check(almostFull.showsResetCountdown(), "99% remaining still shows reset countdown");
+        check(used.showsResetCountdown(), "partial usage shows reset countdown");
+        System.out.println("Reset-countdown demo: hide at 100% remaining, show again at 99% or less.");
     }
 
     private static void testStandardUsage() throws Exception {

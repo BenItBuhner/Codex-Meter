@@ -43,7 +43,8 @@ public final class UsageFormat {
     }
 
     public static String reset(Context context, UsageWindow usageWindow, String str, long j) {
-        if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)) {
+        if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)
+                || !usageWindow.showsResetCountdown()) {
             return "";
         }
         long jResetAtMillis = usageWindow.resetAtMillis();

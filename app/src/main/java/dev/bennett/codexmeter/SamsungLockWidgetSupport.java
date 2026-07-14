@@ -393,13 +393,16 @@ final class SamsungLockWidgetSupport {
 
     private static UsageWindow earlierWindow(UsageWindow usageWindow, UsageWindow usageWindow2) {
         long jCurrentTimeMillis = System.currentTimeMillis();
-        long jResetAtMillis = usageWindow == null ? 0L : usageWindow.resetAtMillis();
-        long jResetAtMillis2 = usageWindow2 != null ? usageWindow2.resetAtMillis() : 0L;
+        boolean showPrimary = usageWindow != null && usageWindow.showsResetCountdown();
+        boolean showSecondary = usageWindow2 != null && usageWindow2.showsResetCountdown();
+        long jResetAtMillis = showPrimary ? usageWindow.resetAtMillis() : 0L;
+        long jResetAtMillis2 = showSecondary ? usageWindow2.resetAtMillis() : 0L;
         if (jResetAtMillis > jCurrentTimeMillis) {
-            return (jResetAtMillis2 <= jCurrentTimeMillis || jResetAtMillis <= jResetAtMillis2) ? usageWindow : usageWindow2;
+            return (jResetAtMillis2 <= jCurrentTimeMillis || jResetAtMillis <= jResetAtMillis2)
+                    ? usageWindow : usageWindow2;
         }
         if (jResetAtMillis2 <= jCurrentTimeMillis) {
-            usageWindow2 = null;
+            return null;
         }
         return usageWindow2;
     }
@@ -407,7 +410,8 @@ final class SamsungLockWidgetSupport {
     private static void applyCountdown(RemoteViews remoteViews, int i, boolean z, UsageWindow usageWindow) {
         long jCurrentTimeMillis = System.currentTimeMillis();
         long jResetAtMillis = usageWindow == null ? 0L : usageWindow.resetAtMillis();
-        if (!z || jResetAtMillis <= jCurrentTimeMillis) {
+        if (!z || usageWindow == null || !usageWindow.showsResetCountdown()
+                || jResetAtMillis <= jCurrentTimeMillis) {
             remoteViews.setViewVisibility(i, View.GONE);
             return;
         }

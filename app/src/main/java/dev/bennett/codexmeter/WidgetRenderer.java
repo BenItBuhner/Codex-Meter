@@ -696,7 +696,8 @@ public final class WidgetRenderer {
     }
 
     public static String shortReset(Context context, UsageWindow usageWindow, String str, long j) {
-        if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)) {
+        if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)
+                || !usageWindow.showsResetCountdown()) {
             return "";
         }
         long jResetAtMillis = usageWindow.resetAtMillis();
@@ -809,8 +810,12 @@ public final class WidgetRenderer {
         }
 
         private static ResetCountdown nextReset(UsageSnapshot snapshot, long now) {
-            long fiveHourReset = resetAt(snapshot == null ? null : snapshot.fiveHour, now);
-            long weeklyReset = resetAt(snapshot == null ? null : snapshot.weekly, now);
+            UsageWindow fiveHour = snapshot == null ? null : snapshot.fiveHour;
+            UsageWindow weekly = snapshot == null ? null : snapshot.weekly;
+            long fiveHourReset = (fiveHour != null && fiveHour.showsResetCountdown())
+                    ? resetAt(fiveHour, now) : 0L;
+            long weeklyReset = (weekly != null && weekly.showsResetCountdown())
+                    ? resetAt(weekly, now) : 0L;
             long resetAt;
             long windowDuration;
             if (fiveHourReset > now && (weeklyReset <= now || fiveHourReset <= weeklyReset)) {
