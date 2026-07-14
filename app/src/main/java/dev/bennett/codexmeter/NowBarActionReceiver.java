@@ -9,8 +9,10 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent == null ? "" : intent.getAction();
-        if (NowBarManager.ACTION_STOP.equals(action) || NowBarManager.ACTION_END.equals(action)) {
-            NowBarManager.stop(context);
+        if (NowBarManager.ACTION_STOP.equals(action)) {
+            NowBarManager.stop(context, true);
+        } else if (NowBarManager.ACTION_END.equals(action)) {
+            NowBarManager.stop(context, false);
         } else if (NowBarManager.ACTION_REFRESH.equals(action)) {
             RefreshScheduler.scheduleImmediate(context);
         }

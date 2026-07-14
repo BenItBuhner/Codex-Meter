@@ -19,6 +19,7 @@ public final class ParserSelfTest {
         testCelebrationDetection();
         testResetCreditExpiryReminders();
         testFullWindowHidesResetCountdown();
+        testNowBarAutoStart();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
@@ -42,6 +43,37 @@ public final class ParserSelfTest {
         check(almostFull.showsResetCountdown(), "99% remaining still shows reset countdown");
         check(used.showsResetCountdown(), "partial usage shows reset countdown");
         System.out.println("Reset-countdown demo: hide at 100% remaining, show again at 99% or less.");
+    }
+
+    private static void testNowBarAutoStart() {
+        UsageWindow high = new UsageWindow(10, 18000L, 600L, 2000000000L); // 90% remaining
+        UsageWindow mid = new UsageWindow(80, 18000L, 600L, 2000000000L); // 20% remaining
+        UsageWindow low = new UsageWindow(95, 604800L, 600L, 2000000000L); // 5% remaining
+
+        check(!NowBarAutoStart.shouldStart(false, "both", 25, mid, null),
+                "disabled auto-start never fires");
+        check(!NowBarAutoStart.shouldStart(true, "both", 25, high, high),
+                "above threshold does not start");
+        check(NowBarAutoStart.shouldStart(true, "both", 25, mid, high),
+                "five-hour at-or-below threshold starts for both");
+        check(NowBarAutoStart.shouldStart(true, "both", 25, high, low),
+                "weekly at-or-below threshold starts for both");
+        check(NowBarAutoStart.shouldStart(true, "five_hour", 25, mid, high),
+                "five-hour metric watches five-hour only");
+        check(!NowBarAutoStart.shouldStart(true, "five_hour", 25, high, low),
+                "five-hour metric ignores weekly");
+        check(NowBarAutoStart.shouldStart(true, "weekly", 10, high, low),
+                "weekly metric watches weekly only");
+        check(!NowBarAutoStart.shouldStart(true, "weekly", 10, mid, high),
+                "weekly metric ignores five-hour");
+        check(NowBarAutoStart.shouldStart(true, "both", 100, high, high),
+                "Always threshold starts whenever a window exists");
+        check(!NowBarAutoStart.shouldStart(true, "both", 25, null, null),
+                "missing windows do not start");
+        check("both".equals(NowBarAutoStart.normalizeMetric("nope")), "invalid metric falls back");
+        check(NowBarAutoStart.normalizeThreshold(3) == 25, "invalid threshold falls back");
+        check(NowBarAutoStart.isValidThreshold(50), "50 is a valid threshold");
+        System.out.println("Now Bar auto-start threshold rules match low-usage alert semantics.");
     }
 
     private static void testStandardUsage() throws Exception {

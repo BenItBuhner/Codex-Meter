@@ -102,6 +102,22 @@
             android:key="now_bar_monitor_ui"
             android:title="Monitor until reset"
             android:summary="Show remaining Codex allowance until the next available usage reset" />
+        <SwitchPreferenceCompat
+            android:key="now_bar_auto_start_ui"
+            android:title="Auto-start when low"
+            android:summary="Start the live monitor when remaining allowance hits the threshold below" />
+        <ListPreference
+            android:entries="@array/settings_metric_entries"
+            android:entryValues="@array/settings_metric_values"
+            android:key="now_bar_metric_ui"
+            android:title="Auto-start for"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_threshold_entries"
+            android:entryValues="@array/settings_threshold_values"
+            android:key="now_bar_threshold_ui"
+            android:title="Start when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
         <Preference
             android:key="now_bar_preview"
             android:title="Start sample preview"
