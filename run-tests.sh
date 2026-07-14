@@ -127,5 +127,11 @@ grep -q 'Ui.nativePrimaryButton' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
 grep -q 'OAuthBrowserPage.render' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
+grep -q 'titlePaint.setColor(Ui.mainText(dark));' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'resetPaint.setColor(Ui.secondaryText(dark));' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+! grep -q 'titlePaint.setColor(0xFF000000)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 
 echo "Parser, updater, OAuth, onboarding, reset-credit, alert, and widget source checks passed."
