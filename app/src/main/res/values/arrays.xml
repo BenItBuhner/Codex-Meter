@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string-array name="now_bar_display_mode_entries">
+        <item>Automatic (recommended)</item>
+        <item>Android Live Update</item>
+        <item>Samsung compatibility</item>
+    </string-array>
+    <string-array name="now_bar_display_mode_values">
+        <item>auto</item>
+        <item>android_live_update</item>
+        <item>samsung_compatibility</item>
+    </string-array>
+
     <array name="widget_support_cell_sizes">
         <item>2x1</item>
         <item>2x2</item>

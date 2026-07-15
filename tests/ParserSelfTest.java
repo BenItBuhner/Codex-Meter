@@ -20,6 +20,7 @@ public final class ParserSelfTest {
         testResetCreditExpiryReminders();
         testFullWindowHidesResetCountdown();
         testNowBarAutoStart();
+        testNowBarDisplayModes();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
@@ -74,6 +75,29 @@ public final class ParserSelfTest {
         check(NowBarAutoStart.normalizeThreshold(3) == 25, "invalid threshold falls back");
         check(NowBarAutoStart.isValidThreshold(50), "50 is a valid threshold");
         System.out.println("Now Bar auto-start threshold rules match low-usage alert semantics.");
+    }
+
+    private static void testNowBarDisplayModes() {
+        check(NowBarDisplayMode.AUTO.equals(NowBarDisplayMode.normalize(null)),
+                "missing Now Bar mode defaults to automatic");
+        check(NowBarDisplayMode.AUTO.equals(NowBarDisplayMode.normalize("invalid")),
+                "invalid Now Bar mode defaults to automatic");
+        check(NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(NowBarDisplayMode.resolve(
+                        NowBarDisplayMode.AUTO, true, 36, false)),
+                "automatic mode falls back when Samsung blocks Android promotion");
+        check(NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(NowBarDisplayMode.resolve(
+                        NowBarDisplayMode.AUTO, true, 36, true)),
+                "automatic mode uses Android Live Update when Samsung allows promotion");
+        check(NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(NowBarDisplayMode.resolve(
+                        NowBarDisplayMode.AUTO, false, 36, false)),
+                "automatic mode does not send private Samsung extras to other devices");
+        check(NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(NowBarDisplayMode.resolve(
+                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY, false, 36, true)),
+                "explicit Samsung compatibility override is preserved");
+        check(NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(NowBarDisplayMode.resolve(
+                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, true, 35, false)),
+                "explicit Android Live Update override is preserved");
+        System.out.println("Now Bar display mode isolates Android and Samsung notification paths.");
     }
 
     private static void testStandardUsage() throws Exception {

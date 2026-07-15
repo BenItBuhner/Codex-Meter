@@ -57,6 +57,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private Preference testNotificationPreference;
         private SwitchPreferenceCompat nowBarMonitorPreference;
         private SwitchPreferenceCompat nowBarAutoStartPreference;
+        private ListPreference nowBarDisplayModePreference;
         private ListPreference nowBarMetricPreference;
         private ListPreference nowBarThresholdPreference;
         private Preference nowBarPermissionPreference;
@@ -509,6 +510,24 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindNowBar() {
+            nowBarDisplayModePreference = findPreference("now_bar_display_mode_ui");
+            nowBarDisplayModePreference.setPersistent(false);
+            nowBarDisplayModePreference.setValue(
+                    NowBarPreferences.getDisplayMode(requireContext()));
+            nowBarDisplayModePreference.setOnPreferenceChangeListener((preference, value) -> {
+                String mode = NowBarDisplayMode.normalize(String.valueOf(value));
+                NowBarPreferences.setDisplayMode(requireContext(), mode);
+                nowBarDisplayModePreference.setValue(mode);
+                if (NowBarManager.isActive(requireContext())
+                        && !NowBarManager.repostActive(requireContext())) {
+                    Toast.makeText(requireContext(),
+                            "Could not refresh the active monitor with this display mode.",
+                            Toast.LENGTH_LONG).show();
+                }
+                updateNowBarSummary();
+                return true;
+            });
+
             nowBarMonitorPreference = findPreference("now_bar_monitor_ui");
             nowBarMonitorPreference.setPersistent(false);
             nowBarMonitorPreference.setOnPreferenceChangeListener((preference, value) -> {
@@ -582,7 +601,9 @@ public final class SettingsActivity extends AppCompatActivity {
 
             nowBarPermissionPreference = findPreference("now_bar_permission");
             nowBarPermissionPreference.setOnPreferenceClickListener(preference -> {
-                if (Build.VERSION.SDK_INT >= 36) {
+                if (Build.VERSION.SDK_INT >= 36
+                        && !NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
+                        NowBarManager.postedDisplayMode(requireContext()))) {
                     Intent promotion = new Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName());
                     try {
@@ -595,8 +616,42 @@ public final class SettingsActivity extends AppCompatActivity {
                         .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
                 return true;
             });
+            findPreference("now_bar_setup_help").setOnPreferenceClickListener(preference -> {
+                showSamsungNowBarHelp();
+                return true;
+            });
             updateNowBarAutoStartEnabledState();
             updateNowBarSummary();
+        }
+
+        private void showSamsungNowBarHelp() {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Samsung Now Bar setup")
+                    .setMessage("For Android Live Updates:\n"
+                            + "1. Open Settings > About phone/tablet > Software information.\n"
+                            + "2. Tap Build number seven times and confirm your screen lock.\n"
+                            + "3. Return to Settings > Developer options.\n"
+                            + "4. Turn on Live notifications for all apps.\n"
+                            + "5. Make sure Settings > Lock screen and AOD > Now bar is enabled.\n\n"
+                            + "If “Live notifications for all apps” is missing, select Samsung "
+                            + "compatibility above. Samsung changes third-party access by model, "
+                            + "region, and firmware build even when Android and One UI versions "
+                            + "match.\n\n"
+                            + "If both modes remain ordinary notifications, that firmware or "
+                            + "device does not expose a third-party Now Bar surface. Codex Meter "
+                            + "cannot override Samsung’s system allowlist.")
+                    .setNeutralButton("Developer options", (dialog, which) -> {
+                        try {
+                            startActivity(new Intent(
+                                    Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+                        } catch (RuntimeException exception) {
+                            Toast.makeText(requireContext(),
+                                    "Developer options are not available on this firmware.",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    })
+                    .setPositiveButton("Done", null)
+                    .show();
         }
 
         private void saveNowBarAutoStart(boolean enabled, String metric, int threshold) {
@@ -643,7 +698,11 @@ public final class SettingsActivity extends AppCompatActivity {
             nowBarMonitorPreference.setChecked(active);
             if (active) {
                 String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview" : "Live monitor";
-                String state = Build.VERSION.SDK_INT >= 36
+                boolean samsungCompatibility = NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
+                        NowBarManager.postedDisplayMode(requireContext()));
+                String state = samsungCompatibility
+                        ? "using Samsung compatibility"
+                        : Build.VERSION.SDK_INT >= 36
                         ? (NowBarManager.isPromoted(requireContext())
                         ? "promoted as a Live Update"
                         : "active, but not promoted by the system")
@@ -662,10 +721,17 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarAutoStartPreference.setChecked(
                         NowBarPreferences.isAutoStartEnabled(requireContext()));
             }
+            if (nowBarDisplayModePreference != null) {
+                nowBarDisplayModePreference.setValue(
+                        NowBarPreferences.getDisplayMode(requireContext()));
+            }
             if (nowBarPermissionPreference != null) {
                 String summary;
                 if (!NowBarManager.canPostNotifications(requireContext())) {
                     summary = "App notifications disabled · tap to enable";
+                } else if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
+                        NowBarManager.postedDisplayMode(requireContext()))) {
+                    summary = "Samsung compatibility selected · firmware support required";
                 } else if (Build.VERSION.SDK_INT < 36) {
                     summary = "Notifications allowed · Live display depends on your device";
                 } else if (!NowBarManager.canPostPromotedNotifications(requireContext())) {

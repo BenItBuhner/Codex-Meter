@@ -43,6 +43,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/tests/ParserSelfTest.java"
@@ -116,6 +117,7 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarActionReceiver.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPreferences.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java"
 grep -q 'Build.VERSION.SDK_INT >= 36' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'codex_live_monitor_v2' \
@@ -124,11 +126,12 @@ grep -q 'NotificationManager.IMPORTANCE_DEFAULT' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'setSmallIcon(R.drawable.ic_notification)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
-if grep -q 'android.ongoingActivityNoti.' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"; then
-  echo "Legacy Samsung notification extras must not be mixed with Android Live Updates" >&2
-  exit 1
-fi
+grep -q 'android.ongoingActivityNoti.' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'applySamsungCompatibility' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NowBarDisplayMode.ANDROID_LIVE_UPDATE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'setDeleteIntent(stopIntent)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'FLAG_PROMOTED_ONGOING' \
@@ -151,6 +154,12 @@ grep -q 'markSuppressedUntil' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'NowBarAutoStart.shouldStart' \
   "$ROOT/tests/ParserSelfTest.java"
+grep -q 'NowBarDisplayMode.resolve' \
+  "$ROOT/tests/ParserSelfTest.java"
+grep -q 'now_bar_display_mode_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'Live notifications for all apps' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 
 grep -R -q '<Chronometer' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
 grep -q 'setChronometerCountDown' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
