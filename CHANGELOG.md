@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.3.2 — 2026-07-15
+
+### Added
+
+- Automatic, Android Live Update, and Samsung compatibility display modes for the live usage monitor, including manual overrides for firmware that reports promotion support incorrectly (#29).
+- In-app diagnostics for blocked app or live-monitor notifications, plus Samsung developer-option and firmware troubleshooting guidance (#29).
+
+### Changed
+
+- Automatic mode now keeps Android 16 Live Update promotion and Samsung's private ongoing-activity payload mutually exclusive, selecting the Samsung-compatible path when Galaxy firmware denies platform promotion (#29).
+- Changing display modes safely re-posts an active monitor, while failed updates clear stale active state instead of leaving the monitor stuck (#29).
+
+### Fixed
+
+- Restored Now Bar presentation on compatible Samsung firmware where third-party Android Live Updates remain ordinary notifications, while retaining the standard notification fallback on unsupported firmware (#29).
+
+### Development
+
+- Added regression coverage for display-mode normalization and firmware-dependent mode resolution (#29).
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.3.1...v2.3.2 <!-- pragma: allowlist secret -->
+
 ## 2.3.1 — 2026-07-14
 
 ### Added
