@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
  */
 public final class NowBarPreferences {
     private static final String KEY_AUTO_ENABLED = "auto_enabled";
+    private static final String KEY_DISPLAY_MODE = "display_mode";
     private static final String KEY_METRIC = "metric";
     private static final String KEY_SUPPRESS_UNTIL = "suppress_until";
     private static final String KEY_THRESHOLD = "threshold";
@@ -24,6 +25,16 @@ public final class NowBarPreferences {
 
     public static boolean isAutoStartEnabled(Context context) {
         return prefs(context).getBoolean(KEY_AUTO_ENABLED, false);
+    }
+
+    public static String getDisplayMode(Context context) {
+        return NowBarDisplayMode.normalize(prefs(context).getString(KEY_DISPLAY_MODE,
+                NowBarDisplayMode.AUTO));
+    }
+
+    public static void setDisplayMode(Context context, String mode) {
+        prefs(context).edit().putString(KEY_DISPLAY_MODE,
+                NowBarDisplayMode.normalize(mode)).apply();
     }
 
     public static String getMetric(Context context) {

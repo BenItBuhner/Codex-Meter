@@ -34,6 +34,7 @@ public final class NowBarManager {
     private static final String CHANNEL_ID = "codex_live_monitor_v2";
     private static final String EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing";
     private static final String KEY_ACTIVE = "active";
+    private static final String KEY_POSTED_MODE = "posted_mode";
     private static final String KEY_PREVIEW = "preview";
     private static final String KEY_UNTIL = "until";
     private static final int NOTIFICATION_ID = 8610;
@@ -41,6 +42,7 @@ public final class NowBarManager {
     private static final int REQUEST_REFRESH = 8612;
     private static final int REQUEST_STOP = 8613;
     private static final String PREFS = "codex_meter_now_bar_v1";
+    private static final String SAMSUNG_ONGOING_PREFIX = "android.ongoingActivityNoti.";
     private static final String TAG = "CodexNowBar";
 
     private NowBarManager() {
@@ -129,6 +131,25 @@ public final class NowBarManager {
         maybeAutoStart(context, AppPreferences.loadSnapshot(context));
     }
 
+    public static synchronized boolean repostActive(Context context) {
+        if (!hasStoredActiveState(context)) return false;
+        long until = activeUntil(context);
+        if (until <= System.currentTimeMillis()) {
+            stop(context, false);
+            return false;
+        }
+        boolean posted;
+        if (isPreview(context)) {
+            posted = startPreviewWithEnd(context, until);
+        } else {
+            UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+            posted = snapshot != null && (snapshot.fiveHour != null || snapshot.weekly != null)
+                    && post(context, snapshot, until, false);
+        }
+        if (!posted) stop(context, false);
+        return posted;
+    }
+
     private static boolean startPreviewWithEnd(Context context, long until) {
         long now = System.currentTimeMillis();
         UsageSnapshot preview = new UsageSnapshot("plus", true, false, null,
@@ -181,10 +202,14 @@ public final class NowBarManager {
 
     public static boolean canPostNotifications(Context context) {
         NotificationManager manager = manager(context);
-        return manager != null && manager.areNotificationsEnabled()
-                && (Build.VERSION.SDK_INT < 33
-                || context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
-                == PackageManager.PERMISSION_GRANTED);
+        if (manager == null || !manager.areNotificationsEnabled()
+                || (Build.VERSION.SDK_INT >= 33
+                && context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                != PackageManager.PERMISSION_GRANTED)) {
+            return false;
+        }
+        NotificationChannel channel = manager.getNotificationChannel(CHANNEL_ID);
+        return channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
     }
 
     public static boolean canPostPromotedNotifications(Context context) {
@@ -197,6 +222,22 @@ public final class NowBarManager {
         NotificationManager manager = manager(context);
         return Build.VERSION.SDK_INT >= 36 && manager != null
                 && Api36.isPostedNotificationPromoted(manager, NOTIFICATION_ID);
+    }
+
+    public static String postedDisplayMode(Context context) {
+        String posted = state(context).getString(KEY_POSTED_MODE, null);
+        return posted == null ? resolveDisplayMode(context) : NowBarDisplayMode.normalize(posted);
+    }
+
+    private static String resolveDisplayMode(Context context) {
+        return NowBarDisplayMode.resolve(NowBarPreferences.getDisplayMode(context),
+                isSamsungDevice(), Build.VERSION.SDK_INT,
+                canPostPromotedNotifications(context));
+    }
+
+    private static boolean isSamsungDevice() {
+        return "samsung".equalsIgnoreCase(Build.MANUFACTURER)
+                || "samsung".equalsIgnoreCase(Build.BRAND);
     }
 
     private static boolean post(Context context, UsageSnapshot snapshot, long until,
@@ -236,6 +277,7 @@ public final class NowBarManager {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Icon stopActionIcon = Icon.createWithResource(context, R.drawable.ic_notification);
         Icon refreshActionIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
+        String displayMode = resolveDisplayMode(context);
 
         Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
@@ -255,12 +297,17 @@ public final class NowBarManager {
             builder.addAction(new Notification.Action.Builder(
                     refreshActionIcon, "Refresh", refreshIntent).build());
         }
-        Bundle promotionExtras = new Bundle();
-        promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
-        builder.addExtras(promotionExtras);
-        if (Build.VERSION.SDK_INT >= 36) {
-            Api36.applyLiveUpdateStyle(context, builder, used,
-                    (fiveHour == null ? "W " : "") + remaining + "%");
+        if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(displayMode)) {
+            applySamsungCompatibility(context, builder, fiveHour, weekly, used, until, now,
+                    preview);
+        } else {
+            Bundle promotionExtras = new Bundle();
+            promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
+            builder.addExtras(promotionExtras);
+            if (Build.VERSION.SDK_INT >= 36) {
+                Api36.applyLiveUpdateStyle(context, builder, used,
+                        (fiveHour == null ? "W " : "") + remaining + "%");
+            }
         }
         final Notification notification;
         try {
@@ -271,12 +318,14 @@ public final class NowBarManager {
         }
         boolean promotable = Build.VERSION.SDK_INT >= 36
                 && Api36.hasPromotableCharacteristics(notification);
-        Log.i(TAG, "Posting live monitor: promotable=" + promotable
+        Log.i(TAG, "Posting live monitor: mode=" + displayMode + " promotable=" + promotable
                 + " allowed=" + canPostPromotedNotifications(context)
                 + " preview=" + preview + " remaining=" + remaining);
         try {
             manager.notify(NOTIFICATION_ID, notification);
-            if (Build.VERSION.SDK_INT >= 36) {
+            state(context).edit().putString(KEY_POSTED_MODE, displayMode).apply();
+            if (Build.VERSION.SDK_INT >= 36
+                    && NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(displayMode)) {
                 new Handler(Looper.getMainLooper()).postDelayed(
                         () -> Api36.logPostedPromotionState(manager, NOTIFICATION_ID), 1000L);
             }
@@ -294,6 +343,46 @@ public final class NowBarManager {
             Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
         return true;
+    }
+
+    private static void applySamsungCompatibility(Context context, Notification.Builder builder,
+            UsageWindow fiveHour, UsageWindow weekly, int used, long until, long now,
+            boolean preview) {
+        String fiveHourText = limitText("5-hour", fiveHour);
+        String weeklyText = limitText("Weekly", weekly);
+        int focusRemaining = fiveHour != null ? fiveHour.remainingPercent()
+                : weekly == null ? 0 : weekly.remainingPercent();
+        String availableWindows = fiveHour != null && weekly != null
+                ? "Both usage windows"
+                : fiveHour != null ? "5-hour window"
+                : weekly != null ? "Weekly window" : "Usage window unavailable";
+        Icon icon = Icon.createWithResource(context, R.drawable.ic_notification);
+        Bundle extras = new Bundle();
+        extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
+        extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", icon);
+        extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor", Color.rgb(56, 122, 255));
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
+                "Codex · " + (fiveHour == null ? "Weekly " : "5-hour ") + focusRemaining + "%");
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
+                fiveHourText + " · " + weeklyText);
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
+                availableWindows);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "description", "Codex usage limits");
+        extras.putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
+        extras.putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
+        extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", icon);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", fiveHourText);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo", weeklyText);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarIconType", "progress");
+        builder.addExtras(extras)
+                .setSubText(preview ? "Now Bar preview" : "Until the next usage reset")
+                .setProgress(100, used, false)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setShowWhen(true)
+                .setWhen(until)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setTimeoutAfter(Math.max(1L, until - now));
     }
 
     private static String limitText(String label, UsageWindow window) {

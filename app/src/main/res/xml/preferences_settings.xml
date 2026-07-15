@@ -98,6 +98,12 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Now Bar">
+        <ListPreference
+            android:entries="@array/now_bar_display_mode_entries"
+            android:entryValues="@array/now_bar_display_mode_values"
+            android:key="now_bar_display_mode_ui"
+            android:title="Display compatibility"
+            app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             android:key="now_bar_monitor_ui"
             android:title="Monitor until reset"
@@ -126,6 +132,11 @@
         <Preference
             android:key="now_bar_permission"
             android:title="Live notification access"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="now_bar_setup_help"
+            android:title="Samsung setup help"
+            android:summary="Developer options and firmware troubleshooting"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
