@@ -8,6 +8,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,10 +33,12 @@ public final class ResetWatchClient {
                     AnnouncementPreferences.setUserId(app, userId);
                 }
                 String sinceId = AnnouncementPreferences.lastSeenId(app);
+                boolean hadBaseline = AnnouncementPreferences.hasBaseline(app);
                 ArrayList<XPost> posts = new ArrayList<>();
                 String newestId = "";
                 String paginationToken = "";
-                for (int page = 0; page < 32; page++) {
+                int maxPages = hadBaseline ? 3 : 1;
+                for (int page = 0; page < maxPages; page++) {
                     // A 401 on the previous request may have rotated the refresh token.
                     tokens = usableTokens(app);
                     String endpoint = timelineEndpoint(userId, sinceId, paginationToken);
@@ -48,12 +51,11 @@ public final class ResetWatchClient {
                     JSONObject meta = new JSONObject(response.body).optJSONObject("meta");
                     paginationToken = meta == null ? "" : meta.optString("next_token", "");
                     if (paginationToken.isEmpty()) break;
-                    if (page == 31) {
-                        throw new IllegalStateException(
-                                "X returned more timeline pages than the reset watch can process.");
-                    }
                 }
-                boolean hadBaseline = AnnouncementPreferences.hasBaseline(app);
+                if (!SecureXTokenStore.isConnected(app)
+                        || !AnnouncementPreferences.monitoringEnabled(app)) {
+                    return Collections.emptyList();
+                }
                 AnnouncementPreferences.saveSuccess(app, posts, newestId);
                 ResetWatchNotificationManager.notifyNew(app, posts, hadBaseline);
                 return posts;
