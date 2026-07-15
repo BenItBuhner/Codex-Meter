@@ -124,11 +124,22 @@ grep -q 'NotificationManager.IMPORTANCE_DEFAULT' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'setSmallIcon(R.drawable.ic_notification)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
-if grep -q 'android.ongoingActivityNoti.' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"; then
-  echo "Legacy Samsung notification extras must not be mixed with Android Live Updates" >&2
-  exit 1
-fi
+grep -q 'android.ongoingActivityNoti.' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'addSamsungOngoingActivityExtras' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'nowbarPrimaryInfo' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'nowbarSecondaryInfo' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'fiveHour == null && weekly == null' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'String primaryText = fiveHour != null ? fiveHourText : weeklyText' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'if (secondaryText != null)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'builder.addExtras(samsungExtras)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'setDeleteIntent(stopIntent)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'FLAG_PROMOTED_ONGOING' \
