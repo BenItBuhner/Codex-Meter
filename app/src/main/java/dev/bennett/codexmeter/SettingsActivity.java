@@ -738,7 +738,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (nowBarPermissionPreference != null) {
                 String summary;
                 if (!NowBarManager.canPostNotifications(requireContext())) {
-                    summary = "App notifications disabled · tap to enable";
+                    summary = "App or live-monitor notifications disabled · tap to enable";
                 } else if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarManager.postedDisplayMode(requireContext()))) {
                     summary = NowBarDisplayMode.AUTO.equals(
