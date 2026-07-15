@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.security.KeyStore;
@@ -94,7 +95,7 @@ public final class SecureXTokenStore {
         if (key instanceof SecretKey) return (SecretKey) key;
         KeyGenerator generator = KeyGenerator.getInstance("AES", "AndroidKeyStore");
         generator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS,
-                KeyGenParameterSpec.PURPOSE_ENCRYPT | KeyGenParameterSpec.PURPOSE_DECRYPT)
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes("GCM")
                 .setEncryptionPaddings("NoPadding")
                 .setRandomizedEncryptionRequired(true)
