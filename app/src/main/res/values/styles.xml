@@ -7,6 +7,14 @@
         <item name="android:windowBackground">@color/oui_des_round_and_bgcolor</item>
         <item name="android:navigationBarColor">@color/oui_des_round_and_bgcolor</item>
         <item name="android:statusBarColor">@color/oui_des_round_and_bgcolor</item>
+        <item name="buttonCornerRadius">999dp</item>
+    </style>
+
+    <style name="App.ContainedPrimaryColorButtonTheme" parent="OneUI.ContainedPrimaryColorButtonTheme">
+        <item name="buttonCornerRadius">999dp</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sec</item>
     </style>
 
     <style name="AppThemeDark" parent="AppTheme" />
