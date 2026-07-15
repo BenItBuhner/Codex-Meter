@@ -62,6 +62,9 @@ public final class SettingsActivity extends AppCompatActivity {
         private ListPreference nowBarThresholdPreference;
         private Preference nowBarPermissionPreference;
         private Preference updateStatusPreference;
+        private Preference resetWatchAccountPreference;
+        private Preference resetWatchStatusPreference;
+        private SwitchPreferenceCompat resetWatchMonitorPreference;
 
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
@@ -70,6 +73,7 @@ public final class SettingsActivity extends AppCompatActivity {
             bindAccount();
             bindAppearance();
             bindRefresh();
+            bindResetWatch();
             bindUpdates();
             bindNotifications();
             bindNowBar();
@@ -90,6 +94,7 @@ public final class SettingsActivity extends AppCompatActivity {
             super.onResume();
             updatePermissionSummary();
             updateNowBarSummary();
+            updateResetWatchSummary();
             updateUpdateSummary();
         }
 
@@ -214,6 +219,151 @@ public final class SettingsActivity extends AppCompatActivity {
                 RefreshScheduler.schedulePeriodic(requireContext());
                 return true;
             });
+        }
+
+        private void bindResetWatch() {
+            resetWatchAccountPreference = findPreference("reset_watch_account");
+            resetWatchAccountPreference.setOnPreferenceClickListener(preference -> {
+                if (SecureXTokenStore.isConnected(requireContext())) {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("Disconnect X?")
+                            .setMessage("This removes encrypted X tokens and cached reset-watch "
+                                    + "posts from this device.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Disconnect", (dialog, which) -> {
+                                XAuthentication.disconnect(requireContext());
+                                Toast.makeText(requireContext(), "X disconnected.",
+                                        Toast.LENGTH_SHORT).show();
+                                updateResetWatchSummary();
+                            })
+                            .show();
+                } else {
+                    startXConnection();
+                }
+                return true;
+            });
+
+            resetWatchMonitorPreference = findPreference("reset_watch_monitor_ui");
+            resetWatchMonitorPreference.setPersistent(false);
+            resetWatchMonitorPreference.setChecked(
+                    AnnouncementPreferences.monitoringEnabled(requireContext()));
+            resetWatchMonitorPreference.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (enabled && !SecureXTokenStore.isConnected(requireContext())) {
+                    startXConnection();
+                    return false;
+                }
+                AnnouncementPreferences.setMonitoringEnabled(requireContext(), enabled);
+                if (enabled) {
+                    ResetWatchScheduler.ensureScheduled(requireContext());
+                    ResetWatchScheduler.requestImmediate(requireContext());
+                }
+                updateResetWatchSummary();
+                return true;
+            });
+
+            ListPreference interval = findPreference("reset_watch_interval_ui");
+            interval.setPersistent(false);
+            interval.setValue(String.valueOf(
+                    AnnouncementPreferences.intervalMinutes(requireContext())));
+            interval.setOnPreferenceChangeListener((preference, value) -> {
+                AnnouncementPreferences.setIntervalMinutes(requireContext(),
+                        Integer.parseInt(String.valueOf(value)));
+                ResetWatchScheduler.ensureScheduled(requireContext());
+                updateResetWatchSummary();
+                return true;
+            });
+
+            SwitchPreferenceCompat notifications =
+                    findPreference("reset_watch_notifications_ui");
+            notifications.setPersistent(false);
+            notifications.setChecked(
+                    AnnouncementPreferences.notificationsEnabled(requireContext()));
+            notifications.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                AnnouncementPreferences.setNotificationsEnabled(requireContext(), enabled);
+                if (enabled) {
+                    ResetWatchNotificationManager.ensureChannel(requireContext());
+                    if (Build.VERSION.SDK_INT >= 33
+                            && requireContext().checkSelfPermission(
+                            "android.permission.POST_NOTIFICATIONS")
+                            != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(
+                                new String[]{"android.permission.POST_NOTIFICATIONS"}, 8603);
+                    }
+                }
+                return true;
+            });
+
+            SwitchPreferenceCompat banner = findPreference("reset_watch_banner_ui");
+            banner.setPersistent(false);
+            banner.setChecked(AnnouncementPreferences.bannerEnabled(requireContext()));
+            banner.setOnPreferenceChangeListener((preference, value) -> {
+                AnnouncementPreferences.setBannerEnabled(requireContext(), (Boolean) value);
+                return true;
+            });
+
+            findPreference("reset_watch_check_now").setOnPreferenceClickListener(preference -> {
+                if (!SecureXTokenStore.isConnected(requireContext())) {
+                    startXConnection();
+                    return true;
+                }
+                boolean scheduled = ResetWatchScheduler.requestImmediate(requireContext());
+                Toast.makeText(requireContext(), scheduled
+                                ? "Reset-watch check scheduled."
+                                : "Could not schedule the reset-watch check.",
+                        scheduled ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                return true;
+            });
+            resetWatchStatusPreference = findPreference("reset_watch_status");
+            updateResetWatchSummary();
+        }
+
+        private void startXConnection() {
+            try {
+                XAuthentication.begin(requireActivity());
+            } catch (Exception exception) {
+                Toast.makeText(requireContext(), MainActivity.safeMessage(exception),
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+
+        private void updateResetWatchSummary() {
+            if (resetWatchStatusPreference == null || getContext() == null) return;
+            boolean configured = XAuthentication.isConfigured();
+            boolean connected = SecureXTokenStore.isConnected(requireContext());
+            if (resetWatchAccountPreference != null) {
+                resetWatchAccountPreference.setTitle(connected ? "Disconnect X" : "Connect X");
+                resetWatchAccountPreference.setSummary(configured
+                        ? (connected ? "Connected with read-only OAuth access"
+                        : "Read @thsottiaux through the official X API")
+                        : "Unavailable: this build has no X Native App client ID");
+            }
+            if (resetWatchMonitorPreference != null) {
+                resetWatchMonitorPreference.setChecked(
+                        AnnouncementPreferences.monitoringEnabled(requireContext()));
+            }
+            StringBuilder summary = new StringBuilder();
+            if (!configured) {
+                summary.append("X OAuth is not configured for this build");
+            } else if (!connected) {
+                summary.append("Not connected");
+            } else if (AnnouncementPreferences.monitoringEnabled(requireContext())) {
+                summary.append("Monitoring every ")
+                        .append(AnnouncementPreferences.intervalMinutes(requireContext()))
+                        .append(" minutes (best effort)");
+            } else {
+                summary.append("Connected · automatic checks off");
+            }
+            long checkedAt = AnnouncementPreferences.lastCheckMillis(requireContext());
+            if (checkedAt > 0L) {
+                summary.append(" · Checked ").append(DateUtils.getRelativeTimeSpanString(
+                        checkedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
+                        DateUtils.FORMAT_ABBREV_RELATIVE));
+            }
+            String error = AnnouncementPreferences.lastError(requireContext());
+            if (!error.isEmpty()) summary.append(" · ").append(error);
+            resetWatchStatusPreference.setSummary(summary.toString());
         }
 
         private void bindUpdates() {

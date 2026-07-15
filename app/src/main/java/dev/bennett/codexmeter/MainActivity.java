@@ -67,7 +67,8 @@ public final class MainActivity extends AppCompatActivity {
                 MainActivity.this.rebuild();
                 return;
             }
-            if (AppConstants.ACTION_RELEASES_UPDATED.equals(action)) {
+            if (AppConstants.ACTION_RELEASES_UPDATED.equals(action)
+                    || AppConstants.ACTION_ANNOUNCEMENTS_UPDATED.equals(action)) {
                 MainActivity.this.rebuild();
             }
         }
@@ -95,6 +96,7 @@ public final class MainActivity extends AppCompatActivity {
         rebuild();
         RefreshScheduler.schedulePeriodic(this);
         ReleaseUpdateScheduler.ensureScheduled(this);
+        ResetWatchScheduler.ensureScheduled(this);
     }
 
     @Override
@@ -148,6 +150,7 @@ public final class MainActivity extends AppCompatActivity {
         intentFilter.addAction(AppConstants.ACTION_USAGE_UPDATED);
         intentFilter.addAction(AppConstants.ACTION_RESET_CREDITS_UPDATED);
         intentFilter.addAction(AppConstants.ACTION_RELEASES_UPDATED);
+        intentFilter.addAction(AppConstants.ACTION_ANNOUNCEMENTS_UPDATED);
         try {
             if (Build.VERSION.SDK_INT >= 33) {
                 registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null, 4);
@@ -198,6 +201,13 @@ public final class MainActivity extends AppCompatActivity {
             intent.removeExtra("start_sign_in");
         }
         Uri data = intent == null ? null : intent.getData();
+        if (data != null && "codexmeter".equals(data.getScheme())
+                && "x-auth".equals(data.getHost())
+                && "/complete".equals(data.getPath())) {
+            intent.setData(null);
+            completeXAuthentication(data);
+            return;
+        }
         if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
             if (SecureTokenStore.isSignedIn(this)) {
                 AppPreferences.setOAuthPending(this, false, "");
@@ -246,6 +256,11 @@ public final class MainActivity extends AppCompatActivity {
     public void rebuild() {
         if (this.content != null) {
             this.content.removeAllViews();
+            XPost announcement = AnnouncementPreferences.latestBanner(this);
+            if (announcement != null) {
+                this.content.addView(buildAnnouncementCard(announcement));
+                Ui.addSpacer(this.content, 20);
+            }
             GitHubRelease update = UpdatePreferences.availableUpdate(this);
             if (update != null) {
                 this.content.addView(buildUpdateCard(update));
@@ -262,6 +277,40 @@ public final class MainActivity extends AppCompatActivity {
             }
             this.content.addView(buildResetCreditsCard());
         }
+    }
+
+    private LinearLayout buildAnnouncementCard(XPost post) {
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, post.signal.title(), 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+
+        String detail = post.signal.likelihoodLabel() + " · local signal score "
+                + post.signal.likelihood + "/100 · @" + ResetWatchSource.HANDLE
+                + "\n" + post.text;
+        TextView summary = Ui.text(this, detail, 13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
+        summaryParams.setMargins(0, Ui.dp(this, 7), 0, Ui.dp(this, 14));
+        card.addView(summary, summaryParams);
+
+        LinearLayout actions = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        Button open = Ui.button(this, "Open on X", true, this.dark);
+        open.setOnClickListener(view -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(post.url)));
+            } catch (RuntimeException exception) {
+                Toast.makeText(this, "No browser is available.", Toast.LENGTH_SHORT).show();
+            }
+        });
+        actions.addView(open, new LinearLayout.LayoutParams(0, Ui.dp(this, 54), 1.0f));
+        Button dismiss = Ui.button(this, "Dismiss", false, this.dark);
+        LinearLayout.LayoutParams dismissParams =
+                new LinearLayout.LayoutParams(0, Ui.dp(this, 54), 1.0f);
+        dismissParams.setMargins(Ui.dp(this, 10), 0, 0, 0);
+        actions.addView(dismiss, dismissParams);
+        dismiss.setOnClickListener(view -> AnnouncementPreferences.dismiss(this, post.id));
+        card.addView(actions);
+        return card;
     }
 
     private LinearLayout buildUpdateCard(GitHubRelease release) {
@@ -499,6 +548,23 @@ public final class MainActivity extends AppCompatActivity {
             linearLayoutCard.addView(textViewText3, layoutParams2);
         }
         return linearLayoutCard;
+    }
+
+    private void completeXAuthentication(Uri callback) {
+        final Context applicationContext = getApplicationContext();
+        new Thread(() -> {
+            try {
+                XAuthentication.complete(applicationContext, callback);
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "X connected. Reset watch is checking now.",
+                            Toast.LENGTH_LONG).show();
+                    rebuild();
+                });
+            } catch (Exception exception) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        safeMessage(exception), Toast.LENGTH_LONG).show());
+            }
+        }, "x-oauth-exchange").start();
     }
 
     public void startOrContinueSignIn() {

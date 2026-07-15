@@ -22,6 +22,11 @@ android {
             ?: "https://api.github.com/repos/BenItBuhner/Codex-Meter/releases?per_page=30" // pragma: allowlist secret
         buildConfigField("String", "UPDATE_API_URL",
             "\"${updateApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        val xClientId = providers.gradleProperty("xClientId").orNull
+            ?: System.getenv("X_CLIENT_ID")
+            ?: ""
+        buildConfigField("String", "X_CLIENT_ID",
+            "\"${xClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     buildFeatures {

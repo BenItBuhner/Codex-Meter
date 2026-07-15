@@ -40,6 +40,15 @@
                     android:host="auth"
                     android:pathPrefix="/complete"/>
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="codexmeter"
+                    android:host="x-auth"
+                    android:path="/complete"/>
+            </intent-filter>
         </activity>
         <activity
             android:name="dev.bennett.codexmeter.OnboardingActivity"
@@ -276,6 +285,10 @@
             android:exported="false"/>
         <service
             android:name="dev.bennett.codexmeter.ReleaseUpdateJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false"/>
+        <service
+            android:name="dev.bennett.codexmeter.ResetWatchJobService"
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="false"/>
         <service

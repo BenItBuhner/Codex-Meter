@@ -20,6 +20,12 @@
     <string-array name="settings_refresh_values">
         <item>5</item><item>10</item><item>15</item><item>30</item><item>60</item><item>120</item>
     </string-array>
+    <string-array name="reset_watch_interval_entries">
+        <item>30 minutes</item><item>60 minutes</item>
+    </string-array>
+    <string-array name="reset_watch_interval_values">
+        <item>30</item><item>60</item>
+    </string-array>
     <string-array name="settings_metric_entries">
         <item>Both</item><item>5-hour</item><item>Weekly</item>
     </string-array>
