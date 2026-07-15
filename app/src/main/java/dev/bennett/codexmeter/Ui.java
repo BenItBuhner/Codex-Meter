@@ -335,15 +335,15 @@ public final class Ui {
         Button button = new AppCompatButton(context);
         button.setText(str);
         button.setAllCaps(false);
-        button.setTextSize(zIsOneUi ? 15.0f : 14.0f);
+        button.setTextSize(18.0f);
         button.setTypeface(mediumTypeface(context));
         button.setGravity(17);
         button.setSingleLine(true);
         button.setIncludeFontPadding(false);
-        button.setMinHeight(dp(context, zIsOneUi ? 52.0f : 52.0f));
+        button.setMinHeight(dp(context, 52.0f));
         button.setMinWidth(0);
         button.setPadding(dp(context, zIsOneUi ? 18.0f : 20.0f), dp(context, 7.0f), dp(context, zIsOneUi ? 18.0f : 20.0f), dp(context, 7.0f));
-        int iDp = dp(context, zIsOneUi ? 19.0f : 26.0f);
+        int iDp = dp(context, 999.0f);
         int iAccent = z ? accent(context, z2) : controlSurface(context, z2);
         int iOnAccent = z ? onAccent(context, z2) : mainText(z2);
         GradientDrawable gradientDrawableShape = shape(iAccent, iDp);
@@ -387,7 +387,7 @@ public final class Ui {
         Button button = new AppCompatButton(context);
         button.setText(str);
         button.setAllCaps(false);
-        button.setTextSize(zIsOneUi ? 15.0f : 14.0f);
+        button.setTextSize(18.0f);
         button.setTextColor(mainText(z));
         button.setTypeface(mediumTypeface(context));
         button.setGravity(17);
@@ -398,7 +398,7 @@ public final class Ui {
         button.setMinWidth(0);
         button.setMinimumWidth(0);
         button.setPadding(dp(context, zIsOneUi ? 18.0f : 16.0f), 0, dp(context, zIsOneUi ? 18.0f : 16.0f), 0);
-        button.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(z ? 42 : 28, Color.red(mainText(z)), Color.green(mainText(z)), Color.blue(mainText(z)))), shape(zIsOneUi ? controlSurface(context, z) : cardColor(context, z), dp(context, 24.0f)), null));
+        button.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(z ? 42 : 28, Color.red(mainText(z)), Color.green(mainText(z)), Color.blue(mainText(z)))), shape(zIsOneUi ? controlSurface(context, z) : cardColor(context, z), dp(context, 999.0f)), null));
         button.setElevation(0.0f);
         button.setStateListAnimator(null);
         return button;

@@ -7,4 +7,4 @@
     android:textAllCaps="false"
     android:textSize="18sp"
     android:textStyle="bold"
-    android:theme="@style/OneUI.ContainedPrimaryColorButtonTheme" />
+    android:theme="@style/App.ContainedPrimaryColorButtonTheme" />
