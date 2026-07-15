@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -9,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 /** Starts and completes X OAuth without embedding an app secret in the APK. */
+@SuppressLint("ApplySharedPref")
 public final class XAuthentication {
     private static final String PREFS = "codex_meter_x_oauth_pending_v1";
     private static final String KEY_STATE = "state";

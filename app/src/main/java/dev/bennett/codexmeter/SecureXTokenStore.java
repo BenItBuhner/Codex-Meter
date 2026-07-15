@@ -96,8 +96,8 @@ public final class SecureXTokenStore {
         KeyGenerator generator = KeyGenerator.getInstance("AES", "AndroidKeyStore");
         generator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS,
                 KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes("GCM")
-                .setEncryptionPaddings("NoPadding")
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setRandomizedEncryptionRequired(true)
                 .build());
         return generator.generateKey();
