@@ -603,7 +603,7 @@ public final class SettingsActivity extends AppCompatActivity {
             nowBarPermissionPreference.setOnPreferenceClickListener(preference -> {
                 if (Build.VERSION.SDK_INT >= 36
                         && !NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
-                        NowBarManager.postedDisplayMode(requireContext()))) {
+                        NowBarPreferences.getDisplayMode(requireContext()))) {
                     Intent promotion = new Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName());
                     try {
@@ -731,7 +731,10 @@ public final class SettingsActivity extends AppCompatActivity {
                     summary = "App notifications disabled · tap to enable";
                 } else if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarManager.postedDisplayMode(requireContext()))) {
-                    summary = "Samsung compatibility selected · firmware support required";
+                    summary = NowBarDisplayMode.AUTO.equals(
+                            NowBarPreferences.getDisplayMode(requireContext()))
+                            ? "Automatic · using Samsung fallback until Android access is allowed"
+                            : "Samsung compatibility selected · firmware support required";
                 } else if (Build.VERSION.SDK_INT < 36) {
                     summary = "Notifications allowed · Live display depends on your device";
                 } else if (!NowBarManager.canPostPromotedNotifications(requireContext())) {
