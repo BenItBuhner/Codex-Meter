@@ -607,6 +607,10 @@ public final class SettingsActivity extends AppCompatActivity {
                                     requireContext().getPackageName()));
                     return true;
                 }
+                // AUTO deliberately keeps this screen reachable: a false promotion result can
+                // mean either user-disabled access or an OEM policy denial. The API cannot
+                // distinguish them, and routing by the Samsung fallback would prevent users
+                // from enabling Android Live Updates here.
                 if (Build.VERSION.SDK_INT >= 36
                         && !NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarPreferences.getDisplayMode(requireContext()))) {

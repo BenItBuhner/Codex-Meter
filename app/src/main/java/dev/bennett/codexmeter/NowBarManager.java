@@ -352,6 +352,10 @@ public final class NowBarManager {
         String weeklyText = limitText("Weekly", weekly);
         int focusRemaining = fiveHour != null ? fiveHour.remainingPercent()
                 : weekly == null ? 0 : weekly.remainingPercent();
+        String availableWindows = fiveHour != null && weekly != null
+                ? "Both usage windows"
+                : fiveHour != null ? "5-hour window"
+                : weekly != null ? "Weekly window" : "Usage window unavailable";
         Icon icon = Icon.createWithResource(context, R.drawable.ic_notification);
         Bundle extras = new Bundle();
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
@@ -362,7 +366,7 @@ public final class NowBarManager {
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
                 fiveHourText + " · " + weeklyText);
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
-                "Both usage windows");
+                availableWindows);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "description", "Codex usage limits");
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
