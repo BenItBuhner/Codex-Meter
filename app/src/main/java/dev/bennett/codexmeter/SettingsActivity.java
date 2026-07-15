@@ -521,7 +521,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 if (NowBarManager.isActive(requireContext())
                         && !NowBarManager.repostActive(requireContext())) {
                     Toast.makeText(requireContext(),
-                            "Could not refresh the active monitor with this display mode.",
+                            "Could not refresh this display mode, so the monitor was stopped.",
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
@@ -601,6 +601,12 @@ public final class SettingsActivity extends AppCompatActivity {
 
             nowBarPermissionPreference = findPreference("now_bar_permission");
             nowBarPermissionPreference.setOnPreferenceClickListener(preference -> {
+                if (!NowBarManager.canPostNotifications(requireContext())) {
+                    startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE,
+                                    requireContext().getPackageName()));
+                    return true;
+                }
                 if (Build.VERSION.SDK_INT >= 36
                         && !NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarPreferences.getDisplayMode(requireContext()))) {

@@ -138,10 +138,16 @@ public final class NowBarManager {
             stop(context, false);
             return false;
         }
-        if (isPreview(context)) return startPreviewWithEnd(context, until);
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-        return snapshot != null && (snapshot.fiveHour != null || snapshot.weekly != null)
-                && post(context, snapshot, until, false);
+        boolean posted;
+        if (isPreview(context)) {
+            posted = startPreviewWithEnd(context, until);
+        } else {
+            UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+            posted = snapshot != null && (snapshot.fiveHour != null || snapshot.weekly != null)
+                    && post(context, snapshot, until, false);
+        }
+        if (!posted) stop(context, false);
+        return posted;
     }
 
     private static boolean startPreviewWithEnd(Context context, long until) {
