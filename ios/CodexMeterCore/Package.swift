@@ -5,7 +5,8 @@ import PackageDescription
 let package = Package(
     name: "CodexMeterCore",
     platforms: [
-        .iOS("26.0"),
+        .iOS(.v17),
+        .watchOS(.v10),
     ],
     products: [
         .library(

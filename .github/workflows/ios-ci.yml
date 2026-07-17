@@ -1,0 +1,105 @@
+name: Build and test Codex Meter for Apple platforms
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Select stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+
+      - name: Validate project metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f CodexMeter.xcodeproj/xcshareddata/xcschemes/CodexMeter.xcscheme
+          ! grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 26.0' CodexMeter.xcodeproj/project.pbxproj
+          grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 17.0' CodexMeter.xcodeproj/project.pbxproj
+          plutil -lint \
+            CodexMeter/Info.plist \
+            CodexMeter/CodexMeter.entitlements \
+            CodexMeter/PrivacyInfo.xcprivacy \
+            CodexMeterWidgets/Info.plist \
+            CodexMeterWidgets/CodexMeterWidgets.entitlements
+          xcodebuild -list -project CodexMeter.xcodeproj
+
+      - name: Test core package
+        shell: bash
+        run: swift test --package-path CodexMeterCore
+
+      - name: Build app and extensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project CodexMeter.xcodeproj \
+            -scheme CodexMeter \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/CodexMeterDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Run app and UI tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEVICE_NAME="$(
+            xcrun simctl list devices available |
+              awk -F '[()]' '/iPhone 16 / { print $1; exit }' |
+              sed 's/[[:space:]]*$//'
+          )"
+          if [[ -z "$DEVICE_NAME" ]]; then
+            DEVICE_NAME="$(
+              xcrun simctl list devices available |
+                awk -F '[()]' '/iPhone/ { print $1; exit }' |
+                sed 's/[[:space:]]*$//'
+            )"
+          fi
+          test -n "$DEVICE_NAME"
+          xcodebuild \
+            -project CodexMeter.xcodeproj \
+            -scheme CodexMeter \
+            -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
+            -derivedDataPath "$RUNNER_TEMP/CodexMeterDerivedData" \
+            -parallel-testing-enabled NO \
+            -maximum-concurrent-test-simulator-destinations 1 \
+            -resultBundlePath "$RUNNER_TEMP/CodexMeterTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Upload failed test results
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-test-results
+          path: ${{ runner.temp }}/CodexMeterTests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
