@@ -26,8 +26,16 @@ OUT="$ROOT/build/tests"
 rm -rf "$OUT" && mkdir -p "$OUT"
 
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSettingsState.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearUsageState.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
@@ -42,9 +50,6 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubRelease.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/tests/ParserSelfTest.java"
@@ -117,9 +122,9 @@ grep -q 'EXTRA_PROMPT_USE_RESET' \
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarActionReceiver.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPreferences.java"
-test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java"
-test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java"
-test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java"
 grep -q 'Build.VERSION.SDK_INT >= 36' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'codex_live_monitor_v2' \
@@ -238,7 +243,7 @@ grep -q 'titlePaint.setColor(foreground);' \
 grep -q 'resetPaint.setColor(foreground);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 grep -q 'showsResetCountdown' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
 grep -q '!usageWindow.showsResetCountdown()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageFormat.java"
 ! grep -q 'resetPaint.setColor(Ui.secondaryText(dark));' \
@@ -246,4 +251,25 @@ grep -q '!usageWindow.showsResetCountdown()' \
 ! grep -q 'titlePaint.setColor(0xFF000000)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 
-echo "Parser, updater, OAuth, onboarding, reset-credit, alert, and widget source checks passed."
+# Wear OS companion module and phone↔watch sync contract.
+test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearMainActivity.java"
+test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSettingsActivity.java"
+test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearDataLayerService.java"
+test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPhoneSync.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearSync.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearListenerService.java"
+grep -q 'androidx.wear.ongoing.OngoingActivity' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'com.google.android.wearable.standalone' "$ROOT/wear/src/main/AndroidManifest.xml"
+grep -q 'codex_meter_wear' "$ROOT/wear/src/main/res/values/wear.xml"
+grep -q 'codex_meter_phone' "$ROOT/app/src/main/res/values/wear.xml"
+grep -q 'PhoneWearListenerService' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'PhoneWearSync.pushUsage' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
+grep -q 'WearSurfaceMode.resolve' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java"
+grep -q 'samsung_compatibility' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java"
+
+echo "Parser, updater, OAuth, onboarding, reset-credit, alert, widget, and Wear sync source checks passed."

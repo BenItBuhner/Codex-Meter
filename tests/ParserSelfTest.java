@@ -1,5 +1,7 @@
 package dev.bennett.codexmeter;
 
+import dev.bennett.codexmeter.wear.WearSettingsState;
+import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -21,6 +23,8 @@ public final class ParserSelfTest {
         testFullWindowHidesResetCountdown();
         testNowBarAutoStart();
         testNowBarDisplayModes();
+        testWearSurfaceModes();
+        testWearSettingsState();
         testNowBarPercentModes();
         testJwtMerge();
         testPkce();
@@ -99,6 +103,65 @@ public final class ParserSelfTest {
                         NowBarDisplayMode.ANDROID_LIVE_UPDATE, true, 35, false)),
                 "explicit Android Live Update override is preserved");
         System.out.println("Now Bar display mode isolates Android and Samsung notification paths.");
+    }
+
+    private static void testWearSurfaceModes() {
+        check(WearSurfaceMode.ONGOING_ACTIVITY == WearSurfaceMode.resolve(
+                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY, 36, true),
+                "Samsung compatibility maps to Wear Ongoing Activity");
+        check(WearSurfaceMode.LIVE_UPDATE == WearSurfaceMode.resolve(
+                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, 36, true),
+                "Wear OS 7 local Live Updates can be used when available");
+        check(WearSurfaceMode.ONGOING_ACTIVITY == WearSurfaceMode.resolve(
+                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, 35, true),
+                "pre-36 Wear falls back to Ongoing Activity");
+        check(WearSurfaceMode.ONGOING_ACTIVITY == WearSurfaceMode.resolve(
+                        NowBarDisplayMode.AUTO, 36, false),
+                "automatic Wear mode falls back when Live Updates are unavailable");
+        check(WearSurfaceMode.LIVE_UPDATE == WearSurfaceMode.resolve(
+                        NowBarDisplayMode.AUTO, 36, true),
+                "automatic Wear mode uses local Live Updates on API 36+");
+        System.out.println("Wear surface mode maps phone Now Bar choices to Wear-native surfaces.");
+    }
+
+    private static void testWearSettingsState() throws Exception {
+        WearSettingsState phone = new WearSettingsState(
+                NowBarDisplayMode.SAMSUNG_COMPATIBILITY,
+                NowBarPercentMode.WEEKLY,
+                true,
+                NowBarAutoStart.METRIC_WEEKLY,
+                50,
+                true,
+                15,
+                1000L,
+                WearSettingsState.SOURCE_PHONE);
+        WearSettingsState roundTrip = WearSettingsState.fromJson(phone.toJson());
+        check(phone.equals(roundTrip), "Wear settings round trip preserves content");
+        WearSettingsState newerSameContent = new WearSettingsState(
+                NowBarDisplayMode.SAMSUNG_COMPATIBILITY,
+                NowBarPercentMode.WEEKLY,
+                true,
+                NowBarAutoStart.METRIC_WEEKLY,
+                50,
+                true,
+                15,
+                2000L,
+                WearSettingsState.SOURCE_PHONE);
+        check(phone.equals(newerSameContent), "Wear settings equality ignores update time");
+        WearSettingsState normalized = WearSettingsState.fromJson(new org.json.JSONObject()
+                .put("display_mode", "bad")
+                .put("percent_mode", "bad")
+                .put("metric", "bad")
+                .put("threshold", 3)
+                .put("refresh_minutes", 7)
+                .put("source_node", "wear"));
+        check(NowBarDisplayMode.AUTO.equals(normalized.displayMode), "Wear settings normalize display mode");
+        check(NowBarPercentMode.AUTO.equals(normalized.percentMode), "Wear settings normalize percent mode");
+        check(NowBarAutoStart.METRIC_BOTH.equals(normalized.metric), "Wear settings normalize metric");
+        check(normalized.threshold == 25, "Wear settings normalize threshold");
+        check(normalized.refreshMinutes == 30, "Wear settings normalize refresh interval");
+        check(WearSettingsState.SOURCE_WEAR.equals(normalized.sourceNode), "Wear settings preserve Wear source");
+        System.out.println("Wear settings JSON preserves normalized sync preferences.");
     }
 
     private static void testNowBarPercentModes() {

@@ -18,6 +18,7 @@ import android.os.Looper;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
 import androidx.annotation.RequiresApi;
+import dev.bennett.codexmeter.wear.PhoneWearSync;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
@@ -72,7 +73,10 @@ public final class NowBarManager {
                         UsageSnapshot.currentWindow(snapshot.weekly, now))
                 : null;
         saveState(context, false, until, focus, true, autoTrigger);
-        if (post(context, snapshot, until, false)) return true;
+        if (post(context, snapshot, until, false)) {
+            PhoneWearSync.pushSettings(context);
+            return true;
+        }
         stop(context, false);
         return false;
     }
@@ -87,7 +91,10 @@ public final class NowBarManager {
         NowBarPreferences.clearSuppression(context);
         String focus = computeInitialFocus(context, preview, false, now);
         saveState(context, true, until, focus, true, null);
-        if (post(context, preview, until, true)) return true;
+        if (post(context, preview, until, true)) {
+            PhoneWearSync.pushSettings(context);
+            return true;
+        }
         stop(context, false);
         return false;
     }
@@ -244,6 +251,8 @@ public final class NowBarManager {
                 Log.w(TAG, "Could not cancel live monitor expiry", exception);
             }
         }
+        PhoneWearSync.pushMonitorState(context);
+        PhoneWearSync.pushSettings(context);
     }
 
     public static boolean isActive(Context context) {
@@ -257,6 +266,10 @@ public final class NowBarManager {
 
     public static long activeUntil(Context context) {
         return state(context).getLong(KEY_UNTIL, 0L);
+    }
+
+    public static String activeFocusMetric(Context context) {
+        return lockedFocusMetric(context);
     }
 
     public static boolean canPostNotifications(Context context) {
@@ -410,6 +423,7 @@ public final class NowBarManager {
         } catch (RuntimeException exception) {
             Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
+        PhoneWearSync.pushMonitorState(context);
         return true;
     }
 
