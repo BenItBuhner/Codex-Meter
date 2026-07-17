@@ -77,7 +77,7 @@ public final class UpdateActivity extends AppCompatActivity {
     private void checkReleases(String requestedVersion) {
         operationRunning = true;
         content.removeAllViews();
-        content.addView(Ui.indeterminateLoading(this));
+        content.addView(Ui.indeterminateLoading(this, "Checking for updates"));
         executor.execute(() -> {
             try {
                 List<GitHubRelease> releases = ReleaseUpdateClient.check(getApplicationContext());

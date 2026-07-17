@@ -54,7 +54,7 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
 
     private void showLoading() {
         content.removeAllViews();
-        content.addView(Ui.indeterminateLoading(this));
+        content.addView(Ui.indeterminateLoading(this, "Loading release history"));
     }
 
     private void refresh() {

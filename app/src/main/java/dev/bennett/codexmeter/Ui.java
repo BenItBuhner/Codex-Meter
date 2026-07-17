@@ -453,8 +453,20 @@ public final class Ui {
 
     /** One UI circular indeterminate spinner, centered below the rounded content corners. */
     public static SeslProgressBar indeterminateLoading(Context context) {
+        return indeterminateLoading(context, "Loading");
+    }
+
+    /**
+     * One UI circular indeterminate spinner with an accessibility label.
+     * Keeps the page free of clipped loading text while still announcing status to TalkBack.
+     */
+    public static SeslProgressBar indeterminateLoading(Context context, String description) {
         SeslProgressBar loading = new SeslProgressBar(context);
         loading.setIndeterminate(true);
+        if (description != null && !description.isEmpty()) {
+            loading.setContentDescription(description);
+            loading.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        }
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT);
