@@ -5,7 +5,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
@@ -55,12 +54,7 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
 
     private void showLoading() {
         content.removeAllViews();
-        content.addView(Ui.text(this, "Loading published GitHub releases…", 16,
-                Ui.mainText(dark)));
-        ProgressBar progress = new ProgressBar(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
-        params.setMargins(0, Ui.dp(this, 20), 0, 0);
-        content.addView(progress, params);
+        content.addView(Ui.indeterminateLoading(this, "Loading release history"));
     }
 
     private void refresh() {

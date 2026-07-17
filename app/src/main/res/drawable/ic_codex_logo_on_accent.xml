@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Official Codex mark for status-bar / notification small icons. Always white so the system can tint it; no opaque background square. -->
+<!-- Official Codex mark for accent-colored chip backgrounds (e.g. blue Now Bar chip). Always light for contrast on the accent fill. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
