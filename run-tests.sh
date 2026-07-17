@@ -39,6 +39,13 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetSignal.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAnnouncementClassifier.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetWatchSource.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/XPost.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/XTimelineParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/XOAuthTokens.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/XOAuthFlow.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
@@ -79,6 +86,8 @@ grep -q 'NowBarActionReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'MY_PACKAGE_REPLACED' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseUpdateJobService' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'ResetWatchJobService' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'android:host="x-auth"' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'WidgetRepairJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
@@ -227,6 +236,14 @@ grep -q 'KEY_FOCUS_METRIC' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'Live notifications for all apps' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'ResetWatchScheduler.ensureScheduled' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/BootReceiver.java"
+grep -q 'ACTION_ANNOUNCEMENTS_UPDATED' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'reset_watch_interval_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'ResetAnnouncementClassifier.classify' \
+  "$ROOT/tests/ParserSelfTest.java"
 
 grep -R -q '<Chronometer' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
 grep -q 'setChronometerCountDown' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"

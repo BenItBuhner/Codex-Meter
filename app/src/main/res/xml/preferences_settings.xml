@@ -32,6 +32,42 @@
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Codex reset watch">
+        <Preference
+            android:key="reset_watch_account"
+            android:title="Connect X"
+            android:summary="Read @thsottiaux through the official X API"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="reset_watch_monitor_ui"
+            android:title="Check for reset announcements"
+            android:summary="Best-effort background checks under Android battery policy" />
+        <ListPreference
+            android:entries="@array/reset_watch_interval_entries"
+            android:entryValues="@array/reset_watch_interval_values"
+            android:key="reset_watch_interval_ui"
+            android:title="Check interval"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="reset_watch_notifications_ui"
+            android:title="Reset-watch notifications"
+            android:summary="Notify only for high-confidence reset or reset-bank posts" />
+        <SwitchPreferenceCompat
+            android:key="reset_watch_banner_ui"
+            android:title="Dashboard banner"
+            android:summary="Show recent reset-related posts and local likelihood" />
+        <Preference
+            android:key="reset_watch_check_now"
+            android:title="Check now"
+            android:summary="Request an immediate X API check"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="reset_watch_status"
+            android:title="Reset-watch status"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="App updates">
         <SwitchPreferenceCompat
             android:key="automatic_update_checks_ui"
@@ -149,7 +185,7 @@
     <PreferenceCategory android:title="Privacy">
         <Preference
             android:icon="@drawable/ic_oui_privacy"
-            android:summary="OAuth tokens are encrypted with Android Keystore. Requests go only to OpenAI for authentication and ChatGPT &amp; Codex endpoints."
+            android:summary="OAuth tokens are encrypted with Android Keystore. Requests go only to OpenAI and, when reset watch is connected, the official X API."
             android:title="Local data and privacy"
             app:iconSpaceReserved="false"
             app:selectable="false" />

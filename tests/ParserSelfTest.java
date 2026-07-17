@@ -19,6 +19,9 @@ public final class ParserSelfTest {
         testZeroDurationWindowIgnored();
         testNextResetSelection();
         testCelebrationDetection();
+        testResetAnnouncementClassifier();
+        testXTimelineParser();
+        testXOAuthFlow();
         testResetCreditExpiryReminders();
         testFullWindowHidesResetCountdown();
         testNowBarAutoStart();
@@ -37,7 +40,93 @@ public final class ParserSelfTest {
         testReleaseChecksums();
         testReleaseNotesMarkdown();
         testReleaseUpdatePolicy();
-        System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
+        System.out.println("All parser, reset-watch, updater, OAuth, onboarding, and widget-option self-tests passed.");
+    }
+
+    private static void testResetAnnouncementClassifier() {
+        ResetSignal bank = ResetAnnouncementClassifier.classify(
+                "Codex usage limits will be fully reset again in the next hour and we will "
+                        + "credit one additional reset into your bank.");
+        check(ResetSignal.RESET_CREDIT.equals(bank.category), "reset-bank classification");
+        check(bank.likelihood >= 90 && bank.isActionable(),
+                "reset-bank post is high confidence");
+
+        ResetSignal imminent = ResetAnnouncementClassifier.classify(
+                "Introducing another usage limit reset for all our ChatGPT Work and Codex "
+                        + "users. Should land over the next 30 minutes.");
+        check(ResetSignal.RESET_IMMINENT.equals(imminent.category),
+                "timed full-reset classification");
+        check(imminent.likelihood >= 90, "timed full reset is very likely");
+
+        ResetSignal complete = ResetAnnouncementClassifier.classify(
+                "Codex usage limits are now reset. Enjoy.");
+        check(ResetSignal.RESET_CONFIRMED.equals(complete.category),
+                "completed reset classification");
+        check(complete.isActionable(), "completed reset is actionable");
+
+        check(ResetSignal.NONE.equals(ResetAnnouncementClassifier.classify(
+                        "We will not reset Codex usage limits today.").category),
+                "negated reset is rejected");
+        check(ResetSignal.NONE.equals(ResetAnnouncementClassifier.classify(
+                        "Reset your password to continue.").category),
+                "unrelated reset is rejected");
+        check(ResetSignal.NONE.equals(ResetAnnouncementClassifier.classify(
+                        "Codex shipped a faster terminal today.").category),
+                "unrelated Codex update is rejected");
+        System.out.println("Reset-watch demo: bank credit, imminent reset, completion, "
+                + "negation, and unrelated-post intents classified locally.");
+    }
+
+    private static void testXTimelineParser() throws Exception {
+        String json = "{\"data\":["
+                + "{\"id\":\"2075820987833274448\",\"created_at\":"
+                + "\"2026-07-11T12:00:00Z\",\"text\":\"Codex usage limits will reset "
+                + "in the next 30 minutes.\"},"
+                + "{\"id\":\"2075820987833274447\",\"created_at\":"
+                + "\"2026-07-11T11:00:00Z\",\"text\":\"A product update.\"},"
+                + "{\"id\":\"bad/id\",\"text\":\"Codex reset soon.\"}],"
+                + "\"meta\":{\"newest_id\":\"2075820987833274448\"}}";
+        List<XPost> posts = XTimelineParser.parse(json);
+        check(posts.size() == 2, "invalid X post IDs are rejected");
+        check("2075820987833274448".equals(posts.get(0).id),
+                "X timeline remains newest first");
+        check(posts.get(0).signal.isActionable(), "X timeline post is classified");
+        check("https://x.com/thsottiaux/status/2075820987833274448"
+                        .equals(posts.get(0).url),
+                "X status URL is canonical");
+        check("2075820987833274448".equals(XTimelineParser.newestId(json, posts)),
+                "X newest ID comes from response metadata");
+        check(XTimelineParser.parse("{\"meta\":{\"result_count\":0}}").isEmpty(),
+                "empty X timeline response is accepted");
+    }
+
+    private static void testXOAuthFlow() throws Exception {
+        Pkce pkce = Pkce.generate();
+        check(pkce.verifier.length() >= 43 && pkce.verifier.length() <= 128,
+                "X PKCE verifier length is RFC compliant");
+        String url = XOAuthFlow.authorizeUrl("native client", pkce);
+        check(url.startsWith("https://x.com/i/oauth2/authorize?"),
+                "X authorization uses the trusted HTTPS host");
+        check(url.contains("client_id=native+client"), "X client ID is encoded");
+        check(url.contains("redirect_uri=codexmeter%3A%2F%2Fx-auth%2Fcomplete"),
+                "X callback URI is exact");
+        check(url.contains("scope=tweet.read+users.read+offline.access"),
+                "X OAuth requests read-only and offline scopes");
+        check(url.contains("code_challenge_method=S256"), "X OAuth requires PKCE S256");
+        check(url.contains("state=" + pkce.state), "X OAuth carries CSRF state");
+
+        long expiry = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(2);
+        XOAuthTokens tokens = new XOAuthTokens("access", "refresh", expiry);
+        XOAuthTokens restored = XOAuthTokens.fromJson(tokens.toJson());
+        check("access".equals(restored.accessToken)
+                        && "refresh".equals(restored.refreshToken)
+                        && restored.expiresAtMillis == expiry,
+                "X OAuth tokens round-trip through encrypted-store JSON");
+        check(!restored.shouldRefresh(System.currentTimeMillis()),
+                "fresh X access token stays active");
+        check(new XOAuthTokens("a", "r", System.currentTimeMillis())
+                        .shouldRefresh(System.currentTimeMillis()),
+                "expiring X access token requests refresh");
     }
 
     private static void testFullWindowHidesResetCountdown() {
