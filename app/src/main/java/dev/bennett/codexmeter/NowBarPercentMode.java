@@ -100,4 +100,18 @@ public final class NowBarPercentMode {
     public static boolean isWeeklyFocus(String focus) {
         return WEEKLY.equals(normalizeFocusMetric(focus));
     }
+
+    /**
+     * Resolves focus when the user changes the percentage preference mid-session.
+     * Explicit modes ignore the session auto-start trigger; AUTO restores it so
+     * cycling AUTO → weekly → AUTO keeps the original trigger lock.
+     */
+    public static String focusForSettingsChange(String mode, UsageWindow fiveHour,
+            UsageWindow weekly, String sessionAutoTriggerFocus) {
+        String normalized = normalize(mode);
+        if (!AUTO.equals(normalized)) {
+            return resolveFocus(normalized, fiveHour, weekly, null);
+        }
+        return resolveFocus(AUTO, fiveHour, weekly, sessionAutoTriggerFocus);
+    }
 }

@@ -34,6 +34,7 @@ public final class NowBarManager {
     private static final String CHANNEL_ID = "codex_live_monitor_v2";
     private static final String EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing";
     private static final String KEY_ACTIVE = "active";
+    private static final String KEY_AUTO_TRIGGER_FOCUS = "auto_trigger_focus";
     private static final String KEY_FOCUS_METRIC = "focus_metric";
     private static final String KEY_POSTED_MODE = "posted_mode";
     private static final String KEY_PREVIEW = "preview";
@@ -63,7 +64,14 @@ public final class NowBarManager {
         if (until <= now) return false;
         NowBarPreferences.clearSuppression(context);
         String focus = computeInitialFocus(context, snapshot, fromAutoStart, now);
-        saveState(context, false, until, focus);
+        String autoTrigger = fromAutoStart
+                ? NowBarPercentMode.triggeredFocus(
+                        NowBarPreferences.getMetric(context),
+                        NowBarPreferences.getThreshold(context),
+                        UsageSnapshot.currentWindow(snapshot.fiveHour, now),
+                        UsageSnapshot.currentWindow(snapshot.weekly, now))
+                : null;
+        saveState(context, false, until, focus, true, autoTrigger);
         if (post(context, snapshot, until, false)) return true;
         stop(context, false);
         return false;
@@ -78,7 +86,7 @@ public final class NowBarManager {
                 now);
         NowBarPreferences.clearSuppression(context);
         String focus = computeInitialFocus(context, preview, false, now);
-        saveState(context, true, until, focus);
+        saveState(context, true, until, focus, true, null);
         if (post(context, preview, until, true)) return true;
         stop(context, false);
         return false;
@@ -163,7 +171,7 @@ public final class NowBarManager {
                 new UsageWindow(18, TimeUnit.DAYS.toSeconds(7), 0L, 0L), now);
         if (!hasStoredActiveState(context) || lockedFocusMetric(context) == null) {
             String focus = computeInitialFocus(context, preview, false, now);
-            saveState(context, true, until, focus);
+            saveState(context, true, until, focus, true, null);
         }
         return post(context, preview, until, true);
     }
@@ -171,7 +179,8 @@ public final class NowBarManager {
     /**
      * Recomputes the progress focus from the current percent-mode setting and usage,
      * then reposts when a monitor is already active. Used when the user changes the
-     * percentage preference in Settings.
+     * percentage preference in Settings. AUTO restores the session auto-start trigger
+     * when one was recorded, so cycling modes does not drop that lock.
      */
     public static synchronized boolean applyPercentModeChange(Context context) {
         if (!hasStoredActiveState(context)) return false;
@@ -182,8 +191,8 @@ public final class NowBarManager {
         }
         boolean preview = isPreview(context);
         UsageSnapshot snapshot;
+        long now = System.currentTimeMillis();
         if (preview) {
-            long now = System.currentTimeMillis();
             snapshot = new UsageSnapshot("plus", true, false, null,
                     new UsageWindow(18, TimeUnit.DAYS.toSeconds(7), 0L, 0L), now);
         } else {
@@ -193,9 +202,18 @@ public final class NowBarManager {
                 return false;
             }
         }
-        String focus = computeInitialFocus(context, snapshot, false, System.currentTimeMillis());
-        saveState(context, preview, until, focus);
-        return post(context, snapshot, until, preview);
+        UsageWindow fiveHour = UsageSnapshot.currentWindow(
+                snapshot == null ? null : snapshot.fiveHour, now);
+        UsageWindow weekly = UsageSnapshot.currentWindow(
+                snapshot == null ? null : snapshot.weekly, now);
+        String focus = NowBarPercentMode.focusForSettingsChange(
+                NowBarPreferences.getPercentMode(context), fiveHour, weekly,
+                sessionAutoTriggerFocus(context));
+        // Preserve KEY_AUTO_TRIGGER_FOCUS across mode switches.
+        saveState(context, preview, until, focus, false, null);
+        if (post(context, snapshot, until, preview)) return true;
+        stop(context, false);
+        return false;
     }
 
     public static synchronized void stop(Context context) {
@@ -299,9 +317,13 @@ public final class NowBarManager {
             fiveHour = UsageSnapshot.currentWindow(fiveHour, now);
             weekly = UsageSnapshot.currentWindow(weekly, now);
         }
-        String focus = NowBarPercentMode.resolveFocus(
-                NowBarPreferences.getPercentMode(context), fiveHour, weekly,
-                lockedFocusMetric(context));
+        String percentMode = NowBarPreferences.getPercentMode(context);
+        String lockedForAuto = null;
+        if (NowBarPercentMode.AUTO.equals(NowBarPercentMode.normalize(percentMode))) {
+            lockedForAuto = sessionAutoTriggerFocus(context);
+            if (lockedForAuto == null) lockedForAuto = lockedFocusMetric(context);
+        }
+        String focus = NowBarPercentMode.resolveFocus(percentMode, fiveHour, weekly, lockedForAuto);
         UsageWindow progressWindow = NowBarPercentMode.selectWindow(focus, fiveHour, weekly);
         int remaining = progressWindow == null ? 0 : progressWindow.remainingPercent();
         int used = progressWindow == null ? 0 : progressWindow.usedPercent;
@@ -471,6 +493,11 @@ public final class NowBarManager {
                 state(context).getString(KEY_FOCUS_METRIC, null));
     }
 
+    private static String sessionAutoTriggerFocus(Context context) {
+        return NowBarPercentMode.normalizeFocusMetric(
+                state(context).getString(KEY_AUTO_TRIGGER_FOCUS, null));
+    }
+
     private static String computeInitialFocus(Context context, UsageSnapshot snapshot,
             boolean fromAutoStart, long now) {
         UsageWindow fiveHour = snapshot == null ? null
@@ -491,7 +518,12 @@ public final class NowBarManager {
         return NowBarPercentMode.lowerRemainingFocus(fiveHour, weekly);
     }
 
-    private static void saveState(Context context, boolean preview, long until, String focus) {
+    /**
+     * @param updateAutoTrigger when true, writes or clears {@link #KEY_AUTO_TRIGGER_FOCUS};
+     *        when false, leaves any existing session auto-start trigger untouched
+     */
+    private static void saveState(Context context, boolean preview, long until, String focus,
+            boolean updateAutoTrigger, String autoTriggerFocus) {
         SharedPreferences.Editor editor = state(context).edit()
                 .putBoolean(KEY_ACTIVE, true)
                 .putBoolean(KEY_PREVIEW, preview)
@@ -501,6 +533,14 @@ public final class NowBarManager {
             editor.remove(KEY_FOCUS_METRIC);
         } else {
             editor.putString(KEY_FOCUS_METRIC, normalizedFocus);
+        }
+        if (updateAutoTrigger) {
+            String normalizedTrigger = NowBarPercentMode.normalizeFocusMetric(autoTriggerFocus);
+            if (normalizedTrigger == null) {
+                editor.remove(KEY_AUTO_TRIGGER_FOCUS);
+            } else {
+                editor.putString(KEY_AUTO_TRIGGER_FOCUS, normalizedTrigger);
+            }
         }
         editor.apply();
     }

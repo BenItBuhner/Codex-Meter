@@ -160,6 +160,15 @@ public final class ParserSelfTest {
                 "selectWindow returns the focused window");
         check(NowBarPercentMode.selectWindow("weekly", mid, low).remainingPercent() == 5,
                 "focused weekly remaining is used for the pill");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.focusForSettingsChange("auto", mid, low, "weekly")),
+                "settings change back to AUTO restores session auto-start trigger");
+        check(NowBarPercentMode.FIVE_HOUR.equals(
+                        NowBarPercentMode.focusForSettingsChange("five_hour", mid, low, "weekly")),
+                "settings change to five-hour ignores session auto-start trigger");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.focusForSettingsChange("auto", mid, low, null)),
+                "settings change to AUTO without trigger picks lower remaining");
         System.out.println("Now Bar percent mode selects auto-trigger, weekly, or five-hour focus.");
     }
 

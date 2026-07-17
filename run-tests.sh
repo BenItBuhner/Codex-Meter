@@ -162,6 +162,26 @@ grep -q 'NowBarPercentMode.resolveFocus' \
   "$ROOT/tests/ParserSelfTest.java"
 grep -q 'NowBarPercentMode.triggeredFocus' \
   "$ROOT/tests/ParserSelfTest.java"
+grep -q 'NowBarPercentMode.focusForSettingsChange' \
+  "$ROOT/tests/ParserSelfTest.java"
+grep -q 'KEY_AUTO_TRIGGER_FOCUS' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'sessionAutoTriggerFocus' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'focusForSettingsChange' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+# applyPercentModeChange must stop the monitor when post() fails (no zombie active state).
+python3 - <<'PY'
+from pathlib import Path
+text = Path("app/src/main/java/dev/bennett/codexmeter/NowBarManager.java").read_text()
+start = text.index("public static synchronized boolean applyPercentModeChange")
+end = text.index("public static synchronized void stop(Context context)", start)
+block = text[start:end]
+assert "if (post(context, snapshot, until, preview)) return true;" in block
+assert "stop(context, false);" in block
+assert "return false;" in block
+print("applyPercentModeChange stops on post failure.")
+PY
 grep -q 'now_bar_display_mode_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 grep -q 'now_bar_percent_mode_ui' \
