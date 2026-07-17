@@ -21,6 +21,7 @@ public final class ParserSelfTest {
         testFullWindowHidesResetCountdown();
         testNowBarAutoStart();
         testNowBarDisplayModes();
+        testNowBarPercentModes();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
@@ -98,6 +99,77 @@ public final class ParserSelfTest {
                         NowBarDisplayMode.ANDROID_LIVE_UPDATE, true, 35, false)),
                 "explicit Android Live Update override is preserved");
         System.out.println("Now Bar display mode isolates Android and Samsung notification paths.");
+    }
+
+    private static void testNowBarPercentModes() {
+        UsageWindow high = new UsageWindow(10, 18000L, 600L, 2000000000L); // 90% remaining
+        UsageWindow mid = new UsageWindow(80, 18000L, 600L, 2000000000L); // 20% remaining
+        UsageWindow low = new UsageWindow(95, 604800L, 600L, 2000000000L); // 5% remaining
+
+        check(NowBarPercentMode.AUTO.equals(NowBarPercentMode.normalize(null)),
+                "missing percent mode defaults to auto");
+        check(NowBarPercentMode.AUTO.equals(NowBarPercentMode.normalize("nope")),
+                "invalid percent mode defaults to auto");
+        check(NowBarPercentMode.FIVE_HOUR.equals(NowBarPercentMode.normalize("five_hour")),
+                "five-hour percent mode preserved");
+        check(NowBarPercentMode.WEEKLY.equals(NowBarPercentMode.normalize("weekly")),
+                "weekly percent mode preserved");
+
+        check(NowBarPercentMode.FIVE_HOUR.equals(
+                        NowBarPercentMode.resolveFocus("five_hour", mid, low, null)),
+                "explicit five-hour mode uses five-hour");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.resolveFocus("weekly", mid, low, null)),
+                "explicit weekly mode uses weekly");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.resolveFocus("five_hour", null, low, null)),
+                "explicit five-hour falls back to weekly when missing");
+        check(NowBarPercentMode.FIVE_HOUR.equals(
+                        NowBarPercentMode.resolveFocus("weekly", mid, null, null)),
+                "explicit weekly falls back to five-hour when missing");
+
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.triggeredFocus("both", 25, high, low)),
+                "auto trigger picks weekly when only weekly crossed threshold");
+        check(NowBarPercentMode.FIVE_HOUR.equals(
+                        NowBarPercentMode.triggeredFocus("both", 25, mid, high)),
+                "auto trigger picks five-hour when only five-hour crossed threshold");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.triggeredFocus("both", 25, mid, low)),
+                "auto trigger picks lower remaining when both crossed threshold");
+        check(NowBarPercentMode.FIVE_HOUR.equals(
+                        NowBarPercentMode.triggeredFocus("five_hour", 25, mid, low)),
+                "auto trigger respects five-hour-only watch metric");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.triggeredFocus("weekly", 25, mid, low)),
+                "auto trigger respects weekly-only watch metric");
+
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.resolveFocus("auto", mid, low, "weekly")),
+                "auto mode keeps locked weekly focus from trigger");
+        check(NowBarPercentMode.FIVE_HOUR.equals(
+                        NowBarPercentMode.resolveFocus("auto", mid, low, "five_hour")),
+                "auto mode keeps locked five-hour focus from trigger");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.resolveFocus("auto", mid, low, null)),
+                "auto mode without lock picks lower remaining");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.lowerRemainingFocus(high, low)),
+                "lower remaining prefers weekly when it is lower");
+        check(NowBarPercentMode.selectWindow("weekly", mid, low) == low,
+                "selectWindow returns the focused window");
+        check(NowBarPercentMode.selectWindow("weekly", mid, low).remainingPercent() == 5,
+                "focused weekly remaining is used for the pill");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.focusForSettingsChange("auto", mid, low, "weekly")),
+                "settings change back to AUTO restores session auto-start trigger");
+        check(NowBarPercentMode.FIVE_HOUR.equals(
+                        NowBarPercentMode.focusForSettingsChange("five_hour", mid, low, "weekly")),
+                "settings change to five-hour ignores session auto-start trigger");
+        check(NowBarPercentMode.WEEKLY.equals(
+                        NowBarPercentMode.focusForSettingsChange("auto", mid, low, null)),
+                "settings change to AUTO without trigger picks lower remaining");
+        System.out.println("Now Bar percent mode selects auto-trigger, weekly, or five-hour focus.");
     }
 
     private static void testStandardUsage() throws Exception {

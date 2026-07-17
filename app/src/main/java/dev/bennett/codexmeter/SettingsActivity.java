@@ -58,6 +58,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private SwitchPreferenceCompat nowBarMonitorPreference;
         private SwitchPreferenceCompat nowBarAutoStartPreference;
         private ListPreference nowBarDisplayModePreference;
+        private ListPreference nowBarPercentModePreference;
         private ListPreference nowBarMetricPreference;
         private ListPreference nowBarThresholdPreference;
         private Preference nowBarPermissionPreference;
@@ -528,6 +529,24 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            nowBarPercentModePreference = findPreference("now_bar_percent_mode_ui");
+            nowBarPercentModePreference.setPersistent(false);
+            nowBarPercentModePreference.setValue(
+                    NowBarPreferences.getPercentMode(requireContext()));
+            nowBarPercentModePreference.setOnPreferenceChangeListener((preference, value) -> {
+                String mode = NowBarPercentMode.normalize(String.valueOf(value));
+                NowBarPreferences.setPercentMode(requireContext(), mode);
+                nowBarPercentModePreference.setValue(mode);
+                if (NowBarManager.isActive(requireContext())
+                        && !NowBarManager.applyPercentModeChange(requireContext())) {
+                    Toast.makeText(requireContext(),
+                            "Could not refresh the percentage mode, so the monitor was stopped.",
+                            Toast.LENGTH_LONG).show();
+                }
+                updateNowBarSummary();
+                return true;
+            });
+
             nowBarMonitorPreference = findPreference("now_bar_monitor_ui");
             nowBarMonitorPreference.setPersistent(false);
             nowBarMonitorPreference.setOnPreferenceChangeListener((preference, value) -> {
@@ -734,6 +753,10 @@ public final class SettingsActivity extends AppCompatActivity {
             if (nowBarDisplayModePreference != null) {
                 nowBarDisplayModePreference.setValue(
                         NowBarPreferences.getDisplayMode(requireContext()));
+            }
+            if (nowBarPercentModePreference != null) {
+                nowBarPercentModePreference.setValue(
+                        NowBarPreferences.getPercentMode(requireContext()));
             }
             if (nowBarPermissionPreference != null) {
                 String summary;

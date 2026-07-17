@@ -104,6 +104,12 @@
             android:key="now_bar_display_mode_ui"
             android:title="Display compatibility"
             app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/now_bar_percent_mode_entries"
+            android:entryValues="@array/now_bar_percent_mode_values"
+            android:key="now_bar_percent_mode_ui"
+            android:title="Percentage left"
+            app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             android:key="now_bar_monitor_ui"
             android:title="Monitor until reset"
