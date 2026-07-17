@@ -94,10 +94,11 @@ public final class WearSettingsActivity extends Activity {
     }
 
     private void saveCurrent(boolean monitorChanged) {
-        // Preserve the phone-synced refresh interval; Wear has no UI to change it, so a
-        // hardcoded 30 would clobber whatever interval the phone already uses.
-        int refreshMinutes = WearPreferences.settingsState(this, 0L,
-                WearSettingsState.SOURCE_WEAR).refreshMinutes;
+        // Preserve whatever refresh interval is cached locally. The phone owns the schedule:
+        // PhoneWearSync deliberately ignores Wear refresh_minutes so a fresh-watch default
+        // cannot clobber 5/10/15/etc. after the first Wear settings edit.
+        WearSettingsState existing = WearPreferences.settingsState(this, 0L,
+                WearSettingsState.SOURCE_WEAR);
         WearSettingsState state = new WearSettingsState(
                 selected(displayModeValues, displayModeSpinner),
                 selected(percentModeValues, percentModeSpinner),
@@ -105,9 +106,10 @@ public final class WearSettingsActivity extends Activity {
                 selected(metricValues, metricSpinner),
                 Integer.parseInt(selected(thresholdValues, thresholdSpinner)),
                 monitorSwitch.isChecked(),
-                refreshMinutes,
+                existing.refreshMinutes,
                 System.currentTimeMillis(),
-                WearSettingsState.SOURCE_WEAR);
+                WearSettingsState.SOURCE_WEAR,
+                getPackageName());
         WearPreferences.saveLocalSettings(this, state);
         WearPhoneSync.pushSettings(this);
         if (monitorChanged) {

@@ -105,9 +105,10 @@ public final class WearPhoneSync {
     private static void sendMessageToNodes(Context context, List<Node> nodes, String path) {
         WearPreferences.markConnected(context, nodes != null && !nodes.isEmpty());
         if (nodes == null) return;
+        byte[] auth = context.getPackageName().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         for (Node node : nodes) {
             Wearable.getMessageClient(context)
-                    .sendMessage(node.getId(), path, new byte[0])
+                    .sendMessage(node.getId(), path, auth)
                     .addOnFailureListener(error -> Log.w(TAG,
                             "Could not send phone message " + path, error));
         }

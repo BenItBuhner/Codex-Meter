@@ -14,6 +14,7 @@ public final class WearSettingsState {
     public final String displayMode;
     public final String metric;
     public final boolean monitorActive;
+    public final String packageName;
     public final String percentMode;
     public final int refreshMinutes;
     public final String sourceNode;
@@ -23,6 +24,13 @@ public final class WearSettingsState {
     public WearSettingsState(String displayMode, String percentMode, boolean autoStartEnabled,
             String metric, int threshold, boolean monitorActive, int refreshMinutes,
             long updatedAtMillis, String sourceNode) {
+        this(displayMode, percentMode, autoStartEnabled, metric, threshold, monitorActive,
+                refreshMinutes, updatedAtMillis, sourceNode, null);
+    }
+
+    public WearSettingsState(String displayMode, String percentMode, boolean autoStartEnabled,
+            String metric, int threshold, boolean monitorActive, int refreshMinutes,
+            long updatedAtMillis, String sourceNode, String packageName) {
         this.displayMode = NowBarDisplayMode.normalize(displayMode);
         this.percentMode = NowBarPercentMode.normalize(percentMode);
         this.autoStartEnabled = autoStartEnabled;
@@ -32,6 +40,7 @@ public final class WearSettingsState {
         this.refreshMinutes = normalizeRefreshMinutes(refreshMinutes);
         this.updatedAtMillis = Math.max(0L, updatedAtMillis);
         this.sourceNode = normalizeSource(sourceNode);
+        this.packageName = packageName == null ? "" : packageName.trim();
     }
 
     public JSONObject toJson() throws JSONException {
@@ -45,6 +54,9 @@ public final class WearSettingsState {
         json.put("refresh_minutes", refreshMinutes);
         json.put("updated_at_millis", updatedAtMillis);
         json.put("source_node", sourceNode);
+        if (!packageName.isEmpty()) {
+            json.put("package_name", packageName);
+        }
         return json;
     }
 
@@ -59,7 +71,8 @@ public final class WearSettingsState {
                 json.optBoolean("monitor_active", false),
                 json.optInt("refresh_minutes", 30),
                 json.optLong("updated_at_millis", 0L),
-                json.optString("source_node", SOURCE_PHONE));
+                json.optString("source_node", SOURCE_PHONE),
+                json.optString("package_name", ""));
     }
 
     /**

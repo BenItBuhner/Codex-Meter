@@ -293,10 +293,21 @@ grep -q 'com.google.android.wearable.standalone' "$ROOT/wear/src/main/AndroidMan
 grep -q 'codex_meter_wear' "$ROOT/wear/src/main/res/values/wear.xml"
 grep -q 'codex_meter_phone' "$ROOT/app/src/main/res/values/wear.xml"
 grep -q 'PhoneWearListenerService' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'PhoneWearTrust.isTrustedWearNode' \
+grep -q 'PhoneWearTrust.isTrustedWearMessage' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearListenerService.java"
-grep -q 'CAPABILITY_WEAR' \
+grep -q 'isTrustedWearSettings' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearTrust.java"
+grep -q 'package_name' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSettingsState.java"
+grep -q 'Phone owns the refresh interval' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearSync.java"
+grep -q 'leaving desired state for retry' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+! grep -q 'AppPreferences.setRefreshMinutes(app, remote.refreshMinutes)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearSync.java"
+! grep -q 'stop(context, false);\n        return false;' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+
 grep -q 'isMonitorDesired' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 grep -q 'WearPreferences.settingsState(this, 0L,' \

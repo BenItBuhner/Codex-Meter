@@ -74,7 +74,8 @@ public final class PhoneWearSync {
             NowBarPreferences.setDisplayMode(app, remote.displayMode);
             NowBarPreferences.setPercentMode(app, remote.percentMode);
             NowBarPreferences.save(app, remote.autoStartEnabled, remote.metric, remote.threshold);
-            AppPreferences.setRefreshMinutes(app, remote.refreshMinutes);
+            // Phone owns the refresh interval. Wear may echo a cached/default value before the
+            // first phone→Wear settings item arrives; never let that clobber the phone schedule.
             if (remote.monitorActive != wasActive) {
                 if (remote.monitorActive) {
                     NowBarManager.start(app);
@@ -104,10 +105,10 @@ public final class PhoneWearSync {
     }
 
     private static void sendMessageToNodes(Context context, List<Node> nodes, String path) {
-        byte[] payload = new byte[0];
+        byte[] auth = PhoneWearTrust.messageAuthPayload(context);
         for (Node node : nodes) {
             Wearable.getMessageClient(context)
-                    .sendMessage(node.getId(), path, payload)
+                    .sendMessage(node.getId(), path, auth)
                     .addOnFailureListener(error -> Log.w(TAG,
                             "Could not send Wear message " + path, error));
         }
@@ -123,7 +124,8 @@ public final class PhoneWearSync {
                 NowBarManager.isActive(context),
                 AppPreferences.getRefreshMinutes(context),
                 updatedAtMillis,
-                WearSettingsState.SOURCE_PHONE);
+                WearSettingsState.SOURCE_PHONE,
+                context.getPackageName());
     }
 
     private static void pushJson(Context context, String path, Object state) {

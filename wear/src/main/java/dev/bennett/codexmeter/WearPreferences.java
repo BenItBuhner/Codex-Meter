@@ -91,7 +91,8 @@ public final class WearPreferences {
                 prefs.getBoolean(KEY_MONITOR_ACTIVE, false),
                 prefs.getInt(KEY_REFRESH_MINUTES, 30),
                 updatedAtMillis,
-                sourceNode);
+                sourceNode,
+                context.getPackageName());
     }
 
     public static boolean applyRemoteSettings(Context context, WearSettingsState remote) {

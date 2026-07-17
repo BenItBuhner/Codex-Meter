@@ -27,21 +27,15 @@ public final class PhoneWearListenerService extends WearableListenerService {
             if (!WearSyncPaths.PATH_SETTINGS.equals(path)) {
                 continue;
             }
-            String nodeId = uri == null ? null : uri.getHost();
-            if (!PhoneWearTrust.isTrustedWearNode(this, nodeId)) {
-                Log.w(TAG, "Ignoring settings from untrusted Wear node: " + nodeId);
-                continue;
-            }
-            applySettings(item);
+            applySettings(uri == null ? null : uri.getHost(), item);
         }
     }
 
     @Override
     public void onMessageReceived(MessageEvent event) {
         if (event == null) return;
-        String nodeId = event.getSourceNodeId();
-        if (!PhoneWearTrust.isTrustedWearNode(this, nodeId)) {
-            Log.w(TAG, "Ignoring message from untrusted Wear node: " + nodeId);
+        if (!PhoneWearTrust.isTrustedWearMessage(this, event.getSourceNodeId(), event.getData())) {
+            Log.w(TAG, "Ignoring message from untrusted Wear sender: " + event.getSourceNodeId());
             return;
         }
         String path = event.getPath();
@@ -56,13 +50,13 @@ public final class PhoneWearListenerService extends WearableListenerService {
         }
     }
 
-    private void applySettings(DataItem item) {
+    private void applySettings(String nodeId, DataItem item) {
         try {
             String payload = PhoneWearSync.payloadString(item);
             if (payload == null || payload.isEmpty()) return;
             WearSettingsState remote = WearSettingsState.fromJson(new JSONObject(payload));
-            if (remote == null || !WearSettingsState.SOURCE_WEAR.equals(remote.sourceNode)) {
-                Log.w(TAG, "Ignoring settings payload without Wear source_node");
+            if (!PhoneWearTrust.isTrustedWearSettings(this, nodeId, remote)) {
+                Log.w(TAG, "Ignoring settings from untrusted Wear sender: " + nodeId);
                 return;
             }
             PhoneWearSync.applyRemoteSettings(getApplicationContext(), remote);

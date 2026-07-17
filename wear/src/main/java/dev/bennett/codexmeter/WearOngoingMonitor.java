@@ -48,7 +48,9 @@ public final class WearOngoingMonitor {
         if (post(context, snapshot)) {
             return true;
         }
-        stop(context, false);
+        // Keep the desired active flag so a later usage update or permission grant can retry
+        // without losing a phone-requested monitor.
+        Log.w(TAG, "Could not post Wear monitor; leaving desired state for retry");
         return false;
     }
 
