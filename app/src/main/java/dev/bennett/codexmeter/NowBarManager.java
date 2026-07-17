@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
 import android.os.Build;
@@ -425,9 +426,10 @@ public final class NowBarManager {
                 : fiveHour != null ? "5-hour window"
                 : weekly != null ? "Weekly window" : "Usage window unavailable";
         // Chip sits on the accent fill → always-light Codex mark.
-        // Expanded Now Bar follows system night mode → theme-adaptive Codex mark (no white square).
+        // Expanded Now Bar: pick an explicit light/dark resource at post time. Night-qualified
+        // drawables can resolve wrong inside Samsung SystemUI (separate process / config).
         Icon chipIcon = Icon.createWithResource(context, R.drawable.ic_codex_logo_on_accent);
-        Icon nowBarIcon = Icon.createWithResource(context, R.drawable.ic_codex_logo);
+        Icon nowBarIcon = themeAdaptiveCodexLogo(context);
         Icon progressDot = Icon.createWithResource(context, R.drawable.ic_now_bar_progress_dot);
         Bundle extras = new Bundle();
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
@@ -461,6 +463,23 @@ public final class NowBarManager {
     private static String limitText(String label, UsageWindow window) {
         return label + ": " + (window == null ? "unavailable"
                 : window.remainingPercent() + "% left");
+    }
+
+    /**
+     * Picks a fixed (non night-qualified) Codex logo resource from the posting process's
+     * current UI mode so SystemUI loads the intended contrast without re-resolving
+     * {@code drawable-night}.
+     */
+    private static Icon themeAdaptiveCodexLogo(Context context) {
+        return Icon.createWithResource(context, themeAdaptiveCodexLogoRes(context));
+    }
+
+    static int themeAdaptiveCodexLogoRes(Context context) {
+        int night = context.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
+        return night == Configuration.UI_MODE_NIGHT_YES
+                ? R.drawable.ic_codex_logo_dark
+                : R.drawable.ic_codex_logo;
     }
 
     private static void createChannel(NotificationManager manager) {
