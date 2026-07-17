@@ -350,7 +350,7 @@ public final class NowBarManager {
             promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
             builder.addExtras(promotionExtras);
             if (Build.VERSION.SDK_INT >= 36) {
-                String criticalPrefix = weeklyFocus && fiveHour != null ? "W " : "";
+                String criticalPrefix = weeklyFocus ? "W " : "";
                 Api36.applyLiveUpdateStyle(context, builder, used,
                         criticalPrefix + remaining + "%");
             }
