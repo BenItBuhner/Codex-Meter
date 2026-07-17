@@ -20,6 +20,9 @@ jobs:
     env:
       GH_USERNAME: ${{ github.actor }}
       GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        working-directory: android
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -30,9 +33,13 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
 
       - name: Install Android API 36 toolchain
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
@@ -49,7 +56,7 @@ jobs:
           set -euo pipefail
           VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' app/build.gradle.kts)"
           if [[ -z "$VERSION_NAME" ]]; then
-            echo "::error::Unable to read versionName from app/build.gradle.kts"
+            echo "::error::Unable to read versionName from android/app/build.gradle.kts"
             exit 1
           fi
           if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$VERSION_NAME" ]]; then
@@ -118,7 +125,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: codex-meter-${{ steps.version.outputs.name }}-ci
-          path: dist/
+          path: android/dist/
           if-no-files-found: error
           retention-days: 3
 

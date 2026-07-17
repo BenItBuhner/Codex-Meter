@@ -14,12 +14,15 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Android and Gradle build output
+# Android / Gradle build output
 build/
-app/build/
-dist/
+**/build/
+android/dist/
+android/.gradle/
+android/.local-signing/
 .gradle/
 .local-signing/
+dist/
 out/
 
 # Temporary files and local tooling

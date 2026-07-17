@@ -2,7 +2,10 @@
 
 This repository is a monorepo:
 
-- **Android** lives at the repository root (Gradle, `app/`, `shared/`, `wear/`, `tests/`).
+- Shared docs and release notes live at the repository root (`README.md`,
+  `CHANGELOG.md`, `LICENSE`, `AGENTS.md`).
+- **Android** lives under [`android/`](android/) (Gradle, `app/`, `shared/`,
+  `wear/`, `tests/`).
 - **iOS** lives under [`ios/`](ios/).
 
 Keep platform-specific changes in the matching tree. Prefer focused commits and
@@ -16,15 +19,17 @@ Install JDK 17 or newer and Android SDK Platform 36 with Build Tools 36.x. Set
 
 The OneUI-Design dependencies are hosted on GitHub Packages. Export `GH_USERNAME`
 and a `GH_ACCESS_TOKEN` with `read:packages` access before running a full build or
-Android lint.
+Android lint when `android/vendor/m2` is incomplete.
 
-Run the core checks, release build, and Android lint with:
+From the repository root (wrappers) or from `android/`:
 
 ```bash
 ./run-tests.sh
 ./build.sh
 ./lint.sh
 ```
+
+See [`android/README.md`](android/README.md) for module layout details.
 
 ## iOS local setup
 
