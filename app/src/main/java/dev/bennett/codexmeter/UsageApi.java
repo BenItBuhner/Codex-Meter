@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter;
 
 import android.content.Context;
+import dev.bennett.codexmeter.wear.PhoneWearSync;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
@@ -49,6 +50,7 @@ public final class UsageApi {
             if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
                 throw new Exception("Usage was received, but it could not be saved on this device.");
             }
+            PhoneWearSync.pushUsage(context, usageSnapshot);
             NowBarManager.onUsageUpdated(context, usageSnapshot);
             ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
             try {

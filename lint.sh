@@ -9,4 +9,7 @@ if [[ -z "${ANDROID_SDK_ROOT:-}" && -d "$HOME/Library/Android/sdk" ]]; then
   export ANDROID_SDK_ROOT="$HOME/Library/Android/sdk"
 fi
 
-"$ROOT/gradlew" --project-dir "$ROOT" :app:lintRelease --console=plain
+"$ROOT/gradlew" --project-dir "$ROOT" \
+  :app:lintRelease \
+  :wear:lintRelease \
+  --console=plain

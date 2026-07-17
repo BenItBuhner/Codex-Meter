@@ -1,0 +1,151 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.customview",
+    "module": "customview",
+    "version": "1.2.0-rc01+1.0.0-sesl8+rev0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.14.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.0"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.0-sesl8+rev0.aar",
+          "url": "customview-1.2.0-rc01+1.0.0-sesl8+rev0.aar",
+          "size": 34359,
+          "sha512": "3217a6c8a7fa9be75fdbbd67833fac25668be73d3f4f0b29d20ed8f183e117bc15dc9ec6c55aaf1b7406e107947bbb9c694eaf1b8698b1cc0415523cb9df7033",
+          "sha256": "d36874c13af09f8b6a84435ade67416c9d553c367d4693c756be32c66a7403b3",
+          "sha1": "11d6fbb9735c5bab8e6e1e61b71e3071ea5ffcbb",
+          "md5": "8fb1059cb1b72c68970fd847290c2db3"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.collection",
+          "module": "collection",
+          "version": {
+            "requires": "1.5.0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.0"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.0-sesl8+rev0.aar",
+          "url": "customview-1.2.0-rc01+1.0.0-sesl8+rev0.aar",
+          "size": 34359,
+          "sha512": "3217a6c8a7fa9be75fdbbd67833fac25668be73d3f4f0b29d20ed8f183e117bc15dc9ec6c55aaf1b7406e107947bbb9c694eaf1b8698b1cc0415523cb9df7033",
+          "sha256": "d36874c13af09f8b6a84435ade67416c9d553c367d4693c756be32c66a7403b3",
+          "sha1": "11d6fbb9735c5bab8e6e1e61b71e3071ea5ffcbb",
+          "md5": "8fb1059cb1b72c68970fd847290c2db3"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.0-sesl8+rev0-sources.jar",
+          "url": "customview-1.2.0-rc01+1.0.0-sesl8+rev0-sources.jar",
+          "size": 31936,
+          "sha512": "26e5d8512878313aec692362dea66fc85e004009f2e8abe6ba2ee2b3053330e2808923166b81a7f9467d6254cdc12a204f3ed7403e8a3259de18581ae2c6044e",
+          "sha256": "790ceb951cfa90fc41a57ea0e4b38c28f0cb6722a3754ae561408fb6032341b8",
+          "sha1": "e6060dd6b8f54f5fe5cbef7c150381c241c49671",
+          "md5": "beac0535b86073eb6f4717d647bdfa8b"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.0-sesl8+rev0-javadoc.jar",
+          "url": "customview-1.2.0-rc01+1.0.0-sesl8+rev0-javadoc.jar",
+          "size": 314275,
+          "sha512": "fa618185b1998e3681f797e551565c56a5a6b86e1ce0b6d04ef46541e7ac46869ed659b96c19fbb9796640a84f96bba61392a77cd8a84a7733c8403e9b7d28bf",
+          "sha256": "a487493271948f34b1b567bc5ab0489cb5eacda5fc7f6c701ad932854628942f",
+          "sha1": "d01cd89db4b16e6dd2379d79f3d78ca6468cd8be",
+          "md5": "dbdc0db5c8245af202746070268dd2de"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+
+    <uses-feature
+        android:name="android.hardware.type.watch"
+        android:required="true" />
+
+    <application
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- Companion app: phone remains OAuth/API source of truth via Data Layer. -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="false" />
+
+        <uses-library
+            android:name="com.google.android.wearable"
+            android:required="false" />
+
+        <activity
+            android:name="dev.bennett.codexmeter.WearSettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name="dev.bennett.codexmeter.WearMainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="dev.bennett.codexmeter.WearDataLayerService"
+            android:exported="true">
+            <intent-filter>
+                <action
+                    android:name="com.google.android.gms.wearable.BIND_LISTENER"
+                    tools:ignore="WearableBindListener" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/codex" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/codex/msg" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.UsageOverviewTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/tile_usage_overview"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/preview_tile_overview" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.FiveHourTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/tile_five_hour"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/preview_tile_five_hour" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.WeeklyTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/tile_weekly"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/preview_tile_weekly" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.ResetCountdownTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/tile_reset"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/preview_tile_reset" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.MonitorStatusTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/tile_monitor"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/preview_tile_monitor" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.FiveHourComplicationService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/complication_five_hour"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="RANGED_VALUE,SHORT_TEXT,LONG_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.WeeklyComplicationService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/complication_weekly"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="RANGED_VALUE,SHORT_TEXT,LONG_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.DualUsageComplicationService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/complication_dual_usage"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,LONG_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <service
+            android:name="dev.bennett.codexmeter.NextResetComplicationService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/complication_next_reset"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,LONG_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <receiver
+            android:name="dev.bennett.codexmeter.WearMonitorActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name="dev.bennett.codexmeter.WearBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

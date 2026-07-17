@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import dev.bennett.codexmeter.wear.PhoneWearSync;
 
 /**
  * User settings for automatically starting the live usage monitor when allowance
@@ -36,6 +37,7 @@ public final class NowBarPreferences {
     public static void setDisplayMode(Context context, String mode) {
         prefs(context).edit().putString(KEY_DISPLAY_MODE,
                 NowBarDisplayMode.normalize(mode)).apply();
+        PhoneWearSync.pushSettings(context);
     }
 
     public static String getPercentMode(Context context) {
@@ -46,6 +48,7 @@ public final class NowBarPreferences {
     public static void setPercentMode(Context context, String mode) {
         prefs(context).edit().putString(KEY_PERCENT_MODE,
                 NowBarPercentMode.normalize(mode)).apply();
+        PhoneWearSync.pushSettings(context);
     }
 
     public static String getMetric(Context context) {
@@ -63,10 +66,12 @@ public final class NowBarPreferences {
                 .putString(KEY_METRIC, NowBarAutoStart.normalizeMetric(metric))
                 .putInt(KEY_THRESHOLD, NowBarAutoStart.normalizeThreshold(threshold))
                 .apply();
+        PhoneWearSync.pushSettings(context);
     }
 
     public static void setAutoStartEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_AUTO_ENABLED, enabled).apply();
+        PhoneWearSync.pushSettings(context);
     }
 
     public static boolean meetsThreshold(Context context, UsageSnapshot snapshot) {

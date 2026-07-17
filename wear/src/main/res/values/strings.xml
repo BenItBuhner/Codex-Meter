@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Codex Meter</string>
+    <string name="wear_settings">Settings</string>
+    <string name="wear_refresh">Refresh</string>
+    <string name="wear_toggle_monitor">Toggle monitor</string>
+    <string name="wear_load_demo">Load demo data</string>
+    <string name="wear_monitor_channel">Codex Wear live monitor</string>
+    <string name="wear_monitor_channel_description">Watch-face and Recents monitor for Codex usage.</string>
+    <string name="tile_usage_overview">Codex overview</string>
+    <string name="tile_five_hour">Codex 5-hour</string>
+    <string name="tile_weekly">Codex weekly</string>
+    <string name="tile_reset">Codex reset</string>
+    <string name="tile_monitor">Codex monitor</string>
+    <string name="complication_five_hour">Codex 5-hour</string>
+    <string name="complication_weekly">Codex weekly</string>
+    <string name="complication_dual_usage">Codex dual usage</string>
+    <string name="complication_next_reset">Codex next reset</string>
+</resources>

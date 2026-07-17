@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- This module was also published with a richer model, Gradle metadata,  -->
+  <!-- which should be used instead. Do not delete the following line which  -->
+  <!-- is to indicate to Gradle or any Gradle module metadata file consumer  -->
+  <!-- that they should prefer consuming it instead. -->
+  <!-- do_not_remove: published-with-gradle-metadata -->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>sesl.androidx.picker</groupId>
+  <artifactId>picker-color</artifactId>
+  <version>1.0.2+1.0.3-sesl8+rev0</version>
+  <packaging>aar</packaging>
+  <name>SESL Color Picker</name>
+  <description>SESL androidx.picker:picker-color Library.</description>
+  <url>https://github.com/tribalfs/sesl-androidx</url>
+  <inceptionYear>2024</inceptionYear>
+  <licenses>
+    <license>
+      <name>Apache-2.0 License</name>
+      <url>https://github.com/tribalfs/sesl-androidx/blob/sesl-androidx-main/LICENSE.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>tribalfs</id>
+      <name>Tribalfs</name>
+      <url>https://github.com/tribalfs</url>
+    </developer>
+  </developers>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>sesl.androidx.core</groupId>
+        <artifactId>core-ktx</artifactId>
+        <version>1.16.0+1.0.0-sesl8+rev0</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>sesl.androidx.appcompat</groupId>
+      <artifactId>appcompat</artifactId>
+      <version>1.7.1+1.0.18-sesl8+rev0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>sesl.androidx.core</groupId>
+      <artifactId>core</artifactId>
+      <version>1.16.0+1.0.7-sesl8+rev0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>sesl.androidx.fragment</groupId>
+      <artifactId>fragment</artifactId>
+      <version>1.8.8+1.0.5-sesl8+rev0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+      <version>1.0.0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>sesl.com.google.android.material</groupId>
+      <artifactId>material</artifactId>
+      <version>1.12.0+1.0.31-sesl8+rev0</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>

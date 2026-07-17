@@ -1,0 +1,193 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.picker",
+    "module": "picker-basic",
+    "version": "1.0.7+1.0.7-sesl8+rev2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.14.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "androidx.dynamicanimation",
+          "module": "dynamicanimation",
+          "version": {
+            "requires": "1.1.0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.0"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.7.1+1.0.18-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.viewpager",
+          "module": "viewpager",
+          "version": {
+            "requires": "1.1.0-beta01+1.0.0-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-basic-1.0.7+1.0.7-sesl8+rev2.aar",
+          "url": "picker-basic-1.0.7+1.0.7-sesl8+rev2.aar",
+          "size": 484218,
+          "sha512": "2bab8a1b11acda73060e5db6f7b3ca437f3f9b33c7223b30d414cc0e65b9ae89bdbd637d3a53f79790e6d82271dc15ea13d7b8ec3701f8dfabcbb66c919fa61f",
+          "sha256": "ee4f0460ec15707f1e3786b7eb3bf9b488ac6c79ba661bbe92f08e8612c878b5",
+          "sha1": "0222ca92786f9a69eb77d17b7d1f3e1cef8aed5f",
+          "md5": "96301f2c6d10f543a52b883854833aa0"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.constraintlayout",
+          "module": "constraintlayout",
+          "version": {
+            "requires": "2.0.1"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "androidx.dynamicanimation",
+          "module": "dynamicanimation",
+          "version": {
+            "requires": "1.1.0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.0"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.7.1+1.0.18-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.viewpager",
+          "module": "viewpager",
+          "version": {
+            "requires": "1.1.0-beta01+1.0.0-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-basic-1.0.7+1.0.7-sesl8+rev2.aar",
+          "url": "picker-basic-1.0.7+1.0.7-sesl8+rev2.aar",
+          "size": 484218,
+          "sha512": "2bab8a1b11acda73060e5db6f7b3ca437f3f9b33c7223b30d414cc0e65b9ae89bdbd637d3a53f79790e6d82271dc15ea13d7b8ec3701f8dfabcbb66c919fa61f",
+          "sha256": "ee4f0460ec15707f1e3786b7eb3bf9b488ac6c79ba661bbe92f08e8612c878b5",
+          "sha1": "0222ca92786f9a69eb77d17b7d1f3e1cef8aed5f",
+          "md5": "96301f2c6d10f543a52b883854833aa0"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-basic-1.0.7+1.0.7-sesl8+rev2-sources.jar",
+          "url": "picker-basic-1.0.7+1.0.7-sesl8+rev2-sources.jar",
+          "size": 147215,
+          "sha512": "61fe0d30b9efc768956025c24e7436795c7282eeb21909675e2d86dbbded737bb80246fae7485071b02f0a075ab1d404971708eafa81285568cb5b1300da0033",
+          "sha256": "3794f8a10cbc65eb04a382132f1ae73bbbf87e53480c93c8cda5cd393ef1f4be",
+          "sha1": "dc9a91333c9c629d0f2b6d394fb6b63d1862d503",
+          "md5": "0fded59b8554c15063f5b62cd5c061dc"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-basic-1.0.7+1.0.7-sesl8+rev2-javadoc.jar",
+          "url": "picker-basic-1.0.7+1.0.7-sesl8+rev2-javadoc.jar",
+          "size": 525489,
+          "sha512": "c9182aa7efa19149d89f1901e96ee24f71b662a1be5289f918d9a6fe977163d196f1901d18ea95f91194fa4703c9937f7c9e382608d832675f92f5a9079196ee",
+          "sha256": "2ada4c839bee8523f3506c08bc72a10a3fb996cb2c54944f3e06512adccb176e",
+          "sha1": "03454a6e6ca73276b370fedfd9d9dbaef59f4feb",
+          "md5": "6735b9ff4dcbce819705bfb178f6bd1f"
+        }
+      ]
+    }
+  ]
+}
