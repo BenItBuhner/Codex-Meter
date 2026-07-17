@@ -63,6 +63,9 @@ public final class SettingsActivity extends AppCompatActivity {
         private ListPreference nowBarThresholdPreference;
         private Preference nowBarPermissionPreference;
         private Preference updateStatusPreference;
+        private SwitchPreferenceCompat automaticUpdatePreference;
+        private ListPreference updateIntervalPreference;
+        private SwitchPreferenceCompat notifyUpdatePreference;
 
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
@@ -218,19 +221,55 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindUpdates() {
-            SwitchPreferenceCompat automatic = findPreference("automatic_update_checks_ui");
-            automatic.setPersistent(false);
-            automatic.setChecked(UpdatePreferences.automaticChecks(requireContext()));
-            automatic.setOnPreferenceChangeListener((preference, value) -> {
+            automaticUpdatePreference = findPreference("automatic_update_checks_ui");
+            automaticUpdatePreference.setPersistent(false);
+            automaticUpdatePreference.setChecked(UpdatePreferences.automaticChecks(requireContext()));
+            automaticUpdatePreference.setOnPreferenceChangeListener((preference, value) -> {
                 boolean enabled = (Boolean) value;
                 UpdatePreferences.setAutomaticChecks(requireContext(), enabled);
                 if (enabled) {
                     ReleaseUpdateScheduler.ensureScheduled(requireContext());
                 } else {
                     ReleaseUpdateScheduler.cancel(requireContext());
+                    if (notifyUpdatePreference != null) {
+                        notifyUpdatePreference.setChecked(false);
+                    }
+                }
+                updateAutomaticUpdateEnabledState();
+                updateAutomaticUpdateSummary();
+                return true;
+            });
+
+            updateIntervalPreference = findPreference("update_check_interval_ui");
+            updateIntervalPreference.setPersistent(false);
+            updateIntervalPreference.setValue(
+                    String.valueOf(UpdatePreferences.checkIntervalHours(requireContext())));
+            updateIntervalPreference.setOnPreferenceChangeListener((preference, value) -> {
+                int hours = UpdateCheckFrequency.normalize(Integer.parseInt(String.valueOf(value)));
+                UpdatePreferences.setCheckIntervalHours(requireContext(), hours);
+                updateIntervalPreference.setValue(String.valueOf(hours));
+                ReleaseUpdateScheduler.ensureScheduled(requireContext());
+                updateAutomaticUpdateSummary();
+                return true;
+            });
+
+            notifyUpdatePreference = findPreference("notify_update_available_ui");
+            notifyUpdatePreference.setPersistent(false);
+            notifyUpdatePreference.setChecked(
+                    UpdatePreferences.notifyUpdatesEnabled(requireContext()));
+            notifyUpdatePreference.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (enabled && !ensureUpdateNotificationPermission()) {
+                    return false;
+                }
+                UpdatePreferences.setNotifyUpdatesEnabled(requireContext(), enabled);
+                if (enabled) {
+                    UpdateNotificationManager.ensureChannel(requireContext());
+                    UpdateNotificationManager.onReleasesUpdated(requireContext());
                 }
                 return true;
             });
+
             updateStatusPreference = findPreference("update_status");
             findPreference("check_for_updates").setOnPreferenceClickListener(preference -> {
                 startActivity(new Intent(requireContext(), UpdateActivity.class)
@@ -241,13 +280,75 @@ public final class SettingsActivity extends AppCompatActivity {
                 Ui.startSecondaryActivity(requireActivity(), ReleaseHistoryActivity.class);
                 return true;
             });
+            updateAutomaticUpdateEnabledState();
+            updateAutomaticUpdateSummary();
             updateUpdateSummary();
+        }
+
+        private void updateAutomaticUpdateEnabledState() {
+            boolean enabled = UpdatePreferences.automaticChecks(requireContext());
+            if (updateIntervalPreference != null) {
+                updateIntervalPreference.setEnabled(enabled);
+            }
+            if (notifyUpdatePreference != null) {
+                notifyUpdatePreference.setEnabled(enabled);
+                if (!enabled) {
+                    notifyUpdatePreference.setChecked(false);
+                }
+            }
+        }
+
+        private void updateAutomaticUpdateSummary() {
+            if (automaticUpdatePreference == null || getContext() == null) {
+                return;
+            }
+            if (!UpdatePreferences.automaticChecks(requireContext())) {
+                automaticUpdatePreference.setSummary("Automatic GitHub release checks are off");
+                return;
+            }
+            automaticUpdatePreference.setSummary(UpdateCheckFrequency.summary(
+                    UpdatePreferences.checkIntervalHours(requireContext())));
+        }
+
+        private boolean ensureUpdateNotificationPermission() {
+            if (Build.VERSION.SDK_INT >= 33
+                    && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 8603);
+                Toast.makeText(requireContext(),
+                        "Allow notifications, then enable update alerts again.",
+                        Toast.LENGTH_LONG).show();
+                return false;
+            }
+            NotificationManager manager = (NotificationManager) requireContext()
+                    .getSystemService(NOTIFICATION_SERVICE);
+            if (manager != null && manager.areNotificationsEnabled()) {
+                return true;
+            }
+            Toast.makeText(requireContext(),
+                    "Enable app notifications, then turn on update alerts again.",
+                    Toast.LENGTH_LONG).show();
+            return false;
         }
 
         private void updateUpdateSummary() {
             if (updateStatusPreference == null || getContext() == null) {
                 return;
             }
+            if (automaticUpdatePreference != null) {
+                automaticUpdatePreference.setChecked(
+                        UpdatePreferences.automaticChecks(requireContext()));
+            }
+            if (updateIntervalPreference != null) {
+                updateIntervalPreference.setValue(
+                        String.valueOf(UpdatePreferences.checkIntervalHours(requireContext())));
+            }
+            if (notifyUpdatePreference != null) {
+                notifyUpdatePreference.setChecked(
+                        UpdatePreferences.notifyUpdatesEnabled(requireContext()));
+            }
+            updateAutomaticUpdateEnabledState();
+            updateAutomaticUpdateSummary();
             GitHubRelease available = UpdatePreferences.availableUpdate(requireContext());
             GitHubRelease latest = UpdatePreferences.latestStable(requireContext());
             long checkedAt = UpdatePreferences.lastCheckMillis(requireContext());

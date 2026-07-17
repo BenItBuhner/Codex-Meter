@@ -36,7 +36,17 @@
         <SwitchPreferenceCompat
             android:key="automatic_update_checks_ui"
             android:title="Check automatically"
-            android:summary="Check signed GitHub releases about once a day" />
+            android:summary="Check signed GitHub releases on a schedule" />
+        <ListPreference
+            android:entries="@array/settings_update_interval_entries"
+            android:entryValues="@array/settings_update_interval_values"
+            android:key="update_check_interval_ui"
+            android:title="Check frequency"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="notify_update_available_ui"
+            android:title="Notify when update available"
+            android:summary="Show a notification with Open and Update actions" />
         <Preference
             android:key="update_status"
             android:title="Installed version"

@@ -47,6 +47,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
@@ -90,6 +91,25 @@ grep -q 'Open on GitHub' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateActivity.java"
 grep -q 'Open on GitHub' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseHistoryActivity.java"
+grep -q 'UpdateCheckFrequency' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdateScheduler.java"
+grep -q 'notify_update_available_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'update_check_interval_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'settings_update_interval_entries' \
+  "$ROOT/app/src/main/res/values/settings_arrays.xml"
+grep -q 'EXTRA_START_INSTALL' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateActivity.java"
+grep -q '"Open", open' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManager.java"
+grep -q '"Update", update' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManager.java"
+grep -q 'UpdateNotificationManager.onReleasesUpdated' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdatePreferences.java"
+grep -q 'testUpdateCheckFrequency' "$ROOT/tests/ParserSelfTest.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManager.java"
 grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"

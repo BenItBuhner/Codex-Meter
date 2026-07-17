@@ -10,8 +10,6 @@ import java.util.concurrent.TimeUnit;
 public final class ReleaseUpdateScheduler {
     private static final int PERIODIC_JOB_ID = 73400;
     private static final int INITIAL_JOB_ID = 73401;
-    private static final long PERIOD = TimeUnit.DAYS.toMillis(1);
-    private static final long FLEX = TimeUnit.HOURS.toMillis(6);
 
     private ReleaseUpdateScheduler() {
     }
@@ -27,14 +25,17 @@ public final class ReleaseUpdateScheduler {
             if (scheduler == null) {
                 return false;
             }
+            int hours = UpdatePreferences.checkIntervalHours(app);
+            long period = UpdateCheckFrequency.periodMillis(hours);
+            long flex = UpdateCheckFrequency.flexMillis(hours);
             boolean scheduled = true;
             JobInfo existing = scheduler.getPendingJob(PERIODIC_JOB_ID);
-            if (existing == null || existing.getIntervalMillis() != PERIOD
-                    || existing.getFlexMillis() != FLEX
+            if (existing == null || existing.getIntervalMillis() != period
+                    || existing.getFlexMillis() != flex
                     || existing.getNetworkType() != JobInfo.NETWORK_TYPE_ANY
                     || !existing.isPersisted()) {
                 JobInfo periodic = base(app, PERIODIC_JOB_ID)
-                        .setPeriodic(PERIOD, FLEX)
+                        .setPeriodic(period, flex)
                         .setPersisted(true)
                         .build();
                 scheduled = scheduler.schedule(periodic) == JobScheduler.RESULT_SUCCESS;

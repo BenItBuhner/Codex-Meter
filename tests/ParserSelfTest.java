@@ -32,6 +32,7 @@ public final class ParserSelfTest {
         testReleaseChecksums();
         testReleaseNotesMarkdown();
         testReleaseUpdatePolicy();
+        testUpdateCheckFrequency();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
@@ -599,6 +600,46 @@ public final class ParserSelfTest {
         check(ReleaseUpdatePolicy.irreversibleDetail()
                         .contains(ReleaseUpdatePolicy.FIRST_IN_APP_UPDATE_VERSION),
                 "irreversible detail cites threshold version");
+    }
+
+    private static void testUpdateCheckFrequency() {
+        check(UpdateCheckFrequency.normalize(1) == UpdateCheckFrequency.HOURLY,
+                "hourly interval preserved");
+        check(UpdateCheckFrequency.normalize(6) == UpdateCheckFrequency.EVERY_6_HOURS,
+                "6-hour interval preserved");
+        check(UpdateCheckFrequency.normalize(12) == UpdateCheckFrequency.EVERY_12_HOURS,
+                "12-hour interval preserved");
+        check(UpdateCheckFrequency.normalize(24) == UpdateCheckFrequency.DAILY,
+                "daily interval preserved");
+        check(UpdateCheckFrequency.normalize(168) == UpdateCheckFrequency.WEEKLY,
+                "weekly interval preserved");
+        check(UpdateCheckFrequency.normalize(0) == UpdateCheckFrequency.DAILY,
+                "unknown interval defaults to daily");
+        check(UpdateCheckFrequency.normalize(48) == UpdateCheckFrequency.DAILY,
+                "unsupported interval defaults to daily");
+        check(UpdateCheckFrequency.periodMillis(UpdateCheckFrequency.HOURLY)
+                        == TimeUnit.HOURS.toMillis(1),
+                "hourly period is one hour");
+        check(UpdateCheckFrequency.periodMillis(UpdateCheckFrequency.WEEKLY)
+                        == TimeUnit.DAYS.toMillis(7),
+                "weekly period is seven days");
+        check(UpdateCheckFrequency.flexMillis(UpdateCheckFrequency.DAILY)
+                        == TimeUnit.HOURS.toMillis(6),
+                "daily flex stays at six hours");
+        check(UpdateCheckFrequency.flexMillis(UpdateCheckFrequency.HOURLY)
+                        < UpdateCheckFrequency.periodMillis(UpdateCheckFrequency.HOURLY),
+                "hourly flex is shorter than period");
+        check(UpdateCheckFrequency.label(UpdateCheckFrequency.EVERY_6_HOURS)
+                        .equals("Every 6 hours"),
+                "6-hour label");
+        check(UpdateCheckFrequency.summary(UpdateCheckFrequency.WEEKLY)
+                        .toLowerCase().contains("weekly"),
+                "weekly summary mentions weekly");
+        for (int hours : UpdateCheckFrequency.SUPPORTED_HOURS) {
+            check(UpdateCheckFrequency.flexMillis(hours)
+                            <= UpdateCheckFrequency.periodMillis(hours),
+                    "flex does not exceed period for " + hours + "h");
+        }
     }
 
     private static String jwt(String payload) {
