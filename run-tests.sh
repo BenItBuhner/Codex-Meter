@@ -314,6 +314,8 @@ grep -q 'setMonitorDesired(context, true, false)' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 grep -q 'markMonitorPosted(context, until)' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'clearMonitorPosted(context)' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 grep -q 'KEY_MONITOR_DESIRED' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPreferences.java"
 ! grep -q 'setMonitorActive(context, true);' \

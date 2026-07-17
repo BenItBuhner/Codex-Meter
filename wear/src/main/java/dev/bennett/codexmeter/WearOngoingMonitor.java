@@ -115,14 +115,25 @@ public final class WearOngoingMonitor {
     }
 
     private static boolean post(Context context, UsageSnapshot snapshot) {
-        if (context == null || snapshot == null || !canPostNotifications(context)) return false;
+        if (context == null || snapshot == null) return false;
+        if (!canPostNotifications(context)) {
+            // Previously posted state must not linger after notifications become unavailable.
+            WearPreferences.clearMonitorPosted(context);
+            return false;
+        }
         NotificationManager manager = manager(context);
-        if (manager == null) return false;
+        if (manager == null) {
+            WearPreferences.clearMonitorPosted(context);
+            return false;
+        }
         createChannel(manager);
 
         long now = System.currentTimeMillis();
         long until = snapshot.nextResetMillis(now);
-        if (until <= now) return false;
+        if (until <= now) {
+            WearPreferences.clearMonitorPosted(context);
+            return false;
+        }
 
         UsageWindow fiveHour = UsageSnapshot.currentWindow(snapshot.fiveHour, now);
         UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.weekly, now);
