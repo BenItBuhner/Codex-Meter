@@ -15,6 +15,21 @@ nonisolated public enum AlertMetric: String, Codable, Sendable, CaseIterable, Id
     case weekly
 
     public var id: String { rawValue }
+
+    /// Whether low-usage / reset alerts should run for `metric`.
+    ///
+    /// The picker chooses which windows to monitor (Both / 5-hour / Weekly),
+    /// not which window to exclude.
+    public func includes(_ metric: AlertMetric) -> Bool {
+        switch self {
+        case .both:
+            return metric == .fiveHour || metric == .weekly
+        case .fiveHour:
+            return metric == .fiveHour
+        case .weekly:
+            return metric == .weekly
+        }
+    }
 }
 
 nonisolated public struct AppSettings: Codable, Sendable, Equatable {

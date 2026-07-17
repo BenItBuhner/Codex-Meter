@@ -39,8 +39,37 @@ final class ModelsAndFormattingTests: XCTestCase {
             fetchedAt: now
         )
         XCTAssertEqual(snapshot.resetCreditsAvailable, 0)
-        XCTAssertEqual(snapshot.nextReset(after: now), weekly.resetAt)
+        // Relative-only five-hour reset (now+60) precedes weekly absolute reset (now+120).
+        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(60))
         XCTAssertTrue(snapshot.isStale(at: now.addingTimeInterval(61), maxAge: 60))
+    }
+
+    func testNextResetUsesRelativeResetAfterSecondsWhenAbsoluteMissing() {
+        let now = Date(timeIntervalSince1970: 5_000)
+        let snapshot = UsageSnapshot(
+            planType: "plus",
+            allowed: true,
+            limitReached: false,
+            fiveHour: UsageWindow(
+                usedPercent: 10,
+                windowSeconds: 18_000,
+                resetAfterSeconds: 90,
+                resetAt: nil
+            ),
+            weekly: UsageWindow(
+                usedPercent: 20,
+                windowSeconds: 604_800,
+                resetAfterSeconds: 360,
+                resetAt: nil
+            ),
+            fetchedAt: now
+        )
+        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(90))
+        XCTAssertEqual(
+            snapshot.nextReset(after: now.addingTimeInterval(120)),
+            now.addingTimeInterval(360)
+        )
+        XCTAssertNil(snapshot.nextReset(after: now.addingTimeInterval(400)))
     }
 
     func testSharedSnapshotIsSanitizedAndCodable() throws {

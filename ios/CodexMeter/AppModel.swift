@@ -506,7 +506,7 @@ final class AppModel {
             apply(tokens: tokens)
         }
         if let cached = try? await cache.load() {
-            visibleError = cached.resetCreditsError
+            visibleError = cached.resetCreditsError ?? cached.widgetError
         }
         await notificationCoordinator.process(
             usage: refresh.usage,
@@ -532,7 +532,7 @@ final class AppModel {
                   snapshot.usage?.isStale(at: .now, maxAge: 15 * 60) == true {
             visibleError = error
         } else {
-            visibleError = snapshot.resetCreditsError
+            visibleError = snapshot.resetCreditsError ?? snapshot.widgetError
         }
     }
 

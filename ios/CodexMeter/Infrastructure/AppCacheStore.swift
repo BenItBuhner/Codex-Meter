@@ -6,6 +6,8 @@ nonisolated public struct AppCacheSnapshot: Codable, Sendable, Equatable {
     public var credits: ResetCreditsSnapshot?
     public var lastError: String?
     public var resetCreditsError: String?
+    /// Surfaced when widget App Group publishing fails while account data still refreshes.
+    public var widgetError: String?
     public var updatedAt: Date
 
     public init(
@@ -13,12 +15,14 @@ nonisolated public struct AppCacheSnapshot: Codable, Sendable, Equatable {
         credits: ResetCreditsSnapshot? = nil,
         lastError: String? = nil,
         resetCreditsError: String? = nil,
+        widgetError: String? = nil,
         updatedAt: Date = Date()
     ) {
         self.usage = usage
         self.credits = credits
         self.lastError = lastError
         self.resetCreditsError = resetCreditsError
+        self.widgetError = widgetError
         self.updatedAt = updatedAt
     }
 }
@@ -114,6 +118,20 @@ public actor AppCacheStore {
     public func recordCreditsError(_ message: String, at date: Date = Date()) async {
         var snapshot = (try? await load()) ?? AppCacheSnapshot(updatedAt: date)
         snapshot.resetCreditsError = String(message.prefix(240))
+        snapshot.updatedAt = date
+        try? await save(snapshot)
+    }
+
+    public func recordWidgetError(_ message: String, at date: Date = Date()) async {
+        var snapshot = (try? await load()) ?? AppCacheSnapshot(updatedAt: date)
+        snapshot.widgetError = String(message.prefix(240))
+        snapshot.updatedAt = date
+        try? await save(snapshot)
+    }
+
+    public func clearWidgetError(at date: Date = Date()) async {
+        guard var snapshot = try? await load(), snapshot.widgetError != nil else { return }
+        snapshot.widgetError = nil
         snapshot.updatedAt = date
         try? await save(snapshot)
     }

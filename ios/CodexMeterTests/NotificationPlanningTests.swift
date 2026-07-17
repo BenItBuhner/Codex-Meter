@@ -111,6 +111,33 @@ final class NotificationPlanningTests: XCTestCase {
         XCTAssertEqual(CelebrationDetector.resetCreditsAdded(previous: 3, current: 1), 0)
     }
 
+    func testAlertMetricIncludesSelectedWindowsOnly() {
+        XCTAssertTrue(AlertMetric.both.includes(.fiveHour))
+        XCTAssertTrue(AlertMetric.both.includes(.weekly))
+        XCTAssertFalse(AlertMetric.both.includes(.both))
+
+        XCTAssertTrue(AlertMetric.fiveHour.includes(.fiveHour))
+        XCTAssertFalse(AlertMetric.fiveHour.includes(.weekly))
+
+        XCTAssertTrue(AlertMetric.weekly.includes(.weekly))
+        XCTAssertFalse(AlertMetric.weekly.includes(.fiveHour))
+    }
+
+    func testMissingAppGroupMarksWidgetCacheUnavailableAndThrowsOnPublish() async {
+        let cache = WidgetSnapshotCache(
+            appGroupIdentifier: "group.com.bukovinafilip.CodexMeter.missing-for-tests"
+        )
+        XCTAssertFalse(cache.isAvailable)
+        do {
+            try await cache.publishSignedOut()
+            XCTFail("Expected App Group storage failure")
+        } catch let error as CodexServiceError {
+            XCTAssertEqual(error, .storage(WidgetSnapshotCache.unavailableMessage))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testAppSettingsDecodesMissing22FieldsWithDefaults() throws {
         let legacy = """
         {

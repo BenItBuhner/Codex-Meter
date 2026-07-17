@@ -85,8 +85,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     }
 
     public func nextReset(after date: Date) -> Date? {
-        [fiveHour?.resetAt, weekly?.resetAt]
-            .compactMap { $0 }
+        [fiveHour, weekly]
+            .compactMap { $0?.effectiveResetDate(relativeTo: fetchedAt) }
             .filter { $0 > date }
             .min()
     }

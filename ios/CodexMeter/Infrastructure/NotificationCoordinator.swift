@@ -133,7 +133,7 @@ public actor NotificationCoordinator {
 
         var currentLowIdentifiers: Set<String> = []
         var currentResetIdentifiers: Set<String> = []
-        if settings.alertMetric != .weekly, let window = usage.fiveHour {
+        if settings.alertMetric.includes(.fiveHour), let window = usage.fiveHour {
             await processWindow(
                 window,
                 metric: .fiveHour,
@@ -145,7 +145,7 @@ public actor NotificationCoordinator {
                 currentResetIdentifiers: &currentResetIdentifiers
             )
         }
-        if settings.alertMetric != .fiveHour, let window = usage.weekly {
+        if settings.alertMetric.includes(.weekly), let window = usage.weekly {
             await processWindow(
                 window,
                 metric: .weekly,

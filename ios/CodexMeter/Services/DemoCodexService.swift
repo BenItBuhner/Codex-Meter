@@ -63,8 +63,13 @@ public actor DemoCodexService: CodexService {
         weeklyUsed = 64
         availableCredits = 2
         try? await appCache.clear()
-        try? await widgetCache.publishSignedOut()
-        WidgetCenter.shared.reloadAllTimelines()
+        do {
+            try await widgetCache.publishSignedOut()
+            WidgetCenter.shared.reloadAllTimelines()
+            await appCache.clearWidgetError(at: referenceDate)
+        } catch {
+            await appCache.recordWidgetError(error.localizedDescription, at: referenceDate)
+        }
     }
 
     private func persistCurrentState() async throws -> CodexRefreshSnapshot {
@@ -90,13 +95,18 @@ public actor DemoCodexService: CodexService {
         try await appCache.save(
             AppCacheSnapshot(usage: usage, credits: credits, updatedAt: fetchedAt)
         )
-        try? await widgetCache.publish(
-            mode: .demo,
-            usage: usage,
-            credits: credits,
-            now: fetchedAt
-        )
-        WidgetCenter.shared.reloadAllTimelines()
+        do {
+            try await widgetCache.publish(
+                mode: .demo,
+                usage: usage,
+                credits: credits,
+                now: fetchedAt
+            )
+            WidgetCenter.shared.reloadAllTimelines()
+            await appCache.clearWidgetError(at: fetchedAt)
+        } catch {
+            await appCache.recordWidgetError(error.localizedDescription, at: fetchedAt)
+        }
         return (usage, credits)
     }
 

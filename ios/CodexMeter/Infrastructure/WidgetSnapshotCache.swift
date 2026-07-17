@@ -6,6 +6,11 @@ import Foundation
 public actor WidgetSnapshotCache {
     public nonisolated static let appGroupIdentifier = "group.com.bukovinafilip.CodexMeter"
     public nonisolated static let shared = WidgetSnapshotCache()
+    public nonisolated static let unavailableMessage =
+        "Home Screen widgets need an App Group. Configure signing and the group.com.bukovinafilip.CodexMeter entitlement in Xcode."
+
+    /// `false` when the App Group container is missing (unsigned / misconfigured builds).
+    public nonisolated let isAvailable: Bool
 
     private let fileURL: URL?
     private let fileManager: FileManager
@@ -15,19 +20,22 @@ public actor WidgetSnapshotCache {
         fileManager: FileManager = .default
     ) {
         self.fileManager = fileManager
-        self.fileURL = fileManager
+        let resolved = fileManager
             .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
             .appendingPathComponent(SharedWidgetSnapshot.defaultFileName)
+        self.fileURL = resolved
+        self.isAvailable = resolved != nil
     }
 
     public init(fileURL: URL, fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.fileURL = fileURL
+        self.isAvailable = true
     }
 
     public func save(_ snapshot: SharedWidgetSnapshot) async throws {
         guard let fileURL else {
-            throw CodexServiceError.storage("The App Group container is unavailable.")
+            throw CodexServiceError.storage(Self.unavailableMessage)
         }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
