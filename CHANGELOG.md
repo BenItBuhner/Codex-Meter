@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.3.3 — 2026-07-17
+
+### Added
+
+- Now Bar percentage-mode setting (Auto / 5-hour / Weekly) so users choose which remaining percentage drives the live-monitor progress pill, with Auto locking to the auto-start trigger window (#33).
+- A `W` prefix on weekly-focused Live Update critical percentage text so compact Now Bar labels stay unambiguous (#33).
+
+### Changed
+
+- Normalized app, widget, and OAuth action buttons to a full-pill corner radius with consistent 18sp bold labels (#32).
+- Changing the percentage mode safely re-posts an active monitor, stops the session if posting fails, and restores Auto to the original auto-start lock instead of recomputing lower-remaining (#33).
+
+### Development
+
+- Expanded regression coverage for Now Bar percent-mode selection, settings-change focus resolution, and failed applyPercentModeChange cleanup (#33).
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.3.2...v2.3.3 <!-- pragma: allowlist secret -->
+
 ## 2.3.2 — 2026-07-15
 
 ### Added
