@@ -167,9 +167,16 @@ public final class WearPreferences {
                 updatedAtMillis);
     }
 
+    /** True when settings ask for a live monitor, even before usage arrives to post it. */
+    public static boolean isMonitorDesired(Context context) {
+        return prefs(context).getBoolean(KEY_MONITOR_ACTIVE, false);
+    }
+
     public static boolean isMonitorActive(Context context) {
+        // Missing until must not count as active — that race previously cleared the
+        // desired monitor when settings arrived before the usage DataItem.
         return prefs(context).getBoolean(KEY_MONITOR_ACTIVE, false)
-                && prefs(context).getLong(KEY_MONITOR_UNTIL, Long.MAX_VALUE)
+                && prefs(context).getLong(KEY_MONITOR_UNTIL, 0L)
                 > System.currentTimeMillis();
     }
 

@@ -77,20 +77,26 @@ public final class WearOngoingMonitor {
         UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.weekly, System.currentTimeMillis());
         if (isActive(context)) {
             post(context, snapshot);
-        } else if (NowBarAutoStart.shouldStart(settings.autoStartEnabled, settings.metric,
+        } else if (WearPreferences.isMonitorDesired(context)
+                || NowBarAutoStart.shouldStart(settings.autoStartEnabled, settings.metric,
                 settings.threshold, fiveHour, weekly)) {
+            // Desired-from-phone can arrive before usage; start once the snapshot exists.
             start(context);
         }
     }
 
     public static synchronized void restore(Context context) {
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
-        if (!isActive(context)) {
+        if (snapshot == null) {
+            // Keep any desired active flag; a later usage/monitor payload will start posting.
+            return;
+        }
+        if (!isActive(context) && !WearPreferences.isMonitorDesired(context)) {
             updateFromSnapshot(context, snapshot);
             return;
         }
-        if (snapshot == null || !post(context, snapshot)) {
-            stop(context, false);
+        if (!post(context, snapshot)) {
+            Log.w(TAG, "Could not restore Wear monitor; leaving desired state for retry");
         }
     }
 

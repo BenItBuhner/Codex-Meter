@@ -50,11 +50,13 @@ public final class WearPhoneSync {
             WearSettingsState state = WearSettingsState.fromJson(new JSONObject(payload));
             boolean applied = WearPreferences.applyRemoteSettings(context, state);
             if (applied) {
-                if (state.monitorActive) {
-                    WearOngoingMonitor.restore(context);
-                } else {
+                if (!state.monitorActive) {
                     WearOngoingMonitor.stop(context, false);
+                } else if (WearPreferences.loadSnapshot(context) != null) {
+                    // Usage may arrive on a separate DataItem; only restore when we can post.
+                    WearOngoingMonitor.restore(context);
                 }
+                // else: keep monitorActive desired flag; usage sync starts the surface later.
             }
             return applied;
         } catch (Exception exception) {
@@ -68,10 +70,10 @@ public final class WearPhoneSync {
             WearMonitorState state = WearMonitorState.fromJson(new JSONObject(payload));
             if (state == null) return false;
             WearPreferences.applyRemoteMonitor(context, state);
-            if (state.active) {
-                WearOngoingMonitor.restore(context);
-            } else {
+            if (!state.active) {
                 WearOngoingMonitor.stop(context, false);
+            } else if (WearPreferences.loadSnapshot(context) != null) {
+                WearOngoingMonitor.restore(context);
             }
             return true;
         } catch (Exception exception) {

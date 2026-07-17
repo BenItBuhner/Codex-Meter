@@ -4,6 +4,7 @@ import android.net.Uri;
 import android.util.Log;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.WearableListenerService;
 import dev.bennett.codexmeter.AppPreferences;
@@ -20,18 +21,30 @@ public final class PhoneWearListenerService extends WearableListenerService {
             if (event.getType() != DataEvent.TYPE_CHANGED || event.getDataItem() == null) {
                 continue;
             }
-            Uri uri = event.getDataItem().getUri();
+            DataItem item = event.getDataItem();
+            Uri uri = item.getUri();
             String path = uri == null ? "" : uri.getPath();
             if (!WearSyncPaths.PATH_SETTINGS.equals(path)) {
                 continue;
             }
-            applySettings(event);
+            String nodeId = uri == null ? null : uri.getHost();
+            if (!PhoneWearTrust.isTrustedWearNode(this, nodeId)) {
+                Log.w(TAG, "Ignoring settings from untrusted Wear node: " + nodeId);
+                continue;
+            }
+            applySettings(item);
         }
     }
 
     @Override
     public void onMessageReceived(MessageEvent event) {
-        String path = event == null ? "" : event.getPath();
+        if (event == null) return;
+        String nodeId = event.getSourceNodeId();
+        if (!PhoneWearTrust.isTrustedWearNode(this, nodeId)) {
+            Log.w(TAG, "Ignoring message from untrusted Wear node: " + nodeId);
+            return;
+        }
+        String path = event.getPath();
         if (WearSyncPaths.MSG_REFRESH.equals(path)) {
             refreshInBackground();
         } else if (WearSyncPaths.MSG_START_MONITOR.equals(path)) {
@@ -43,11 +56,15 @@ public final class PhoneWearListenerService extends WearableListenerService {
         }
     }
 
-    private void applySettings(DataEvent event) {
+    private void applySettings(DataItem item) {
         try {
-            String payload = PhoneWearSync.payloadString(event.getDataItem());
+            String payload = PhoneWearSync.payloadString(item);
             if (payload == null || payload.isEmpty()) return;
             WearSettingsState remote = WearSettingsState.fromJson(new JSONObject(payload));
+            if (remote == null || !WearSettingsState.SOURCE_WEAR.equals(remote.sourceNode)) {
+                Log.w(TAG, "Ignoring settings payload without Wear source_node");
+                return;
+            }
             PhoneWearSync.applyRemoteSettings(getApplicationContext(), remote);
         } catch (Exception exception) {
             Log.w(TAG, "Could not apply Wear settings payload", exception);

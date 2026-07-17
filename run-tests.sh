@@ -293,6 +293,19 @@ grep -q 'com.google.android.wearable.standalone' "$ROOT/wear/src/main/AndroidMan
 grep -q 'codex_meter_wear' "$ROOT/wear/src/main/res/values/wear.xml"
 grep -q 'codex_meter_phone' "$ROOT/app/src/main/res/values/wear.xml"
 grep -q 'PhoneWearListenerService' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'PhoneWearTrust.isTrustedWearNode' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearListenerService.java"
+grep -q 'CAPABILITY_WEAR' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearTrust.java"
+grep -q 'isMonitorDesired' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'WearPreferences.settingsState(this, 0L,' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSettingsActivity.java"
+! grep -nE 'monitorSwitch\.isChecked\(\),\s*$' -A1 \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSettingsActivity.java" \
+  | grep -qE '^\s*30,'
+
+
 grep -q 'PhoneWearSync.pushUsage' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
 grep -q 'WearSurfaceMode.resolve' \
