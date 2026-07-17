@@ -1,0 +1,172 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.indexscroll",
+    "module": "indexscroll",
+    "version": "1.0.0+1.0.0-sesl8+rev0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.14.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.7.1+1.0.18-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.customview",
+          "module": "customview",
+          "version": {
+            "requires": "1.2.0-rc01+1.0.0-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.recyclerview",
+          "module": "recyclerview",
+          "version": {
+            "requires": "1.4.0+1.0.12-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "indexscroll-1.0.0+1.0.0-sesl8+rev0.aar",
+          "url": "indexscroll-1.0.0+1.0.0-sesl8+rev0.aar",
+          "size": 45868,
+          "sha512": "6956746c25b60e6cd4c06c866cce3858940dbc1209bbf1b1496ce9418512ebf62543dc2c777d1a791bd4a08ade8bbce141f13ded5b493fc3c27accb1dd730618",
+          "sha256": "809c35297f32a7ede9fe7ee6b0e4fbeba834febffc4cdfe3ea7646379e9e23f1",
+          "sha1": "3578dc9628f3e7ee0a932107c3001b3706e2b2b5",
+          "md5": "dab7eaea94f1a00ca3500dddf08372e7"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.7.1+1.0.18-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.customview",
+          "module": "customview",
+          "version": {
+            "requires": "1.2.0-rc01+1.0.0-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.recyclerview",
+          "module": "recyclerview",
+          "version": {
+            "requires": "1.4.0+1.0.12-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "indexscroll-1.0.0+1.0.0-sesl8+rev0.aar",
+          "url": "indexscroll-1.0.0+1.0.0-sesl8+rev0.aar",
+          "size": 45868,
+          "sha512": "6956746c25b60e6cd4c06c866cce3858940dbc1209bbf1b1496ce9418512ebf62543dc2c777d1a791bd4a08ade8bbce141f13ded5b493fc3c27accb1dd730618",
+          "sha256": "809c35297f32a7ede9fe7ee6b0e4fbeba834febffc4cdfe3ea7646379e9e23f1",
+          "sha1": "3578dc9628f3e7ee0a932107c3001b3706e2b2b5",
+          "md5": "dab7eaea94f1a00ca3500dddf08372e7"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "indexscroll-1.0.0+1.0.0-sesl8+rev0-sources.jar",
+          "url": "indexscroll-1.0.0+1.0.0-sesl8+rev0-sources.jar",
+          "size": 19061,
+          "sha512": "0e30d74207652c5035cd338fa066e268d6d2fea01f3809a183f616821692d3aa46cb2409d708cdb7b6b49639fc986c7ffba529f0c2c51f81c2b3f8fc0a63c143",
+          "sha256": "32929188586bef49f726861bf04234ddebba4f1171481acd6004f0d6981a9939",
+          "sha1": "e296ddaafebdc1366406ce145200cf7d9ad7e8a6",
+          "md5": "5b1cd8d5aa405c809959c10710ddd64d"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "indexscroll-1.0.0+1.0.0-sesl8+rev0-javadoc.jar",
+          "url": "indexscroll-1.0.0+1.0.0-sesl8+rev0-javadoc.jar",
+          "size": 333666,
+          "sha512": "f009fddb99dcb1c75f48f1bd559368e7eaabe368f3e3d24371fe5ad2f614fc5119320f468b2ccd425dd12424e6501f316e6a6eb8e6e2f43a76d6df7d883dd482",
+          "sha256": "c8adb6ab229749e46b3a046e3f6d14a276b2587ed82260118bc7104dcd4fdc7f",
+          "sha1": "67790bb621c42aa90468ceac3ffa0f3e856517aa",
+          "md5": "0c8e6e4095140d52e0102c0f413dc095"
+        }
+      ]
+    }
+  ]
+}

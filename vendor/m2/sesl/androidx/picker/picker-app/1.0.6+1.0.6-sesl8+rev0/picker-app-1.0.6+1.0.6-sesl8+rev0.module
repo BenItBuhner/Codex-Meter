@@ -1,0 +1,186 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.picker",
+    "module": "picker-app",
+    "version": "1.0.6+1.0.6-sesl8+rev0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.14.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.7.1+1.0.18-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.recyclerview",
+          "module": "recyclerview",
+          "version": {
+            "requires": "1.4.0+1.0.12-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-app-1.0.6+1.0.6-sesl8+rev0.aar",
+          "url": "picker-app-1.0.6+1.0.6-sesl8+rev0.aar",
+          "size": 511481,
+          "sha512": "bdbd789cc0de091ea86cba1ab906d22861529754344494b024ac5e8eb0f9da9d3665f85a773852c1d12ffd677d61e5e0a19d147c28684db2b745f321f4d8a26c",
+          "sha256": "b6f946df1dbd7c58e58960182a1f0211b3a62862b2b241708239b9d83353e939",
+          "sha1": "7e5f0bd611f5004e5092e5b00f0976cd3c30a602",
+          "md5": "59ac83ad9bb5d4c8bde29494401ab9c2"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-parcelize-runtime",
+          "version": {
+            "requires": "2.1.21"
+          }
+        },
+        {
+          "group": "androidx.constraintlayout",
+          "module": "constraintlayout",
+          "version": {
+            "requires": "2.0.1"
+          }
+        },
+        {
+          "group": "androidx.compose.runtime",
+          "module": "runtime-android",
+          "version": {
+            "requires": "1.8.2"
+          }
+        },
+        {
+          "group": "com.facebook.shimmer",
+          "module": "shimmer",
+          "version": {
+            "requires": "0.5.0"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.7.1+1.0.18-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.16.0+1.0.7-sesl8+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.recyclerview",
+          "module": "recyclerview",
+          "version": {
+            "requires": "1.4.0+1.0.12-sesl8+rev0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-app-1.0.6+1.0.6-sesl8+rev0.aar",
+          "url": "picker-app-1.0.6+1.0.6-sesl8+rev0.aar",
+          "size": 511481,
+          "sha512": "bdbd789cc0de091ea86cba1ab906d22861529754344494b024ac5e8eb0f9da9d3665f85a773852c1d12ffd677d61e5e0a19d147c28684db2b745f321f4d8a26c",
+          "sha256": "b6f946df1dbd7c58e58960182a1f0211b3a62862b2b241708239b9d83353e939",
+          "sha1": "7e5f0bd611f5004e5092e5b00f0976cd3c30a602",
+          "md5": "59ac83ad9bb5d4c8bde29494401ab9c2"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-app-1.0.6+1.0.6-sesl8+rev0-sources.jar",
+          "url": "picker-app-1.0.6+1.0.6-sesl8+rev0-sources.jar",
+          "size": 164446,
+          "sha512": "4510c913fedb30f452ffef2550b42aac52e6cf7a0d58e85bb80121512695c2b22e11908c53d3c90af960b027c5b943b69a372bff0dc1aba638bf9471cbd1e085",
+          "sha256": "25a0f427196dccb70e4de7037a75e4701fd139797b77f2c78ae2159b27a00344",
+          "sha1": "1603d0bb9483c9c5998c014526bcf4f5eb4806e0",
+          "md5": "f4ca6b8efe2e9189213316c1ae8022d0"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-app-1.0.6+1.0.6-sesl8+rev0-javadoc.jar",
+          "url": "picker-app-1.0.6+1.0.6-sesl8+rev0-javadoc.jar",
+          "size": 1122417,
+          "sha512": "5b5a5927354ac65074850174480d9cd0129a65b26489b9b8f9f645e8b57917e23562995dc1f94618cb7e5ddba85e2e68f379da16e061fc508fc238d65bd26326",
+          "sha256": "a3b404b2116fc3d458205cc69763ca877e14c44415a07d33b50b2dbd8bd81eee",
+          "sha1": "17975422de2c76335b253a53d4309f6a944dab20",
+          "md5": "6486d7809bbd4ab3fce9035d00fc37a4"
+        }
+      ]
+    }
+  ]
+}

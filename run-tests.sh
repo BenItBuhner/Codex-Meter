@@ -320,6 +320,11 @@ grep -q 'KEY_MONITOR_DESIRED' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPreferences.java"
 ! grep -q 'setMonitorActive(context, true);' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+# Vendored SESL transitive deps keep phone Android CI working without GitHub Packages auth.
+test -f "$ROOT/vendor/m2/sesl/androidx/appcompat/appcompat/1.7.1+1.0.21-sesl8+rev8/appcompat-1.7.1+1.0.21-sesl8+rev8.aar"
+test -f "$ROOT/vendor/m2/sesl/com/google/android/material/material/1.12.0+1.0.32-sesl8+rev3/material-1.12.0+1.0.32-sesl8+rev3.aar"
+grep -q ':wear:assembleRelease' "$ROOT/build.sh"
+grep -q ':wear:lintRelease' "$ROOT/lint.sh"
 grep -q 'WearPreferences.settingsState(this, 0L,' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSettingsActivity.java"
 ! grep -nE 'monitorSwitch\.isChecked\(\),\s*$' -A1 \
