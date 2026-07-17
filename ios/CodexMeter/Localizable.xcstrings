@@ -1,0 +1,293 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%" : {
+
+    },
+    "%lld" : {
+
+    },
+    "%lld minutes" : {
+
+    },
+    "%lld percent remaining" : {
+
+    },
+    "%lld reset %@ available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld reset %2$@ available"
+          }
+        }
+      }
+    },
+    "%lld%% or lower" : {
+
+    },
+    "2 hours" : {
+
+    },
+    "5-hour" : {
+
+    },
+    "About" : {
+
+    },
+    "About Codex Meter" : {
+
+    },
+    "Account" : {
+
+    },
+    "Allow notifications" : {
+
+    },
+    "Always" : {
+
+    },
+    "An unofficial native client for viewing Codex allowance and earned reset credits." : {
+
+    },
+    "Appearance" : {
+
+    },
+    "Applying…" : {
+
+    },
+    "BenItBuhner/Codex-Meter" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "ChatGPT account" : {
+
+    },
+    "Close" : {
+
+    },
+    "Codex Meter" : {
+
+    },
+    "Codex Meter has no analytics, advertising, account system, or relay server. Authentication and Codex account requests go directly to OpenAI only when needed for the feature you selected." : {
+
+    },
+    "Codex Meter is not affiliated with or endorsed by OpenAI. ChatGPT and Codex are trademarks of their respective owner. Account routes used by this app may change without notice." : {
+
+    },
+    "Codex Meter uses OpenAI's device-code flow. Your password is entered only on the OpenAI-controlled page and is never visible to this app." : {
+
+    },
+    "Codex reset" : {
+
+    },
+    "Connect account" : {
+
+    },
+    "Connect your ChatGPT account to see the current five-hour and weekly windows, reset times, and earned reset credits." : {
+
+    },
+    "Copy code" : {
+
+    },
+    "Credentials" : {
+
+    },
+    "Credentials and cached account data will be removed from this device and its widgets." : {
+
+    },
+    "Demo data — no OpenAI requests" : {
+
+    },
+    "Demo mode" : {
+
+    },
+    "Demo mode is entirely local and does not contact OpenAI." : {
+
+    },
+    "Demo mode is local and never contacts OpenAI." : {
+
+    },
+    "Done" : {
+
+    },
+    "Enter this one-time code" : {
+
+    },
+    "Expiry details are unavailable; OpenAI will choose an eligible credit." : {
+
+    },
+    "Explore demo" : {
+
+    },
+    "Get one-time code" : {
+
+    },
+    "Important" : {
+
+    },
+    "iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule." : {
+
+    },
+    "Last updated July 12, 2026" : {
+
+    },
+    "Leave Demo" : {
+
+    },
+    "License" : {
+
+    },
+    "Local data and privacy" : {
+
+    },
+    "Local storage" : {
+
+    },
+    "Low usage alerts" : {
+
+    },
+    "Low when remaining reaches" : {
+
+    },
+    "Mode" : {
+
+    },
+    "Next credit expires %@ (%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Next credit expires %1$@ (%2$@)."
+          }
+        }
+      }
+    },
+    "No reset available" : {
+
+    },
+    "No resets available" : {
+
+    },
+    "Notifications" : {
+
+    },
+    "OAuth tokens are stored in Apple Keychain on this device. Widgets never receive tokens or account identifiers." : {
+
+    },
+    "OAuth tokens stay in Apple Keychain. Requests go directly to OpenAI for authentication and Codex account data. Widgets receive only a sanitized usage snapshot." : {
+
+    },
+    "One-time code %@" : {
+
+    },
+    "Open ChatGPT sign-in" : {
+
+    },
+    "Open notification settings" : {
+
+    },
+    "Open-source notices" : {
+
+    },
+    "OpenAI" : {
+
+    },
+    "Original project" : {
+
+    },
+    "Plan" : {
+
+    },
+    "Preferred interval" : {
+
+    },
+    "Privacy" : {
+
+    },
+    "Privacy policy" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Refresh on launch" : {
+
+    },
+    "Refresh usage" : {
+
+    },
+    "Refreshing usage" : {
+
+    },
+    "Reset available" : {
+
+    },
+    "Resets available" : {
+
+    },
+    "Resets in" : {
+
+    },
+    "Send test notification" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Sign in with ChatGPT" : {
+
+    },
+    "Sign out" : {
+
+    },
+    "Sign out of ChatGPT?" : {
+
+    },
+    "Source and credits" : {
+
+    },
+    "System permission" : {
+
+    },
+    "The last successful usage response is cached for offline display. Signing out removes credentials, cached account data, background requests, and scheduled notifications." : {
+
+    },
+    "This action consumes one available reset credit and cannot be undone." : {
+
+    },
+    "Unavailable" : {
+
+    },
+    "Use 1 reset" : {
+
+    },
+    "Use one Codex reset?" : {
+
+    },
+    "Use reset" : {
+
+    },
+    "Using a credit asks OpenAI to reset the currently used Codex rate-limit windows. The app reloads usage and the remaining credit inventory afterward." : {
+
+    },
+    "Version %@" : {
+
+    },
+    "Waiting for data" : {
+
+    },
+    "Waiting for secure sign-in…" : {
+
+    },
+    "Weekly" : {
+
+    },
+    "Your Codex allowance at a glance" : {
+
+    }
+  },
+  "version" : "1.0"
+}

@@ -1,0 +1,22 @@
+{
+  "plan_type": "plus",
+  "rate_limit": {
+    "allowed": true,
+    "limit_reached": false,
+    "primary_window": {
+      "used_percent": 37.4,
+      "limit_window_seconds": 18000,
+      "reset_after_seconds": 5400,
+      "reset_at": 2000000000
+    },
+    "secondary_window": {
+      "used_percent": 61.8,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 200000,
+      "reset_at": 2000200000
+    }
+  },
+  "rate_limit_reset_credits": {
+    "available_count": 3
+  }
+}

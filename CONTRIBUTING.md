@@ -1,6 +1,15 @@
 # Contributing
 
-## Local setup
+This repository is a monorepo:
+
+- **Android** lives at the repository root (Gradle, `app/`, `shared/`, `wear/`, `tests/`).
+- **iOS** lives under [`ios/`](ios/).
+
+Keep platform-specific changes in the matching tree. Prefer focused commits and
+update tests with behavior changes. Do not commit credentials, tokens, or
+generated build artifacts.
+
+## Android local setup
 
 Install JDK 17 or newer and Android SDK Platform 36 with Build Tools 36.x. Set
 `ANDROID_SDK_ROOT` or `ANDROID_HOME` to the SDK directory.
@@ -17,8 +26,15 @@ Run the core checks, release build, and Android lint with:
 ./lint.sh
 ```
 
-## Changes
+## iOS local setup
 
-- Keep commits focused and descriptive.
-- Add or update tests with behavior changes.
-- Do not commit credentials, tokens, or generated build artifacts.
+Install Xcode 26 or newer. From `ios/`:
+
+```bash
+swift test --package-path CodexMeterCore
+xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+```
+
+See [`ios/README.md`](ios/README.md) for device signing, App Groups, and release
+checklist notes.

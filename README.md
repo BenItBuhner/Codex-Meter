@@ -1,8 +1,17 @@
-# Codex Meter for Android
+# Codex Meter
 
-Codex Meter is an unofficial native Android application and widget for viewing the Codex allowance attached to a signed-in ChatGPT account. It displays the rolling five-hour and weekly limits, reset times, reset credits, home-screen widgets, Samsung One UI lock-screen widgets, and optional reset notifications.
+Codex Meter is an unofficial open-source client for viewing the Codex allowance
+attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 
-## Version 2.3.3
+| Path | Platform | Notes |
+|------|----------|--------|
+| Repository root (`app/`, `wear/`, Gradle, etc.) | **Android** | Primary phone app plus Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
+| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable behavior (meters, reset credits, notifications, demo mode) |
+
+There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
+directly and stores credentials only on-device.
+
+## Android (root) — Version 2.3.3
 
 Version 2.3.3 adds a Now Bar percentage-mode setting (Auto / 5-hour / Weekly), clearer weekly Live Update labels, and consistent full-pill action buttons.
 
@@ -49,7 +58,9 @@ The app includes:
 
 ## Build from source
 
-The project uses Gradle with the OneUI-Design and oneui-icons libraries so its dashboards use Samsung-style SESL components, typography, and iconography.
+### Android
+
+The Android project uses Gradle with the OneUI-Design and oneui-icons libraries so its dashboards use Samsung-style SESL components, typography, and iconography.
 
 Requirements:
 
@@ -65,6 +76,17 @@ Requirements:
 ```
 
 `build.sh` assembles the release APK with Gradle and signs it with a local development key under `.local-signing/`. That locally signed APK will not install over the distributed release build.
+
+### iOS
+
+See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 26+.
+
+```bash
+cd ios
+swift test --package-path CodexMeterCore
+xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+```
 
 ## Releases
 
