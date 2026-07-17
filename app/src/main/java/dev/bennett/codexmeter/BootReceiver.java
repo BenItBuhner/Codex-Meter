@@ -17,6 +17,8 @@ public final class BootReceiver extends BroadcastReceiver {
                     AppPreferences.loadResetCredits(context));
             NowBarManager.restore(context);
             if ("android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
+                UpdateNotificationManager.dismiss(context);
+                UpdatePreferences.clearNotifiedVersion(context);
                 WidgetUpgradeRepair.afterPackageReplaced(context);
             } else {
                 WidgetUpgradeRepair.runIfNeeded(context);

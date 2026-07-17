@@ -9,6 +9,9 @@ import java.util.List;
 public final class UpdatePreferences {
     private static final String PREFS = "codex_meter_updates_v1";
     private static final String KEY_AUTOMATIC = "automatic";
+    private static final String KEY_NOTIFY = "notify_updates";
+    private static final String KEY_CHECK_INTERVAL_HOURS = "check_interval_hours";
+    private static final String KEY_NOTIFIED_VERSION = "notified_version";
     private static final String KEY_ETAG = "etag";
     private static final String KEY_RELEASES = "releases";
     private static final String KEY_LAST_CHECK = "last_check";
@@ -27,7 +30,56 @@ public final class UpdatePreferences {
     }
 
     public static void setAutomaticChecks(Context context, boolean enabled) {
-        prefs(context).edit().putBoolean(KEY_AUTOMATIC, enabled).apply();
+        SharedPreferences.Editor editor = prefs(context).edit().putBoolean(KEY_AUTOMATIC, enabled);
+        if (!enabled) {
+            editor.putBoolean(KEY_NOTIFY, false);
+        }
+        editor.apply();
+        if (!enabled) {
+            UpdateNotificationManager.dismiss(context);
+            clearNotifiedVersion(context);
+        }
+    }
+
+    public static boolean notifyUpdatesEnabled(Context context) {
+        return automaticChecks(context) && prefs(context).getBoolean(KEY_NOTIFY, false);
+    }
+
+    public static void setNotifyUpdatesEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_NOTIFY, enabled && automaticChecks(context)).apply();
+        if (!enabled) {
+            UpdateNotificationManager.dismiss(context);
+            clearNotifiedVersion(context);
+        }
+    }
+
+    public static int checkIntervalHours(Context context) {
+        return UpdateCheckFrequency.normalize(
+                prefs(context).getInt(KEY_CHECK_INTERVAL_HOURS, UpdateCheckFrequency.DAILY));
+    }
+
+    public static void setCheckIntervalHours(Context context, int hours) {
+        prefs(context).edit()
+                .putInt(KEY_CHECK_INTERVAL_HOURS, UpdateCheckFrequency.normalize(hours))
+                .apply();
+    }
+
+    public static String notifiedVersion(Context context) {
+        return prefs(context).getString(KEY_NOTIFIED_VERSION, "");
+    }
+
+    public static void setNotifiedVersion(Context context, String version) {
+        SharedPreferences.Editor editor = prefs(context).edit();
+        if (version == null || version.trim().isEmpty()) {
+            editor.remove(KEY_NOTIFIED_VERSION);
+        } else {
+            editor.putString(KEY_NOTIFIED_VERSION, version.trim());
+        }
+        editor.apply();
+    }
+
+    public static void clearNotifiedVersion(Context context) {
+        prefs(context).edit().remove(KEY_NOTIFIED_VERSION).apply();
     }
 
     public static long lastCheckMillis(Context context) {
@@ -62,6 +114,7 @@ public final class UpdatePreferences {
             cachedReleases = parsed;
         }
         broadcast(context);
+        UpdateNotificationManager.onReleasesUpdated(context);
     }
 
     public static void markNotModified(Context context) {
@@ -70,6 +123,7 @@ public final class UpdatePreferences {
                 .remove(KEY_LAST_ERROR)
                 .apply();
         broadcast(context);
+        UpdateNotificationManager.onReleasesUpdated(context);
     }
 
     public static void saveError(Context context, String error) {

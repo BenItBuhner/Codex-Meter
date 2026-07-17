@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 public final class UpdateActivity extends AppCompatActivity {
     public static final String EXTRA_VERSION = "release_version";
     public static final String EXTRA_FORCE_CHECK = "force_check";
+    public static final String EXTRA_START_INSTALL = "start_install";
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private LinearLayout content;
@@ -28,6 +29,7 @@ public final class UpdateActivity extends AppCompatActivity {
     private TextView status;
     private boolean waitingForInstallPermission;
     private boolean operationRunning;
+    private boolean startInstallPending;
     private boolean dark;
 
     @Override
@@ -39,7 +41,26 @@ public final class UpdateActivity extends AppCompatActivity {
         String requested = getIntent().getStringExtra(EXTRA_VERSION);
         release = UpdatePreferences.findVersion(this, requested);
         boolean force = getIntent().getBooleanExtra(EXTRA_FORCE_CHECK, false);
+        startInstallPending = getIntent().getBooleanExtra(EXTRA_START_INSTALL, false);
+        UpdateNotificationManager.dismiss(this);
         if (release == null || force) {
+            checkReleases(requested);
+        } else {
+            render();
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String requested = intent.getStringExtra(EXTRA_VERSION);
+        startInstallPending = intent.getBooleanExtra(EXTRA_START_INSTALL, false);
+        UpdateNotificationManager.dismiss(this);
+        if (requested != null && !requested.trim().isEmpty()) {
+            release = UpdatePreferences.findVersion(this, requested);
+        }
+        if (release == null) {
             checkReleases(requested);
         } else {
             render();
@@ -196,9 +217,17 @@ public final class UpdateActivity extends AppCompatActivity {
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 56));
         historyParams.setMargins(0, Ui.dp(this, 20), 0, 0);
         content.addView(history, historyParams);
+
+        if (startInstallPending && comparison > 0 && !irreversible) {
+            startInstallPending = false;
+            content.post(this::requestInstall);
+        } else {
+            startInstallPending = false;
+        }
     }
 
     private void renderError(String message) {
+        startInstallPending = false;
         content.removeAllViews();
         LinearLayout card = Ui.card(this, dark);
         TextView title = Ui.text(this, "Update check unavailable", 20, Ui.mainText(dark));
