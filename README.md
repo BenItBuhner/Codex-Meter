@@ -5,13 +5,14 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 
 | Path | Platform | Notes |
 |------|----------|--------|
-| Repository root (`app/`, `wear/`, Gradle, etc.) | **Android** | Primary phone app plus Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
+| Repository root | Shared | Docs, license, changelog, CI, convenience script wrappers |
+| [`android/`](android/) | **Android** | Phone app + Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
 | [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable behavior (meters, reset credits, notifications, demo mode) |
 
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android (root) — Version 2.3.3
+## Android — Version 2.3.3
 
 Version 2.3.3 adds a Now Bar percentage-mode setting (Auto / 5-hour / Weekly), clearer weekly Live Update labels, and consistent full-pill action buttons.
 
@@ -60,7 +61,7 @@ The app includes:
 
 ### Android
 
-The Android project uses Gradle with the OneUI-Design and oneui-icons libraries so its dashboards use Samsung-style SESL components, typography, and iconography.
+See [`android/README.md`](android/README.md). The Android project uses Gradle with the OneUI-Design and oneui-icons libraries so its dashboards use Samsung-style SESL components, typography, and iconography.
 
 Requirements:
 
@@ -70,12 +71,14 @@ Requirements:
 - `ANDROID_SDK_ROOT` or `ANDROID_HOME` configured
 - A GitHub Packages token in `GH_ACCESS_TOKEN` (with `read:packages`) and your username in `GH_USERNAME` when the OneUI-Design dependencies are not already cached
 
+From the repository root:
+
 ```bash
 ./run-tests.sh
 ./build.sh
 ```
 
-`build.sh` assembles the release APK with Gradle and signs it with a local development key under `.local-signing/`. That locally signed APK will not install over the distributed release build.
+Or from `android/` directly. `build.sh` assembles the release APKs with Gradle and signs them with a local development key under `android/.local-signing/`. Those locally signed APKs will not install over the distributed release build. Artifacts land in `android/dist/`.
 
 ### iOS
 
@@ -90,7 +93,7 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` (for example `v2.3.3`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases.
+Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.3.3`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
 
 ## Platform stability
 

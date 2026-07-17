@@ -5,9 +5,9 @@ ChatGPT account. It shows the short and weekly usage windows, reset times,
 earned reset credits, local notifications, and WidgetKit widgets.
 
 This directory is the **iOS** package of the Codex Meter monorepo. The Android
-application lives at the repository root. Behavior is aligned with the Android
-app where platform APIs allow; it does not include Samsung One UI, Now Bar /
-Live Update monitors, or Android in-app APK updates.
+application lives under [`../android/`](../android/). Behavior is aligned with
+the Android app where platform APIs allow; it does not include Samsung One UI,
+Now Bar / Live Update monitors, or Android in-app APK updates.
 
 Portable notification features from Android 2.1/2.2 are included: unexpected
 refill alerts, independent reset-credit increase alerts, and configurable
