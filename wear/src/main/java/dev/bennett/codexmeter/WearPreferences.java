@@ -51,6 +51,7 @@ public final class WearPreferences {
                     .putBoolean(KEY_SYNCED, true)
                     .putBoolean(KEY_CONNECTED, true)
                     .apply();
+            WearSurfaceUpdater.requestAll(context);
         } catch (Exception ignored) {
         }
     }
@@ -130,6 +131,7 @@ public final class WearPreferences {
             editor.putLong(KEY_LAST_LOCAL_SETTINGS_AT, now);
         }
         editor.apply();
+        WearSurfaceUpdater.requestAll(context);
     }
 
     public static void applyRemoteMonitor(Context context, WearMonitorState state) {
@@ -151,6 +153,7 @@ public final class WearPreferences {
             editor.putString(KEY_MONITOR_FOCUS, state.focusMetric);
         }
         editor.apply();
+        WearSurfaceUpdater.requestAll(context);
     }
 
     public static WearMonitorState monitorState(Context context, long updatedAtMillis) {
@@ -207,6 +210,7 @@ public final class WearPreferences {
                 .putInt(KEY_REFRESH_MINUTES, state.refreshMinutes)
                 .putLong(local ? KEY_LAST_LOCAL_SETTINGS_AT : KEY_LAST_APPLIED_SETTINGS_AT, stamp)
                 .apply();
+        WearSurfaceUpdater.requestAll(context);
     }
 
     private static SharedPreferences prefs(Context context) {

@@ -36,6 +36,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearUsageState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
@@ -271,5 +272,20 @@ grep -q 'WearSurfaceMode.resolve' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java"
 grep -q 'samsung_compatibility' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java"
+for provider in \
+  UsageOverviewTileService FiveHourTileService WeeklyTileService \
+  ResetCountdownTileService MonitorStatusTileService \
+  FiveHourComplicationService WeeklyComplicationService \
+  DualUsageComplicationService NextResetComplicationService; do
+  test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/${provider}.java"
+  grep -q "$provider" "$ROOT/wear/src/main/AndroidManifest.xml"
+done
+grep -q 'WearSurfaceUpdater' "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSurfaceUpdater.java"
+grep -q 'BIND_TILE_PROVIDER' "$ROOT/wear/src/main/AndroidManifest.xml"
+grep -q 'ACTION_COMPLICATION_UPDATE_REQUEST' "$ROOT/wear/src/main/AndroidManifest.xml"
+grep -q 'WearGlanceFormat' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
+grep -q 'One UI Watch' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
 
 echo "Parser, updater, OAuth, onboarding, reset-credit, alert, widget, and Wear sync source checks passed."

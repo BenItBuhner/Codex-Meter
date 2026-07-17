@@ -125,11 +125,11 @@ public final class WearSettingsActivity extends Activity {
                 WearOngoingMonitor.canUseLocalLiveUpdates(this));
         String summary;
         if (resolved == WearSurfaceMode.LIVE_UPDATE) {
-            summary = "Wear OS 7+ tries local Live Updates; Ongoing Activity still powers chips.";
+            summary = "Wear OS 7+ maps this to local Live Updates when allowed; Ongoing Activity still powers the watch chip and Recents.";
         } else if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(selected)) {
-            summary = "Samsung phone Now Bar extras do not work on Wear; using Ongoing Activity.";
+            summary = "Samsung phone Now Bar extras do not exist on Wear. Use Tiles, Complications, and Ongoing Activity here.";
         } else {
-            summary = "Using Wear Ongoing Activity for watch-face chip and Recents.";
+            summary = "Auto picks the best Wear-native surface: Ongoing Activity now, local Live Update when supported.";
         }
         displayModeSummary.setText(summary);
     }

@@ -47,5 +47,12 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("androidx.wear:wear:1.3.0")
     implementation("androidx.wear:wear-ongoing:1.0.0")
+    implementation("androidx.wear.tiles:tiles:1.4.1")
+    implementation("androidx.wear.protolayout:protolayout:1.2.1")
+    implementation("androidx.wear.protolayout:protolayout-material:1.2.1")
+    implementation("androidx.wear.protolayout:protolayout-expression:1.2.1")
+    implementation("androidx.concurrent:concurrent-futures:1.2.0")
     implementation("androidx.core:core:1.15.0")
+    implementation("com.google.guava:guava:33.3.1-android")
+    implementation("androidx.wear.watchface:watchface-complications-data-source:1.2.1")
 }

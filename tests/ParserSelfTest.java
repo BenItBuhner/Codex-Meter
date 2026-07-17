@@ -25,6 +25,7 @@ public final class ParserSelfTest {
         testNowBarDisplayModes();
         testWearSurfaceModes();
         testWearSettingsState();
+        testWearGlanceFormat();
         testNowBarPercentModes();
         testJwtMerge();
         testPkce();
@@ -162,6 +163,41 @@ public final class ParserSelfTest {
         check(normalized.refreshMinutes == 30, "Wear settings normalize refresh interval");
         check(WearSettingsState.SOURCE_WEAR.equals(normalized.sourceNode), "Wear settings preserve Wear source");
         System.out.println("Wear settings JSON preserves normalized sync preferences.");
+    }
+
+    private static void testWearGlanceFormat() {
+        UsageWindow five = new UsageWindow(62, TimeUnit.HOURS.toSeconds(5),
+                TimeUnit.MINUTES.toSeconds(84), 2_000_000_000L);
+        UsageWindow weekly = new UsageWindow(41, TimeUnit.DAYS.toSeconds(7),
+                TimeUnit.DAYS.toSeconds(3), 2_100_000_000L);
+        UsageSnapshot snapshot = new UsageSnapshot("demo", true, false, five, weekly,
+                System.currentTimeMillis());
+        check("38%".equals(WearGlanceFormat.remainingPercentText(five)),
+                "five-hour remaining percent text");
+        check("59%".equals(WearGlanceFormat.remainingPercentText(weekly)),
+                "weekly remaining percent text");
+        check("--".equals(WearGlanceFormat.remainingPercentText(null)),
+                "missing window shows placeholder");
+        check(Math.abs(WearGlanceFormat.remainingProgress(five) - 0.38f) < 0.001f,
+                "remaining progress fraction matches percent");
+        check("38·59".equals(WearGlanceFormat.dualShortText(snapshot)),
+                "dual short complication text");
+        check(WearGlanceFormat.dualLongText(snapshot).contains("5h 38%"),
+                "dual long text includes five-hour");
+        check(WearGlanceFormat.dualLongText(snapshot).contains("Week 59%"),
+                "dual long text includes weekly");
+        long now = System.currentTimeMillis();
+        UsageSnapshot timed = new UsageSnapshot("demo", true, false,
+                new UsageWindow(10, 18000L, 600L, (now + TimeUnit.HOURS.toMillis(2)) / 1000L),
+                new UsageWindow(20, 604800L, 600L, (now + TimeUnit.DAYS.toMillis(2)) / 1000L),
+                now);
+        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(timed, now)),
+                "next reset prefers the sooner five-hour window");
+        check(WearGlanceFormat.nextResetRelativeText(timed, now).contains("h"),
+                "next reset relative text includes hours");
+        check(WearGlanceFormat.nextResetLongText(timed, now).startsWith("Resets in "),
+                "next reset long text is prefixed");
+        System.out.println("Wear glance formatting covers tiles and complication text.");
     }
 
     private static void testNowBarPercentModes() {

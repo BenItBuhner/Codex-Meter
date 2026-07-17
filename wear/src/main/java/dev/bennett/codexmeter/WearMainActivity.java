@@ -77,12 +77,10 @@ public final class WearMainActivity extends Activity {
 
     private void refreshUi() {
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(this);
-        UsageWindow fiveHour = snapshot == null ? null
-                : UsageSnapshot.currentWindow(snapshot.fiveHour, System.currentTimeMillis());
-        UsageWindow weekly = snapshot == null ? null
-                : UsageSnapshot.currentWindow(snapshot.weekly, System.currentTimeMillis());
-        fiveHourValue.setText("5h " + remainingText(fiveHour));
-        weeklyValue.setText("Weekly " + remainingText(weekly));
+        UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
+        UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
+        fiveHourValue.setText(WearGlanceFormat.remainingPercentText(fiveHour));
+        weeklyValue.setText("Week " + WearGlanceFormat.remainingPercentText(weekly));
         toggleMonitorButton.setText(WearOngoingMonitor.isActive(this)
                 ? "Stop monitor" : "Start monitor");
         statusValue.setText(statusText());
@@ -99,10 +97,6 @@ public final class WearMainActivity extends Activity {
         String ago = last <= 0L ? "synced" : DateUtils.getRelativeTimeSpanString(
                 last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString();
         return "Phone paired · " + ago;
-    }
-
-    private static String remainingText(UsageWindow window) {
-        return window == null ? "--" : window.remainingPercent() + "%";
     }
 
     private void requestNotificationPermission() {
