@@ -1,0 +1,186 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "—" : {
+
+    },
+    "· W %@" : {
+
+    },
+    "%lld credits" : {
+
+    },
+    "5 hours" : {
+
+    },
+    "5h" : {
+
+    },
+    "5h %@" : {
+
+    },
+    "15%" : {
+
+    },
+    "40%" : {
+
+    },
+    "70%" : {
+
+    },
+    "94%" : {
+
+    },
+    "Accent" : {
+
+    },
+    "Appearance" : {
+
+    },
+    "Blue" : {
+
+    },
+    "Cached" : {
+
+    },
+    "Choose how the widget looks and what happens when you tap it." : {
+
+    },
+    "Codex" : {
+
+    },
+    "Codex allowances" : {
+
+    },
+    "Codex Meter" : {
+
+    },
+    "Configure Codex Meter" : {
+
+    },
+    "Confirm reset" : {
+
+    },
+    "Credits" : {
+
+    },
+    "Dark" : {
+
+    },
+    "Demo" : {
+
+    },
+    "Five-hour allowance" : {
+
+    },
+    "Five-hour and weekly usage with locally updating reset timers." : {
+
+    },
+    "Green" : {
+
+    },
+    "Indigo" : {
+
+    },
+    "Light" : {
+
+    },
+    "Next reset" : {
+
+    },
+    "No usage yet" : {
+
+    },
+    "Open Codex Meter to sign in" : {
+
+    },
+    "Open dashboard" : {
+
+    },
+    "Open the app to refresh" : {
+
+    },
+    "Opens Codex Meter" : {
+
+    },
+    "Orange" : {
+
+    },
+    "percent remaining" : {
+
+    },
+    "percent used" : {
+
+    },
+    "Pink" : {
+
+    },
+    "Purple" : {
+
+    },
+    "Red" : {
+
+    },
+    "Refresh usage" : {
+
+    },
+    "Remaining" : {
+
+    },
+    "Reset unavailable" : {
+
+    },
+    "See your five-hour and weekly Codex allowances and reset credits." : {
+
+    },
+    "Show" : {
+
+    },
+    "Show percent symbol" : {
+
+    },
+    "Sign in or explore demo" : {
+
+    },
+    "Sign in to Codex Meter" : {
+
+    },
+    "Surface opacity" : {
+
+    },
+    "System" : {
+
+    },
+    "Tap action" : {
+
+    },
+    "Teal" : {
+
+    },
+    "Unavailable" : {
+
+    },
+    "Usage display" : {
+
+    },
+    "Used" : {
+
+    },
+    "Week" : {
+
+    },
+    "Weekly" : {
+
+    },
+    "Weekly allowance" : {
+
+    },
+    "Your current five-hour Codex allowance." : {
+
+    },
+    "Your current weekly Codex allowance." : {
+
+    }
+  },
+  "version" : "1.0"
+}

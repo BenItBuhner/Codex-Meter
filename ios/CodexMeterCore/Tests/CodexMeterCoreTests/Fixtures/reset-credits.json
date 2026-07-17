@@ -1,0 +1,42 @@
+{
+  "available_count": 4,
+  "credits": [
+    {
+      "id": "late",
+      "reset_type": "codex",
+      "status": "AVAILABLE",
+      "granted_at": "2026-01-01T10:00:00Z",
+      "expires_at": "2026-08-20T10:00:00Z",
+      "title": "Late credit",
+      "description": "Expires later"
+    },
+    {
+      "id": "expired",
+      "reset_type": "codex",
+      "status": "available",
+      "granted_at": "2026-01-01T10:00:00.123Z",
+      "expires_at": "2026-02-01T10:00:00+00:00"
+    },
+    {
+      "id": "soon",
+      "reset_type": "codex",
+      "status": "available",
+      "granted_at": "2026-01-01T11:00:00+01:00",
+      "expires_at": "2026-07-20T12:30:00+02:00",
+      "title": "Soon credit"
+    },
+    {
+      "id": "no-expiry",
+      "reset_type": "codex",
+      "status": "available",
+      "granted_at": "invalid",
+      "expires_at": ""
+    },
+    {
+      "id": "redeemed",
+      "reset_type": "codex",
+      "status": "redeemed",
+      "expires_at": "2026-07-19T00:00:00Z"
+    }
+  ]
+}
