@@ -44,6 +44,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/tests/ParserSelfTest.java"
@@ -118,6 +119,7 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarActionReceiver.jav
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPreferences.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java"
 grep -q 'Build.VERSION.SDK_INT >= 36' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'codex_live_monitor_v2' \
@@ -156,8 +158,20 @@ grep -q 'NowBarAutoStart.shouldStart' \
   "$ROOT/tests/ParserSelfTest.java"
 grep -q 'NowBarDisplayMode.resolve' \
   "$ROOT/tests/ParserSelfTest.java"
+grep -q 'NowBarPercentMode.resolveFocus' \
+  "$ROOT/tests/ParserSelfTest.java"
+grep -q 'NowBarPercentMode.triggeredFocus' \
+  "$ROOT/tests/ParserSelfTest.java"
 grep -q 'now_bar_display_mode_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'now_bar_percent_mode_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'NowBarPreferences.getPercentMode' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'applyPercentModeChange' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'KEY_FOCUS_METRIC' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'Live notifications for all apps' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 

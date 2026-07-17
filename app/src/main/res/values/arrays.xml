@@ -11,6 +11,17 @@
         <item>samsung_compatibility</item>
     </string-array>
 
+    <string-array name="now_bar_percent_mode_entries">
+        <item>Auto</item>
+        <item>5-hour usage</item>
+        <item>Weekly usage</item>
+    </string-array>
+    <string-array name="now_bar_percent_mode_values">
+        <item>auto</item>
+        <item>five_hour</item>
+        <item>weekly</item>
+    </string-array>
+
     <array name="widget_support_cell_sizes">
         <item>2x1</item>
         <item>2x2</item>

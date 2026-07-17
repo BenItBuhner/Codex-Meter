@@ -12,6 +12,7 @@ public final class NowBarPreferences {
     private static final String KEY_AUTO_ENABLED = "auto_enabled";
     private static final String KEY_DISPLAY_MODE = "display_mode";
     private static final String KEY_METRIC = "metric";
+    private static final String KEY_PERCENT_MODE = "percent_mode";
     private static final String KEY_SUPPRESS_UNTIL = "suppress_until";
     private static final String KEY_THRESHOLD = "threshold";
     private static final String PREFS = "codex_meter_now_bar_prefs_v1";
@@ -35,6 +36,16 @@ public final class NowBarPreferences {
     public static void setDisplayMode(Context context, String mode) {
         prefs(context).edit().putString(KEY_DISPLAY_MODE,
                 NowBarDisplayMode.normalize(mode)).apply();
+    }
+
+    public static String getPercentMode(Context context) {
+        return NowBarPercentMode.normalize(prefs(context).getString(KEY_PERCENT_MODE,
+                NowBarPercentMode.AUTO));
+    }
+
+    public static void setPercentMode(Context context, String mode) {
+        prefs(context).edit().putString(KEY_PERCENT_MODE,
+                NowBarPercentMode.normalize(mode)).apply();
     }
 
     public static String getMetric(Context context) {
