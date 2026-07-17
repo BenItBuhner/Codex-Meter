@@ -406,6 +406,8 @@ public actor LiveCodexService: CodexService {
             WidgetCenter.shared.reloadAllTimelines()
             await appCache.clearWidgetError(at: now())
         } catch {
+            // publishSignedOut already best-effort clears any prior snapshot.
+            WidgetCenter.shared.reloadAllTimelines()
             await appCache.recordWidgetError(error.localizedDescription, at: now())
         }
     }

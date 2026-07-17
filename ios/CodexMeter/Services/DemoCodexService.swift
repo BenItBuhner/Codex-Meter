@@ -68,6 +68,8 @@ public actor DemoCodexService: CodexService {
             WidgetCenter.shared.reloadAllTimelines()
             await appCache.clearWidgetError(at: referenceDate)
         } catch {
+            // publishSignedOut already best-effort clears any prior snapshot.
+            WidgetCenter.shared.reloadAllTimelines()
             await appCache.recordWidgetError(error.localizedDescription, at: referenceDate)
         }
     }

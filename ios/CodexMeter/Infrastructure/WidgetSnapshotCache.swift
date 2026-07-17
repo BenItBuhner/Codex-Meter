@@ -69,7 +69,14 @@ public actor WidgetSnapshotCache {
     }
 
     public func publishSignedOut() async throws {
-        try await save(.signedOut)
+        do {
+            try await save(.signedOut)
+        } catch {
+            // Never leave an authenticated-looking snapshot behind if the
+            // signed-out write fails (disk/App Group issues, etc.).
+            try? await clear()
+            throw error
+        }
     }
 
     public func load() async throws -> SharedWidgetSnapshot? {

@@ -138,6 +138,44 @@ final class NotificationPlanningTests: XCTestCase {
         }
     }
 
+    func testPublishSignedOutClearsStaleSnapshotWhenSaveFails() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("widget-clear-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let fileURL = directory.appendingPathComponent(SharedWidgetSnapshot.defaultFileName)
+        let cache = WidgetSnapshotCache(fileURL: fileURL)
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        try await cache.publish(
+            mode: .live,
+            usage: UsageSnapshot(
+                planType: "plus",
+                allowed: true,
+                limitReached: false,
+                fiveHour: UsageWindow(usedPercent: 40, windowSeconds: 18_000, resetAt: now.addingTimeInterval(60)),
+                weekly: nil,
+                fetchedAt: now
+            ),
+            credits: .summary(availableCount: 1, fetchedAt: now),
+            now: now
+        )
+        XCTAssertNotNil(try await cache.load())
+
+        // Turn the snapshot path into a directory so the signed-out write fails.
+        try FileManager.default.removeItem(at: fileURL)
+        try FileManager.default.createDirectory(at: fileURL, withIntermediateDirectories: true)
+
+        do {
+            try await cache.publishSignedOut()
+            XCTFail("Expected signed-out publish to fail")
+        } catch {
+            // Expected — previous authenticated snapshot must still be wiped.
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertNil(try await cache.load())
+    }
+
     func testAppSettingsDecodesMissing22FieldsWithDefaults() throws {
         let legacy = """
         {
