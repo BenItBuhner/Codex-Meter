@@ -310,6 +310,14 @@ grep -q 'leaving desired state for retry' \
 
 grep -q 'isMonitorDesired' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'setMonitorDesired(context, true, false)' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'markMonitorPosted(context, until)' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'KEY_MONITOR_DESIRED' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPreferences.java"
+! grep -q 'setMonitorActive(context, true);' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 grep -q 'WearPreferences.settingsState(this, 0L,' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSettingsActivity.java"
 ! grep -nE 'monitorSwitch\.isChecked\(\),\s*$' -A1 \

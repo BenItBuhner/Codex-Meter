@@ -41,15 +41,17 @@ public final class WearOngoingMonitor {
 
     public static synchronized boolean start(Context context) {
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
+        // Desire first; only mark posted-active after notify() succeeds inside post().
+        // localChange=false: UI/settings callers already stamp desire when the user acts.
+        WearPreferences.setMonitorDesired(context, true, false);
         if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
             return false;
         }
-        WearPreferences.setMonitorActive(context, true);
         if (post(context, snapshot)) {
             return true;
         }
-        // Keep the desired active flag so a later usage update or permission grant can retry
-        // without losing a phone-requested monitor.
+        // Keep the desired flag so a later usage update or permission grant can retry
+        // without pretending the monitor is already visible.
         Log.w(TAG, "Could not post Wear monitor; leaving desired state for retry");
         return false;
     }
@@ -185,10 +187,11 @@ public final class WearOngoingMonitor {
         }
         try {
             manager.notify(NOTIFICATION_ID, notification);
-            WearPreferences.setMonitorActive(context, true, false);
+            WearPreferences.markMonitorPosted(context, until);
             return true;
         } catch (RuntimeException exception) {
             Log.w(TAG, "Could not post Wear monitor", exception);
+            WearPreferences.clearMonitorPosted(context);
             return false;
         }
     }

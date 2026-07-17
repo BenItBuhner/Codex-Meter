@@ -18,6 +18,7 @@ public final class WearPreferences {
     private static final String KEY_LAST_LOCAL_SETTINGS_AT = "last_local_settings_at";
     private static final String KEY_METRIC = "metric";
     private static final String KEY_MONITOR_ACTIVE = "monitor_active";
+    private static final String KEY_MONITOR_DESIRED = "monitor_desired";
     private static final String KEY_MONITOR_FOCUS = "monitor_focus";
     private static final String KEY_MONITOR_POSTED_MODE = "monitor_posted_mode";
     private static final String KEY_MONITOR_PREVIEW = "monitor_preview";
@@ -88,7 +89,7 @@ public final class WearPreferences {
                 prefs.getBoolean(KEY_AUTO_START, false),
                 prefs.getString(KEY_METRIC, NowBarAutoStart.METRIC_BOTH),
                 prefs.getInt(KEY_THRESHOLD, 25),
-                prefs.getBoolean(KEY_MONITOR_ACTIVE, false),
+                isMonitorDesired(context),
                 prefs.getInt(KEY_REFRESH_MINUTES, 30),
                 updatedAtMillis,
                 sourceNode,
@@ -122,17 +123,39 @@ public final class WearPreferences {
     }
 
     public static void setMonitorActive(Context context, boolean active, boolean localChange) {
+        // Compatibility entry point: "active" here means user/phone desire, not a successful post.
+        setMonitorDesired(context, active, localChange);
+        if (!active) {
+            clearMonitorPosted(context);
+        }
+    }
+
+    public static void setMonitorDesired(Context context, boolean desired, boolean localChange) {
         long now = System.currentTimeMillis();
-        UsageSnapshot snapshot = loadSnapshot(context);
-        long until = active && snapshot != null ? snapshot.nextResetMillis(now) : 0L;
         SharedPreferences.Editor editor = prefs(context).edit()
-                .putBoolean(KEY_MONITOR_ACTIVE, active)
-                .putLong(KEY_MONITOR_UNTIL, until);
+                .putBoolean(KEY_MONITOR_DESIRED, desired);
         if (localChange) {
             editor.putLong(KEY_LAST_LOCAL_SETTINGS_AT, now);
         }
         editor.apply();
         WearSurfaceUpdater.requestAll(context);
+    }
+
+    /** Records that the Wear monitor notification was actually posted. */
+    public static void markMonitorPosted(Context context, long untilMillis) {
+        prefs(context).edit()
+                .putBoolean(KEY_MONITOR_DESIRED, true)
+                .putBoolean(KEY_MONITOR_ACTIVE, true)
+                .putLong(KEY_MONITOR_UNTIL, Math.max(0L, untilMillis))
+                .apply();
+        WearSurfaceUpdater.requestAll(context);
+    }
+
+    public static void clearMonitorPosted(Context context) {
+        prefs(context).edit()
+                .putBoolean(KEY_MONITOR_ACTIVE, false)
+                .putLong(KEY_MONITOR_UNTIL, 0L)
+                .apply();
     }
 
     public static void applyRemoteMonitor(Context context, WearMonitorState state) {
@@ -142,12 +165,16 @@ public final class WearPreferences {
             return;
         }
         SharedPreferences.Editor editor = prefs.edit()
-                .putBoolean(KEY_MONITOR_ACTIVE, state.active)
+                .putBoolean(KEY_MONITOR_DESIRED, state.active)
                 .putBoolean(KEY_MONITOR_PREVIEW, state.preview)
-                .putLong(KEY_MONITOR_UNTIL, state.untilMillis)
                 .putString(KEY_MONITOR_POSTED_MODE, state.postedMode)
                 .putLong(KEY_LAST_APPLIED_MONITOR_AT, state.updatedAtMillis)
                 .putBoolean(KEY_CONNECTED, true);
+        if (!state.active) {
+            // Phone stopped the monitor — clear posted state too.
+            editor.putBoolean(KEY_MONITOR_ACTIVE, false).putLong(KEY_MONITOR_UNTIL, 0L);
+        }
+        // Do not invent a local posted notification from the phone payload when active.
         if (state.focusMetric == null) {
             editor.remove(KEY_MONITOR_FOCUS);
         } else {
@@ -160,7 +187,7 @@ public final class WearPreferences {
     public static WearMonitorState monitorState(Context context, long updatedAtMillis) {
         SharedPreferences prefs = prefs(context);
         return new WearMonitorState(
-                prefs.getBoolean(KEY_MONITOR_ACTIVE, false),
+                isMonitorActive(context),
                 prefs.getBoolean(KEY_MONITOR_PREVIEW, false),
                 prefs.getLong(KEY_MONITOR_UNTIL, 0L),
                 prefs.getString(KEY_MONITOR_FOCUS, null),
@@ -168,14 +195,20 @@ public final class WearPreferences {
                 updatedAtMillis);
     }
 
-    /** True when settings ask for a live monitor, even before usage arrives to post it. */
+    /**
+     * True when settings/phone ask for a live monitor, even before a successful post.
+     * Legacy installs that only wrote KEY_MONITOR_ACTIVE still count as desired.
+     */
     public static boolean isMonitorDesired(Context context) {
-        return prefs(context).getBoolean(KEY_MONITOR_ACTIVE, false);
+        SharedPreferences prefs = prefs(context);
+        if (prefs.contains(KEY_MONITOR_DESIRED)) {
+            return prefs.getBoolean(KEY_MONITOR_DESIRED, false);
+        }
+        return prefs.getBoolean(KEY_MONITOR_ACTIVE, false);
     }
 
+    /** True only when a Wear monitor notification has been posted and not yet expired. */
     public static boolean isMonitorActive(Context context) {
-        // Missing until must not count as active — that race previously cleared the
-        // desired monitor when settings arrived before the usage DataItem.
         return prefs(context).getBoolean(KEY_MONITOR_ACTIVE, false)
                 && prefs(context).getLong(KEY_MONITOR_UNTIL, 0L)
                 > System.currentTimeMillis();
@@ -208,16 +241,19 @@ public final class WearPreferences {
 
     private static void saveSettings(Context context, WearSettingsState state, boolean local) {
         long stamp = state.updatedAtMillis > 0L ? state.updatedAtMillis : System.currentTimeMillis();
-        prefs(context).edit()
+        SharedPreferences.Editor editor = prefs(context).edit()
                 .putString(KEY_DISPLAY_MODE, state.displayMode)
                 .putString(KEY_PERCENT_MODE, state.percentMode)
                 .putBoolean(KEY_AUTO_START, state.autoStartEnabled)
                 .putString(KEY_METRIC, state.metric)
                 .putInt(KEY_THRESHOLD, state.threshold)
-                .putBoolean(KEY_MONITOR_ACTIVE, state.monitorActive)
+                .putBoolean(KEY_MONITOR_DESIRED, state.monitorActive)
                 .putInt(KEY_REFRESH_MINUTES, state.refreshMinutes)
-                .putLong(local ? KEY_LAST_LOCAL_SETTINGS_AT : KEY_LAST_APPLIED_SETTINGS_AT, stamp)
-                .apply();
+                .putLong(local ? KEY_LAST_LOCAL_SETTINGS_AT : KEY_LAST_APPLIED_SETTINGS_AT, stamp);
+        if (!state.monitorActive) {
+            editor.putBoolean(KEY_MONITOR_ACTIVE, false).putLong(KEY_MONITOR_UNTIL, 0L);
+        }
+        editor.apply();
         WearSurfaceUpdater.requestAll(context);
     }
 
