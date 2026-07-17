@@ -57,8 +57,7 @@ public final class UpdateActivity extends AppCompatActivity {
         if (status != null && !operationRunning) {
             String error = UpdatePreferences.installError(this);
             if (!error.isEmpty()) {
-                status.setText(error);
-                status.setTextColor(Ui.danger(dark));
+                setStatus(error, Ui.danger(dark));
             }
         }
     }
@@ -78,14 +77,7 @@ public final class UpdateActivity extends AppCompatActivity {
     private void checkReleases(String requestedVersion) {
         operationRunning = true;
         content.removeAllViews();
-        TextView checking = Ui.text(this, "Checking published GitHub releases…", 16,
-                Ui.mainText(dark));
-        content.addView(checking);
-        ProgressBar loading = new ProgressBar(this);
-        LinearLayout.LayoutParams loadingParams =
-                new LinearLayout.LayoutParams(-2, -2);
-        loadingParams.setMargins(0, Ui.dp(this, 20), 0, 0);
-        content.addView(loading, loadingParams);
+        content.addView(Ui.indeterminateLoading(this));
         executor.execute(() -> {
             try {
                 List<GitHubRelease> releases = ReleaseUpdateClient.check(getApplicationContext());
@@ -179,6 +171,7 @@ public final class UpdateActivity extends AppCompatActivity {
             progressParams.setMargins(0, Ui.dp(this, 18), 0, 0);
             card.addView(progress, progressParams);
             status = Ui.text(this, "", 13, Ui.secondaryText(dark));
+            status.setVisibility(View.GONE);
             LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
             statusParams.setMargins(0, Ui.dp(this, 10), 0, 0);
             card.addView(status, statusParams);
@@ -270,8 +263,7 @@ public final class UpdateActivity extends AppCompatActivity {
         operationRunning = true;
         progress.setVisibility(View.VISIBLE);
         progress.setProgress(0);
-        status.setTextColor(Ui.secondaryText(dark));
-        status.setText(R.string.update_downloading);
+        setStatus(getString(R.string.update_downloading), Ui.secondaryText(dark));
         executor.execute(() -> {
             try {
                 UpdateInstaller.PreparedUpdate prepared = UpdateInstaller.prepare(
@@ -282,11 +274,13 @@ public final class UpdateActivity extends AppCompatActivity {
                                                 downloaded * 1000L / total));
                                     }
                                 }));
-                postUi(() -> status.setText(R.string.update_opening_installer));
+                postUi(() -> setStatus(getString(R.string.update_opening_installer),
+                        Ui.secondaryText(dark)));
                 UpdateInstaller.commit(getApplicationContext(), prepared);
                 postUi(() -> {
                     operationRunning = false;
-                    status.setText(R.string.update_waiting_for_installer);
+                    setStatus(getString(R.string.update_waiting_for_installer),
+                            Ui.secondaryText(dark));
                 });
             } catch (Exception exception) {
                 UpdatePreferences.setInstallError(getApplicationContext(),
@@ -294,11 +288,19 @@ public final class UpdateActivity extends AppCompatActivity {
                 postUi(() -> {
                     operationRunning = false;
                     progress.setVisibility(View.GONE);
-                    status.setTextColor(Ui.danger(dark));
-                    status.setText(safeMessage(exception));
+                    setStatus(safeMessage(exception), Ui.danger(dark));
                 });
             }
         });
+    }
+
+    private void setStatus(String message, int color) {
+        if (status == null) {
+            return;
+        }
+        status.setTextColor(color);
+        status.setText(message);
+        status.setVisibility(message == null || message.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private void confirmOlderDownload() {

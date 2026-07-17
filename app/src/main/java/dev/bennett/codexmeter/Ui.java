@@ -11,6 +11,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -32,6 +33,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.AppCompatCheckBox;
 import androidx.appcompat.widget.AppCompatSpinner;
+import androidx.appcompat.widget.SeslProgressBar;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.ktx.ActivityKt;
 import dev.oneuiproject.oneui.popover.PopOverOptions;
@@ -447,6 +449,20 @@ public final class Ui {
         progressBar.setIndeterminate(false);
         progressBar.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(context, isOneUi(context) ? 7.0f : 8.0f)));
         return progressBar;
+    }
+
+    /** One UI circular indeterminate spinner, centered below the rounded content corners. */
+    public static SeslProgressBar indeterminateLoading(Context context) {
+        SeslProgressBar loading = new SeslProgressBar(context);
+        loading.setIndeterminate(true);
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.gravity = Gravity.CENTER_HORIZONTAL;
+        // Keep clear of ToolbarLayout's rounded top corners so the spinner is not clipped.
+        params.topMargin = dp(context, 48.0f);
+        loading.setLayoutParams(params);
+        return loading;
     }
 
     public static Spinner spinner(final Context context, String[] strArr, final boolean z) {
