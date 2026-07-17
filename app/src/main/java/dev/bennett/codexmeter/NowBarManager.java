@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
 import android.os.Build;
@@ -347,6 +348,7 @@ public final class NowBarManager {
         String displayMode = resolveDisplayMode(context);
 
         Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID)
+                // Official Codex mark (white, no opaque square) — system tints status-bar icons.
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -423,10 +425,15 @@ public final class NowBarManager {
                 ? "Both usage windows"
                 : fiveHour != null ? "5-hour window"
                 : weekly != null ? "Weekly window" : "Usage window unavailable";
-        Icon icon = Icon.createWithResource(context, R.drawable.ic_notification);
+        // Chip sits on the accent fill → always-light Codex mark.
+        // Expanded Now Bar: pick an explicit light/dark resource at post time. Night-qualified
+        // drawables can resolve wrong inside Samsung SystemUI (separate process / config).
+        Icon chipIcon = Icon.createWithResource(context, R.drawable.ic_codex_logo_on_accent);
+        Icon nowBarIcon = themeAdaptiveCodexLogo(context);
+        Icon progressDot = Icon.createWithResource(context, R.drawable.ic_now_bar_progress_dot);
         Bundle extras = new Bundle();
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
-        extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", icon);
+        extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", chipIcon);
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor", Color.rgb(56, 122, 255));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
                 "Codex · " + focusLabel + focusRemaining + "%");
@@ -437,7 +444,8 @@ public final class NowBarManager {
         extras.putString(SAMSUNG_ONGOING_PREFIX + "description", "Codex usage limits");
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
-        extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", icon);
+        extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "progressSegments.icon", progressDot);
+        extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", nowBarIcon);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", fiveHourText);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo", weeklyText);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarIconType", "progress");
@@ -455,6 +463,23 @@ public final class NowBarManager {
     private static String limitText(String label, UsageWindow window) {
         return label + ": " + (window == null ? "unavailable"
                 : window.remainingPercent() + "% left");
+    }
+
+    /**
+     * Picks a fixed (non night-qualified) Codex logo resource from the posting process's
+     * current UI mode so SystemUI loads the intended contrast without re-resolving
+     * {@code drawable-night}.
+     */
+    private static Icon themeAdaptiveCodexLogo(Context context) {
+        return Icon.createWithResource(context, themeAdaptiveCodexLogoRes(context));
+    }
+
+    static int themeAdaptiveCodexLogoRes(Context context) {
+        int night = context.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
+        return night == Configuration.UI_MODE_NIGHT_YES
+                ? R.drawable.ic_codex_logo_dark
+                : R.drawable.ic_codex_logo;
     }
 
     private static void createChannel(NotificationManager manager) {
@@ -557,8 +582,9 @@ public final class NowBarManager {
             Notification.ProgressStyle style = new Notification.ProgressStyle()
                     .setProgress(used)
                     .setStyledByProgress(true)
+                    // Plain circle tracker — not the brand glyph (that belongs in setSmallIcon).
                     .setProgressTrackerIcon(
-                            Icon.createWithResource(context, R.drawable.ic_notification))
+                            Icon.createWithResource(context, R.drawable.ic_now_bar_progress_dot))
                     .setProgressSegments(Collections.singletonList(
                             new Notification.ProgressStyle.Segment(100)
                                     .setColor(Color.rgb(56, 122, 255))));

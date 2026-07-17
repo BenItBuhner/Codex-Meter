@@ -128,6 +128,33 @@ grep -q 'NotificationManager.IMPORTANCE_DEFAULT' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'setSmallIcon(R.drawable.ic_notification)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'ic_now_bar_progress_dot' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'ic_codex_logo_on_accent' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'themeAdaptiveCodexLogo' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'ic_codex_logo_dark' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+test -f "$ROOT/app/src/main/res/drawable/ic_now_bar_progress_dot.xml"
+test -f "$ROOT/app/src/main/res/drawable/ic_codex_logo.xml"
+test -f "$ROOT/app/src/main/res/drawable/ic_codex_logo_dark.xml"
+test -f "$ROOT/app/src/main/res/drawable/ic_codex_logo_on_accent.xml"
+# Do not rely on night-qualified logos for Samsung extras (SystemUI may mismatch).
+! test -f "$ROOT/app/src/main/res/drawable-night/ic_codex_logo.xml"
+# Progress tracker must be a plain circle, not the brand glyph.
+grep -q 'M12,2c5.523,0 10,4.477 10,10' \
+  "$ROOT/app/src/main/res/drawable/ic_now_bar_progress_dot.xml"
+# Codex logo vectors must stay transparent (no baked white square background).
+! grep -q 'android:pathData="M19.503 0H4.496' \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo_dark.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_notification.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo_on_accent.xml"
+grep -q 'fillType="evenOdd"' \
+  "$ROOT/app/src/main/res/drawable/ic_notification.xml"
+grep -q '#FF111111' "$ROOT/app/src/main/res/drawable/ic_codex_logo.xml"
+grep -q '#FFFFFFFF' "$ROOT/app/src/main/res/drawable/ic_codex_logo_dark.xml"
 grep -q 'android.ongoingActivityNoti.' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'applySamsungCompatibility' \
