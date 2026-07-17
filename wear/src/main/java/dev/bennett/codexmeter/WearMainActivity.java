@@ -40,6 +40,14 @@ public final class WearMainActivity extends Activity {
                 .setOnClickListener(view -> startActivity(new Intent(this,
                         WearSettingsActivity.class)));
         requestNotificationPermission();
+        Intent launch = getIntent();
+        if (launch != null && launch.getBooleanExtra("demo", false)) {
+            WearPreferences.seedDemoSnapshot(this);
+            if (launch.getBooleanExtra("start_monitor", false)) {
+                WearOngoingMonitor.start(this);
+            }
+        }
+        refreshUi();
     }
 
     @Override
