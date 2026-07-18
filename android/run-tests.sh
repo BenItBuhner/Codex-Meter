@@ -149,6 +149,16 @@ grep -q 'malformed lead times rejected' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'non-numeric lead time element rejected' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'parseLeadTimeEntry' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
+python3 - <<'PY'
+from pathlib import Path
+text = Path("app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java").read_text()
+start = text.index("private static void applyNotifications")
+end = text.index("private static void applyNowBar", start)
+block = text[start:end]
+assert "leadTimes = SettingsTransfer.requireLeadTimes" in block
+assert block.index("requireLeadTimes") < block.index("ResetAlertPreferences.save")
+print("notification import validates lead times before saving.")
+PY
 grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"

@@ -226,6 +226,12 @@ public final class SettingsTransferStore {
     }
 
     private static void applyNotifications(Context context, JSONObject json) throws Exception {
+        // Validate lead times before any preference writes so a bad transfer cannot
+        // partially overwrite notification settings.
+        List<Long> leadTimes = null;
+        if (json.has("reset_credit_expiry_lead_times")) {
+            leadTimes = SettingsTransfer.requireLeadTimes(json, "reset_credit_expiry_lead_times");
+        }
         ResetAlertPreferences.save(context,
                 json.optString("style", ResetAlertPreferences.getStyle(context)),
                 json.optString("metric", ResetAlertPreferences.getMetric(context)),
@@ -239,9 +245,8 @@ public final class SettingsTransferStore {
         ResetAlertPreferences.setResetCreditExpiryEnabled(context,
                 json.optBoolean("reset_credit_expiry",
                         ResetAlertPreferences.resetCreditExpiryEnabled(context)));
-        if (json.has("reset_credit_expiry_lead_times")) {
-            ResetAlertPreferences.setResetCreditExpiryLeadTimes(context,
-                    SettingsTransfer.requireLeadTimes(json, "reset_credit_expiry_lead_times"));
+        if (leadTimes != null) {
+            ResetAlertPreferences.setResetCreditExpiryLeadTimes(context, leadTimes);
         }
         if (ResetAlertPreferences.enabled(context)) {
             ResetNotificationManager.ensureChannel(context);
