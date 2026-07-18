@@ -142,4 +142,27 @@ public enum UsageFormat {
         let hours = minutes / 60
         return hours < 24 ? "Updated \(hours)h ago" : "Updated \(hours / 24)d ago"
     }
+
+    /// Compact estimate label for usage-pace projections (Android `UsageFormat.estimatedRemaining`).
+    public static func estimatedRemaining(_ assessment: UsagePace.Assessment) -> String {
+        guard assessment.available else { return "" }
+        if assessment.estimatedRemaining <= 0 {
+            return "Est. depleted"
+        }
+        return "Est. \(compactDuration(assessment.estimatedRemaining))"
+    }
+
+    public static func compactDuration(_ interval: TimeInterval) -> String {
+        let minutes = max(1, Int64(max(0, interval) / 60))
+        let days = minutes / 1_440
+        let hours = (minutes % 1_440) / 60
+        let remainingMinutes = minutes % 60
+        if days > 0 {
+            return "\(days)d \(hours)h"
+        }
+        if hours > 0 {
+            return "\(hours)h \(remainingMinutes)m"
+        }
+        return "\(minutes)m"
+    }
 }

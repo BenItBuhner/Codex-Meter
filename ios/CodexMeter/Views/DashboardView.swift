@@ -47,14 +47,18 @@ struct DashboardView: View {
                             systemImage: "clock",
                             window: model.usage?.fiveHour,
                             accent: .mint,
-                            fetchedAt: model.usage?.fetchedAt ?? .now
+                            fetchedAt: model.usage?.fetchedAt ?? .now,
+                            paceEnabled: model.settings.usagePaceEnabled,
+                            paceSensitivity: model.settings.usagePaceSensitivity
                         )
                         UsageMeterCard(
                             title: "Weekly",
                             systemImage: "calendar",
                             window: model.usage?.weekly,
                             accent: .indigo,
-                            fetchedAt: model.usage?.fetchedAt ?? .now
+                            fetchedAt: model.usage?.fetchedAt ?? .now,
+                            paceEnabled: model.settings.usagePaceEnabled,
+                            paceSensitivity: model.settings.usagePaceSensitivity
                         )
                     }
 
