@@ -30,7 +30,12 @@ public final class UsagePaceDemoActivity extends Activity {
             AppPreferences.completeOnboarding(this);
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
-            startActivity(new Intent(this, MainActivity.class)
+            boolean livePreview = getIntent().getBooleanExtra("start_live_preview", false);
+            if (livePreview && !NowBarManager.startPreview(this)) {
+                throw new IllegalStateException("Could not start live notification preview");
+            }
+            startActivity(new Intent(this,
+                    livePreview ? SettingsActivity.class : MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (Exception exception) {
             throw new IllegalStateException("Could not seed usage pace demo", exception);
