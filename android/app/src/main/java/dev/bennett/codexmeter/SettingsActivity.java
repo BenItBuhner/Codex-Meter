@@ -1,10 +1,12 @@
 package dev.bennett.codexmeter;
 
+import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -31,8 +33,11 @@ import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /** Settings built from the One UI Design Library preference components used by its sample app. */
@@ -53,6 +58,9 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
+        private static final int REQUEST_EXPORT_TRANSFER = 9201;
+        private static final int REQUEST_IMPORT_TRANSFER = 9202;
+
         private Preference expiryTimesPreference;
         private Preference permissionPreference;
         private Preference testNotificationPreference;
@@ -67,6 +75,11 @@ public final class SettingsActivity extends AppCompatActivity {
         private SwitchPreferenceCompat automaticUpdatePreference;
         private ListPreference updateIntervalPreference;
         private SwitchPreferenceCompat notifyUpdatePreference;
+        private boolean pendingExportAppSettings;
+        private boolean pendingExportNotifications;
+        private boolean pendingExportNowBar;
+        private boolean pendingExportAuthentication;
+        private SettingsTransfer.Document pendingImportDocument;
 
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
@@ -78,10 +91,25 @@ public final class SettingsActivity extends AppCompatActivity {
             bindUpdates();
             bindNotifications();
             bindNowBar();
+            bindTransfer();
             findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
                 Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
                 return true;
             });
+        }
+
+        @Override
+        public void onActivityResult(int requestCode, int resultCode, Intent data) {
+            super.onActivityResult(requestCode, resultCode, data);
+            if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
+                return;
+            }
+            Uri uri = data.getData();
+            if (requestCode == REQUEST_EXPORT_TRANSFER) {
+                finishExport(uri);
+            } else if (requestCode == REQUEST_IMPORT_TRANSFER) {
+                beginImport(uri);
+            }
         }
 
         @Override
@@ -928,6 +956,250 @@ public final class SettingsActivity extends AppCompatActivity {
             permissionPreference.setSummary(allowed ? "Allowed" : "Not allowed");
             if (testNotificationPreference != null) {
                 testNotificationPreference.setEnabled(allowed && ResetAlertPreferences.enabled(requireContext()));
+            }
+        }
+
+        private void bindTransfer() {
+            findPreference("export_settings_transfer").setOnPreferenceClickListener(preference -> {
+                showExportSectionDialog();
+                return true;
+            });
+            findPreference("import_settings_transfer").setOnPreferenceClickListener(preference -> {
+                Intent open = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                        .addCategory(Intent.CATEGORY_OPENABLE)
+                        .setType("application/json");
+                open.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                        "application/json",
+                        "text/plain",
+                        "text/json",
+                        "*/*"
+                });
+                try {
+                    startActivityForResult(open, REQUEST_IMPORT_TRANSFER);
+                } catch (RuntimeException exception) {
+                    Toast.makeText(requireContext(),
+                            "No file picker is available to import a transfer file.",
+                            Toast.LENGTH_LONG).show();
+                }
+                return true;
+            });
+        }
+
+        private void showExportSectionDialog() {
+            boolean signedIn = SecureTokenStore.isSignedIn(requireContext());
+            String[] labels = {
+                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_APP_SETTINGS)
+                            + "\n" + SettingsTransfer.sectionSummary(
+                            SettingsTransfer.SECTION_APP_SETTINGS),
+                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_NOTIFICATIONS)
+                            + "\n" + SettingsTransfer.sectionSummary(
+                            SettingsTransfer.SECTION_NOTIFICATIONS),
+                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_NOW_BAR)
+                            + "\n" + SettingsTransfer.sectionSummary(
+                            SettingsTransfer.SECTION_NOW_BAR),
+                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_AUTHENTICATION)
+                            + "\n" + (signedIn
+                            ? SettingsTransfer.sectionSummary(
+                            SettingsTransfer.SECTION_AUTHENTICATION)
+                            : "Sign in first to export ChatGPT authentication")
+            };
+            boolean[] checked = {true, true, true, false};
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Export sections")
+                    .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> {
+                        if (which == 3 && isChecked && !signedIn) {
+                            checked[3] = false;
+                            ((AlertDialog) dialog).getListView().setItemChecked(3, false);
+                            Toast.makeText(requireContext(),
+                                    "Sign in before exporting authentication.",
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        checked[which] = isChecked;
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Continue", (dialog, which) -> {
+                        boolean any = checked[0] || checked[1] || checked[2] || checked[3];
+                        if (!any) {
+                            Toast.makeText(requireContext(),
+                                    "Select at least one section to export.",
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (checked[3]) {
+                            confirmSensitiveExport(checked[0], checked[1], checked[2], true);
+                        } else {
+                            launchExportPicker(checked[0], checked[1], checked[2], false);
+                        }
+                    })
+                    .show();
+        }
+
+        private void confirmSensitiveExport(boolean appSettings, boolean notifications,
+                boolean nowBar, boolean authentication) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Authentication will be included")
+                    .setMessage(SettingsTransfer.SECURITY_WARNING
+                            + "\n\nOnly continue if you are moving Codex Meter to another device "
+                            + "you control.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Export anyway", (dialog, which) ->
+                            launchExportPicker(appSettings, notifications, nowBar, authentication))
+                    .show();
+        }
+
+        private void launchExportPicker(boolean appSettings, boolean notifications,
+                boolean nowBar, boolean authentication) {
+            pendingExportAppSettings = appSettings;
+            pendingExportNotifications = notifications;
+            pendingExportNowBar = nowBar;
+            pendingExportAuthentication = authentication;
+            String stamp = new SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new Date());
+            String name = pendingExportAuthentication
+                    ? "codex-meter-transfer-AUTH-" + stamp + ".json"
+                    : "codex-meter-transfer-" + stamp + ".json";
+            Intent create = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/json")
+                    .putExtra(Intent.EXTRA_TITLE, name);
+            try {
+                startActivityForResult(create, REQUEST_EXPORT_TRANSFER);
+            } catch (RuntimeException exception) {
+                Toast.makeText(requireContext(),
+                        "No file picker is available to export a transfer file.",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+
+        private void finishExport(Uri uri) {
+            try {
+                SettingsTransfer.Document document = SettingsTransferStore.collect(requireContext(),
+                        pendingExportAppSettings, pendingExportNotifications,
+                        pendingExportNowBar, pendingExportAuthentication);
+                SettingsTransferStore.write(requireContext(), uri, document);
+                String message = document.hasAuthentication()
+                        ? "Exported. Keep this file private — it includes ChatGPT authentication."
+                        : "Settings exported.";
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+            } catch (Exception exception) {
+                Toast.makeText(requireContext(),
+                        exception.getMessage() == null || exception.getMessage().isEmpty()
+                                ? "Could not export transfer file."
+                                : exception.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+
+        private void beginImport(Uri uri) {
+            try {
+                pendingImportDocument = SettingsTransferStore.read(requireContext(), uri);
+                showImportSectionDialog(pendingImportDocument);
+            } catch (Exception exception) {
+                pendingImportDocument = null;
+                Toast.makeText(requireContext(),
+                        exception.getMessage() == null || exception.getMessage().isEmpty()
+                                ? "Could not read transfer file."
+                                : exception.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+
+        private void showImportSectionDialog(SettingsTransfer.Document document) {
+            List<String> present = document.presentSections();
+            if (present.isEmpty()) {
+                Toast.makeText(requireContext(), "This transfer file has no sections.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+            String[] labels = new String[present.size()];
+            boolean[] checked = new boolean[present.size()];
+            for (int i = 0; i < present.size(); i++) {
+                String section = present.get(i);
+                String warning = SettingsTransfer.isAuthenticationSection(section)
+                        ? "\nWarning: replaces ChatGPT sign-in on this device"
+                        : "";
+                labels[i] = SettingsTransfer.sectionTitle(section)
+                        + "\n" + SettingsTransfer.sectionSummary(section) + warning;
+                checked[i] = !SettingsTransfer.isAuthenticationSection(section);
+            }
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Import sections")
+                    .setMultiChoiceItems(labels, checked,
+                            (dialog, which, isChecked) -> checked[which] = isChecked)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Continue", (dialog, which) -> {
+                        boolean appSettings = false;
+                        boolean notifications = false;
+                        boolean nowBar = false;
+                        boolean authentication = false;
+                        for (int i = 0; i < present.size(); i++) {
+                            if (!checked[i]) continue;
+                            String section = present.get(i);
+                            if (SettingsTransfer.SECTION_APP_SETTINGS.equals(section)) {
+                                appSettings = true;
+                            } else if (SettingsTransfer.SECTION_NOTIFICATIONS.equals(section)) {
+                                notifications = true;
+                            } else if (SettingsTransfer.SECTION_NOW_BAR.equals(section)) {
+                                nowBar = true;
+                            } else if (SettingsTransfer.SECTION_AUTHENTICATION.equals(section)) {
+                                authentication = true;
+                            }
+                        }
+                        if (!(appSettings || notifications || nowBar || authentication)) {
+                            Toast.makeText(requireContext(),
+                                    "Select at least one section to import.",
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (authentication) {
+                            confirmSensitiveImport(document, appSettings, notifications, nowBar,
+                                    true);
+                        } else {
+                            finishImport(document, appSettings, notifications, nowBar, false);
+                        }
+                    })
+                    .show();
+        }
+
+        private void confirmSensitiveImport(SettingsTransfer.Document document,
+                boolean appSettings, boolean notifications, boolean nowBar,
+                boolean authentication) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Import authentication?")
+                    .setMessage(SettingsTransfer.SECURITY_WARNING
+                            + "\n\nThis replaces ChatGPT sign-in on this device with the tokens "
+                            + "from the file.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Import anyway", (dialog, which) ->
+                            finishImport(document, appSettings, notifications, nowBar,
+                                    authentication))
+                    .show();
+        }
+
+        private void finishImport(SettingsTransfer.Document document, boolean appSettings,
+                boolean notifications, boolean nowBar, boolean authentication) {
+            try {
+                SettingsTransferStore.ApplyResult result = SettingsTransferStore.apply(
+                        requireContext(), document, appSettings, notifications, nowBar,
+                        authentication);
+                pendingImportDocument = null;
+                StringBuilder message = new StringBuilder("Imported ");
+                for (int i = 0; i < result.appliedSections.size(); i++) {
+                    if (i > 0) message.append(", ");
+                    message.append(SettingsTransfer.sectionTitle(result.appliedSections.get(i)));
+                }
+                message.append('.');
+                if (result.authenticationImported) {
+                    message.append(" Authentication replaced — keep the file private.");
+                }
+                Toast.makeText(requireContext(), message.toString(), Toast.LENGTH_LONG).show();
+                requireActivity().recreate();
+            } catch (Exception exception) {
+                Toast.makeText(requireContext(),
+                        exception.getMessage() == null || exception.getMessage().isEmpty()
+                                ? "Could not import transfer file."
+                                : exception.getMessage(),
+                        Toast.LENGTH_LONG).show();
             }
         }
     }

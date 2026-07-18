@@ -54,6 +54,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
@@ -116,6 +117,25 @@ grep -q 'UpdateNotificationManager.onReleasesUpdated' \
 grep -q 'testUpdateCheckFrequency' "$ROOT/tests/ParserSelfTest.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManager.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'testSettingsTransfer' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'export_settings_transfer' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'import_settings_transfer' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'transfer_security_notice' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'SECURITY_WARNING' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
+grep -q 'bindTransfer' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'SettingsTransferStore.collect' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'SettingsTransferStore.apply' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'Do not share transfer files with authentication' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
