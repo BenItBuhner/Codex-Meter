@@ -55,7 +55,6 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
@@ -147,6 +146,9 @@ grep -q 'AppPreferences.setLastError(app, message)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'partial widget keeps current theme' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'malformed lead times rejected' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'non-numeric lead time element rejected' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'parseLeadTimeEntry' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
