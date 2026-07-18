@@ -27,11 +27,12 @@
         <item name="buttonCornerRadius">999dp</item>
     </style>
 
-    <style name="MaterialToolbarTitle" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
+    <style name="MaterialToolbarTitle" parent="TextAppearance.AppCompat.Title">
         <item name="android:textSize">28sp</item>
         <item name="android:fontFamily">sans-serif-black</item>
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">-0.02</item>
+        <item name="android:textColor">@android:color/black</item>
     </style>
 
     <style name="AppThemeDark" parent="AppTheme" />

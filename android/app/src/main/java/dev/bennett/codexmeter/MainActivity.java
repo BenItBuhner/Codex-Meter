@@ -105,9 +105,12 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
+        MenuItem settings = menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+                .setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        if (!Ui.isOneUi(this) && settings.getIcon() != null) {
+            settings.getIcon().mutate().setTint(Ui.mainText(this, this.dark));
+        }
         return true;
     }
 
@@ -335,6 +338,7 @@ public final class MainActivity extends AppCompatActivity {
             column.addView(buildMaterialMetricCard("5 hour",
                     signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, 0));
             Ui.addSpacer(column, 14);
+            // Secondary container + asymmetric corners so the pair is not twin lavender blobs.
             column.addView(buildMaterialMetricCard("Weekly",
                     signedIn && snapshot != null ? snapshot.weekly : null, signedIn, 1));
             return column;
@@ -366,12 +370,18 @@ public final class MainActivity extends AppCompatActivity {
      */
     private LinearLayout buildMaterialMetricCard(String label, UsageWindow window, boolean signedIn,
             int tone) {
-        int fill = tone == 0
-                ? Ui.primaryContainer(this, this.dark)
-                : Ui.secondaryContainer(this, this.dark);
-        int onFill = tone == 0
-                ? Ui.onPrimaryContainer(this, this.dark)
-                : Ui.onSecondaryContainer(this, this.dark);
+        int fill;
+        int onFill;
+        if (tone == 0) {
+            fill = Ui.primaryContainer(this, this.dark);
+            onFill = Ui.onPrimaryContainer(this, this.dark);
+        } else if (tone == 2) {
+            fill = Ui.tertiaryContainer(this, this.dark);
+            onFill = Ui.onTertiaryContainer(this, this.dark);
+        } else {
+            fill = Ui.secondaryContainer(this, this.dark);
+            onFill = Ui.onSecondaryContainer(this, this.dark);
+        }
         int mutedOn = Color.argb(178, Color.red(onFill), Color.green(onFill), Color.blue(onFill));
         LinearLayout card = Ui.expressiveCard(this, this.dark, fill, tone);
         card.setMinimumHeight(Ui.dp(this, 168.0f));

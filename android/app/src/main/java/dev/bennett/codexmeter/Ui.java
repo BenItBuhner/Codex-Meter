@@ -779,9 +779,10 @@ public final class Ui {
         }
         boolean dark = isDark(activity);
         toolbar.setTitle(title);
+        toolbar.setTitleTextAppearance(activity, R.style.MaterialToolbarTitle);
+        // Appearance can clobber color — stamp on-surface after.
         toolbar.setTitleTextColor(mainText(activity, dark));
         toolbar.setSubtitleTextColor(secondaryText(activity, dark));
-        toolbar.setTitleTextAppearance(activity, R.style.MaterialToolbarTitle);
         toolbar.setBackgroundColor(background(activity, dark));
         toolbar.setNavigationIcon(back ? activity.getDrawable(R.drawable.ic_oui_back) : null);
         if (toolbar.getNavigationIcon() != null) {
@@ -867,14 +868,15 @@ public final class Ui {
      * tone 0 = XL uniform, 1 = left-heavy, 2 = right-heavy.
      */
     public static float[] expressiveRadii(Context context, int tone) {
-        float xl = dp(context, 40.0f);
-        float lg = dp(context, 28.0f);
-        float md = dp(context, 16.0f);
+        // extraLargeIncreased-ish + hard asymmetry so shapes read as intentional M3E, not 28dp mush.
+        float xl = dp(context, 48.0f);
+        float lg = dp(context, 24.0f);
+        float sm = dp(context, 12.0f);
         if (tone == 1) {
-            return new float[]{xl, xl, lg, lg, xl, xl, md, md};
+            return new float[]{xl, xl, sm, sm, xl, xl, lg, lg};
         }
         if (tone == 2) {
-            return new float[]{lg, lg, xl, xl, md, md, xl, xl};
+            return new float[]{sm, sm, xl, xl, lg, lg, xl, xl};
         }
         return new float[]{xl, xl, xl, xl, xl, xl, xl, xl};
     }
