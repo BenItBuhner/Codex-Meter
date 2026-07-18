@@ -40,7 +40,12 @@ public final class NowBarManager {
     private static final String KEY_FOCUS_METRIC = "focus_metric";
     private static final String KEY_POSTED_MODE = "posted_mode";
     private static final String KEY_PREVIEW = "preview";
+    private static final String KEY_START_REASON = "start_reason";
     private static final String KEY_UNTIL = "until";
+    private static final String START_ACCELERATED = "accelerated";
+    private static final String START_LOW = "low";
+    private static final String START_MANUAL = "manual";
+    private static final String START_PREVIEW = "preview";
     private static final int NOTIFICATION_ID = 8610;
     private static final int REQUEST_END = 8611;
     private static final int REQUEST_REFRESH = 8612;
@@ -53,27 +58,34 @@ public final class NowBarManager {
     }
 
     public static synchronized boolean start(Context context) {
-        return startInternal(context, false);
+        return startInternal(context, START_MANUAL, null, 0L);
     }
 
-    private static boolean startInternal(Context context, boolean fromAutoStart) {
+    private static boolean startInternal(Context context, String reason, String triggerFocus,
+            long requestedUntil) {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
         if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
             return false;
         }
         long now = System.currentTimeMillis();
-        long until = snapshot.nextResetMillis(now);
+        long until = requestedUntil > now ? requestedUntil : snapshot.nextResetMillis(now);
         if (until <= now) return false;
         NowBarPreferences.clearSuppression(context);
-        String focus = computeInitialFocus(context, snapshot, fromAutoStart, now);
-        String autoTrigger = fromAutoStart
+        boolean fromLowAutoStart = START_LOW.equals(reason);
+        String focus = NowBarPercentMode.normalizeFocusMetric(triggerFocus);
+        if (focus == null) {
+            focus = computeInitialFocus(context, snapshot, fromLowAutoStart, now);
+        }
+        String autoTrigger = triggerFocus != null ? focus : fromLowAutoStart
                 ? NowBarPercentMode.triggeredFocus(
                         NowBarPreferences.getMetric(context),
                         NowBarPreferences.getThreshold(context),
-                        UsageSnapshot.currentWindow(snapshot.fiveHour, now),
-                        UsageSnapshot.currentWindow(snapshot.weekly, now))
+                        UsageSnapshot.currentWindow(snapshot.fiveHour,
+                                snapshot.fetchedAtMillis, now),
+                        UsageSnapshot.currentWindow(snapshot.weekly,
+                                snapshot.fetchedAtMillis, now))
                 : null;
-        saveState(context, false, until, focus, true, autoTrigger);
+        saveState(context, false, until, focus, true, autoTrigger, reason);
         if (post(context, snapshot, until, false)) {
             PhoneWearSync.pushSettings(context);
             return true;
@@ -91,7 +103,7 @@ public final class NowBarManager {
                 now);
         NowBarPreferences.clearSuppression(context);
         String focus = computeInitialFocus(context, preview, false, now);
-        saveState(context, true, until, focus, true, null);
+        saveState(context, true, until, focus, true, null, START_PREVIEW);
         if (post(context, preview, until, true)) {
             PhoneWearSync.pushSettings(context);
             return true;
@@ -108,6 +120,23 @@ public final class NowBarManager {
                 return;
             }
             long now = System.currentTimeMillis();
+            if (START_ACCELERATED.equals(sessionStartReason(context))) {
+                int acceleratedWindow = acceleratedWindow(context, snapshot, now);
+                if (acceleratedWindow == UsagePace.WINDOW_NONE) {
+                    stop(context, false);
+                    maybeAutoStart(context, snapshot);
+                    return;
+                }
+                String focus = focusForPaceWindow(acceleratedWindow);
+                long acceleratedUntil = acceleratedUntil(context, snapshot, focus, now);
+                if (acceleratedUntil <= now) {
+                    stop(context, false);
+                    maybeAutoStart(context, snapshot);
+                    return;
+                }
+                saveState(context, false, acceleratedUntil, focus, true, focus,
+                        START_ACCELERATED);
+            }
             long until = activeUntil(context);
             if (until <= now) {
                 stop(context, false);
@@ -125,11 +154,32 @@ public final class NowBarManager {
      */
     public static synchronized boolean maybeAutoStart(Context context, UsageSnapshot snapshot) {
         if (context == null || isActive(context) || isPreview(context)) return false;
-        if (!NowBarPreferences.isAutoStartEnabled(context)) return false;
+        boolean lowEnabled = NowBarPreferences.isAutoStartEnabled(context);
+        boolean paceEnabled = UsagePacePreferences.isEnabled(context)
+                && NowBarPreferences.isAcceleratedStartEnabled(context);
+        if (!lowEnabled && !paceEnabled) return false;
         if (NowBarPreferences.isSuppressed(context)) return false;
         if (!canPostNotifications(context)) return false;
-        if (!NowBarPreferences.meetsThreshold(context, snapshot)) return false;
-        return startInternal(context, true);
+        if (lowEnabled && NowBarPreferences.meetsThreshold(context, snapshot)) {
+            return startInternal(context, START_LOW, null, 0L);
+        }
+        long now = System.currentTimeMillis();
+        int acceleratedWindow = acceleratedWindow(context, snapshot, now);
+        if (!paceEnabled || acceleratedWindow == UsagePace.WINDOW_NONE) return false;
+        String focus = focusForPaceWindow(acceleratedWindow);
+        long until = acceleratedUntil(context, snapshot, focus, now);
+        return until > now && startInternal(context, START_ACCELERATED, focus, until);
+    }
+
+    public static synchronized void onPaceSettingsChanged(Context context) {
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+        if (START_ACCELERATED.equals(sessionStartReason(context))) {
+            onUsageUpdated(context, snapshot);
+        } else if (hasStoredActiveState(context)) {
+            repostActive(context);
+        } else {
+            maybeAutoStart(context, snapshot);
+        }
     }
 
     public static synchronized void restore(Context context) {
@@ -144,6 +194,9 @@ public final class NowBarManager {
                 UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
                 if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
                     stop(context, false);
+                } else if (START_ACCELERATED.equals(sessionStartReason(context))) {
+                    onUsageUpdated(context, snapshot);
+                    if (isActive(context)) return;
                 } else if (!post(context, snapshot, until, false)) {
                     stop(context, false);
                 } else {
@@ -166,6 +219,10 @@ public final class NowBarManager {
             posted = startPreviewWithEnd(context, until);
         } else {
             UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+            if (START_ACCELERATED.equals(sessionStartReason(context))) {
+                onUsageUpdated(context, snapshot);
+                return isActive(context);
+            }
             posted = snapshot != null && (snapshot.fiveHour != null || snapshot.weekly != null)
                     && post(context, snapshot, until, false);
         }
@@ -179,7 +236,7 @@ public final class NowBarManager {
                 new UsageWindow(18, TimeUnit.DAYS.toSeconds(7), 0L, 0L), now);
         if (!hasStoredActiveState(context) || lockedFocusMetric(context) == null) {
             String focus = computeInitialFocus(context, preview, false, now);
-            saveState(context, true, until, focus, true, null);
+            saveState(context, true, until, focus, true, null, START_PREVIEW);
         }
         return post(context, preview, until, true);
     }
@@ -211,14 +268,16 @@ public final class NowBarManager {
             }
         }
         UsageWindow fiveHour = UsageSnapshot.currentWindow(
-                snapshot == null ? null : snapshot.fiveHour, now);
+                snapshot == null ? null : snapshot.fiveHour,
+                snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
         UsageWindow weekly = UsageSnapshot.currentWindow(
-                snapshot == null ? null : snapshot.weekly, now);
+                snapshot == null ? null : snapshot.weekly,
+                snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
         String focus = NowBarPercentMode.focusForSettingsChange(
                 NowBarPreferences.getPercentMode(context), fiveHour, weekly,
                 sessionAutoTriggerFocus(context));
         // Preserve KEY_AUTO_TRIGGER_FOCUS across mode switches.
-        saveState(context, preview, until, focus, false, null);
+        saveState(context, preview, until, focus, false, null, sessionStartReason(context));
         if (post(context, snapshot, until, preview)) return true;
         stop(context, false);
         return false;
@@ -328,8 +387,10 @@ public final class NowBarManager {
         UsageWindow fiveHour = snapshot == null ? null : snapshot.fiveHour;
         UsageWindow weekly = snapshot == null ? null : snapshot.weekly;
         if (!preview) {
-            fiveHour = UsageSnapshot.currentWindow(fiveHour, now);
-            weekly = UsageSnapshot.currentWindow(weekly, now);
+            fiveHour = UsageSnapshot.currentWindow(fiveHour,
+                    snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
+            weekly = UsageSnapshot.currentWindow(weekly,
+                    snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
         }
         String percentMode = NowBarPreferences.getPercentMode(context);
         String lockedForAuto = null;
@@ -337,15 +398,25 @@ public final class NowBarManager {
             lockedForAuto = sessionAutoTriggerFocus(context);
             if (lockedForAuto == null) lockedForAuto = lockedFocusMetric(context);
         }
-        String focus = NowBarPercentMode.resolveFocus(percentMode, fiveHour, weekly, lockedForAuto);
+        String acceleratedTrigger = START_ACCELERATED.equals(sessionStartReason(context))
+                ? sessionAutoTriggerFocus(context) : null;
+        String focus = acceleratedTrigger == null
+                ? NowBarPercentMode.resolveFocus(percentMode, fiveHour, weekly, lockedForAuto)
+                : NowBarPercentMode.resolveFocus(NowBarPercentMode.AUTO, fiveHour, weekly,
+                        acceleratedTrigger);
         UsageWindow progressWindow = NowBarPercentMode.selectWindow(focus, fiveHour, weekly);
+        UsagePace.Assessment pace = UsagePacePreferences.assess(
+                context, snapshot, progressWindow, now);
+        boolean accelerated = !preview && pace.accelerated;
         int remaining = progressWindow == null ? 0 : progressWindow.remainingPercent();
         int used = progressWindow == null ? 0 : progressWindow.usedPercent;
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
         String fiveHourText = limitText("5-hour", fiveHour);
         String weeklyText = limitText("Weekly", weekly);
         String title = "Codex usage";
-        String text = fiveHourText + " · " + weeklyText;
+        String estimate = UsageFormat.estimatedRemaining(pace);
+        String text = fiveHourText + " · " + weeklyText
+                + (estimate.isEmpty() ? "" : " · " + estimate);
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
@@ -371,7 +442,7 @@ public final class NowBarManager {
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setColor(Color.rgb(3, 129, 254))
+                .setColor(accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254))
                 .setShowWhen(false)
                 .addAction(new Notification.Action.Builder(
                         stopActionIcon, "Stop", stopIntent).build());
@@ -381,7 +452,7 @@ public final class NowBarManager {
         }
         if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(displayMode)) {
             applySamsungCompatibility(context, builder, fiveHour, weekly, used, remaining,
-                    weeklyFocus, until, now, preview);
+                    weeklyFocus, until, now, preview, accelerated, estimate);
         } else {
             Bundle promotionExtras = new Bundle();
             promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
@@ -389,7 +460,7 @@ public final class NowBarManager {
             if (Build.VERSION.SDK_INT >= 36) {
                 String criticalPrefix = weeklyFocus ? "W " : "";
                 Api36.applyLiveUpdateStyle(context, builder, used,
-                        criticalPrefix + remaining + "%");
+                        criticalPrefix + remaining + "%", accelerated);
             }
         }
         final Notification notification;
@@ -431,7 +502,8 @@ public final class NowBarManager {
 
     private static void applySamsungCompatibility(Context context, Notification.Builder builder,
             UsageWindow fiveHour, UsageWindow weekly, int used, int focusRemaining,
-            boolean weeklyFocus, long until, long now, boolean preview) {
+            boolean weeklyFocus, long until, long now, boolean preview, boolean accelerated,
+            String estimate) {
         String fiveHourText = limitText("5-hour", fiveHour);
         String weeklyText = limitText("Weekly", weekly);
         String focusLabel = weeklyFocus ? "Weekly " : "5-hour ";
@@ -448,13 +520,14 @@ public final class NowBarManager {
         Bundle extras = new Bundle();
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", chipIcon);
-        extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor", Color.rgb(3, 129, 254));
+        extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
+                accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
                 "Codex · " + focusLabel + focusRemaining + "%");
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
                 fiveHourText + " · " + weeklyText);
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
-                availableWindows);
+                accelerated && !estimate.isEmpty() ? estimate : availableWindows);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "description", "Codex usage limits");
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
@@ -537,12 +610,46 @@ public final class NowBarManager {
                 state(context).getString(KEY_AUTO_TRIGGER_FOCUS, null));
     }
 
+    private static String sessionStartReason(Context context) {
+        String reason = state(context).getString(KEY_START_REASON, START_MANUAL);
+        if (START_ACCELERATED.equals(reason) || START_LOW.equals(reason)
+                || START_PREVIEW.equals(reason)) {
+            return reason;
+        }
+        return START_MANUAL;
+    }
+
+    private static int acceleratedWindow(Context context, UsageSnapshot snapshot, long now) {
+        if (!UsagePacePreferences.isEnabled(context)
+                || !NowBarPreferences.isAcceleratedStartEnabled(context)) {
+            return UsagePace.WINDOW_NONE;
+        }
+        return UsagePace.mostAcceleratedWindow(snapshot, now,
+                UsagePacePreferences.getSensitivity(context));
+    }
+
+    private static String focusForPaceWindow(int window) {
+        return window == UsagePace.WINDOW_WEEKLY
+                ? NowBarPercentMode.WEEKLY : NowBarPercentMode.FIVE_HOUR;
+    }
+
+    private static long acceleratedUntil(Context context, UsageSnapshot snapshot, String focus,
+            long now) {
+        if (snapshot == null) return 0L;
+        UsageWindow window = NowBarPercentMode.selectWindow(focus,
+                UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis, now),
+                UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis, now));
+        UsagePace.Assessment assessment = UsagePacePreferences.assess(
+                context, snapshot, window, now);
+        return assessment.accelerated ? assessment.resetAtMillis : 0L;
+    }
+
     private static String computeInitialFocus(Context context, UsageSnapshot snapshot,
             boolean fromAutoStart, long now) {
         UsageWindow fiveHour = snapshot == null ? null
-                : UsageSnapshot.currentWindow(snapshot.fiveHour, now);
+                : UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis, now);
         UsageWindow weekly = snapshot == null ? null
-                : UsageSnapshot.currentWindow(snapshot.weekly, now);
+                : UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis, now);
         String mode = NowBarPreferences.getPercentMode(context);
         if (!NowBarPercentMode.AUTO.equals(NowBarPercentMode.normalize(mode))) {
             return NowBarPercentMode.resolveFocus(mode, fiveHour, weekly, null);
@@ -562,11 +669,12 @@ public final class NowBarManager {
      *        when false, leaves any existing session auto-start trigger untouched
      */
     private static void saveState(Context context, boolean preview, long until, String focus,
-            boolean updateAutoTrigger, String autoTriggerFocus) {
+            boolean updateAutoTrigger, String autoTriggerFocus, String startReason) {
         SharedPreferences.Editor editor = state(context).edit()
                 .putBoolean(KEY_ACTIVE, true)
                 .putBoolean(KEY_PREVIEW, preview)
-                .putLong(KEY_UNTIL, until);
+                .putLong(KEY_UNTIL, until)
+                .putString(KEY_START_REASON, startReason == null ? START_MANUAL : startReason);
         String normalizedFocus = NowBarPercentMode.normalizeFocusMetric(focus);
         if (normalizedFocus == null) {
             editor.remove(KEY_FOCUS_METRIC);
@@ -592,7 +700,7 @@ public final class NowBarManager {
     @RequiresApi(36)
     private static final class Api36 {
         static void applyLiveUpdateStyle(Context context, Notification.Builder builder, int used,
-                String criticalText) {
+                String criticalText, boolean accelerated) {
             Notification.ProgressStyle style = new Notification.ProgressStyle()
                     .setProgress(used)
                     .setStyledByProgress(true)
@@ -601,7 +709,8 @@ public final class NowBarManager {
                             Icon.createWithResource(context, R.drawable.ic_now_bar_progress_dot))
                     .setProgressSegments(Collections.singletonList(
                             new Notification.ProgressStyle.Segment(100)
-                                    .setColor(Color.rgb(3, 129, 254))));
+                                    .setColor(accelerated
+                                            ? Ui.warning(false) : Color.rgb(3, 129, 254))));
             builder.setStyle(style).setShortCriticalText(criticalText);
         }
 

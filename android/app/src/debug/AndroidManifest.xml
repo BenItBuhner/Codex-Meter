@@ -3,5 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
     <application
         android:usesCleartextTraffic="true"
-        tools:replace="android:usesCleartextTraffic" />
+        tools:replace="android:usesCleartextTraffic">
+        <activity
+            android:name="dev.bennett.codexmeter.UsagePaceDemoActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme" />
+    </application>
 </manifest>

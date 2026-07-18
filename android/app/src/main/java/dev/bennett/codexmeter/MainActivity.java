@@ -300,23 +300,30 @@ public final class MainActivity extends AppCompatActivity {
         boolean signedIn = SecureTokenStore.isSignedIn(this);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
-        column.addView(buildMetricCard("5 hour", signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, false));
+        column.addView(buildMetricCard("5 hour", snapshot,
+                signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, false));
         Ui.addSpacer(column, 20);
-        column.addView(buildMetricCard("Weekly", signedIn && snapshot != null ? snapshot.weekly : null, signedIn, true));
+        column.addView(buildMetricCard("Weekly", snapshot,
+                signedIn && snapshot != null ? snapshot.weekly : null, signedIn, true));
         return column;
     }
 
-    private LinearLayout buildMetricCard(String label, UsageWindow window, boolean signedIn, boolean invertedWave) {
+    private LinearLayout buildMetricCard(String label, UsageSnapshot snapshot, UsageWindow window,
+            boolean signedIn, boolean invertedWave) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(0, 0, 0, 0);
         card.setMinimumHeight(Ui.dp(this, 103.0f));
+        long now = System.currentTimeMillis();
         String reset = window == null
                 ? (signedIn ? "Waiting for data" : "Not connected")
-                : UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE, System.currentTimeMillis());
+                : UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
+                        snapshot == null ? now : snapshot.fetchedAtMillis, now);
+        UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
         UsageWaveView wave = new UsageWaveView(this);
-        wave.setUsage(label, reset, window == null ? 0 : window.remainingPercent(),
+        wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
+                window == null ? 0 : window.remainingPercent(),
                 "Weekly".equals(label) ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
-                invertedWave);
+                invertedWave, pace.accelerated);
         card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
         return card;
     }

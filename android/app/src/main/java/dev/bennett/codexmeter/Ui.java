@@ -231,6 +231,24 @@ public final class Ui {
         return Color.HSVToColor(hsv);
     }
 
+    /**
+     * One UI 8 / SESL functional orange. Samsung uses this informative color for
+     * attention and notification states, with the same fill in light and dark themes.
+     */
+    public static int warning(boolean dark) {
+        return Color.rgb(230, 91, 23);
+    }
+
+    public static int warningTrack(Context context, boolean dark) {
+        int warning = warning(dark);
+        int card = cardColor(context, dark);
+        float amount = dark ? 0.24f : 0.18f;
+        return Color.rgb(
+                Math.round(Color.red(card) + (Color.red(warning) - Color.red(card)) * amount),
+                Math.round(Color.green(card) + (Color.green(warning) - Color.green(card)) * amount),
+                Math.round(Color.blue(card) + (Color.blue(warning) - Color.blue(card)) * amount));
+    }
+
     public static int accent(boolean z) {
         return z ? Color.rgb(117, 220, 179) : Color.rgb(0, 113, 83);
     }

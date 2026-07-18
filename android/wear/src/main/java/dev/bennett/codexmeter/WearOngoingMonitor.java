@@ -76,9 +76,11 @@ public final class WearOngoingMonitor {
         if (snapshot == null) return;
         WearSettingsState settings = WearPreferences.settingsState(context, 0L,
                 WearSettingsState.SOURCE_WEAR);
+        long now = System.currentTimeMillis();
         UsageWindow fiveHour = UsageSnapshot.currentWindow(snapshot.fiveHour,
-                System.currentTimeMillis());
-        UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.weekly, System.currentTimeMillis());
+                snapshot.fetchedAtMillis, now);
+        UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.weekly,
+                snapshot.fetchedAtMillis, now);
         if (isActive(context)) {
             post(context, snapshot);
         } else if (WearPreferences.isMonitorDesired(context)
@@ -135,8 +137,10 @@ public final class WearOngoingMonitor {
             return false;
         }
 
-        UsageWindow fiveHour = UsageSnapshot.currentWindow(snapshot.fiveHour, now);
-        UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.weekly, now);
+        UsageWindow fiveHour = UsageSnapshot.currentWindow(
+                snapshot.fiveHour, snapshot.fetchedAtMillis, now);
+        UsageWindow weekly = UsageSnapshot.currentWindow(
+                snapshot.weekly, snapshot.fetchedAtMillis, now);
         WearSettingsState settings = WearPreferences.settingsState(context, 0L,
                 WearSettingsState.SOURCE_WEAR);
         String focus = NowBarPercentMode.resolveFocus(settings.percentMode, fiveHour, weekly,

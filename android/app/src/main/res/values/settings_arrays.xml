@@ -47,4 +47,14 @@
     <string-array name="settings_threshold_values">
         <item>100</item><item>10</item><item>25</item><item>50</item><item>75</item>
     </string-array>
+    <string-array name="usage_pace_sensitivity_entries">
+        <item>Sensitive</item>
+        <item>Balanced</item>
+        <item>Relaxed</item>
+    </string-array>
+    <string-array name="usage_pace_sensitivity_values">
+        <item>sensitive</item>
+        <item>balanced</item>
+        <item>relaxed</item>
+    </string-array>
 </resources>
