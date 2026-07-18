@@ -208,6 +208,10 @@ public final class MainActivity extends AppCompatActivity {
             this.launchSignInRequested = true;
             intent.removeExtra("start_sign_in");
         }
+        if (intent != null && intent.getBooleanExtra("seed_demo_usage", false)) {
+            seedDemoUsage();
+            intent.removeExtra("seed_demo_usage");
+        }
         Uri data = intent == null ? null : intent.getData();
         if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
             if (SecureTokenStore.isSignedIn(this)) {
@@ -216,6 +220,29 @@ public final class MainActivity extends AppCompatActivity {
             }
             intent.setData(null);
         }
+    }
+
+    /** Sample allowance numbers so Material widgets/dashboard read as a real M3E surface. */
+    private void seedDemoUsage() {
+        long nowSec = System.currentTimeMillis() / 1000L;
+        UsageWindow fiveHour = new UsageWindow(27, 5L * 3600L, 2L * 3600L + 14L * 60L,
+                nowSec + 2L * 3600L + 14L * 60L);
+        UsageWindow weekly = new UsageWindow(56, 7L * 24L * 3600L, 4L * 24L * 3600L,
+                nowSec + 4L * 24L * 3600L);
+        AppPreferences.saveSnapshot(this, new UsageSnapshot("plus", true, false, fiveHour, weekly,
+                2, System.currentTimeMillis()));
+        WidgetOptions material = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_COMFORTABLE, WidgetOptions.SURFACE_MATERIAL,
+                WidgetOptions.GRAPHIC_LARGE, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_APP,
+                100, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING, "both",
+                false, false, false, false, false, false);
+        AppPreferences.saveDefaultWidgetOptions(this, material);
+        int[] ids = AppWidgetManager.getInstance(this)
+                .getAppWidgetIds(new ComponentName(this, CodexUsageWidget.class));
+        for (int id : ids) {
+            AppPreferences.saveWidgetOptions(this, id, material);
+        }
+        WidgetRenderer.updateAll(this);
     }
 
     private boolean routeToOnboarding(Intent intent) {
@@ -264,9 +291,6 @@ public final class MainActivity extends AppCompatActivity {
                 this.content.addView(buildUpdateCard(update));
                 Ui.addSpacer(this.content, sectionGap);
             }
-            if (material) {
-                addMaterialHero();
-            }
             this.content.addView(buildUsageDashboard());
             Ui.addSpacer(this.content, sectionGap);
             if (!SecureTokenStore.isSignedIn(this)) {
@@ -278,28 +302,11 @@ public final class MainActivity extends AppCompatActivity {
                 Ui.addSpacer(this.content, sectionGap);
             }
             this.content.addView(buildResetCreditsCard());
+            if (material) {
+                Ui.addSpacer(this.content, sectionGap);
+                this.content.addView(buildMaterialWidgetShowcase());
+            }
         }
-    }
-
-    private void addMaterialHero() {
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
-        TextView eyebrow = Ui.text(this, signedIn ? "ALLOWANCE" : "GET STARTED", 12.0f,
-                Ui.accent(this, this.dark));
-        eyebrow.setTypeface(Ui.emphasizedTypeface(this));
-        eyebrow.setLetterSpacing(0.08f);
-        LinearLayout.LayoutParams eyeParams = new LinearLayout.LayoutParams(-1, -2);
-        eyeParams.setMargins(Ui.dp(this, 8), Ui.dp(this, 4), 0, Ui.dp(this, 6));
-        this.content.addView(eyebrow, eyeParams);
-
-        TextView headline = Ui.text(this,
-                signedIn ? "What's left" : "Your Codex\nat a glance",
-                34.0f, Ui.mainText(this, this.dark));
-        headline.setTypeface(Ui.emphasizedTypeface(this));
-        headline.setLetterSpacing(-0.03f);
-        headline.setLineSpacing(0f, 0.95f);
-        LinearLayout.LayoutParams headParams = new LinearLayout.LayoutParams(-1, -2);
-        headParams.setMargins(Ui.dp(this, 4), 0, Ui.dp(this, 4), Ui.dp(this, 18));
-        this.content.addView(headline, headParams);
     }
 
     private LinearLayout buildUpdateCard(GitHubRelease release) {
@@ -335,12 +342,14 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         if (!Ui.isOneUi(this)) {
-            column.addView(buildMaterialMetricCard("5 hour",
-                    signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, 0));
+            // Cached snapshot stays visible offline / for Material demos without a live session.
+            UsageWindow fiveHour = snapshot != null ? snapshot.fiveHour : null;
+            UsageWindow weekly = snapshot != null ? snapshot.weekly : null;
+            column.addView(buildMaterialMetricCard("5 hour", fiveHour,
+                    signedIn || fiveHour != null, 0));
             Ui.addSpacer(column, 14);
-            // Secondary container + asymmetric corners so the pair is not twin lavender blobs.
-            column.addView(buildMaterialMetricCard("Weekly",
-                    signedIn && snapshot != null ? snapshot.weekly : null, signedIn, 1));
+            column.addView(buildMaterialMetricCard("Weekly", weekly,
+                    signedIn || weekly != null, 1));
             return column;
         }
         column.addView(buildMetricCard("5 hour", signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, false));
@@ -569,6 +578,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout card = Ui.expressiveCard(this, this.dark,
                 Ui.tertiaryContainer(this, this.dark), 2);
         int on = Ui.onTertiaryContainer(this, this.dark);
+        boolean showCount = signedIn || available > 0;
 
         TextView label = Ui.text(this, "RESET CREDITS", 12.0f, on);
         label.setTypeface(Ui.emphasizedTypeface(this));
@@ -576,12 +586,12 @@ public final class MainActivity extends AppCompatActivity {
         card.addView(label);
 
         LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
-        TextView count = Ui.text(this, signedIn ? String.valueOf(available) : "—", 52.0f, on);
+        TextView count = Ui.text(this, showCount ? String.valueOf(available) : "—", 52.0f, on);
         count.setTypeface(Ui.emphasizedTypeface(this));
         count.setLetterSpacing(-0.04f);
         row.addView(count);
         TextView detail = Ui.text(this,
-                signedIn ? (available == 1 ? "reset\nready" : "resets\nready")
+                showCount ? (available == 1 ? "reset\nready" : "resets\nready")
                         : "Sign in to\nsee credits",
                 18.0f, on);
         detail.setTypeface(Ui.mediumTypeface(this));
@@ -600,6 +610,154 @@ public final class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(this, ResetCreditActivity.class)));
         card.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 64)));
         return card;
+    }
+
+    /** Live Material compact + dials widget surfaces, using the real RemoteViews layouts. */
+    private LinearLayout buildMaterialWidgetShowcase() {
+        LinearLayout section = new LinearLayout(this);
+        section.setOrientation(LinearLayout.VERTICAL);
+
+        TextView heading = Ui.text(this, "Material widgets", 22.0f, Ui.mainText(this, this.dark));
+        heading.setTypeface(Ui.emphasizedTypeface(this));
+        heading.setLetterSpacing(-0.02f);
+        section.addView(heading);
+        TextView blurb = Ui.text(this,
+                "Compact bars and dual dials — both Material 3 Expressive, both home-screen ready.",
+                14.0f, Ui.secondaryText(this, this.dark));
+        LinearLayout.LayoutParams blurbParams = new LinearLayout.LayoutParams(-1, -2);
+        blurbParams.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 14));
+        section.addView(blurb, blurbParams);
+
+        section.addView(materialWidgetLabel("COMPACT"));
+        section.addView(materialWidgetHost(WidgetOptions.STYLE_MINIMAL, 250, 72),
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 88)));
+        Ui.addSpacer(section, 14);
+        section.addView(materialWidgetLabel("DIALS"));
+        section.addView(materialWidgetHost(WidgetOptions.STYLE_DIALS, 250, 156),
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 168)));
+        Ui.addSpacer(section, 16);
+
+        Button add = Ui.nativePrimaryButton(this, "Add widget to home");
+        add.setOnClickListener(view -> requestPinWidget());
+        section.addView(add, new LinearLayout.LayoutParams(-1, Ui.dp(this, 64)));
+        return section;
+    }
+
+    private TextView materialWidgetLabel(String label) {
+        TextView text = Ui.text(this, label, 12.0f, Ui.accent(this, this.dark));
+        text.setTypeface(Ui.emphasizedTypeface(this));
+        text.setLetterSpacing(0.08f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(Ui.dp(this, 4), 0, 0, Ui.dp(this, 8));
+        text.setLayoutParams(params);
+        return text;
+    }
+
+    private FrameLayout materialWidgetHost(String style, int widthDp, int heightDp) {
+        FrameLayout host = new FrameLayout(this);
+        host.setBackground(Ui.expressiveShape(Ui.materialSurface(this, this.dark),
+                Ui.expressiveRadii(this, style.equals(WidgetOptions.STYLE_DIALS) ? 1 : 0)));
+        host.setClipToOutline(true);
+        // Inflate the real Material widget layouts (not RemoteViews.apply — AppCompat
+        // ImageViews reject setImageResource from RemoteViews inside activities).
+        int layout = WidgetOptions.STYLE_DIALS.equals(style)
+                ? R.layout.widget_material_dials : R.layout.widget_material_compact;
+        View widget = getLayoutInflater().inflate(layout, host, false);
+        bindMaterialWidgetShowcase(widget, style);
+        host.addView(widget, new FrameLayout.LayoutParams(-1, -1));
+        return host;
+    }
+
+    private void bindMaterialWidgetShowcase(View root, String style) {
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        int five = snapshot != null && snapshot.fiveHour != null
+                ? snapshot.fiveHour.remainingPercent() : 73;
+        int week = snapshot != null && snapshot.weekly != null
+                ? snapshot.weekly.remainingPercent() : 44;
+        boolean dark = this.dark;
+        int onSurface = Ui.materialOnSurface(this, dark);
+        int accent = Ui.materialAccent(this, dark);
+        if (WidgetOptions.STYLE_DIALS.equals(style)) {
+            ImageView primary = root.findViewById(R.id.primary_graphic);
+            ImageView secondary = root.findViewById(R.id.secondary_graphic);
+            if (primary != null) {
+                primary.setImageBitmap(WidgetGraphics.expressiveDial(five, accent,
+                        Color.argb(dark ? 74 : 48, Color.red(onSurface), Color.green(onSurface),
+                                Color.blue(onSurface)),
+                        onSurface, "left", 1.1f));
+            }
+            if (secondary != null) {
+                secondary.setImageBitmap(WidgetGraphics.expressiveDial(week, accent,
+                        Color.argb(dark ? 74 : 48, Color.red(onSurface), Color.green(onSurface),
+                                Color.blue(onSurface)),
+                        onSurface, "left", 1.1f));
+            }
+            TextView primaryLabel = root.findViewById(R.id.primary_label);
+            TextView secondaryLabel = root.findViewById(R.id.secondary_label);
+            if (primaryLabel != null) {
+                primaryLabel.setVisibility(View.VISIBLE);
+                primaryLabel.setText("5H");
+                primaryLabel.setTextColor(Ui.onPrimaryContainer(this, dark));
+                primaryLabel.getBackground().setTint(Ui.primaryContainer(this, dark));
+            }
+            if (secondaryLabel != null) {
+                secondaryLabel.setVisibility(View.VISIBLE);
+                secondaryLabel.setText("WK");
+                secondaryLabel.setTextColor(Ui.onSecondaryContainer(this, dark));
+                secondaryLabel.getBackground().setTint(Ui.secondaryContainer(this, dark));
+            }
+            return;
+        }
+        TextView primaryLabel = root.findViewById(R.id.primary_label);
+        TextView secondaryLabel = root.findViewById(R.id.secondary_label);
+        TextView primaryPercent = root.findViewById(R.id.primary_percent);
+        TextView secondaryPercent = root.findViewById(R.id.secondary_percent);
+        ImageView primaryProgress = root.findViewById(R.id.primary_progress);
+        ImageView secondaryProgress = root.findViewById(R.id.secondary_progress);
+        ImageView primaryTrack = root.findViewById(R.id.primary_track);
+        ImageView secondaryTrack = root.findViewById(R.id.secondary_track);
+        if (primaryLabel != null) {
+            primaryLabel.setText("5H");
+            primaryLabel.setTextColor(Ui.onPrimaryContainer(this, dark));
+            if (primaryLabel.getBackground() != null) {
+                primaryLabel.getBackground().mutate().setTint(Ui.primaryContainer(this, dark));
+            }
+        }
+        if (secondaryLabel != null) {
+            secondaryLabel.setText("WK");
+            secondaryLabel.setTextColor(Ui.onSecondaryContainer(this, dark));
+            if (secondaryLabel.getBackground() != null) {
+                secondaryLabel.getBackground().mutate().setTint(Ui.secondaryContainer(this, dark));
+            }
+        }
+        if (primaryPercent != null) {
+            primaryPercent.setText(five + "%");
+            primaryPercent.setTextColor(onSurface);
+            primaryPercent.setTypeface(Ui.emphasizedTypeface(this));
+        }
+        if (secondaryPercent != null) {
+            secondaryPercent.setText(week + "%");
+            secondaryPercent.setTextColor(onSurface);
+            secondaryPercent.setTypeface(Ui.emphasizedTypeface(this));
+        }
+        if (primaryTrack != null) {
+            primaryTrack.setImageResource(dark
+                    ? R.drawable.progress_track_material_dark : R.drawable.progress_track_material);
+        }
+        if (secondaryTrack != null) {
+            secondaryTrack.setImageResource(dark
+                    ? R.drawable.progress_track_material_dark : R.drawable.progress_track_material);
+        }
+        if (primaryProgress != null) {
+            primaryProgress.setImageResource(R.drawable.progress_mint);
+            primaryProgress.setColorFilter(accent);
+            primaryProgress.setImageLevel(Math.max(0, five) * 100);
+        }
+        if (secondaryProgress != null) {
+            secondaryProgress.setImageResource(R.drawable.progress_mint);
+            secondaryProgress.setColorFilter(accent);
+            secondaryProgress.setImageLevel(Math.max(0, week) * 100);
+        }
     }
 
     private LinearLayout buildWidgetCard() {

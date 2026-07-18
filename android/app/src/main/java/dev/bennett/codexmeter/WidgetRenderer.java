@@ -104,6 +104,21 @@ public final class WidgetRenderer {
         return preview;
     }
 
+    /** In-app Material showcase — keeps the expressive rounded surface. */
+    static RemoteViews buildMaterialShowcase(Context context, String style, int widthDp,
+            int heightDp) {
+        WidgetOptions options = new WidgetOptions(style, WidgetOptions.DENSITY_COMFORTABLE,
+                WidgetOptions.SURFACE_MATERIAL, WidgetOptions.GRAPHIC_LARGE,
+                WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_APP, 100,
+                WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING, "both",
+                false, false, false, false, false, false);
+        Bundle size = sizeBundle(widthDp, heightDp);
+        String resolved = WidgetOptions.STYLE_DIALS.equals(style)
+                ? WidgetOptions.STYLE_DIALS : WidgetOptions.STYLE_MINIMAL;
+        return buildViews(context, AppWidgetManager.INVALID_APPWIDGET_ID, options, resolved, size,
+                GRAPHIC_LARGE);
+    }
+
     private static String styleForSize(Context context, WidgetOptions options, Bundle bundle) {
         int rows = option(bundle, "semAppWidgetRowSpan");
         int columns = option(bundle, "semAppWidgetColumnSpan");
@@ -478,19 +493,39 @@ public final class WidgetRenderer {
             remoteViews.setTextColor(R.id.secondary_samsung_value, iMainTextColor);
             remoteViews.setInt(R.id.primary_samsung_icon, "setColorFilter", iMainTextColor);
             remoteViews.setInt(R.id.secondary_samsung_icon, "setColorFilter", iMainTextColor);
+        } else if (isMaterial(widgetOptions)) {
+            remoteViews.setImageViewBitmap(R.id.primary_graphic,
+                    WidgetGraphics.expressiveDial(widgetState.primaryValue, iAccentColor, iTrackColor,
+                            iMainTextColor, str, fMin));
+            remoteViews.setImageViewBitmap(R.id.secondary_graphic,
+                    WidgetGraphics.expressiveDial(widgetState.secondaryValue, iAccentColor,
+                            iTrackColor, iMainTextColor, str, fMin));
         } else {
             remoteViews.setImageViewBitmap(R.id.primary_graphic, WidgetGraphics.dial(widgetState.primaryValue, iAccentColor, iTrackColor, iMainTextColor, str, fMin));
             remoteViews.setImageViewBitmap(R.id.secondary_graphic, WidgetGraphics.dial(widgetState.secondaryValue, iAccentColor, iTrackColor, iMainTextColor, str, fMin));
         }
-        remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
+        remoteViews.setTextColor(R.id.primary_label,
+                isMaterial(widgetOptions) ? Ui.onPrimaryContainer(context, z) : iSecondaryColor);
+        remoteViews.setTextColor(R.id.secondary_label,
+                isMaterial(widgetOptions) ? Ui.onSecondaryContainer(context, z) : iSecondaryColor);
         remoteViews.setTextColor(R.id.primary_reset, iMutedColor);
         remoteViews.setTextColor(R.id.secondary_reset, iMutedColor);
         remoteViews.setTextColor(R.id.updated_label, iFaintColor);
-        remoteViews.setTextViewText(R.id.primary_label, "5-hour");
-        remoteViews.setTextViewText(R.id.secondary_label, "Weekly");
-        remoteViews.setViewVisibility(R.id.primary_label, 8);
-        remoteViews.setViewVisibility(R.id.secondary_label, 8);
+        remoteViews.setTextViewText(R.id.primary_label, isMaterial(widgetOptions) ? "5H" : "5-hour");
+        remoteViews.setTextViewText(R.id.secondary_label, isMaterial(widgetOptions) ? "WK" : "Weekly");
+        if (isMaterial(widgetOptions)) {
+            remoteViews.setViewVisibility(R.id.primary_label, GRAPHIC_STANDARD);
+            remoteViews.setViewVisibility(R.id.secondary_label, GRAPHIC_STANDARD);
+            if (Build.VERSION.SDK_INT >= 31) {
+                remoteViews.setColorStateList(R.id.primary_label, "setBackgroundTintList",
+                        ColorStateList.valueOf(Ui.primaryContainer(context, z)));
+                remoteViews.setColorStateList(R.id.secondary_label, "setBackgroundTintList",
+                        ColorStateList.valueOf(Ui.secondaryContainer(context, z)));
+            }
+        } else {
+            remoteViews.setViewVisibility(R.id.primary_label, 8);
+            remoteViews.setViewVisibility(R.id.secondary_label, 8);
+        }
         remoteViews.setTextViewText(R.id.primary_reset, widgetState.primaryShortReset);
         remoteViews.setTextViewText(R.id.secondary_reset, widgetState.secondaryShortReset);
         remoteViews.setViewVisibility(R.id.primary_reset, 8);
@@ -876,7 +911,9 @@ public final class WidgetRenderer {
             boolean zIsSignedIn = SecureTokenStore.isSignedIn(context);
             UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context);
             long jCurrentTimeMillis = System.currentTimeMillis();
-            if (!zIsSignedIn) {
+            // Prefer cached snapshot when present so Material/home widgets stay glanceable
+            // after a session drop or during demos — only show Sign in when there is no cache.
+            if (!zIsSignedIn && usageSnapshotLoadSnapshot == null) {
                 return new WidgetState("", -1, -1, "Sign in", "—", "SIGN IN", "—", "Open the app to connect ChatGPT", "", "Tap to connect", "", "Open the app to connect ChatGPT", "Tap anywhere to sign in", "—", 0);
             }
             if (usageSnapshotLoadSnapshot == null) {
