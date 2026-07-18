@@ -647,7 +647,8 @@ public final class ParserSelfTest {
         check(WidgetOptions.STYLE_AUTO.equals(safe.layout), "invalid style fallback");
         check(safe.opacity == 88, "invalid opacity fallback");
         check(WidgetOptions.ACCENT_MINT.equals(safe.accent), "invalid accent fallback");
-        check(WidgetOptions.SURFACE_MATERIAL.equals(safe.surfaceStyle), "legacy surface fallback");
+        check(WidgetOptions.SURFACE_ONE_UI.equals(safe.surfaceStyle),
+                "invalid widget surface keeps One UI default");
         check(WidgetOptions.GRAPHIC_AUTO.equals(safe.graphicScale), "legacy graphic fallback");
         check(!safe.showUpdated && safe.showRefresh, "boolean options");
 

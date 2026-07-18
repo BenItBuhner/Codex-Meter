@@ -334,6 +334,15 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     }
 
     private void applyPreviewSelection(Spinner spinner, int position) {
+        if (spinner == this.surfaceSpinner
+                && position != spinner.getSelectedItemPosition()
+                && WidgetOptions.SURFACE_MATERIAL.equals(
+                        WidgetOptionCatalog.SURFACE_VALUES[position])
+                && WidgetOptions.ACCENT_BLUE.equals(WidgetOptionCatalog.ACCENT_VALUES[
+                        this.accentSpinner.getSelectedItemPosition()])) {
+            WidgetOptionCatalog.selectString(this.accentSpinner,
+                    WidgetOptionCatalog.ACCENT_VALUES, WidgetOptions.ACCENT_APP);
+        }
         spinner.setSelection(position);
         updateRowSummaries();
         renderPreview();

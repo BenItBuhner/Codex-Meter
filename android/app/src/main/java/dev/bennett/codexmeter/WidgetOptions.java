@@ -86,7 +86,8 @@ public final class WidgetOptions {
             boolean z3, boolean z4, boolean z5, boolean z6, boolean showPercentSymbol) {
         this.layout = normalizeStyle(str);
         this.density = oneOf(str2, "auto", "compact", DENSITY_COMFORTABLE) ? str2 : "auto";
-        this.surfaceStyle = oneOf(str3, SURFACE_MATERIAL, SURFACE_ONE_UI) ? str3 : SURFACE_MATERIAL;
+        this.surfaceStyle = oneOf(str3, SURFACE_MATERIAL, SURFACE_ONE_UI)
+                ? str3 : SURFACE_ONE_UI;
         this.graphicScale = oneOf(str4, "auto", GRAPHIC_LARGE, GRAPHIC_MAX) ? str4 : "auto";
         this.theme = oneOf(str5, THEME_SYSTEM, THEME_DARK, THEME_LIGHT) ? str5 : THEME_SYSTEM;
         this.accent = validAccent(str6) ? str6 : ACCENT_MINT;

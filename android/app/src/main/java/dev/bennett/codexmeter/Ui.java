@@ -132,7 +132,9 @@ public final class Ui {
             styleMaterialRoot(activity, root);
         }
         activity.setContentView(root);
-        configureSystemBars(activity, root, isDark(activity));
+        if (!oneUi) {
+            configureSystemBars(activity, root, isDark(activity));
+        }
         return new Page(activity, toolbar, materialToolbar, content);
     }
 
