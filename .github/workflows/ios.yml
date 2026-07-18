@@ -1,0 +1,53 @@
+name: Build Codex Meter iOS
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: Core tests + simulator build
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          # Prefer the newest installed Xcode; fall back to default.
+          if [[ -d /Applications/Xcode.app ]]; then
+            sudo xcode-select -s /Applications/Xcode.app
+          fi
+          xcodebuild -version
+
+      - name: Run CodexMeterCore tests
+        run: |
+          set -euo pipefail
+          swift test --package-path CodexMeterCore
+
+      - name: Build iOS app (Simulator, no signing)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project CodexMeter.xcodeproj \
+            -scheme CodexMeter \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

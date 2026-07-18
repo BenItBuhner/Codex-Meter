@@ -6,8 +6,14 @@ struct ContentView: View {
     var body: some View {
         @Bindable var model = model
 
-        NavigationStack {
-            DashboardView()
+        Group {
+            if model.hasCompletedOnboarding {
+                NavigationStack {
+                    DashboardView()
+                }
+            } else {
+                OnboardingView()
+            }
         }
         .sheet(isPresented: $model.isShowingSettings) {
             NavigationStack {
