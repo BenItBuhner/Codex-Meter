@@ -155,8 +155,8 @@ text = (Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter/SettingsT
 start = text.index("private static void applyNotifications")
 end = text.index("private static void applyNowBar", start)
 block = text[start:end]
-assert "leadTimes = SettingsTransfer.requireLeadTimes" in block
-assert block.index("requireLeadTimes") < block.index("ResetAlertPreferences.save")
+assert "SettingsTransfer.requireLeadTimes" in block
+assert block.index("SettingsTransfer.requireLeadTimes") < block.index("ResetAlertPreferences.save")
 print("notification import validates lead times before saving.")
 PY
 grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
