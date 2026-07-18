@@ -38,6 +38,7 @@ public final class ParserSelfTest {
         testReleaseNotesMarkdown();
         testReleaseUpdatePolicy();
         testUpdateCheckFrequency();
+        testSettingsTransfer();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
@@ -474,6 +475,159 @@ public final class ParserSelfTest {
         check(pkce.state.length() >= 43, "OAuth state entropy");
     }
 
+
+    private static void testSettingsTransfer() throws Exception {
+        WidgetOptions widget = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_COMFORTABLE, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_MAX, WidgetOptions.THEME_DARK, WidgetOptions.ACCENT_BLUE,
+                94, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                WidgetOptions.METRIC_BOTH, false, true, false, true, true, false)
+                .withPercentSymbol(false);
+        org.json.JSONObject appSettings = new org.json.JSONObject()
+                .put("app_theme", WidgetOptions.THEME_DARK)
+                .put("refresh_minutes", 15)
+                .put("refresh_on_launch", false)
+                .put("automatic_update_checks", true)
+                .put("notify_updates", true)
+                .put("check_interval_hours", 24)
+                .put("default_widget", SettingsTransfer.widgetOptionsToJson(widget));
+        org.json.JSONObject notifications = new org.json.JSONObject()
+                .put("style", "notification")
+                .put("metric", "weekly")
+                .put("threshold", 50)
+                .put("unexpected_refills", false)
+                .put("reset_credit_increases", true)
+                .put("reset_credit_expiry", true)
+                .put("reset_credit_expiry_lead_times",
+                        SettingsTransfer.leadTimesToJson(Arrays.asList(
+                                TimeUnit.HOURS.toMillis(1),
+                                TimeUnit.DAYS.toMillis(1))));
+        org.json.JSONObject nowBar = new org.json.JSONObject()
+                .put("display_mode", NowBarDisplayMode.SAMSUNG_COMPATIBILITY)
+                .put("percent_mode", NowBarPercentMode.WEEKLY)
+                .put("auto_enabled", true)
+                .put("metric", "five_hour")
+                .put("threshold", 10);
+        org.json.JSONObject authentication = new org.json.JSONObject()
+                .put("access_token", "access-demo")
+                .put("refresh_token", "refresh-demo")
+                .put("id_token", "id-demo")
+                .put("expires_at", 1_700_000_000_000L)
+                .put("account_id", "acct_demo")
+                .put("email", "demo@example.com");
+
+        SettingsTransfer.Document full = SettingsTransfer.create(1_700_000_000_000L, appSettings,
+                notifications, nowBar, authentication);
+        String json = full.toJsonString();
+        check(json.contains("\"contains_authentication\": true"), "auth flag present");
+        check(json.contains(SettingsTransfer.SECURITY_WARNING), "security warning embedded");
+        SettingsTransfer.Document parsed = SettingsTransfer.parse(json);
+        check(parsed.hasAppSettings() && parsed.hasNotifications()
+                        && parsed.hasNowBar() && parsed.hasAuthentication(),
+                "all sections round-trip");
+        check(parsed.presentSections().size() == 4, "four present sections");
+        WidgetOptions restored = SettingsTransfer.widgetOptionsFromJson(
+                parsed.appSettings.getJSONObject("default_widget"));
+        check(WidgetOptions.THEME_DARK.equals(restored.theme), "widget theme restored");
+        check(WidgetOptions.ACCENT_BLUE.equals(restored.accent), "widget accent restored");
+        check(!restored.showPercentSymbol, "percent symbol flag restored");
+        check(parsed.notifications.getInt("threshold") == 50, "notification threshold restored");
+        check(SettingsTransfer.leadTimesFromJson(
+                parsed.notifications.getJSONArray("reset_credit_expiry_lead_times")).size() == 2,
+                "lead times restored");
+        check(NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
+                        parsed.nowBar.getString("display_mode")),
+                "Now Bar mode restored");
+        check("refresh-demo".equals(parsed.authentication.getString("refresh_token")),
+                "auth refresh token restored");
+
+        WidgetOptions currentDefaults = new WidgetOptions(WidgetOptions.STYLE_DIALS,
+                WidgetOptions.DENSITY_COMPACT, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_LARGE, WidgetOptions.THEME_LIGHT, WidgetOptions.ACCENT_ROSE,
+                72, WidgetOptions.RESET_RELATIVE, WidgetOptions.DISPLAY_USED,
+                WidgetOptions.METRIC_WEEKLY, true, true, true, false, true, true)
+                .withPercentSymbol(true);
+        WidgetOptions merged = SettingsTransfer.widgetOptionsFromJson(
+                new org.json.JSONObject().put("accent", WidgetOptions.ACCENT_CYAN),
+                currentDefaults);
+        check(WidgetOptions.ACCENT_CYAN.equals(merged.accent), "partial widget updates accent");
+        check(WidgetOptions.THEME_LIGHT.equals(merged.theme),
+                "partial widget keeps current theme");
+        check(WidgetOptions.STYLE_DIALS.equals(merged.layout),
+                "partial widget keeps current layout");
+        check(merged.showPlan && merged.showResetCredits,
+                "partial widget keeps current visibility flags");
+
+        boolean malformedLeadTimesRejected = false;
+        try {
+            SettingsTransfer.requireLeadTimes(
+                    new org.json.JSONObject().put("reset_credit_expiry_lead_times", "oops"),
+                    "reset_credit_expiry_lead_times");
+        } catch (IllegalArgumentException expected) {
+            malformedLeadTimesRejected = true;
+        }
+        check(malformedLeadTimesRejected, "malformed lead times rejected");
+        boolean badElementRejected = false;
+        try {
+            SettingsTransfer.leadTimesFromJson(new org.json.JSONArray().put("oops"));
+        } catch (IllegalArgumentException expected) {
+            badElementRejected = true;
+        }
+        check(badElementRejected, "non-numeric lead time element rejected");
+        boolean outOfRangeRejected = false;
+        try {
+            SettingsTransfer.leadTimesFromJson(new org.json.JSONArray().put(1L));
+        } catch (IllegalArgumentException expected) {
+            outOfRangeRejected = true;
+        }
+        check(outOfRangeRejected, "out-of-range lead time element rejected");
+        check(SettingsTransfer.leadTimesFromJson(new org.json.JSONArray()).isEmpty(),
+                "empty lead times array remains allowed");
+        boolean nullLeadTimesRejected = false;
+        try {
+            SettingsTransfer.leadTimesFromJson(null);
+        } catch (IllegalArgumentException expected) {
+            nullLeadTimesRejected = true;
+        }
+        check(nullLeadTimesRejected, "null lead times array rejected");
+
+        SettingsTransfer.Document settingsOnly = parsed.selecting(true, true, true, false);
+        check(settingsOnly.hasAppSettings() && !settingsOnly.hasAuthentication(),
+                "section selection drops auth");
+        check(!settingsOnly.toJson().optBoolean("contains_authentication", true),
+                "settings-only export clears auth flag");
+        check(!settingsOnly.toJson().has("security_warning"),
+                "settings-only export omits security warning");
+
+        boolean rejected = false;
+        try {
+            SettingsTransfer.parse(new org.json.JSONObject()
+                    .put("format", "not_codex")
+                    .put("version", 1)
+                    .put("sections", new org.json.JSONObject().put("app_settings", appSettings)));
+        } catch (IllegalArgumentException expected) {
+            rejected = true;
+        }
+        check(rejected, "unknown format rejected");
+
+        boolean emptyRejected = false;
+        try {
+            SettingsTransfer.parse(new org.json.JSONObject()
+                    .put("format", SettingsTransfer.FORMAT)
+                    .put("version", SettingsTransfer.VERSION)
+                    .put("sections", new org.json.JSONObject()));
+        } catch (IllegalArgumentException expected) {
+            emptyRejected = true;
+        }
+        check(emptyRejected, "empty sections rejected");
+        check(SettingsTransfer.isAuthenticationSection(
+                        SettingsTransfer.SECTION_AUTHENTICATION),
+                "auth section detector");
+        check("App settings".equals(
+                        SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_APP_SETTINGS)),
+                "section title helper");
+        System.out.println("Settings transfer JSON sections and auth warning round-trip cleanly.");
+    }
 
     private static void testWidgetOptions() {
         WidgetOptions migrated = new WidgetOptions(WidgetOptions.LAYOUT_DETAILED,

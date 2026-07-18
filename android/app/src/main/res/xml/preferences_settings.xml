@@ -156,6 +156,25 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Transfer">
+        <Preference
+            android:key="export_settings_transfer"
+            android:title="Export"
+            android:summary="Save selected settings and optional sign-in data to a file"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="import_settings_transfer"
+            android:title="Import"
+            android:summary="Restore selected sections from a Codex Meter transfer file"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="transfer_security_notice"
+            android:title="Do not share transfer files with authentication"
+            android:summary="Exported authentication includes ChatGPT tokens. Anyone with that file can use your account. Keep it private."
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Privacy">
         <Preference
             android:icon="@drawable/ic_oui_privacy"

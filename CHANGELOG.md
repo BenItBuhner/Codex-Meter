@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Android settings transfer: export and import selected sections (app settings, notifications, Now Bar, and ChatGPT authentication) from Settings, with explicit warnings when authentication tokens are included.
+
+### Development
+
+- Added pure-Java coverage for transfer document parsing, section selection, and embedded authentication warnings.
+
 ## 2.3.3 — 2026-07-17
 
 ### Added
