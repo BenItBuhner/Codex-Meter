@@ -231,9 +231,12 @@ public final class Ui {
         return Color.HSVToColor(hsv);
     }
 
-    /** Samsung Health's documented semantic warning pair for light/dark contrast. */
+    /**
+     * One UI 8 / SESL functional orange. Samsung uses this informative color for
+     * attention and notification states, with the same fill in light and dark themes.
+     */
     public static int warning(boolean dark) {
-        return dark ? Color.rgb(163, 100, 0) : Color.rgb(245, 191, 0);
+        return Color.rgb(230, 91, 23);
     }
 
     public static int warningTrack(Context context, boolean dark) {

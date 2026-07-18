@@ -361,6 +361,8 @@ grep -q 'accelerated_enabled' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'START_ACCELERATED' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'Color.rgb(230, 91, 23)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'onPaceSettingsChanged' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q '!usageWindow.showsResetCountdown()' \
