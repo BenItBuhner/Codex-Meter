@@ -52,6 +52,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var creditExpiryRemindersEnabled: Bool
     /// Minutes before expiry. Multiple values schedule one reminder each (2.2 parity).
     public var creditExpiryLeadMinutes: [Int]
+    /// Auto-start Live Activity when remaining allowance hits the threshold.
+    public var liveMonitorAutoStartEnabled: Bool
+    public var liveMonitorAutoStartMetric: AlertMetric
+    public var liveMonitorAutoStartThreshold: Int
 
     public init(
         appearance: AppAppearance = .system,
@@ -63,7 +67,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         creditIncreaseAlertsEnabled: Bool = true,
         unexpectedRefillAlertsEnabled: Bool = true,
         creditExpiryRemindersEnabled: Bool = true,
-        creditExpiryLeadMinutes: [Int] = AppSettings.defaultCreditExpiryLeadMinutes
+        creditExpiryLeadMinutes: [Int] = AppSettings.defaultCreditExpiryLeadMinutes,
+        liveMonitorAutoStartEnabled: Bool = false,
+        liveMonitorAutoStartMetric: AlertMetric = .both,
+        liveMonitorAutoStartThreshold: Int = 25
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
@@ -75,6 +82,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.unexpectedRefillAlertsEnabled = unexpectedRefillAlertsEnabled
         self.creditExpiryRemindersEnabled = creditExpiryRemindersEnabled
         self.creditExpiryLeadMinutes = Self.sanitizedLeadMinutes(creditExpiryLeadMinutes)
+        self.liveMonitorAutoStartEnabled = liveMonitorAutoStartEnabled
+        self.liveMonitorAutoStartMetric = liveMonitorAutoStartMetric
+        self.liveMonitorAutoStartThreshold = Self.allowedAlertThresholds.contains(liveMonitorAutoStartThreshold)
+            ? liveMonitorAutoStartThreshold
+            : 25
     }
 
     public var effectiveCreditExpiryLeadMinutes: [Int] {
@@ -108,6 +120,9 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case unexpectedRefillAlertsEnabled
         case creditExpiryRemindersEnabled
         case creditExpiryLeadMinutes
+        case liveMonitorAutoStartEnabled
+        case liveMonitorAutoStartMetric
+        case liveMonitorAutoStartThreshold
     }
 
     public init(from decoder: any Decoder) throws {
@@ -123,7 +138,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             unexpectedRefillAlertsEnabled: try container.decodeIfPresent(Bool.self, forKey: .unexpectedRefillAlertsEnabled) ?? true,
             creditExpiryRemindersEnabled: try container.decodeIfPresent(Bool.self, forKey: .creditExpiryRemindersEnabled) ?? true,
             creditExpiryLeadMinutes: try container.decodeIfPresent([Int].self, forKey: .creditExpiryLeadMinutes)
-                ?? Self.defaultCreditExpiryLeadMinutes
+                ?? Self.defaultCreditExpiryLeadMinutes,
+            liveMonitorAutoStartEnabled: try container.decodeIfPresent(Bool.self, forKey: .liveMonitorAutoStartEnabled) ?? false,
+            liveMonitorAutoStartMetric: try container.decodeIfPresent(AlertMetric.self, forKey: .liveMonitorAutoStartMetric) ?? .both,
+            liveMonitorAutoStartThreshold: try container.decodeIfPresent(Int.self, forKey: .liveMonitorAutoStartThreshold) ?? 25
         )
     }
 }
