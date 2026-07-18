@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg_material_round"
-    android:padding="10dp">
+    android:padding="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,89 +13,46 @@
         android:gravity="center"
         android:orientation="horizontal">
 
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/primary_section"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
+            android:layout_weight="1">
 
             <ImageView
                 android:id="@+id/primary_graphic"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
+                android:layout_height="match_parent"
                 android:adjustViewBounds="true"
                 android:contentDescription="@string/five_hour"
                 android:scaleType="fitCenter" />
+        </FrameLayout>
 
-            <TextView
-                android:id="@+id/primary_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:background="@drawable/chip_material_label"
-                android:fontFamily="sans-serif-black"
-                android:includeFontPadding="false"
-                android:text="@string/widget_sample_five_hour_short"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/primary_reset"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="false"
-                android:textSize="10sp"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/secondary_section"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_marginStart="6dp"
-            android:layout_weight="1"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
+            android:layout_marginStart="4dp"
+            android:layout_weight="1">
 
             <ImageView
                 android:id="@+id/secondary_graphic"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
+                android:layout_height="match_parent"
                 android:adjustViewBounds="true"
                 android:contentDescription="@string/weekly"
                 android:scaleType="fitCenter" />
-
-            <TextView
-                android:id="@+id/secondary_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:background="@drawable/chip_material_label"
-                android:fontFamily="sans-serif-black"
-                android:includeFontPadding="false"
-                android:text="@string/widget_sample_week_short"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/secondary_reset"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="false"
-                android:textSize="10sp"
-                android:visibility="gone" />
-        </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 
+    <!-- Stub ids kept for shared RemoteViews binding. -->
     <TextView android:id="@+id/widget_title" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
     <TextView android:id="@+id/plan_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
     <ImageView android:id="@+id/refresh_button" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" android:contentDescription="@null" />
+    <TextView android:id="@+id/primary_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/secondary_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/primary_reset" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/secondary_reset" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
     <LinearLayout android:id="@+id/reset_credit_row" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp">
         <TextView android:id="@+id/reset_credit_info" android:layout_width="0dp" android:layout_height="0dp" />
         <TextView android:id="@+id/reset_credit_button" android:layout_width="0dp" android:layout_height="0dp" />

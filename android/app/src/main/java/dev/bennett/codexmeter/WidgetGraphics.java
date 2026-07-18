@@ -86,16 +86,70 @@ public final class WidgetGraphics {
     }
 
     public static Bitmap dial(int i, int i2, int i3, int i4, String str, float f) {
-        return dialInternal(i, i2, i3, i4, str, f, false);
+        return dialInternal(i, i2, i3, i4, str, f);
     }
 
-    /** M3E dial — thicker stroke, black display type, stronger end-cap. */
-    public static Bitmap expressiveDial(int i, int i2, int i3, int i4, String str, float f) {
-        return dialInternal(i, i2, i3, i4, str, f, true);
+    /**
+     * M3E dial — thicker stroke, black display type, stronger end-cap.
+     * Canvas and oval stay fully in-bounds so home-screen RemoteViews never clip the arc.
+     */
+    public static Bitmap expressiveDial(int value, int progressColor, int trackColor, int textColor,
+            String label, float scale) {
+        float s = clampScale(scale);
+        int width = Math.round(200.0f * s);
+        int height = Math.round(172.0f * s);
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        bitmap.setDensity(160);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        float stroke = 22.0f * s;
+        paint.setStrokeWidth(stroke);
+        float pad = stroke * 0.55f + 3.0f * s;
+        boolean hasLabel = label != null && !label.isEmpty();
+        float labelReserve = hasLabel ? 26.0f * s : 10.0f * s;
+        float arcSpan = Math.min(width - (pad * 2.0f), height - pad - labelReserve);
+        float cx = width / 2.0f;
+        float cy = pad + (arcSpan / 2.0f);
+        RectF oval = new RectF(cx - (arcSpan / 2.0f), cy - (arcSpan / 2.0f),
+                cx + (arcSpan / 2.0f), cy + (arcSpan / 2.0f));
+        final float arcStart = 150.0f;
+        final float arcSweep = 240.0f;
+        paint.setColor(trackColor);
+        canvas.drawArc(oval, arcStart, arcSweep, false, paint);
+        if (value >= 0) {
+            paint.setColor(progressColor);
+            float sweep = (arcSweep * clamp(value)) / 100.0f;
+            canvas.drawArc(oval, arcStart, sweep, false, paint);
+            double radians = Math.toRadians(arcStart + sweep);
+            float radius = oval.width() / 2.0f;
+            float tipX = oval.centerX() + (((float) Math.cos(radians)) * radius);
+            float tipY = oval.centerY() + (((float) Math.sin(radians)) * radius);
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(tipX, tipY, 10.0f * s, paint);
+            paint.setColor(withAlpha(textColor, 0.22f));
+            canvas.drawCircle(tipX, tipY, 4.4f * s, paint);
+        }
+        paint.setStyle(Paint.Style.FILL);
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
+        paint.setColor(textColor);
+        paint.setTextSize(40.0f * s);
+        Paint.FontMetrics fm = paint.getFontMetrics();
+        float valueBaseline = cy - ((fm.ascent + fm.descent) / 2.0f);
+        canvas.drawText(value < 0 ? "—" : clamp(value) + "%", cx, valueBaseline, paint);
+        if (hasLabel) {
+            paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            paint.setTextSize(15.0f * s);
+            paint.setColor(withAlpha(textColor, 0.72f));
+            canvas.drawText(label, cx, height - (6.0f * s), paint);
+        }
+        return bitmap;
     }
 
-    private static Bitmap dialInternal(int i, int i2, int i3, int i4, String str, float f,
-            boolean expressive) {
+    private static Bitmap dialInternal(int i, int i2, int i3, int i4, String str, float f) {
+        // One UI path only — keep the established geometry untouched.
         float fClampScale = clampScale(f);
         int iRound = Math.round(260.0f * fClampScale);
         Bitmap bitmapCreateBitmap = Bitmap.createBitmap(iRound, Math.round(190.0f * fClampScale), Bitmap.Config.ARGB_8888);
@@ -104,7 +158,7 @@ public final class WidgetGraphics {
         Paint paint = new Paint(1);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setStrokeWidth((expressive ? 26.0f : 20.0f) * fClampScale);
+        paint.setStrokeWidth(20.0f * fClampScale);
         RectF rectF = new RectF(22.0f * fClampScale, 20.0f * fClampScale, iRound - (22.0f * fClampScale), iRound - (24.0f * fClampScale));
         paint.setColor(i3);
         canvas.drawArc(rectF, 145.0f, 250.0f, false, paint);
@@ -117,22 +171,19 @@ public final class WidgetGraphics {
             float fCenterX = rectF.centerX() + (((float) Math.cos(radians)) * fWidth);
             float fCenterY = rectF.centerY() + (((float) Math.sin(radians)) * fWidth);
             paint.setStyle(Paint.Style.FILL);
-            canvas.drawCircle(fCenterX, fCenterY, (expressive ? 11.5f : 9.5f) * fClampScale, paint);
+            canvas.drawCircle(fCenterX, fCenterY, 9.5f * fClampScale, paint);
             paint.setColor(withAlpha(i4, 0.22f));
-            canvas.drawCircle(fCenterX, fCenterY, (expressive ? 5.0f : 4.2f) * fClampScale, paint);
+            canvas.drawCircle(fCenterX, fCenterY, 4.2f * fClampScale, paint);
         }
         paint.setStyle(Paint.Style.FILL);
         paint.setTextAlign(Paint.Align.CENTER);
-        Typeface valueFace = expressive
-                ? Typeface.create("sans-serif-black", Typeface.NORMAL)
-                : Typeface.create("sans-serif", Typeface.BOLD);
-        paint.setTypeface(valueFace);
+        paint.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
         paint.setColor(i4);
-        paint.setTextSize((expressive ? 54.0f : 48.0f) * fClampScale);
+        paint.setTextSize(48.0f * fClampScale);
         canvas.drawText(i < 0 ? "—" : clamp(i) + "%", iRound / 2.0f, 130.0f * fClampScale, paint);
-        paint.setTypeface(Typeface.create(expressive ? "sans-serif-medium" : "sans-serif-medium", 0));
-        paint.setTextSize((expressive ? 18.0f : 19.0f) * fClampScale);
-        paint.setColor(withAlpha(i4, expressive ? 0.78f : 0.68f));
+        paint.setTypeface(Typeface.create("sans-serif-medium", 0));
+        paint.setTextSize(19.0f * fClampScale);
+        paint.setColor(withAlpha(i4, 0.68f));
         if (str == null) {
             str = "";
         }

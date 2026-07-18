@@ -33,7 +33,7 @@
 
             <FrameLayout
                 android:layout_width="0dp"
-                android:layout_height="14dp"
+                android:layout_height="16dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1">
@@ -58,13 +58,14 @@
 
             <TextView
                 android:id="@+id/primary_percent"
-                android:layout_width="56dp"
+                android:layout_width="64dp"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-black"
                 android:gravity="end"
                 android:includeFontPadding="false"
+                android:maxLines="1"
                 android:text="@string/widget_sample_primary_percent_short"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -89,7 +90,7 @@
 
             <FrameLayout
                 android:layout_width="0dp"
-                android:layout_height="14dp"
+                android:layout_height="16dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1">
@@ -114,13 +115,14 @@
 
             <TextView
                 android:id="@+id/secondary_percent"
-                android:layout_width="56dp"
+                android:layout_width="64dp"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-black"
                 android:gravity="end"
                 android:includeFontPadding="false"
+                android:maxLines="1"
                 android:text="@string/widget_sample_secondary_percent_short"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
