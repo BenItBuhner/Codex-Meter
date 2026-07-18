@@ -696,24 +696,28 @@ public final class WidgetRenderer {
     }
 
     public static String shortReset(Context context, UsageWindow usageWindow, String str, long j) {
+        return shortReset(context, usageWindow, str, j, j);
+    }
+
+    public static String shortReset(Context context, UsageWindow usageWindow, String str,
+            long observedAtMillis, long nowMillis) {
         if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)
                 || !usageWindow.showsResetCountdown()) {
             return "";
         }
-        long jResetAtMillis = usageWindow.resetAtMillis();
-        if (jResetAtMillis <= 0 && usageWindow.resetAfterSeconds > 0) {
-            jResetAtMillis = (usageWindow.resetAfterSeconds * 1000) + j;
-        }
+        long jResetAtMillis = usageWindow.effectiveResetAtMillis(observedAtMillis);
         if (jResetAtMillis <= 0) {
             return "reset unavailable";
         }
         if (WidgetOptions.RESET_RELATIVE.equals(str)) {
-            return UsageFormat.relative(jResetAtMillis, j);
+            return UsageFormat.relative(jResetAtMillis, nowMillis);
         }
         if ("both".equals(str)) {
-            return UsageFormat.absolute(context, jResetAtMillis, j) + " (" + UsageFormat.relative(jResetAtMillis, j) + ")";
+            return UsageFormat.absolute(context, jResetAtMillis, nowMillis) + " ("
+                    + UsageFormat.relative(jResetAtMillis, nowMillis) + ")";
         }
-        return UsageFormat.absolute(context, jResetAtMillis, j).replace("today at ", "").replace("tomorrow at ", "tomorrow ");
+        return UsageFormat.absolute(context, jResetAtMillis, nowMillis)
+                .replace("today at ", "").replace("tomorrow at ", "tomorrow ");
     }
 
     private static String safeMessage(RuntimeException runtimeException) {
@@ -783,10 +787,18 @@ public final class WidgetRenderer {
             String strPercent2 = UsageFormat.percent(usageSnapshotLoadSnapshot.weekly, widgetOptions.displayMode, false);
             String strPercent3 = UsageFormat.percent(usageSnapshotLoadSnapshot.fiveHour, widgetOptions.displayMode, true);
             String strPercent4 = UsageFormat.percent(usageSnapshotLoadSnapshot.weekly, widgetOptions.displayMode, true);
-            String strReset = UsageFormat.reset(context, usageSnapshotLoadSnapshot.fiveHour, widgetOptions.resetMode, jCurrentTimeMillis);
-            String strReset2 = UsageFormat.reset(context, usageSnapshotLoadSnapshot.weekly, widgetOptions.resetMode, jCurrentTimeMillis);
-            String strShortReset = WidgetRenderer.shortReset(context, usageSnapshotLoadSnapshot.fiveHour, widgetOptions.resetMode, jCurrentTimeMillis);
-            String strShortReset2 = WidgetRenderer.shortReset(context, usageSnapshotLoadSnapshot.weekly, widgetOptions.resetMode, jCurrentTimeMillis);
+            String strReset = UsageFormat.reset(context, usageSnapshotLoadSnapshot.fiveHour,
+                    widgetOptions.resetMode, usageSnapshotLoadSnapshot.fetchedAtMillis,
+                    jCurrentTimeMillis);
+            String strReset2 = UsageFormat.reset(context, usageSnapshotLoadSnapshot.weekly,
+                    widgetOptions.resetMode, usageSnapshotLoadSnapshot.fetchedAtMillis,
+                    jCurrentTimeMillis);
+            String strShortReset = WidgetRenderer.shortReset(context,
+                    usageSnapshotLoadSnapshot.fiveHour, widgetOptions.resetMode,
+                    usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
+            String strShortReset2 = WidgetRenderer.shortReset(context,
+                    usageSnapshotLoadSnapshot.weekly, widgetOptions.resetMode,
+                    usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
             if (strShortReset.isEmpty()) {
                 str = strShortReset2.isEmpty() ? "" : "Week " + strShortReset2;
             } else {
@@ -813,9 +825,9 @@ public final class WidgetRenderer {
             UsageWindow fiveHour = snapshot == null ? null : snapshot.fiveHour;
             UsageWindow weekly = snapshot == null ? null : snapshot.weekly;
             long fiveHourReset = (fiveHour != null && fiveHour.showsResetCountdown())
-                    ? resetAt(fiveHour, now) : 0L;
+                    ? resetAt(fiveHour, snapshot.fetchedAtMillis) : 0L;
             long weeklyReset = (weekly != null && weekly.showsResetCountdown())
-                    ? resetAt(weekly, now) : 0L;
+                    ? resetAt(weekly, snapshot.fetchedAtMillis) : 0L;
             long resetAt;
             long windowDuration;
             if (fiveHourReset > now && (weeklyReset <= now || fiveHourReset <= weeklyReset)) {
@@ -837,15 +849,8 @@ public final class WidgetRenderer {
             return new ResetCountdown(text, progress);
         }
 
-        private static long resetAt(UsageWindow window, long now) {
-            if (window == null) {
-                return 0L;
-            }
-            long value = window.resetAtMillis();
-            if (value <= 0L && window.resetAfterSeconds > 0L) {
-                value = now + TimeUnit.SECONDS.toMillis(window.resetAfterSeconds);
-            }
-            return value;
+        private static long resetAt(UsageWindow window, long observedAtMillis) {
+            return window == null ? 0L : window.effectiveResetAtMillis(observedAtMillis);
         }
 
         private static final class ResetCountdown {

@@ -262,6 +262,13 @@ public final class ParserSelfTest {
                 "next reset relative text includes hours");
         check(WearGlanceFormat.nextResetLongText(timed, now).startsWith("Resets in "),
                 "next reset long text is prefixed");
+        UsageSnapshot fallbackTimed = new UsageSnapshot("demo", true, false,
+                new UsageWindow(10, 18000L, TimeUnit.HOURS.toSeconds(2), 0L),
+                null, now);
+        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(fallbackTimed, now)),
+                "Wear reset label uses observation-based reset-after fallback");
+        check(WearGlanceFormat.nextResetRelativeText(fallbackTimed, now).contains("h"),
+                "Wear fallback reset countdown remains finite");
         System.out.println("Wear glance formatting covers tiles and complication text.");
     }
 

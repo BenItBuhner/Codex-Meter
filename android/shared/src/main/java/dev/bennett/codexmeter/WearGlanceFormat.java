@@ -30,12 +30,14 @@ public final class WearGlanceFormat {
 
     public static UsageWindow currentFiveHour(UsageSnapshot snapshot) {
         return snapshot == null ? null
-                : UsageSnapshot.currentWindow(snapshot.fiveHour, System.currentTimeMillis());
+                : UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis,
+                        System.currentTimeMillis());
     }
 
     public static UsageWindow currentWeekly(UsageSnapshot snapshot) {
         return snapshot == null ? null
-                : UsageSnapshot.currentWindow(snapshot.weekly, System.currentTimeMillis());
+                : UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis,
+                        System.currentTimeMillis());
     }
 
     public static String remainingPercentText(UsageWindow window) {
@@ -73,10 +75,12 @@ public final class WearGlanceFormat {
         if (snapshot == null) return "--";
         long next = snapshot.nextResetMillis(nowMillis);
         if (next <= nowMillis) return "--";
-        UsageWindow fiveHour = UsageSnapshot.currentWindow(snapshot.fiveHour, nowMillis);
-        UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.weekly, nowMillis);
-        long fiveReset = resetAt(fiveHour);
-        long weekReset = resetAt(weekly);
+        UsageWindow fiveHour = UsageSnapshot.currentWindow(
+                snapshot.fiveHour, snapshot.fetchedAtMillis, nowMillis);
+        UsageWindow weekly = UsageSnapshot.currentWindow(
+                snapshot.weekly, snapshot.fetchedAtMillis, nowMillis);
+        long fiveReset = resetAt(fiveHour, snapshot.fetchedAtMillis);
+        long weekReset = resetAt(weekly, snapshot.fetchedAtMillis);
         if (fiveReset == next) return "5h reset";
         if (weekReset == next) return "Week reset";
         return "Next reset";
@@ -106,8 +110,8 @@ public final class WearGlanceFormat {
                 + remainingPercentText(weekly);
     }
 
-    private static long resetAt(UsageWindow window) {
-        return window == null ? 0L : window.resetAtMillis();
+    private static long resetAt(UsageWindow window, long observedAtMillis) {
+        return window == null ? 0L : window.effectiveResetAtMillis(observedAtMillis);
     }
 
     private static String durationText(long durationMillis) {
