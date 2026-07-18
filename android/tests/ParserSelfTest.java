@@ -647,10 +647,18 @@ public final class ParserSelfTest {
         check(WidgetOptions.STYLE_AUTO.equals(safe.layout), "invalid style fallback");
         check(safe.opacity == 88, "invalid opacity fallback");
         check(WidgetOptions.ACCENT_MINT.equals(safe.accent), "invalid accent fallback");
-        check(WidgetOptions.SURFACE_ONE_UI.equals(safe.surfaceStyle),
-                "invalid widget surface keeps One UI default");
+        check(WidgetOptions.SURFACE_MATERIAL.equals(safe.surfaceStyle),
+                "legacy constructor keeps Material surface");
         check(WidgetOptions.GRAPHIC_AUTO.equals(safe.graphicScale), "legacy graphic fallback");
         check(!safe.showUpdated && safe.showRefresh, "boolean options");
+
+        WidgetOptions invalidSurface = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_AUTO, "invalid", WidgetOptions.GRAPHIC_AUTO,
+                WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_APP, 88,
+                WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                WidgetOptions.METRIC_BOTH, false, false, false, false, false, false);
+        check(WidgetOptions.SURFACE_ONE_UI.equals(invalidSurface.surfaceStyle),
+                "invalid widget surface keeps One UI default");
 
         WidgetOptions transparent = new WidgetOptions(WidgetOptions.STYLE_RINGS,
                 WidgetOptions.DENSITY_COMFORTABLE, WidgetOptions.SURFACE_ONE_UI,
