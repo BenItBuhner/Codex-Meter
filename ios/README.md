@@ -20,6 +20,17 @@ reset-credit expiry reminders.
 - An Apple development team for device builds, App Groups, and the widget
   extension
 
+## Versioning
+
+The iOS app uses `MARKETING_VERSION` in the Xcode project (currently **1.0**).
+That is independent of the Android `versionName` / GitHub `v*` release tags,
+which still track the Android APK pipeline.
+
+## Continuous integration
+
+Pull requests that touch `ios/` run `.github/workflows/ios.yml` on macOS:
+`swift test` for `CodexMeterCore` and an unsigned Simulator build of the app.
+
 ## Build and test
 
 From this `ios/` directory:
