@@ -14,7 +14,7 @@ directly and stores credentials only on-device.
 
 ## Android — Version 2.4.1
 
-Version 2.4.1 ensures an active Live Update is rebuilt immediately after Android's promoted-notification access changes, instead of remaining on its previous fallback or unpromoted notification contract.
+Version 2.4.1 restores reliable Live Update rendering across Android 16 variants and rebuilds an active monitor immediately after promoted-notification access changes, instead of leaving it on a previous fallback or unpromoted contract.
 
 ### Live countdowns
 

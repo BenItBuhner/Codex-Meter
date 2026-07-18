@@ -236,6 +236,17 @@ grep -q 'M12,2c5.523,0 10,4.477 10,10' \
   "$ROOT/app/src/main/res/drawable/ic_codex_logo_dark.xml" \
   "$ROOT/app/src/main/res/drawable/ic_notification.xml" \
   "$ROOT/app/src/main/res/drawable/ic_codex_logo_on_accent.xml"
+# Keep SVG arc flags explicitly separated so SystemUI's VectorDrawable parser can load them.
+grep -q 'android:pathData="M 8.086,0.457 a 6.105,6.105 0 0,1' \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo_dark.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_notification.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo_on_accent.xml"
+! grep -q 'android:pathData="M8.086.457' \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo_dark.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_notification.xml" \
+  "$ROOT/app/src/main/res/drawable/ic_codex_logo_on_accent.xml"
 grep -q 'fillType="evenOdd"' \
   "$ROOT/app/src/main/res/drawable/ic_notification.xml"
 grep -q '#FF111111' "$ROOT/app/src/main/res/drawable/ic_codex_logo.xml"
@@ -249,6 +260,10 @@ grep -q 'NowBarDisplayMode.ANDROID_LIVE_UPDATE' \
 grep -q 'setDeleteIntent(stopIntent)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'FLAG_PROMOTED_ONGOING' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'legacyColorizedFallback' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'builder.setColorized(true)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'NowBarManager.isPromoted' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"

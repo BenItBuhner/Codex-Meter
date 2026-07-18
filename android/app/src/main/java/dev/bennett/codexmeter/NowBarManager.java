@@ -485,17 +485,33 @@ public final class NowBarManager {
                         criticalPrefix + remaining + "%", accelerated);
             }
         }
-        final Notification notification;
+        Notification builtNotification;
+        boolean legacyColorizedFallback = false;
         try {
-            notification = builder.build();
+            builtNotification = builder.build();
+            // Early Android 16 releases require colorization for promotability, while newer
+            // releases reject colorized Live Updates. Trust the running framework's predicate:
+            // use the modern uncolorized contract first and retry only where it is required.
+            if (Build.VERSION.SDK_INT >= 36
+                    && NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(displayMode)
+                    && !Api36.hasPromotableCharacteristics(builtNotification)) {
+                builder.setColorized(true);
+                Notification colorizedCandidate = builder.build();
+                if (Api36.hasPromotableCharacteristics(colorizedCandidate)) {
+                    builtNotification = colorizedCandidate;
+                    legacyColorizedFallback = true;
+                }
+            }
         } catch (RuntimeException exception) {
             Log.w(TAG, "Could not build live monitor notification", exception);
             return false;
         }
+        final Notification notification = builtNotification;
         boolean promotable = Build.VERSION.SDK_INT >= 36
                 && Api36.hasPromotableCharacteristics(notification);
         Log.i(TAG, "Posting live monitor: mode=" + displayMode + " promotable=" + promotable
                 + " allowed=" + canPostPromotedNotifications(context)
+                + " legacyColorizedFallback=" + legacyColorizedFallback
                 + " preview=" + preview + " remaining=" + remaining);
         try {
             manager.notify(NOTIFICATION_ID, notification);
