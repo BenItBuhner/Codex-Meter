@@ -15,7 +15,7 @@ import androidx.appcompat.content.res.AppCompatResources;
 /** Animated percentage fill used by the Figma usage-counter cards. */
 public final class UsageWaveView extends View {
     private static final long NORMAL_WAVE_DURATION_MS = 2400L;
-    private static final long WARNING_WAVE_DURATION_MS = 700L;
+    private static final long WARNING_WAVE_DURATION_MS = 950L;
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -106,19 +106,17 @@ public final class UsageWaveView extends View {
             canvas.drawRect(0f, 0f, getWidth(), getHeight(), trackPaint);
         }
         float edge = getWidth() * percent / 100f;
-        float amplitude = (warning ? 14f : 8f) * density;
+        float amplitude = (warning ? 10f : 8f) * density;
         fillPath.reset();
         fillPath.moveTo(0, 0);
         fillPath.lineTo(edge, 0);
-        int steps = warning ? 54 : 28;
+        int steps = warning ? 36 : 28;
         for (int i = 1; i <= steps; i++) {
             float y = getHeight() * i / (float) steps;
             float envelope = (float) Math.sin(Math.PI * y / getHeight());
-            float angle = (float) ((warning ? Math.PI * 6 : Math.PI * 2)
+            float angle = (float) ((warning ? Math.PI * 4 : Math.PI * 2)
                     * y / getHeight() + phase + phaseOffset);
-            float wave = warning
-                    ? (float) (Math.asin(Math.sin(angle)) * 2 / Math.PI)
-                    : (float) Math.sin(angle);
+            float wave = (float) Math.sin(angle);
             float x = edge + amplitude * envelope * wave;
             fillPath.lineTo(x, y);
         }

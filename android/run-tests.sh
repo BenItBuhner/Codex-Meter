@@ -365,7 +365,7 @@ grep -q 'START_ACCELERATED' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'Color.rgb(230, 91, 23)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
-grep -q 'WARNING_WAVE_DURATION_MS = 700L' \
+grep -q 'WARNING_WAVE_DURATION_MS = 950L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 grep -q '"· " + pace' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
