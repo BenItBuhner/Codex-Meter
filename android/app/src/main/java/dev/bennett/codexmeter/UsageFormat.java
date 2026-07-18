@@ -69,9 +69,9 @@ public final class UsageFormat {
             return "";
         }
         if (assessment.estimatedRemainingMillis <= 0L) {
-            return "Estimated allowance depleted";
+            return "Est. depleted";
         }
-        return "Estimated " + compactDuration(assessment.estimatedRemainingMillis) + " left";
+        return "Est. " + compactDuration(assessment.estimatedRemainingMillis);
     }
 
     static String compactDuration(long millis) {

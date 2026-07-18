@@ -14,6 +14,8 @@ import androidx.appcompat.content.res.AppCompatResources;
 
 /** Animated percentage fill used by the Figma usage-counter cards. */
 public final class UsageWaveView extends View {
+    private static final long NORMAL_WAVE_DURATION_MS = 2400L;
+    private static final long WARNING_WAVE_DURATION_MS = 700L;
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -52,6 +54,9 @@ public final class UsageWaveView extends View {
         percent = Math.max(0, Math.min(100, remainingPercent));
         pace = paceEstimate == null ? "" : paceEstimate;
         warning = acceleratedWarning;
+        if (animator != null) {
+            animator.setDuration(warning ? WARNING_WAVE_DURATION_MS : NORMAL_WAVE_DURATION_MS);
+        }
         phaseOffset = invertedWave ? (float) Math.PI : 0f;
         if (reset != null && reset.startsWith("Resets in ")) {
             resetTop = "Resets in";
@@ -62,7 +67,7 @@ public final class UsageWaveView extends View {
         }
         icon = AppCompatResources.getDrawable(getContext(), iconRes);
         String description = label + ", " + percent + " percent. " + reset;
-        if (!pace.isEmpty()) description += ". " + pace;
+        if (!pace.isEmpty()) description += ". " + pace.replace("Est.", "Estimated");
         if (warning) description += ". Accelerated usage warning";
         setContentDescription(description);
         invalidate();
@@ -72,7 +77,7 @@ public final class UsageWaveView extends View {
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         animator = ValueAnimator.ofFloat(0f, (float) (Math.PI * 2));
-        animator.setDuration(2400L);
+        animator.setDuration(warning ? WARNING_WAVE_DURATION_MS : NORMAL_WAVE_DURATION_MS);
         animator.setRepeatCount(ValueAnimator.INFINITE);
         animator.setInterpolator(new LinearInterpolator());
         animator.addUpdateListener(animation -> {
@@ -101,16 +106,20 @@ public final class UsageWaveView extends View {
             canvas.drawRect(0f, 0f, getWidth(), getHeight(), trackPaint);
         }
         float edge = getWidth() * percent / 100f;
-        float amplitude = 8f * density;
+        float amplitude = (warning ? 14f : 8f) * density;
         fillPath.reset();
         fillPath.moveTo(0, 0);
         fillPath.lineTo(edge, 0);
-        int steps = 28;
+        int steps = warning ? 54 : 28;
         for (int i = 1; i <= steps; i++) {
             float y = getHeight() * i / (float) steps;
             float envelope = (float) Math.sin(Math.PI * y / getHeight());
-            float x = edge + amplitude * envelope
-                    * (float) Math.sin((Math.PI * 2 * y / getHeight()) + phase + phaseOffset);
+            float angle = (float) ((warning ? Math.PI * 6 : Math.PI * 2)
+                    * y / getHeight() + phase + phaseOffset);
+            float wave = warning
+                    ? (float) (Math.asin(Math.sin(angle)) * 2 / Math.PI)
+                    : (float) Math.sin(angle);
+            float x = edge + amplitude * envelope * wave;
             fillPath.lineTo(x, y);
         }
         fillPath.lineTo(0, getHeight());
@@ -126,16 +135,20 @@ public final class UsageWaveView extends View {
         resetPaint.setColor(foreground);
         resetPaint.setTextSize(13f * density);
         pacePaint.setColor(foreground);
-        pacePaint.setTextSize(12f * density);
+        pacePaint.setTextSize(12.5f * density);
         canvas.drawText(title, 12f * density, 34f * density, titlePaint);
         if (!resetTop.isEmpty()) {
             canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
             if (!resetBottom.isEmpty()) {
                 canvas.drawText(resetBottom, 12f * density, 87f * density, resetPaint);
+                if (!pace.isEmpty()) {
+                    float paceX = 18f * density
+                            + resetPaint.measureText(resetBottom);
+                    canvas.drawText("· " + pace, paceX, 87f * density, pacePaint);
+                }
             }
-        }
-        if (!pace.isEmpty()) {
-            canvas.drawText(pace, 12f * density, 108f * density, pacePaint);
+        } else if (!pace.isEmpty()) {
+            canvas.drawText(pace, 12f * density, 87f * density, pacePaint);
         }
         float rightCenter = getWidth() - 48f * density;
         if (icon != null) {
@@ -148,6 +161,6 @@ public final class UsageWaveView extends View {
         }
         percentPaint.setColor(foreground);
         percentPaint.setTextSize(22f * density);
-        canvas.drawText(percent + "%", rightCenter, 94f * density, percentPaint);
+        canvas.drawText(percent + "%", rightCenter, 85f * density, percentPaint);
     }
 }

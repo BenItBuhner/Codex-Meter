@@ -312,7 +312,7 @@ public final class MainActivity extends AppCompatActivity {
             boolean signedIn, boolean invertedWave) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(0, 0, 0, 0);
-        card.setMinimumHeight(Ui.dp(this, 120.0f));
+        card.setMinimumHeight(Ui.dp(this, 103.0f));
         long now = System.currentTimeMillis();
         String reset = window == null
                 ? (signedIn ? "Waiting for data" : "Not connected")
@@ -324,7 +324,7 @@ public final class MainActivity extends AppCompatActivity {
                 window == null ? 0 : window.remainingPercent(),
                 "Weekly".equals(label) ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
                 invertedWave, pace.accelerated);
-        card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 120.0f)));
+        card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
         return card;
     }
 

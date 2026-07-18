@@ -365,6 +365,12 @@ grep -q 'START_ACCELERATED' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'Color.rgb(230, 91, 23)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
+grep -q 'WARNING_WAVE_DURATION_MS = 700L' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q '"· " + pace' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'card.setMinimumHeight(Ui.dp(this, 103.0f))' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'onPaceSettingsChanged' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q '!usageWindow.showsResetCountdown()' \
