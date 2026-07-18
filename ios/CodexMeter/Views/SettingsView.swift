@@ -121,6 +121,48 @@ struct SettingsView: View {
             .disabled(model.mode == .signedOut)
 
             Section {
+                LabeledContent(
+                    "Live Activities",
+                    value: model.isLiveMonitorActive
+                        ? "Running"
+                        : (LiveActivityCoordinator.shared.isSupported ? "Off" : "Disabled")
+                )
+                if model.isLiveMonitorActive {
+                    Button("Stop usage monitor") {
+                        Task { await model.stopLiveMonitor(dismissed: true) }
+                    }
+                } else {
+                    Button("Start usage monitor") {
+                        Task { await model.startLiveMonitor() }
+                    }
+                    .disabled(model.mode == .signedOut || model.usage == nil)
+                }
+                Toggle("Auto-start when low", isOn: $model.settings.liveMonitorAutoStartEnabled)
+                if model.settings.liveMonitorAutoStartEnabled {
+                    Picker("Auto-start windows", selection: $model.settings.liveMonitorAutoStartMetric) {
+                        ForEach(AlertMetric.allCases) { metric in
+                            Text(metric.title).tag(metric)
+                        }
+                    }
+                    Picker("Auto-start at remaining", selection: $model.settings.liveMonitorAutoStartThreshold) {
+                        ForEach([10, 25, 50, 75, 100], id: \.self) { value in
+                            Text(value == 100 ? "Always when data exists" : "\(value)% or lower").tag(value)
+                        }
+                    }
+                }
+                if let liveMonitorMessage = model.liveMonitorMessage {
+                    Text(liveMonitorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Usage monitor")
+            } footer: {
+                Text("Shows five-hour and weekly remaining on the Lock Screen and Dynamic Island until the next reset, you stop it, or you sign out. iOS cannot guarantee exact background timing like Android alarms.")
+            }
+            .disabled(model.mode == .signedOut)
+
+            Section {
                 Toggle("Include ChatGPT credentials", isOn: $exportIncludeAuth)
                 Button {
                     if exportIncludeAuth {

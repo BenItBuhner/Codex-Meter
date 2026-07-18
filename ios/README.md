@@ -31,6 +31,14 @@ which still track the Android APK pipeline.
 Pull requests that touch `ios/` run `.github/workflows/ios.yml` on macOS:
 `swift test` for `CodexMeterCore` and an unsigned Simulator build of the app.
 
+## Live Activity usage monitor
+
+Settings → **Usage monitor** can start a Live Activity (Lock Screen + Dynamic
+Island) showing five-hour and weekly remaining percent, next reset timer, and
+credits. Optional auto-start fires when remaining hits a threshold (similar to
+Android Now Bar auto-start). The activity ends at the next reset, on stop, or
+on sign-out. iOS cannot match Android exact-alarm / reboot alarm parity.
+
 ## Build and test
 
 From this `ios/` directory:

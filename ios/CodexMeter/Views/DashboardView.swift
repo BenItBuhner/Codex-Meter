@@ -59,6 +59,15 @@ struct DashboardView: View {
                     }
 
                     ResetCreditsCard()
+
+                    if model.isLiveMonitorActive {
+                        StatusBanner(
+                            message: "Usage monitor is live on Lock Screen / Dynamic Island",
+                            systemImage: "dot.radiowaves.left.and.right",
+                            tint: .mint
+                        )
+                    }
+
                     PrivacyFootnote()
                 }
             }

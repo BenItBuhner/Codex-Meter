@@ -76,12 +76,15 @@ final class AppModel {
     var isShowingSignIn = false
     var hasCompletedOnboarding = false
     var transferStatusMessage: String?
+    var isLiveMonitorActive = false
+    var liveMonitorMessage: String?
 
     private let liveService: LiveCodexService
     private var demoService: DemoCodexService
     private let cache: AppCacheStore
     private let settingsStore: AppSettingsStore
     private let notificationCoordinator: NotificationCoordinator
+    private let liveActivityCoordinator: LiveActivityCoordinator
     private let defaults: UserDefaults
     private var hasStarted = false
     private var hasFinishedStartup = false
@@ -106,6 +109,7 @@ final class AppModel {
         cache: AppCacheStore = .shared,
         settingsStore: AppSettingsStore = AppSettingsStore(),
         notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
+        liveActivityCoordinator: LiveActivityCoordinator = .shared,
         defaults: UserDefaults = .standard,
         preview: Bool = false
     ) {
@@ -114,11 +118,13 @@ final class AppModel {
         self.cache = cache
         self.settingsStore = settingsStore
         self.notificationCoordinator = notificationCoordinator
+        self.liveActivityCoordinator = liveActivityCoordinator
         self.defaults = defaults
         self.settings = settingsStore.settings
         self.isPreview = preview
         self.hasCompletedOnboarding = preview
             || defaults.bool(forKey: Self.onboardingCompletedKey)
+        self.isLiveMonitorActive = liveActivityCoordinator.isActive
 
         if preview {
             let now = Date()
@@ -266,6 +272,7 @@ final class AppModel {
     func leaveDemo() async {
         await demoService.signOut()
         await notificationCoordinator.clearAll()
+        await stopLiveMonitor(dismissed: true)
         backgroundRefreshCoordinator.cancel()
         clearSessionState()
     }
@@ -275,8 +282,44 @@ final class AppModel {
         signInTask = nil
         await activeService.signOut()
         await notificationCoordinator.clearAll()
+        await stopLiveMonitor(dismissed: true)
         backgroundRefreshCoordinator.cancel()
         clearSessionState()
+    }
+
+    func startLiveMonitor() async {
+        guard mode != .signedOut else {
+            liveMonitorMessage = "Sign in or open demo mode first."
+            return
+        }
+        guard let usage else {
+            liveMonitorMessage = LiveActivityError.noUsage.localizedDescription
+            return
+        }
+        do {
+            try await liveActivityCoordinator.start(
+                usage: usage,
+                creditCount: credits?.availableCount ?? usage.resetCreditsAvailable ?? 0,
+                planLabel: accountPlan,
+                isDemo: mode == .demo,
+                isCached: isUsingCachedData
+            )
+            isLiveMonitorActive = liveActivityCoordinator.isActive
+            liveMonitorMessage = isLiveMonitorActive
+                ? "Usage monitor is running on the Lock Screen and Dynamic Island."
+                : nil
+        } catch {
+            liveMonitorMessage = error.localizedDescription
+            isLiveMonitorActive = liveActivityCoordinator.isActive
+        }
+    }
+
+    func stopLiveMonitor(dismissed: Bool = true) async {
+        await liveActivityCoordinator.end(dismissed: dismissed, usage: usage)
+        isLiveMonitorActive = liveActivityCoordinator.isActive
+        if dismissed {
+            liveMonitorMessage = "Usage monitor stopped."
+        }
     }
 
     func beginSignIn() async {
@@ -538,6 +581,7 @@ final class AppModel {
 
     func sceneBecameActive() async {
         await refreshNotificationPermissionState()
+        isLiveMonitorActive = liveActivityCoordinator.isActive
         guard hasStarted else {
             await startIfNeeded()
             return
@@ -545,6 +589,8 @@ final class AppModel {
         guard mode != .signedOut, settings.refreshOnLaunch else { return }
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
             await refresh()
+        } else if let usage {
+            await syncLiveMonitor(with: usage)
         }
     }
 
@@ -572,7 +618,30 @@ final class AppModel {
             credits: refresh.credits,
             settings: settings
         )
+        await syncLiveMonitor(with: refresh.usage)
         scheduleBackgroundRefresh()
+    }
+
+    private func syncLiveMonitor(with usage: UsageSnapshot) async {
+        let creditCount = credits?.availableCount ?? usage.resetCreditsAvailable ?? 0
+        if liveActivityCoordinator.isActive {
+            await liveActivityCoordinator.update(
+                usage: usage,
+                creditCount: creditCount,
+                planLabel: accountPlan,
+                isDemo: mode == .demo,
+                isCached: isUsingCachedData
+            )
+        } else if liveActivityCoordinator.shouldAutoStart(settings: settings, usage: usage) {
+            try? await liveActivityCoordinator.start(
+                usage: usage,
+                creditCount: creditCount,
+                planLabel: accountPlan,
+                isDemo: mode == .demo,
+                isCached: isUsingCachedData
+            )
+        }
+        isLiveMonitorActive = liveActivityCoordinator.isActive
     }
 
     private func apply(
