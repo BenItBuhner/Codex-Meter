@@ -61,12 +61,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.4.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 17' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.4.0"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 17' "$ROOT/app/build.gradle.kts"
-grep -q 'codex-meter-android/2.4.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.4.0"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.4.1"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 18' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.4.1"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 18' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.4.1"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 18' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.4.1' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.4.1"' "$ROOT/build.sh"
 grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
 ! grep -R -q 'thatjoshguy67/Codex-Meter' \
   "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
