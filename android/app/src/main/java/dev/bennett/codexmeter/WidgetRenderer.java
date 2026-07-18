@@ -79,22 +79,22 @@ public final class WidgetRenderer {
         boolean material = isMaterial(widgetOptions);
         linkedHashMap.put(new SizeF(110.0f, 60.0f),
                 buildViews(context, i, widgetOptions,
-                        material ? WidgetOptions.STYLE_MINIMAL : WidgetOptions.STYLE_RINGS,
+                        material ? WidgetOptions.STYLE_DIALS : WidgetOptions.STYLE_RINGS,
                         sizeBundle(110, 70), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(250.0f, 60.0f),
                 buildViews(context, i, widgetOptions,
-                        material ? WidgetOptions.STYLE_MINIMAL : STYLE_FOUR_DIALS,
+                        material ? WidgetOptions.STYLE_DIALS : STYLE_FOUR_DIALS,
                         sizeBundle(250, 70), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(110.0f, 130.0f),
                 buildViews(context, i, widgetOptions,
-                        material ? WidgetOptions.STYLE_DIALS : STYLE_BATTERY_LIST,
+                        material ? WidgetOptions.STYLE_MINIMAL : STYLE_BATTERY_LIST,
                         sizeBundle(110, 156), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(250.0f, 130.0f),
                 buildViews(context, i, widgetOptions,
-                        material ? WidgetOptions.STYLE_DIALS : STYLE_BATTERY_LIST,
+                        material ? WidgetOptions.STYLE_MINIMAL : STYLE_BATTERY_LIST,
                         sizeBundle(250, 156), GRAPHIC_STANDARD));
         if (material) {
-            // 3-row hosts switch to compact bars; keep 2-row on dials (SizeF 130).
+            // Larger Material hosts keep the same expandable two-row bar treatment.
             linkedHashMap.put(new SizeF(110.0f, 260.0f),
                     buildViews(context, i, widgetOptions, WidgetOptions.STYLE_MINIMAL,
                             sizeBundle(110, 280), GRAPHIC_STANDARD));
@@ -117,15 +117,12 @@ public final class WidgetRenderer {
         int rows = option(bundle, "semAppWidgetRowSpan");
         int columns = option(bundle, "semAppWidgetColumnSpan");
         if (isMaterial(options)) {
-            int height = currentHeight(context, bundle);
-            if (rows >= 3 || height >= 260) {
-                // 3-row+ hosts: expandable compact bars fill the cell cleanly.
-                return WidgetOptions.STYLE_MINIMAL;
+            if (rows > 0) {
+                return rows >= 2
+                        ? WidgetOptions.STYLE_MINIMAL : WidgetOptions.STYLE_DIALS;
             }
-            if (rows >= 2 || height >= 110) {
-                return WidgetOptions.STYLE_DIALS;
-            }
-            return WidgetOptions.STYLE_MINIMAL;
+            return currentHeight(context, bundle) >= 110
+                    ? WidgetOptions.STYLE_MINIMAL : WidgetOptions.STYLE_DIALS;
         }
         if (rows > 0) {
             if (rows >= 2) {

@@ -96,27 +96,25 @@ public final class WidgetGraphics {
     public static Bitmap expressiveDial(int value, int progressColor, int trackColor, int textColor,
             String label, float scale) {
         float s = clampScale(scale);
-        // Tall canvas (~2.5:1): RemoteViews ImageViews top-align scaled bitmaps, so the
-        // dial is drawn mid-canvas and lands centered in typical 2x2 half-cells.
+        // Compact canvas for 2x1 hosts. All strokes and labels remain inside the bitmap.
         int width = Math.round(200.0f * s);
-        int height = Math.round(500.0f * s);
+        int height = Math.round(158.0f * s);
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        // Avoid mdpi density upscaling — RemoteViews would treat 160dpi bitmaps as huge
-        // and top-align the downscaled result, leaving a dead strip under the dials.
         bitmap.setDensity(Bitmap.DENSITY_NONE);
         Canvas canvas = new Canvas(bitmap);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
-        float stroke = 20.0f * s;
+        float stroke = 18.0f * s;
         paint.setStrokeWidth(stroke);
-        float pad = (stroke * 0.5f) + 6.0f * s;
+        float pad = (stroke * 0.5f) + 4.0f * s;
         boolean hasLabel = label != null && !label.isEmpty();
-        float labelReserve = hasLabel ? 30.0f * s : 14.0f * s;
-        float contentHeight = height - (pad * 2.0f);
-        float arcSpan = Math.min(width - (pad * 2.0f), contentHeight - labelReserve);
+        float chipHeight = hasLabel ? 22.0f * s : 0.0f;
+        float chipGap = hasLabel ? 7.0f * s : 0.0f;
+        float arcSpan = Math.min(width - (pad * 2.0f),
+                height - (pad * 2.0f) - chipHeight - chipGap);
         float cx = width / 2.0f;
-        float cy = (height - labelReserve) / 2.0f;
+        float cy = pad + (arcSpan / 2.0f);
         RectF oval = new RectF(cx - (arcSpan / 2.0f), cy - (arcSpan / 2.0f),
                 cx + (arcSpan / 2.0f), cy + (arcSpan / 2.0f));
         final float arcStart = 150.0f;
@@ -140,16 +138,23 @@ public final class WidgetGraphics {
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
         paint.setColor(textColor);
-        paint.setTextSize(42.0f * s);
+        paint.setTextSize(34.0f * s);
         Paint.FontMetrics fm = paint.getFontMetrics();
         float valueBaseline = cy - ((fm.ascent + fm.descent) / 2.0f);
         canvas.drawText(value < 0 ? "—" : clamp(value) + "%", cx, valueBaseline, paint);
         if (hasLabel) {
+            float chipWidth = 44.0f * s;
+            float chipTop = height - chipHeight - (2.0f * s);
+            RectF chip = new RectF(cx - (chipWidth / 2.0f), chipTop,
+                    cx + (chipWidth / 2.0f), chipTop + chipHeight);
+            paint.setColor(withAlpha(progressColor, 0.14f));
+            canvas.drawRoundRect(chip, chipHeight / 2.0f, chipHeight / 2.0f, paint);
             paint.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
-            paint.setTextSize(18.0f * s);
-            paint.setColor(withAlpha(textColor, 0.78f));
-            canvas.drawText(label, cx, Math.min(height - (8.0f * s),
-                    oval.bottom + (22.0f * s)), paint);
+            paint.setTextSize(13.0f * s);
+            paint.setColor(progressColor);
+            Paint.FontMetrics chipFm = paint.getFontMetrics();
+            float chipBaseline = chip.centerY() - ((chipFm.ascent + chipFm.descent) / 2.0f);
+            canvas.drawText(label, cx, chipBaseline, paint);
         }
         return bitmap;
     }
