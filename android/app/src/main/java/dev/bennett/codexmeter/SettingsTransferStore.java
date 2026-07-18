@@ -226,12 +226,11 @@ public final class SettingsTransferStore {
     }
 
     private static void applyNotifications(Context context, JSONObject json) throws Exception {
-        // Validate lead times before any preference writes so a bad transfer cannot
-        // partially overwrite notification settings.
-        List<Long> leadTimes = null;
-        if (json.has("reset_credit_expiry_lead_times")) {
-            leadTimes = SettingsTransfer.requireLeadTimes(json, "reset_credit_expiry_lead_times");
-        }
+        // Fail closed before any preference writes: malformed lead times must leave
+        // style/metric/threshold/enablement flags completely untouched.
+        final List<Long> leadTimes = json.has("reset_credit_expiry_lead_times")
+                ? SettingsTransfer.requireLeadTimes(json, "reset_credit_expiry_lead_times")
+                : null;
         ResetAlertPreferences.save(context,
                 json.optString("style", ResetAlertPreferences.getStyle(context)),
                 json.optString("metric", ResetAlertPreferences.getMetric(context)),

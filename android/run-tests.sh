@@ -149,9 +149,9 @@ grep -q 'malformed lead times rejected' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'non-numeric lead time element rejected' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'parseLeadTimeEntry' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
-python3 - <<'PY'
+python3 - <<PY
 from pathlib import Path
-text = Path("app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java").read_text()
+text = (Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java").read_text()
 start = text.index("private static void applyNotifications")
 end = text.index("private static void applyNowBar", start)
 block = text[start:end]
