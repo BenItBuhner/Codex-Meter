@@ -136,6 +136,16 @@ grep -q 'SettingsTransferStore.apply' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'Do not share transfer files with authentication' \
   "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'widgetOptionsFromJson(widget,' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'requireLeadTimes' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'applyNowBar && NowBarManager.isActive' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'AppPreferences.setLastError(app, message)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'partial widget keeps current theme' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'malformed lead times rejected' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/AndroidManifest.xml"
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"

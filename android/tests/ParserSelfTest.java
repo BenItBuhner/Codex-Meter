@@ -553,11 +553,8 @@ public final class ParserSelfTest {
         check(WidgetOptions.ACCENT_CYAN.equals(merged.accent), "partial widget updates accent");
         check(WidgetOptions.THEME_LIGHT.equals(merged.theme),
                 "partial widget keeps current theme");
-        check(WidgetOptions.ACCENT_ROSE.equals(currentDefaults.accent)
-                        || WidgetOptions.STYLE_DIALS.equals(merged.layout),
-                "partial widget keeps current layout");
         check(WidgetOptions.STYLE_DIALS.equals(merged.layout),
-                "partial widget keeps current layout value");
+                "partial widget keeps current layout");
         check(merged.showPlan && merged.showResetCredits,
                 "partial widget keeps current visibility flags");
 
