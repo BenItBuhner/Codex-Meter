@@ -399,9 +399,9 @@ public final class MainActivity extends AppCompatActivity {
         card.addView(header);
 
         int percent = window == null ? 0 : window.remainingPercent();
-        TextView giant = Ui.text(this, percent + "%", 56.0f, onFill);
+        TextView giant = Ui.text(this, percent + "%", 64.0f, onFill);
         giant.setTypeface(Ui.emphasizedTypeface(this));
-        giant.setLetterSpacing(-0.04f);
+        giant.setLetterSpacing(-0.045f);
         giant.setIncludeFontPadding(false);
         LinearLayout.LayoutParams giantParams = new LinearLayout.LayoutParams(-1, -2);
         giantParams.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 14));

@@ -412,9 +412,10 @@ public final class Ui {
     }
 
     public static LinearLayout card(Context context, boolean z) {
-        RoundedLinearLayout linearLayout = new RoundedLinearLayout(context);
-        linearLayout.setOrientation(1);
         boolean zIsOneUi = isOneUi(context);
+        // SESL RoundedLinearLayout paints its own One UI corners — never use it for M3E shapes.
+        LinearLayout linearLayout = zIsOneUi ? new RoundedLinearLayout(context) : new LinearLayout(context);
+        linearLayout.setOrientation(1);
         int i = zIsOneUi ? 22 : 24;
         int i2 = zIsOneUi ? 20 : 22;
         linearLayout.setPadding(dp(context, i), dp(context, i2), dp(context, i), dp(context, i2));
@@ -428,7 +429,8 @@ public final class Ui {
     }
 
     public static LinearLayout expressiveCard(Context context, boolean dark, int fillColor, int tone) {
-        RoundedLinearLayout card = new RoundedLinearLayout(context);
+        // Plain LinearLayout so GradientDrawable cornerRadii (incl. asymmetric) actually win.
+        LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(context, 24.0f), dp(context, 22.0f), dp(context, 24.0f),
                 dp(context, 22.0f));
