@@ -8,9 +8,9 @@
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/material_toolbar"
         android:layout_width="match_parent"
-        android:layout_height="88dp"
+        android:layout_height="64dp"
         android:contentInsetStartWithNavigation="8dp"
-        android:minHeight="72dp"
+        android:minHeight="64dp"
         android:paddingStart="4dp"
         android:paddingEnd="8dp" />
 

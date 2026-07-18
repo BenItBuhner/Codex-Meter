@@ -22,7 +22,6 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.utils.EdgeToEdge;
 
 public final class AboutActivity extends AppCompatActivity {
@@ -86,7 +85,7 @@ public final class AboutActivity extends AppCompatActivity {
 
     private void buildSections(LinearLayout content) {
         content.addView(sectionTitle("Credits"));
-        RoundedLinearLayout credits = Ui.cardGroup(this, dark);
+        LinearLayout credits = Ui.cardGroup(this, dark);
         credits.addView(personRow("BenIt Buhner", "App creator and AI geek", R.drawable.benit_github_avatar, false,
                 "https://github.com/BenItBuhner"));
         credits.addView(personRow("That Josh Guy", "App and Icon designer", R.drawable.codex_profile_avatar, true,
@@ -94,7 +93,7 @@ public final class AboutActivity extends AppCompatActivity {
         content.addView(credits);
 
         content.addView(sectionTitle("Dependencies"));
-        RoundedLinearLayout dependencies = Ui.cardGroup(this, dark);
+        LinearLayout dependencies = Ui.cardGroup(this, dark);
         CardItemView oneUi = Ui.actionRow(this, "One UI Design Library",
                 "The original Android design base, preserved as the default.",
                 R.drawable.ic_oui_theme,
@@ -213,6 +212,9 @@ public final class AboutActivity extends AppCompatActivity {
     }
 
     private TextView sectionTitle(String title) {
+        if (!Ui.isOneUi(this)) {
+            return Ui.sectionTitle(this, title, dark);
+        }
         TextView label = Ui.text(this, title, 14, Ui.secondaryText(dark));
         label.setTypeface(Ui.mediumTypeface(this));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);

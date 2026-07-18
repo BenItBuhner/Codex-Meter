@@ -14,7 +14,6 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class LockWidgetConfigActivity extends AppCompatActivity {
@@ -57,7 +56,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         page.preview.addView(this.preview, new FrameLayout.LayoutParams(-1, -1));
 
         linearLayout.addView(Ui.separator(this, "Content"));
-        RoundedLinearLayout contentCard = Ui.seslCard(this, this.dark);
+        LinearLayout contentCard = Ui.seslCard(this, this.dark);
         LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions = AppPreferences.loadLockWidgetOptions(this, this.appWidgetId);
         this.metricSpinner = Ui.spinner(this, WidgetOptionCatalog.METRIC_LABELS, this.dark);
         WidgetOptionCatalog.selectString(this.metricSpinner, WidgetOptionCatalog.METRIC_VALUES, lockWidgetOptionsLoadLockWidgetOptions.metricMode);

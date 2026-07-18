@@ -28,7 +28,6 @@ import androidx.appcompat.widget.SeslSeekBar;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RadioItemView;
 import dev.oneuiproject.oneui.widget.RadioItemViewGroup;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 public final class WidgetConfigActivity extends AppCompatActivity {
     private Spinner accentSpinner;
@@ -90,7 +89,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         this.tapAction = AppPreferences.getWidgetTapAction(this, this.appWidgetId);
 
         content.addView(Ui.separator(this, "Appearance"));
-        RoundedLinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
+        LinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
         this.opacityControl = LayoutInflater.from(this).inflate(
                 R.layout.view_widget_opacity, appearanceCard, false);
         appearanceCard.addView(this.opacityControl);
@@ -120,7 +119,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         content.addView(appearanceCard);
 
         content.addView(Ui.separator(this, "Content"));
-        RoundedLinearLayout contentCard = Ui.seslRowCard(this, this.dark);
+        LinearLayout contentCard = Ui.seslRowCard(this, this.dark);
         this.displaySpinner = Ui.spinner(this, WidgetOptionCatalog.DISPLAY_LABELS, this.dark);
         WidgetOptionCatalog.selectString(this.displaySpinner, WidgetOptionCatalog.DISPLAY_VALUES,
                 saved.displayMode);
@@ -186,8 +185,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         renderPreview();
     }
 
-    private RoundedLinearLayout buildTapActionCard() {
-        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+    private LinearLayout buildTapActionCard() {
+        LinearLayout card = Ui.seslRowCard(this, this.dark);
         RadioItemViewGroup group = new RadioItemViewGroup(this);
         group.setOrientation(LinearLayout.VERTICAL);
         group.addView(radioRow(this.tapOpenId, "Open Codex Meter", false));
@@ -225,7 +224,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         return this.tapOpenId;
     }
 
-    private CardItemView addOptionRow(RoundedLinearLayout card, String title, Spinner spinner,
+    private CardItemView addOptionRow(LinearLayout card, String title, Spinner spinner,
             String[] labels, boolean divider) {
         CardItemView row = new CardItemView(this);
         row.setTitle(title);

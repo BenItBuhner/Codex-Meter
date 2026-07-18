@@ -184,11 +184,11 @@ public final class UpdateActivity extends AppCompatActivity {
             });
             card.addView(action, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
 
-            progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+            progress = Ui.progress(this, dark);
             progress.setMax(1000);
             progress.setVisibility(View.GONE);
             LinearLayout.LayoutParams progressParams =
-                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 8));
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, Ui.isOneUi(this) ? 8 : 12));
             progressParams.setMargins(0, Ui.dp(this, 18), 0, 0);
             card.addView(progress, progressParams);
             status = Ui.text(this, "", 13, Ui.secondaryText(dark));

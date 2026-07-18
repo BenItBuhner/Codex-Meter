@@ -199,9 +199,17 @@ public final class Ui {
             save.setTextSize(16f);
             save.setPadding(dp(activity, 20), dp(activity, 10), dp(activity, 20), dp(activity, 10));
             save.setBackground(shape(accent(activity, dark), dp(activity, 999)));
+            LinearLayout buttonBar = root.findViewById(R.id.config_button_bar);
+            buttonBar.setPadding(dp(activity, 8), dp(activity, 8),
+                    dp(activity, 8), dp(activity, 8));
+            buttonBar.setBackground(shape(cardColor(activity, dark), dp(activity, 999)));
+            buttonBar.setElevation(dp(activity, 8));
+            buttonBar.setClipToOutline(true);
         }
         activity.setContentView(root);
-        configureSystemBars(activity, root, isDark(activity));
+        if (!oneUi) {
+            configureSystemBars(activity, root, isDark(activity));
+        }
         return new ConfigPage(toolbar, materialToolbar, content, preview, cancel, save);
     }
 
@@ -423,7 +431,7 @@ public final class Ui {
                 ? shape(cardColor(context, z), dp(context, 28.0f))
                 : expressiveShape(cardColor(context, z), expressiveRadii(context, 0)));
         linearLayout.setElevation(0.0f);
-        linearLayout.setClipToOutline(true);
+        linearLayout.setClipToOutline(zIsOneUi);
         linearLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return linearLayout;
     }
@@ -436,44 +444,44 @@ public final class Ui {
                 dp(context, 22.0f));
         card.setBackground(expressiveShape(fillColor, expressiveRadii(context, tone)));
         card.setElevation(0.0f);
-        card.setClipToOutline(true);
+        card.setClipToOutline(false);
         card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return card;
     }
 
-    public static RoundedLinearLayout seslCard(Context context, boolean dark) {
-        RoundedLinearLayout card = new RoundedLinearLayout(context);
+    public static LinearLayout seslCard(Context context, boolean dark) {
+        boolean oneUi = isOneUi(context);
+        LinearLayout card = oneUi ? new RoundedLinearLayout(context) : new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(context, 18.0f), dp(context, 14.0f), dp(context, 18.0f), dp(context, 14.0f));
-        boolean oneUi = isOneUi(context);
         card.setBackground(oneUi
                 ? shape(cardColor(context, dark), dp(context, 28.0f))
                 : expressiveShape(cardColor(context, dark), expressiveRadii(context, 0)));
-        card.setClipToOutline(true);
+        card.setClipToOutline(oneUi);
         card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return card;
     }
 
-    public static RoundedLinearLayout cardGroup(Context context, boolean dark) {
-        RoundedLinearLayout group = new RoundedLinearLayout(context);
-        group.setOrientation(LinearLayout.VERTICAL);
+    public static LinearLayout cardGroup(Context context, boolean dark) {
         boolean oneUi = isOneUi(context);
+        LinearLayout group = oneUi ? new RoundedLinearLayout(context) : new LinearLayout(context);
+        group.setOrientation(LinearLayout.VERTICAL);
         group.setBackground(oneUi
                 ? shape(cardColor(context, dark), dp(context, 28.0f))
                 : expressiveShape(cardColor(context, dark), expressiveRadii(context, 1)));
-        group.setClipToOutline(true);
+        group.setClipToOutline(oneUi);
         group.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return group;
     }
 
-    public static RoundedLinearLayout seslRowCard(Context context, boolean dark) {
-        RoundedLinearLayout card = new RoundedLinearLayout(context);
-        card.setOrientation(LinearLayout.VERTICAL);
+    public static LinearLayout seslRowCard(Context context, boolean dark) {
         boolean oneUi = isOneUi(context);
+        LinearLayout card = oneUi ? new RoundedLinearLayout(context) : new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(oneUi
                 ? shape(cardColor(context, dark), dp(context, 28.0f))
                 : expressiveShape(cardColor(context, dark), expressiveRadii(context, 2)));
-        card.setClipToOutline(true);
+        card.setClipToOutline(oneUi);
         card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return card;
     }
@@ -507,6 +515,24 @@ public final class Ui {
         int iOnAccent = z ? onAccent(context, z2)
                 : (zIsOneUi ? mainText(z2) : onSecondaryContainer(context, z2));
         GradientDrawable gradientDrawableShape = shape(iAccent, iDp);
+        int enabledText = iOnAccent;
+        if (!zIsOneUi) {
+            int onSurface = mainText(context, z2);
+            int disabledFill = Color.argb(31, Color.red(onSurface),
+                    Color.green(onSurface), Color.blue(onSurface));
+            int disabledText = Color.argb(97, Color.red(onSurface),
+                    Color.green(onSurface), Color.blue(onSurface));
+            int[][] states = new int[][]{
+                    new int[]{-android.R.attr.state_enabled},
+                    new int[0]
+            };
+            gradientDrawableShape.setColor(new ColorStateList(states,
+                    new int[]{disabledFill, iAccent}));
+            ColorStateList textColors = new ColorStateList(states,
+                    new int[]{disabledText, enabledText});
+            button.setTextColor(textColors);
+            button.setCompoundDrawableTintList(textColors);
+        }
         if (z) {
             iArgb = Color.argb(42, 255, 255, 255);
         } else {
@@ -514,12 +540,16 @@ public final class Ui {
                     Color.green(mainText(context, z2)), Color.blue(mainText(context, z2)));
         }
         button.setBackground(new RippleDrawable(ColorStateList.valueOf(iArgb), gradientDrawableShape, null));
-        button.setTextColor(iOnAccent);
+        if (zIsOneUi) {
+            button.setTextColor(enabledText);
+        }
         int icon = buttonIcon(str);
         if (icon != 0) {
             button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
             button.setCompoundDrawablePadding(dp(context, zIsOneUi ? 8.0f : 10.0f));
-            button.setCompoundDrawableTintList(ColorStateList.valueOf(iOnAccent));
+            if (zIsOneUi) {
+                button.setCompoundDrawableTintList(ColorStateList.valueOf(enabledText));
+            }
         }
         button.setElevation(0.0f);
         button.setStateListAnimator(null);
@@ -729,9 +759,11 @@ public final class Ui {
         checkBox.setText(str);
         checkBox.setChecked(z);
         checkBox.setTextSize(isOneUi(context) ? 15.0f : 14.0f);
-        checkBox.setTextColor(mainText(z2));
+        checkBox.setTextColor(mainText(context, z2));
         checkBox.setTypeface(regularTypeface(context));
-        checkBox.setButtonTintList(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked}, new int[0]}, new int[]{accent(context, z2), secondaryText(z2)}));
+        checkBox.setButtonTintList(new ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_checked}, new int[0]},
+                new int[]{accent(context, z2), secondaryText(context, z2)}));
         checkBox.setMinHeight(dp(context, isOneUi(context) ? 52.0f : 48.0f));
         checkBox.setPadding(0, dp(context, 4.0f), 0, dp(context, 4.0f));
         return checkBox;

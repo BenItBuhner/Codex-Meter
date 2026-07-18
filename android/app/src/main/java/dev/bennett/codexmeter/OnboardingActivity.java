@@ -21,7 +21,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.widget.NestedScrollView;
 
 import dev.oneuiproject.oneui.widget.CardItemView;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /** First-run setup built from the same One UI Design Library primitives as the app. */
 public final class OnboardingActivity extends AppCompatActivity {
@@ -193,7 +192,8 @@ public final class OnboardingActivity extends AppCompatActivity {
 
         ProgressBar progress = Ui.progress(this, this.dark);
         progress.setProgress((this.step + 1) * 100 / OnboardingFlow.STEP_COUNT);
-        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 5));
+        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1,
+                Ui.dp(this, Ui.isOneUi(this) ? 5 : 12));
         progressParams.setMargins(Ui.dp(this, 14), 0, Ui.dp(this, 14), Ui.dp(this, 26));
         this.content.addView(progress, progressParams);
     }
@@ -204,7 +204,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                         + "quick " + designName() + " view.",
                 R.drawable.ic_oui_battery);
 
-        RoundedLinearLayout card = Ui.seslCard(this, this.dark);
+        LinearLayout card = Ui.seslCard(this, this.dark);
         TextView title = Ui.text(this, Ui.isOneUi(this)
                         ? "Built to feel at home on Galaxy"
                         : "Built for Material 3 Expressive",
@@ -233,7 +233,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                 R.drawable.ic_oui_time);
 
         this.content.addView(Ui.separator(this, "What you get"));
-        RoundedLinearLayout features = Ui.seslRowCard(this, this.dark);
+        LinearLayout features = Ui.seslRowCard(this, this.dark);
         CardItemView limits = Ui.actionRow(this, "Live Codex limits",
                 "Five-hour and weekly allowance with reset timing",
                 R.drawable.ic_oui_calendar_week, null);
@@ -259,7 +259,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                 R.drawable.ic_oui_samsung_account);
 
         this.content.addView(Ui.separator(this, "Private by design"));
-        RoundedLinearLayout privacy = Ui.seslRowCard(this, this.dark);
+        LinearLayout privacy = Ui.seslRowCard(this, this.dark);
         CardItemView encrypted = Ui.actionRow(this, "Encrypted on this device",
                 "Session tokens are protected by Android Keystore",
                 R.drawable.ic_oui_privacy, null);
@@ -271,7 +271,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.content.addView(privacy);
 
         if (!this.authMessage.isEmpty()) {
-            RoundedLinearLayout status = Ui.seslCard(this, this.dark);
+            LinearLayout status = Ui.seslCard(this, this.dark);
             TextView message = Ui.text(this, this.authMessage, 14.0f,
                     Ui.secondaryText(this.dark));
             status.addView(message);
@@ -300,7 +300,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                         : "You can connect ChatGPT later from the Codex Meter dashboard.",
                 signedIn ? R.drawable.ic_oui_samsung_account : R.drawable.ic_oui_info_outline);
 
-        RoundedLinearLayout account = Ui.seslRowCard(this, this.dark);
+        LinearLayout account = Ui.seslRowCard(this, this.dark);
         AuthTokens tokens = SecureTokenStore.load(this);
         account.addView(Ui.actionRow(this,
                 signedIn ? "ChatGPT connected" : "Continue without an account",
@@ -314,7 +314,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void addIntro(String titleText, String bodyText, int iconResource) {
-        RoundedLinearLayout hero = Ui.seslCard(this, this.dark);
+        LinearLayout hero = Ui.seslCard(this, this.dark);
         ImageView icon = new ImageView(this);
         icon.setImageResource(iconResource);
         icon.setColorFilter(Ui.accent(this, this.dark));
