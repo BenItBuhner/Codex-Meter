@@ -37,6 +37,19 @@
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Usage pace">
+        <SwitchPreferenceCompat
+            android:key="usage_pace_enabled_ui"
+            android:title="Estimated usage time"
+            android:summary="Show projected allowance life and warn when it may run out well before reset" />
+        <ListPreference
+            android:entries="@array/usage_pace_sensitivity_entries"
+            android:entryValues="@array/usage_pace_sensitivity_values"
+            android:key="usage_pace_sensitivity_ui"
+            android:title="Warning sensitivity"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="App updates">
         <SwitchPreferenceCompat
             android:key="automatic_update_checks_ui"
@@ -133,6 +146,10 @@
             android:key="now_bar_auto_start_ui"
             android:title="Auto-start when low"
             android:summary="Start the live monitor when remaining allowance hits the threshold below" />
+        <SwitchPreferenceCompat
+            android:key="now_bar_accelerated_ui"
+            android:title="Auto-start for accelerated usage"
+            android:summary="Keep the live monitor active until this pace improves or the affected limit resets" />
         <ListPreference
             android:entries="@array/settings_metric_entries"
             android:entryValues="@array/settings_metric_values"

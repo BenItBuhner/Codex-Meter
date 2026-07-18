@@ -15,8 +15,10 @@ import androidx.appcompat.content.res.AppCompatResources;
 /** Animated percentage fill used by the Figma usage-counter cards. */
 public final class UsageWaveView extends View {
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint resetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint pacePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint percentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path fillPath = new Path();
     private ValueAnimator animator;
@@ -24,7 +26,9 @@ public final class UsageWaveView extends View {
     private String title = "";
     private String resetTop = "";
     private String resetBottom = "";
+    private String pace = "";
     private int percent;
+    private boolean warning;
     private float phase;
     private float phaseOffset;
 
@@ -36,14 +40,18 @@ public final class UsageWaveView extends View {
         super(context, attrs);
         titlePaint.setTypeface(Typeface.create("sec", Typeface.BOLD));
         resetPaint.setTypeface(Typeface.create("sec", Typeface.NORMAL));
+        pacePaint.setTypeface(Typeface.create("sec", Typeface.BOLD));
         percentPaint.setTypeface(Typeface.create("sec", Typeface.BOLD));
         percentPaint.setTextAlign(Paint.Align.CENTER);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
 
-    public void setUsage(String label, String reset, int remainingPercent, int iconRes, boolean invertedWave) {
+    public void setUsage(String label, String reset, String paceEstimate, int remainingPercent,
+            int iconRes, boolean invertedWave, boolean acceleratedWarning) {
         title = label;
         percent = Math.max(0, Math.min(100, remainingPercent));
+        pace = paceEstimate == null ? "" : paceEstimate;
+        warning = acceleratedWarning;
         phaseOffset = invertedWave ? (float) Math.PI : 0f;
         if (reset != null && reset.startsWith("Resets in ")) {
             resetTop = "Resets in";
@@ -53,7 +61,10 @@ public final class UsageWaveView extends View {
             resetBottom = "";
         }
         icon = AppCompatResources.getDrawable(getContext(), iconRes);
-        setContentDescription(label + ", " + percent + " percent. " + reset);
+        String description = label + ", " + percent + " percent. " + reset;
+        if (!pace.isEmpty()) description += ". " + pace;
+        if (warning) description += ". Accelerated usage warning";
+        setContentDescription(description);
         invalidate();
     }
 
@@ -85,6 +96,10 @@ public final class UsageWaveView extends View {
         super.onDraw(canvas);
         float density = getResources().getDisplayMetrics().density;
         boolean dark = Ui.isDark(getContext());
+        if (warning) {
+            trackPaint.setColor(Ui.warningTrack(getContext(), dark));
+            canvas.drawRect(0f, 0f, getWidth(), getHeight(), trackPaint);
+        }
         float edge = getWidth() * percent / 100f;
         float amplitude = 8f * density;
         fillPath.reset();
@@ -100,21 +115,27 @@ public final class UsageWaveView extends View {
         }
         fillPath.lineTo(0, getHeight());
         fillPath.close();
-        fillPaint.setColor(Ui.desaturatedAccent(getContext(), dark));
+        fillPaint.setColor(warning ? Ui.warning(dark)
+                : Ui.desaturatedAccent(getContext(), dark));
         canvas.drawPath(fillPath, fillPaint);
 
-        int foreground = Ui.mainText(dark);
+        int foreground = warning ? (dark ? 0xFFFFFFFF : 0xFF000000) : Ui.mainText(dark);
         titlePaint.setColor(foreground);
         titlePaint.setTextSize(20f * density);
         // Reset duration must match title/percent contrast (black light / white dark).
         resetPaint.setColor(foreground);
-        resetPaint.setTextSize(14f * density);
+        resetPaint.setTextSize(13f * density);
+        pacePaint.setColor(foreground);
+        pacePaint.setTextSize(12f * density);
         canvas.drawText(title, 12f * density, 34f * density, titlePaint);
         if (!resetTop.isEmpty()) {
             canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
             if (!resetBottom.isEmpty()) {
                 canvas.drawText(resetBottom, 12f * density, 87f * density, resetPaint);
             }
+        }
+        if (!pace.isEmpty()) {
+            canvas.drawText(pace, 12f * density, 108f * density, pacePaint);
         }
         float rightCenter = getWidth() - 48f * density;
         if (icon != null) {
@@ -127,6 +148,6 @@ public final class UsageWaveView extends View {
         }
         percentPaint.setColor(foreground);
         percentPaint.setTextSize(22f * density);
-        canvas.drawText(percent + "%", rightCenter, 85f * density, percentPaint);
+        canvas.drawText(percent + "%", rightCenter, 94f * density, percentPaint);
     }
 }

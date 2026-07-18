@@ -36,6 +36,16 @@ public final class UsageWindow {
         return 0L;
     }
 
+    public long effectiveResetAtMillis(long observedAtMillis) {
+        long explicit = resetAtMillis();
+        if (explicit > 0L) return explicit;
+        if (resetAfterSeconds <= 0L || observedAtMillis <= 0L
+                || resetAfterSeconds > (Long.MAX_VALUE - observedAtMillis) / 1000L) {
+            return 0L;
+        }
+        return observedAtMillis + resetAfterSeconds * 1000L;
+    }
+
     public JSONObject toJson() throws JSONException {
         JSONObject jSONObject = new JSONObject();
         jSONObject.put("used_percent", this.usedPercent);

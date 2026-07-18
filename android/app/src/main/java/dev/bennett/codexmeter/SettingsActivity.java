@@ -66,10 +66,12 @@ public final class SettingsActivity extends AppCompatActivity {
         private Preference testNotificationPreference;
         private SwitchPreferenceCompat nowBarMonitorPreference;
         private SwitchPreferenceCompat nowBarAutoStartPreference;
+        private SwitchPreferenceCompat nowBarAcceleratedPreference;
         private ListPreference nowBarDisplayModePreference;
         private ListPreference nowBarPercentModePreference;
         private ListPreference nowBarMetricPreference;
         private ListPreference nowBarThresholdPreference;
+        private ListPreference usagePaceSensitivityPreference;
         private Preference nowBarPermissionPreference;
         private Preference updateStatusPreference;
         private SwitchPreferenceCompat automaticUpdatePreference;
@@ -88,6 +90,7 @@ public final class SettingsActivity extends AppCompatActivity {
             bindAccount();
             bindAppearance();
             bindRefresh();
+            bindUsagePace();
             bindUpdates();
             bindNotifications();
             bindNowBar();
@@ -255,6 +258,37 @@ public final class SettingsActivity extends AppCompatActivity {
                 AppPreferences.setRefreshMinutes(requireContext(), Integer.parseInt(String.valueOf(value)));
                 RefreshScheduler.schedulePeriodic(requireContext());
                 PhoneWearSync.pushSettings(requireContext());
+                return true;
+            });
+        }
+
+        private void bindUsagePace() {
+            SwitchPreferenceCompat enabled = findPreference("usage_pace_enabled_ui");
+            enabled.setPersistent(false);
+            enabled.setChecked(UsagePacePreferences.isEnabled(requireContext()));
+
+            usagePaceSensitivityPreference = findPreference("usage_pace_sensitivity_ui");
+            usagePaceSensitivityPreference.setPersistent(false);
+            usagePaceSensitivityPreference.setValue(
+                    UsagePacePreferences.getSensitivity(requireContext()));
+            usagePaceSensitivityPreference.setEnabled(
+                    UsagePacePreferences.isEnabled(requireContext()));
+
+            enabled.setOnPreferenceChangeListener((preference, value) -> {
+                boolean isEnabled = (Boolean) value;
+                UsagePacePreferences.setEnabled(requireContext(), isEnabled);
+                usagePaceSensitivityPreference.setEnabled(isEnabled);
+                if (nowBarAcceleratedPreference != null) {
+                    nowBarAcceleratedPreference.setEnabled(isEnabled);
+                }
+                NowBarManager.onPaceSettingsChanged(requireContext());
+                return true;
+            });
+            usagePaceSensitivityPreference.setOnPreferenceChangeListener((preference, value) -> {
+                String sensitivity = UsagePace.normalizeSensitivity(String.valueOf(value));
+                UsagePacePreferences.setSensitivity(requireContext(), sensitivity);
+                usagePaceSensitivityPreference.setValue(sensitivity);
+                NowBarManager.onPaceSettingsChanged(requireContext());
                 return true;
             });
         }
@@ -727,6 +761,20 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            nowBarAcceleratedPreference = findPreference("now_bar_accelerated_ui");
+            nowBarAcceleratedPreference.setPersistent(false);
+            nowBarAcceleratedPreference.setChecked(
+                    NowBarPreferences.isAcceleratedStartEnabled(requireContext()));
+            nowBarAcceleratedPreference.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (enabled && !ensureNotificationPermission()) return false;
+                NowBarPreferences.setAcceleratedStartEnabled(requireContext(), enabled);
+                if (enabled) NowBarPreferences.clearSuppression(requireContext());
+                NowBarManager.onPaceSettingsChanged(requireContext());
+                updateNowBarSummary();
+                return true;
+            });
+
             nowBarMetricPreference = findPreference("now_bar_metric_ui");
             nowBarMetricPreference.setPersistent(false);
             nowBarMetricPreference.setValue(NowBarPreferences.getMetric(requireContext()));
@@ -884,9 +932,11 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarMonitorPreference.setSummary(kind + " " + state + " · ends "
                         + UsageFormat.absolute(requireContext(), NowBarManager.activeUntil(requireContext()),
                         System.currentTimeMillis()));
-            } else if (NowBarPreferences.isAutoStartEnabled(requireContext())) {
+            } else if (NowBarPreferences.isAutoStartEnabled(requireContext())
+                    || (UsagePacePreferences.isEnabled(requireContext())
+                    && NowBarPreferences.isAcceleratedStartEnabled(requireContext()))) {
                 nowBarMonitorPreference.setSummary(
-                        "Waiting to auto-start when remaining allowance hits the threshold");
+                        "Waiting for a low allowance or accelerated usage trigger");
             } else {
                 nowBarMonitorPreference.setSummary(
                         "Show remaining Codex allowance until the next available usage reset");
@@ -894,6 +944,12 @@ public final class SettingsActivity extends AppCompatActivity {
             if (nowBarAutoStartPreference != null) {
                 nowBarAutoStartPreference.setChecked(
                         NowBarPreferences.isAutoStartEnabled(requireContext()));
+            }
+            if (nowBarAcceleratedPreference != null) {
+                nowBarAcceleratedPreference.setChecked(
+                        NowBarPreferences.isAcceleratedStartEnabled(requireContext()));
+                nowBarAcceleratedPreference.setEnabled(
+                        UsagePacePreferences.isEnabled(requireContext()));
             }
             if (nowBarDisplayModePreference != null) {
                 nowBarDisplayModePreference.setValue(

@@ -11,6 +11,7 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
  */
 public final class NowBarPreferences {
     private static final String KEY_AUTO_ENABLED = "auto_enabled";
+    private static final String KEY_ACCELERATED_ENABLED = "accelerated_enabled";
     private static final String KEY_DISPLAY_MODE = "display_mode";
     private static final String KEY_METRIC = "metric";
     private static final String KEY_PERCENT_MODE = "percent_mode";
@@ -27,6 +28,15 @@ public final class NowBarPreferences {
 
     public static boolean isAutoStartEnabled(Context context) {
         return prefs(context).getBoolean(KEY_AUTO_ENABLED, false);
+    }
+
+    public static boolean isAcceleratedStartEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_ACCELERATED_ENABLED, false);
+    }
+
+    public static void setAcceleratedStartEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_ACCELERATED_ENABLED, enabled).apply();
+        PhoneWearSync.pushSettings(context);
     }
 
     public static String getDisplayMode(Context context) {
@@ -79,8 +89,8 @@ public final class NowBarPreferences {
         long now = System.currentTimeMillis();
         return NowBarAutoStart.shouldStart(isAutoStartEnabled(context), getMetric(context),
                 getThreshold(context),
-                UsageSnapshot.currentWindow(snapshot.fiveHour, now),
-                UsageSnapshot.currentWindow(snapshot.weekly, now));
+                UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis, now),
+                UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis, now));
     }
 
     public static boolean isSuppressed(Context context) {

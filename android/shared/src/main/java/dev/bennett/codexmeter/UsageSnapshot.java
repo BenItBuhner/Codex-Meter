@@ -53,9 +53,13 @@ public final class UsageSnapshot {
     }
 
     public long nextResetMillis(long j) {
-        long jMin = (this.fiveHour == null || this.fiveHour.resetAtMillis() <= j) ? Long.MAX_VALUE : Math.min(Long.MAX_VALUE, this.fiveHour.resetAtMillis());
-        if (this.weekly != null && this.weekly.resetAtMillis() > j) {
-            jMin = Math.min(jMin, this.weekly.resetAtMillis());
+        long fiveHourReset = this.fiveHour == null ? 0L
+                : this.fiveHour.effectiveResetAtMillis(this.fetchedAtMillis);
+        long weeklyReset = this.weekly == null ? 0L
+                : this.weekly.effectiveResetAtMillis(this.fetchedAtMillis);
+        long jMin = fiveHourReset <= j ? Long.MAX_VALUE : fiveHourReset;
+        if (weeklyReset > j) {
+            jMin = Math.min(jMin, weeklyReset);
         }
         if (jMin == Long.MAX_VALUE) {
             return 0L;
@@ -64,8 +68,12 @@ public final class UsageSnapshot {
     }
 
     static UsageWindow currentWindow(UsageWindow window, long now) {
+        return currentWindow(window, 0L, now);
+    }
+
+    static UsageWindow currentWindow(UsageWindow window, long observedAtMillis, long now) {
         if (window == null) return null;
-        long resetAt = window.resetAtMillis();
+        long resetAt = window.effectiveResetAtMillis(observedAtMillis);
         return resetAt > 0L && resetAt <= now ? null : window;
     }
 }

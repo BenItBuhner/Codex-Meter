@@ -28,6 +28,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
@@ -349,6 +350,19 @@ grep -q 'resetPaint.setColor(foreground);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 grep -q 'showsResetCountdown' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
+grep -q 'testUsagePace' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'UsagePace.mostAcceleratedWindow' "$ROOT/tests/ParserSelfTest.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsagePacePreferences.java"
+grep -q 'usage_pace_enabled_ui' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'usage_pace_sensitivity_ui' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'now_bar_accelerated_ui' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'accelerated_enabled' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'START_ACCELERATED' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'onPaceSettingsChanged' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q '!usageWindow.showsResetCountdown()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageFormat.java"
 ! grep -q 'resetPaint.setColor(Ui.secondaryText(dark));' \

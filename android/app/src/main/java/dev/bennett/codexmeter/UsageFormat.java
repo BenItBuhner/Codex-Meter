@@ -43,23 +43,49 @@ public final class UsageFormat {
     }
 
     public static String reset(Context context, UsageWindow usageWindow, String str, long j) {
+        return reset(context, usageWindow, str, j, j);
+    }
+
+    public static String reset(Context context, UsageWindow usageWindow, String str,
+            long observedAtMillis, long nowMillis) {
         if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)
                 || !usageWindow.showsResetCountdown()) {
             return "";
         }
-        long jResetAtMillis = usageWindow.resetAtMillis();
-        if (jResetAtMillis <= 0 && usageWindow.resetAfterSeconds > 0) {
-            jResetAtMillis = (usageWindow.resetAfterSeconds * 1000) + j;
-        }
+        long jResetAtMillis = usageWindow.effectiveResetAtMillis(observedAtMillis);
         if (jResetAtMillis <= 0) {
             return "Reset time unavailable";
         }
-        String strAbsolute = absolute(context, jResetAtMillis, j);
-        String strRelative = relative(jResetAtMillis, j);
+        String strAbsolute = absolute(context, jResetAtMillis, nowMillis);
+        String strRelative = relative(jResetAtMillis, nowMillis);
         if (WidgetOptions.RESET_RELATIVE.equals(str)) {
             return "Resets " + strRelative;
         }
         return "both".equals(str) ? "Resets " + strAbsolute + " (" + strRelative + ")" : "Resets " + strAbsolute;
+    }
+
+    public static String estimatedRemaining(UsagePace.Assessment assessment) {
+        if (assessment == null || !assessment.available) {
+            return "";
+        }
+        if (assessment.estimatedRemainingMillis <= 0L) {
+            return "Estimated allowance depleted";
+        }
+        return "Estimated " + compactDuration(assessment.estimatedRemainingMillis) + " left";
+    }
+
+    static String compactDuration(long millis) {
+        long minutes = Math.max(1L, TimeUnit.MILLISECONDS.toMinutes(Math.max(0L, millis)));
+        long days = minutes / 1440L;
+        long hours = (minutes % 1440L) / 60L;
+        long remainingMinutes = minutes % 60L;
+        if (days > 0L) {
+            return days + "d " + hours + "h";
+        }
+        if (hours > 0L) {
+            return hours + "h " + remainingMinutes + "m";
+        }
+        return minutes + "m";
     }
 
     public static String absolute(Context context, long j, long j2) {

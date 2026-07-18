@@ -141,6 +141,9 @@ public final class SettingsTransferStore {
         if (applyNowBar && NowBarManager.isActive(app) && !NowBarManager.repostActive(app)) {
             NowBarManager.stop(app, false);
         }
+        if (applyAppSettings) {
+            NowBarManager.onPaceSettingsChanged(app);
+        }
         WidgetRenderer.updateAll(app);
         PhoneWearSync.pushSettings(app);
 
@@ -170,6 +173,8 @@ public final class SettingsTransferStore {
         json.put("material_you", AppPreferences.isMaterialYouEnabled(context));
         json.put("refresh_minutes", AppPreferences.getRefreshMinutes(context));
         json.put("refresh_on_launch", AppPreferences.getRefreshOnLaunch(context));
+        json.put("usage_pace_enabled", UsagePacePreferences.isEnabled(context));
+        json.put("usage_pace_sensitivity", UsagePacePreferences.getSensitivity(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
         json.put("notify_updates", UpdatePreferences.notifyUpdatesEnabled(context));
         json.put("check_interval_hours", UpdatePreferences.checkIntervalHours(context));
@@ -197,6 +202,8 @@ public final class SettingsTransferStore {
         json.put("display_mode", NowBarPreferences.getDisplayMode(context));
         json.put("percent_mode", NowBarPreferences.getPercentMode(context));
         json.put("auto_enabled", NowBarPreferences.isAutoStartEnabled(context));
+        json.put("accelerated_enabled",
+                NowBarPreferences.isAcceleratedStartEnabled(context));
         json.put("metric", NowBarPreferences.getMetric(context));
         json.put("threshold", NowBarPreferences.getThreshold(context));
         return json;
@@ -213,6 +220,10 @@ public final class SettingsTransferStore {
                 AppPreferences.getRefreshMinutes(context)));
         AppPreferences.setRefreshOnLaunch(context, json.optBoolean("refresh_on_launch",
                 AppPreferences.getRefreshOnLaunch(context)));
+        UsagePacePreferences.setEnabled(context, json.optBoolean("usage_pace_enabled",
+                UsagePacePreferences.isEnabled(context)));
+        UsagePacePreferences.setSensitivity(context, json.optString("usage_pace_sensitivity",
+                UsagePacePreferences.getSensitivity(context)));
         boolean automatic = json.optBoolean("automatic_update_checks",
                 UpdatePreferences.automaticChecks(context));
         UpdatePreferences.setAutomaticChecks(context, automatic);
@@ -271,8 +282,12 @@ public final class SettingsTransferStore {
                 json.optBoolean("auto_enabled", NowBarPreferences.isAutoStartEnabled(context)),
                 json.optString("metric", NowBarPreferences.getMetric(context)),
                 json.optInt("threshold", NowBarPreferences.getThreshold(context)));
+        NowBarPreferences.setAcceleratedStartEnabled(context,
+                json.optBoolean("accelerated_enabled",
+                        NowBarPreferences.isAcceleratedStartEnabled(context)));
         NowBarPreferences.clearSuppression(context);
-        if (NowBarPreferences.isAutoStartEnabled(context)) {
+        if (NowBarPreferences.isAutoStartEnabled(context)
+                || NowBarPreferences.isAcceleratedStartEnabled(context)) {
             NowBarManager.maybeAutoStart(context, AppPreferences.loadSnapshot(context));
         }
     }

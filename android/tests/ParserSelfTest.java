@@ -21,6 +21,7 @@ public final class ParserSelfTest {
         testCelebrationDetection();
         testResetCreditExpiryReminders();
         testFullWindowHidesResetCountdown();
+        testUsagePace();
         testNowBarAutoStart();
         testNowBarDisplayModes();
         testWearSurfaceModes();
@@ -52,6 +53,68 @@ public final class ParserSelfTest {
         check(almostFull.showsResetCountdown(), "99% remaining still shows reset countdown");
         check(used.showsResetCountdown(), "partial usage shows reset countdown");
         System.out.println("Reset-countdown demo: hide at 100% remaining, show again at 99% or less.");
+    }
+
+    private static void testUsagePace() {
+        long now = 2_000_000_000_000L;
+        long hour = TimeUnit.HOURS.toMillis(1);
+        long week = TimeUnit.DAYS.toMillis(7);
+        UsageWindow fastWeekly = new UsageWindow(15, TimeUnit.DAYS.toSeconds(7), 0L,
+                (now - hour + week) / 1000L);
+        UsagePace.Assessment fast = UsagePace.assess(
+                fastWeekly, now, now, UsagePace.BALANCED);
+        check(fast.available, "weekly pace is available after a meaningful sample");
+        check(fast.accelerated, "15% of a weekly quota in one hour is accelerated");
+        check(Math.abs(fast.estimatedTotalMillis - TimeUnit.MINUTES.toMillis(400))
+                        < TimeUnit.MINUTES.toMillis(1),
+                "15 percent per hour projects roughly 6 hours 40 minutes total");
+        UsageWindow fallbackWeekly = new UsageWindow(15, TimeUnit.DAYS.toSeconds(7),
+                TimeUnit.DAYS.toSeconds(7) - TimeUnit.HOURS.toSeconds(1), 0L);
+        UsagePace.Assessment fallback = UsagePace.assess(
+                fallbackWeekly, now, now, UsagePace.BALANCED);
+        check(fallback.available && fallback.accelerated,
+                "reset-after fallback produces the same full-window pace");
+
+        UsageWindow sameRateFiveHour = new UsageWindow(15, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now - hour + TimeUnit.HOURS.toMillis(5)) / 1000L);
+        UsagePace.Assessment sustainable = UsagePace.assess(
+                sameRateFiveHour, now, now, UsagePace.BALANCED);
+        check(sustainable.available && !sustainable.accelerated,
+                "same consumption rate lasts beyond a five-hour reset");
+
+        UsageWindow pausedWeekly = new UsageWindow(15, TimeUnit.DAYS.toSeconds(7), 0L,
+                (now + TimeUnit.DAYS.toMillis(3) + TimeUnit.HOURS.toMillis(12)) / 1000L);
+        UsagePace.Assessment paused = UsagePace.assess(
+                pausedWeekly, now, now, UsagePace.BALANCED);
+        check(paused.available && !paused.accelerated,
+                "idle time remains in the full-window average and reduces noise");
+
+        UsageWindow borderline = new UsageWindow(55, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.HOURS.toMillis(3)) / 1000L);
+        check(UsagePace.assess(borderline, now, now, UsagePace.SENSITIVE).accelerated,
+                "sensitive policy warns before reset");
+        check(UsagePace.assess(borderline, now, now, UsagePace.BALANCED).accelerated,
+                "balanced policy warns at 75 percent projected coverage");
+        check(!UsagePace.assess(borderline, now, now, UsagePace.RELAXED).accelerated,
+                "relaxed policy requires a more severe shortfall");
+
+        UsageWindow tinySample = new UsageWindow(4, TimeUnit.DAYS.toSeconds(7), 0L,
+                (now - hour + week) / 1000L);
+        check(!UsagePace.assess(tinySample, now, now, UsagePace.BALANCED).available,
+                "balanced policy suppresses low-percentage sample noise");
+        check(UsagePace.assess(tinySample, now, now, UsagePace.SENSITIVE).available,
+                "sensitive policy accepts earlier samples");
+
+        UsageSnapshot both = new UsageSnapshot("pro", true, false, sameRateFiveHour,
+                fastWeekly, now);
+        check(UsagePace.mostAcceleratedWindow(both, now, UsagePace.BALANCED)
+                        == UsagePace.WINDOW_WEEKLY,
+                "accelerated window selection identifies weekly quota");
+        check(UsagePace.BALANCED.equals(UsagePace.normalizeSensitivity("invalid")),
+                "invalid sensitivity falls back to balanced");
+        check(!UsagePace.assess(fastWeekly, now, fast.resetAtMillis, UsagePace.BALANCED).available,
+                "expired windows do not produce stale warnings");
+        System.out.println("Usage-pace demo: 15% of a week in one hour projects about 6h 40m.");
     }
 
     private static void testNowBarAutoStart() {
@@ -360,6 +423,13 @@ public final class ParserSelfTest {
         check(new UsageSnapshot("pro", true, false, expiredFiveHour, null, now)
                         .nextResetMillis(now) == 0L,
                 "no future reset does not create an unbounded monitor");
+        UsageWindow fallback = new UsageWindow(10, 18_000L, 600L, 0L);
+        UsageSnapshot fallbackSnapshot = new UsageSnapshot(
+                "pro", true, false, fallback, null, now);
+        check(fallbackSnapshot.nextResetMillis(now) == now + 600_000L,
+                "reset-after fallback schedules the monitor from observation time");
+        check(UsageSnapshot.currentWindow(fallback, now, now + 600_000L) == null,
+                "reset-after fallback expires the current window consistently");
     }
 
     private static void testCelebrationDetection() {
@@ -488,6 +558,8 @@ public final class ParserSelfTest {
                 .put("material_you", true)
                 .put("refresh_minutes", 15)
                 .put("refresh_on_launch", false)
+                .put("usage_pace_enabled", true)
+                .put("usage_pace_sensitivity", UsagePace.RELAXED)
                 .put("automatic_update_checks", true)
                 .put("notify_updates", true)
                 .put("check_interval_hours", 24)
@@ -507,6 +579,7 @@ public final class ParserSelfTest {
                 .put("display_mode", NowBarDisplayMode.SAMSUNG_COMPATIBILITY)
                 .put("percent_mode", NowBarPercentMode.WEEKLY)
                 .put("auto_enabled", true)
+                .put("accelerated_enabled", true)
                 .put("metric", "five_hour")
                 .put("threshold", 10);
         org.json.JSONObject authentication = new org.json.JSONObject()
@@ -532,6 +605,9 @@ public final class ParserSelfTest {
         check(WidgetOptions.THEME_DARK.equals(restored.theme), "widget theme restored");
         check(WidgetOptions.ACCENT_BLUE.equals(restored.accent), "widget accent restored");
         check(parsed.appSettings.getBoolean("material_you"), "material you preference restored");
+        check(UsagePace.RELAXED.equals(
+                        parsed.appSettings.getString("usage_pace_sensitivity")),
+                "usage pace sensitivity preserved");
         check(!restored.showPercentSymbol, "percent symbol flag restored");
         check(parsed.notifications.getInt("threshold") == 50, "notification threshold restored");
         check(SettingsTransfer.leadTimesFromJson(
@@ -540,6 +616,8 @@ public final class ParserSelfTest {
         check(NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         parsed.nowBar.getString("display_mode")),
                 "Now Bar mode restored");
+        check(parsed.nowBar.getBoolean("accelerated_enabled"),
+                "accelerated Now Bar preference preserved");
         check("refresh-demo".equals(parsed.authentication.getString("refresh_token")),
                 "auth refresh token restored");
 
