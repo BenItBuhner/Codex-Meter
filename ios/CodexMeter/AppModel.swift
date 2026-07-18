@@ -53,6 +53,7 @@ extension NotificationPermissionState {
 @Observable
 final class AppModel {
     private static let modeDefaultsKey = "codex-meter.session-mode-v1"
+    private static let onboardingCompletedKey = "codex-meter.onboarding-completed-v1"
 
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
@@ -73,6 +74,8 @@ final class AppModel {
     var isShowingSettings = false
     var isShowingReset = false
     var isShowingSignIn = false
+    var hasCompletedOnboarding = false
+    var transferStatusMessage: String?
 
     private let liveService: LiveCodexService
     private var demoService: DemoCodexService
@@ -114,6 +117,8 @@ final class AppModel {
         self.defaults = defaults
         self.settings = settingsStore.settings
         self.isPreview = preview
+        self.hasCompletedOnboarding = preview
+            || defaults.bool(forKey: Self.onboardingCompletedKey)
 
         if preview {
             let now = Date()
@@ -167,6 +172,12 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") {
             settingsStore.reset()
             settings = settingsStore.settings
+        }
+
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-skip-onboarding")
+            || ProcessInfo.processInfo.arguments.contains("-ui-testing-demo")
+            || ProcessInfo.processInfo.arguments.contains("-ui-testing-signed-out") {
+            completeOnboarding()
         }
 
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-signed-out") {
@@ -406,6 +417,53 @@ final class AppModel {
 
     func refreshNotificationPermissionState() async {
         notificationPermissionState = await notificationCoordinator.permissionState()
+    }
+
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        defaults.set(true, forKey: Self.onboardingCompletedKey)
+    }
+
+    func exportTransferData(
+        options: SettingsTransfer.ExportOptions = .init()
+    ) async throws -> Data {
+        let tokens: AuthTokens?
+        if options.includeAuthentication {
+            tokens = try await liveService.currentTokens()
+        } else {
+            tokens = nil
+        }
+        let document = SettingsTransfer.makeDocument(
+            settings: settings,
+            tokens: tokens,
+            options: options
+        )
+        return try SettingsTransfer.encode(document)
+    }
+
+    func importTransferData(
+        _ data: Data,
+        options: SettingsTransfer.ImportOptions
+    ) async throws {
+        let document = try SettingsTransfer.parse(data)
+        let applied = try SettingsTransfer.apply(
+            document: document,
+            to: settings,
+            options: options
+        )
+        save(settings: applied.settings)
+
+        if let tokens = applied.tokens {
+            try await liveService.storeImportedTokens(tokens)
+            mode = .live
+            defaults.set(AppMode.live.rawValue, forKey: Self.modeDefaultsKey)
+            apply(tokens: tokens)
+            await refresh()
+        } else if applied.settings.notificationsEnabled {
+            await applyNotificationSettings()
+        }
+
+        transferStatusMessage = "Settings imported successfully."
     }
 
     func save(settings: AppSettings) {

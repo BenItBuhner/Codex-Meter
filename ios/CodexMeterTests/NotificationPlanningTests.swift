@@ -160,7 +160,8 @@ final class NotificationPlanningTests: XCTestCase {
             credits: .summary(availableCount: 1, fetchedAt: now),
             now: now
         )
-        XCTAssertNotNil(try await cache.load())
+        let published = try await cache.load()
+        XCTAssertNotNil(published)
 
         // Turn the snapshot path into a directory so the signed-out write fails.
         try FileManager.default.removeItem(at: fileURL)
@@ -173,7 +174,8 @@ final class NotificationPlanningTests: XCTestCase {
             // Expected — previous authenticated snapshot must still be wiped.
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
-        XCTAssertNil(try await cache.load())
+        let afterFailure = try await cache.load()
+        XCTAssertNil(afterFailure)
     }
 
     func testAppSettingsDecodesMissing22FieldsWithDefaults() throws {

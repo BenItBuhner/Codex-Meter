@@ -25,7 +25,11 @@ final class CodexMeterUITests: XCTestCase {
 
     func testSignedOutAndSignInPresentation() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-ui-testing-signed-out", "-ui-testing-reset-settings"]
+        app.launchArguments = [
+            "-ui-testing-signed-out",
+            "-ui-testing-reset-settings",
+            "-ui-testing-skip-onboarding"
+        ]
         app.launch()
 
         XCTAssertTrue(app.buttons["Sign in with ChatGPT"].waitForExistence(timeout: 5))
@@ -60,6 +64,7 @@ final class CodexMeterUITests: XCTestCase {
         app.launchArguments = [
             "-ui-testing-demo",
             "-ui-testing-reset-settings",
+            "-ui-testing-skip-onboarding",
             "-ui-testing-refresh-failure"
         ]
         app.launch()
@@ -83,7 +88,11 @@ final class CodexMeterUITests: XCTestCase {
 
     private func launchDemo() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-ui-testing-demo", "-ui-testing-reset-settings"]
+        app.launchArguments = [
+            "-ui-testing-demo",
+            "-ui-testing-reset-settings",
+            "-ui-testing-skip-onboarding"
+        ]
         app.launch()
         return app
     }

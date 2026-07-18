@@ -1,10 +1,21 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var confirmingSignOut = false
+    @State private var exportIncludeAuth = false
+    @State private var importIncludeAuth = false
+    @State private var confirmingAuthExport = false
+    @State private var confirmingAuthImport = false
+    @State private var isExporting = false
+    @State private var isImporting = false
+    @State private var exportDocument: TransferFileDocument?
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var transferError: String?
 
     var body: some View {
         @Bindable var model = model
@@ -110,6 +121,55 @@ struct SettingsView: View {
             .disabled(model.mode == .signedOut)
 
             Section {
+                Toggle("Include ChatGPT credentials", isOn: $exportIncludeAuth)
+                Button {
+                    if exportIncludeAuth {
+                        confirmingAuthExport = true
+                    } else {
+                        Task { await prepareExport(includeAuth: false) }
+                    }
+                } label: {
+                    if isExporting {
+                        ProgressView()
+                    } else {
+                        Text("Export settings…")
+                    }
+                }
+                .disabled(isExporting)
+
+                Toggle("Import ChatGPT credentials", isOn: $importIncludeAuth)
+                Button {
+                    if importIncludeAuth {
+                        confirmingAuthImport = true
+                    } else {
+                        showImporter = true
+                    }
+                } label: {
+                    if isImporting {
+                        ProgressView()
+                    } else {
+                        Text("Import settings…")
+                    }
+                }
+                .disabled(isImporting)
+
+                if let transferError {
+                    Text(transferError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+                if let status = model.transferStatusMessage {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Transfer")
+            } footer: {
+                Text("Exports a JSON file with app and notification preferences. Including credentials embeds live OAuth tokens — only store that file on devices you trust.")
+            }
+
+            Section {
                 NavigationLink("About Codex Meter") {
                     AboutView()
                 }
@@ -146,6 +206,97 @@ struct SettingsView: View {
         } message: {
             Text("Credentials and cached account data will be removed from this device and its widgets.")
         }
+        .confirmationDialog(
+            "Export credentials?",
+            isPresented: $confirmingAuthExport,
+            titleVisibility: .visible
+        ) {
+            Button("Export with credentials", role: .destructive) {
+                Task { await prepareExport(includeAuth: true) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(SettingsTransfer.securityWarning)
+        }
+        .confirmationDialog(
+            "Import credentials?",
+            isPresented: $confirmingAuthImport,
+            titleVisibility: .visible
+        ) {
+            Button("Import including credentials", role: .destructive) {
+                showImporter = true
+            }
+            Button("Cancel", role: .cancel) {
+                importIncludeAuth = false
+            }
+        } message: {
+            Text(SettingsTransfer.securityWarning + " Imported tokens replace any account currently signed in on this device.")
+        }
+        .fileExporter(
+            isPresented: $showExporter,
+            document: exportDocument,
+            contentType: .json,
+            defaultFilename: SettingsTransfer.defaultFileName()
+        ) { result in
+            if case .failure(let error) = result {
+                transferError = error.localizedDescription
+            } else {
+                model.transferStatusMessage = "Settings exported."
+            }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.json, .data],
+            allowsMultipleSelection: false
+        ) { result in
+            Task { await handleImport(result) }
+        }
+    }
+
+    private func prepareExport(includeAuth: Bool) async {
+        isExporting = true
+        transferError = nil
+        model.transferStatusMessage = nil
+        defer { isExporting = false }
+        do {
+            let data = try await model.exportTransferData(
+                options: SettingsTransfer.ExportOptions(
+                    includeAppSettings: true,
+                    includeNotifications: true,
+                    includeAuthentication: includeAuth
+                )
+            )
+            exportDocument = TransferFileDocument(data: data)
+            showExporter = true
+        } catch {
+            transferError = error.localizedDescription
+        }
+    }
+
+    private func handleImport(_ result: Result<[URL], Error>) async {
+        isImporting = true
+        transferError = nil
+        model.transferStatusMessage = nil
+        defer { isImporting = false }
+        do {
+            let urls = try result.get()
+            guard let url = urls.first else { return }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer {
+                if accessed { url.stopAccessingSecurityScopedResource() }
+            }
+            let data = try Data(contentsOf: url)
+            try await model.importTransferData(
+                data,
+                options: SettingsTransfer.ImportOptions(
+                    importAppSettings: true,
+                    importNotifications: true,
+                    importAuthentication: importIncludeAuth
+                )
+            )
+        } catch {
+            transferError = error.localizedDescription
+        }
     }
 
     private func leadTimeBinding(_ minutes: Int, model: AppModel) -> Binding<Bool> {
@@ -157,7 +308,6 @@ struct SettingsView: View {
                 if isOn != currentlyOn {
                     settings.toggleCreditExpiryLeadMinutes(minutes)
                 }
-                // Keep at least the default when the user clears every lead time.
                 if settings.creditExpiryLeadMinutes.isEmpty {
                     settings.creditExpiryLeadMinutes = AppSettings.defaultCreditExpiryLeadMinutes
                 }
@@ -185,5 +335,23 @@ struct SettingsView: View {
             }
             return "Remind \(minutes) minutes before"
         }
+    }
+}
+
+private struct TransferFileDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+
+    var data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }

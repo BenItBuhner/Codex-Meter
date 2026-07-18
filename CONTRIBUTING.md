@@ -42,4 +42,5 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 ```
 
 See [`ios/README.md`](ios/README.md) for device signing, App Groups, and release
-checklist notes.
+checklist notes. CI for iOS is `.github/workflows/ios.yml` (runs when `ios/`
+changes).

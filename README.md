@@ -83,6 +83,7 @@ Or from `android/` directly. `build.sh` assembles the release APKs with Gradle a
 ### iOS
 
 See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 26+.
+iOS app marketing version is independent of the Android APK `versionName`.
 
 ```bash
 cd ios
@@ -90,6 +91,9 @@ swift test --package-path CodexMeterCore
 xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
+
+PRs that change `ios/` run GitHub Actions workflow **Build Codex Meter iOS**
+(`.github/workflows/ios.yml`) for core tests and an unsigned Simulator build.
 
 ## Releases
 
