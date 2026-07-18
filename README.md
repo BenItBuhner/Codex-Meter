@@ -12,9 +12,9 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.3.3
+## Android — Version 2.4.0
 
-Version 2.3.3 adds a Now Bar percentage-mode setting (Auto / 5-hour / Weekly), clearer weekly Live Update labels, and consistent full-pill action buttons.
+Version 2.4.0 adds a Wear OS companion, estimated usage-pace warnings, settings transfer (including optional auth), configurable update-check frequency with update notifications, Material You accents, and One UI-aligned widget fill controls.
 
 ### Live countdowns
 
@@ -93,7 +93,7 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.3.3`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
+Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.4.0`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
 
 ## Platform stability
 
