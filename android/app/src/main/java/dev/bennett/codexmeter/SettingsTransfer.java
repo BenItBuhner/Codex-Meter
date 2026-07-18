@@ -133,27 +133,37 @@ public final class SettingsTransfer {
     }
 
     public static WidgetOptions widgetOptionsFromJson(JSONObject json) {
+        return widgetOptionsFromJson(json, WidgetOptions.defaults());
+    }
+
+    /**
+     * Parses widget options, filling only missing keys from {@code base} so partial
+     * transfer objects cannot silently reset device defaults to product defaults.
+     */
+    public static WidgetOptions widgetOptionsFromJson(JSONObject json, WidgetOptions base) {
+        WidgetOptions fallback = base == null ? WidgetOptions.defaults() : base;
         if (json == null) {
-            return WidgetOptions.defaults();
+            return fallback;
         }
         WidgetOptions options = new WidgetOptions(
-                json.optString("style", WidgetOptions.STYLE_RINGS),
-                json.optString("density", WidgetOptions.DENSITY_AUTO),
-                json.optString("surface_style", WidgetOptions.SURFACE_ONE_UI),
-                json.optString("graphic_scale", WidgetOptions.GRAPHIC_AUTO),
-                json.optString("theme", WidgetOptions.THEME_SYSTEM),
-                json.optString("accent", WidgetOptions.ACCENT_BLUE),
-                json.optInt("opacity", 88),
-                json.optString("reset_mode", WidgetOptions.RESET_HIDDEN),
-                json.optString("display_mode", WidgetOptions.DISPLAY_REMAINING),
-                json.optString("metric_mode", WidgetOptions.METRIC_BOTH),
-                json.optBoolean("show_title", false),
-                json.optBoolean("show_plan", false),
-                json.optBoolean("show_updated", false),
-                json.optBoolean("show_refresh", true),
-                json.optBoolean("show_reset_credits", false),
-                json.optBoolean("show_reset_action", false));
-        return options.withPercentSymbol(json.optBoolean("show_percent_symbol", true));
+                stringOr(json, "style", fallback.layout),
+                stringOr(json, "density", fallback.density),
+                stringOr(json, "surface_style", fallback.surfaceStyle),
+                stringOr(json, "graphic_scale", fallback.graphicScale),
+                stringOr(json, "theme", fallback.theme),
+                stringOr(json, "accent", fallback.accent),
+                intOr(json, "opacity", fallback.opacity),
+                stringOr(json, "reset_mode", fallback.resetMode),
+                stringOr(json, "display_mode", fallback.displayMode),
+                stringOr(json, "metric_mode", fallback.metricMode),
+                booleanOr(json, "show_title", fallback.showTitle),
+                booleanOr(json, "show_plan", fallback.showPlan),
+                booleanOr(json, "show_updated", fallback.showUpdated),
+                booleanOr(json, "show_refresh", fallback.showRefresh),
+                booleanOr(json, "show_reset_credits", fallback.showResetCredits),
+                booleanOr(json, "show_reset_action", fallback.showResetAction));
+        return options.withPercentSymbol(
+                booleanOr(json, "show_percent_symbol", fallback.showPercentSymbol));
     }
 
     public static JSONArray leadTimesToJson(List<Long> leadTimes) {
@@ -169,7 +179,11 @@ public final class SettingsTransfer {
     }
 
     public static List<Long> leadTimesFromJson(JSONArray array) {
-        if (array == null || array.length() == 0) {
+        if (array == null) {
+            throw new IllegalArgumentException(
+                    "reset_credit_expiry_lead_times must be a JSON array.");
+        }
+        if (array.length() == 0) {
             return Collections.emptyList();
         }
         List<Long> values = new ArrayList<>();
@@ -181,6 +195,30 @@ public final class SettingsTransfer {
         }
         Collections.sort(values);
         return values;
+    }
+
+    /** Requires a JSON array when the lead-times key is present; rejects wrong types. */
+    public static List<Long> requireLeadTimes(JSONObject json, String key) throws JSONException {
+        if (json == null || !json.has(key) || json.isNull(key)) {
+            throw new IllegalArgumentException(key + " must be a JSON array.");
+        }
+        Object raw = json.get(key);
+        if (!(raw instanceof JSONArray)) {
+            throw new IllegalArgumentException(key + " must be a JSON array.");
+        }
+        return leadTimesFromJson((JSONArray) raw);
+    }
+
+    private static String stringOr(JSONObject json, String key, String fallback) {
+        return json.has(key) ? json.optString(key, fallback) : fallback;
+    }
+
+    private static int intOr(JSONObject json, String key, int fallback) {
+        return json.has(key) ? json.optInt(key, fallback) : fallback;
+    }
+
+    private static boolean booleanOr(JSONObject json, String key, boolean fallback) {
+        return json.has(key) ? json.optBoolean(key, fallback) : fallback;
     }
 
     public static String sectionTitle(String section) {

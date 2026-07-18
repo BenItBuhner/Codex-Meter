@@ -541,6 +541,43 @@ public final class ParserSelfTest {
         check("refresh-demo".equals(parsed.authentication.getString("refresh_token")),
                 "auth refresh token restored");
 
+        WidgetOptions currentDefaults = new WidgetOptions(WidgetOptions.STYLE_DIALS,
+                WidgetOptions.DENSITY_COMPACT, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_LARGE, WidgetOptions.THEME_LIGHT, WidgetOptions.ACCENT_ROSE,
+                72, WidgetOptions.RESET_RELATIVE, WidgetOptions.DISPLAY_USED,
+                WidgetOptions.METRIC_WEEKLY, true, true, true, false, true, true)
+                .withPercentSymbol(true);
+        WidgetOptions merged = SettingsTransfer.widgetOptionsFromJson(
+                new org.json.JSONObject().put("accent", WidgetOptions.ACCENT_CYAN),
+                currentDefaults);
+        check(WidgetOptions.ACCENT_CYAN.equals(merged.accent), "partial widget updates accent");
+        check(WidgetOptions.THEME_LIGHT.equals(merged.theme),
+                "partial widget keeps current theme");
+        check(WidgetOptions.ACCENT_ROSE.equals(currentDefaults.accent)
+                        || WidgetOptions.STYLE_DIALS.equals(merged.layout),
+                "partial widget keeps current layout");
+        check(WidgetOptions.STYLE_DIALS.equals(merged.layout),
+                "partial widget keeps current layout value");
+        check(merged.showPlan && merged.showResetCredits,
+                "partial widget keeps current visibility flags");
+
+        boolean malformedLeadTimesRejected = false;
+        try {
+            SettingsTransfer.requireLeadTimes(
+                    new org.json.JSONObject().put("reset_credit_expiry_lead_times", "oops"),
+                    "reset_credit_expiry_lead_times");
+        } catch (IllegalArgumentException expected) {
+            malformedLeadTimesRejected = true;
+        }
+        check(malformedLeadTimesRejected, "malformed lead times rejected");
+        boolean nullLeadTimesRejected = false;
+        try {
+            SettingsTransfer.leadTimesFromJson(null);
+        } catch (IllegalArgumentException expected) {
+            nullLeadTimesRejected = true;
+        }
+        check(nullLeadTimesRejected, "null lead times array rejected");
+
         SettingsTransfer.Document settingsOnly = parsed.selecting(true, true, true, false);
         check(settingsOnly.hasAppSettings() && !settingsOnly.hasAuthentication(),
                 "section selection drops auth");

@@ -136,7 +136,9 @@ public final class SettingsTransferStore {
         } else {
             ReleaseUpdateScheduler.cancel(app);
         }
-        if (NowBarManager.isActive(app) && !NowBarManager.repostActive(app)) {
+        // Only reconcile an active Now Bar when that section was imported. Unrelated
+        // imports must not stop a live monitor if a transient repost fails.
+        if (applyNowBar && NowBarManager.isActive(app) && !NowBarManager.repostActive(app)) {
             NowBarManager.stop(app, false);
         }
         WidgetRenderer.updateAll(app);
@@ -147,7 +149,14 @@ public final class SettingsTransferStore {
                 try {
                     UsageSnapshot snapshot = UsageApi.refreshAndCache(app);
                     RefreshScheduler.scheduleAtNextReset(app, snapshot);
-                } catch (Exception ignored) {
+                    WidgetRenderer.updateAll(app);
+                } catch (Exception exception) {
+                    String message = exception.getMessage();
+                    if (message == null || message.trim().isEmpty()) {
+                        message = "Imported authentication could not refresh usage.";
+                    }
+                    AppPreferences.setLastError(app, message);
+                    WidgetRenderer.updateAll(app);
                 }
             }, "codex-transfer-refresh").start();
         }
@@ -210,12 +219,13 @@ public final class SettingsTransferStore {
         JSONObject widget = json.optJSONObject("default_widget");
         if (widget != null) {
             AppPreferences.saveDefaultWidgetOptions(context,
-                    SettingsTransfer.widgetOptionsFromJson(widget));
+                    SettingsTransfer.widgetOptionsFromJson(widget,
+                            AppPreferences.loadDefaultWidgetOptions(context)));
         }
         return !previousTheme.equals(AppPreferences.getAppTheme(context));
     }
 
-    private static void applyNotifications(Context context, JSONObject json) {
+    private static void applyNotifications(Context context, JSONObject json) throws Exception {
         ResetAlertPreferences.save(context,
                 json.optString("style", ResetAlertPreferences.getStyle(context)),
                 json.optString("metric", ResetAlertPreferences.getMetric(context)),
@@ -231,8 +241,7 @@ public final class SettingsTransferStore {
                         ResetAlertPreferences.resetCreditExpiryEnabled(context)));
         if (json.has("reset_credit_expiry_lead_times")) {
             ResetAlertPreferences.setResetCreditExpiryLeadTimes(context,
-                    SettingsTransfer.leadTimesFromJson(
-                            json.optJSONArray("reset_credit_expiry_lead_times")));
+                    SettingsTransfer.requireLeadTimes(json, "reset_credit_expiry_lead_times"));
         }
         if (ResetAlertPreferences.enabled(context)) {
             ResetNotificationManager.ensureChannel(context);
