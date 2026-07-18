@@ -93,6 +93,15 @@ public final class WidgetRenderer {
                 buildViews(context, i, widgetOptions,
                         material ? WidgetOptions.STYLE_DIALS : STYLE_BATTERY_LIST,
                         sizeBundle(250, 156), GRAPHIC_STANDARD));
+        if (material) {
+            // 3-row hosts switch to compact bars; keep 2-row on dials (SizeF 130).
+            linkedHashMap.put(new SizeF(110.0f, 260.0f),
+                    buildViews(context, i, widgetOptions, WidgetOptions.STYLE_MINIMAL,
+                            sizeBundle(110, 280), GRAPHIC_STANDARD));
+            linkedHashMap.put(new SizeF(250.0f, 260.0f),
+                    buildViews(context, i, widgetOptions, WidgetOptions.STYLE_MINIMAL,
+                            sizeBundle(250, 280), GRAPHIC_STANDARD));
+        }
         return new RemoteViews(linkedHashMap);
     }
 
@@ -108,11 +117,15 @@ public final class WidgetRenderer {
         int rows = option(bundle, "semAppWidgetRowSpan");
         int columns = option(bundle, "semAppWidgetColumnSpan");
         if (isMaterial(options)) {
-            if (rows > 0) {
-                return rows >= 2 ? WidgetOptions.STYLE_DIALS : WidgetOptions.STYLE_MINIMAL;
+            int height = currentHeight(context, bundle);
+            if (rows >= 3 || height >= 260) {
+                // 3-row+ hosts: expandable compact bars fill the cell cleanly.
+                return WidgetOptions.STYLE_MINIMAL;
             }
-            return currentHeight(context, bundle) >= 110
-                    ? WidgetOptions.STYLE_DIALS : WidgetOptions.STYLE_MINIMAL;
+            if (rows >= 2 || height >= 110) {
+                return WidgetOptions.STYLE_DIALS;
+            }
+            return WidgetOptions.STYLE_MINIMAL;
         }
         if (rows > 0) {
             if (rows >= 2) {
@@ -479,13 +492,14 @@ public final class WidgetRenderer {
             remoteViews.setInt(R.id.primary_samsung_icon, "setColorFilter", iMainTextColor);
             remoteViews.setInt(R.id.secondary_samsung_icon, "setColorFilter", iMainTextColor);
         } else if (isMaterial(widgetOptions)) {
-            // Metric chips live inside the dial bitmap so the arc can use the full cell.
+            // Fixed scale — host density already sizes the bitmap; oversized scales clip.
+            float materialScale = 1.1f;
             remoteViews.setImageViewBitmap(R.id.primary_graphic,
                     WidgetGraphics.expressiveDial(widgetState.primaryValue, iAccentColor, iTrackColor,
-                            iMainTextColor, "5H", fMin));
+                            iMainTextColor, "5H", materialScale));
             remoteViews.setImageViewBitmap(R.id.secondary_graphic,
                     WidgetGraphics.expressiveDial(widgetState.secondaryValue, iAccentColor,
-                            iTrackColor, iMainTextColor, "WK", fMin));
+                            iTrackColor, iMainTextColor, "WK", materialScale));
         } else {
             remoteViews.setImageViewBitmap(R.id.primary_graphic, WidgetGraphics.dial(widgetState.primaryValue, iAccentColor, iTrackColor, iMainTextColor, str, fMin));
             remoteViews.setImageViewBitmap(R.id.secondary_graphic, WidgetGraphics.dial(widgetState.secondaryValue, iAccentColor, iTrackColor, iMainTextColor, str, fMin));

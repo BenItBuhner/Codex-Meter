@@ -212,6 +212,10 @@ public final class MainActivity extends AppCompatActivity {
             intent.removeExtra("seed_demo_usage");
             intent.removeExtra("widget_surface");
         }
+        if (intent != null && intent.getBooleanExtra("pin_widget", false)) {
+            intent.removeExtra("pin_widget");
+            requestPinWidget();
+        }
         Uri data = intent == null ? null : intent.getData();
         if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
             if (SecureTokenStore.isSignedIn(this)) {

@@ -1,51 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg_material_round"
-    android:padding="8dp">
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:padding="10dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <FrameLayout
+        android:id="@+id/primary_section"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:baselineAligned="false"
-        android:gravity="center"
-        android:orientation="horizontal">
+        android:layout_weight="1">
 
-        <FrameLayout
-            android:id="@+id/primary_section"
-            android:layout_width="0dp"
+        <ImageView
+            android:id="@+id/primary_graphic"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1">
+            android:contentDescription="@string/five_hour"
+            android:scaleType="fitCenter" />
+    </FrameLayout>
 
-            <ImageView
-                android:id="@+id/primary_graphic"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:adjustViewBounds="true"
-                android:contentDescription="@string/five_hour"
-                android:scaleType="fitCenter" />
-        </FrameLayout>
+    <FrameLayout
+        android:id="@+id/secondary_section"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="6dp"
+        android:layout_weight="1">
 
-        <FrameLayout
-            android:id="@+id/secondary_section"
-            android:layout_width="0dp"
+        <ImageView
+            android:id="@+id/secondary_graphic"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginStart="4dp"
-            android:layout_weight="1">
+            android:contentDescription="@string/weekly"
+            android:scaleType="fitCenter" />
+    </FrameLayout>
 
-            <ImageView
-                android:id="@+id/secondary_graphic"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:adjustViewBounds="true"
-                android:contentDescription="@string/weekly"
-                android:scaleType="fitCenter" />
-        </FrameLayout>
-    </LinearLayout>
-
-    <!-- Stub ids kept for shared RemoteViews binding. -->
+    <!-- Stub ids for shared RemoteViews binding. -->
     <TextView android:id="@+id/widget_title" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
     <TextView android:id="@+id/plan_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
     <ImageView android:id="@+id/refresh_button" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" android:contentDescription="@null" />
@@ -58,4 +50,4 @@
         <TextView android:id="@+id/reset_credit_button" android:layout_width="0dp" android:layout_height="0dp" />
     </LinearLayout>
     <TextView android:id="@+id/updated_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
-</FrameLayout>
+</LinearLayout>
