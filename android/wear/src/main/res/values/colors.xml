@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="codex_blue">#387AFF</color>
+    <color name="codex_blue">#0381FE</color>
     <color name="codex_on_blue">#FFFFFFFF</color>
     <color name="codex_background">#000000</color>
     <color name="codex_card">#202124</color>

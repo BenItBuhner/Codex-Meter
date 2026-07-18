@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Official One UI Primary / Primary dark (Samsung design guide). -->
+    <color name="oneui_primary">#0381FE</color>
+    <color name="oneui_primary_dark">#0072DE</color>
     <color name="widget_setting_progress_color_control_normal">#66C9C9CC</color>
     <color name="widget_setting_seek_bar_thumb_background_tint">#FCFCFF</color>
-    <color name="widget_setting_seek_bar_thumb_tint">#0381FE</color>
+    <color name="widget_setting_seek_bar_thumb_tint">@color/oneui_primary</color>
     <color name="widget_setting_seek_bar_tick_mark_solid_color">#FFA6A6A9</color>
     <color name="widget_config_divider">#E4E4E6</color>
     <color name="oneui_bg">#F1F1F3</color>

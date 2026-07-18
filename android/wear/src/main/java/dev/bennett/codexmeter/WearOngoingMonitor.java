@@ -169,7 +169,7 @@ public final class WearOngoingMonitor {
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setColor(Color.rgb(56, 122, 255))
+                .setColor(Color.rgb(3, 129, 254))
                 .setShowWhen(false)
                 .setProgress(100, used, false)
                 .addAction(new NotificationCompat.Action.Builder(
@@ -261,7 +261,7 @@ public final class WearOngoingMonitor {
                             Icon.createWithResource(context, R.drawable.ic_notification))
                     .setProgressSegments(Collections.singletonList(
                             new Notification.ProgressStyle.Segment(100)
-                                    .setColor(Color.rgb(56, 122, 255))));
+                                    .setColor(Color.rgb(3, 129, 254))));
             return builder.setStyle(style).build();
         }
 

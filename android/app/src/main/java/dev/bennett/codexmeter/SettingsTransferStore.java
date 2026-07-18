@@ -167,6 +167,7 @@ public final class SettingsTransferStore {
     private static JSONObject collectAppSettings(Context context) throws Exception {
         JSONObject json = new JSONObject();
         json.put("app_theme", AppPreferences.getAppTheme(context));
+        json.put("material_you", AppPreferences.isMaterialYouEnabled(context));
         json.put("refresh_minutes", AppPreferences.getRefreshMinutes(context));
         json.put("refresh_on_launch", AppPreferences.getRefreshOnLaunch(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
@@ -203,8 +204,11 @@ public final class SettingsTransferStore {
 
     private static boolean applyAppSettings(Context context, JSONObject json) throws Exception {
         String previousTheme = AppPreferences.getAppTheme(context);
+        boolean previousMaterialYou = AppPreferences.isMaterialYouEnabled(context);
         String theme = json.optString("app_theme", previousTheme);
         AppPreferences.setAppTheme(context, theme);
+        AppPreferences.setMaterialYouEnabled(context,
+                json.optBoolean("material_you", previousMaterialYou));
         AppPreferences.setRefreshMinutes(context, json.optInt("refresh_minutes",
                 AppPreferences.getRefreshMinutes(context)));
         AppPreferences.setRefreshOnLaunch(context, json.optBoolean("refresh_on_launch",
@@ -222,7 +226,8 @@ public final class SettingsTransferStore {
                     SettingsTransfer.widgetOptionsFromJson(widget,
                             AppPreferences.loadDefaultWidgetOptions(context)));
         }
-        return !previousTheme.equals(AppPreferences.getAppTheme(context));
+        return !previousTheme.equals(AppPreferences.getAppTheme(context))
+                || previousMaterialYou != AppPreferences.isMaterialYouEnabled(context);
     }
 
     private static void applyNotifications(Context context, JSONObject json) throws Exception {

@@ -22,7 +22,7 @@ public final class OAuthBrowserPage {
                 + "<meta name=\"color-scheme\" content=\"light dark\"><title>Codex Meter</title>"
                 + "<style>"
                 + ":root{color-scheme:light dark;--bg:#f1f1f3;--card:#fcfcff;--text:#000;--sub:#747477;"
-                + "--accent:#387aff;--on:#fff;--soft:#e8efff;--ring:#d9d9de}"
+                + "--accent:#0381fe;--on:#fff;--soft:#e8efff;--ring:#d9d9de}"
                 + "*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);"
                 + "font-family:SamsungOne,'Samsung Sans',system-ui,-apple-system,sans-serif;display:grid;"
                 + "place-items:center;padding:24px}.card{width:min(440px,100%);background:var(--card);"

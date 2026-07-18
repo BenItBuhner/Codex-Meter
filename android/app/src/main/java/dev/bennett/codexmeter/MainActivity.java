@@ -33,6 +33,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 public final class MainActivity extends AppCompatActivity {
     private static final int MENU_SETTINGS = 8101;
     private String appliedTheme;
+    private boolean appliedMaterialYou;
     private LinearLayout content;
     private SwipeRefreshLayout swipeRefresh;
     private boolean dark;
@@ -76,6 +77,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
         this.appliedTheme = AppPreferences.getAppTheme(this);
+        this.appliedMaterialYou = AppPreferences.isMaterialYouEnabled(this);
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         if (routeToOnboarding(getIntent())) {
@@ -130,7 +132,9 @@ public final class MainActivity extends AppCompatActivity {
         super.onResume();
         String appTheme = AppPreferences.getAppTheme(this);
         boolean zIsDark = Ui.isDark(this);
-        if (!appTheme.equals(this.appliedTheme) || zIsDark != this.dark) {
+        boolean materialYou = AppPreferences.isMaterialYouEnabled(this);
+        if (!appTheme.equals(this.appliedTheme) || zIsDark != this.dark
+                || materialYou != this.appliedMaterialYou) {
             recreate();
         } else {
             handleLaunchIntent(getIntent());

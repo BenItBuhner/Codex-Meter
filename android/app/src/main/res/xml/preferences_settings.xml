@@ -18,6 +18,11 @@
         <SwitchPreferenceCompat
             android:key="theme_system_ui"
             android:title="System default" />
+        <SwitchPreferenceCompat
+            android:key="material_you"
+            android:title="Material You"
+            android:summary="Use the system color palette when available. Falls back to One UI blue."
+            android:defaultValue="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Refresh">
