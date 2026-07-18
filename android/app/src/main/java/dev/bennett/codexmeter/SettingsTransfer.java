@@ -183,18 +183,57 @@ public final class SettingsTransfer {
             throw new IllegalArgumentException(
                     "reset_credit_expiry_lead_times must be a JSON array.");
         }
-        if (array.length() == 0) {
-            return Collections.emptyList();
-        }
         List<Long> values = new ArrayList<>();
         for (int i = 0; i < array.length(); i++) {
-            long value = array.optLong(i, -1L);
-            if (value > 0L) {
-                values.add(value);
-            }
+            values.add(parseLeadTimeEntry(array, i));
         }
         Collections.sort(values);
         return values;
+    }
+
+    private static long parseLeadTimeEntry(JSONArray array, int index) {
+        Object raw;
+        try {
+            raw = array.get(index);
+        } catch (JSONException exception) {
+            throw new IllegalArgumentException(
+                    "reset_credit_expiry_lead_times contains an invalid entry.");
+        }
+        if (raw == null || raw == JSONObject.NULL) {
+            throw new IllegalArgumentException(
+                    "reset_credit_expiry_lead_times contains a null entry.");
+        }
+        long value;
+        if (raw instanceof Number) {
+            double asDouble = ((Number) raw).doubleValue();
+            if (Double.isNaN(asDouble) || Double.isInfinite(asDouble)
+                    || asDouble != Math.rint(asDouble)) {
+                throw new IllegalArgumentException(
+                        "reset_credit_expiry_lead_times contains a non-integer entry.");
+            }
+            value = ((Number) raw).longValue();
+        } else if (raw instanceof String) {
+            String text = ((String) raw).trim();
+            if (text.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "reset_credit_expiry_lead_times contains an empty entry.");
+            }
+            try {
+                value = Long.parseLong(text);
+            } catch (NumberFormatException exception) {
+                throw new IllegalArgumentException(
+                        "reset_credit_expiry_lead_times contains a non-numeric entry.");
+            }
+        } else {
+            throw new IllegalArgumentException(
+                    "reset_credit_expiry_lead_times contains a non-numeric entry.");
+        }
+        if (value < ResetCreditExpiryReminder.MIN_LEAD_TIME_MS
+                || value > ResetCreditExpiryReminder.MAX_LEAD_TIME_MS) {
+            throw new IllegalArgumentException(
+                    "reset_credit_expiry_lead_times contains an out-of-range entry.");
+        }
+        return value;
     }
 
     /** Requires a JSON array when the lead-times key is present; rejects wrong types. */

@@ -567,6 +567,22 @@ public final class ParserSelfTest {
             malformedLeadTimesRejected = true;
         }
         check(malformedLeadTimesRejected, "malformed lead times rejected");
+        boolean badElementRejected = false;
+        try {
+            SettingsTransfer.leadTimesFromJson(new org.json.JSONArray().put("oops"));
+        } catch (IllegalArgumentException expected) {
+            badElementRejected = true;
+        }
+        check(badElementRejected, "non-numeric lead time element rejected");
+        boolean outOfRangeRejected = false;
+        try {
+            SettingsTransfer.leadTimesFromJson(new org.json.JSONArray().put(1L));
+        } catch (IllegalArgumentException expected) {
+            outOfRangeRejected = true;
+        }
+        check(outOfRangeRejected, "out-of-range lead time element rejected");
+        check(SettingsTransfer.leadTimesFromJson(new org.json.JSONArray()).isEmpty(),
+                "empty lead times array remains allowed");
         boolean nullLeadTimesRejected = false;
         try {
             SettingsTransfer.leadTimesFromJson(null);
