@@ -514,8 +514,8 @@ public final class WidgetRenderer {
         remoteViews.setTextViewText(R.id.primary_label, isMaterial(widgetOptions) ? "5H" : "5-hour");
         remoteViews.setTextViewText(R.id.secondary_label, isMaterial(widgetOptions) ? "WK" : "Weekly");
         if (isMaterial(widgetOptions)) {
-            remoteViews.setViewVisibility(R.id.primary_label, GRAPHIC_STANDARD);
-            remoteViews.setViewVisibility(R.id.secondary_label, GRAPHIC_STANDARD);
+            remoteViews.setViewVisibility(R.id.primary_label, View.VISIBLE);
+            remoteViews.setViewVisibility(R.id.secondary_label, View.VISIBLE);
             if (Build.VERSION.SDK_INT >= 31) {
                 remoteViews.setColorStateList(R.id.primary_label, "setBackgroundTintList",
                         ColorStateList.valueOf(Ui.primaryContainer(context, z)));
@@ -523,8 +523,8 @@ public final class WidgetRenderer {
                         ColorStateList.valueOf(Ui.secondaryContainer(context, z)));
             }
         } else {
-            remoteViews.setViewVisibility(R.id.primary_label, 8);
-            remoteViews.setViewVisibility(R.id.secondary_label, 8);
+            remoteViews.setViewVisibility(R.id.primary_label, View.GONE);
+            remoteViews.setViewVisibility(R.id.secondary_label, View.GONE);
         }
         remoteViews.setTextViewText(R.id.primary_reset, widgetState.primaryShortReset);
         remoteViews.setTextViewText(R.id.secondary_reset, widgetState.secondaryShortReset);
@@ -644,12 +644,12 @@ public final class WidgetRenderer {
         boolean z3 = widgetOptions.showResetCredits;
         boolean z4 = widgetOptions.showResetAction && i2 > 0 && SecureTokenStore.isSignedIn(context);
         if (!z3 && !z4) {
-            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);
+            remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
             return;
         }
-        remoteViews.setViewVisibility(R.id.reset_credit_row, GRAPHIC_STANDARD);
-        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? GRAPHIC_STANDARD : 8);
-        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? GRAPHIC_STANDARD : 8);
+        remoteViews.setViewVisibility(R.id.reset_credit_row, View.VISIBLE);
+        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? View.VISIBLE : View.GONE);
         if (i2 <= 0) {
             str2 = "No reset credits";
         } else if (jNextExpiryMillis > 0) {
