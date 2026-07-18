@@ -10,6 +10,12 @@ public final class UsagePaceDemoActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        if (getIntent().getBooleanExtra("resume_live_settings", false)) {
+            startActivity(new Intent(this, SettingsActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
         try {
             long now = System.currentTimeMillis();
             long fiveHourReset = now - TimeUnit.HOURS.toMillis(1)
