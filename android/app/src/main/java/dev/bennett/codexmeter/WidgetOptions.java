@@ -42,6 +42,9 @@ public final class WidgetOptions {
     public static final String TAP_OPEN_APP = "open_app";
     public static final String TAP_REFRESH = "refresh";
     public static final String TAP_USE_RESET = "use_reset";
+    /** One UI 7-style discrete fill strengths when the widget background is enabled. */
+    public static final int[] OPACITY_LEVELS = {56, 88, 100};
+    public static final int DEFAULT_OPACITY = 88;
     public final String accent;
     public final String density;
     public final String displayMode;
@@ -90,8 +93,13 @@ public final class WidgetOptions {
         this.graphicScale = oneOf(str4, "auto", GRAPHIC_LARGE, GRAPHIC_MAX) ? str4 : "auto";
         this.theme = oneOf(str5, THEME_SYSTEM, THEME_DARK, THEME_LIGHT) ? str5 : THEME_SYSTEM;
         this.accent = validAccent(str6) ? str6 : ACCENT_MINT;
-        if (i != 0 && i != 15 && i != 40 && i != 56 && i != 70 && i != 72 && i != 88 && i != 94 && i != 100) {
-            i = 88;
+        // Accept legacy four-step and drawable-aligned values, then snap to One UI's three
+        // fill strengths (or fully off) so saved widgets migrate cleanly.
+        if (i != 0 && i != 15 && i != 40 && i != 56 && i != 70 && i != 72 && i != 88 && i != 94
+                && i != 100) {
+            i = DEFAULT_OPACITY;
+        } else if (i > 0) {
+            i = snapOpacity(i);
         }
         this.opacity = i;
         this.resetMode = oneOf(str7, RESET_ABSOLUTE, RESET_RELATIVE, "both", RESET_HIDDEN) ? str7 : RESET_ABSOLUTE;
@@ -115,7 +123,36 @@ public final class WidgetOptions {
     }
 
     public static WidgetOptions defaults() {
-        return new WidgetOptions(STYLE_RINGS, "auto", SURFACE_ONE_UI, "auto", THEME_SYSTEM, ACCENT_BLUE, 88, RESET_HIDDEN, DISPLAY_REMAINING, "both", false, false, false, false, false, false);
+        return new WidgetOptions(STYLE_RINGS, "auto", SURFACE_ONE_UI, "auto", THEME_SYSTEM, ACCENT_BLUE, DEFAULT_OPACITY, RESET_HIDDEN, DISPLAY_REMAINING, "both", false, false, false, false, false, false);
+    }
+
+    /** Nearest allowed opacity when background is on; {@code 0} stays fully off. */
+    public static int snapOpacity(int opacity) {
+        if (opacity <= 0) {
+            return 0;
+        }
+        int best = DEFAULT_OPACITY;
+        int distance = Integer.MAX_VALUE;
+        for (int value : OPACITY_LEVELS) {
+            int candidate = Math.abs(value - opacity);
+            // Prefer the stronger fill when two levels are equidistant (e.g. 94 → 100).
+            if (candidate < distance || (candidate == distance && value > best)) {
+                best = value;
+                distance = candidate;
+            }
+        }
+        return best;
+    }
+
+    /** Slider index for a stored opacity; background-off restores the medium tick. */
+    public static int opacityIndex(int opacity) {
+        int snapped = snapOpacity(opacity <= 0 ? DEFAULT_OPACITY : opacity);
+        for (int i = 0; i < OPACITY_LEVELS.length; i++) {
+            if (OPACITY_LEVELS[i] == snapped) {
+                return i;
+            }
+        }
+        return 1;
     }
 
     public boolean showsFiveHour() {

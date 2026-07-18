@@ -637,6 +637,8 @@ public final class ParserSelfTest {
                 WidgetOptions.RESET_BOTH, WidgetOptions.DISPLAY_USED);
         check(WidgetOptions.STYLE_BARS.equals(migrated.layout), "legacy detailed migration");
         check(WidgetOptions.DENSITY_AUTO.equals(migrated.density), "default density");
+        // 72 is equidistant from 56 and 88; prefer the stronger fill (88).
+        check(migrated.opacity == 88, "legacy 72% opacity snaps to medium fill");
         WidgetOptions safe = new WidgetOptions("invalid", "invalid", "invalid", "invalid", 13,
                 "invalid", "invalid", true, false, true);
         check(WidgetOptions.STYLE_AUTO.equals(safe.layout), "invalid style fallback");
@@ -645,6 +647,16 @@ public final class ParserSelfTest {
         check(WidgetOptions.SURFACE_MATERIAL.equals(safe.surfaceStyle), "legacy surface fallback");
         check(WidgetOptions.GRAPHIC_AUTO.equals(safe.graphicScale), "legacy graphic fallback");
         check(!safe.showUpdated && safe.showRefresh, "boolean options");
+
+        check(WidgetOptions.OPACITY_LEVELS.length == 3,
+                "One UI widget opacity uses three levels");
+        check(WidgetOptions.snapOpacity(0) == 0, "background-off stays at 0");
+        check(WidgetOptions.snapOpacity(15) == 56, "legacy 15% maps to low fill");
+        check(WidgetOptions.snapOpacity(40) == 56, "legacy 40% maps to low fill");
+        check(WidgetOptions.snapOpacity(70) == 56, "legacy 70% maps to low fill");
+        check(WidgetOptions.snapOpacity(94) == 100, "legacy 94% maps to full fill");
+        check(WidgetOptions.opacityIndex(0) == 1, "background-off restores medium slider");
+        check(WidgetOptions.opacityIndex(88) == 1, "default opacity is middle tick");
 
         WidgetOptions transparent = new WidgetOptions(WidgetOptions.STYLE_RINGS,
                 WidgetOptions.DENSITY_COMFORTABLE, WidgetOptions.SURFACE_ONE_UI,
@@ -655,6 +667,21 @@ public final class ParserSelfTest {
         check(WidgetOptions.SURFACE_ONE_UI.equals(transparent.surfaceStyle), "One UI widget style");
         check(WidgetOptions.GRAPHIC_MAX.equals(transparent.graphicScale), "maximum graphic scale");
         check(!WidgetOptions.defaults().showTitle, "widget title defaults off");
+        check(WidgetOptions.defaults().opacity == WidgetOptions.DEFAULT_OPACITY,
+                "default fill uses medium opacity");
+
+        WidgetOptions low = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_BLUE,
+                56, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                "both", false, false, false, false, false, false);
+        WidgetOptions high = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_BLUE,
+                100, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                "both", false, false, false, false, false, false);
+        check(low.opacity == 56, "low fill strength accepted");
+        check(high.opacity == 100, "full fill strength accepted");
     }
 
     private static void testOnboardingFlow() {

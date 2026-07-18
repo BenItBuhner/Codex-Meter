@@ -337,6 +337,14 @@ grep -R -q 'app:widgetStyle="monotone"' "$ROOT/app/src/main/res/xml/samsung_lock
 grep -q 'RESET_CREDITS_CONSUME_URL' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'ResetCreditActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'showResetAction' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java"
+grep -q 'OPACITY_LEVELS = {56, 88, 100}' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java"
+grep -q 'widget_background' "$ROOT/app/src/main/res/values/strings.xml"
+grep -q 'backgroundSwitch' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'android:max="2"' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"
+! grep -q 'opacity_tick_3' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"
+grep -q 'One UI widget opacity uses three levels' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'dev.oneuiproject.oneui.widget.CardItemView' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
 grep -q 'Ui.nativePrimaryButton' \
