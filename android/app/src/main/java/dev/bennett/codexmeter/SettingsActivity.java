@@ -21,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -46,10 +47,18 @@ public final class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
-        AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
-        setContentView(R.layout.activity_settings);
-        ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
-        Ui.configureReachToolbar(toolbar, "Settings", true);
+        if (Ui.isOneUi(this)) {
+            setContentView(R.layout.activity_settings);
+            ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
+            Ui.configureReachToolbar(toolbar, "Settings", true);
+        } else {
+            setContentView(R.layout.activity_material_settings);
+            View root = findViewById(R.id.material_settings_root);
+            Ui.styleMaterialRoot(this, root);
+            Ui.configureMaterialToolbar(this, (Toolbar) findViewById(R.id.material_toolbar),
+                    "Settings", true);
+            Ui.configureSystemBars(this, root, Ui.isDark(this));
+        }
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, new SettingsFragment())
@@ -200,6 +209,16 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindAppearance() {
+            ListPreference style = findPreference("app_surface_style");
+            style.setPersistent(false);
+            style.setValue(AppPreferences.getAppStyle(requireContext()));
+            style.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            style.setOnPreferenceChangeListener((preference, value) -> {
+                AppPreferences.setAppStyle(requireContext(), String.valueOf(value));
+                requireActivity().recreate();
+                return true;
+            });
+
             String selected = AppPreferences.getAppTheme(requireContext());
             boolean useSystem = WidgetOptions.THEME_SYSTEM.equals(selected);
             HorizontalRadioPreference theme = findPreference("app_theme");

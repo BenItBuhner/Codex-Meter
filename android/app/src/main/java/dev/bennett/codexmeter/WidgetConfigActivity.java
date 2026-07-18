@@ -37,6 +37,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private boolean dark;
     private Spinner displaySpinner;
     private CardItemView displayRow;
+    private Spinner surfaceSpinner;
+    private CardItemView surfaceRow;
     private SeslSeekBar opacitySlider;
     private SwitchCompat percentSymbolSwitch;
     private View opacityControl;
@@ -100,11 +102,16 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         }
 
         this.themeSpinner = Ui.spinner(this, WidgetOptionCatalog.THEME_LABELS, this.dark);
+        this.surfaceSpinner = Ui.spinner(this, WidgetOptionCatalog.SURFACE_LABELS, this.dark);
         this.accentSpinner = Ui.spinner(this, WidgetOptionCatalog.ACCENT_LABELS, this.dark);
+        WidgetOptionCatalog.selectString(this.surfaceSpinner, WidgetOptionCatalog.SURFACE_VALUES,
+                saved.surfaceStyle);
         WidgetOptionCatalog.selectString(this.themeSpinner, WidgetOptionCatalog.THEME_VALUES,
                 saved.theme);
         WidgetOptionCatalog.selectString(this.accentSpinner, WidgetOptionCatalog.ACCENT_VALUES,
                 saved.accent);
+        this.surfaceRow = addOptionRow(appearanceCard, "Design", this.surfaceSpinner,
+                WidgetOptionCatalog.SURFACE_LABELS, true);
         this.themeRow = addOptionRow(appearanceCard, "Theme", this.themeSpinner,
                 WidgetOptionCatalog.THEME_LABELS, true);
         this.accentRow = addOptionRow(appearanceCard, "Accent", this.accentSpinner,
@@ -153,6 +160,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             }
         };
         this.themeSpinner.setOnItemSelectedListener(selectionListener);
+        this.surfaceSpinner.setOnItemSelectedListener(selectionListener);
         this.accentSpinner.setOnItemSelectedListener(selectionListener);
         this.displaySpinner.setOnItemSelectedListener(selectionListener);
         this.percentSymbolSwitch.setOnCheckedChangeListener((button, checked) -> renderPreview());
@@ -334,7 +342,9 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private WidgetOptions currentOptions() {
         return new WidgetOptions(WidgetOptions.STYLE_RINGS,
                 WidgetOptions.DENSITY_AUTO,
-                WidgetOptions.SURFACE_ONE_UI, WidgetOptions.GRAPHIC_AUTO,
+                WidgetOptionCatalog.SURFACE_VALUES[
+                        this.surfaceSpinner.getSelectedItemPosition()],
+                WidgetOptions.GRAPHIC_AUTO,
                 WidgetOptionCatalog.THEME_VALUES[this.themeSpinner.getSelectedItemPosition()],
                 WidgetOptionCatalog.ACCENT_VALUES[this.accentSpinner.getSelectedItemPosition()],
                 WidgetOptionCatalog.OPACITY_VALUES[this.opacitySlider.getProgress()],
@@ -351,6 +361,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         }
         this.themeRow.setSummary(WidgetOptionCatalog.THEME_LABELS[
                 this.themeSpinner.getSelectedItemPosition()]);
+        this.surfaceRow.setSummary(WidgetOptionCatalog.SURFACE_LABELS[
+                this.surfaceSpinner.getSelectedItemPosition()]);
         this.accentRow.setSummary(WidgetOptionCatalog.ACCENT_LABELS[
                 this.accentSpinner.getSelectedItemPosition()]);
         this.displayRow.setSummary(WidgetOptionCatalog.DISPLAY_LABELS[
@@ -377,9 +389,16 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 boolean previewDark = WidgetOptions.THEME_DARK.equals(options.theme)
                         || (!WidgetOptions.THEME_LIGHT.equals(options.theme) && this.dark);
                 int alpha = Math.round(options.opacity * 2.55f);
-                background.setColor(previewDark ? Color.argb(alpha, 0, 0, 0)
-                        : Color.argb(alpha, 255, 255, 255));
-                background.setCornerRadius(Ui.dp(this, 28.0f));
+                if (WidgetOptions.SURFACE_MATERIAL.equals(options.surfaceStyle)) {
+                    int surfaceColor = Ui.materialSurface(this, previewDark);
+                    background.setColor(Color.argb(alpha, Color.red(surfaceColor),
+                            Color.green(surfaceColor), Color.blue(surfaceColor)));
+                    background.setCornerRadius(Ui.dp(this, 32.0f));
+                } else {
+                    background.setColor(previewDark ? Color.argb(alpha, 0, 0, 0)
+                            : Color.argb(alpha, 255, 255, 255));
+                    background.setCornerRadius(Ui.dp(this, 28.0f));
+                }
                 surface.setBackground(background);
                 // Use the application inflater so AppCompat does not substitute its ImageView;
                 // RemoteViews reflection is intentionally restricted to framework widgets.

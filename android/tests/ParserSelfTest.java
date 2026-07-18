@@ -630,6 +630,13 @@ public final class ParserSelfTest {
     }
 
     private static void testWidgetOptions() {
+        check(AppDesignStyle.ONE_UI.equals(AppDesignStyle.normalize(null)),
+                "missing app style keeps One UI default");
+        check(AppDesignStyle.ONE_UI.equals(AppDesignStyle.normalize("unknown")),
+                "invalid app style keeps One UI default");
+        check(AppDesignStyle.MATERIAL_EXPRESSIVE.equals(
+                        AppDesignStyle.normalize(WidgetOptions.SURFACE_MATERIAL)),
+                "Material Expressive app style accepted");
         WidgetOptions migrated = new WidgetOptions(WidgetOptions.LAYOUT_DETAILED,
                 WidgetOptions.THEME_DARK, WidgetOptions.ACCENT_BLUE, 72,
                 WidgetOptions.RESET_BOTH, WidgetOptions.DISPLAY_USED);
@@ -653,6 +660,8 @@ public final class ParserSelfTest {
         check(WidgetOptions.SURFACE_ONE_UI.equals(transparent.surfaceStyle), "One UI widget style");
         check(WidgetOptions.GRAPHIC_MAX.equals(transparent.graphicScale), "maximum graphic scale");
         check(!WidgetOptions.defaults().showTitle, "widget title defaults off");
+        check(WidgetOptions.SURFACE_ONE_UI.equals(WidgetOptions.defaults().surfaceStyle),
+                "One UI remains the widget default");
     }
 
     private static void testOnboardingFlow() {

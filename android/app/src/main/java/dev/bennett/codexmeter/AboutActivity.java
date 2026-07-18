@@ -35,6 +35,12 @@ public final class AboutActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         dark = Ui.isDark(this);
+        if (!Ui.isOneUi(this)) {
+            Ui.Page page = Ui.installPage(this, "About", true);
+            page.content.addView(buildMaterialHero());
+            buildSections(page.content);
+            return;
+        }
         EdgeToEdge.apply(this, () -> new kotlin.Pair<>(dark, dark));
         setContentView(R.layout.activity_about);
         applySystemBarInsets();
@@ -75,6 +81,10 @@ public final class AboutActivity extends AppCompatActivity {
 
     private void build(LinearLayout content) {
         content.addView(buildAppCard());
+        buildSections(content);
+    }
+
+    private void buildSections(LinearLayout content) {
         content.addView(sectionTitle("Credits"));
         RoundedLinearLayout credits = Ui.cardGroup(this, dark);
         credits.addView(personRow("BenIt Buhner", "App creator and AI geek", R.drawable.benit_github_avatar, false,
@@ -85,7 +95,9 @@ public final class AboutActivity extends AppCompatActivity {
 
         content.addView(sectionTitle("Dependencies"));
         RoundedLinearLayout dependencies = Ui.cardGroup(this, dark);
-        CardItemView oneUi = Ui.actionRow(this, "One UI Design Library", "The library that makes this app so pretty.", R.drawable.ic_oui_theme,
+        CardItemView oneUi = Ui.actionRow(this, "One UI Design Library",
+                "The original Android design base, preserved as the default.",
+                R.drawable.ic_oui_theme,
                 view -> openUrl("https://github.com/tribalfs/oneui-design"));
         dependencies.addView(oneUi);
         CardItemView openAi = Ui.actionRow(this, "OpenAI API", "This app would be pretty useless without it.", R.drawable.ic_openai_figma,
@@ -94,6 +106,28 @@ public final class AboutActivity extends AppCompatActivity {
         openAi.setShowTopDivider(true);
         dependencies.addView(openAi);
         content.addView(dependencies);
+    }
+
+    private LinearLayout buildMaterialHero() {
+        LinearLayout hero = Ui.card(this, dark);
+        hero.setGravity(Gravity.CENTER);
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.mipmap.ic_launcher);
+        hero.addView(icon, new LinearLayout.LayoutParams(Ui.dp(this, 72), Ui.dp(this, 72)));
+        TextView title = Ui.title(this, "Codex Meter", dark);
+        title.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+        titleParams.setMargins(0, Ui.dp(this, 20), 0, 0);
+        hero.addView(title, titleParams);
+        TextView subtitle = Ui.text(this,
+                getString(R.string.about_version, Ui.versionName(this))
+                        + " · Material 3 Expressive",
+                14, Ui.secondaryText(dark));
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(-1, -2);
+        subtitleParams.setMargins(0, Ui.dp(this, 8), 0, Ui.dp(this, 4));
+        hero.addView(subtitle, subtitleParams);
+        return hero;
     }
 
     private LinearLayout buildAppCard() {

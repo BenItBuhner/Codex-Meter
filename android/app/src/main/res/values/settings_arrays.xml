@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string-array name="app_surface_style_entries">
+        <item>One UI</item>
+        <item>Material 3 Expressive</item>
+    </string-array>
+    <string-array name="app_surface_style_values">
+        <item>one_ui</item>
+        <item>material</item>
+    </string-array>
+
     <array name="preferences_darkmode_entries_image">
         <item>@drawable/display_help_light_mode</item>
         <item>@drawable/display_help_dark_mode</item>

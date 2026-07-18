@@ -34,6 +34,7 @@ import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.AppCompatCheckBox;
 import androidx.appcompat.widget.AppCompatSpinner;
 import androidx.appcompat.widget.SeslProgressBar;
+import androidx.appcompat.widget.Toolbar;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.ktx.ActivityKt;
 import dev.oneuiproject.oneui.popover.PopOverOptions;
@@ -45,24 +46,52 @@ import dev.oneuiproject.oneui.widget.Separator;
 public final class Ui {
     public static final class Page {
         public final ToolbarLayout toolbar;
+        public final Toolbar materialToolbar;
         public final LinearLayout content;
+        private final AppCompatActivity activity;
 
-        private Page(ToolbarLayout toolbar, LinearLayout content) {
+        private Page(AppCompatActivity activity, ToolbarLayout toolbar, Toolbar materialToolbar,
+                LinearLayout content) {
+            this.activity = activity;
             this.toolbar = toolbar;
+            this.materialToolbar = materialToolbar;
             this.content = content;
+        }
+
+        public void setTitle(String title) {
+            if (toolbar != null) {
+                toolbar.setTitle(title);
+            } else if (materialToolbar != null) {
+                materialToolbar.setTitle(title);
+            }
+        }
+
+        public void setShowNavigationButtonAsBack(boolean show) {
+            if (toolbar != null) {
+                toolbar.setShowNavigationButtonAsBack(show);
+            } else if (materialToolbar != null) {
+                materialToolbar.setNavigationIcon(show ? R.drawable.ic_oui_back : 0);
+                if (materialToolbar.getNavigationIcon() != null) {
+                    materialToolbar.getNavigationIcon().setTint(mainText(isDark(activity)));
+                }
+                materialToolbar.setNavigationOnClickListener(show ? view ->
+                        activity.getOnBackPressedDispatcher().onBackPressed() : null);
+            }
         }
     }
 
     public static final class ConfigPage {
         public final ToolbarLayout toolbar;
+        public final Toolbar materialToolbar;
         public final LinearLayout content;
         public final FrameLayout preview;
         public final TextView cancel;
         public final TextView save;
 
-        private ConfigPage(ToolbarLayout toolbar, LinearLayout content, FrameLayout preview,
-                TextView cancel, TextView save) {
+        private ConfigPage(ToolbarLayout toolbar, Toolbar materialToolbar, LinearLayout content,
+                FrameLayout preview, TextView cancel, TextView save) {
             this.toolbar = toolbar;
+            this.materialToolbar = materialToolbar;
             this.content = content;
             this.preview = preview;
             this.cancel = cancel;
@@ -84,17 +113,27 @@ public final class Ui {
             }
             ((AppCompatActivity) activity).getDelegate().setLocalNightMode(mode);
         }
-        activity.setTheme(R.style.AppTheme);
+        activity.setTheme(isOneUi(activity) ? R.style.AppTheme : R.style.AppThemeMaterial);
     }
 
     public static Page installPage(AppCompatActivity activity, String title, boolean back) {
         ViewGroup parent = activity.findViewById(android.R.id.content);
-        View root = LayoutInflater.from(activity).inflate(R.layout.activity_oneui_dashboard, parent, false);
-        ToolbarLayout toolbar = root.findViewById(R.id.toolbar_layout);
+        boolean oneUi = isOneUi(activity);
+        View root = LayoutInflater.from(activity).inflate(oneUi
+                ? R.layout.activity_oneui_dashboard : R.layout.activity_material_dashboard,
+                parent, false);
+        ToolbarLayout toolbar = oneUi ? root.findViewById(R.id.toolbar_layout) : null;
+        Toolbar materialToolbar = oneUi ? null : root.findViewById(R.id.material_toolbar);
         LinearLayout content = root.findViewById(R.id.dashboard_content);
-        configureReachToolbar(toolbar, title, back);
+        if (oneUi) {
+            configureReachToolbar(toolbar, title, back);
+        } else {
+            configureMaterialToolbar(activity, materialToolbar, title, back);
+            styleMaterialRoot(activity, root);
+        }
         activity.setContentView(root);
-        return new Page(toolbar, content);
+        configureSystemBars(activity, root, isDark(activity));
+        return new Page(activity, toolbar, materialToolbar, content);
     }
 
     public static void configureReachToolbar(ToolbarLayout toolbar, String title, boolean back) {
@@ -111,7 +150,7 @@ public final class Ui {
         boolean largeOneUiDevice = Build.MANUFACTURER != null
                 && "samsung".equalsIgnoreCase(Build.MANUFACTURER)
                 && activity.getResources().getConfiguration().smallestScreenWidthDp >= 600;
-        if (largeOneUiDevice) {
+        if (largeOneUiDevice && isOneUi(activity)) {
             ActivityKt.startPopOverActivity(
                     activity,
                     intent,
@@ -131,17 +170,29 @@ public final class Ui {
 
     public static ConfigPage installConfigPage(AppCompatActivity activity, String title) {
         ViewGroup parent = activity.findViewById(android.R.id.content);
-        View root = LayoutInflater.from(activity).inflate(R.layout.activity_widget_settings, parent, false);
-        ToolbarLayout toolbar = root.findViewById(R.id.widget_settings_root);
+        boolean oneUi = isOneUi(activity);
+        View root = LayoutInflater.from(activity).inflate(oneUi
+                ? R.layout.activity_widget_settings : R.layout.activity_material_widget_settings,
+                parent, false);
+        ToolbarLayout toolbar = oneUi ? root.findViewById(R.id.widget_settings_root) : null;
+        Toolbar materialToolbar = oneUi ? null : root.findViewById(R.id.material_toolbar);
         LinearLayout content = root.findViewById(R.id.widget_settings_content);
         FrameLayout preview = root.findViewById(R.id.widget_preview_container);
         TextView cancel = root.findViewById(R.id.config_cancel);
         TextView save = root.findViewById(R.id.config_save);
-        toolbar.setTitle(title);
-        toolbar.setShowNavigationButtonAsBack(true);
+        if (oneUi) {
+            toolbar.setTitle(title);
+            toolbar.setShowNavigationButtonAsBack(true);
+        } else {
+            configureMaterialToolbar(activity, materialToolbar, title, true);
+            styleMaterialRoot(activity, root);
+            cancel.setTextColor(mainText(isDark(activity)));
+            save.setTextColor(onAccent(activity, isDark(activity)));
+            save.setBackground(shape(accent(activity, isDark(activity)), dp(activity, 999)));
+        }
         activity.setContentView(root);
         configureSystemBars(activity, root, isDark(activity));
-        return new ConfigPage(toolbar, content, preview, cancel, save);
+        return new ConfigPage(toolbar, materialToolbar, content, preview, cancel, save);
     }
 
     public static boolean isDark(Context context) {
@@ -153,7 +204,7 @@ public final class Ui {
     }
 
     public static boolean isOneUi(Context context) {
-        return true;
+        return !AppDesignStyle.isMaterialExpressive(AppPreferences.getAppStyle(context));
     }
 
     public static int pageHorizontalPadding(Context context) {
@@ -290,7 +341,8 @@ public final class Ui {
         int i = zIsOneUi ? 22 : 20;
         int i2 = zIsOneUi ? 20 : 19;
         linearLayout.setPadding(dp(context, i), dp(context, i2), dp(context, i), dp(context, i2));
-        linearLayout.setBackground(shape(cardColor(context, z), dp(context, 28.0f)));
+        linearLayout.setBackground(shape(cardColor(context, z),
+                dp(context, zIsOneUi ? 28.0f : 32.0f)));
         linearLayout.setElevation(0.0f);
         linearLayout.setClipToOutline(true);
         linearLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
@@ -301,7 +353,8 @@ public final class Ui {
         RoundedLinearLayout card = new RoundedLinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(context, 18.0f), dp(context, 14.0f), dp(context, 18.0f), dp(context, 14.0f));
-        card.setBackground(shape(cardColor(context, dark), dp(context, 28.0f)));
+        card.setBackground(shape(cardColor(context, dark),
+                dp(context, isOneUi(context) ? 28.0f : 32.0f)));
         card.setClipToOutline(true);
         card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return card;
@@ -310,7 +363,8 @@ public final class Ui {
     public static RoundedLinearLayout cardGroup(Context context, boolean dark) {
         RoundedLinearLayout group = new RoundedLinearLayout(context);
         group.setOrientation(LinearLayout.VERTICAL);
-        group.setBackground(shape(cardColor(context, dark), dp(context, 28.0f)));
+        group.setBackground(shape(cardColor(context, dark),
+                dp(context, isOneUi(context) ? 28.0f : 32.0f)));
         group.setClipToOutline(true);
         group.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return group;
@@ -319,7 +373,8 @@ public final class Ui {
     public static RoundedLinearLayout seslRowCard(Context context, boolean dark) {
         RoundedLinearLayout card = new RoundedLinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(shape(cardColor(context, dark), dp(context, 28.0f)));
+        card.setBackground(shape(cardColor(context, dark),
+                dp(context, isOneUi(context) ? 28.0f : 32.0f)));
         card.setClipToOutline(true);
         card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return card;
@@ -368,6 +423,9 @@ public final class Ui {
     }
 
     public static Button nativePrimaryButton(Context context, String text) {
+        if (!isOneUi(context)) {
+            return button(context, text, true, isDark(context));
+        }
         Button button = (Button) LayoutInflater.from(context).inflate(R.layout.view_oneui_primary_button, null, false);
         button.setText(text);
         boolean dark = isDark(context);
@@ -592,6 +650,53 @@ public final class Ui {
             i = 8464;
         }
         window.getDecorView().setSystemUiVisibility(i);
+    }
+
+    public static void configureMaterialToolbar(AppCompatActivity activity, Toolbar toolbar,
+            String title, boolean back) {
+        if (toolbar == null) {
+            return;
+        }
+        boolean dark = isDark(activity);
+        toolbar.setTitle(title);
+        toolbar.setTitleTextColor(mainText(dark));
+        toolbar.setSubtitleTextColor(secondaryText(dark));
+        toolbar.setBackgroundColor(background(activity, dark));
+        toolbar.setNavigationIcon(back ? R.drawable.ic_oui_back : 0);
+        if (toolbar.getNavigationIcon() != null) {
+            toolbar.getNavigationIcon().setTint(mainText(dark));
+        }
+        toolbar.setNavigationOnClickListener(back ? view ->
+                activity.getOnBackPressedDispatcher().onBackPressed() : null);
+        activity.setSupportActionBar(toolbar);
+        if (activity.getSupportActionBar() != null) {
+            activity.getSupportActionBar().setDisplayShowTitleEnabled(true);
+            activity.getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+        }
+    }
+
+    public static void styleMaterialRoot(Context context, View root) {
+        boolean dark = isDark(context);
+        root.setBackgroundColor(background(context, dark));
+        View content = root.findViewById(R.id.dashboard_content);
+        if (content != null) {
+            content.setBackgroundColor(background(context, dark));
+        }
+    }
+
+    public static int materialAccent(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_accent1_200" : "system_accent1_600",
+                dark ? Color.rgb(210, 188, 255) : Color.rgb(103, 80, 164));
+    }
+
+    public static int materialSurface(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_neutral2_800" : "system_neutral2_50",
+                dark ? Color.rgb(33, 31, 38) : Color.rgb(245, 242, 250));
+    }
+
+    public static int materialOnSurface(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_neutral1_50" : "system_neutral1_900",
+                dark ? Color.rgb(232, 225, 229) : Color.rgb(29, 27, 32));
     }
 
     public static LinearLayout horizontal(Context context, int i) {

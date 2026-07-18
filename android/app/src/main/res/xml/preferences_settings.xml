@@ -9,6 +9,13 @@
         app:allowDividerBelow="false" />
 
     <PreferenceCategory android:title="Appearance">
+        <ListPreference
+            android:entries="@array/app_surface_style_entries"
+            android:entryValues="@array/app_surface_style_values"
+            android:key="app_surface_style"
+            android:summary="Choose the Android design language"
+            android:title="Interface style"
+            app:useSimpleSummaryProvider="true" />
         <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
             android:key="app_theme"
             app:entries="@array/preferences_darkmode_entries"

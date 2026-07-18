@@ -167,6 +167,7 @@ public final class SettingsTransferStore {
     private static JSONObject collectAppSettings(Context context) throws Exception {
         JSONObject json = new JSONObject();
         json.put("app_theme", AppPreferences.getAppTheme(context));
+        json.put("app_style", AppPreferences.getAppStyle(context));
         json.put("refresh_minutes", AppPreferences.getRefreshMinutes(context));
         json.put("refresh_on_launch", AppPreferences.getRefreshOnLaunch(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
@@ -203,8 +204,10 @@ public final class SettingsTransferStore {
 
     private static boolean applyAppSettings(Context context, JSONObject json) throws Exception {
         String previousTheme = AppPreferences.getAppTheme(context);
+        String previousStyle = AppPreferences.getAppStyle(context);
         String theme = json.optString("app_theme", previousTheme);
         AppPreferences.setAppTheme(context, theme);
+        AppPreferences.setAppStyle(context, json.optString("app_style", previousStyle));
         AppPreferences.setRefreshMinutes(context, json.optInt("refresh_minutes",
                 AppPreferences.getRefreshMinutes(context)));
         AppPreferences.setRefreshOnLaunch(context, json.optBoolean("refresh_on_launch",
@@ -222,7 +225,8 @@ public final class SettingsTransferStore {
                     SettingsTransfer.widgetOptionsFromJson(widget,
                             AppPreferences.loadDefaultWidgetOptions(context)));
         }
-        return !previousTheme.equals(AppPreferences.getAppTheme(context));
+        return !previousTheme.equals(AppPreferences.getAppTheme(context))
+                || !previousStyle.equals(AppPreferences.getAppStyle(context));
     }
 
     private static void applyNotifications(Context context, JSONObject json) throws Exception {

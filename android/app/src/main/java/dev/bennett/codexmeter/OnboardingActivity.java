@@ -165,8 +165,8 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void render() {
         if (this.content == null) return;
         this.content.removeAllViews();
-        this.page.toolbar.setTitle("Codex Meter");
-        this.page.toolbar.setShowNavigationButtonAsBack(this.step > OnboardingFlow.STEP_WELCOME);
+        this.page.setTitle("Codex Meter");
+        this.page.setShowNavigationButtonAsBack(this.step > OnboardingFlow.STEP_WELCOME);
 
         addProgress();
         if (this.step == OnboardingFlow.STEP_WELCOME) {
@@ -201,17 +201,23 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void buildWelcome() {
         addIntro("Meet Codex Meter",
                 "Your ChatGPT Codex allowance, reset timing, and available reset credits in one "
-                        + "quick One UI view.",
+                        + "quick " + designName() + " view.",
                 R.drawable.ic_oui_battery);
 
         RoundedLinearLayout card = Ui.seslCard(this, this.dark);
-        TextView title = Ui.text(this, "Built to feel at home on Galaxy", 18.0f,
+        TextView title = Ui.text(this, Ui.isOneUi(this)
+                        ? "Built to feel at home on Galaxy"
+                        : "Built for Material You",
+                18.0f,
                 Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         TextView body = Ui.text(this,
-                "Reachable layouts, responsive cards, system theming, and Samsung lock-screen "
-                        + "widgets all use the app’s native One UI components.",
+                Ui.isOneUi(this)
+                        ? "Reachable layouts, responsive cards, system theming, and Samsung "
+                            + "lock-screen widgets use the app’s native One UI components."
+                        : "Dynamic color, expressive shapes, responsive cards, and Material "
+                            + "widgets make Codex Meter feel at home on stock Android.",
                 15.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(-1, -2);
         bodyParams.setMargins(0, Ui.dp(this, 10), 0, 0);
@@ -233,7 +239,8 @@ public final class OnboardingActivity extends AppCompatActivity {
                 R.drawable.ic_oui_calendar_week, null);
         limits.setShowBottomDivider(true);
         features.addView(limits);
-        CardItemView widgets = Ui.actionRow(this, "Native One UI widgets",
+        CardItemView widgets = Ui.actionRow(this, Ui.isOneUi(this)
+                        ? "Native One UI widgets" : "Material You widgets",
                 "At-a-glance usage on your home and lock screens",
                 R.drawable.ic_oui_add_home, null);
         widgets.setShowBottomDivider(true);
@@ -418,5 +425,9 @@ public final class OnboardingActivity extends AppCompatActivity {
             return exception.getClass().getSimpleName();
         }
         return message.length() > 180 ? message.substring(0, 180) : message;
+    }
+
+    private String designName() {
+        return Ui.isOneUi(this) ? "One UI" : "Material 3 Expressive";
     }
 }

@@ -217,11 +217,12 @@ public final class AppPreferences {
     }
 
     public static String getAppStyle(Context context) {
-        return WidgetOptions.SURFACE_ONE_UI;
+        return AppDesignStyle.normalize(prefs(context).getString(
+                KEY_APP_STYLE, AppDesignStyle.ONE_UI));
     }
 
     public static void setAppStyle(Context context, String str) {
-        prefs(context).edit().putString(KEY_APP_STYLE, WidgetOptions.SURFACE_ONE_UI).apply();
+        prefs(context).edit().putString(KEY_APP_STYLE, AppDesignStyle.normalize(str)).commit();
     }
 
     public static WidgetOptions loadDefaultWidgetOptions(Context context) {
@@ -264,6 +265,13 @@ public final class AppPreferences {
     }
 
     private static WidgetOptions batteryStyle(WidgetOptions options) {
+        if (WidgetOptions.SURFACE_MATERIAL.equals(options.surfaceStyle)) {
+            return new WidgetOptions(WidgetOptions.STYLE_RINGS, WidgetOptions.DENSITY_AUTO,
+                    WidgetOptions.SURFACE_MATERIAL, WidgetOptions.GRAPHIC_AUTO, options.theme,
+                    options.accent, options.opacity, WidgetOptions.RESET_HIDDEN,
+                    options.displayMode, WidgetOptions.METRIC_BOTH, false, false, false,
+                    false, false, false).withPercentSymbol(options.showPercentSymbol);
+        }
         return new WidgetOptions(WidgetOptions.STYLE_RINGS, WidgetOptions.DENSITY_AUTO,
                 WidgetOptions.SURFACE_ONE_UI, "auto", options.theme, options.accent,
                 options.opacity, WidgetOptions.RESET_HIDDEN, options.displayMode, "both",

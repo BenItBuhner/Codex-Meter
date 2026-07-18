@@ -44,6 +44,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppDesignStyle.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingFlow.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthBrowserPage.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseVersion.java" \
@@ -168,6 +169,21 @@ grep -q 'Ui.configureReachToolbar(toolbar, "Settings", true);' \
 grep -q 'toolbar.setExpandable(false);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'toolbar.setExpandable(true);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'toolbar.setExpanded(true, false);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
+
+# One UI remains the default while Material 3 Expressive is independently selectable.
+grep -q 'app_surface_style' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'Material 3 Expressive' "$ROOT/app/src/main/res/values/settings_arrays.xml"
+grep -q 'AppDesignStyle.normalize' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+! grep -q 'AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+test -f "$ROOT/app/src/main/res/layout/activity_oneui_dashboard.xml"
+test -f "$ROOT/app/src/main/res/layout/activity_material_dashboard.xml"
+test -f "$ROOT/app/src/main/res/layout/widget_material_compact.xml"
+test -f "$ROOT/app/src/main/res/layout/widget_material_dials.xml"
+grep -q 'SURFACE_ONE_UI' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptionCatalog.java"
+grep -q 'SURFACE_MATERIAL' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptionCatalog.java"
+grep -q 'One UI remains the widget default' "$ROOT/tests/ParserSelfTest.java"
 
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertPreferences.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"

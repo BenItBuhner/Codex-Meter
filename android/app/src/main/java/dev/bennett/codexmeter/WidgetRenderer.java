@@ -59,7 +59,8 @@ public final class WidgetRenderer {
                     remoteViewsBuildViews = buildResponsiveWidget(context, i, widgetOptionsLoadWidgetOptions);
                 } else {
                     remoteViewsBuildViews = buildViews(context, i, widgetOptionsLoadWidgetOptions,
-                            styleForSize(context, appWidgetOptions), appWidgetOptions);
+                            styleForSize(context, widgetOptionsLoadWidgetOptions, appWidgetOptions),
+                            appWidgetOptions);
                 }
                 appWidgetManager.updateAppWidget(i, remoteViewsBuildViews);
             } catch (RuntimeException e) {
@@ -75,17 +76,22 @@ public final class WidgetRenderer {
     @SuppressLint({"NewApi", "UseRequiresApi"})
     private static RemoteViews buildResponsiveWidget(Context context, int i, WidgetOptions widgetOptions) {
         LinkedHashMap<SizeF, RemoteViews> linkedHashMap = new LinkedHashMap<>();
+        boolean material = isMaterial(widgetOptions);
         linkedHashMap.put(new SizeF(110.0f, 60.0f),
-                buildViews(context, i, widgetOptions, WidgetOptions.STYLE_RINGS,
+                buildViews(context, i, widgetOptions,
+                        material ? WidgetOptions.STYLE_MINIMAL : WidgetOptions.STYLE_RINGS,
                         sizeBundle(110, 70), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(250.0f, 60.0f),
-                buildViews(context, i, widgetOptions, STYLE_FOUR_DIALS,
+                buildViews(context, i, widgetOptions,
+                        material ? WidgetOptions.STYLE_MINIMAL : STYLE_FOUR_DIALS,
                         sizeBundle(250, 70), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(110.0f, 130.0f),
-                buildViews(context, i, widgetOptions, STYLE_BATTERY_LIST,
+                buildViews(context, i, widgetOptions,
+                        material ? WidgetOptions.STYLE_DIALS : STYLE_BATTERY_LIST,
                         sizeBundle(110, 156), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(250.0f, 130.0f),
-                buildViews(context, i, widgetOptions, STYLE_BATTERY_LIST,
+                buildViews(context, i, widgetOptions,
+                        material ? WidgetOptions.STYLE_DIALS : STYLE_BATTERY_LIST,
                         sizeBundle(250, 156), GRAPHIC_STANDARD));
         return new RemoteViews(linkedHashMap);
     }
@@ -93,14 +99,21 @@ public final class WidgetRenderer {
     static RemoteViews buildPreview(Context context, int appWidgetId, WidgetOptions widgetOptions,
             Bundle appWidgetOptions) {
         RemoteViews preview = buildViews(context, appWidgetId, widgetOptions,
-                styleForSize(context, appWidgetOptions), appWidgetOptions);
+                styleForSize(context, widgetOptions, appWidgetOptions), appWidgetOptions);
         preview.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
         return preview;
     }
 
-    private static String styleForSize(Context context, Bundle bundle) {
+    private static String styleForSize(Context context, WidgetOptions options, Bundle bundle) {
         int rows = option(bundle, "semAppWidgetRowSpan");
         int columns = option(bundle, "semAppWidgetColumnSpan");
+        if (isMaterial(options)) {
+            if (rows > 0) {
+                return rows >= 2 ? WidgetOptions.STYLE_DIALS : WidgetOptions.STYLE_MINIMAL;
+            }
+            return currentHeight(context, bundle) >= 110
+                    ? WidgetOptions.STYLE_DIALS : WidgetOptions.STYLE_MINIMAL;
+        }
         if (rows > 0) {
             if (rows >= 2) {
                 return STYLE_BATTERY_LIST;
@@ -126,14 +139,16 @@ public final class WidgetRenderer {
     }
 
     private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions, String str, Bundle bundle, int i2) {
-        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), layoutForStyle(str, i2));
+        RemoteViews remoteViews = new RemoteViews(context.getPackageName(),
+                layoutForStyle(str, i2, widgetOptions));
         boolean zChooseDark = chooseDark(context, widgetOptions);
         WidgetState widgetStateFrom = WidgetState.from(context, widgetOptions);
         applyRootAndHeader(context, remoteViews, i, widgetOptions, zChooseDark, widgetStateFrom);
         if (STYLE_MICRO.equals(str)) {
             renderMicro(remoteViews, widgetOptions, zChooseDark, widgetStateFrom);
         } else if (WidgetOptions.STYLE_RINGS.equals(str)) {
-            renderGraphic(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom, true, i2);
+            renderGraphic(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom,
+                    !isMaterial(widgetOptions), i2);
         } else if (STYLE_FOUR_DIALS.equals(str)) {
             renderFourDials(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom);
         } else if (STYLE_BATTERY_LIST.equals(str)) {
@@ -186,7 +201,11 @@ public final class WidgetRenderer {
         return (context == null || context.getResources().getConfiguration().orientation != GRAPHIC_MAX) ? iOption2 > 0 ? iOption2 : iOption : iOption > 0 ? iOption : iOption2;
     }
 
-    private static int layoutForStyle(String str, int i) {
+    private static int layoutForStyle(String str, int i, WidgetOptions options) {
+        if (isMaterial(options)) {
+            return WidgetOptions.STYLE_DIALS.equals(str)
+                    ? R.layout.widget_material_dials : R.layout.widget_material_compact;
+        }
         if (STYLE_BATTERY_LIST.equals(str)) {
             return R.layout.widget_battery_list;
         }
@@ -223,7 +242,13 @@ public final class WidgetRenderer {
     }
 
     private static void applyRootAndHeader(Context context, RemoteViews remoteViews, int i, WidgetOptions widgetOptions, boolean z, WidgetState widgetState) {
-        if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
+        if (isMaterial(widgetOptions) && Build.VERSION.SDK_INT >= 31) {
+            int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
+            int surface = Ui.materialSurface(context, z);
+            remoteViews.setInt(android.R.id.background, "setBackgroundColor",
+                    Color.argb(alpha, Color.red(surface), Color.green(surface),
+                            Color.blue(surface)));
+        } else if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
             int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
             remoteViews.setInt(android.R.id.background, "setBackgroundColor",
                     z ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
@@ -231,12 +256,15 @@ public final class WidgetRenderer {
             remoteViews.setInt(android.R.id.background, "setBackgroundResource",
                     backgroundResource(context, z, widgetOptions.opacity, widgetOptions.surfaceStyle));
         }
-        remoteViews.setTextColor(R.id.widget_title, WidgetGraphics.mainTextColor(z));
+        remoteViews.setTextColor(R.id.widget_title, mainTextColor(context, widgetOptions, z));
         remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? GRAPHIC_STANDARD : 8);
-        remoteViews.setTextColor(R.id.plan_label, mutedColor(z));
+        remoteViews.setTextColor(R.id.plan_label, mutedColor(context, widgetOptions, z));
         remoteViews.setTextViewText(R.id.plan_label, widgetState.plan);
         remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? 8 : GRAPHIC_STANDARD);
-        remoteViews.setImageViewResource(R.id.refresh_button, z ? R.drawable.ic_oui_refresh_widget_light : R.drawable.ic_oui_refresh_widget_dark);
+        remoteViews.setImageViewResource(R.id.refresh_button, isMaterial(widgetOptions)
+                ? R.drawable.ic_refresh
+                : (z ? R.drawable.ic_oui_refresh_widget_light
+                        : R.drawable.ic_oui_refresh_widget_dark));
         remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? GRAPHIC_STANDARD : 8);
         applyIntents(context, remoteViews, i);
     }
@@ -356,10 +384,10 @@ public final class WidgetRenderer {
     private static void renderMinimal(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z, WidgetState widgetState) {
         String str;
         int i = R.drawable.progress_track_light;
-        int iMainTextColor = WidgetGraphics.mainTextColor(z);
-        int iSecondaryColor = secondaryColor(z);
-        int iMutedColor = mutedColor(z);
-        int iFaintColor = faintColor(z);
+        int iMainTextColor = mainTextColor(context, widgetOptions, z);
+        int iSecondaryColor = secondaryColor(context, widgetOptions, z);
+        int iMutedColor = mutedColor(context, widgetOptions, z);
+        int iFaintColor = faintColor(context, widgetOptions, z);
         remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
         remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
         remoteViews.setTextColor(R.id.primary_percent, iMainTextColor);
@@ -374,7 +402,7 @@ public final class WidgetRenderer {
         int iProgressResource = progressResource(widgetOptions.accent, z);
         remoteViews.setImageViewResource(R.id.primary_progress, iProgressResource);
         remoteViews.setImageViewResource(R.id.secondary_progress, iProgressResource);
-        applyAppAccentFilter(context, remoteViews, widgetOptions.accent,
+        applyAppAccentFilter(context, remoteViews, widgetOptions,
                 R.id.primary_progress, R.id.secondary_progress);
         remoteViews.setInt(R.id.primary_progress, "setImageLevel", Math.max(GRAPHIC_STANDARD, widgetState.primaryValue) * 100);
         remoteViews.setInt(R.id.secondary_progress, "setImageLevel", Math.max(GRAPHIC_STANDARD, widgetState.secondaryValue) * 100);
@@ -397,12 +425,12 @@ public final class WidgetRenderer {
 
     private static void renderGraphic(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z, WidgetState widgetState, boolean z2, int i) {
         float f;
-        int iMainTextColor = WidgetGraphics.mainTextColor(z);
-        int iSecondaryColor = secondaryColor(z);
-        int iMutedColor = mutedColor(z);
-        int iFaintColor = faintColor(z);
-        int iAccentColor = WidgetGraphics.accentColor(context, widgetOptions.accent, z);
-        int iTrackColor = WidgetGraphics.trackColor(z);
+        int iMainTextColor = mainTextColor(context, widgetOptions, z);
+        int iSecondaryColor = secondaryColor(context, widgetOptions, z);
+        int iMutedColor = mutedColor(context, widgetOptions, z);
+        int iFaintColor = faintColor(context, widgetOptions, z);
+        int iAccentColor = accentColor(context, widgetOptions, z);
+        int iTrackColor = trackColor(context, widgetOptions, z);
         String str = WidgetOptions.DISPLAY_USED.equals(widgetOptions.displayMode) ? WidgetOptions.DISPLAY_USED : "left";
         if (i == GRAPHIC_MAX) {
             f = 1.36f;
@@ -618,6 +646,19 @@ public final class WidgetRenderer {
         }
     }
 
+    private static void applyAppAccentFilter(Context context, RemoteViews views,
+            WidgetOptions options, int... viewIds) {
+        if (!WidgetOptions.ACCENT_APP.equals(options.accent)) {
+            return;
+        }
+        int color = isMaterial(options)
+                ? Ui.materialAccent(context, chooseDark(context, options))
+                : Ui.accent(context, Ui.isDark(context));
+        for (int viewId : viewIds) {
+            views.setInt(viewId, "setColorFilter", color);
+        }
+    }
+
     private static int backgroundResource(Context context, boolean z, int i, String str) {
         if (i == 0) {
             return R.drawable.widget_bg_transparent;
@@ -681,6 +722,52 @@ public final class WidgetRenderer {
         String str = Build.MANUFACTURER;
         String str2 = Build.BRAND;
         return (str != null && "samsung".equalsIgnoreCase(str)) || (str2 != null && "samsung".equalsIgnoreCase(str2));
+    }
+
+    private static boolean isMaterial(WidgetOptions options) {
+        return options != null
+                && WidgetOptions.SURFACE_MATERIAL.equals(options.surfaceStyle);
+    }
+
+    private static int mainTextColor(Context context, WidgetOptions options, boolean dark) {
+        return isMaterial(options)
+                ? Ui.materialOnSurface(context, dark) : WidgetGraphics.mainTextColor(dark);
+    }
+
+    private static int accentColor(Context context, WidgetOptions options, boolean dark) {
+        if (isMaterial(options) && WidgetOptions.ACCENT_APP.equals(options.accent)) {
+            return Ui.materialAccent(context, dark);
+        }
+        return WidgetGraphics.accentColor(context, options.accent, dark);
+    }
+
+    private static int trackColor(Context context, WidgetOptions options, boolean dark) {
+        if (!isMaterial(options)) {
+            return WidgetGraphics.trackColor(dark);
+        }
+        int foreground = Ui.materialOnSurface(context, dark);
+        return Color.argb(dark ? 74 : 48, Color.red(foreground), Color.green(foreground),
+                Color.blue(foreground));
+    }
+
+    private static int secondaryColor(Context context, WidgetOptions options, boolean dark) {
+        return isMaterial(options) ? withAlpha(mainTextColor(context, options, dark), 0.82f)
+                : secondaryColor(dark);
+    }
+
+    private static int mutedColor(Context context, WidgetOptions options, boolean dark) {
+        return isMaterial(options) ? withAlpha(mainTextColor(context, options, dark), 0.66f)
+                : mutedColor(dark);
+    }
+
+    private static int faintColor(Context context, WidgetOptions options, boolean dark) {
+        return isMaterial(options) ? withAlpha(mainTextColor(context, options, dark), 0.48f)
+                : faintColor(dark);
+    }
+
+    private static int withAlpha(int color, float alpha) {
+        return Color.argb(Math.round(255.0f * alpha), Color.red(color), Color.green(color),
+                Color.blue(color));
     }
 
     private static int secondaryColor(boolean z) {

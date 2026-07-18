@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_light_88">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:baselineAligned="false"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="4dp">
+
+        <FrameLayout
+            android:id="@+id/primary_section"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <ImageView
+                android:id="@+id/primary_graphic"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/five_hour"
+                android:scaleType="centerInside" />
+
+            <TextView android:id="@+id/primary_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+            <TextView android:id="@+id/primary_reset" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/secondary_section"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <ImageView
+                android:id="@+id/secondary_graphic"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/weekly"
+                android:scaleType="centerInside" />
+
+            <TextView android:id="@+id/secondary_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+            <TextView android:id="@+id/secondary_reset" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <TextView android:id="@+id/widget_title" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/plan_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+    <ImageView android:id="@+id/refresh_button" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" android:contentDescription="@null" />
+    <LinearLayout android:id="@+id/reset_credit_row" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp">
+        <TextView android:id="@+id/reset_credit_info" android:layout_width="0dp" android:layout_height="0dp" />
+        <TextView android:id="@+id/reset_credit_button" android:layout_width="0dp" android:layout_height="0dp" />
+    </LinearLayout>
+    <TextView android:id="@+id/updated_label" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+</FrameLayout>

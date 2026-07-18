@@ -17,6 +17,16 @@
         <item name="android:fontFamily">sec</item>
     </style>
 
+    <style name="AppThemeMaterial" parent="AppTheme">
+        <item name="colorPrimary">#6750A4</item>
+        <item name="android:colorAccent">#6750A4</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:windowBackground">#FFFBFE</item>
+        <item name="android:navigationBarColor">#FFFBFE</item>
+        <item name="android:statusBarColor">#FFFBFE</item>
+        <item name="buttonCornerRadius">999dp</item>
+    </style>
+
     <style name="AppThemeDark" parent="AppTheme" />
     <style name="AppThemeLight" parent="AppTheme" />
 </resources>

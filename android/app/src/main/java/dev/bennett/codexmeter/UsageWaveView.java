@@ -34,9 +34,9 @@ public final class UsageWaveView extends View {
 
     public UsageWaveView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        titlePaint.setTypeface(Typeface.create("sec", Typeface.BOLD));
-        resetPaint.setTypeface(Typeface.create("sec", Typeface.NORMAL));
-        percentPaint.setTypeface(Typeface.create("sec", Typeface.BOLD));
+        titlePaint.setTypeface(Ui.mediumTypeface(context));
+        resetPaint.setTypeface(Ui.regularTypeface(context));
+        percentPaint.setTypeface(Ui.mediumTypeface(context));
         percentPaint.setTextAlign(Paint.Align.CENTER);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
