@@ -5,10 +5,16 @@
 ### Added
 
 - Android settings transfer: export and import selected sections (app settings, notifications, Now Bar, and ChatGPT authentication) from Settings, with explicit warnings when authentication tokens are included.
+- Widget Background toggle in customize settings so the fill can be turned off entirely, matching official One UI widgets.
+
+### Changed
+
+- Widget opacity control now uses three discrete fill strengths (56% / 88% / 100%) instead of four, aligning with current Samsung One UI widget transparency steps.
 
 ### Development
 
 - Added pure-Java coverage for transfer document parsing, section selection, and embedded authentication warnings.
+- Expanded widget-option self-tests for background-off opacity, three-step snapping, and legacy four-step migration.
 
 ## 2.3.3 — 2026-07-17
 

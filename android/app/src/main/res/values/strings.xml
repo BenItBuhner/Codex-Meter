@@ -2,6 +2,7 @@
 <resources>
     <string name="widget_config_cancel">Cancel</string>
     <string name="widget_config_save">Save</string>
+    <string name="widget_background">Background</string>
     <string name="widget_opacity">Opacity</string>
     <string name="widget_next_reset">Time remaining until the next usage reset</string>
     <string name="widget_reset_credits">Available Codex reset credits</string>

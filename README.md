@@ -35,7 +35,7 @@ The app includes:
 - Responsive home-screen widgets with ring, four-dial, and battery-list layouts selected for the available size.
 - Both-window, five-hour-only, and weekly-only configurations.
 - Optional reset-credit inventory, expiration, and redemption controls.
-- Transparent through opaque backgrounds.
+- Transparent through opaque backgrounds, including a Background off toggle and three One UI-style opacity steps.
 - Samsung One UI presentation throughout the dashboard, settings, and widget configuration surfaces.
 - Samsung lock/AOD providers for both usage windows together or dedicated five-hour and weekly views.
 - High-resolution supersampled lock-screen geometry with native Android text overlays.

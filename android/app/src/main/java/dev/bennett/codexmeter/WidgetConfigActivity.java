@@ -38,8 +38,10 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private Spinner displaySpinner;
     private CardItemView displayRow;
     private SeslSeekBar opacitySlider;
+    private SwitchCompat backgroundSwitch;
     private SwitchCompat percentSymbolSwitch;
     private View opacityControl;
+    private View backgroundRow;
     private FrameLayout previewContainer;
     private Bundle widgetSize = new Bundle();
     private Spinner themeSpinner;
@@ -89,15 +91,28 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
         content.addView(Ui.separator(this, "Appearance"));
         RoundedLinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
+        this.backgroundSwitch = new SwitchCompat(this);
+        this.backgroundSwitch.setChecked(saved.opacity > 0);
+        this.backgroundRow = buildSwitchRow(getString(R.string.widget_background),
+                this.backgroundSwitch, false);
+        appearanceCard.addView(this.backgroundRow);
+        View opacityDivider = new View(this);
+        opacityDivider.setBackgroundColor(Ui.divider(this.dark));
+        LinearLayout.LayoutParams opacityDividerParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 1));
+        opacityDividerParams.setMargins(Ui.dp(this, 16), 0, Ui.dp(this, 16), 0);
+        appearanceCard.addView(opacityDivider, opacityDividerParams);
         this.opacityControl = LayoutInflater.from(this).inflate(
                 R.layout.view_widget_opacity, appearanceCard, false);
+        this.opacityControl.setTag(opacityDivider);
         appearanceCard.addView(this.opacityControl);
         this.opacitySlider = this.opacityControl.findViewById(R.id.opacity_slider);
-        this.opacitySlider.setProgress(opacityIndex(saved.opacity));
+        this.opacitySlider.setProgress(WidgetOptions.opacityIndex(saved.opacity));
         this.opacitySlider.setAlpha(0.0f);
         if (this.opacitySlider.getProgressDrawable() != null) {
             this.opacitySlider.getProgressDrawable().setAlpha(0);
         }
+        applyBackgroundEnabled(this.backgroundSwitch.isChecked());
 
         this.themeSpinner = Ui.spinner(this, WidgetOptionCatalog.THEME_LABELS, this.dark);
         this.accentSpinner = Ui.spinner(this, WidgetOptionCatalog.ACCENT_LABELS, this.dark);
@@ -126,16 +141,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         contentCard.addView(symbolDivider, dividerParams);
         this.percentSymbolSwitch = new SwitchCompat(this);
         this.percentSymbolSwitch.setChecked(saved.showPercentSymbol);
-        LinearLayout symbolRow = new LinearLayout(this);
-        symbolRow.setGravity(Gravity.CENTER_VERTICAL);
-        symbolRow.setMinimumHeight(Ui.dp(this, 64));
-        symbolRow.setPadding(Ui.dp(this, 20), 0, Ui.dp(this, 20), 0);
-        symbolRow.addView(Ui.text(this, "Show % symbol", 18, Ui.mainText(this.dark)),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        symbolRow.addView(this.percentSymbolSwitch,
-                new LinearLayout.LayoutParams(-2, -2));
-        symbolRow.setOnClickListener(view -> this.percentSymbolSwitch.toggle());
-        contentCard.addView(symbolRow);
+        contentCard.addView(buildSwitchRow("Show % symbol", this.percentSymbolSwitch, false));
         content.addView(contentCard);
 
         content.addView(Ui.separator(this, "Widget tap action"));
@@ -156,6 +162,11 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         this.accentSpinner.setOnItemSelectedListener(selectionListener);
         this.displaySpinner.setOnItemSelectedListener(selectionListener);
         this.percentSymbolSwitch.setOnCheckedChangeListener((button, checked) -> renderPreview());
+        this.backgroundSwitch.setOnCheckedChangeListener((button, checked) -> {
+            applyBackgroundEnabled(checked);
+            updateSliderVisuals();
+            renderPreview();
+        });
         this.opacitySlider.setOnSeekBarChangeListener(new SeslSeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeslSeekBar seekBar, int progress, boolean fromUser) {
@@ -197,6 +208,43 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             }
         });
         return card;
+    }
+
+    private LinearLayout buildSwitchRow(String title, SwitchCompat toggle, boolean topDivider) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        if (topDivider) {
+            View divider = new View(this);
+            divider.setBackgroundColor(Ui.divider(this.dark));
+            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 1));
+            dividerParams.setMargins(Ui.dp(this, 16), 0, Ui.dp(this, 16), 0);
+            row.addView(divider, dividerParams);
+        }
+        LinearLayout content = new LinearLayout(this);
+        content.setGravity(Gravity.CENTER_VERTICAL);
+        content.setMinimumHeight(Ui.dp(this, 64));
+        content.setPadding(Ui.dp(this, 20), 0, Ui.dp(this, 20), 0);
+        content.addView(Ui.text(this, title, 18, Ui.mainText(this.dark)),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(toggle, new LinearLayout.LayoutParams(-2, -2));
+        content.setOnClickListener(view -> toggle.toggle());
+        row.addView(content, new LinearLayout.LayoutParams(-1, -2));
+        return row;
+    }
+
+    private void applyBackgroundEnabled(boolean enabled) {
+        if (this.opacityControl == null) {
+            return;
+        }
+        int visibility = enabled ? View.VISIBLE : View.GONE;
+        this.opacityControl.setVisibility(visibility);
+        Object divider = this.opacityControl.getTag();
+        if (divider instanceof View) {
+            ((View) divider).setVisibility(visibility);
+        }
+        if (this.opacitySlider != null) {
+            this.opacitySlider.setEnabled(enabled);
+        }
     }
 
     private RadioItemView radioRow(int id, String title, boolean divider) {
@@ -332,12 +380,18 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     }
 
     private WidgetOptions currentOptions() {
+        boolean backgroundOn = this.backgroundSwitch == null || this.backgroundSwitch.isChecked();
+        int opacity = backgroundOn
+                ? WidgetOptionCatalog.OPACITY_VALUES[Math.max(0, Math.min(
+                        WidgetOptionCatalog.OPACITY_VALUES.length - 1,
+                        this.opacitySlider.getProgress()))]
+                : 0;
         return new WidgetOptions(WidgetOptions.STYLE_RINGS,
                 WidgetOptions.DENSITY_AUTO,
                 WidgetOptions.SURFACE_ONE_UI, WidgetOptions.GRAPHIC_AUTO,
                 WidgetOptionCatalog.THEME_VALUES[this.themeSpinner.getSelectedItemPosition()],
                 WidgetOptionCatalog.ACCENT_VALUES[this.accentSpinner.getSelectedItemPosition()],
-                WidgetOptionCatalog.OPACITY_VALUES[this.opacitySlider.getProgress()],
+                opacity,
                 WidgetOptions.RESET_HIDDEN,
                 WidgetOptionCatalog.DISPLAY_VALUES[this.displaySpinner.getSelectedItemPosition()],
                 WidgetOptions.METRIC_BOTH, false, false, false, false, false, false)
@@ -441,14 +495,18 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     }
 
     private void updateSliderVisuals() {
-        int[] ticks = {R.id.opacity_tick_0, R.id.opacity_tick_1,
-                R.id.opacity_tick_2, R.id.opacity_tick_3};
+        if (this.opacityControl == null || this.opacitySlider == null
+                || this.opacityControl.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        int[] ticks = {R.id.opacity_tick_0, R.id.opacity_tick_1, R.id.opacity_tick_2};
         int level = Math.max(0, Math.min(ticks.length - 1, this.opacitySlider.getProgress()));
         for (int i = 0; i < ticks.length; i++) {
             this.opacityControl.findViewById(ticks[i]).setAlpha(i == level ? 0.0f : 1.0f);
         }
         View thumb = this.opacityControl.findViewById(R.id.opacity_thumb_visual);
-        android.graphics.drawable.GradientDrawable thumbBackground = new android.graphics.drawable.GradientDrawable();
+        android.graphics.drawable.GradientDrawable thumbBackground =
+                new android.graphics.drawable.GradientDrawable();
         thumbBackground.setShape(android.graphics.drawable.GradientDrawable.OVAL);
         thumbBackground.setColor(dark ? 0xFF1F1F22 : 0xFFFCFCFF);
         thumbBackground.setStroke(Ui.dp(this, 2), Ui.accent(this, dark));
@@ -458,19 +516,6 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             thumb.setTranslationX(tick.getX() + (tick.getWidth() / 2.0f)
                     - (thumb.getWidth() / 2.0f));
         });
-    }
-
-    private static int opacityIndex(int opacity) {
-        int best = 0;
-        int distance = Integer.MAX_VALUE;
-        for (int i = 0; i < WidgetOptionCatalog.OPACITY_VALUES.length; i++) {
-            int candidate = Math.abs(WidgetOptionCatalog.OPACITY_VALUES[i] - opacity);
-            if (candidate < distance) {
-                best = i;
-                distance = candidate;
-            }
-        }
-        return best;
     }
 
     private void save() {
