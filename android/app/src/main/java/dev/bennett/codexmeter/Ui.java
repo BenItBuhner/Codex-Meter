@@ -70,7 +70,8 @@ public final class Ui {
             if (toolbar != null) {
                 toolbar.setShowNavigationButtonAsBack(show);
             } else if (materialToolbar != null) {
-                materialToolbar.setNavigationIcon(show ? R.drawable.ic_oui_back : 0);
+                materialToolbar.setNavigationIcon(show
+                        ? activity.getDrawable(R.drawable.ic_oui_back) : null);
                 if (materialToolbar.getNavigationIcon() != null) {
                     materialToolbar.getNavigationIcon().setTint(mainText(isDark(activity)));
                 }
@@ -664,7 +665,7 @@ public final class Ui {
         toolbar.setTitleTextColor(mainText(dark));
         toolbar.setSubtitleTextColor(secondaryText(dark));
         toolbar.setBackgroundColor(background(activity, dark));
-        toolbar.setNavigationIcon(back ? R.drawable.ic_oui_back : 0);
+        toolbar.setNavigationIcon(back ? activity.getDrawable(R.drawable.ic_oui_back) : null);
         if (toolbar.getNavigationIcon() != null) {
             toolbar.getNavigationIcon().setTint(mainText(dark));
         }

@@ -175,6 +175,8 @@ grep -q 'app_surface_style' "$ROOT/app/src/main/res/xml/preferences_settings.xml
 grep -q 'Material 3 Expressive' "$ROOT/app/src/main/res/values/settings_arrays.xml"
 grep -q 'AppDesignStyle.normalize' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+! grep -q 'setNavigationIcon(back ? R.drawable.ic_oui_back : 0)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 ! grep -q 'AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 test -f "$ROOT/app/src/main/res/layout/activity_oneui_dashboard.xml"
