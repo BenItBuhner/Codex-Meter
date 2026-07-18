@@ -97,7 +97,7 @@ public final class WidgetGraphics {
             String label, float scale) {
         float s = clampScale(scale);
         // Compact canvas for 2x1 hosts. All strokes and labels remain inside the bitmap.
-        int width = Math.round(200.0f * s);
+        int width = Math.round(160.0f * s);
         int height = Math.round(158.0f * s);
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         bitmap.setDensity(Bitmap.DENSITY_NONE);
@@ -110,9 +110,8 @@ public final class WidgetGraphics {
         float pad = (stroke * 0.5f) + 4.0f * s;
         boolean hasLabel = label != null && !label.isEmpty();
         float chipHeight = hasLabel ? 22.0f * s : 0.0f;
-        float chipGap = hasLabel ? 7.0f * s : 0.0f;
-        float arcSpan = Math.min(width - (pad * 2.0f),
-                height - (pad * 2.0f) - chipHeight - chipGap);
+        // The label chip occupies the dial's open bottom rather than shrinking the arc.
+        float arcSpan = Math.min(width - (pad * 2.0f), height - (pad * 2.0f));
         float cx = width / 2.0f;
         float cy = pad + (arcSpan / 2.0f);
         RectF oval = new RectF(cx - (arcSpan / 2.0f), cy - (arcSpan / 2.0f),
@@ -143,14 +142,14 @@ public final class WidgetGraphics {
         float valueBaseline = cy - ((fm.ascent + fm.descent) / 2.0f);
         canvas.drawText(value < 0 ? "—" : clamp(value) + "%", cx, valueBaseline, paint);
         if (hasLabel) {
-            float chipWidth = 44.0f * s;
+            float chipWidth = 50.0f * s;
             float chipTop = height - chipHeight - (2.0f * s);
             RectF chip = new RectF(cx - (chipWidth / 2.0f), chipTop,
                     cx + (chipWidth / 2.0f), chipTop + chipHeight);
             paint.setColor(withAlpha(progressColor, 0.14f));
             canvas.drawRoundRect(chip, chipHeight / 2.0f, chipHeight / 2.0f, paint);
             paint.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
-            paint.setTextSize(13.0f * s);
+            paint.setTextSize(16.0f * s);
             paint.setColor(progressColor);
             Paint.FontMetrics chipFm = paint.getFontMetrics();
             float chipBaseline = chip.centerY() - ((chipFm.ascent + chipFm.descent) / 2.0f);
