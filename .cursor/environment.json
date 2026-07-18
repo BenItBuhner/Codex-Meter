@@ -1,0 +1,4 @@
+{
+  "name": "Codex Meter",
+  "install": "export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ANDROID_SDK_ROOT=$HOME/android-sdk ANDROID_HOME=$HOME/android-sdk && ./android/gradlew --version"
+}
