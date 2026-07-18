@@ -1,20 +1,35 @@
 # Changelog
 
-## Unreleased
+## 2.4.0 — 2026-07-18
 
 ### Added
 
-- Android settings transfer: export and import selected sections (app settings, notifications, Now Bar, and ChatGPT authentication) from Settings, with explicit warnings when authentication tokens are included.
-- Widget Background toggle in customize settings so the fill can be turned off entirely, matching official One UI widgets.
+- Wear OS companion app with phone↔watch usage and settings sync, plus tiles, complications, and Ongoing Activity monitoring (#37).
+- Native iOS / iPadOS SwiftUI + WidgetKit client under `ios/`, with portable meters, reset credits, notifications, widgets, and Keychain-backed auth (#22).
+- Android settings transfer: export and import selected sections (app settings, notifications, Now Bar, and ChatGPT authentication) from Settings, with explicit warnings when authentication tokens are included (#42).
+- Configurable automatic update-check frequency (hourly through weekly) and optional notifications when a newer signed GitHub release is available (#38).
+- Estimated usage-pace projections on dashboard cards, with One UI functional-orange accelerated-usage warnings and matching Now Bar auto-start / regress triggers (#47).
+- Widget Background toggle in customize settings so the fill can be turned off entirely, matching official One UI widgets (#45).
+- Optional Material You accent switch under Settings → Appearance so app accents can follow the system palette on Android 12+ (#44).
 
 ### Changed
 
-- Widget opacity control now uses three discrete fill strengths (56% / 88% / 100%) instead of four, aligning with current Samsung One UI widget transparency steps.
+- Default theme primary now uses Samsung's official One UI Primary (`#0381FE`) instead of the lighter SESL sample blue (#44).
+- Widget opacity control now uses three discrete fill strengths (56% / 88% / 100%) instead of four, aligning with current Samsung One UI widget transparency steps (#45).
+- Centralized observation-based reset fallback timing across the dashboard, widgets, Now Bar, and Wear surfaces (#47).
+
+### Fixed
+
+- App update and release-history loading now use a centered One UI spinner instead of clipped status text, and idle update cards no longer reserve empty status-line height (#35).
+- Live usage monitor progress uses a plain progress dot, and Now Bar / notification Codex logos adapt to light, dark, and accent surfaces without a baked white square (#36).
 
 ### Development
 
-- Added pure-Java coverage for transfer document parsing, section selection, and embedded authentication warnings.
-- Expanded widget-option self-tests for background-off opacity, three-step snapping, and legacy four-step migration.
+- Restructured the repository into `android/` and `ios/` project roots with thin root wrappers and CI paths pointed at the Android Gradle tree (#40).
+- Fixed Cloud Agent setup to invoke `android/gradlew` after the monorepo move (#43).
+- Expanded regression coverage for settings transfer, update-check frequency, usage-pace estimates, widget fill controls, Material You preferences, and Wear sync contracts (#37, #38, #42, #44, #45, #47).
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.3.3...v2.4.0 <!-- pragma: allowlist secret -->
 
 ## 2.3.3 — 2026-07-17
 
