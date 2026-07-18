@@ -84,7 +84,9 @@ public final class Ui {
             }
             ((AppCompatActivity) activity).getDelegate().setLocalNightMode(mode);
         }
-        activity.setTheme(R.style.AppTheme);
+        activity.setTheme(AppPreferences.isMaterialYouEnabled(activity)
+                ? R.style.AppTheme_MaterialYou
+                : R.style.AppTheme);
     }
 
     public static Page installPage(AppCompatActivity activity, String title, boolean back) {
@@ -208,11 +210,18 @@ public final class Ui {
         return z ? Color.rgb(55, 58, 64) : Color.rgb(228, 228, 228);
     }
 
+    /** Official One UI Primary (#0381FE) / dark-mode accent (#5CA9FF). */
+    public static int oneUiAccent(boolean dark) {
+        return dark ? Color.rgb(92, 169, 255) : Color.rgb(3, 129, 254);
+    }
+
     public static int accent(Context context, boolean z) {
-        if (isOneUi(context)) {
-            return z ? Color.rgb(92, 169, 255) : Color.rgb(56, 122, 255);
+        int oneUi = oneUiAccent(z);
+        if (AppPreferences.isMaterialYouEnabled(context)) {
+            // Material You system accents; fall back to One UI blues when unavailable.
+            return systemColor(context, z ? "system_accent1_200" : "system_accent1_600", oneUi);
         }
-        return systemColor(context, z ? "system_accent1_200" : "system_accent1_600", z ? Color.rgb(117, 220, 179) : Color.rgb(0, 113, 83));
+        return oneUi;
     }
 
     public static int desaturatedAccent(Context context, boolean dark) {

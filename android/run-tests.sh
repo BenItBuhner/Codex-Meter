@@ -136,6 +136,19 @@ grep -q 'SettingsTransferStore.apply' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'Do not share transfer files with authentication' \
   "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'material_you' \
+  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'isMaterialYouEnabled' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'AppTheme_MaterialYou' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
+grep -q 'oneUiAccent' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
+grep -q 'oneui_primary' \
+  "$ROOT/app/src/main/res/values/colors.xml"
+grep -q '#0381FE' \
+  "$ROOT/app/src/main/res/values/colors.xml"
+grep -q 'material you preference restored' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'widgetOptionsFromJson(widget,' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'requireLeadTimes' \

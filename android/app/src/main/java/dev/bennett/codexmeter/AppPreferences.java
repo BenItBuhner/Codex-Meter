@@ -8,6 +8,7 @@ import org.json.JSONObject;
 public final class AppPreferences {
     private static final String KEY_APP_STYLE = "app_surface_style";
     private static final String KEY_APP_THEME = "app_theme";
+    private static final String KEY_MATERIAL_YOU = "material_you";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
@@ -214,6 +215,15 @@ public final class AppPreferences {
             str = WidgetOptions.THEME_SYSTEM;
         }
         prefs(context).edit().putString(KEY_APP_THEME, str).commit();
+    }
+
+    /** When enabled, accents follow Android Material You system colors (API 31+). */
+    public static boolean isMaterialYouEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_MATERIAL_YOU, false);
+    }
+
+    public static void setMaterialYouEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_MATERIAL_YOU, enabled).commit();
     }
 
     public static String getAppStyle(Context context) {

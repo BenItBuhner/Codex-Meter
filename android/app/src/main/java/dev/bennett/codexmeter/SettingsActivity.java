@@ -204,6 +204,7 @@ public final class SettingsActivity extends AppCompatActivity {
             boolean useSystem = WidgetOptions.THEME_SYSTEM.equals(selected);
             HorizontalRadioPreference theme = findPreference("app_theme");
             SwitchPreferenceCompat system = findPreference("theme_system_ui");
+            SwitchPreferenceCompat materialYou = findPreference("material_you");
             system.setEnabled(true);
             // The visual radio shows the effective light/dark mode while AppPreferences also
             // stores the third "system" state under app_theme. Do not let setValue() overwrite
@@ -226,6 +227,14 @@ public final class SettingsActivity extends AppCompatActivity {
                 AppPreferences.setAppTheme(requireContext(), enabled
                         ? WidgetOptions.THEME_SYSTEM
                         : (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT));
+                requireActivity().recreate();
+                return true;
+            });
+            materialYou.setPersistent(false);
+            materialYou.setChecked(AppPreferences.isMaterialYouEnabled(requireContext()));
+            materialYou.setOnPreferenceChangeListener((preference, value) -> {
+                AppPreferences.setMaterialYouEnabled(requireContext(), (Boolean) value);
+                WidgetRenderer.updateAll(requireContext());
                 requireActivity().recreate();
                 return true;
             });

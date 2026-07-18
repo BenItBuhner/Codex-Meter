@@ -371,7 +371,7 @@ public final class NowBarManager {
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setColor(Color.rgb(56, 122, 255))
+                .setColor(Color.rgb(3, 129, 254))
                 .setShowWhen(false)
                 .addAction(new Notification.Action.Builder(
                         stopActionIcon, "Stop", stopIntent).build());
@@ -448,7 +448,7 @@ public final class NowBarManager {
         Bundle extras = new Bundle();
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", chipIcon);
-        extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor", Color.rgb(56, 122, 255));
+        extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor", Color.rgb(3, 129, 254));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
                 "Codex · " + focusLabel + focusRemaining + "%");
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
@@ -601,7 +601,7 @@ public final class NowBarManager {
                             Icon.createWithResource(context, R.drawable.ic_now_bar_progress_dot))
                     .setProgressSegments(Collections.singletonList(
                             new Notification.ProgressStyle.Segment(100)
-                                    .setColor(Color.rgb(56, 122, 255))));
+                                    .setColor(Color.rgb(3, 129, 254))));
             builder.setStyle(style).setShortCriticalText(criticalText);
         }
 

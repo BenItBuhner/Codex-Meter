@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="OneUITheme">
-        <item name="colorPrimary">#5ca9ff</item>
+        <item name="colorPrimary">@color/oneui_primary</item>
+        <item name="colorPrimaryDark">@color/oneui_primary_dark</item>
+        <item name="colorControlActivated">@color/oneui_primary</item>
         <item name="android:fontFamily">sec</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -10,6 +12,8 @@
         <item name="android:statusBarColor">@color/oui_des_round_and_bgcolor</item>
         <item name="buttonCornerRadius">999dp</item>
     </style>
+
+    <style name="AppTheme.MaterialYou" parent="AppTheme" />
 
     <style name="AppThemeDark" parent="AppTheme" />
     <style name="AppThemeLight" parent="AppTheme" />

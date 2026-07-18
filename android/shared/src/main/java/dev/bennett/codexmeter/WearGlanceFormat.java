@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public final class WearGlanceFormat {
-    public static final int ONE_UI_PRIMARY = 0xFF387AFF;
+    public static final int ONE_UI_PRIMARY = 0xFF0381FE;
     public static final int ONE_UI_ON_PRIMARY = 0xFFFFFFFF;
     public static final int ONE_UI_ON_SURFACE = 0xFFFFFFFF;
     public static final int ONE_UI_SECONDARY_TEXT = 0xB3FFFFFF;
@@ -23,7 +23,7 @@ public final class WearGlanceFormat {
      *
      * Samsung publishes One UI Watch design principles, but there is no public One UI
      * Design SDK for Wear like phone oneui-design. Wear surfaces align visually with
-     * OLED black backgrounds, high-contrast white text, Samsung-blue #387AFF accents,
+     * OLED black backgrounds, high-contrast white text, Samsung-blue #0381FE accents,
      * large round-friendly tap targets, glanceable single-job layouts, and subtle
      * dark cards (#202124).
      */

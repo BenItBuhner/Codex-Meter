@@ -485,6 +485,7 @@ public final class ParserSelfTest {
                 .withPercentSymbol(false);
         org.json.JSONObject appSettings = new org.json.JSONObject()
                 .put("app_theme", WidgetOptions.THEME_DARK)
+                .put("material_you", true)
                 .put("refresh_minutes", 15)
                 .put("refresh_on_launch", false)
                 .put("automatic_update_checks", true)
@@ -530,6 +531,7 @@ public final class ParserSelfTest {
                 parsed.appSettings.getJSONObject("default_widget"));
         check(WidgetOptions.THEME_DARK.equals(restored.theme), "widget theme restored");
         check(WidgetOptions.ACCENT_BLUE.equals(restored.accent), "widget accent restored");
+        check(parsed.appSettings.getBoolean("material_you"), "material you preference restored");
         check(!restored.showPercentSymbol, "percent symbol flag restored");
         check(parsed.notifications.getInt("threshold") == 50, "notification threshold restored");
         check(SettingsTransfer.leadTimesFromJson(

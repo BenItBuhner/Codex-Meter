@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Dark-mode One UI accent (matches widget blue) + official Primary dark. -->
+    <color name="oneui_primary">#5CA9FF</color>
+    <color name="oneui_primary_dark">#3E91FF</color>
     <color name="widget_setting_progress_color_control_normal">#6669696C</color>
     <color name="widget_setting_seek_bar_thumb_background_tint">#1F1F22</color>
-    <color name="widget_setting_seek_bar_thumb_tint">#66A4FF</color>
+    <color name="widget_setting_seek_bar_thumb_tint">@color/oneui_primary</color>
     <color name="widget_setting_seek_bar_tick_mark_solid_color">#77777A</color>
     <color name="widget_config_divider">#3A3A3D</color>
     <color name="oneui_bg">#010102</color>
