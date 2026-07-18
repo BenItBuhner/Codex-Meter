@@ -39,6 +39,7 @@ public final class NowBarManager {
     private static final String KEY_AUTO_TRIGGER_FOCUS = "auto_trigger_focus";
     private static final String KEY_FOCUS_METRIC = "focus_metric";
     private static final String KEY_POSTED_MODE = "posted_mode";
+    private static final String KEY_POSTED_PROMOTION_ALLOWED = "posted_promotion_allowed";
     private static final String KEY_PREVIEW = "preview";
     private static final String KEY_START_REASON = "start_reason";
     private static final String KEY_UNTIL = "until";
@@ -228,6 +229,27 @@ public final class NowBarManager {
         }
         if (!posted) stop(context, false);
         return posted;
+    }
+
+    /**
+     * Rebuilds an active notification when Android's Live Update permission changes. Without
+     * this, a monitor posted through Samsung compatibility remains stuck on that contract after
+     * the user grants promotion access, and an explicit Android Live Update is not promoted until
+     * some unrelated usage refresh reposts it.
+     */
+    public static synchronized boolean refreshActiveNotificationContract(Context context) {
+        if (!isActive(context) || !canPostNotifications(context)) return true;
+        SharedPreferences postedState = state(context);
+        String postedMode = postedState.getString(KEY_POSTED_MODE, null);
+        boolean postedPromotionAllowed = postedState.getBoolean(
+                KEY_POSTED_PROMOTION_ALLOWED, false);
+        String resolvedMode = resolveDisplayMode(context);
+        boolean promotionAllowedNow = canPostPromotedNotifications(context);
+        if (!NowBarDisplayMode.notificationContractChanged(postedMode,
+                postedPromotionAllowed, resolvedMode, promotionAllowedNow)) {
+            return true;
+        }
+        return repostActive(context);
     }
 
     private static boolean startPreviewWithEnd(Context context, long until) {
@@ -477,7 +499,11 @@ public final class NowBarManager {
                 + " preview=" + preview + " remaining=" + remaining);
         try {
             manager.notify(NOTIFICATION_ID, notification);
-            state(context).edit().putString(KEY_POSTED_MODE, displayMode).apply();
+            state(context).edit()
+                    .putString(KEY_POSTED_MODE, displayMode)
+                    .putBoolean(KEY_POSTED_PROMOTION_ALLOWED,
+                            canPostPromotedNotifications(context))
+                    .apply();
             if (Build.VERSION.SDK_INT >= 36
                     && NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(displayMode)) {
                 new Handler(Looper.getMainLooper()).postDelayed(
