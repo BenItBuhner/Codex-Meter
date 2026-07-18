@@ -8,11 +8,11 @@
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/material_toolbar"
         android:layout_width="match_parent"
-        android:layout_height="72dp"
+        android:layout_height="88dp"
         android:contentInsetStartWithNavigation="8dp"
-        android:minHeight="64dp"
-        android:paddingStart="8dp"
-        android:paddingEnd="12dp" />
+        android:minHeight="72dp"
+        android:paddingStart="4dp"
+        android:paddingEnd="8dp" />
 
     <FrameLayout
         android:id="@+id/settings_fragment"

@@ -7,8 +7,10 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Typeface;
+import android.graphics.drawable.ClipDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.view.Gravity;
@@ -73,7 +75,7 @@ public final class Ui {
                 materialToolbar.setNavigationIcon(show
                         ? activity.getDrawable(R.drawable.ic_oui_back) : null);
                 if (materialToolbar.getNavigationIcon() != null) {
-                    materialToolbar.getNavigationIcon().setTint(mainText(isDark(activity)));
+                    materialToolbar.getNavigationIcon().setTint(mainText(activity, isDark(activity)));
                 }
                 materialToolbar.setNavigationOnClickListener(show ? view ->
                         activity.getOnBackPressedDispatcher().onBackPressed() : null);
@@ -189,9 +191,14 @@ public final class Ui {
         } else {
             configureMaterialToolbar(activity, materialToolbar, title, true);
             styleMaterialRoot(activity, root);
-            cancel.setTextColor(mainText(isDark(activity)));
-            save.setTextColor(onAccent(activity, isDark(activity)));
-            save.setBackground(shape(accent(activity, isDark(activity)), dp(activity, 999)));
+            boolean dark = isDark(activity);
+            cancel.setTextColor(mainText(activity, dark));
+            cancel.setTypeface(emphasizedTypeface(activity));
+            save.setTextColor(onAccent(activity, dark));
+            save.setTypeface(emphasizedTypeface(activity));
+            save.setTextSize(16f);
+            save.setPadding(dp(activity, 20), dp(activity, 10), dp(activity, 20), dp(activity, 10));
+            save.setBackground(shape(accent(activity, dark), dp(activity, 999)));
         }
         activity.setContentView(root);
         configureSystemBars(activity, root, isDark(activity));
@@ -211,7 +218,7 @@ public final class Ui {
     }
 
     public static int pageHorizontalPadding(Context context) {
-        return dp(context, isOneUi(context) ? 24.0f : 20.0f);
+        return dp(context, isOneUi(context) ? 24.0f : 16.0f);
     }
 
     public static int pageTopPadding(Context context) {
@@ -222,16 +229,20 @@ public final class Ui {
         if (isOneUi(context)) {
             return z ? Color.rgb(5, 6, 8) : Color.rgb(241, 241, 243);
         }
-        return systemColor(context, z ? "system_neutral1_900" : "system_neutral1_10", z ? Color.rgb(18, 18, 22) : Color.rgb(249, 247, 251));
+        // M3 surface — keep the canvas calm so containers can scream.
+        return systemColor(context, z ? "system_neutral1_900" : "system_neutral1_10",
+                z ? Color.rgb(20, 18, 24) : Color.rgb(254, 247, 255));
     }
 
     public static int background(boolean z) {
-        return z ? Color.rgb(18, 18, 22) : Color.rgb(249, 247, 251);
+        return z ? Color.rgb(20, 18, 24) : Color.rgb(254, 247, 255);
     }
 
     public static int cardColor(Context context, boolean z) {
         if (!isOneUi(context)) {
-            return systemColor(context, z ? "system_neutral1_800" : "system_neutral1_50", z ? Color.rgb(31, 30, 36) : Color.rgb(242, 239, 246));
+            // surface-container-high — stronger lift than plain surface
+            return systemColor(context, z ? "system_neutral1_800" : "system_neutral1_100",
+                    z ? Color.rgb(36, 34, 40) : Color.rgb(245, 235, 247));
         }
         if (z) {
             return Color.rgb(22, 24, 28);
@@ -240,22 +251,38 @@ public final class Ui {
     }
 
     public static int card(boolean z) {
-        return z ? Color.rgb(31, 30, 36) : Color.rgb(242, 239, 246);
+        return z ? Color.rgb(36, 34, 40) : Color.rgb(245, 235, 247);
     }
 
     public static int controlSurface(Context context, boolean z) {
         if (isOneUi(context)) {
             return z ? Color.rgb(42, 44, 50) : Color.rgb(238, 238, 241);
         }
-        return systemColor(context, z ? "system_neutral1_700" : "system_neutral1_100", z ? Color.rgb(46, 44, 52) : Color.rgb(232, 228, 236));
+        return systemColor(context, z ? "system_neutral1_700" : "system_neutral2_100",
+                z ? Color.rgb(54, 50, 60) : Color.rgb(236, 230, 240));
     }
 
     public static int mainText(boolean z) {
         return z ? Color.rgb(248, 248, 250) : Color.BLACK;
     }
 
+    public static int mainText(Context context, boolean z) {
+        if (isOneUi(context)) {
+            return mainText(z);
+        }
+        return materialOnSurface(context, z);
+    }
+
     public static int secondaryText(boolean z) {
         return z ? Color.rgb(183, 186, 194) : Color.rgb(132, 132, 135);
+    }
+
+    public static int secondaryText(Context context, boolean z) {
+        if (isOneUi(context)) {
+            return secondaryText(z);
+        }
+        return systemColor(context, z ? "system_neutral2_200" : "system_neutral2_600",
+                z ? Color.rgb(202, 196, 208) : Color.rgb(89, 82, 96));
     }
 
     public static int divider(boolean z) {
@@ -266,7 +293,9 @@ public final class Ui {
         if (isOneUi(context)) {
             return z ? Color.rgb(92, 169, 255) : Color.rgb(56, 122, 255);
         }
-        return systemColor(context, z ? "system_accent1_200" : "system_accent1_600", z ? Color.rgb(117, 220, 179) : Color.rgb(0, 113, 83));
+        // Primary — punchy, not muted mint leftovers from the old Material pass.
+        return systemColor(context, z ? "system_accent1_200" : "system_accent1_600",
+                z ? Color.rgb(208, 188, 255) : Color.rgb(103, 80, 164));
     }
 
     public static int desaturatedAccent(Context context, boolean dark) {
@@ -284,10 +313,38 @@ public final class Ui {
         if (isOneUi(context)) {
             return Color.luminance(accent(context, z)) > 0.55f ? Color.BLACK : Color.WHITE;
         }
-        if (!z) {
-            return -1;
-        }
-        return Color.rgb(0, 55, 39);
+        return systemColor(context, z ? "system_accent1_800" : "system_accent1_0",
+                z ? Color.rgb(56, 30, 114) : Color.WHITE);
+    }
+
+    public static int primaryContainer(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_accent1_700" : "system_accent1_100",
+                dark ? Color.rgb(79, 55, 139) : Color.rgb(234, 221, 255));
+    }
+
+    public static int onPrimaryContainer(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_accent1_100" : "system_accent1_900",
+                dark ? Color.rgb(234, 221, 255) : Color.rgb(33, 0, 93));
+    }
+
+    public static int secondaryContainer(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_accent2_700" : "system_accent2_100",
+                dark ? Color.rgb(81, 69, 104) : Color.rgb(232, 222, 248));
+    }
+
+    public static int onSecondaryContainer(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_accent2_100" : "system_accent2_900",
+                dark ? Color.rgb(232, 222, 248) : Color.rgb(33, 24, 50));
+    }
+
+    public static int tertiaryContainer(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_accent3_700" : "system_accent3_100",
+                dark ? Color.rgb(99, 59, 72) : Color.rgb(255, 216, 228));
+    }
+
+    public static int onTertiaryContainer(Context context, boolean dark) {
+        return systemColor(context, dark ? "system_accent3_100" : "system_accent3_900",
+                dark ? Color.rgb(255, 216, 228) : Color.rgb(49, 17, 29));
     }
 
     public static int danger(boolean z) {
@@ -299,11 +356,23 @@ public final class Ui {
     }
 
     public static Typeface regularTypeface(Context context) {
-        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif", 0);
+        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif", Typeface.NORMAL);
     }
 
     public static Typeface mediumTypeface(Context context) {
-        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif-medium", 1);
+        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif-medium", Typeface.BOLD);
+    }
+
+    /** Emphasized / display weight — the M3E hierarchy hammer. */
+    public static Typeface emphasizedTypeface(Context context) {
+        if (isOneUi(context)) {
+            return Typeface.create("sec", Typeface.BOLD);
+        }
+        Typeface black = Typeface.create("sans-serif-black", Typeface.NORMAL);
+        if (black != null) {
+            return black;
+        }
+        return Typeface.create("sans-serif", Typeface.BOLD);
     }
 
     public static TextView text(Context context, String str, float f, int i) {
@@ -312,27 +381,32 @@ public final class Ui {
         textView.setTextSize(f);
         textView.setTextColor(i);
         textView.setTypeface(regularTypeface(context));
-        textView.setLineSpacing(0.0f, isOneUi(context) ? 1.12f : 1.14f);
+        textView.setLineSpacing(0.0f, isOneUi(context) ? 1.12f : 1.1f);
         textView.setIncludeFontPadding(false);
         return textView;
     }
 
     public static TextView title(Context context, String str, boolean z) {
-        TextView textViewText = text(context, str, isOneUi(context) ? 42.0f : 36.0f, mainText(z));
-        textViewText.setTypeface(mediumTypeface(context));
-        textViewText.setLetterSpacing(isOneUi(context) ? -0.025f : -0.02f);
+        boolean oneUi = isOneUi(context);
+        TextView textViewText = text(context, str, oneUi ? 42.0f : 40.0f, mainText(context, z));
+        textViewText.setTypeface(oneUi ? mediumTypeface(context) : emphasizedTypeface(context));
+        textViewText.setLetterSpacing(oneUi ? -0.025f : -0.03f);
         return textViewText;
     }
 
     public static TextView sectionTitle(Context context, String str, boolean z) {
         boolean zIsOneUi = isOneUi(context);
-        TextView textViewText = text(context, str, zIsOneUi ? 13.0f : 15.0f, zIsOneUi ? accent(context, z) : mainText(z));
-        textViewText.setTypeface(mediumTypeface(context));
+        TextView textViewText = text(context, str, zIsOneUi ? 13.0f : 16.0f,
+                zIsOneUi ? accent(context, z) : mainText(context, z));
+        textViewText.setTypeface(zIsOneUi ? mediumTypeface(context) : emphasizedTypeface(context));
         if (zIsOneUi) {
             textViewText.setLetterSpacing(0.01f);
+        } else {
+            textViewText.setLetterSpacing(-0.01f);
         }
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams.setMargins(zIsOneUi ? dp(context, 4.0f) : 0, dp(context, zIsOneUi ? 30.0f : 28.0f), 0, dp(context, zIsOneUi ? 10.0f : 11.0f));
+        layoutParams.setMargins(zIsOneUi ? dp(context, 4.0f) : 0,
+                dp(context, zIsOneUi ? 30.0f : 24.0f), 0, dp(context, zIsOneUi ? 10.0f : 12.0f));
         textViewText.setLayoutParams(layoutParams);
         return textViewText;
     }
@@ -341,23 +415,38 @@ public final class Ui {
         RoundedLinearLayout linearLayout = new RoundedLinearLayout(context);
         linearLayout.setOrientation(1);
         boolean zIsOneUi = isOneUi(context);
-        int i = zIsOneUi ? 22 : 20;
-        int i2 = zIsOneUi ? 20 : 19;
+        int i = zIsOneUi ? 22 : 24;
+        int i2 = zIsOneUi ? 20 : 22;
         linearLayout.setPadding(dp(context, i), dp(context, i2), dp(context, i), dp(context, i2));
-        linearLayout.setBackground(shape(cardColor(context, z),
-                dp(context, zIsOneUi ? 28.0f : 32.0f)));
+        linearLayout.setBackground(zIsOneUi
+                ? shape(cardColor(context, z), dp(context, 28.0f))
+                : expressiveShape(cardColor(context, z), expressiveRadii(context, 0)));
         linearLayout.setElevation(0.0f);
         linearLayout.setClipToOutline(true);
         linearLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return linearLayout;
     }
 
+    public static LinearLayout expressiveCard(Context context, boolean dark, int fillColor, int tone) {
+        RoundedLinearLayout card = new RoundedLinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(context, 24.0f), dp(context, 22.0f), dp(context, 24.0f),
+                dp(context, 22.0f));
+        card.setBackground(expressiveShape(fillColor, expressiveRadii(context, tone)));
+        card.setElevation(0.0f);
+        card.setClipToOutline(true);
+        card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+        return card;
+    }
+
     public static RoundedLinearLayout seslCard(Context context, boolean dark) {
         RoundedLinearLayout card = new RoundedLinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(context, 18.0f), dp(context, 14.0f), dp(context, 18.0f), dp(context, 14.0f));
-        card.setBackground(shape(cardColor(context, dark),
-                dp(context, isOneUi(context) ? 28.0f : 32.0f)));
+        boolean oneUi = isOneUi(context);
+        card.setBackground(oneUi
+                ? shape(cardColor(context, dark), dp(context, 28.0f))
+                : expressiveShape(cardColor(context, dark), expressiveRadii(context, 0)));
         card.setClipToOutline(true);
         card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return card;
@@ -366,8 +455,10 @@ public final class Ui {
     public static RoundedLinearLayout cardGroup(Context context, boolean dark) {
         RoundedLinearLayout group = new RoundedLinearLayout(context);
         group.setOrientation(LinearLayout.VERTICAL);
-        group.setBackground(shape(cardColor(context, dark),
-                dp(context, isOneUi(context) ? 28.0f : 32.0f)));
+        boolean oneUi = isOneUi(context);
+        group.setBackground(oneUi
+                ? shape(cardColor(context, dark), dp(context, 28.0f))
+                : expressiveShape(cardColor(context, dark), expressiveRadii(context, 1)));
         group.setClipToOutline(true);
         group.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return group;
@@ -376,8 +467,10 @@ public final class Ui {
     public static RoundedLinearLayout seslRowCard(Context context, boolean dark) {
         RoundedLinearLayout card = new RoundedLinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(shape(cardColor(context, dark),
-                dp(context, isOneUi(context) ? 28.0f : 32.0f)));
+        boolean oneUi = isOneUi(context);
+        card.setBackground(oneUi
+                ? shape(cardColor(context, dark), dp(context, 28.0f))
+                : expressiveShape(cardColor(context, dark), expressiveRadii(context, 2)));
         card.setClipToOutline(true);
         card.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
         return card;
@@ -395,29 +488,35 @@ public final class Ui {
         Button button = new AppCompatButton(context);
         button.setText(str);
         button.setAllCaps(false);
-        button.setTextSize(18.0f);
-        button.setTypeface(mediumTypeface(context));
+        button.setTextSize(zIsOneUi ? 18.0f : 17.0f);
+        button.setTypeface(zIsOneUi ? mediumTypeface(context) : emphasizedTypeface(context));
         button.setGravity(17);
         button.setSingleLine(true);
         button.setIncludeFontPadding(false);
-        button.setMinHeight(dp(context, 52.0f));
+        button.setLetterSpacing(zIsOneUi ? 0f : 0.01f);
+        button.setMinHeight(dp(context, zIsOneUi ? 52.0f : 60.0f));
         button.setMinWidth(0);
-        button.setPadding(dp(context, zIsOneUi ? 18.0f : 20.0f), dp(context, 7.0f), dp(context, zIsOneUi ? 18.0f : 20.0f), dp(context, 7.0f));
-        int iDp = dp(context, 999.0f);
-        int iAccent = z ? accent(context, z2) : controlSurface(context, z2);
-        int iOnAccent = z ? onAccent(context, z2) : mainText(z2);
+        button.setPadding(dp(context, zIsOneUi ? 18.0f : 28.0f), dp(context, zIsOneUi ? 7.0f : 14.0f),
+                dp(context, zIsOneUi ? 18.0f : 28.0f), dp(context, zIsOneUi ? 7.0f : 14.0f));
+        // M3E XL buttons stay fully rounded; tonal buttons use a slightly squared full radius.
+        int iDp = dp(context, zIsOneUi ? 999.0f : (z ? 999.0f : 28.0f));
+        int iAccent = z ? accent(context, z2)
+                : (zIsOneUi ? controlSurface(context, z2) : secondaryContainer(context, z2));
+        int iOnAccent = z ? onAccent(context, z2)
+                : (zIsOneUi ? mainText(z2) : onSecondaryContainer(context, z2));
         GradientDrawable gradientDrawableShape = shape(iAccent, iDp);
         if (z) {
             iArgb = Color.argb(42, 255, 255, 255);
         } else {
-            iArgb = Color.argb(z2 ? 44 : 28, Color.red(mainText(z2)), Color.green(mainText(z2)), Color.blue(mainText(z2)));
+            iArgb = Color.argb(z2 ? 44 : 28, Color.red(mainText(context, z2)),
+                    Color.green(mainText(context, z2)), Color.blue(mainText(context, z2)));
         }
         button.setBackground(new RippleDrawable(ColorStateList.valueOf(iArgb), gradientDrawableShape, null));
         button.setTextColor(iOnAccent);
         int icon = buttonIcon(str);
         if (icon != 0) {
             button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
-            button.setCompoundDrawablePadding(dp(context, 8.0f));
+            button.setCompoundDrawablePadding(dp(context, zIsOneUi ? 8.0f : 10.0f));
             button.setCompoundDrawableTintList(ColorStateList.valueOf(iOnAccent));
         }
         button.setElevation(0.0f);
@@ -427,7 +526,10 @@ public final class Ui {
 
     public static Button nativePrimaryButton(Context context, String text) {
         if (!isOneUi(context)) {
-            return button(context, text, true, isDark(context));
+            Button material = button(context, text, true, isDark(context));
+            material.setMinHeight(dp(context, 64.0f));
+            material.setTextSize(18.0f);
+            return material;
         }
         Button button = (Button) LayoutInflater.from(context).inflate(R.layout.view_oneui_primary_button, null, false);
         button.setText(text);
@@ -505,10 +607,24 @@ public final class Ui {
     public static ProgressBar progress(Context context, boolean z) {
         ProgressBar progressBar = new ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
         progressBar.setMax(100);
-        progressBar.setProgressTintList(ColorStateList.valueOf(accent(context, z)));
-        progressBar.setProgressBackgroundTintList(ColorStateList.valueOf(controlSurface(context, z)));
         progressBar.setIndeterminate(false);
-        progressBar.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(context, isOneUi(context) ? 7.0f : 8.0f)));
+        boolean oneUi = isOneUi(context);
+        if (oneUi) {
+            progressBar.setProgressTintList(ColorStateList.valueOf(accent(context, z)));
+            progressBar.setProgressBackgroundTintList(ColorStateList.valueOf(controlSurface(context, z)));
+            progressBar.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(context, 7.0f)));
+            return progressBar;
+        }
+        // Fat M3E track — glanceable from across the room.
+        int height = dp(context, 16.0f);
+        GradientDrawable track = shape(controlSurface(context, z), height);
+        GradientDrawable fill = shape(accent(context, z), height);
+        ClipDrawable clip = new ClipDrawable(fill, Gravity.START, ClipDrawable.HORIZONTAL);
+        LayerDrawable layer = new LayerDrawable(new android.graphics.drawable.Drawable[]{track, clip});
+        layer.setId(0, android.R.id.background);
+        layer.setId(1, android.R.id.progress);
+        progressBar.setProgressDrawable(layer);
+        progressBar.setLayoutParams(new LinearLayout.LayoutParams(-1, height));
         return progressBar;
     }
 
@@ -572,9 +688,10 @@ public final class Ui {
             spinner.setPopupBackgroundDrawable(shape(cardColor(context, z), dp(context, 18.0f)));
             spinner.setPadding(0, 0, 0, 0);
         } else {
-            spinner.setBackground(shape(controlSurface(context, z), dp(context, 20.0f)));
-            spinner.setPopupBackgroundDrawable(shape(cardColor(context, z), dp(context, 18.0f)));
-            spinner.setPadding(dp(context, 2.0f), 0, dp(context, 2.0f), 0);
+            spinner.setBackground(shape(secondaryContainer(context, z), dp(context, 28.0f)));
+            spinner.setPopupBackgroundDrawable(expressiveShape(cardColor(context, z),
+                    expressiveRadii(context, 0)));
+            spinner.setPadding(dp(context, 8.0f), 0, dp(context, 8.0f), 0);
         }
         spinner.setElevation(0.0f);
         return spinner;
@@ -662,12 +779,13 @@ public final class Ui {
         }
         boolean dark = isDark(activity);
         toolbar.setTitle(title);
-        toolbar.setTitleTextColor(mainText(dark));
-        toolbar.setSubtitleTextColor(secondaryText(dark));
+        toolbar.setTitleTextColor(mainText(activity, dark));
+        toolbar.setSubtitleTextColor(secondaryText(activity, dark));
+        toolbar.setTitleTextAppearance(activity, R.style.MaterialToolbarTitle);
         toolbar.setBackgroundColor(background(activity, dark));
         toolbar.setNavigationIcon(back ? activity.getDrawable(R.drawable.ic_oui_back) : null);
         if (toolbar.getNavigationIcon() != null) {
-            toolbar.getNavigationIcon().setTint(mainText(dark));
+            toolbar.getNavigationIcon().setTint(mainText(activity, dark));
         }
         toolbar.setNavigationOnClickListener(back ? view ->
                 activity.getOnBackPressedDispatcher().onBackPressed() : null);
@@ -689,17 +807,17 @@ public final class Ui {
 
     public static int materialAccent(Context context, boolean dark) {
         return systemColor(context, dark ? "system_accent1_200" : "system_accent1_600",
-                dark ? Color.rgb(210, 188, 255) : Color.rgb(103, 80, 164));
+                dark ? Color.rgb(208, 188, 255) : Color.rgb(103, 80, 164));
     }
 
     public static int materialSurface(Context context, boolean dark) {
-        return systemColor(context, dark ? "system_neutral2_800" : "system_neutral2_50",
-                dark ? Color.rgb(33, 31, 38) : Color.rgb(245, 242, 250));
+        return systemColor(context, dark ? "system_neutral1_800" : "system_neutral1_50",
+                dark ? Color.rgb(36, 34, 40) : Color.rgb(245, 235, 247));
     }
 
     public static int materialOnSurface(Context context, boolean dark) {
         return systemColor(context, dark ? "system_neutral1_50" : "system_neutral1_900",
-                dark ? Color.rgb(232, 225, 229) : Color.rgb(29, 27, 32));
+                dark ? Color.rgb(230, 224, 233) : Color.rgb(29, 27, 32));
     }
 
     public static LinearLayout horizontal(Context context, int i) {
@@ -735,6 +853,30 @@ public final class Ui {
         gradientDrawable.setColor(i);
         gradientDrawable.setCornerRadius(i2);
         return gradientDrawable;
+    }
+
+    public static GradientDrawable expressiveShape(int color, float[] radii) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadii(radii);
+        return drawable;
+    }
+
+    /**
+     * M3E shape scale: larger / asymmetric corners so containers feel intentional, not bland pills.
+     * tone 0 = XL uniform, 1 = left-heavy, 2 = right-heavy.
+     */
+    public static float[] expressiveRadii(Context context, int tone) {
+        float xl = dp(context, 40.0f);
+        float lg = dp(context, 28.0f);
+        float md = dp(context, 16.0f);
+        if (tone == 1) {
+            return new float[]{xl, xl, lg, lg, xl, xl, md, md};
+        }
+        if (tone == 2) {
+            return new float[]{lg, lg, xl, xl, md, md, xl, xl};
+        }
+        return new float[]{xl, xl, xl, xl, xl, xl, xl, xl};
     }
 
     private static int systemColor(Context context, String str, int i) {

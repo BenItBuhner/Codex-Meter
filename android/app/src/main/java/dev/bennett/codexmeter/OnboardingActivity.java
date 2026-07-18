@@ -207,18 +207,18 @@ public final class OnboardingActivity extends AppCompatActivity {
         RoundedLinearLayout card = Ui.seslCard(this, this.dark);
         TextView title = Ui.text(this, Ui.isOneUi(this)
                         ? "Built to feel at home on Galaxy"
-                        : "Built for Material You",
+                        : "Built for Material 3 Expressive",
                 18.0f,
-                Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
+                Ui.mainText(this, this.dark));
+        title.setTypeface(Ui.isOneUi(this) ? Ui.mediumTypeface(this) : Ui.emphasizedTypeface(this));
         card.addView(title);
         TextView body = Ui.text(this,
                 Ui.isOneUi(this)
                         ? "Reachable layouts, responsive cards, system theming, and Samsung "
                             + "lock-screen widgets use the app’s native One UI components."
-                        : "Dynamic color, expressive shapes, responsive cards, and Material "
-                            + "widgets make Codex Meter feel at home on stock Android.",
-                15.0f, Ui.secondaryText(this.dark));
+                        : "Bold type, dynamic color containers, fat shapes, and Material You "
+                            + "widgets make Codex Meter feel like a stock Google app.",
+                15.0f, Ui.secondaryText(this, this.dark));
         LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(-1, -2);
         bodyParams.setMargins(0, Ui.dp(this, 10), 0, 0);
         card.addView(body, bodyParams);

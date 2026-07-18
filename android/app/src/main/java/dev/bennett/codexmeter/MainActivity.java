@@ -9,6 +9,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
+import android.graphics.drawable.ClipDrawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -250,22 +254,49 @@ public final class MainActivity extends AppCompatActivity {
     public void rebuild() {
         if (this.content != null) {
             this.content.removeAllViews();
+            boolean material = !Ui.isOneUi(this);
+            int sectionGap = material ? 16 : 20;
             GitHubRelease update = UpdatePreferences.availableUpdate(this);
             if (update != null) {
                 this.content.addView(buildUpdateCard(update));
-                Ui.addSpacer(this.content, 20);
+                Ui.addSpacer(this.content, sectionGap);
+            }
+            if (material) {
+                addMaterialHero();
             }
             this.content.addView(buildUsageDashboard());
-            Ui.addSpacer(this.content, 20);
+            Ui.addSpacer(this.content, sectionGap);
             if (!SecureTokenStore.isSignedIn(this)) {
                 Button signIn = Ui.nativePrimaryButton(this,
                         AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
-                this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
-                Ui.addSpacer(this.content, 20);
+                this.content.addView(signIn, new LinearLayout.LayoutParams(-1,
+                        Ui.dp(this, material ? 64 : 60)));
+                Ui.addSpacer(this.content, sectionGap);
             }
             this.content.addView(buildResetCreditsCard());
         }
+    }
+
+    private void addMaterialHero() {
+        boolean signedIn = SecureTokenStore.isSignedIn(this);
+        TextView eyebrow = Ui.text(this, signedIn ? "ALLOWANCE" : "GET STARTED", 12.0f,
+                Ui.accent(this, this.dark));
+        eyebrow.setTypeface(Ui.emphasizedTypeface(this));
+        eyebrow.setLetterSpacing(0.08f);
+        LinearLayout.LayoutParams eyeParams = new LinearLayout.LayoutParams(-1, -2);
+        eyeParams.setMargins(Ui.dp(this, 8), Ui.dp(this, 4), 0, Ui.dp(this, 6));
+        this.content.addView(eyebrow, eyeParams);
+
+        TextView headline = Ui.text(this,
+                signedIn ? "What's left" : "Your Codex\nat a glance",
+                34.0f, Ui.mainText(this, this.dark));
+        headline.setTypeface(Ui.emphasizedTypeface(this));
+        headline.setLetterSpacing(-0.03f);
+        headline.setLineSpacing(0f, 0.95f);
+        LinearLayout.LayoutParams headParams = new LinearLayout.LayoutParams(-1, -2);
+        headParams.setMargins(Ui.dp(this, 4), 0, Ui.dp(this, 4), Ui.dp(this, 18));
+        this.content.addView(headline, headParams);
     }
 
     private LinearLayout buildUpdateCard(GitHubRelease release) {
@@ -300,6 +331,14 @@ public final class MainActivity extends AppCompatActivity {
         boolean signedIn = SecureTokenStore.isSignedIn(this);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
+        if (!Ui.isOneUi(this)) {
+            column.addView(buildMaterialMetricCard("5 hour",
+                    signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, 0));
+            Ui.addSpacer(column, 14);
+            column.addView(buildMaterialMetricCard("Weekly",
+                    signedIn && snapshot != null ? snapshot.weekly : null, signedIn, 1));
+            return column;
+        }
         column.addView(buildMetricCard("5 hour", signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, false));
         Ui.addSpacer(column, 20);
         column.addView(buildMetricCard("Weekly", signedIn && snapshot != null ? snapshot.weekly : null, signedIn, true));
@@ -318,6 +357,72 @@ public final class MainActivity extends AppCompatActivity {
                 "Weekly".equals(label) ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
                 invertedWave);
         card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
+        return card;
+    }
+
+    /**
+     * Material 3 Expressive metric card — primary/secondary containers, display % type,
+     * fat progress, asymmetric corners. Intentionally not the One UI wave treatment.
+     */
+    private LinearLayout buildMaterialMetricCard(String label, UsageWindow window, boolean signedIn,
+            int tone) {
+        int fill = tone == 0
+                ? Ui.primaryContainer(this, this.dark)
+                : Ui.secondaryContainer(this, this.dark);
+        int onFill = tone == 0
+                ? Ui.onPrimaryContainer(this, this.dark)
+                : Ui.onSecondaryContainer(this, this.dark);
+        int mutedOn = Color.argb(178, Color.red(onFill), Color.green(onFill), Color.blue(onFill));
+        LinearLayout card = Ui.expressiveCard(this, this.dark, fill, tone);
+        card.setMinimumHeight(Ui.dp(this, 168.0f));
+
+        LinearLayout header = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        TextView title = Ui.text(this, label, 16.0f, onFill);
+        title.setTypeface(Ui.emphasizedTypeface(this));
+        title.setLetterSpacing(0.01f);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        ImageView icon = new ImageView(this);
+        icon.setImageResource("Weekly".equals(label)
+                ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time);
+        icon.setColorFilter(onFill);
+        header.addView(icon, new LinearLayout.LayoutParams(Ui.dp(this, 28), Ui.dp(this, 28)));
+        card.addView(header);
+
+        int percent = window == null ? 0 : window.remainingPercent();
+        TextView giant = Ui.text(this, percent + "%", 56.0f, onFill);
+        giant.setTypeface(Ui.emphasizedTypeface(this));
+        giant.setLetterSpacing(-0.04f);
+        giant.setIncludeFontPadding(false);
+        LinearLayout.LayoutParams giantParams = new LinearLayout.LayoutParams(-1, -2);
+        giantParams.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 14));
+        card.addView(giant, giantParams);
+
+        ProgressBar bar = Ui.progress(this, this.dark);
+        int pill = Ui.dp(this, 999);
+        GradientDrawable track = new GradientDrawable();
+        track.setColor(Color.argb(this.dark ? 60 : 40, Color.red(onFill), Color.green(onFill),
+                Color.blue(onFill)));
+        track.setCornerRadius(pill);
+        GradientDrawable fillBar = new GradientDrawable();
+        fillBar.setColor(Ui.accent(this, this.dark));
+        fillBar.setCornerRadius(pill);
+        ClipDrawable clip = new ClipDrawable(fillBar, Gravity.START, ClipDrawable.HORIZONTAL);
+        LayerDrawable layer = new LayerDrawable(new android.graphics.drawable.Drawable[]{track, clip});
+        layer.setId(0, android.R.id.background);
+        layer.setId(1, android.R.id.progress);
+        bar.setProgressDrawable(layer);
+        bar.setProgress(percent);
+        card.addView(bar);
+
+        String reset = window == null
+                ? (signedIn ? "Waiting for live usage" : "Sign in to load remaining allowance")
+                : UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
+                        System.currentTimeMillis());
+        TextView resetView = Ui.text(this, reset, 14.0f, mutedOn);
+        resetView.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(-1, -2);
+        resetParams.setMargins(0, Ui.dp(this, 12), 0, 0);
+        card.addView(resetView, resetParams);
         return card;
     }
 
@@ -418,11 +523,14 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildResetCreditsCard() {
-        LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        linearLayoutCard.setPadding(Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f));
         boolean zIsSignedIn = SecureTokenStore.isSignedIn(this);
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
         int i = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
+        if (!Ui.isOneUi(this)) {
+            return buildMaterialResetCreditsCard(zIsSignedIn, i);
+        }
+        LinearLayout linearLayoutCard = Ui.card(this, this.dark);
+        linearLayoutCard.setPadding(Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f));
 
         LinearLayout countRow = Ui.horizontal(this, Gravity.CENTER);
         TextView count = Ui.text(this, zIsSignedIn ? String.valueOf(i) : "—", 30.0f, Ui.mainText(this.dark));
@@ -445,6 +553,43 @@ public final class MainActivity extends AppCompatActivity {
         });
         linearLayoutCard.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f)));
         return linearLayoutCard;
+    }
+
+    private LinearLayout buildMaterialResetCreditsCard(boolean signedIn, int available) {
+        LinearLayout card = Ui.expressiveCard(this, this.dark,
+                Ui.tertiaryContainer(this, this.dark), 2);
+        int on = Ui.onTertiaryContainer(this, this.dark);
+
+        TextView label = Ui.text(this, "RESET CREDITS", 12.0f, on);
+        label.setTypeface(Ui.emphasizedTypeface(this));
+        label.setLetterSpacing(0.08f);
+        card.addView(label);
+
+        LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        TextView count = Ui.text(this, signedIn ? String.valueOf(available) : "—", 52.0f, on);
+        count.setTypeface(Ui.emphasizedTypeface(this));
+        count.setLetterSpacing(-0.04f);
+        row.addView(count);
+        TextView detail = Ui.text(this,
+                signedIn ? (available == 1 ? "reset\nready" : "resets\nready")
+                        : "Sign in to\nsee credits",
+                18.0f, on);
+        detail.setTypeface(Ui.mediumTypeface(this));
+        detail.setLineSpacing(0f, 0.95f);
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        detailParams.setMargins(Ui.dp(this, 16), 0, 0, 0);
+        row.addView(detail, detailParams);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+        rowParams.setMargins(0, Ui.dp(this, 8), 0, Ui.dp(this, 16));
+        card.addView(row, rowParams);
+
+        Button button = Ui.nativePrimaryButton(this,
+                available > 0 ? "Use 1 reset" : "No resets available");
+        button.setEnabled(signedIn && available > 0);
+        button.setOnClickListener(view ->
+                startActivity(new Intent(this, ResetCreditActivity.class)));
+        card.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 64)));
+        return card;
     }
 
     private LinearLayout buildWidgetCard() {

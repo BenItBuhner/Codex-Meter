@@ -242,12 +242,17 @@ public final class WidgetRenderer {
     }
 
     private static void applyRootAndHeader(Context context, RemoteViews remoteViews, int i, WidgetOptions widgetOptions, boolean z, WidgetState widgetState) {
-        if (isMaterial(widgetOptions) && Build.VERSION.SDK_INT >= 31) {
-            int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
-            int surface = Ui.materialSurface(context, z);
-            remoteViews.setInt(android.R.id.background, "setBackgroundColor",
-                    Color.argb(alpha, Color.red(surface), Color.green(surface),
-                            Color.blue(surface)));
+        if (isMaterial(widgetOptions)) {
+            // Keep the 32dp expressive round rect — flat setBackgroundColor kills the shape.
+            remoteViews.setInt(android.R.id.background, "setBackgroundResource",
+                    R.drawable.widget_bg_material_round);
+            if (Build.VERSION.SDK_INT >= 31) {
+                int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
+                int surface = Ui.materialSurface(context, z);
+                remoteViews.setColorStateList(android.R.id.background, "setBackgroundTintList",
+                        ColorStateList.valueOf(Color.argb(alpha, Color.red(surface),
+                                Color.green(surface), Color.blue(surface))));
+            }
         } else if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
             int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
             remoteViews.setInt(android.R.id.background, "setBackgroundColor",
@@ -388,17 +393,35 @@ public final class WidgetRenderer {
         int iSecondaryColor = secondaryColor(context, widgetOptions, z);
         int iMutedColor = mutedColor(context, widgetOptions, z);
         int iFaintColor = faintColor(context, widgetOptions, z);
-        remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
+        boolean material = isMaterial(widgetOptions);
+        remoteViews.setTextColor(R.id.primary_label,
+                material ? Ui.onPrimaryContainer(context, z) : iSecondaryColor);
+        remoteViews.setTextColor(R.id.secondary_label,
+                material ? Ui.onSecondaryContainer(context, z) : iSecondaryColor);
         remoteViews.setTextColor(R.id.primary_percent, iMainTextColor);
         remoteViews.setTextColor(R.id.secondary_percent, iMainTextColor);
         remoteViews.setTextColor(R.id.primary_reset, iMutedColor);
         remoteViews.setTextColor(R.id.updated_label, iFaintColor);
-        remoteViews.setImageViewResource(R.id.primary_track, z ? R.drawable.progress_track : R.drawable.progress_track_light);
-        if (z) {
-            i = R.drawable.progress_track;
+        if (material) {
+            remoteViews.setImageViewResource(R.id.primary_track,
+                    z ? R.drawable.progress_track_material_dark : R.drawable.progress_track_material);
+            remoteViews.setImageViewResource(R.id.secondary_track,
+                    z ? R.drawable.progress_track_material_dark : R.drawable.progress_track_material);
+            if (Build.VERSION.SDK_INT >= 31) {
+                remoteViews.setColorStateList(R.id.primary_label, "setBackgroundTintList",
+                        ColorStateList.valueOf(Ui.primaryContainer(context, z)));
+                remoteViews.setColorStateList(R.id.secondary_label, "setBackgroundTintList",
+                        ColorStateList.valueOf(Ui.secondaryContainer(context, z)));
+            }
+            remoteViews.setTextViewTextSize(R.id.primary_percent, GRAPHIC_MAX, 22.0f);
+            remoteViews.setTextViewTextSize(R.id.secondary_percent, GRAPHIC_MAX, 22.0f);
+        } else {
+            remoteViews.setImageViewResource(R.id.primary_track, z ? R.drawable.progress_track : R.drawable.progress_track_light);
+            if (z) {
+                i = R.drawable.progress_track;
+            }
+            remoteViews.setImageViewResource(R.id.secondary_track, i);
         }
-        remoteViews.setImageViewResource(R.id.secondary_track, i);
         int iProgressResource = progressResource(widgetOptions.accent, z);
         remoteViews.setImageViewResource(R.id.primary_progress, iProgressResource);
         remoteViews.setImageViewResource(R.id.secondary_progress, iProgressResource);
@@ -406,8 +429,8 @@ public final class WidgetRenderer {
                 R.id.primary_progress, R.id.secondary_progress);
         remoteViews.setInt(R.id.primary_progress, "setImageLevel", Math.max(GRAPHIC_STANDARD, widgetState.primaryValue) * 100);
         remoteViews.setInt(R.id.secondary_progress, "setImageLevel", Math.max(GRAPHIC_STANDARD, widgetState.secondaryValue) * 100);
-        remoteViews.setTextViewText(R.id.primary_label, "5h");
-        remoteViews.setTextViewText(R.id.secondary_label, "Week");
+        remoteViews.setTextViewText(R.id.primary_label, material ? "5H" : "5h");
+        remoteViews.setTextViewText(R.id.secondary_label, material ? "WK" : "Week");
         remoteViews.setTextViewText(R.id.primary_percent, widgetState.primaryShort);
         remoteViews.setTextViewText(R.id.secondary_percent, widgetState.secondaryShort);
         if ("five_hour".equals(widgetOptions.metricMode)) {
