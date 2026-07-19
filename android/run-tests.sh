@@ -367,6 +367,17 @@ grep -q 'dev.oneuiproject.oneui.widget.CardItemView' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
 grep -q 'Ui.nativePrimaryButton' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
+grep -q 'Ui.addSpacer(this.content, 20)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingActivity.java"
+python3 - <<PY
+from pathlib import Path
+text = (Path(r"""$ROOT""") / "app/src/main/res/xml/preferences_settings.xml").read_text()
+about = text.index('android:key="about_codex_meter"')
+assert text.rfind('InsetPreferenceCategory', 0, about) != -1, "missing inset before About"
+assert text.find('InsetPreferenceCategory', about) != -1, "missing bottom inset after About"
+assert 'app:height="28dp"' in text[about:], "bottom settings inset should be 28dp"
+print("settings list keeps spacing before About and bottom padding after it.")
+PY
 grep -q 'OAuthBrowserPage.render' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
 grep -q 'titlePaint.setColor(foreground);' \

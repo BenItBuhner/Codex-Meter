@@ -204,6 +204,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                         + "quick One UI view.",
                 R.drawable.ic_oui_battery);
 
+        Ui.addSpacer(this.content, 20);
         RoundedLinearLayout card = Ui.seslCard(this, this.dark);
         TextView title = Ui.text(this, "Built to feel at home on Galaxy", 18.0f,
                 Ui.mainText(this.dark));
@@ -264,13 +265,12 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.content.addView(privacy);
 
         if (!this.authMessage.isEmpty()) {
+            Ui.addSpacer(this.content, 16);
             RoundedLinearLayout status = Ui.seslCard(this, this.dark);
             TextView message = Ui.text(this, this.authMessage, 14.0f,
                     Ui.secondaryText(this.dark));
             status.addView(message);
-            LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
-            statusParams.setMargins(0, Ui.dp(this, 16), 0, 0);
-            this.content.addView(status, statusParams);
+            this.content.addView(status);
         }
 
         String signInLabel = AppPreferences.isOAuthPending(this)
@@ -293,6 +293,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                         : "You can connect ChatGPT later from the Codex Meter dashboard.",
                 signedIn ? R.drawable.ic_oui_samsung_account : R.drawable.ic_oui_info_outline);
 
+        Ui.addSpacer(this.content, 20);
         RoundedLinearLayout account = Ui.seslRowCard(this, this.dark);
         AuthTokens tokens = SecureTokenStore.load(this);
         account.addView(Ui.actionRow(this,
