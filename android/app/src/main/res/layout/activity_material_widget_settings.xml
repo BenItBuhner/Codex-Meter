@@ -14,72 +14,68 @@
         android:paddingStart="4dp"
         android:paddingEnd="8dp" />
 
-    <FrameLayout
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/widget_settings_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <androidx.core.widget.NestedScrollView
-            android:id="@+id/widget_settings_scroll"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:fillViewport="true"
-            android:overScrollMode="ifContentScrolls"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="104dp">
-
-            <LinearLayout
-                android:id="@+id/widget_settings_content"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <FrameLayout
-                    android:id="@+id/widget_preview_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="236dp"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="ifContentScrolls"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="24dp">
 
         <LinearLayout
-            android:id="@+id/config_button_bar"
-            android:layout_width="wrap_content"
+            android:id="@+id/widget_settings_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="16dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/config_cancel"
-                android:layout_width="wrap_content"
-                android:layout_height="56dp"
-                android:background="?android:attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:minWidth="112dp"
-                android:paddingHorizontal="24dp"
-                android:text="@string/widget_config_cancel"
-                android:textSize="15sp" />
-
-            <TextView
-                android:id="@+id/config_save"
-                android:layout_width="wrap_content"
-                android:layout_height="56dp"
-                android:layout_marginStart="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:minWidth="112dp"
-                android:paddingHorizontal="24dp"
-                android:text="@string/widget_config_save"
-                android:textSize="15sp" />
+            <FrameLayout
+                android:id="@+id/widget_preview_container"
+                android:layout_width="match_parent"
+                android:layout_height="236dp"
+                android:layout_marginTop="8dp" />
         </LinearLayout>
-    </FrameLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <LinearLayout
+        android:id="@+id/config_button_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/config_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="56dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:minWidth="112dp"
+            android:paddingHorizontal="24dp"
+            android:text="@string/widget_config_cancel"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/config_save"
+            android:layout_width="wrap_content"
+            android:layout_height="56dp"
+            android:layout_marginStart="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:minWidth="112dp"
+            android:paddingHorizontal="24dp"
+            android:text="@string/widget_config_save"
+            android:textSize="15sp" />
+    </LinearLayout>
 </LinearLayout>

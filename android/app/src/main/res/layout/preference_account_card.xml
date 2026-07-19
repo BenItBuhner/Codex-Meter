@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<dev.oneuiproject.oneui.widget.RoundedLinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/settings_account_card"
     android:layout_width="match_parent"
@@ -68,6 +68,7 @@
     </LinearLayout>
 
     <View
+        android:id="@+id/settings_account_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginStart="20dp"
@@ -83,4 +84,4 @@
         app:showTopDivider="false"
         app:title="Sign out" />
 
-</dev.oneuiproject.oneui.widget.RoundedLinearLayout>
+</LinearLayout>

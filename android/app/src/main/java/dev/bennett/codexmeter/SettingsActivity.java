@@ -30,7 +30,6 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
 import dev.oneuiproject.oneui.preference.LayoutPreference;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
@@ -138,8 +137,9 @@ public final class SettingsActivity extends AppCompatActivity {
         private void bindAccount() {
             boolean dark = Ui.isDark(requireContext());
             LayoutPreference preference = findPreference("account_card");
-            RoundedLinearLayout card = preference.findViewById(R.id.settings_account_card);
+            LinearLayout card = preference.findViewById(R.id.settings_account_card);
             card.setBackground(Ui.card(requireContext(), dark).getBackground());
+            card.setClipToOutline(Ui.isOneUi(requireContext()));
             ImageView avatar = preference.findViewById(R.id.settings_account_avatar);
             GradientDrawable avatarBackground = new GradientDrawable();
             avatarBackground.setShape(GradientDrawable.OVAL);
@@ -152,11 +152,16 @@ public final class SettingsActivity extends AppCompatActivity {
             TextView title = preference.findViewById(R.id.settings_account_title);
             TextView summary = preference.findViewById(R.id.settings_account_summary);
             TextView plan = preference.findViewById(R.id.settings_account_plan);
+            title.setTypeface(Ui.mediumTypeface(requireContext()));
+            summary.setTypeface(Ui.regularTypeface(requireContext()));
+            plan.setTypeface(Ui.emphasizedTypeface(requireContext()));
             CardItemView action = preference.findViewById(R.id.settings_account_action);
             title.setTextColor(Ui.mainText(dark));
             summary.setTextColor(Ui.secondaryText(dark));
             plan.setTextColor(Ui.mainText(dark));
             plan.setBackground(Ui.pillBackground(requireContext(), dark));
+            preference.<View>findViewById(R.id.settings_account_divider)
+                    .setBackgroundColor(Ui.divider(dark));
 
             AuthTokens tokens = SecureTokenStore.load(requireContext());
             UsageSnapshot snapshot = AppPreferences.loadSnapshot(requireContext());
