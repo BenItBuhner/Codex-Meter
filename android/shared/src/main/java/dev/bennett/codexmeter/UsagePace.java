@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
  * remain part of the average instead of making a later burst look permanently representative.
  */
 public final class UsagePace {
+    public static final String OFF = "off";
     public static final String SENSITIVE = "sensitive";
     public static final String BALANCED = "balanced";
     public static final String RELAXED = "relaxed";
@@ -37,7 +38,8 @@ public final class UsagePace {
             return Assessment.unavailable();
         }
 
-        Policy policy = policy(sensitivity, windowMillis);
+        String normalized = normalizeSensitivity(sensitivity);
+        Policy policy = policy(normalized, windowMillis);
         if (elapsedMillis < policy.minimumElapsedMillis
                 || window.usedPercent < policy.minimumUsedPercent) {
             return Assessment.unavailable();
@@ -49,7 +51,8 @@ public final class UsagePace {
         long estimatedExhaustionAtMillis = safeAdd(observedAtMillis,
                 estimatedRemainingAtObservation);
         long actualRemainingAtObservation = resetAtMillis - observedAtMillis;
-        boolean accelerated = safeMultiply(estimatedRemainingAtObservation, 100L)
+        boolean accelerated = warningsEnabled(normalized)
+                && safeMultiply(estimatedRemainingAtObservation, 100L)
                 <= safeMultiply(actualRemainingAtObservation, policy.maximumCoveragePercent);
         long estimatedRemainingNow = Math.max(0L, estimatedExhaustionAtMillis - nowMillis);
         long actualRemainingNow = Math.max(0L, resetAtMillis - nowMillis);
@@ -60,7 +63,7 @@ public final class UsagePace {
 
     public static int mostAcceleratedWindow(UsageSnapshot snapshot, long nowMillis,
             String sensitivity) {
-        if (snapshot == null) return WINDOW_NONE;
+        if (snapshot == null || !warningsEnabled(sensitivity)) return WINDOW_NONE;
         Assessment fiveHour = assess(snapshot.fiveHour, snapshot.fetchedAtMillis, nowMillis,
                 sensitivity);
         Assessment weekly = assess(snapshot.weekly, snapshot.fetchedAtMillis, nowMillis,
@@ -73,10 +76,16 @@ public final class UsagePace {
     }
 
     public static String normalizeSensitivity(String sensitivity) {
-        if (SENSITIVE.equals(sensitivity) || RELAXED.equals(sensitivity)) {
+        if (OFF.equals(sensitivity) || SENSITIVE.equals(sensitivity)
+                || RELAXED.equals(sensitivity)) {
             return sensitivity;
         }
         return BALANCED;
+    }
+
+    /** Whether accelerated-usage warnings (and their Now Bar triggers) may fire. */
+    public static boolean warningsEnabled(String sensitivity) {
+        return !OFF.equals(normalizeSensitivity(sensitivity));
     }
 
     private static Policy policy(String sensitivity, long windowMillis) {
@@ -87,6 +96,8 @@ public final class UsagePace {
             case RELAXED:
                 return new Policy(10, Math.max(TimeUnit.MINUTES.toMillis(10),
                         windowMillis / 100L), 50);
+            case OFF:
+                // Keep balanced sample gates so estimates still appear without warnings.
             default:
                 return new Policy(5, Math.max(TimeUnit.MINUTES.toMillis(5),
                         windowMillis / 200L), 75);

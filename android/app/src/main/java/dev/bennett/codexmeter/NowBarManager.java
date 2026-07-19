@@ -156,7 +156,7 @@ public final class NowBarManager {
     public static synchronized boolean maybeAutoStart(Context context, UsageSnapshot snapshot) {
         if (context == null || isActive(context) || isPreview(context)) return false;
         boolean lowEnabled = NowBarPreferences.isAutoStartEnabled(context);
-        boolean paceEnabled = UsagePacePreferences.isEnabled(context)
+        boolean paceEnabled = UsagePacePreferences.areWarningsEnabled(context)
                 && NowBarPreferences.isAcceleratedStartEnabled(context);
         if (!lowEnabled && !paceEnabled) return false;
         if (NowBarPreferences.isSuppressed(context)) return false;
@@ -662,7 +662,7 @@ public final class NowBarManager {
     }
 
     private static int acceleratedWindow(Context context, UsageSnapshot snapshot, long now) {
-        if (!UsagePacePreferences.isEnabled(context)
+        if (!UsagePacePreferences.areWarningsEnabled(context)
                 || !NowBarPreferences.isAcceleratedStartEnabled(context)) {
             return UsagePace.WINDOW_NONE;
         }

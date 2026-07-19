@@ -34,6 +34,11 @@ public final class UsagePacePreferences {
                 UsagePace.normalizeSensitivity(sensitivity)).apply();
     }
 
+    /** Estimates may still show when this is false; only accelerated warnings are suppressed. */
+    public static boolean areWarningsEnabled(Context context) {
+        return isEnabled(context) && UsagePace.warningsEnabled(getSensitivity(context));
+    }
+
     public static UsagePace.Assessment assess(Context context, UsageSnapshot snapshot,
             UsageWindow window, long nowMillis) {
         if (!isEnabled(context) || snapshot == null) {
