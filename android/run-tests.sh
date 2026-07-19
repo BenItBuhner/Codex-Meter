@@ -33,6 +33,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncStatus.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSettingsState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearUsageState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
@@ -444,6 +445,7 @@ test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearDataLayerService.ja
 test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPhoneSync.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearSync.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearListenerService.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncStatus.java"
 grep -q 'androidx.wear.ongoing.OngoingActivity' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 grep -q 'com.google.android.wearable.standalone' "$ROOT/wear/src/main/AndroidManifest.xml"
@@ -452,6 +454,20 @@ grep -q 'codex_meter_phone' "$ROOT/app/src/main/res/values/wear.xml"
 grep -q 'PhoneWearListenerService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'PhoneWearTrust.isTrustedWearMessage' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearListenerService.java"
+grep -q 'MSG_SYNC_NOW' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java"
+grep -q 'PATH_STATUS' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java"
+grep -q 'clearSnapshot(context, state.updatedAtMillis' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPhoneSync.java"
+! grep -Rq 'seedDemoSnapshot\\|demo_button\\|wear_load_demo' "$ROOT/wear/src/main"
+grep -q 'android:icon="@mipmap/ic_launcher"' "$ROOT/wear/src/main/AndroidManifest.xml"
+for density in mdpi xhdpi xxhdpi xxxhdpi; do
+  cmp "$ROOT/app/src/main/res/drawable-${density}/codex_meter_adaptive_bg.png" \
+    "$ROOT/wear/src/main/res/drawable-${density}/codex_meter_adaptive_bg.png"
+  cmp "$ROOT/app/src/main/res/drawable-${density}/codex_meter_adaptive_fg.png" \
+    "$ROOT/wear/src/main/res/drawable-${density}/codex_meter_adaptive_fg.png"
+done
 grep -q 'isTrustedWearSettings' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearTrust.java"
 grep -q 'package_name' \
