@@ -8,5 +8,14 @@
             android:name="dev.bennett.codexmeter.UsagePaceDemoActivity"
             android:exported="true"
             android:theme="@style/AppTheme" />
+        <!-- Debug-only: allow adb to open About for visual verification. -->
+        <activity
+            android:name="dev.bennett.codexmeter.AboutActivity"
+            android:exported="true"
+            tools:replace="android:exported" />
+        <activity
+            android:name="dev.bennett.codexmeter.AboutDependenciesPreviewActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme" />
     </application>
 </manifest>
