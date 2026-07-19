@@ -15,4 +15,4 @@
     app:monotonePreviewLayoutSmall="@layout/widget_lock_dials_wide"
     app:targetHost="cover|lock_and_aod"
     app:widgetSize="small"
-    app:widgetStyle="colorful"/>
+    app:widgetStyle="monotone"/>

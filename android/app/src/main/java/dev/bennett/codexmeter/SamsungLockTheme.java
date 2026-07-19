@@ -10,17 +10,14 @@ import android.widget.RemoteViews;
 /**
  * Lock-screen / AOD surface + ink colors for Samsung lock widgets.
  *
- * <p>Lock tiles use {@code widgetStyle=colorful} with
- * {@code @android:id/background} so One UI can host them like first-party lock
- * widgets. {@code widgetStyle=monotone} on One UI 6.x (Galaxy Tab S8) forced a
- * black monochrome pill that did not match wallpaper-tinted siblings and left
- * dark ink nearly invisible.
+ * <p>Samsung's private {@code 0x2000} lock-widget category requires
+ * {@code widgetStyle=monotone} for discovery. The layout still exposes
+ * {@code @android:id/background}, but the app must not paint the lock-screen
+ * surface: SystemUI owns that wallpaper-tinted frame.
  *
  * <p>Pre-One UI 7 lock chrome is wallpaper-tinted (darkish) even in light theme,
- * so those hosts get a dark translucent app-drawn pill and light ink. One UI 7+
- * leaves the background transparent for SystemUI's adaptive frame and follows
- * night mode for ink. Force Dark is disabled on the tile so the host cannot
- * crush light ink back to black.
+ * so those hosts get light ink and an explicitly cleared image filter. One UI
+ * 7+ follows night mode for ink and retains SystemUI's adaptive image tint.
  */
 final class SamsungLockTheme {
     private static final String TAG = "CodexMeterLock";
@@ -73,7 +70,6 @@ final class SamsungLockTheme {
         if (views == null) {
             return;
         }
-        disableForceDark(views);
         if (aod) {
             views.setInt(android.R.id.background, "setBackgroundResource",
                     R.drawable.widget_lock_monochrome_bg_aod);
@@ -81,25 +77,14 @@ final class SamsungLockTheme {
             clearImageColorFilter(views);
             return;
         }
+        views.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
         if (usesWallpaperTintedLockChrome()) {
-            // Match One UI 6 lock siblings: dark translucent pill + white content.
-            views.setInt(android.R.id.background, "setBackgroundResource",
-                    R.drawable.widget_lock_monochrome_bg_dark);
+            // One UI 6 owns the tinted pill; only provide visible monochrome content.
             applyInk(views, true);
             clearImageColorFilter(views);
             return;
         }
-        views.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
         applyInk(views, isSystemDark(context));
-        clearImageColorFilter(views);
-    }
-
-    private static void disableForceDark(RemoteViews views) {
-        if (Build.VERSION.SDK_INT < 29) {
-            return;
-        }
-        setBooleanIfPresent(views, android.R.id.background, "setForceDarkAllowed", false);
-        setBooleanIfPresent(views, R.id.lock_graphic_image, "setForceDarkAllowed", false);
     }
 
     private static void clearImageColorFilter(RemoteViews views) {
@@ -141,14 +126,6 @@ final class SamsungLockTheme {
             views.setInt(viewId, method, value);
         } catch (RuntimeException ignored) {
             // Layout variant without this id.
-        }
-    }
-
-    private static void setBooleanIfPresent(RemoteViews views, int viewId, String method, boolean value) {
-        try {
-            views.setBoolean(viewId, method, value);
-        } catch (RuntimeException ignored) {
-            // Layout variant without this id / method.
         }
     }
 

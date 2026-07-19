@@ -16,4 +16,4 @@
     app:previewLayoutTiny="@layout/widget_lock_five_hour_preview"
     app:targetHost="cover|lock_and_aod"
     app:widgetSize="tiny"
-    app:widgetStyle="colorful" />
+    app:widgetStyle="monotone" />
