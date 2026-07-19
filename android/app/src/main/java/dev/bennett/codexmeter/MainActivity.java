@@ -41,6 +41,7 @@ public final class MainActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private boolean dark;
     private boolean receiverRegistered;
+    private boolean demoUsageVisible;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String lastLaunchedAuthUrl = "";
     private boolean launchSignInRequested;
@@ -208,6 +209,7 @@ public final class MainActivity extends AppCompatActivity {
             intent.removeExtra("start_sign_in");
         }
         if (intent != null && intent.getBooleanExtra("seed_demo_usage", false)) {
+            this.demoUsageVisible = true;
             seedDemoUsage(intent.getStringExtra("widget_surface"));
             intent.removeExtra("seed_demo_usage");
             intent.removeExtra("widget_surface");
@@ -346,6 +348,7 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout buildUsageDashboard() {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         boolean signedIn = SecureTokenStore.isSignedIn(this);
+        boolean canShowUsage = signedIn || this.demoUsageVisible;
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         if (!Ui.isOneUi(this)) {
@@ -359,9 +362,11 @@ public final class MainActivity extends AppCompatActivity {
                     signedIn || weekly != null, 1));
             return column;
         }
-        column.addView(buildMetricCard("5 hour", signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, false));
+        column.addView(buildMetricCard("5 hour",
+                canShowUsage && snapshot != null ? snapshot.fiveHour : null, canShowUsage, false));
         Ui.addSpacer(column, 20);
-        column.addView(buildMetricCard("Weekly", signedIn && snapshot != null ? snapshot.weekly : null, signedIn, true));
+        column.addView(buildMetricCard("Weekly",
+                canShowUsage && snapshot != null ? snapshot.weekly : null, canShowUsage, true));
         return column;
     }
 
@@ -550,6 +555,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private LinearLayout buildResetCreditsCard() {
         boolean zIsSignedIn = SecureTokenStore.isSignedIn(this);
+        boolean showDemoData = zIsSignedIn || this.demoUsageVisible;
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
         int i = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
         if (!Ui.isOneUi(this)) {
@@ -559,10 +565,12 @@ public final class MainActivity extends AppCompatActivity {
         linearLayoutCard.setPadding(Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f));
 
         LinearLayout countRow = Ui.horizontal(this, Gravity.CENTER);
-        TextView count = Ui.text(this, zIsSignedIn ? String.valueOf(i) : "—", 30.0f, Ui.mainText(this.dark));
+        TextView count = Ui.text(this, showDemoData ? String.valueOf(i) : "—", 30.0f,
+                Ui.mainText(this.dark));
         count.setTypeface(Ui.mediumTypeface(this));
         countRow.addView(count);
-        TextView label = Ui.text(this, zIsSignedIn ? "Resets available" : "Sign in to view resets", 18.0f, Ui.mainText(this.dark));
+        TextView label = Ui.text(this, showDemoData
+                ? "Resets available" : "Sign in to view resets", 18.0f, Ui.mainText(this.dark));
         label.setTypeface(Ui.mediumTypeface(this));
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
         labelParams.setMargins(Ui.dp(this, 18.0f), 0, 0, 0);
