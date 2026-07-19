@@ -1,6 +1,6 @@
 # Codex Meter Privacy Policy
 
-Last updated: July 12, 2026
+Last updated: July 19, 2026
 
 Codex Meter does not operate an account system, analytics service, advertising
 network, or application relay server.
@@ -17,9 +17,14 @@ The app sends authenticated requests directly to OpenAI and ChatGPT only to:
 - redeem a reset credit after you explicitly confirm the action.
 
 The app stores the last successful response locally so information remains
-visible offline. Its widget extension receives only a sanitized snapshot with
+visible offline. Its widget extensions and Apple Watch companion receive only a sanitized snapshot with
 percentages, reset dates, plan label, update time, and reset-credit count. It
-never receives OAuth credentials, account identifiers, or reset-credit IDs.
+may also contain the next reset-credit expiry and connection freshness. These
+surfaces never receive OAuth credentials, account identifiers, email, or reset-credit IDs.
+
+Settings export is limited to appearance, refresh, usage-warning, notification,
+and Live Activity preferences. Export files never contain authentication,
+identity, cached usage, or Keychain data.
 
 You can remove all locally stored credentials and cached account data by using
 Sign Out in Settings. The app also attempts to revoke the refresh token with

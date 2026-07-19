@@ -82,7 +82,7 @@ Or from `android/` directly. `build.sh` assembles the release APKs with Gradle a
 
 ### iOS
 
-See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 26+
+See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 18+
 (watchOS 11+ companion). Marketing version **1.2.0** is independent of the
 Android APK `versionName`.
 
@@ -91,7 +91,7 @@ cd ios
 swift test --package-path CodexMeterCore
 xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project CodexMeter.xcodeproj -target CodexMeterWatch \
+xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeterWatch \
   -destination 'generic/platform=watchOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
 

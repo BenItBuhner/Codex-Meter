@@ -1,0 +1,20 @@
+Codex Meter is an unofficial, open-source viewer for the Codex allowance attached to your existing ChatGPT account.
+
+At a glance:
+• Five-hour and weekly allowance meters
+• Reset timers and reset-credit inventory
+• Usage-pace projections with adjustable warnings
+• Home Screen and Lock Screen widgets
+• Optional Live Activity for Lock Screen and Dynamic Island
+• Apple Watch dashboard, Smart Stack widgets, and complications
+• Local notifications for usage, resets, refills, and credit expiry
+• Offline cache and a network-free demo mode
+
+Privacy by design:
+• OAuth credentials stay in Apple Keychain
+• Requests go directly from your device to OpenAI
+• Apple Watch and widgets receive sanitized usage only
+• Settings exports never include credentials, identity, or cached usage
+• No analytics, advertising, or relay server
+
+Codex Meter is not affiliated with or endorsed by OpenAI. ChatGPT, Codex, and OpenAI are trademarks of their respective owner.

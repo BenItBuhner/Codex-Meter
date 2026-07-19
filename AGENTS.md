@@ -41,6 +41,6 @@ iOS build instructions are in `ios/README.md`.
 - Work under `ios/`. Keep Android changes under `android/`. Do not flatten either tree into the repo root.
 - Prefer native SwiftUI / WidgetKit / WatchConnectivity patterns; do not port Samsung One UI or Android update installers.
 - Core pure logic lives in `ios/CodexMeterCore` (iOS + watchOS platforms). ActivityKit types stay behind `os(iOS)`.
-- Fast checks: `swift test --package-path ios/CodexMeterCore`; iPhone Simulator build of scheme `CodexMeter`; watchOS Simulator build of target `CodexMeterWatch` (see `ios/README.md`).
+- Fast checks: `swift test --package-path ios/CodexMeterCore`; iPhone Simulator build of scheme `CodexMeter`; watchOS Simulator builds of schemes `CodexMeterWatch` and `CodexMeterWatchWidgets` (see `ios/README.md`).
 - CI: `.github/workflows/ios.yml` (phone + watch unsigned builds).
 - Full Xcode builds need a macOS host; Linux cloud VMs typically cannot build the iOS/watch targets.
