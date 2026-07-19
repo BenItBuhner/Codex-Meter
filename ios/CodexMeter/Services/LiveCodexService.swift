@@ -204,12 +204,6 @@ public actor LiveCodexService: CodexService {
         try await authSession.currentTokens()
     }
 
-    /// Writes credentials from a transfer import. Caller must only invoke after
-    /// an explicit user confirmation.
-    public func storeImportedTokens(_ tokens: AuthTokens) async throws {
-        try await authSession.store(tokens)
-    }
-
     public func signOut() async {
         activeRefresh?.cancel()
         activeRefresh = nil

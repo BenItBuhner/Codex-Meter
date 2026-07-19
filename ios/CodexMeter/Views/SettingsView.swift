@@ -1,222 +1,43 @@
+import CodexMeterCore
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
-    @State private var confirmingSignOut = false
-    @State private var exportIncludeAuth = false
-    @State private var importIncludeAuth = false
-    @State private var confirmingAuthExport = false
-    @State private var confirmingAuthImport = false
-    @State private var isExporting = false
-    @State private var isImporting = false
-    @State private var exportDocument: TransferFileDocument?
-    @State private var showExporter = false
-    @State private var showImporter = false
-    @State private var transferError: String?
 
     var body: some View {
         @Bindable var model = model
-
-        Form {
-            Section("Account") {
-                if model.mode == .live {
-                    LabeledContent("ChatGPT account", value: model.accountEmail.isEmpty ? "Connected" : model.accountEmail)
-                    if !model.accountPlan.isEmpty {
-                        LabeledContent("Plan", value: model.accountPlan)
-                    }
-                    Button("Sign out", role: .destructive) {
-                        confirmingSignOut = true
-                    }
-                } else if model.mode == .demo {
-                    LabeledContent("Mode", value: "Demo")
-                    Button("Leave Demo", role: .destructive) {
-                        Task {
-                            await model.leaveDemo()
-                            dismiss()
-                        }
-                    }
-                } else {
-                    Button("Sign in with ChatGPT") {
-                        dismiss()
-                        model.isShowingSignIn = true
-                    }
-                }
-            }
-
-            Section("Appearance") {
-                Picker("Appearance", selection: $model.settings.appearance) {
-                    ForEach(AppAppearance.allCases) { appearance in
-                        Text(appearance.title).tag(appearance)
-                    }
-                }
-                .pickerStyle(.segmented)
+        List {
+            Section {
+                SettingsDestination(
+                    title: "Account",
+                    detail: accountSummary,
+                    systemImage: "person.crop.circle"
+                ) { AccountSettingsView() }
             }
 
             Section {
-                Toggle("Refresh on launch", isOn: $model.settings.refreshOnLaunch)
-                Picker("Preferred interval", selection: $model.settings.refreshMinutes) {
-                    ForEach([5, 10, 15, 30, 60, 120], id: \.self) { minutes in
-                        Text(minutes == 120 ? "2 hours" : "\(minutes) minutes").tag(minutes)
-                    }
+                SettingsDestination(title: "Appearance", detail: model.settings.appearance.title, systemImage: "circle.lefthalf.filled") {
+                    AppearanceSettingsView()
                 }
-            } header: {
-                Text("Refresh")
-            } footer: {
-                Text("iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
+                SettingsDestination(title: "Refresh & Usage", detail: paceSummary, systemImage: "gauge.with.dots.needle.67percent") {
+                    RefreshUsageSettingsView()
+                }
+                SettingsDestination(title: "Notifications", detail: model.settings.notificationsEnabled ? "On" : "Off", systemImage: "bell.badge") {
+                    NotificationSettingsView()
+                }
+                SettingsDestination(title: "Live Activity", detail: model.isLiveMonitorActive ? "Running" : "Off", systemImage: "dot.radiowaves.left.and.right") {
+                    LiveActivitySettingsView()
+                }
             }
 
             Section {
-                Toggle("Allow notifications", isOn: $model.settings.notificationsEnabled)
-                    .onChange(of: model.settings.notificationsEnabled) { _, enabled in
-                        Task { await model.notificationsChanged(enabled: enabled) }
-                    }
-                LabeledContent("System permission", value: model.notificationPermissionState.title)
-
-                Picker("Low usage alerts", selection: $model.settings.alertMetric) {
-                    ForEach(AlertMetric.allCases) { metric in
-                        Text(metric.title).tag(metric)
-                    }
+                SettingsDestination(title: "Data & Privacy", detail: "Transfer and storage", systemImage: "lock.shield") {
+                    DataPrivacySettingsView()
                 }
-                Picker("Low when remaining reaches", selection: $model.settings.alertThreshold) {
-                    Text("Always").tag(100)
-                    ForEach([10, 25, 50, 75], id: \.self) { value in
-                        Text("\(value)% or lower").tag(value)
-                    }
-                }
-
-                Toggle("New reset-credit alerts", isOn: $model.settings.creditIncreaseAlertsEnabled)
-                Toggle("Unexpected refill alerts", isOn: $model.settings.unexpectedRefillAlertsEnabled)
-                Toggle("Reset-credit expiry reminders", isOn: $model.settings.creditExpiryRemindersEnabled)
-
-                if model.settings.creditExpiryRemindersEnabled {
-                    ForEach(AppSettings.allowedCreditExpiryLeadMinutes, id: \.self) { minutes in
-                        Toggle(isOn: leadTimeBinding(minutes, model: model)) {
-                            Text(Self.leadTimeTitle(minutes))
-                        }
-                    }
-                }
-
-                Button("Send test notification") {
-                    Task { await model.sendTestNotification() }
-                }
-                Button("Open notification settings") {
-                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
-                        openURL(url)
-                    }
-                }
-            } header: {
-                Text("Notifications")
-            } footer: {
-                if model.mode == .signedOut {
-                    Text("Sign in or open demo mode to configure usage alerts.")
-                } else if model.settings.creditExpiryRemindersEnabled {
-                    Text("Expiry reminders fire at each selected lead time before an available credit expires. Choose at least one lead time.")
-                } else {
-                    Text("Includes low usage, scheduled resets, optional surprise refills, and reset-credit inventory changes.")
-                }
-            }
-            .disabled(model.mode == .signedOut)
-
-            Section {
-                LabeledContent(
-                    "Live Activities",
-                    value: model.isLiveMonitorActive
-                        ? "Running"
-                        : (LiveActivityCoordinator.shared.isSupported ? "Off" : "Disabled")
-                )
-                if model.isLiveMonitorActive {
-                    Button("Stop usage monitor") {
-                        Task { await model.stopLiveMonitor(dismissed: true) }
-                    }
-                } else {
-                    Button("Start usage monitor") {
-                        Task { await model.startLiveMonitor() }
-                    }
-                    .disabled(model.mode == .signedOut || model.usage == nil)
-                }
-                Toggle("Auto-start when low", isOn: $model.settings.liveMonitorAutoStartEnabled)
-                if model.settings.liveMonitorAutoStartEnabled {
-                    Picker("Auto-start windows", selection: $model.settings.liveMonitorAutoStartMetric) {
-                        ForEach(AlertMetric.allCases) { metric in
-                            Text(metric.title).tag(metric)
-                        }
-                    }
-                    Picker("Auto-start at remaining", selection: $model.settings.liveMonitorAutoStartThreshold) {
-                        ForEach([10, 25, 50, 75, 100], id: \.self) { value in
-                            Text(value == 100 ? "Always when data exists" : "\(value)% or lower").tag(value)
-                        }
-                    }
-                }
-                if let liveMonitorMessage = model.liveMonitorMessage {
-                    Text(liveMonitorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("Usage monitor")
-            } footer: {
-                Text("Shows five-hour and weekly remaining on the Lock Screen and Dynamic Island until the next reset, you stop it, or you sign out. iOS cannot guarantee exact background timing like Android alarms.")
-            }
-            .disabled(model.mode == .signedOut)
-
-            Section {
-                Toggle("Include ChatGPT credentials", isOn: $exportIncludeAuth)
-                Button {
-                    if exportIncludeAuth {
-                        confirmingAuthExport = true
-                    } else {
-                        Task { await prepareExport(includeAuth: false) }
-                    }
-                } label: {
-                    if isExporting {
-                        ProgressView()
-                    } else {
-                        Text("Export settings…")
-                    }
-                }
-                .disabled(isExporting)
-
-                Toggle("Import ChatGPT credentials", isOn: $importIncludeAuth)
-                Button {
-                    if importIncludeAuth {
-                        confirmingAuthImport = true
-                    } else {
-                        showImporter = true
-                    }
-                } label: {
-                    if isImporting {
-                        ProgressView()
-                    } else {
-                        Text("Import settings…")
-                    }
-                }
-                .disabled(isImporting)
-
-                if let transferError {
-                    Text(transferError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
-                if let status = model.transferStatusMessage {
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("Transfer")
-            } footer: {
-                Text("Exports a JSON file with app and notification preferences. Including credentials embeds live OAuth tokens — only store that file on devices you trust.")
-            }
-
-            Section {
-                NavigationLink("About Codex Meter") {
+                SettingsDestination(title: "About", detail: "Version and acknowledgements", systemImage: "info.circle") {
                     AboutView()
-                }
-                NavigationLink("Privacy policy") {
-                    PrivacyPolicyView()
                 }
             }
         }
@@ -227,127 +48,190 @@ struct SettingsView: View {
                 Button("Done") { dismiss() }
             }
         }
-        .onChange(of: model.settings) { _, settings in
-            model.save(settings: settings)
+        .onChange(of: model.settings) { _, settings in model.save(settings: settings) }
+        .task { await model.refreshNotificationPermissionState() }
+    }
+
+    private var accountSummary: String {
+        switch model.mode {
+        case .live: model.accountEmail.isEmpty ? "Connected" : model.accountEmail
+        case .demo: "Demo"
+        case .signedOut: "Not connected"
         }
-        .task {
-            await model.refreshNotificationPermissionState()
+    }
+
+    private var paceSummary: String {
+        guard model.settings.usagePaceEnabled else { return "Pace estimates off" }
+        return "Every \(model.settings.refreshMinutes) min · \(model.settings.usagePaceSensitivity.title)"
+    }
+}
+
+private struct SettingsDestination<Destination: View>: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+    @ViewBuilder let destination: () -> Destination
+
+    var body: some View {
+        NavigationLink(destination: destination()) {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            } icon: {
+                Image(systemName: systemImage)
+                    .foregroundStyle(.tint)
+                    .frame(width: 24)
+            }
         }
-        .confirmationDialog(
-            "Sign out of ChatGPT?",
-            isPresented: $confirmingSignOut,
-            titleVisibility: .visible
-        ) {
-            Button("Sign out", role: .destructive) {
-                Task {
-                    await model.signOut()
-                    dismiss()
+    }
+}
+
+private struct AccountSettingsView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmingSignOut = false
+
+    var body: some View {
+        Form {
+            Section {
+                switch model.mode {
+                case .live:
+                    LabeledContent("ChatGPT account", value: model.accountEmail.isEmpty ? "Connected" : model.accountEmail)
+                    if !model.accountPlan.isEmpty { LabeledContent("Plan", value: model.accountPlan) }
+                    Button("Sign out", role: .destructive) { confirmingSignOut = true }
+                case .demo:
+                    LabeledContent("Mode", value: "Demo")
+                    Button("Leave Demo", role: .destructive) {
+                        Task { await model.leaveDemo(); dismiss() }
+                    }
+                case .signedOut:
+                    Text("Connect your account to load live usage. Credentials are stored only in Keychain.")
+                        .foregroundStyle(.secondary)
+                    Button("Sign in with ChatGPT") {
+                        model.isShowingSettings = false
+                        model.isShowingSignIn = true
+                    }
+                    Button("Explore Demo") { Task { await model.enterDemo() } }
                 }
             }
+        }
+        .navigationTitle("Account")
+        .confirmationDialog("Sign out of ChatGPT?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) { Task { await model.signOut(); dismiss() } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Credentials and cached account data will be removed from this device and its widgets.")
-        }
-        .confirmationDialog(
-            "Export credentials?",
-            isPresented: $confirmingAuthExport,
-            titleVisibility: .visible
-        ) {
-            Button("Export with credentials", role: .destructive) {
-                Task { await prepareExport(includeAuth: true) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(SettingsTransfer.securityWarning)
-        }
-        .confirmationDialog(
-            "Import credentials?",
-            isPresented: $confirmingAuthImport,
-            titleVisibility: .visible
-        ) {
-            Button("Import including credentials", role: .destructive) {
-                showImporter = true
-            }
-            Button("Cancel", role: .cancel) {
-                importIncludeAuth = false
-            }
-        } message: {
-            Text(SettingsTransfer.securityWarning + " Imported tokens replace any account currently signed in on this device.")
-        }
-        .fileExporter(
-            isPresented: $showExporter,
-            document: exportDocument,
-            contentType: .json,
-            defaultFilename: SettingsTransfer.defaultFileName()
-        ) { result in
-            if case .failure(let error) = result {
-                transferError = error.localizedDescription
-            } else {
-                model.transferStatusMessage = "Settings exported."
-            }
-        }
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: [.json, .data],
-            allowsMultipleSelection: false
-        ) { result in
-            Task { await handleImport(result) }
+            Text("Credentials, cached account data, widgets, watch data, and the Live Activity will be cleared.")
         }
     }
+}
 
-    private func prepareExport(includeAuth: Bool) async {
-        isExporting = true
-        transferError = nil
-        model.transferStatusMessage = nil
-        defer { isExporting = false }
-        do {
-            let data = try await model.exportTransferData(
-                options: SettingsTransfer.ExportOptions(
-                    includeAppSettings: true,
-                    includeNotifications: true,
-                    includeAuthentication: includeAuth
-                )
-            )
-            exportDocument = TransferFileDocument(data: data)
-            showExporter = true
-        } catch {
-            transferError = error.localizedDescription
-        }
-    }
+private struct AppearanceSettingsView: View {
+    @Environment(AppModel.self) private var model
 
-    private func handleImport(_ result: Result<[URL], Error>) async {
-        isImporting = true
-        transferError = nil
-        model.transferStatusMessage = nil
-        defer { isImporting = false }
-        do {
-            let urls = try result.get()
-            guard let url = urls.first else { return }
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer {
-                if accessed { url.stopAccessingSecurityScopedResource() }
+    var body: some View {
+        @Bindable var model = model
+        Form {
+            Section {
+                Picker("Appearance", selection: $model.settings.appearance) {
+                    ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            } footer: {
+                Text("System follows the device appearance and preserves increased-contrast settings.")
             }
-            let data = try Data(contentsOf: url)
-            try await model.importTransferData(
-                data,
-                options: SettingsTransfer.ImportOptions(
-                    importAppSettings: true,
-                    importNotifications: true,
-                    importAuthentication: importIncludeAuth
-                )
-            )
-        } catch {
-            transferError = error.localizedDescription
         }
+        .navigationTitle("Appearance")
+    }
+}
+
+private struct RefreshUsageSettingsView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        Form {
+            Section("Refresh") {
+                Toggle("Refresh on launch", isOn: $model.settings.refreshOnLaunch)
+                Picker("Preferred interval", selection: $model.settings.refreshMinutes) {
+                    ForEach(AppSettings.allowedRefreshMinutes, id: \.self) { minutes in
+                        Text(minutes == 120 ? "2 hours" : "\(minutes) minutes").tag(minutes)
+                    }
+                }
+            }
+
+            Section {
+                Toggle("Show usage pace estimates", isOn: $model.settings.usagePaceEnabled)
+                if model.settings.usagePaceEnabled {
+                    Picker("Accelerated-usage warnings", selection: $model.settings.usagePaceSensitivity) {
+                        ForEach(UsagePaceSensitivity.allCases) { Text($0.title).tag($0) }
+                    }
+                }
+            } header: {
+                Text("Usage pace")
+            } footer: {
+                Text("Projects when allowance may run out from the full current-window average. Off keeps estimates visible but suppresses warning color and automatic Live Activity starts.")
+            }
+        }
+        .navigationTitle("Refresh & Usage")
+    }
+}
+
+private struct NotificationSettingsView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        @Bindable var model = model
+        Form {
+            Section {
+                Toggle("Allow notifications", isOn: $model.settings.notificationsEnabled)
+                    .onChange(of: model.settings.notificationsEnabled) { _, enabled in
+                        Task { await model.notificationsChanged(enabled: enabled) }
+                    }
+                LabeledContent("System permission", value: model.notificationPermissionState.title)
+                Button("Open System Settings") {
+                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                }
+            }
+
+            Section("Usage") {
+                Picker("Low usage alerts", selection: $model.settings.alertMetric) {
+                    ForEach(AlertMetric.allCases) { Text($0.title).tag($0) }
+                }
+                Picker("Remaining threshold", selection: $model.settings.alertThreshold) {
+                    Text("Always").tag(100)
+                    ForEach([10, 25, 50, 75], id: \.self) { Text("\($0)% or lower").tag($0) }
+                }
+                Toggle("Unexpected refill alerts", isOn: $model.settings.unexpectedRefillAlertsEnabled)
+            }
+
+            Section("Reset credits") {
+                Toggle("New credit alerts", isOn: $model.settings.creditIncreaseAlertsEnabled)
+                Toggle("Expiry reminders", isOn: $model.settings.creditExpiryRemindersEnabled)
+                if model.settings.creditExpiryRemindersEnabled {
+                    ForEach(AppSettings.allowedCreditExpiryLeadMinutes, id: \.self) { minutes in
+                        Toggle(leadTimeTitle(minutes), isOn: leadTimeBinding(minutes))
+                    }
+                }
+            }
+
+            Section { Button("Send test notification") { Task { await model.sendTestNotification() } } }
+        }
+        .disabled(model.mode == .signedOut)
+        .navigationTitle("Notifications")
     }
 
-    private func leadTimeBinding(_ minutes: Int, model: AppModel) -> Binding<Bool> {
+    private func leadTimeBinding(_ minutes: Int) -> Binding<Bool> {
         Binding(
             get: { model.settings.creditExpiryLeadMinutes.contains(minutes) },
-            set: { isOn in
+            set: { enabled in
                 var settings = model.settings
-                let currentlyOn = settings.creditExpiryLeadMinutes.contains(minutes)
-                if isOn != currentlyOn {
+                if enabled != settings.creditExpiryLeadMinutes.contains(minutes) {
                     settings.toggleCreditExpiryLeadMinutes(minutes)
                 }
                 if settings.creditExpiryLeadMinutes.isEmpty {
@@ -357,43 +241,112 @@ struct SettingsView: View {
             }
         )
     }
+}
 
-    private static func leadTimeTitle(_ minutes: Int) -> String {
-        switch minutes {
-        case 60: return "Remind 1 hour before"
-        case 360: return "Remind 6 hours before"
-        case 720: return "Remind 12 hours before"
-        case 1_440: return "Remind 1 day before"
-        case 2_880: return "Remind 2 days before"
-        case 10_080: return "Remind 1 week before"
-        default:
-            if minutes % 1_440 == 0 {
-                let days = minutes / 1_440
-                return "Remind \(days) day\(days == 1 ? "" : "s") before"
+private struct LiveActivitySettingsView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        Form {
+            Section {
+                LabeledContent("Status", value: model.isLiveMonitorActive ? "Running" : (LiveActivityCoordinator.shared.isSupported ? "Off" : "Disabled by system"))
+                if model.isLiveMonitorActive {
+                    Button("Stop Live Activity", role: .destructive) { Task { await model.stopLiveMonitor(dismissed: true) } }
+                } else {
+                    Button("Start Live Activity") { Task { await model.startLiveMonitor() } }
+                        .disabled(model.mode == .signedOut || model.usage == nil)
+                }
+                Toggle("Auto-start on accelerated usage", isOn: $model.settings.liveMonitorAutoStartOnAcceleratedUsage)
+                    .disabled(!model.settings.usagePaceEnabled || !model.settings.usagePaceSensitivity.warningsEnabled)
+                if let message = model.liveMonitorMessage {
+                    Text(message).font(.footnote).foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("Shows focused usage on the Lock Screen, Dynamic Island, and Apple Watch Smart Stack. It updates after refresh and ends at reset or sign-out.")
             }
-            if minutes % 60 == 0 {
-                let hours = minutes / 60
-                return "Remind \(hours) hour\(hours == 1 ? "" : "s") before"
-            }
-            return "Remind \(minutes) minutes before"
         }
+        .navigationTitle("Live Activity")
+    }
+}
+
+private struct DataPrivacySettingsView: View {
+    @Environment(AppModel.self) private var model
+    @State private var exportDocument: TransferFileDocument?
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var transferError: String?
+
+    var body: some View {
+        Form {
+            Section {
+                Label("OAuth tokens stay in Keychain", systemImage: "key.fill")
+                Label("Widgets and Apple Watch receive only sanitized usage", systemImage: "applewatch")
+                Label("Requests go directly from this device to OpenAI", systemImage: "network")
+            }
+
+            Section {
+                Button("Export settings…") { prepareExport() }
+                Button("Import settings…") { showImporter = true }
+                if let transferError { Text(transferError).font(.footnote).foregroundStyle(.red) }
+                if let status = model.transferStatusMessage { Text(status).font(.footnote).foregroundStyle(.secondary) }
+            } header: {
+                Text("Settings transfer")
+            } footer: {
+                Text("The versioned JSON includes appearance, refresh, usage-warning, notification, and Live Activity preferences. It never includes tokens, identity, cached usage, or Keychain data.")
+            }
+
+            Section { NavigationLink("Privacy policy") { PrivacyPolicyView() } }
+        }
+        .navigationTitle("Data & Privacy")
+        .fileExporter(isPresented: $showExporter, document: exportDocument, contentType: .json, defaultFilename: SettingsTransfer.defaultFileName()) { result in
+            switch result {
+            case .success: model.transferStatusMessage = "Settings exported."
+            case .failure(let error): transferError = error.localizedDescription
+            }
+        }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .data], allowsMultipleSelection: false) { result in
+            Task { await importFile(result) }
+        }
+    }
+
+    private func prepareExport() {
+        transferError = nil
+        model.transferStatusMessage = nil
+        do {
+            exportDocument = TransferFileDocument(data: try model.exportTransferData())
+            showExporter = true
+        } catch { transferError = error.localizedDescription }
+    }
+
+    private func importFile(_ result: Result<[URL], Error>) async {
+        transferError = nil
+        model.transferStatusMessage = nil
+        do {
+            guard let url = try result.get().first else { return }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            try await model.importTransferData(Data(contentsOf: url))
+        } catch { transferError = error.localizedDescription }
+    }
+}
+
+private func leadTimeTitle(_ minutes: Int) -> String {
+    switch minutes {
+    case 60: "1 hour before"
+    case 360: "6 hours before"
+    case 720: "12 hours before"
+    case 1_440: "1 day before"
+    case 2_880: "2 days before"
+    case 10_080: "1 week before"
+    default: "\(minutes) minutes before"
     }
 }
 
 private struct TransferFileDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
-
     var data: Data
-
-    init(data: Data) {
-        self.data = data
-    }
-
-    init(configuration: ReadConfiguration) throws {
-        data = configuration.file.regularFileContents ?? Data()
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: data)
-    }
+    init(data: Data) { self.data = data }
+    init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }

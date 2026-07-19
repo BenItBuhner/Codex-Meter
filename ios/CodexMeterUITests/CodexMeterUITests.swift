@@ -16,10 +16,13 @@ final class CodexMeterUITests: XCTestCase {
 
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        app.staticTexts["Account"].tap()
         XCTAssertTrue(app.staticTexts["Mode"].exists)
         XCTAssertTrue(app.buttons["Leave Demo"].exists)
-        app.swipeUp()
+        app.navigationBars["Account"].buttons["Settings"].tap()
+        app.staticTexts["Notifications"].tap()
         XCTAssertTrue(app.staticTexts["System permission"].waitForExistence(timeout: 3))
+        app.swipeUp()
         XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 3))
     }
 
@@ -80,10 +83,46 @@ final class CodexMeterUITests: XCTestCase {
         let app = launchDemo()
 
         app.buttons["Settings"].tap()
+        app.staticTexts["Account"].tap()
         XCTAssertTrue(app.buttons["Leave Demo"].waitForExistence(timeout: 3))
         app.buttons["Leave Demo"].tap()
         XCTAssertTrue(app.buttons["Sign in with ChatGPT"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Explore demo"].exists)
+    }
+
+    func testSettingsHubLiveActivityAndCredentialFreeTransfer() throws {
+        let app = launchDemo()
+        app.buttons["Settings"].tap()
+
+        for destination in ["Account", "Appearance", "Refresh & Usage", "Notifications", "Live Activity", "Data & Privacy", "About"] {
+            XCTAssertTrue(app.staticTexts[destination].waitForExistence(timeout: 3), "Missing settings destination \(destination)")
+        }
+
+        app.staticTexts["Refresh & Usage"].tap()
+        XCTAssertTrue(app.switches["Show usage pace estimates"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Accelerated-usage warnings"].exists)
+        app.navigationBars["Refresh & Usage"].buttons["Settings"].tap()
+
+        app.staticTexts["Live Activity"].tap()
+        XCTAssertTrue(app.buttons["Start Live Activity"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.switches["Auto-start on accelerated usage"].exists)
+        app.navigationBars["Live Activity"].buttons["Settings"].tap()
+
+        app.staticTexts["Data & Privacy"].tap()
+        XCTAssertTrue(app.buttons["Export settings…"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Import settings…"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "credentials embeds")).firstMatch.exists)
+    }
+
+    func testDashboardAdaptsToLandscape() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+
+        let app = launchDemo()
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["5-hour"].exists)
+        XCTAssertTrue(app.staticTexts["Weekly"].exists)
+        XCTAssertTrue(app.buttons["Settings"].isHittable)
     }
 
     private func launchDemo() -> XCUIApplication {

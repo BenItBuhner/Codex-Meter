@@ -48,8 +48,19 @@ public enum LiveMonitorAutoStart {
     }
 }
 
-/// Content rendered by the usage Live Activity (and unit-testable without ActivityKit).
-public struct UsageLiveMonitorState: Codable, Hashable, Sendable {
+public enum LiveUsageFocus: String, Codable, Hashable, Sendable {
+    case automatic
+    case fiveHour
+    case weekly
+}
+
+public enum LiveUsageWarningState: String, Codable, Hashable, Sendable {
+    case normal
+    case accelerated
+}
+
+/// Codable content rendered by the usage Live Activity.
+public struct LiveUsageContentState: Codable, Hashable, Sendable {
     public var planLabel: String
     public var fiveHourRemainingPercent: Int?
     public var weeklyRemainingPercent: Int?
@@ -60,6 +71,8 @@ public struct UsageLiveMonitorState: Codable, Hashable, Sendable {
     public var isDemo: Bool
     public var isCached: Bool
     public var updatedAt: Date
+    public var focusedMetric: LiveUsageFocus
+    public var warningState: LiveUsageWarningState
 
     public init(
         planLabel: String = "",
@@ -71,7 +84,9 @@ public struct UsageLiveMonitorState: Codable, Hashable, Sendable {
         creditCount: Int = 0,
         isDemo: Bool = false,
         isCached: Bool = false,
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        focusedMetric: LiveUsageFocus = .automatic,
+        warningState: LiveUsageWarningState = .normal
     ) {
         self.planLabel = planLabel
         self.fiveHourRemainingPercent = fiveHourRemainingPercent
@@ -83,10 +98,16 @@ public struct UsageLiveMonitorState: Codable, Hashable, Sendable {
         self.isDemo = isDemo
         self.isCached = isCached
         self.updatedAt = updatedAt
+        self.focusedMetric = focusedMetric
+        self.warningState = warningState
     }
 
     public var primaryRemainingPercent: Int? {
-        [fiveHourRemainingPercent, weeklyRemainingPercent].compactMap { $0 }.min()
+        switch focusedMetric {
+        case .fiveHour: fiveHourRemainingPercent
+        case .weekly: weeklyRemainingPercent
+        case .automatic: [fiveHourRemainingPercent, weeklyRemainingPercent].compactMap { $0 }.min()
+        }
     }
 
     public static func from(
@@ -95,7 +116,9 @@ public struct UsageLiveMonitorState: Codable, Hashable, Sendable {
         planLabel: String,
         isDemo: Bool,
         isCached: Bool,
-        now: Date = Date()
+        now: Date = Date(),
+        focusedMetric: LiveUsageFocus = .automatic,
+        warningState: LiveUsageWarningState = .normal
     ) -> Self {
         let fiveReset = usage.fiveHour?.effectiveResetDate(relativeTo: usage.fetchedAt)
         let weeklyReset = usage.weekly?.effectiveResetDate(relativeTo: usage.fetchedAt)
@@ -110,15 +133,19 @@ public struct UsageLiveMonitorState: Codable, Hashable, Sendable {
             creditCount: creditCount,
             isDemo: isDemo,
             isCached: isCached,
-            updatedAt: now
+            updatedAt: now,
+            focusedMetric: focusedMetric,
+            warningState: warningState
         )
     }
 }
 
+public typealias UsageLiveMonitorState = LiveUsageContentState
+
 #if canImport(ActivityKit) && os(iOS)
 /// Live Activity attributes for the ongoing Codex usage monitor.
-public struct UsageLiveMonitorAttributes: ActivityAttributes {
-    public typealias ContentState = UsageLiveMonitorState
+public struct LiveUsageAttributes: ActivityAttributes {
+    public typealias ContentState = LiveUsageContentState
 
     public var startedAt: Date
 
@@ -126,4 +153,6 @@ public struct UsageLiveMonitorAttributes: ActivityAttributes {
         self.startedAt = startedAt
     }
 }
+
+public typealias UsageLiveMonitorAttributes = LiveUsageAttributes
 #endif

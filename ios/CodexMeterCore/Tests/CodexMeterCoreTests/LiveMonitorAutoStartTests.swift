@@ -72,6 +72,43 @@ final class LiveMonitorAutoStartTests: XCTestCase {
         XCTAssertEqual(state.planLabel, "Plus")
         XCTAssertTrue(state.isDemo)
         XCTAssertEqual(state.primaryRemainingPercent, 30)
+
+        let focused = UsageLiveMonitorState.from(
+            usage: usage,
+            creditCount: 2,
+            planLabel: "Plus",
+            isDemo: false,
+            isCached: true,
+            now: now,
+            focusedMetric: .fiveHour,
+            warningState: .accelerated
+        )
+        XCTAssertEqual(focused.primaryRemainingPercent, 60)
+        XCTAssertEqual(focused.warningState, .accelerated)
+        XCTAssertTrue(focused.isCached)
+    }
+
+    func testMissingWindowFallbackRemainsCodable() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let usage = UsageSnapshot(
+            planType: "plus",
+            allowed: true,
+            limitReached: false,
+            fiveHour: nil,
+            weekly: UsageWindow(usedPercent: 25, windowSeconds: 604_800, resetAt: now.addingTimeInterval(80_000)),
+            fetchedAt: now
+        )
+        let state = UsageLiveMonitorState.from(
+            usage: usage,
+            creditCount: 0,
+            planLabel: "Plus",
+            isDemo: false,
+            isCached: false,
+            now: now
+        )
+        XCTAssertNil(state.fiveHourRemainingPercent)
+        XCTAssertEqual(state.weeklyRemainingPercent, 75)
+        XCTAssertNoThrow(try JSONEncoder().encode(state))
     }
 
     func testWindowTokenStable() {

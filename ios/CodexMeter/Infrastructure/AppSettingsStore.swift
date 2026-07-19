@@ -1,4 +1,5 @@
 import Combine
+import CodexMeterCore
 import Foundation
 
 nonisolated public enum AppAppearance: String, Codable, Sendable, CaseIterable, Identifiable {
@@ -56,6 +57,12 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var liveMonitorAutoStartEnabled: Bool
     public var liveMonitorAutoStartMetric: AlertMetric
     public var liveMonitorAutoStartThreshold: Int
+    /// Show projected quota exhaustion when a meaningful sample is available.
+    public var usagePaceEnabled: Bool
+    /// `off` keeps projections visible while suppressing accelerated-usage warnings.
+    public var usagePaceSensitivity: UsagePaceSensitivity
+    /// Start a Live Activity when pace analysis identifies accelerated usage.
+    public var liveMonitorAutoStartOnAcceleratedUsage: Bool
 
     public init(
         appearance: AppAppearance = .system,
@@ -70,7 +77,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         creditExpiryLeadMinutes: [Int] = AppSettings.defaultCreditExpiryLeadMinutes,
         liveMonitorAutoStartEnabled: Bool = false,
         liveMonitorAutoStartMetric: AlertMetric = .both,
-        liveMonitorAutoStartThreshold: Int = 25
+        liveMonitorAutoStartThreshold: Int = 25,
+        usagePaceEnabled: Bool = true,
+        usagePaceSensitivity: UsagePaceSensitivity = .balanced,
+        liveMonitorAutoStartOnAcceleratedUsage: Bool = false
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
@@ -87,6 +97,9 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.liveMonitorAutoStartThreshold = Self.allowedAlertThresholds.contains(liveMonitorAutoStartThreshold)
             ? liveMonitorAutoStartThreshold
             : 25
+        self.usagePaceEnabled = usagePaceEnabled
+        self.usagePaceSensitivity = usagePaceSensitivity
+        self.liveMonitorAutoStartOnAcceleratedUsage = liveMonitorAutoStartOnAcceleratedUsage
     }
 
     public var effectiveCreditExpiryLeadMinutes: [Int] {
@@ -123,6 +136,9 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case liveMonitorAutoStartEnabled
         case liveMonitorAutoStartMetric
         case liveMonitorAutoStartThreshold
+        case usagePaceEnabled
+        case usagePaceSensitivity
+        case liveMonitorAutoStartOnAcceleratedUsage
     }
 
     public init(from decoder: any Decoder) throws {
@@ -141,7 +157,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
                 ?? Self.defaultCreditExpiryLeadMinutes,
             liveMonitorAutoStartEnabled: try container.decodeIfPresent(Bool.self, forKey: .liveMonitorAutoStartEnabled) ?? false,
             liveMonitorAutoStartMetric: try container.decodeIfPresent(AlertMetric.self, forKey: .liveMonitorAutoStartMetric) ?? .both,
-            liveMonitorAutoStartThreshold: try container.decodeIfPresent(Int.self, forKey: .liveMonitorAutoStartThreshold) ?? 25
+            liveMonitorAutoStartThreshold: try container.decodeIfPresent(Int.self, forKey: .liveMonitorAutoStartThreshold) ?? 25,
+            usagePaceEnabled: try container.decodeIfPresent(Bool.self, forKey: .usagePaceEnabled) ?? true,
+            usagePaceSensitivity: try container.decodeIfPresent(UsagePaceSensitivity.self, forKey: .usagePaceSensitivity) ?? .balanced,
+            liveMonitorAutoStartOnAcceleratedUsage: try container.decodeIfPresent(Bool.self, forKey: .liveMonitorAutoStartOnAcceleratedUsage) ?? false
         )
     }
 }

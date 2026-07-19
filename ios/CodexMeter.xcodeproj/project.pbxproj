@@ -12,6 +12,8 @@
 		A10000000000000000000003 /* CodexMeterWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A40000000000000000000001 /* CodexMeterWidgets.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A10000000000000000000004 /* CodexMeterWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A40000000000000000000004 /* CodexMeterWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A10000000000000000000005 /* CodexMeterCore in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000003 /* CodexMeterCore */; };
+		F10000000000000000000001 /* CodexMeterCore in Frameworks */ = {isa = PBXBuildFile; productRef = FE0000000000000000000001 /* CodexMeterCore */; };
+		F10000000000000000000002 /* CodexMeterWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F40000000000000000000001 /* CodexMeterWatchWidgets.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +45,13 @@
 			remoteGlobalIDString = A70000000000000000000004;
 			remoteInfo = CodexMeterWatch;
 		};
+		F20000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 81D08CCA30041D77000759C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F70000000000000000000001;
+			remoteInfo = CodexMeterWatchWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -68,6 +77,17 @@
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F30000000000000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F10000000000000000000002 /* CodexMeterWatchWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -76,6 +96,7 @@
 		A40000000000000000000002 /* CodexMeterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexMeterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A40000000000000000000003 /* CodexMeterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexMeterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A40000000000000000000004 /* CodexMeterWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodexMeterWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F40000000000000000000001 /* CodexMeterWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CodexMeterWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -99,6 +120,13 @@
 				Info.plist,
 			);
 			target = A70000000000000000000004 /* CodexMeterWatch */;
+		};
+		F45000000000000000000001 /* Exceptions for "CodexMeterWatchWidgets" folder in "CodexMeterWatchWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F70000000000000000000001 /* CodexMeterWatchWidgets */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -135,6 +163,14 @@
 				A45000000000000000000003 /* Exceptions for "CodexMeterWatch" folder in "CodexMeterWatch" target */,
 			);
 			path = CodexMeterWatch;
+			sourceTree = "<group>";
+		};
+		F50000000000000000000001 /* CodexMeterWatchWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F45000000000000000000001 /* Exceptions for "CodexMeterWatchWidgets" folder in "CodexMeterWatchWidgets" target */,
+			);
+			path = CodexMeterWatchWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -178,6 +214,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F60000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F10000000000000000000001 /* CodexMeterCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -187,6 +231,7 @@
 				81D08CD430041D77000759C6 /* CodexMeter */,
 				A50000000000000000000001 /* CodexMeterWidgets */,
 				A50000000000000000000004 /* CodexMeterWatch */,
+				F50000000000000000000001 /* CodexMeterWatchWidgets */,
 				A50000000000000000000002 /* CodexMeterUITests */,
 				A50000000000000000000003 /* CodexMeterTests */,
 				81D08CD330041D77000759C6 /* Products */,
@@ -199,6 +244,7 @@
 				81D08CD230041D77000759C6 /* CodexMeter.app */,
 				A40000000000000000000001 /* CodexMeterWidgets.appex */,
 				A40000000000000000000004 /* CodexMeterWatch.app */,
+				F40000000000000000000001 /* CodexMeterWatchWidgets.appex */,
 				A40000000000000000000002 /* CodexMeterUITests.xctest */,
 				A40000000000000000000003 /* CodexMeterTests.xctest */,
 			);
@@ -311,10 +357,12 @@
 				A80000000000000000000007 /* Sources */,
 				A60000000000000000000004 /* Frameworks */,
 				A80000000000000000000008 /* Resources */,
+				F30000000000000000000001 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				F90000000000000000000001 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A50000000000000000000004 /* CodexMeterWatch */,
@@ -326,6 +374,29 @@
 			productName = CodexMeterWatch;
 			productReference = A40000000000000000000004 /* CodexMeterWatch.app */;
 			productType = "com.apple.product-type.application";
+		};
+		F70000000000000000000001 /* CodexMeterWatchWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC0000000000000000000001 /* Build configuration list for PBXNativeTarget "CodexMeterWatchWidgets" */;
+			buildPhases = (
+				F80000000000000000000001 /* Sources */,
+				F60000000000000000000001 /* Frameworks */,
+				F80000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F50000000000000000000001 /* CodexMeterWatchWidgets */,
+			);
+			name = CodexMeterWatchWidgets;
+			packageProductDependencies = (
+				FE0000000000000000000001 /* CodexMeterCore */,
+			);
+			productName = CodexMeterWatchWidgets;
+			productReference = F40000000000000000000001 /* CodexMeterWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -367,6 +438,14 @@
 					A70000000000000000000004 = {
 						CreatedOnToolsVersion = 26.5;
 					};
+					F70000000000000000000001 = {
+						CreatedOnToolsVersion = 26.5;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
 				};
 			};
 			buildConfigurationList = 81D08CCD30041D77000759C6 /* Build configuration list for PBXProject "CodexMeter" */;
@@ -389,6 +468,7 @@
 				81D08CD130041D77000759C6 /* CodexMeter */,
 				A70000000000000000000001 /* CodexMeterWidgets */,
 				A70000000000000000000004 /* CodexMeterWatch */,
+				F70000000000000000000001 /* CodexMeterWatchWidgets */,
 				A70000000000000000000002 /* CodexMeterUITests */,
 				A70000000000000000000003 /* CodexMeterTests */,
 			);
@@ -418,6 +498,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A80000000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A80000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F80000000000000000000002 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -455,6 +549,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A80000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F80000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -477,6 +585,11 @@
 			isa = PBXTargetDependency;
 			target = A70000000000000000000004 /* CodexMeterWatch */;
 			targetProxy = A20000000000000000000004 /* PBXContainerItemProxy */;
+		};
+		F90000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F70000000000000000000001 /* CodexMeterWatchWidgets */;
+			targetProxy = F20000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -534,7 +647,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -592,7 +705,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -624,7 +737,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.2.0;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -658,7 +771,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.2.0;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -681,7 +794,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CodexMeterWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../../Frameworks",
@@ -711,7 +824,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CodexMeterWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../../Frameworks",
@@ -737,7 +850,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeterUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -754,7 +867,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeterUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -772,7 +885,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -795,7 +908,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -814,6 +927,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CodexMeterWatch/CodexMeterWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C2U9S337H8;
@@ -841,6 +955,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CodexMeterWatch/CodexMeterWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C2U9S337H8;
@@ -853,6 +968,64 @@
 				);
 				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
+		FA0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = CodexMeterWatchWidgets/CodexMeterWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = C2U9S337H8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CodexMeterWatchWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../../Frameworks",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter.watchkitapp.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		FA0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = CodexMeterWatchWidgets/CodexMeterWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = C2U9S337H8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CodexMeterWatchWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../../Frameworks",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter.watchkitapp.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -921,6 +1094,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		FC0000000000000000000001 /* Build configuration list for PBXNativeTarget "CodexMeterWatchWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA0000000000000000000001 /* Debug */,
+				FA0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -942,6 +1124,11 @@
 			productName = CodexMeterCore;
 		};
 		E10000000000000000000003 /* CodexMeterCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D10000000000000000000001 /* XCLocalSwiftPackageReference "CodexMeterCore" */;
+			productName = CodexMeterCore;
+		};
+		FE0000000000000000000001 /* CodexMeterCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D10000000000000000000001 /* XCLocalSwiftPackageReference "CodexMeterCore" */;
 			productName = CodexMeterCore;

@@ -71,6 +71,21 @@ struct ResetCreditView: View {
                     )
                 }
 
+            }
+            .frame(maxWidth: 560)
+            .padding(28)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Codex reset")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") { dismiss() }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 10) {
                 Button {
                     confirming = true
                 } label: {
@@ -93,17 +108,10 @@ struct ResetCreditView: View {
                         .controlSize(.large)
                 }
             }
-            .frame(maxWidth: 560)
-            .padding(28)
             .frame(maxWidth: .infinity)
-        }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle("Codex reset")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Close") { dismiss() }
-            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(.bar)
         }
         .alert("Use one Codex reset?", isPresented: $confirming) {
             Button("Cancel", role: .cancel) {}

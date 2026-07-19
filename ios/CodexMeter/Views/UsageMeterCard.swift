@@ -7,12 +7,18 @@ struct UsageMeterCard: View {
     let window: UsageWindow?
     let accent: Color
     var fetchedAt: Date = .now
+    var pace: UsagePaceAssessment?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var remaining: Int { window?.remainingPercent ?? 0 }
     private var used: Int { window?.usedPercent ?? 0 }
 
     var body: some View {
-        HStack(spacing: 18) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 18))
+            : AnyLayout(HStackLayout(spacing: 18))
+        layout {
             ZStack {
                 Circle()
                     .stroke(accent.opacity(0.16), lineWidth: 11)
@@ -20,7 +26,7 @@ struct UsageMeterCard: View {
                     .trim(from: 0, to: Double(remaining) / 100)
                     .stroke(accent, style: StrokeStyle(lineWidth: 11, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .animation(.snappy, value: remaining)
+                    .animation(reduceMotion ? nil : .snappy, value: remaining)
                 VStack(spacing: -2) {
                     Text("\(remaining)")
                         .font(.title2.bold())
@@ -62,6 +68,25 @@ struct UsageMeterCard: View {
                     Text(window == nil ? "Waiting for data" : "Reset time unavailable")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                }
+
+                if let pace, let exhaustion = pace.estimatedExhaustionAt {
+                    Label {
+                        Text(
+                            pace.isAccelerated
+                                ? "Projected empty \(UsageFormat.relative(until: exhaustion))"
+                                : "Current pace lasts through reset"
+                        )
+                    } icon: {
+                        Image(systemName: pace.isAccelerated ? "speedometer" : "chart.line.uptrend.xyaxis")
+                    }
+                    .font(.caption.weight(pace.isAccelerated ? .semibold : .regular))
+                    .foregroundStyle(pace.isAccelerated ? .orange : .secondary)
+                    .accessibilityLabel(
+                        pace.isAccelerated
+                            ? "Projected allowance exhaustion \(UsageFormat.relative(until: exhaustion))"
+                            : "Current usage pace lasts through reset"
+                    )
                 }
             }
             Spacer(minLength: 0)

@@ -33,6 +33,11 @@ struct UsageLiveActivityWidget: Widget {
                         Image(systemName: "gauge.with.dots.needle.67percent")
                         Text("Codex Meter")
                             .font(.headline)
+                        if context.state.warningState == .accelerated {
+                            Image(systemName: "speedometer")
+                                .foregroundStyle(.orange)
+                                .accessibilityLabel("Accelerated usage")
+                        }
                         if context.state.isDemo {
                             Text("Demo")
                                 .font(.caption2.weight(.semibold))
@@ -97,6 +102,11 @@ struct UsageLiveActivityWidget: Widget {
                         .foregroundStyle(.blue)
                 } else if context.state.isCached {
                     Text("Cached")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
+                if context.state.warningState == .accelerated {
+                    Label("Accelerated", systemImage: "speedometer")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.orange)
                 }

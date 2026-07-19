@@ -9,6 +9,13 @@ struct WatchRootView: View {
             VStack(alignment: .leading, spacing: 10) {
                 header
 
+                Label(
+                    store.phoneReachable ? "iPhone connected" : "iPhone unavailable · cached data",
+                    systemImage: store.phoneReachable ? "iphone.radiowaves.left.and.right" : "iphone.slash"
+                )
+                .font(.caption2)
+                .foregroundStyle(store.phoneReachable ? Color.secondary : Color.orange)
+
                 if store.snapshot.mode == .signedOut {
                     ContentUnavailableView(
                         "Not connected",
@@ -32,7 +39,7 @@ struct WatchRootView: View {
                             systemImage: "bolt.fill"
                         )
                         Spacer()
-                        if store.snapshot.freshness == .stale {
+                        if store.isStale() {
                             Text("Cached")
                                 .foregroundStyle(.orange)
                         }
@@ -49,6 +56,11 @@ struct WatchRootView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
+                    if let expiry = store.nextCreditExpiry, expiry > .now {
+                        Label("Credit expires \(expiry, style: .relative)", systemImage: "calendar.badge.clock")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Button {
@@ -57,6 +69,7 @@ struct WatchRootView: View {
                     Label("Ask iPhone to refresh", systemImage: "arrow.clockwise")
                 }
                 .font(.caption2)
+                .disabled(!store.phoneReachable)
             }
             .padding(.horizontal, 4)
         }
@@ -78,8 +91,8 @@ struct WatchRootView: View {
     }
 
     private var nextReset: Date? {
-        [store.snapshot.fiveHour?.resetAt, store.snapshot.weekly?.resetAt]
-            .compactMap { $0 }
+        [store.snapshot.fiveHour, store.snapshot.weekly]
+            .compactMap { $0?.effectiveResetDate(relativeTo: store.snapshot.fetchedAt ?? .now) }
             .filter { $0 > .now }
             .min()
     }

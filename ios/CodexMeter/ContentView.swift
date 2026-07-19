@@ -24,7 +24,7 @@ struct ContentView: View {
             NavigationStack {
                 ResetCreditView()
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
         }
         .sheet(isPresented: $model.isShowingSignIn) {
             NavigationStack {

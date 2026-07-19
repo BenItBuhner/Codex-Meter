@@ -19,7 +19,7 @@ permissions:
 jobs:
   ios:
     name: Core tests + iPhone Simulator build
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     defaults:
       run:
@@ -31,7 +31,9 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          if [[ -d /Applications/Xcode.app ]]; then
+          if [[ -d /Applications/Xcode_26.0.app ]]; then
+            sudo xcode-select -s /Applications/Xcode_26.0.app
+          elif [[ -d /Applications/Xcode.app ]]; then
             sudo xcode-select -s /Applications/Xcode.app
           fi
           xcodebuild -version
@@ -53,7 +55,7 @@ jobs:
 
   watch:
     name: watchOS Simulator build
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     defaults:
       run:
@@ -65,7 +67,9 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          if [[ -d /Applications/Xcode.app ]]; then
+          if [[ -d /Applications/Xcode_26.0.app ]]; then
+            sudo xcode-select -s /Applications/Xcode_26.0.app
+          elif [[ -d /Applications/Xcode.app ]]; then
             sudo xcode-select -s /Applications/Xcode.app
           fi
           xcodebuild -version
@@ -76,6 +80,16 @@ jobs:
           xcodebuild \
             -project CodexMeter.xcodeproj \
             -target CodexMeterWatch \
-            -destination 'generic/platform=watchOS Simulator' \
+            -sdk watchsimulator \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Build watch widgets (Simulator, no signing)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project CodexMeter.xcodeproj \
+            -target CodexMeterWatchWidgets \
+            -sdk watchsimulator \
             CODE_SIGNING_ALLOWED=NO \
             build

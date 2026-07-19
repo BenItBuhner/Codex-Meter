@@ -7,7 +7,8 @@ import WatchConnectivity
 final class PhoneWatchBridge: NSObject, WCSessionDelegate {
     static let shared = PhoneWatchBridge()
 
-    private var lastSnapshot: SharedWidgetSnapshot?
+    var onRefreshRequested: (() -> Void)?
+    private var lastEnvelope: WatchSnapshotEnvelope?
     private var didActivate = false
 
     func activateIfNeeded() {
@@ -23,8 +24,9 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
     }
 
     /// Best-effort push. Safe to call after every widget snapshot write.
-    func push(snapshot: SharedWidgetSnapshot) {
-        lastSnapshot = snapshot
+    func push(snapshot: SharedWidgetSnapshot, nextCreditExpiry: Date? = nil) {
+        let envelope = WatchSnapshotEnvelope(snapshot: snapshot, nextCreditExpiry: nextCreditExpiry)
+        lastEnvelope = envelope
         activateIfNeeded()
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
@@ -32,7 +34,7 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
         guard session.isPaired else { return }
 
         do {
-            let context = try WatchSyncPayload.applicationContext(for: snapshot)
+            let context = [WatchSyncPayload.contextKey: try WatchSyncPayload.encode(envelope)]
             try session.updateApplicationContext(context)
             if session.isComplicationEnabled {
                 session.transferCurrentComplicationUserInfo(context)
@@ -50,8 +52,8 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
         error: Error?
     ) {
         Task { @MainActor in
-            if activationState == .activated, let lastSnapshot {
-                push(snapshot: lastSnapshot)
+            if activationState == .activated, let lastEnvelope {
+                push(envelope: lastEnvelope)
             }
         }
     }
@@ -67,16 +69,32 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
         didReceiveMessage message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
     ) {
-        // Acknowledge on the WCSession queue, then re-push last snapshot on main.
-        replyHandler(["ok": true])
+        let requestedRefresh = message["action"] as? String == "refresh_snapshot"
+        replyHandler(["ok": true, "refreshing": requestedRefresh])
         Task { @MainActor in
-            PhoneWatchBridge.shared.repushLastSnapshot()
+            if requestedRefresh {
+                PhoneWatchBridge.shared.onRefreshRequested?()
+            } else {
+                PhoneWatchBridge.shared.repushLastSnapshot()
+            }
         }
     }
 
     fileprivate func repushLastSnapshot() {
-        if let lastSnapshot {
-            push(snapshot: lastSnapshot)
+        if let lastEnvelope {
+            push(envelope: lastEnvelope)
         }
+    }
+
+    private func push(envelope: WatchSnapshotEnvelope) {
+        lastEnvelope = envelope
+        activateIfNeeded()
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isPaired else { return }
+        do {
+            let context = [WatchSyncPayload.contextKey: try WatchSyncPayload.encode(envelope)]
+            try session.updateApplicationContext(context)
+            if session.isComplicationEnabled { session.transferCurrentComplicationUserInfo(context) }
+        } catch {}
     }
 }

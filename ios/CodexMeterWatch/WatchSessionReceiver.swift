@@ -24,15 +24,16 @@ final class WatchSessionReceiver: NSObject, WCSessionDelegate {
     func requestRefreshFromPhone() {
         activate()
         let session = WCSession.default
+        WatchSnapshotStore.shared.setPhoneReachable(session.isReachable)
         guard session.activationState == .activated, session.isReachable else { return }
         session.sendMessage(["action": "refresh_snapshot"], replyHandler: { _ in }, errorHandler: { _ in })
     }
 
-    private func ingest(context: [String: Any]) {
-        guard let snapshot = try? WatchSyncPayload.snapshot(fromApplicationContext: context) else {
+    private func ingest(data: Data) {
+        guard let envelope = try? WatchSyncPayload.decodeEnvelope(data) else {
             return
         }
-        WatchSnapshotStore.shared.apply(snapshot)
+        WatchSnapshotStore.shared.apply(envelope)
     }
 
     // MARK: - WCSessionDelegate
@@ -43,11 +44,18 @@ final class WatchSessionReceiver: NSObject, WCSessionDelegate {
         error: Error?
     ) {
         guard activationState == .activated else { return }
-        let context = session.receivedApplicationContext
+        let data = session.receivedApplicationContext[WatchSyncPayload.contextKey] as? Data
+        let reachable = session.isReachable
         Task { @MainActor in
-            if !context.isEmpty {
-                ingest(context: context)
-            }
+            WatchSnapshotStore.shared.setPhoneReachable(reachable)
+            if let data { ingest(data: data) }
+        }
+    }
+
+    nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
+        let reachable = session.isReachable
+        Task { @MainActor in
+            WatchSnapshotStore.shared.setPhoneReachable(reachable)
         }
     }
 
@@ -55,8 +63,9 @@ final class WatchSessionReceiver: NSObject, WCSessionDelegate {
         _ session: WCSession,
         didReceiveApplicationContext applicationContext: [String: Any]
     ) {
+        let data = applicationContext[WatchSyncPayload.contextKey] as? Data
         Task { @MainActor in
-            ingest(context: applicationContext)
+            if let data { ingest(data: data) }
         }
     }
 
@@ -64,8 +73,9 @@ final class WatchSessionReceiver: NSObject, WCSessionDelegate {
         _ session: WCSession,
         didReceiveUserInfo userInfo: [String: Any] = [:]
     ) {
+        let data = userInfo[WatchSyncPayload.contextKey] as? Data
         Task { @MainActor in
-            ingest(context: userInfo)
+            if let data { ingest(data: data) }
         }
     }
 }

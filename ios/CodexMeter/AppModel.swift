@@ -37,6 +37,17 @@ extension AlertMetric {
     }
 }
 
+extension UsagePaceSensitivity {
+    var title: String {
+        switch self {
+        case .off: "Off"
+        case .sensitive: "Sensitive"
+        case .balanced: "Balanced"
+        case .relaxed: "Relaxed"
+        }
+    }
+}
+
 extension NotificationPermissionState {
     var title: String {
         switch self {
@@ -125,6 +136,9 @@ final class AppModel {
         self.hasCompletedOnboarding = preview
             || defaults.bool(forKey: Self.onboardingCompletedKey)
         self.isLiveMonitorActive = liveActivityCoordinator.isActive
+        PhoneWatchBridge.shared.onRefreshRequested = { [weak self] in
+            Task { await self?.refresh() }
+        }
 
         if preview {
             let now = Date()
@@ -195,6 +209,12 @@ final class AppModel {
             mode = .demo
             defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
             await refresh()
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-open-settings") {
+                isShowingSettings = true
+            }
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-open-reset") {
+                isShowingReset = true
+            }
             return
         }
 #endif
@@ -302,7 +322,8 @@ final class AppModel {
                 creditCount: credits?.availableCount ?? usage.resetCreditsAvailable ?? 0,
                 planLabel: accountPlan,
                 isDemo: mode == .demo,
-                isCached: isUsingCachedData
+                isCached: isUsingCachedData,
+                paceSensitivity: settings.usagePaceEnabled ? settings.usagePaceSensitivity : nil
             )
             isLiveMonitorActive = liveActivityCoordinator.isActive
             liveMonitorMessage = isLiveMonitorActive
@@ -467,42 +488,16 @@ final class AppModel {
         defaults.set(true, forKey: Self.onboardingCompletedKey)
     }
 
-    func exportTransferData(
-        options: SettingsTransfer.ExportOptions = .init()
-    ) async throws -> Data {
-        let tokens: AuthTokens?
-        if options.includeAuthentication {
-            tokens = try await liveService.currentTokens()
-        } else {
-            tokens = nil
-        }
-        let document = SettingsTransfer.makeDocument(
-            settings: settings,
-            tokens: tokens,
-            options: options
-        )
+    func exportTransferData() throws -> Data {
+        let document = SettingsTransfer.makeDocument(settings: settings)
         return try SettingsTransfer.encode(document)
     }
 
-    func importTransferData(
-        _ data: Data,
-        options: SettingsTransfer.ImportOptions
-    ) async throws {
+    func importTransferData(_ data: Data) async throws {
         let document = try SettingsTransfer.parse(data)
-        let applied = try SettingsTransfer.apply(
-            document: document,
-            to: settings,
-            options: options
-        )
-        save(settings: applied.settings)
-
-        if let tokens = applied.tokens {
-            try await liveService.storeImportedTokens(tokens)
-            mode = .live
-            defaults.set(AppMode.live.rawValue, forKey: Self.modeDefaultsKey)
-            apply(tokens: tokens)
-            await refresh()
-        } else if applied.settings.notificationsEnabled {
+        let applied = SettingsTransfer.apply(document: document, to: settings)
+        save(settings: applied)
+        if applied.notificationsEnabled {
             await applyNotificationSettings()
         }
 
@@ -514,6 +509,12 @@ final class AppModel {
         self.settings = settings
         settingsStore.settings = settings
         scheduleBackgroundRefresh()
+        if previous.usagePaceSensitivity != settings.usagePaceSensitivity
+            || previous.usagePaceEnabled != settings.usagePaceEnabled
+            || previous.liveMonitorAutoStartOnAcceleratedUsage != settings.liveMonitorAutoStartOnAcceleratedUsage,
+           let usage {
+            Task { await syncLiveMonitor(with: usage) }
+        }
         if previous.notificationsEnabled != settings.notificationsEnabled
             || previous.alertMetric != settings.alertMetric
             || previous.alertThreshold != settings.alertThreshold
@@ -630,7 +631,8 @@ final class AppModel {
                 creditCount: creditCount,
                 planLabel: accountPlan,
                 isDemo: mode == .demo,
-                isCached: isUsingCachedData
+                isCached: isUsingCachedData,
+                paceSensitivity: settings.usagePaceEnabled ? settings.usagePaceSensitivity : nil
             )
         } else if liveActivityCoordinator.shouldAutoStart(settings: settings, usage: usage) {
             try? await liveActivityCoordinator.start(
@@ -638,7 +640,8 @@ final class AppModel {
                 creditCount: creditCount,
                 planLabel: accountPlan,
                 isDemo: mode == .demo,
-                isCached: isUsingCachedData
+                isCached: isUsingCachedData,
+                paceSensitivity: settings.usagePaceEnabled ? settings.usagePaceSensitivity : nil
             )
         }
         isLiveMonitorActive = liveActivityCoordinator.isActive

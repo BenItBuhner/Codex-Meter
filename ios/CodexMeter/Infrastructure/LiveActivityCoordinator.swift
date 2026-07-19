@@ -32,17 +32,19 @@ final class LiveActivityCoordinator {
         creditCount: Int,
         planLabel: String,
         isDemo: Bool,
-        isCached: Bool
+        isCached: Bool,
+        paceSensitivity: UsagePaceSensitivity? = nil
     ) async throws {
         guard isSupported else {
             throw LiveActivityError.disabled
         }
-        let state = UsageLiveMonitorState.from(
+        let state = makeState(
             usage: usage,
             creditCount: creditCount,
             planLabel: planLabel,
             isDemo: isDemo,
-            isCached: isCached
+            isCached: isCached,
+            paceSensitivity: paceSensitivity
         )
         defaults.removeObject(forKey: Self.dismissedWindowTokenKey)
 
@@ -67,17 +69,31 @@ final class LiveActivityCoordinator {
         planLabel: String,
         isDemo: Bool,
         isCached: Bool,
+        paceSensitivity: UsagePaceSensitivity? = nil,
         now: Date = Date()
     ) async {
         let activities = Activity<UsageLiveMonitorAttributes>.activities
         guard !activities.isEmpty else { return }
 
-        let state = UsageLiveMonitorState.from(
+        var crossedReset = false
+        for activity in activities {
+            if let reset = activity.content.state.nextResetAt, reset <= now {
+                crossedReset = true
+                break
+            }
+        }
+        if crossedReset {
+            await end(dismissed: false)
+            return
+        }
+
+        let state = makeState(
             usage: usage,
             creditCount: creditCount,
             planLabel: planLabel,
             isDemo: isDemo,
             isCached: isCached,
+            paceSensitivity: paceSensitivity,
             now: now
         )
 
@@ -119,7 +135,8 @@ final class LiveActivityCoordinator {
         settings: AppSettings,
         usage: UsageSnapshot
     ) -> Bool {
-        guard settings.liveMonitorAutoStartEnabled else { return false }
+        guard settings.liveMonitorAutoStartEnabled
+                || settings.liveMonitorAutoStartOnAcceleratedUsage else { return false }
         guard !isActive else { return false }
 
         let five = usage.fiveHour?.effectiveResetDate(relativeTo: usage.fetchedAt)
@@ -129,12 +146,50 @@ final class LiveActivityCoordinator {
             return false
         }
 
-        return LiveMonitorAutoStart.shouldStart(
+        if settings.liveMonitorAutoStartOnAcceleratedUsage,
+           settings.usagePaceEnabled,
+           UsagePace.mostAcceleratedWindow(
+                in: usage,
+                sensitivity: settings.usagePaceSensitivity
+           ) != nil {
+            return true
+        }
+
+        return settings.liveMonitorAutoStartEnabled && LiveMonitorAutoStart.shouldStart(
             enabled: true,
             metric: settings.liveMonitorAutoStartMetric.rawValue,
             threshold: settings.liveMonitorAutoStartThreshold,
             fiveHour: usage.fiveHour,
             weekly: usage.weekly
+        )
+    }
+
+    private func makeState(
+        usage: UsageSnapshot,
+        creditCount: Int,
+        planLabel: String,
+        isDemo: Bool,
+        isCached: Bool,
+        paceSensitivity: UsagePaceSensitivity?,
+        now: Date = Date()
+    ) -> LiveUsageContentState {
+        let accelerated = paceSensitivity.flatMap {
+            UsagePace.mostAcceleratedWindow(in: usage, now: now, sensitivity: $0)
+        }
+        let focus: LiveUsageFocus = switch accelerated {
+        case .fiveHour: .fiveHour
+        case .weekly: .weekly
+        case nil: .automatic
+        }
+        return LiveUsageContentState.from(
+            usage: usage,
+            creditCount: creditCount,
+            planLabel: planLabel,
+            isDemo: isDemo,
+            isCached: isCached,
+            now: now,
+            focusedMetric: focus,
+            warningState: accelerated == nil ? .normal : .accelerated
         )
     }
 }
