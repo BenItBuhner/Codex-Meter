@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Monotone progress track for light lock-screen pills (dark ink). -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape android:shape="rectangle">
             <corners android:radius="4dp"/>
-            <solid android:color="#48000000"/>
+            <solid android:color="#48ffffff"/>
         </shape>
     </item>
     <item android:id="@android:id/progress">
         <clip>
             <shape android:shape="rectangle">
                 <corners android:radius="4dp"/>
-                <solid android:color="#ff000000"/>
+                <solid android:color="#ffffffff"/>
             </shape>
         </clip>
     </item>

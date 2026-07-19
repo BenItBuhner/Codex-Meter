@@ -362,6 +362,23 @@ done
 grep -R -q 'android:widgetCategory="0x2000"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
 grep -R -q 'app:widgetStyle="monotone"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
 ! grep -R -q 'com.samsung.systemui.permission.FACE_WIDGET' "$ROOT/app/src/main"
+grep -R -q 'android:id="@android:id/background"' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
+! grep -R -q 'lock_square_root\|lock_wide_root\|lock_graphic_root' "$ROOT/app/src/main/res/layout/widget_lock_"*.xml
+grep -q 'SamsungLockTheme' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+grep -q 'hostOwnsMonotoneFrame' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockTheme.java"
+grep -q 'widget_lock_monochrome_bg_dark' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockTheme.java"
+grep -q 'widget_lock_monochrome_bg_aod' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockTheme.java"
+grep -q 'buildViews(context, entry.shape, entry.style, false)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockServiceBoxReceiver.java"
+grep -q 'buildViews(context, entry.shape, entry.style, true)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockServiceBoxReceiver.java"
+test -f "$ROOT/app/src/main/res/drawable/widget_lock_monochrome_bg.xml"
+test -f "$ROOT/app/src/main/res/drawable/widget_lock_monochrome_bg_dark.xml"
+test -f "$ROOT/app/src/main/res/drawable/widget_lock_monochrome_bg_aod.xml"
+test -f "$ROOT/app/src/main/res/drawable-night/lock_progress_monotone.xml"
+grep -q '#e6fafafa' "$ROOT/app/src/main/res/drawable/widget_lock_monochrome_bg.xml"
+grep -q '#99010101' "$ROOT/app/src/main/res/drawable/widget_lock_monochrome_bg_dark.xml"
+grep -q '#ff171717' "$ROOT/app/src/main/res/drawable/widget_lock_monochrome_bg_aod.xml"
 
 grep -q 'RESET_CREDITS_CONSUME_URL' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'ResetCreditActivity' "$ROOT/app/src/main/AndroidManifest.xml"

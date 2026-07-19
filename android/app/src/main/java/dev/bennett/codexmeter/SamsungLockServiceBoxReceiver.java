@@ -27,7 +27,12 @@ public final class SamsungLockServiceBoxReceiver extends BroadcastReceiver {
 
     private static void send(Context context, Entry entry) {
         try {
-            context.sendBroadcast(new Intent(ACTION_RESPONSE).setPackage(SYSTEM_UI).putExtra("package", context.getPackageName()).putExtra("pageId", entry.pageId).putExtra("show", true).putExtra("origin", SamsungLockWidgetSupport.buildViews(context, entry.shape, entry.style)).putExtra("aod", SamsungLockWidgetSupport.buildViews(context, entry.shape, entry.style)));
+            context.sendBroadcast(new Intent(ACTION_RESPONSE).setPackage(SYSTEM_UI)
+                    .putExtra("package", context.getPackageName())
+                    .putExtra("pageId", entry.pageId)
+                    .putExtra("show", true)
+                    .putExtra("origin", SamsungLockWidgetSupport.buildViews(context, entry.shape, entry.style, false))
+                    .putExtra("aod", SamsungLockWidgetSupport.buildViews(context, entry.shape, entry.style, true)));
         } catch (RuntimeException e) {
             Log.w("CodexMeterLock", "ServiceBox response failed", e);
         }

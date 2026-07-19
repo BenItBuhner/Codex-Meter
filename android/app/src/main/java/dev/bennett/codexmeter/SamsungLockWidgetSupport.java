@@ -174,16 +174,23 @@ final class SamsungLockWidgetSupport {
     }
 
     static RemoteViews buildViews(Context context, Shape shape, Style style) {
-        return buildViews(context, null, 0, shape, style, Metric.BOTH);
+        return buildViews(context, null, 0, shape, style, Metric.BOTH, false);
+    }
+
+    static RemoteViews buildViews(Context context, Shape shape, Style style, boolean aod) {
+        return buildViews(context, null, 0, shape, style, Metric.BOTH, aod);
     }
 
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style) {
-        return buildViews(context, appWidgetManager, i, shape, style, Metric.BOTH);
+        return buildViews(context, appWidgetManager, i, shape, style, Metric.BOTH, false);
     }
 
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
+        return buildViews(context, appWidgetManager, i, shape, style, metric, false);
+    }
+
+    static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric, boolean aod) {
         RemoteViews remoteViewsBuildArcViews;
-        int i2;
         boolean zIsSignedIn = SecureTokenStore.isSignedIn(context);
         UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context);
         int iRemaining = remaining(usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.fiveHour);
@@ -191,36 +198,37 @@ final class SamsungLockWidgetSupport {
         LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions = AppPreferences.loadLockWidgetOptions(context, i);
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(context);
         int i3 = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
+        boolean lightInk = SamsungLockTheme.useLightInk(context, aod);
         if (metric != Metric.BOTH) {
             int value = metric == Metric.FIVE_HOUR ? iRemaining : iRemaining2;
             int[] size = grantedSize(appWidgetManager, i, Shape.SQUARE);
             RemoteViews single = new RemoteViews(context.getPackageName(), R.layout.widget_lock_dial_single);
             single.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.renderSingle(context, metric, value, zIsSignedIn, size[0], size[1]));
+                    SamsungLockGraphics.renderSingle(context, metric, value, zIsSignedIn, size[0], size[1], lightInk));
             String metricName = metric == Metric.FIVE_HOUR ? "five hour" : "weekly";
-            single.setContentDescription(R.id.lock_graphic_root, zIsSignedIn
+            single.setContentDescription(android.R.id.background, zIsSignedIn
                     ? "Codex " + metricName + " " + value(value) + " remaining"
                     : "Codex Meter, sign in required");
-            applyOpenIntent(context, single, R.id.lock_graphic_root, i, shape, style,
+            applyOpenIntent(context, single, android.R.id.background, i, shape, style,
                     lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
+            SamsungLockTheme.apply(single, context, aod);
             return single;
         }
         if (style == Style.NUMBERS) {
             remoteViewsBuildArcViews = buildNumberViews(context, shape, zIsSignedIn, iRemaining,
                     iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = shape == Shape.SQUARE ? R.id.lock_square_root : R.id.lock_wide_root;
         } else if (style == Style.BARS) {
             remoteViewsBuildArcViews = buildNativeBarViews(context, shape, zIsSignedIn, iRemaining,
                     iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = R.id.lock_graphic_root;
         } else {
             remoteViewsBuildArcViews = buildArcViews(context, appWidgetManager, i, shape, style,
-                    zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = R.id.lock_graphic_root;
+                    zIsSignedIn, iRemaining, iRemaining2, lockWidgetOptionsLoadLockWidgetOptions, i3,
+                    lightInk);
         }
         applyCountdowns(remoteViewsBuildArcViews, shape, style, lockWidgetOptionsLoadLockWidgetOptions, usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.fiveHour, usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.weekly);
-        remoteViewsBuildArcViews.setContentDescription(i2, contentDescription(zIsSignedIn, iRemaining, iRemaining2, style, lockWidgetOptionsLoadLockWidgetOptions, i3));
-        applyOpenIntent(context, remoteViewsBuildArcViews, i2, i, shape, style, lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
+        remoteViewsBuildArcViews.setContentDescription(android.R.id.background, contentDescription(zIsSignedIn, iRemaining, iRemaining2, style, lockWidgetOptionsLoadLockWidgetOptions, i3));
+        applyOpenIntent(context, remoteViewsBuildArcViews, android.R.id.background, i, shape, style, lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
+        SamsungLockTheme.apply(remoteViewsBuildArcViews, context, aod);
         return remoteViewsBuildArcViews;
     }
 
@@ -279,14 +287,14 @@ final class SamsungLockWidgetSupport {
         return remoteViews;
     }
 
-    private static RemoteViews buildArcViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, boolean z, int i2, int i3, LockWidgetOptions lockWidgetOptions, int i4) {
+    private static RemoteViews buildArcViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, boolean z, int i2, int i3, LockWidgetOptions lockWidgetOptions, int i4, boolean lightInk) {
         String strSquareGraphicText;
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), graphicLayout(shape, style));
         if (shape == Shape.WIDE) {
             int[] size = grantedSize(appWidgetManager, i, shape);
             remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
                     SamsungLockGraphics.render(context, shape, style, i2, i3, z, size[0], size[1],
-                            lockWidgetOptions, i4));
+                            lockWidgetOptions, i4, lightInk));
             if (!z) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
                 remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
@@ -296,14 +304,12 @@ final class SamsungLockWidgetSupport {
                 remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, 2, 11.0f);
                 return remoteViews;
             }
-            boolean showFiveHour = lockWidgetOptions.showsFiveHour();
-            boolean showWeekly = lockWidgetOptions.showsWeekly();
             remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.GONE);
             remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
             return remoteViews;
         }
         int[] iArrGrantedSize = grantedSize(appWidgetManager, i, shape);
-        remoteViews.setImageViewBitmap(R.id.lock_graphic_image, SamsungLockGraphics.render(context, shape, style, i2, i3, z, iArrGrantedSize[0], iArrGrantedSize[1], lockWidgetOptions, i4));
+        remoteViews.setImageViewBitmap(R.id.lock_graphic_image, SamsungLockGraphics.render(context, shape, style, i2, i3, z, iArrGrantedSize[0], iArrGrantedSize[1], lockWidgetOptions, i4, lightInk));
         if (z) {
             if (shape == Shape.SQUARE) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_center_value, View.GONE);

@@ -13,15 +13,20 @@ import android.util.DisplayMetrics;
 
 /** Battery-widget-inspired monochrome dials for Samsung lock and AOD surfaces. */
 final class SamsungLockGraphics {
-    private static final int TRACK = Color.argb(51, 0, 0, 0);
-    private static final int FOREGROUND = Color.BLACK;
-
     private SamsungLockGraphics() {
     }
 
     static Bitmap render(Context context, SamsungLockWidgetSupport.Shape shape,
             SamsungLockWidgetSupport.Style style, int fiveHour, int weekly, boolean signedIn,
             int requestedWidth, int requestedHeight, LockWidgetOptions options, int resetCredits) {
+        return render(context, shape, style, fiveHour, weekly, signedIn, requestedWidth,
+                requestedHeight, options, resetCredits, SamsungLockTheme.useLightInk(context));
+    }
+
+    static Bitmap render(Context context, SamsungLockWidgetSupport.Shape shape,
+            SamsungLockWidgetSupport.Style style, int fiveHour, int weekly, boolean signedIn,
+            int requestedWidth, int requestedHeight, LockWidgetOptions options, int resetCredits,
+            boolean lightInk) {
         int width = clamp(requestedWidth, 44, shape == SamsungLockWidgetSupport.Shape.SQUARE ? 96 : 200,
                 shape == SamsungLockWidgetSupport.Shape.SQUARE ? 56 : 124);
         int height = clamp(requestedHeight, 44, 96, 56);
@@ -43,15 +48,23 @@ final class SamsungLockGraphics {
         float spacer = (width - (92.0f * dialScale)) / 3.0f;
         Drawable fiveHourIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_time);
         Drawable weeklyIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_calendar_week);
+        int foreground = SamsungLockTheme.ink(lightInk);
+        int track = SamsungLockTheme.track(lightInk);
         drawDial(canvas, paint, spacer + (23.0f * dialScale), top, dialScale,
-                fiveHour, fiveHourIcon);
+                fiveHour, fiveHourIcon, foreground, track);
         drawDial(canvas, paint, (2.0f * spacer) + (69.0f * dialScale), top, dialScale,
-                weekly, weeklyIcon);
+                weekly, weeklyIcon, foreground, track);
         return bitmap;
     }
 
     static Bitmap renderSingle(Context context, SamsungLockWidgetSupport.Metric metric, int value,
             boolean signedIn, int requestedWidth, int requestedHeight) {
+        return renderSingle(context, metric, value, signedIn, requestedWidth, requestedHeight,
+                SamsungLockTheme.useLightInk(context));
+    }
+
+    static Bitmap renderSingle(Context context, SamsungLockWidgetSupport.Metric metric, int value,
+            boolean signedIn, int requestedWidth, int requestedHeight, boolean lightInk) {
         int width = clamp(requestedWidth, 44, 96, 56);
         int height = clamp(requestedHeight, 44, 96, 56);
         DisplayMetrics metrics = context == null ? null : context.getResources().getDisplayMetrics();
@@ -64,8 +77,10 @@ final class SamsungLockGraphics {
         Canvas canvas = new Canvas(bitmap);
         canvas.scale(bitmapScale, bitmapScale);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG);
+        int foreground = SamsungLockTheme.ink(lightInk);
+        int track = SamsungLockTheme.track(lightInk);
         if (!signedIn) {
-            drawSignIn(canvas, paint, width, height);
+            drawSignIn(canvas, paint, width, height, foreground);
             return bitmap;
         }
         float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 46.0f));
@@ -74,14 +89,14 @@ final class SamsungLockGraphics {
                 metric == SamsungLockWidgetSupport.Metric.FIVE_HOUR
                         ? R.drawable.ic_oui_time
                         : R.drawable.ic_oui_calendar_week);
-        drawDial(canvas, paint, width / 2.0f, top, dialScale, value, icon);
+        drawDial(canvas, paint, width / 2.0f, top, dialScale, value, icon, foreground, track);
         return bitmap;
     }
 
-    private static void drawSignIn(Canvas canvas, Paint paint, int width, int height) {
+    private static void drawSignIn(Canvas canvas, Paint paint, int width, int height, int foreground) {
         paint.setStyle(Paint.Style.FILL);
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setColor(FOREGROUND);
+        paint.setColor(foreground);
         paint.setTypeface(Build.VERSION.SDK_INT >= 28
                 ? Typeface.create(Typeface.create("sec", Typeface.NORMAL), 600, false)
                 : Typeface.create("sec", Typeface.BOLD));
@@ -92,7 +107,7 @@ final class SamsungLockGraphics {
     }
 
     private static void drawDial(Canvas canvas, Paint paint, float cx, float top, float scale,
-            int value, Drawable icon) {
+            int value, Drawable icon, int foreground, int track) {
         float graphicTop = top + (3.0f * scale);
         float cy = graphicTop + (23.0f * scale);
         float radius = 20.0f * scale;
@@ -101,10 +116,10 @@ final class SamsungLockGraphics {
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setStrokeWidth(stroke);
-        paint.setColor(TRACK);
+        paint.setColor(track);
         canvas.drawArc(arc, 156.43f, 227.14f, false, paint);
         if (value >= 0) {
-            paint.setColor(FOREGROUND);
+            paint.setColor(foreground);
             canvas.drawArc(arc, 156.43f, clampPercent(value) * 2.2714f, false, paint);
         }
 
@@ -113,13 +128,13 @@ final class SamsungLockGraphics {
             int left = Math.round(cx - (size / 2.0f));
             int iconTop = Math.round(graphicTop + (12.0f * scale));
             icon.setBounds(left, iconTop, left + size, iconTop + size);
-            icon.setTint(FOREGROUND);
+            icon.setTint(foreground);
             icon.draw(canvas);
         }
 
         paint.setStyle(Paint.Style.FILL);
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setColor(FOREGROUND);
+        paint.setColor(foreground);
         Typeface sec = Typeface.create("sec", Typeface.NORMAL);
         paint.setTypeface(Build.VERSION.SDK_INT >= 28
                 ? Typeface.create(sec, 600, false)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Samsung Face Widget / ServiceBox light lock-screen surface. -->
+<!-- Samsung Face Widget / ServiceBox Always On Display surface. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <corners android:radius="22dp" />
-    <solid android:color="#e6fafafa" />
+    <solid android:color="#ff171717" />
 </shape>

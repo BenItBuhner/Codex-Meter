@@ -120,7 +120,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         }
         this.preview.setImageBitmap(SamsungLockGraphics.render(this,
                 SamsungLockWidgetSupport.Shape.WIDE, SamsungLockWidgetSupport.Style.DIALS,
-                73, 44, true, 180, 82, currentOptions(), 2));
+                73, 44, true, 180, 82, currentOptions(), 2, this.dark));
     }
 
     public void save() {
