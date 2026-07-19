@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Intent;
@@ -11,7 +12,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.InputType;
-import android.text.format.DateUtils;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -23,11 +23,11 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
-import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
 import dev.oneuiproject.oneui.preference.LayoutPreference;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
@@ -42,28 +42,82 @@ import java.util.concurrent.TimeUnit;
 
 /** Settings built from the One UI Design Library preference components used by its sample app. */
 public final class SettingsActivity extends AppCompatActivity {
+    private static final String EXTRA_PAGE = "settings_page";
+    private static final String PAGE_ROOT = "root";
+    private static final String PAGE_APPEARANCE = "appearance";
+    private static final String PAGE_REFRESH_USAGE = "refresh_usage";
+    private static final String PAGE_NOTIFICATIONS = "notifications";
+    private static final String PAGE_NOW_BAR = "now_bar";
+    private static final String PAGE_UPDATES = "updates";
+    private static final String PAGE_TRANSFER = "transfer";
+    private static final String PAGE_PRIVACY = "privacy";
+
     @Override
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
         setContentView(R.layout.activity_settings);
+        String page = normalizePage(getIntent().getStringExtra(EXTRA_PAGE));
         ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
-        Ui.configureReachToolbar(toolbar, "Settings", true);
+        Ui.configureReachToolbar(toolbar, pageTitle(page), true);
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.settings_fragment, new SettingsFragment())
+                    .replace(R.id.settings_fragment, SettingsFragment.newInstance(page))
                     .commit();
         }
     }
 
+    private static String normalizePage(String page) {
+        if (PAGE_APPEARANCE.equals(page)
+                || PAGE_REFRESH_USAGE.equals(page)
+                || PAGE_NOTIFICATIONS.equals(page)
+                || PAGE_NOW_BAR.equals(page)
+                || PAGE_UPDATES.equals(page)
+                || PAGE_TRANSFER.equals(page)
+                || PAGE_PRIVACY.equals(page)) {
+            return page;
+        }
+        return PAGE_ROOT;
+    }
+
+    private static String pageTitle(String page) {
+        switch (page) {
+            case PAGE_APPEARANCE:
+                return "Appearance";
+            case PAGE_REFRESH_USAGE:
+                return "Refresh & usage";
+            case PAGE_NOTIFICATIONS:
+                return "Notifications";
+            case PAGE_NOW_BAR:
+                return "Now Bar";
+            case PAGE_UPDATES:
+                return "Updates";
+            case PAGE_TRANSFER:
+                return "Backup & transfer";
+            case PAGE_PRIVACY:
+                return "Privacy";
+            case PAGE_ROOT:
+            default:
+                return "Settings";
+        }
+    }
+
+    // One UI's lint detector only associates this fragment with preferences_settings.xml.
+    // This fragment intentionally loads one of several page-specific preference resources.
+    @SuppressLint("FindPreferenceKeyNotFound")
     public static final class SettingsFragment extends PreferenceFragmentCompat {
+        private static final String ARG_PAGE = "page";
         private static final int REQUEST_EXPORT_TRANSFER = 9201;
         private static final int REQUEST_IMPORT_TRANSFER = 9202;
 
+        private String page = PAGE_ROOT;
         private Preference expiryTimesPreference;
         private Preference permissionPreference;
         private Preference testNotificationPreference;
+        private PreferenceCategory notificationLowUsageCategory;
+        private PreferenceCategory notificationResetCreditCategory;
+        private PreferenceCategory notificationTroubleshootingCategory;
         private SwitchPreferenceCompat nowBarMonitorPreference;
         private SwitchPreferenceCompat nowBarAutoStartPreference;
         private SwitchPreferenceCompat nowBarAcceleratedPreference;
@@ -73,7 +127,6 @@ public final class SettingsActivity extends AppCompatActivity {
         private ListPreference nowBarThresholdPreference;
         private ListPreference usagePaceSensitivityPreference;
         private Preference nowBarPermissionPreference;
-        private Preference updateStatusPreference;
         private SwitchPreferenceCompat automaticUpdatePreference;
         private ListPreference updateIntervalPreference;
         private SwitchPreferenceCompat notifyUpdatePreference;
@@ -83,22 +136,54 @@ public final class SettingsActivity extends AppCompatActivity {
         private boolean pendingExportAuthentication;
         private SettingsTransfer.Document pendingImportDocument;
 
+        static SettingsFragment newInstance(String page) {
+            SettingsFragment fragment = new SettingsFragment();
+            Bundle arguments = new Bundle();
+            arguments.putString(ARG_PAGE, normalizePage(page));
+            fragment.setArguments(arguments);
+            return fragment;
+        }
+
         @Override
         public void onCreatePreferences(Bundle bundle, String rootKey) {
             getPreferenceManager().setSharedPreferencesName("codex_meter_settings_v1");
-            addPreferencesFromResource(R.xml.preferences_settings);
-            bindAccount();
-            bindAppearance();
-            bindRefresh();
-            bindUsagePace();
-            bindUpdates();
-            bindNotifications();
-            bindNowBar();
-            bindTransfer();
-            findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
-                return true;
-            });
+            page = normalizePage(getArguments() == null
+                    ? null : getArguments().getString(ARG_PAGE));
+            switch (page) {
+                case PAGE_APPEARANCE:
+                    addPreferencesFromResource(R.xml.preferences_settings_appearance);
+                    bindAppearance();
+                    break;
+                case PAGE_REFRESH_USAGE:
+                    addPreferencesFromResource(R.xml.preferences_settings_refresh_usage);
+                    bindRefresh();
+                    bindUsagePace();
+                    break;
+                case PAGE_NOTIFICATIONS:
+                    addPreferencesFromResource(R.xml.preferences_settings_notifications);
+                    bindNotifications();
+                    break;
+                case PAGE_NOW_BAR:
+                    addPreferencesFromResource(R.xml.preferences_settings_now_bar);
+                    bindNowBar();
+                    break;
+                case PAGE_UPDATES:
+                    addPreferencesFromResource(R.xml.preferences_settings_updates);
+                    bindUpdates();
+                    break;
+                case PAGE_TRANSFER:
+                    addPreferencesFromResource(R.xml.preferences_settings_transfer);
+                    bindTransfer();
+                    break;
+                case PAGE_PRIVACY:
+                    addPreferencesFromResource(R.xml.preferences_settings_privacy);
+                    break;
+                case PAGE_ROOT:
+                default:
+                    addPreferencesFromResource(R.xml.preferences_settings);
+                    bindRoot();
+                    break;
+            }
         }
 
         @Override
@@ -124,14 +209,93 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onResume() {
             super.onResume();
-            if (!NowBarManager.refreshActiveNotificationContract(requireContext())) {
-                Toast.makeText(requireContext(),
-                        "Could not refresh the live notification, so the monitor was stopped.",
-                        Toast.LENGTH_LONG).show();
+            if (PAGE_ROOT.equals(page)) {
+                updateRootSummaries();
+            } else if (PAGE_NOTIFICATIONS.equals(page)) {
+                updatePermissionSummary();
+            } else if (PAGE_NOW_BAR.equals(page)) {
+                if (!NowBarManager.refreshActiveNotificationContract(requireContext())) {
+                    Toast.makeText(requireContext(),
+                            "Could not refresh the live notification, so the monitor was stopped.",
+                            Toast.LENGTH_LONG).show();
+                }
+                updateNowBarSummary();
+            } else if (PAGE_UPDATES.equals(page)) {
+                updateUpdateSummary();
             }
-            updatePermissionSummary();
-            updateNowBarSummary();
-            updateUpdateSummary();
+        }
+
+        private void bindRoot() {
+            bindAccount();
+            bindPageLink("settings_appearance", PAGE_APPEARANCE);
+            bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
+            bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
+            bindPageLink("settings_now_bar", PAGE_NOW_BAR);
+            bindPageLink("settings_updates", PAGE_UPDATES);
+            bindPageLink("settings_transfer", PAGE_TRANSFER);
+            bindPageLink("settings_privacy", PAGE_PRIVACY);
+            findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
+                return true;
+            });
+            updateRootSummaries();
+        }
+
+        private void bindPageLink(String key, String targetPage) {
+            findPreference(key).setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(requireContext(), SettingsActivity.class)
+                        .putExtra(EXTRA_PAGE, targetPage));
+                return true;
+            });
+        }
+
+        private void updateRootSummaries() {
+            if (!PAGE_ROOT.equals(page) || getContext() == null) return;
+            String theme = AppPreferences.getAppTheme(requireContext());
+            String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
+                    ? "System default"
+                    : WidgetOptions.THEME_DARK.equals(theme) ? "Dark" : "Light";
+            findPreference("settings_appearance").setSummary(themeLabel + " · Material You "
+                    + (AppPreferences.isMaterialYouEnabled(requireContext()) ? "on" : "off"));
+
+            int refreshMinutes = AppPreferences.getRefreshMinutes(requireContext());
+            String refreshLabel = refreshMinutes < 60
+                    ? refreshMinutes + " minutes"
+                    : refreshMinutes == 60 ? "Hourly" : "Every " + (refreshMinutes / 60) + " hours";
+            findPreference("settings_refresh_usage").setSummary(refreshLabel + " · Estimates "
+                    + (UsagePacePreferences.isEnabled(requireContext()) ? "on" : "off"));
+
+            findPreference("settings_notifications").setSummary(
+                    ResetAlertPreferences.enabled(requireContext())
+                            ? "On · "
+                            + metricLabel(ResetAlertPreferences.getMetric(requireContext()))
+                            + " at " + ResetAlertPreferences.getThreshold(requireContext()) + "%"
+                            : "Off");
+
+            String nowBarSummary;
+            if (NowBarManager.isActive(requireContext())) {
+                nowBarSummary = "Live monitor active";
+            } else if (NowBarPreferences.isAutoStartEnabled(requireContext())) {
+                nowBarSummary = "Automatic · starts at "
+                        + NowBarPreferences.getThreshold(requireContext()) + "%";
+            } else {
+                nowBarSummary = "Manual start";
+            }
+            findPreference("settings_now_bar").setSummary(nowBarSummary);
+
+            GitHubRelease availableUpdate = UpdatePreferences.availableUpdate(requireContext());
+            findPreference("settings_updates").setSummary(availableUpdate != null
+                    ? "v" + availableUpdate.version + " available"
+                    : UpdatePreferences.automaticChecks(requireContext())
+                    ? "Automatic · " + UpdateCheckFrequency.label(
+                    UpdatePreferences.checkIntervalHours(requireContext()))
+                    : "Automatic checks off");
+        }
+
+        private String metricLabel(String metric) {
+            if ("five_hour".equals(metric)) return "5-hour";
+            if ("weekly".equals(metric)) return "Weekly";
+            return "Both limits";
         }
 
         private void bindAccount() {
@@ -209,32 +373,12 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindAppearance() {
             String selected = AppPreferences.getAppTheme(requireContext());
-            boolean useSystem = WidgetOptions.THEME_SYSTEM.equals(selected);
-            HorizontalRadioPreference theme = findPreference("app_theme");
-            SwitchPreferenceCompat system = findPreference("theme_system_ui");
+            ListPreference theme = findPreference("app_theme");
             SwitchPreferenceCompat materialYou = findPreference("material_you");
-            system.setEnabled(true);
-            // The visual radio shows the effective light/dark mode while AppPreferences also
-            // stores the third "system" state under app_theme. Do not let setValue() overwrite
-            // that system state with the currently resolved light/dark entry.
             theme.setPersistent(false);
-            theme.setDividerEnabled(false);
-            theme.setTouchEffectEnabled(false);
-            theme.setValue(useSystem
-                    ? (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT)
-                    : selected);
-            theme.setEnabled(!useSystem);
-            system.setChecked(useSystem);
+            theme.setValue(selected);
             theme.setOnPreferenceChangeListener((preference, value) -> {
                 AppPreferences.setAppTheme(requireContext(), String.valueOf(value));
-                requireActivity().recreate();
-                return true;
-            });
-            system.setOnPreferenceChangeListener((preference, value) -> {
-                boolean enabled = (Boolean) value;
-                AppPreferences.setAppTheme(requireContext(), enabled
-                        ? WidgetOptions.THEME_SYSTEM
-                        : (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT));
                 requireActivity().recreate();
                 return true;
             });
@@ -348,7 +492,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
-            updateStatusPreference = findPreference("update_status");
             findPreference("check_for_updates").setOnPreferenceClickListener(preference -> {
                 startActivity(new Intent(requireContext(), UpdateActivity.class)
                         .putExtra(UpdateActivity.EXTRA_FORCE_CHECK, true));
@@ -410,7 +553,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void updateUpdateSummary() {
-            if (updateStatusPreference == null || getContext() == null) {
+            if (getContext() == null) {
                 return;
             }
             if (automaticUpdatePreference != null) {
@@ -427,33 +570,14 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             updateAutomaticUpdateEnabledState();
             updateAutomaticUpdateSummary();
-            GitHubRelease available = UpdatePreferences.availableUpdate(requireContext());
-            GitHubRelease latest = UpdatePreferences.latestStable(requireContext());
-            long checkedAt = UpdatePreferences.lastCheckMillis(requireContext());
-            StringBuilder summary = new StringBuilder("v")
-                    .append(UpdatePreferences.installedVersion(requireContext()));
-            if (available != null) {
-                summary.append(" installed · v").append(available.version).append(" available");
-            } else if (checkedAt == 0L) {
-                summary.append(" · Not checked yet");
-            } else if (latest == null) {
-                summary.append(" · No published releases");
-            } else {
-                summary.append(" · Up to date");
-            }
-            if (checkedAt > 0L) {
-                summary.append(" · Checked ").append(DateUtils.getRelativeTimeSpanString(
-                        checkedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
-                        DateUtils.FORMAT_ABBREV_RELATIVE));
-            }
-            String error = UpdatePreferences.lastError(requireContext());
-            if (!error.isEmpty()) {
-                summary.append(" · ").append(error);
-            }
-            updateStatusPreference.setSummary(summary.toString());
         }
 
         private void bindNotifications() {
+            notificationLowUsageCategory = findPreference("notification_low_usage_category");
+            notificationResetCreditCategory =
+                    findPreference("notification_reset_credit_category");
+            notificationTroubleshootingCategory =
+                    findPreference("notification_troubleshooting_category");
             SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
             allow.setEnabled(true);
             allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
@@ -532,6 +656,20 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             updatePermissionSummary();
+            updateNotificationEnabledState();
+        }
+
+        private void updateNotificationEnabledState() {
+            boolean enabled = ResetAlertPreferences.enabled(requireContext());
+            if (notificationLowUsageCategory != null) {
+                notificationLowUsageCategory.setVisible(enabled);
+            }
+            if (notificationResetCreditCategory != null) {
+                notificationResetCreditCategory.setVisible(enabled);
+            }
+            if (notificationTroubleshootingCategory != null) {
+                notificationTroubleshootingCategory.setVisible(enabled);
+            }
         }
 
         private void showExpiryReminderTimesDialog() {
@@ -899,8 +1037,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateNowBarAutoStartEnabledState() {
             boolean enabled = NowBarPreferences.isAutoStartEnabled(requireContext());
-            if (nowBarMetricPreference != null) nowBarMetricPreference.setEnabled(enabled);
-            if (nowBarThresholdPreference != null) nowBarThresholdPreference.setEnabled(enabled);
+            if (nowBarMetricPreference != null) nowBarMetricPreference.setVisible(enabled);
+            if (nowBarThresholdPreference != null) nowBarThresholdPreference.setVisible(enabled);
         }
 
         private boolean ensureNotificationPermission() {
@@ -1003,6 +1141,7 @@ public final class SettingsActivity extends AppCompatActivity {
             } else {
                 ResetNotificationManager.clearNotificationHistory(requireContext());
             }
+            updateNotificationEnabledState();
         }
 
         private void saveAlert(String style, String metric, int threshold) {

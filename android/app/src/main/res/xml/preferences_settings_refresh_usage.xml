@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Refresh">
+        <SwitchPreferenceCompat
+            android:key="refresh_on_launch"
+            android:title="Refresh on launch" />
+        <ListPreference
+            android:entries="@array/settings_refresh_entries"
+            android:entryValues="@array/settings_refresh_values"
+            android:key="refresh_interval_ui"
+            android:title="Refresh interval"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Usage estimates">
+        <SwitchPreferenceCompat
+            android:key="usage_pace_enabled_ui"
+            android:summary="Project how long the current allowance may last"
+            android:title="Estimated usage time" />
+        <ListPreference
+            android:entries="@array/usage_pace_sensitivity_entries"
+            android:entryValues="@array/usage_pace_sensitivity_values"
+            android:key="usage_pace_sensitivity_ui"
+            android:title="Warning sensitivity"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

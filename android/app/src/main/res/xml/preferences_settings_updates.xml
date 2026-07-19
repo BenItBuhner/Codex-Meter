@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Automatic updates">
+        <SwitchPreferenceCompat
+            android:key="automatic_update_checks_ui"
+            android:summary="Check signed GitHub releases on a schedule"
+            android:title="Check automatically" />
+        <ListPreference
+            android:entries="@array/settings_update_interval_entries"
+            android:entryValues="@array/settings_update_interval_values"
+            android:key="update_check_interval_ui"
+            android:title="Check frequency"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="notify_update_available_ui"
+            android:summary="Show a notification with Open and Update actions"
+            android:title="Notify when an update is available" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="More options">
+        <Preference
+            android:key="check_for_updates"
+            android:summary="Check GitHub now"
+            android:title="Check for updates"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="release_history"
+            android:summary="Available versions and downgrade requirements"
+            android:title="Release history"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Live monitor">
+        <SwitchPreferenceCompat
+            android:key="now_bar_monitor_ui"
+            android:summary="Show remaining Codex allowance until the next usage reset"
+            android:title="Live monitor" />
+        <Preference
+            android:key="now_bar_permission"
+            android:title="Live notification access"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Display">
+        <ListPreference
+            android:entries="@array/now_bar_display_mode_entries"
+            android:entryValues="@array/now_bar_display_mode_values"
+            android:key="now_bar_display_mode_ui"
+            android:title="Live display mode"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/now_bar_percent_mode_entries"
+            android:entryValues="@array/now_bar_percent_mode_values"
+            android:key="now_bar_percent_mode_ui"
+            android:title="Percentage shown"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Automatic start">
+        <SwitchPreferenceCompat
+            android:key="now_bar_auto_start_ui"
+            android:summary="Start the monitor when remaining allowance is low"
+            android:title="Start when allowance is low" />
+        <ListPreference
+            android:entries="@array/settings_metric_entries"
+            android:entryValues="@array/settings_metric_values"
+            android:key="now_bar_metric_ui"
+            android:title="Monitor"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_threshold_entries"
+            android:entryValues="@array/settings_threshold_values"
+            android:key="now_bar_threshold_ui"
+            android:title="Start when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="now_bar_accelerated_ui"
+            android:summary="Start while usage is projected to run out early"
+            android:title="Start for accelerated usage" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Troubleshooting">
+        <Preference
+            android:key="now_bar_setup_help"
+            android:summary="Samsung firmware and developer-option guidance"
+            android:title="Samsung setup help"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="now_bar_preview"
+            android:summary="Show a 20-minute sample activity for device testing"
+            android:title="Start sample preview"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

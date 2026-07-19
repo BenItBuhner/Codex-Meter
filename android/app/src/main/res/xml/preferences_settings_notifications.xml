@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory>
+        <SwitchPreferenceCompat
+            android:key="notifications_allowed_ui"
+            android:summary="Usage and account activity alerts"
+            android:title="Allow notifications" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="notification_low_usage_category"
+        android:title="Low usage">
+        <ListPreference
+            android:entries="@array/settings_metric_entries"
+            android:entryValues="@array/settings_metric_values"
+            android:key="notification_metric_ui"
+            android:title="Alert for"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_threshold_entries"
+            android:entryValues="@array/settings_threshold_values"
+            android:key="notification_threshold_ui"
+            android:title="Alert when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="notification_reset_credit_category"
+        android:title="Account activity">
+        <SwitchPreferenceCompat
+            android:key="unexpected_refills_ui"
+            android:summary="An allowance reaches 100% before its scheduled reset"
+            android:title="Surprise limit refills" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_increases_ui"
+            android:summary="The available reset-credit count increases"
+            android:title="New reset credits" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_expiry_ui"
+            android:summary="Remind me before an available reset credit expires"
+            android:title="Expiring reset credits" />
+        <Preference
+            android:key="reset_credit_expiry_times_ui"
+            android:title="Reminder times"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="notification_troubleshooting_category"
+        android:title="Troubleshooting">
+        <Preference
+            android:key="notification_permission"
+            android:title="System notification access"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="notification_test"
+            android:summary="Verify alert delivery now"
+            android:title="Send test notification"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

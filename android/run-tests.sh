@@ -104,9 +104,9 @@ grep -q 'Open on GitHub' \
 grep -q 'UpdateCheckFrequency' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdateScheduler.java"
 grep -q 'notify_update_available_ui' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_updates.xml"
 grep -q 'update_check_interval_ui' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_updates.xml"
 grep -q 'settings_update_interval_entries' \
   "$ROOT/app/src/main/res/values/settings_arrays.xml"
 grep -q 'EXTRA_START_INSTALL' \
@@ -124,11 +124,11 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'testSettingsTransfer' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'export_settings_transfer' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'import_settings_transfer' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'transfer_security_notice' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'SECURITY_WARNING' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 grep -q 'bindTransfer' \
@@ -137,10 +137,10 @@ grep -q 'SettingsTransferStore.collect' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'SettingsTransferStore.apply' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
-grep -q 'Do not share transfer files with authentication' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'Protect authentication exports' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'material_you' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_appearance.xml"
 grep -q 'isMaterialYouEnabled' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'AppTheme_MaterialYou' \
@@ -179,7 +179,7 @@ grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/Andro
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
 grep -q 'app:expandable="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
-grep -q 'Ui.configureReachToolbar(toolbar, "Settings", true);' \
+grep -q 'Ui.configureReachToolbar(toolbar, pageTitle(page), true);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'toolbar.setExpandable(false);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'toolbar.setExpandable(true);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
@@ -274,7 +274,7 @@ grep -q 'NowBarManager.onUsageUpdated' \
 grep -q 'maybeAutoStart' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'now_bar_auto_start_ui' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
 grep -q 'now_bar_threshold_ui' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'NowBarPreferences.isAutoStartEnabled' \
@@ -311,9 +311,9 @@ assert "return false;" in block
 print("applyPercentModeChange stops on post failure.")
 PY
 grep -q 'now_bar_display_mode_ui' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
 grep -q 'now_bar_percent_mode_ui' \
-  "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+  "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
 grep -q 'NowBarPreferences.getPercentMode' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'applyPercentModeChange' \
@@ -392,9 +392,12 @@ test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsagePacePreferences.java"
 test -f "$ROOT/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java"
 grep -q 'UsagePaceDemoActivity' "$ROOT/app/src/debug/AndroidManifest.xml"
-grep -q 'usage_pace_enabled_ui' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
-grep -q 'usage_pace_sensitivity_ui' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
-grep -q 'now_bar_accelerated_ui' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'usage_pace_enabled_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'usage_pace_sensitivity_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'now_bar_accelerated_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
 grep -q 'accelerated_enabled' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'START_ACCELERATED' \
