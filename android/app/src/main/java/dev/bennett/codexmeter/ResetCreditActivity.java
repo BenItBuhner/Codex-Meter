@@ -80,38 +80,26 @@ public final class ResetCreditActivity extends AppCompatActivity {
         layoutParams2.setMargins(0, Ui.dp(this, 8.0f), 0, Ui.dp(this, 14.0f));
         linearLayoutCard.addView(viewText, layoutParams2);
         addCreditExpirations(linearLayoutCard, availableCredits, i, jCurrentTimeMillis);
-        View viewText2 = Ui.text(this, "Using a credit asks OpenAI to reset the currently used Codex rate-limit windows. Afterward, Codex Meter reloads both usage windows and the remaining credit inventory.", 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams3 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams3.setMargins(0, Ui.dp(this, 16.0f), 0, Ui.dp(this, 16.0f));
-        linearLayoutCard.addView(viewText2, layoutParams3);
         String visibleResetCreditsError = AppPreferences.getVisibleResetCreditsError(this);
         if (!visibleResetCreditsError.isEmpty()) {
             View viewText3 = Ui.text(this, visibleResetCreditsError, 12.0f, Ui.danger(this.dark));
             LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams4.setMargins(0, 0, 0, Ui.dp(this, 12.0f));
+            layoutParams4.setMargins(0, Ui.dp(this, 12.0f), 0, 0);
             linearLayoutCard.addView(viewText3, layoutParams4);
         }
-        LinearLayout linearLayoutHorizontal2 = Ui.horizontal(this, 16);
-        Button button = Ui.button(this, "Cancel", false, this.dark);
-        button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.2
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                ResetCreditActivity.this.finish();
-            }
-        });
-        linearLayoutHorizontal2.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f));
-        this.useButton = Ui.button(this, i > 0 ? "Use reset" : "No reset available", true, this.dark);
+        this.useButton = Ui.nativePrimaryButton(
+                this, i > 0 ? "Use 1 reset" : "No resets available");
         this.useButton.setEnabled(i > 0 && SecureTokenStore.isSignedIn(this));
-        LinearLayout.LayoutParams layoutParams5 = new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f);
-        layoutParams5.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
-        linearLayoutHorizontal2.addView(this.useButton, layoutParams5);
+        LinearLayout.LayoutParams useButtonParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
+        useButtonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
         this.useButton.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.3
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
                 ResetCreditActivity.this.confirmUse();
             }
         });
-        linearLayoutCard.addView(linearLayoutHorizontal2);
+        linearLayoutCard.addView(this.useButton, useButtonParams);
         this.content.addView(linearLayoutCard);
     }
 
@@ -207,7 +195,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     public void confirmUse() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one Codex reset?").setMessage("This action consumes one available reset credit and cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one Codex reset?").setMessage("The available credit expiring soonest will be used. This cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use 1 reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 ResetCreditActivity.this.consume();
