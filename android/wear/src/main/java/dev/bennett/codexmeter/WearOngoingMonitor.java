@@ -131,7 +131,7 @@ public final class WearOngoingMonitor {
             WearPreferences.clearMonitorPosted(context);
             return false;
         }
-        createChannel(manager);
+        createChannel(context, manager);
 
         long now = System.currentTimeMillis();
         long until = snapshot.nextResetMillis(now);
@@ -156,7 +156,7 @@ public final class WearOngoingMonitor {
         String contentText = limitText("5h", fiveHour) + " · " + limitText("Week", weekly);
         PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT,
                 new Intent(context, WearMainActivity.class)
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stopIntent = PendingIntent.getBroadcast(context, REQUEST_STOP,
                 new Intent(context, WearMonitorActionReceiver.class).setAction(ACTION_STOP),
@@ -230,10 +230,11 @@ public final class WearOngoingMonitor {
         return label + " " + (window == null ? "--" : window.remainingPercent() + "%");
     }
 
-    private static void createChannel(NotificationManager manager) {
+    private static void createChannel(Context context, NotificationManager manager) {
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Codex Wear live monitor", NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription("Watch-face and Recents monitor for Codex usage.");
+                context.getString(R.string.wear_monitor_channel),
+                NotificationManager.IMPORTANCE_DEFAULT);
+        channel.setDescription(context.getString(R.string.wear_monitor_channel_description));
         channel.setSound(null, null);
         channel.enableVibration(false);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);

@@ -82,6 +82,7 @@ final class CodexTileLayouts {
          * A fuller arc therefore means more Codex usage budget is still available.
          */
         return new EdgeContentLayout.Builder(deviceParameters)
+                .setResponsiveContentInsetEnabled(true)
                 .setEdgeContent(new CircularProgressIndicator.Builder()
                         .setProgress(WearGlanceFormat.remainingProgress(window))
                         .setCircularProgressIndicatorColors(new ProgressIndicatorColors(
@@ -158,7 +159,8 @@ final class CodexTileLayouts {
     }
 
     private static PrimaryLayout.Builder primary(DeviceParameters deviceParameters) {
-        return new PrimaryLayout.Builder(nonNullDevice(deviceParameters));
+        return new PrimaryLayout.Builder(nonNullDevice(deviceParameters))
+                .setResponsiveContentInsetEnabled(true);
     }
 
     private static TitleChip openChip(Context context, DeviceParameters deviceParameters,

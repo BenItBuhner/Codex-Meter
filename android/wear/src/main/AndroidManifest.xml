@@ -31,12 +31,14 @@
 
         <activity
             android:name="dev.bennett.codexmeter.WearSettingsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:taskAffinity="" />
 
         <activity
             android:name="dev.bennett.codexmeter.WearMainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

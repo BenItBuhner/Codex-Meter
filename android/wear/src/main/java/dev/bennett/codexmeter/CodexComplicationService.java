@@ -74,7 +74,7 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
 
     protected static PendingIntent tapAction(Context context) {
         Intent intent = new Intent(context, WearMainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(context, REQUEST_COMPLICATION_TAP, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
