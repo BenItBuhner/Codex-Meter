@@ -9,15 +9,18 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -430,7 +433,14 @@ public final class MainActivity extends AppCompatActivity {
         boolean zIsSignedIn = SecureTokenStore.isSignedIn(this);
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
         int i = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
+        long now = System.currentTimeMillis();
+        long nextExpiry = resetCreditsSnapshotLoadResetCredits == null
+                ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(now);
 
+        FrameLayout header = new FrameLayout(this);
+        LinearLayout summary = new LinearLayout(this);
+        summary.setOrientation(LinearLayout.VERTICAL);
+        summary.setGravity(Gravity.CENTER);
         LinearLayout countRow = Ui.horizontal(this, Gravity.CENTER);
         TextView count = Ui.text(this, zIsSignedIn ? String.valueOf(i) : "—", 30.0f, Ui.mainText(this.dark));
         count.setTypeface(Ui.mediumTypeface(this));
@@ -440,18 +450,57 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
         labelParams.setMargins(Ui.dp(this, 18.0f), 0, 0, 0);
         countRow.addView(label, labelParams);
-        linearLayoutCard.addView(countRow, new LinearLayout.LayoutParams(-1, Ui.dp(this, 66.0f)));
+        summary.addView(countRow);
+
+        String expiryText;
+        if (!zIsSignedIn) {
+            expiryText = "Connect to load expiration dates";
+        } else if (nextExpiry > 0L) {
+            expiryText = "Next expires " + UsageFormat.absolute(this, nextExpiry, now)
+                    + " · " + UsageFormat.relative(nextExpiry, now);
+        } else if (i > 0) {
+            expiryText = "Expiration details unavailable";
+        } else {
+            expiryText = "No credits to expire";
+        }
+        TextView expiry = Ui.text(this, expiryText, 13.0f, Ui.secondaryText(this.dark));
+        expiry.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams expiryParams = new LinearLayout.LayoutParams(-2, -2);
+        expiryParams.setMargins(0, Ui.dp(this, 4.0f), 0, 0);
+        summary.addView(expiry, expiryParams);
+        FrameLayout.LayoutParams summaryParams = new FrameLayout.LayoutParams(-1, -1);
+        summaryParams.setMargins(Ui.dp(this, 44.0f), 0, Ui.dp(this, 44.0f), 0);
+        header.addView(summary, summaryParams);
+
+        if (zIsSignedIn) {
+            ImageButton details = new ImageButton(this);
+            details.setImageResource(R.drawable.ic_reset_credit_details);
+            details.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
+            details.setPadding(Ui.dp(this, 10.0f), Ui.dp(this, 10.0f),
+                    Ui.dp(this, 10.0f), Ui.dp(this, 10.0f));
+            details.setContentDescription("View all reset credit expirations");
+            details.setTooltipText("Credit expirations");
+            TypedValue selectable = new TypedValue();
+            if (getTheme().resolveAttribute(
+                    android.R.attr.selectableItemBackgroundBorderless, selectable, true)) {
+                details.setBackgroundResource(selectable.resourceId);
+            }
+            details.setOnClickListener(view -> openResetCredits());
+            FrameLayout.LayoutParams detailsParams = new FrameLayout.LayoutParams(
+                    Ui.dp(this, 44.0f), Ui.dp(this, 44.0f), Gravity.TOP | Gravity.END);
+            header.addView(details, detailsParams);
+        }
+        linearLayoutCard.addView(header, new LinearLayout.LayoutParams(-1, Ui.dp(this, 80.0f)));
 
         Button button = Ui.nativePrimaryButton(this, i > 0 ? "Use 1 reset" : "No resets available");
         button.setEnabled(zIsSignedIn && i > 0);
-        button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.6
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                MainActivity.this.startActivity(new Intent(MainActivity.this, (Class<?>) ResetCreditActivity.class));
-            }
-        });
+        button.setOnClickListener(view -> openResetCredits());
         linearLayoutCard.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f)));
         return linearLayoutCard;
+    }
+
+    private void openResetCredits() {
+        Ui.startSecondaryActivity(this, ResetCreditActivity.class);
     }
 
     private LinearLayout buildWidgetCard() {

@@ -12,6 +12,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
@@ -62,6 +64,9 @@ public final class ResetCreditActivity extends AppCompatActivity {
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutCard.addView(textViewText);
         long jCurrentTimeMillis = System.currentTimeMillis();
+        List<RateLimitResetCredit> availableCredits = resetCreditsSnapshotLoadResetCredits == null
+                ? Collections.emptyList()
+                : resetCreditsSnapshotLoadResetCredits.availableCreditsByExpiry(jCurrentTimeMillis);
         long jNextExpiryMillis = resetCreditsSnapshotLoadResetCredits == null ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(jCurrentTimeMillis);
         if (jNextExpiryMillis > 0) {
             str = "Next credit expires " + UsageFormat.absolute(this, jNextExpiryMillis, jCurrentTimeMillis) + " (" + UsageFormat.relative(jNextExpiryMillis, jCurrentTimeMillis) + ").";
@@ -74,45 +79,101 @@ public final class ResetCreditActivity extends AppCompatActivity {
         LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
         layoutParams2.setMargins(0, Ui.dp(this, 8.0f), 0, Ui.dp(this, 14.0f));
         linearLayoutCard.addView(viewText, layoutParams2);
-        View viewText2 = Ui.text(this, "Using a credit asks OpenAI to reset the currently used Codex rate-limit windows. Afterward, Codex Meter reloads both usage windows and the remaining credit inventory.", 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams3 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams3.setMargins(0, 0, 0, Ui.dp(this, 16.0f));
-        linearLayoutCard.addView(viewText2, layoutParams3);
+        addCreditExpirations(linearLayoutCard, availableCredits, i, jCurrentTimeMillis);
         String visibleResetCreditsError = AppPreferences.getVisibleResetCreditsError(this);
         if (!visibleResetCreditsError.isEmpty()) {
             View viewText3 = Ui.text(this, visibleResetCreditsError, 12.0f, Ui.danger(this.dark));
             LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams4.setMargins(0, 0, 0, Ui.dp(this, 12.0f));
+            layoutParams4.setMargins(0, Ui.dp(this, 12.0f), 0, 0);
             linearLayoutCard.addView(viewText3, layoutParams4);
         }
-        LinearLayout linearLayoutHorizontal2 = Ui.horizontal(this, 16);
-        Button button = Ui.button(this, "Cancel", false, this.dark);
-        button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.2
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                ResetCreditActivity.this.finish();
-            }
-        });
-        linearLayoutHorizontal2.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f));
-        this.useButton = Ui.button(this, i > 0 ? "Use reset" : "No reset available", true, this.dark);
+        this.useButton = Ui.nativePrimaryButton(
+                this, i > 0 ? "Use 1 reset" : "No resets available");
         this.useButton.setEnabled(i > 0 && SecureTokenStore.isSignedIn(this));
-        LinearLayout.LayoutParams layoutParams5 = new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f);
-        layoutParams5.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
-        linearLayoutHorizontal2.addView(this.useButton, layoutParams5);
+        LinearLayout.LayoutParams useButtonParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
+        useButtonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
         this.useButton.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.3
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
                 ResetCreditActivity.this.confirmUse();
             }
         });
-        linearLayoutCard.addView(linearLayoutHorizontal2);
+        linearLayoutCard.addView(this.useButton, useButtonParams);
         this.content.addView(linearLayoutCard);
+    }
+
+    private void addCreditExpirations(LinearLayout card,
+            List<RateLimitResetCredit> credits, int availableCount, long nowMillis) {
+        View divider = new View(this);
+        divider.setBackgroundColor(Ui.divider(this.dark));
+        card.addView(divider, new LinearLayout.LayoutParams(-1, Ui.dp(this, 1.0f)));
+
+        TextView heading = Ui.text(this, "Credit expirations", 15.0f, Ui.mainText(this.dark));
+        heading.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(-1, -2);
+        headingParams.setMargins(0, Ui.dp(this, 15.0f), 0, Ui.dp(this, 5.0f));
+        card.addView(heading, headingParams);
+
+        for (int index = 0; index < credits.size(); index++) {
+            RateLimitResetCredit credit = credits.get(index);
+            LinearLayout row = Ui.horizontal(this, android.view.Gravity.CENTER_VERTICAL);
+            LinearLayout labels = new LinearLayout(this);
+            labels.setOrientation(LinearLayout.VERTICAL);
+            String titleText = credit.title.trim().isEmpty()
+                    ? "Reset credit " + (index + 1) : credit.title.trim();
+            TextView title = Ui.text(this, titleText, 15.0f, Ui.mainText(this.dark));
+            title.setTypeface(Ui.mediumTypeface(this));
+            labels.addView(title);
+            String expiryText = credit.expiresAtMillis > 0L
+                    ? UsageFormat.absolute(this, credit.expiresAtMillis, nowMillis)
+                            + " · " + UsageFormat.relative(credit.expiresAtMillis, nowMillis)
+                    : "Expiration unavailable";
+            TextView expiry = Ui.text(this, expiryText, 13.0f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams expiryParams = new LinearLayout.LayoutParams(-1, -2);
+            expiryParams.setMargins(0, Ui.dp(this, 3.0f), 0, 0);
+            labels.addView(expiry, expiryParams);
+            row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1.0f));
+            if (index == 0 && credit.expiresAtMillis > 0L) {
+                TextView next = Ui.text(this, "Next", 12.0f, Ui.accent(this, this.dark));
+                next.setTypeface(Ui.mediumTypeface(this));
+                LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(-2, -2);
+                nextParams.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
+                row.addView(next, nextParams);
+            }
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+            rowParams.setMargins(0, Ui.dp(this, 9.0f), 0, Ui.dp(this, 9.0f));
+            card.addView(row, rowParams);
+        }
+
+        int missingCount = Math.max(0, availableCount - credits.size());
+        if (missingCount > 0) {
+            String missingText = credits.isEmpty()
+                    ? "Expiration details are not available yet."
+                    : missingCount + " additional credit" + (missingCount == 1 ? "" : "s")
+                            + " without expiration details.";
+            TextView missing = Ui.text(this, missingText, 13.0f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams missingParams = new LinearLayout.LayoutParams(-1, -2);
+            missingParams.setMargins(0, Ui.dp(this, 9.0f), 0, Ui.dp(this, 5.0f));
+            card.addView(missing, missingParams);
+        } else if (availableCount == 0) {
+            TextView none = Ui.text(this, "No available credits.", 13.0f,
+                    Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams noneParams = new LinearLayout.LayoutParams(-1, -2);
+            noneParams.setMargins(0, Ui.dp(this, 9.0f), 0, Ui.dp(this, 5.0f));
+            card.addView(none, noneParams);
+        }
     }
 
     private void refreshDetailsIfNeeded() {
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
-        long jMax = resetCreditsSnapshotLoadResetCredits == null ? Long.MAX_VALUE : Math.max(0L, System.currentTimeMillis() - resetCreditsSnapshotLoadResetCredits.fetchedAtMillis);
-        if (SecureTokenStore.isSignedIn(this) && jMax >= 300000) {
+        long now = System.currentTimeMillis();
+        long jMax = resetCreditsSnapshotLoadResetCredits == null ? Long.MAX_VALUE : Math.max(0L, now - resetCreditsSnapshotLoadResetCredits.fetchedAtMillis);
+        boolean missingDetails = resetCreditsSnapshotLoadResetCredits != null
+                && resetCreditsSnapshotLoadResetCredits.availableCount > 0
+                && resetCreditsSnapshotLoadResetCredits.availableCreditsByExpiry(now).size()
+                        < resetCreditsSnapshotLoadResetCredits.availableCount;
+        if (SecureTokenStore.isSignedIn(this) && (jMax >= 300000 || missingDetails)) {
             final Context applicationContext = getApplicationContext();
             this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.ResetCreditActivity.4
                 @Override // java.lang.Runnable
@@ -134,7 +195,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     public void confirmUse() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one Codex reset?").setMessage("This action consumes one available reset credit and cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one Codex reset?").setMessage("The available credit expiring soonest will be used. This cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use 1 reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 ResetCreditActivity.this.consume();
