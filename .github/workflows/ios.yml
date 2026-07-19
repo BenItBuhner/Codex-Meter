@@ -79,7 +79,7 @@ jobs:
           set -euo pipefail
           xcodebuild \
             -project CodexMeter.xcodeproj \
-            -target CodexMeterWatch \
+            -scheme CodexMeterWatch \
             -sdk watchsimulator \
             CODE_SIGNING_ALLOWED=NO \
             build
@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           xcodebuild \
             -project CodexMeter.xcodeproj \
-            -target CodexMeterWatchWidgets \
+            -scheme CodexMeterWatchWidgets \
             -sdk watchsimulator \
             CODE_SIGNING_ALLOWED=NO \
             build
