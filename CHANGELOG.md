@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.4.2 — 2026-07-19
+
+### Added
+
+- Off option for accelerated-usage warning sensitivity so pace estimates can stay on without orange warnings or matching Now Bar auto-start triggers (#57).
+- Reset-credit expiration details on the dashboard and inventory, with soonest-expiring credit selection when redeeming (#56).
+
+### Changed
+
+- Android Settings now uses a compact hub with focused destinations for appearance, refresh and usage, notifications, Now Bar, updates, transfer, and privacy, revealing nested options only when their parent feature is enabled (#54).
+
+### Fixed
+
+- Onboarding card spacing and Settings bottom padding no longer collapse against adjacent cards or the screen edge (#52).
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.1...v2.4.2 <!-- pragma: allowlist secret -->
+
 ## 2.4.1 — 2026-07-18
 
 ### Fixed

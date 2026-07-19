@@ -12,9 +12,9 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.4.1
+## Android — Version 2.4.2
 
-Version 2.4.1 restores reliable Live Update rendering across Android 16 variants and rebuilds an active monitor immediately after promoted-notification access changes, instead of leaving it on a previous fallback or unpromoted contract.
+Version 2.4.2 redesigns Android Settings into a compact hub with focused destinations, surfaces reset-credit expiration details, adds an Off warning-sensitivity option for pace estimates, and restores onboarding/settings spacing.
 
 ### Live countdowns
 
@@ -93,7 +93,7 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.4.1`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
+Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.4.2`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
 
 ## Platform stability
 
