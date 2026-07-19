@@ -17,4 +17,4 @@
     app:monotonePreviewLayoutSmall="@layout/widget_lock_wide"
     app:targetHost="cover|lock_and_aod"
     app:widgetSize="medium|small"
-    app:widgetStyle="monotone"/>
+    app:widgetStyle="colorful"/>

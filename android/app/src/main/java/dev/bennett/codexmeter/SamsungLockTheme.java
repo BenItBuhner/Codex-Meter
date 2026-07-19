@@ -8,16 +8,22 @@ import android.util.Log;
 import android.widget.RemoteViews;
 
 /**
- * Lock-screen / AOD surface + ink colors for Samsung monotone widgets.
+ * Lock-screen / AOD surface + ink colors for Samsung lock widgets.
  *
- * <p>One UI 7+ AppWidget hosts paint an adaptive monotone frame around a transparent
- * {@code @android:id/background} root and recolor black ink. Older One UI builds (including
- * Galaxy Tab S8 on One UI 6.x) do not, so those hosts need Face-Widget-style surfaces and
- * contrasting ink applied by the app.
+ * <p>Lock tiles use {@code widgetStyle=colorful} with
+ * {@code @android:id/background} so One UI can host them like first-party lock
+ * widgets. {@code widgetStyle=monotone} on One UI 6.x (Galaxy Tab S8) forced a
+ * black monochrome pill that did not match wallpaper-tinted siblings and left
+ * dark ink nearly invisible.
+ *
+ * <p>Pre-One UI 7 lock chrome is wallpaper-tinted (darkish) even in light theme,
+ * so those hosts get a dark translucent app-drawn pill and light ink. One UI 7+
+ * leaves the background transparent for SystemUI's adaptive frame and follows
+ * night mode for ink. Force Dark is disabled on the tile so the host cannot
+ * crush light ink back to black.
  */
 final class SamsungLockTheme {
     private static final String TAG = "CodexMeterLock";
-    /** One UI 7.0 ships as {@code ro.build.version.oneui=70000}. */
     private static final int ONE_UI_7 = 70000;
 
     private SamsungLockTheme() {
@@ -31,26 +37,18 @@ final class SamsungLockTheme {
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
 
-    /** True when SystemUI owns the adaptive monotone pill (One UI 7+). */
-    static boolean hostOwnsMonotoneFrame(Context context) {
+    /** Pre-One UI 7 lock chrome is wallpaper-tinted and needs light ink like sibling tiles. */
+    static boolean usesWallpaperTintedLockChrome() {
         int oneUi = oneUiVersionCode();
         if (oneUi > 0) {
-            return oneUi >= ONE_UI_7;
+            return oneUi < ONE_UI_7;
         }
-        // Property missing: API 35+ phones/tablets are One UI 7-class enough to leave the frame alone.
-        return Build.VERSION.SDK_INT >= 35;
+        return Build.VERSION.SDK_INT < 35;
     }
 
-    /**
-     * Whether bitmap/text ink should be light-on-dark. One UI 7+ AppWidgets keep black ink so the
-     * host can tint it; older hosts and AOD payloads use contrast against the painted surface.
-     */
     static boolean useLightInk(Context context, boolean aod) {
-        if (aod) {
+        if (aod || usesWallpaperTintedLockChrome()) {
             return true;
-        }
-        if (hostOwnsMonotoneFrame(context)) {
-            return false;
         }
         return isSystemDark(context);
     }
@@ -71,33 +69,44 @@ final class SamsungLockTheme {
         return lightInk ? Color.argb(51, 255, 255, 255) : Color.argb(51, 0, 0, 0);
     }
 
-    static int surfaceResource(boolean darkSurface, boolean aod) {
-        if (aod) {
-            return R.drawable.widget_lock_monochrome_bg_aod;
-        }
-        return darkSurface ? R.drawable.widget_lock_monochrome_bg_dark
-                : R.drawable.widget_lock_monochrome_bg;
-    }
-
-    /**
-     * Applies lock-screen surface + ink. AOD/ServiceBox always paints a Face-Widget surface.
-     * One UI 7+ AppWidget updates leave a transparent {@code @android:id/background} so SystemUI
-     * can own the adaptive pill; older One UI paints light/dark surfaces itself.
-     */
     static void apply(RemoteViews views, Context context, boolean aod) {
         if (views == null) {
             return;
         }
-        boolean selfTheme = aod || !hostOwnsMonotoneFrame(context);
-        if (!selfTheme) {
-            views.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
+        disableForceDark(views);
+        if (aod) {
+            views.setInt(android.R.id.background, "setBackgroundResource",
+                    R.drawable.widget_lock_monochrome_bg_aod);
+            applyInk(views, true);
+            clearImageColorFilter(views);
             return;
         }
-        boolean darkSurface = aod || isSystemDark(context);
-        boolean lightInk = aod || darkSurface;
-        views.setInt(android.R.id.background, "setBackgroundResource",
-                surfaceResource(darkSurface, aod));
-        applyInk(views, lightInk);
+        if (usesWallpaperTintedLockChrome()) {
+            // Match One UI 6 lock siblings: dark translucent pill + white content.
+            views.setInt(android.R.id.background, "setBackgroundResource",
+                    R.drawable.widget_lock_monochrome_bg_dark);
+            applyInk(views, true);
+            clearImageColorFilter(views);
+            return;
+        }
+        views.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
+        applyInk(views, isSystemDark(context));
+        clearImageColorFilter(views);
+    }
+
+    private static void disableForceDark(RemoteViews views) {
+        if (Build.VERSION.SDK_INT < 29) {
+            return;
+        }
+        setBooleanIfPresent(views, android.R.id.background, "setForceDarkAllowed", false);
+        setBooleanIfPresent(views, R.id.lock_graphic_image, "setForceDarkAllowed", false);
+    }
+
+    private static void clearImageColorFilter(RemoteViews views) {
+        // Clear any host-applied ColorFilter so our white/black ink bitmaps stay visible.
+        setIntIfPresent(views, R.id.lock_graphic_image, "setColorFilter", 0);
+        setIntIfPresent(views, R.id.lock_graphic_primary_icon, "setColorFilter", 0);
+        setIntIfPresent(views, R.id.lock_graphic_secondary_icon, "setColorFilter", 0);
     }
 
     private static void applyInk(RemoteViews views, boolean lightInk) {
@@ -124,6 +133,22 @@ final class SamsungLockTheme {
             views.setTextColor(viewId, color);
         } catch (RuntimeException ignored) {
             // Layout variant without this id.
+        }
+    }
+
+    private static void setIntIfPresent(RemoteViews views, int viewId, String method, int value) {
+        try {
+            views.setInt(viewId, method, value);
+        } catch (RuntimeException ignored) {
+            // Layout variant without this id.
+        }
+    }
+
+    private static void setBooleanIfPresent(RemoteViews views, int viewId, String method, boolean value) {
+        try {
+            views.setBoolean(viewId, method, value);
+        } catch (RuntimeException ignored) {
+            // Layout variant without this id / method.
         }
     }
 
