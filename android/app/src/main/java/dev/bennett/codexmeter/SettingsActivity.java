@@ -214,7 +214,7 @@ public final class SettingsActivity extends AppCompatActivity
                 if (!UpdatePreferences.automaticChecks(requireContext())) {
                     updates.setSummary("Manual");
                 } else {
-                    updates.setSummary(UpdateCheckFrequency.summary(
+                    updates.setSummary(UpdateCheckFrequency.label(
                             UpdatePreferences.checkIntervalHours(requireContext())));
                 }
             }
