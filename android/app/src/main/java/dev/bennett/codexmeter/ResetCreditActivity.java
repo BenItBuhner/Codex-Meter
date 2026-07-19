@@ -7,9 +7,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.concurrent.ExecutorService;
@@ -52,61 +50,124 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     public void rebuild() {
-        String str;
         this.content.removeAllViews();
+        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
+        int availableCount = snapshot == null ? 0 : snapshot.availableCount;
+        long now = System.currentTimeMillis();
+        java.util.List<RateLimitResetCredit> credits = snapshot == null
+                ? java.util.Collections.emptyList()
+                : snapshot.availableCreditsSortedByExpiry(now);
+
         this.content.addView(Ui.sectionTitle(this, "Available credits", this.dark));
-        LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
-        int i = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
-        TextView textViewText = Ui.text(this, i + " reset credit" + (i == 1 ? "" : "s") + " available", 20.0f, Ui.mainText(this.dark));
-        textViewText.setTypeface(Ui.mediumTypeface(this));
-        linearLayoutCard.addView(textViewText);
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        long jNextExpiryMillis = resetCreditsSnapshotLoadResetCredits == null ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(jCurrentTimeMillis);
-        if (jNextExpiryMillis > 0) {
-            str = "Next credit expires " + UsageFormat.absolute(this, jNextExpiryMillis, jCurrentTimeMillis) + " (" + UsageFormat.relative(jNextExpiryMillis, jCurrentTimeMillis) + ").";
-        } else if (i > 0) {
-            str = "Expiry details are unavailable; OpenAI will choose an eligible credit.";
+        LinearLayout summaryCard = Ui.card(this, this.dark);
+        TextView summary = Ui.text(this,
+                availableCount + " reset credit" + (availableCount == 1 ? "" : "s") + " available",
+                20.0f, Ui.mainText(this.dark));
+        summary.setTypeface(Ui.mediumTypeface(this));
+        summaryCard.addView(summary);
+
+        String summaryDetail;
+        long nextExpiry = snapshot == null ? 0L : snapshot.nextExpiryMillis(now);
+        if (nextExpiry > 0L) {
+            summaryDetail = "Soonest expiry "
+                    + UsageFormat.absolute(this, nextExpiry, now)
+                    + " (" + UsageFormat.relative(nextExpiry, now) + ").";
+        } else if (availableCount > 0) {
+            summaryDetail = "Expiry details are unavailable; OpenAI will choose an eligible credit.";
         } else {
-            str = "No reset credit is currently available.";
+            summaryDetail = "No reset credit is currently available.";
         }
-        View viewText = Ui.text(this, str, 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams2.setMargins(0, Ui.dp(this, 8.0f), 0, Ui.dp(this, 14.0f));
-        linearLayoutCard.addView(viewText, layoutParams2);
-        View viewText2 = Ui.text(this, "Using a credit asks OpenAI to reset the currently used Codex rate-limit windows. Afterward, Codex Meter reloads both usage windows and the remaining credit inventory.", 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams3 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams3.setMargins(0, 0, 0, Ui.dp(this, 16.0f));
-        linearLayoutCard.addView(viewText2, layoutParams3);
+        View summaryDetailView = Ui.text(this, summaryDetail, 13.0f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams summaryDetailParams = new LinearLayout.LayoutParams(-1, -2);
+        summaryDetailParams.setMargins(0, Ui.dp(this, 8.0f), 0, Ui.dp(this, 14.0f));
+        summaryCard.addView(summaryDetailView, summaryDetailParams);
+
+        View help = Ui.text(this,
+                "Using a credit asks OpenAI to reset the currently used Codex rate-limit windows. Afterward, Codex Meter reloads both usage windows and the remaining credit inventory.",
+                13.0f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(-1, -2);
+        helpParams.setMargins(0, 0, 0, Ui.dp(this, 16.0f));
+        summaryCard.addView(help, helpParams);
+
         String visibleResetCreditsError = AppPreferences.getVisibleResetCreditsError(this);
         if (!visibleResetCreditsError.isEmpty()) {
-            View viewText3 = Ui.text(this, visibleResetCreditsError, 12.0f, Ui.danger(this.dark));
-            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams4.setMargins(0, 0, 0, Ui.dp(this, 12.0f));
-            linearLayoutCard.addView(viewText3, layoutParams4);
+            View error = Ui.text(this, visibleResetCreditsError, 12.0f, Ui.danger(this.dark));
+            LinearLayout.LayoutParams errorParams = new LinearLayout.LayoutParams(-1, -2);
+            errorParams.setMargins(0, 0, 0, Ui.dp(this, 12.0f));
+            summaryCard.addView(error, errorParams);
         }
-        LinearLayout linearLayoutHorizontal2 = Ui.horizontal(this, 16);
-        Button button = Ui.button(this, "Cancel", false, this.dark);
-        button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.2
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                ResetCreditActivity.this.finish();
+
+        LinearLayout actions = Ui.horizontal(this, 16);
+        Button cancel = Ui.button(this, "Cancel", false, this.dark);
+        cancel.setOnClickListener(view -> finish());
+        actions.addView(cancel, new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f));
+        this.useButton = Ui.button(this,
+                availableCount > 0 ? "Use reset" : "No reset available", true, this.dark);
+        this.useButton.setEnabled(availableCount > 0 && SecureTokenStore.isSignedIn(this));
+        LinearLayout.LayoutParams useParams = new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f);
+        useParams.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
+        actions.addView(this.useButton, useParams);
+        this.useButton.setOnClickListener(view -> confirmUse());
+        summaryCard.addView(actions);
+        this.content.addView(summaryCard);
+
+        this.content.addView(Ui.sectionTitle(this, "Credits & expiration", this.dark));
+        LinearLayout listCard = Ui.card(this, this.dark);
+        if (credits.isEmpty()) {
+            View empty = Ui.text(this,
+                    availableCount > 0
+                            ? "Individual credit expiration details are not cached yet. Pull to refresh from the dashboard, then open this screen again."
+                            : "There are no available reset credits to show.",
+                    13.0f, Ui.secondaryText(this.dark));
+            listCard.addView(empty);
+        } else {
+            for (int index = 0; index < credits.size(); index++) {
+                RateLimitResetCredit credit = credits.get(index);
+                if (index > 0) {
+                    View divider = new View(this);
+                    divider.setBackgroundColor(Ui.divider(this.dark));
+                    LinearLayout.LayoutParams dividerParams =
+                            new LinearLayout.LayoutParams(-1, Ui.dp(this, 1.0f));
+                    dividerParams.setMargins(0, Ui.dp(this, 14.0f), 0, Ui.dp(this, 14.0f));
+                    listCard.addView(divider, dividerParams);
+                }
+                listCard.addView(buildCreditRow(credit, index + 1, now));
             }
-        });
-        linearLayoutHorizontal2.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f));
-        this.useButton = Ui.button(this, i > 0 ? "Use reset" : "No reset available", true, this.dark);
-        this.useButton.setEnabled(i > 0 && SecureTokenStore.isSignedIn(this));
-        LinearLayout.LayoutParams layoutParams5 = new LinearLayout.LayoutParams(0, Ui.dp(this, 52.0f), 1.0f);
-        layoutParams5.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
-        linearLayoutHorizontal2.addView(this.useButton, layoutParams5);
-        this.useButton.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.3
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                ResetCreditActivity.this.confirmUse();
-            }
-        });
-        linearLayoutCard.addView(linearLayoutHorizontal2);
-        this.content.addView(linearLayoutCard);
+        }
+        this.content.addView(listCard);
+    }
+
+    private LinearLayout buildCreditRow(RateLimitResetCredit credit, int ordinal, long now) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        String title = credit.title == null ? "" : credit.title.trim();
+        if (title.isEmpty()) {
+            title = "Reset credit " + ordinal;
+        }
+        TextView titleView = Ui.text(this, title, 16.0f, Ui.mainText(this.dark));
+        titleView.setTypeface(Ui.mediumTypeface(this));
+        row.addView(titleView);
+
+        String expiryText;
+        if (credit.expiresAtMillis > 0L) {
+            expiryText = "Expires " + UsageFormat.absolute(this, credit.expiresAtMillis, now)
+                    + " (" + UsageFormat.relative(credit.expiresAtMillis, now) + ")";
+        } else {
+            expiryText = "No expiration date available";
+        }
+        TextView expiryView = Ui.text(this, expiryText, 13.0f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams expiryParams = new LinearLayout.LayoutParams(-1, -2);
+        expiryParams.setMargins(0, Ui.dp(this, 4.0f), 0, 0);
+        row.addView(expiryView, expiryParams);
+
+        String description = credit.description == null ? "" : credit.description.trim();
+        if (!description.isEmpty()) {
+            TextView descriptionView = Ui.text(this, description, 12.0f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams descriptionParams = new LinearLayout.LayoutParams(-1, -2);
+            descriptionParams.setMargins(0, Ui.dp(this, 4.0f), 0, 0);
+            row.addView(descriptionView, descriptionParams);
+        }
+        return row;
     }
 
     private void refreshDetailsIfNeeded() {

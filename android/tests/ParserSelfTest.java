@@ -20,6 +20,7 @@ public final class ParserSelfTest {
         testNextResetSelection();
         testCelebrationDetection();
         testResetCreditExpiryReminders();
+        testResetCreditsSortedByExpiry();
         testFullWindowHidesResetCountdown();
         testUsagePace();
         testNowBarAutoStart();
@@ -540,6 +541,30 @@ public final class ParserSelfTest {
                 "reminder identities are unique across credits and lead times");
         System.out.println("Reset-credit expiry demo: multiple custom lead times planned for "
                 + "every available credit.");
+    }
+
+    private static void testResetCreditsSortedByExpiry() {
+        long now = 2_000_000L;
+        RateLimitResetCredit later = new RateLimitResetCredit("later", "both", "available",
+                now - 1, now + TimeUnit.DAYS.toMillis(9), "Later", "");
+        RateLimitResetCredit soon = new RateLimitResetCredit("soon", "both", "available",
+                now - 1, now + TimeUnit.DAYS.toMillis(2), "Soon", "");
+        RateLimitResetCredit noExpiry = new RateLimitResetCredit("open", "both", "available",
+                now - 1, 0L, "Open", "");
+        RateLimitResetCredit redeemed = new RateLimitResetCredit("used", "both", "redeemed",
+                now - 1, now + TimeUnit.HOURS.toMillis(1), "Used", "");
+        RateLimitResetCredit expired = new RateLimitResetCredit("expired", "both", "available",
+                now - 1, now - 1, "Expired", "");
+        ResetCreditsSnapshot snapshot = new ResetCreditsSnapshot(3,
+                Arrays.asList(later, soon, noExpiry, redeemed, expired), now);
+        List<RateLimitResetCredit> sorted = snapshot.availableCreditsSortedByExpiry(now);
+        check(sorted.size() == 3, "only available unexpired credits are listed");
+        check("soon".equals(sorted.get(0).id), "soonest expiry is first");
+        check("later".equals(sorted.get(1).id), "later expiry follows soonest");
+        check("open".equals(sorted.get(2).id), "credits without expiry sort last");
+        check(snapshot.nextExpiryMillis(now) == soon.expiresAtMillis,
+                "next expiry matches the soonest available credit");
+        System.out.println("Reset-credit list demo: available credits ordered by soonest expiry.");
     }
 
     private static UsageSnapshot snapshot(int fiveHourUsed, int weeklyUsed,

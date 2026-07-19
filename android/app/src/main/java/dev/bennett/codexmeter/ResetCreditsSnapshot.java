@@ -30,22 +30,31 @@ public final class ResetCreditsSnapshot {
     }
 
     public RateLimitResetCredit nextExpiringAvailable(long nowMillis) {
-        RateLimitResetCredit best = null;
+        List<RateLimitResetCredit> available = availableCreditsSortedByExpiry(nowMillis);
+        return available.isEmpty() ? null : available.get(0);
+    }
+
+    /**
+     * Available, unexpired credits ordered by soonest expiry first.
+     * Credits without an expiry timestamp sort last.
+     */
+    public List<RateLimitResetCredit> availableCreditsSortedByExpiry(long nowMillis) {
+        ArrayList<RateLimitResetCredit> available = new ArrayList<>();
         for (RateLimitResetCredit credit : credits) {
             if (credit == null || !credit.isAvailable()) continue;
             long expiry = credit.expiresAtMillis;
             if (expiry > 0L && expiry <= nowMillis) continue;
-            if (best == null) {
-                best = credit;
-                continue;
-            }
-            long bestExpiry = best.expiresAtMillis;
-            // Prefer the soonest positive expiry. Credits without an expiry sort last.
-            if (expiry > 0L && (bestExpiry <= 0L || expiry < bestExpiry)) {
-                best = credit;
-            }
+            available.add(credit);
         }
-        return best;
+        Collections.sort(available, (left, right) -> {
+            long leftExpiry = left.expiresAtMillis;
+            long rightExpiry = right.expiresAtMillis;
+            if (leftExpiry <= 0L && rightExpiry <= 0L) return 0;
+            if (leftExpiry <= 0L) return 1;
+            if (rightExpiry <= 0L) return -1;
+            return Long.compare(leftExpiry, rightExpiry);
+        });
+        return Collections.unmodifiableList(available);
     }
 
     public String preferredCreditId(long j) {

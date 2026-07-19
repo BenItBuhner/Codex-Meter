@@ -32,6 +32,21 @@ public final class UsagePaceDemoActivity extends Activity {
                     "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
                     "debug-demo-account", "demo@codexmeter.local"));
             AppPreferences.saveSnapshot(this, snapshot);
+            AppPreferences.saveResetCredits(this, new ResetCreditsSnapshot(2,
+                    java.util.Arrays.asList(
+                            new RateLimitResetCredit("credit-soon", "both",
+                                    RateLimitResetCredit.STATUS_AVAILABLE,
+                                    now - TimeUnit.DAYS.toMillis(1),
+                                    now + TimeUnit.DAYS.toMillis(2),
+                                    "Soonest reset credit",
+                                    "This credit expires first."),
+                            new RateLimitResetCredit("credit-later", "both",
+                                    RateLimitResetCredit.STATUS_AVAILABLE,
+                                    now - TimeUnit.DAYS.toMillis(1),
+                                    now + TimeUnit.DAYS.toMillis(9),
+                                    "Later reset credit",
+                                    "This credit expires after the soonest one.")),
+                    now));
             AppPreferences.setRefreshOnLaunch(this, false);
             AppPreferences.completeOnboarding(this);
             UsagePacePreferences.setEnabled(this, true);
