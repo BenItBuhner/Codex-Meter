@@ -83,13 +83,3 @@ jobs:
             -sdk watchsimulator \
             CODE_SIGNING_ALLOWED=NO \
             build
-
-      - name: Build watch widgets (Simulator, no signing)
-        run: |
-          set -euo pipefail
-          xcodebuild \
-            -project CodexMeter.xcodeproj \
-            -scheme CodexMeterWatchWidgets \
-            -sdk watchsimulator \
-            CODE_SIGNING_ALLOWED=NO \
-            build
