@@ -7,7 +7,7 @@ public final class WeeklyComplicationService extends CodexComplicationService {
     @Override
     protected ComplicationData dataForType(ComplicationType type, boolean preview) {
         UsageWindow window = WearGlanceFormat.currentWeekly(snapshot(preview));
-        String percent = WearGlanceFormat.remainingPercentText(window);
+        String percent = surfaceText(preview, WearGlanceFormat.remainingPercentText(window));
         if (type == ComplicationType.RANGED_VALUE) {
             return rangedValue(WearGlanceFormat.remainingPercentOrZero(window), percent, "Week",
                     "Weekly Codex usage remaining");

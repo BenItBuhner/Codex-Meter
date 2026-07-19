@@ -2,6 +2,8 @@ package dev.bennett.codexmeter;
 
 import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
+import dev.bennett.codexmeter.wear.WearSyncStatus;
+import dev.bennett.codexmeter.wear.WearUsageState;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -27,6 +29,7 @@ public final class ParserSelfTest {
         testNowBarDisplayModes();
         testWearSurfaceModes();
         testWearSettingsState();
+        testWearSyncState();
         testWearGlanceFormat();
         testNowBarPercentModes();
         testJwtMerge();
@@ -254,7 +257,38 @@ public final class ParserSelfTest {
         check(normalized.threshold == 25, "Wear settings normalize threshold");
         check(normalized.refreshMinutes == 30, "Wear settings normalize refresh interval");
         check(WearSettingsState.SOURCE_WEAR.equals(normalized.sourceNode), "Wear settings preserve Wear source");
+        WearSettingsState pace = new WearSettingsState(
+                NowBarDisplayMode.AUTO, NowBarPercentMode.AUTO, true,
+                NowBarAutoStart.METRIC_BOTH, 25, false, 30, 3000L,
+                WearSettingsState.SOURCE_PHONE, "dev.bennett.codexmeter",
+                true, UsagePace.SENSITIVE, true);
+        WearSettingsState paceRoundTrip = WearSettingsState.fromJson(pace.toJson());
+        check(pace.equals(paceRoundTrip), "Wear settings preserve pace and accelerated start");
+        check(paceRoundTrip.acceleratedStartEnabled,
+                "Wear accelerated monitor preference survives sync");
+        check(UsagePace.SENSITIVE.equals(paceRoundTrip.usagePaceSensitivity),
+                "Wear pace sensitivity survives sync");
         System.out.println("Wear settings JSON preserves normalized sync preferences.");
+    }
+
+    private static void testWearSyncState() throws Exception {
+        WearUsageState clear = new WearUsageState(null, 4000L,
+                WearSettingsState.SOURCE_PHONE, false);
+        WearUsageState clearRoundTrip = WearUsageState.fromJson(clear.toJson());
+        check(clearRoundTrip != null && clearRoundTrip.snapshot == null,
+                "Wear usage clear payload preserves an empty snapshot");
+        check(!clearRoundTrip.signedIn,
+                "Wear usage clear payload preserves signed-out state");
+        WearSyncStatus status = new WearSyncStatus(true, true, 3000L,
+                "Network unavailable", "2.4.3", 4000L);
+        WearSyncStatus statusRoundTrip = WearSyncStatus.fromJson(status.toJson());
+        check(statusRoundTrip != null && statusRoundTrip.signedIn,
+                "Wear status preserves phone sign-in state");
+        check(statusRoundTrip.refreshInProgress,
+                "Wear status preserves refresh progress");
+        check("Network unavailable".equals(statusRoundTrip.lastError),
+                "Wear status preserves safe refresh errors");
+        System.out.println("Wear sync status covers clear, sign-in, refresh, and error states.");
     }
 
     private static void testWearGlanceFormat() {
@@ -296,6 +330,15 @@ public final class ParserSelfTest {
                 "Wear reset label uses observation-based reset-after fallback");
         check(WearGlanceFormat.nextResetRelativeText(fallbackTimed, now).contains("h"),
                 "Wear fallback reset countdown remains finite");
+        UsageSnapshot account = new UsageSnapshot("plus", true, true, five, weekly, 2, now);
+        check("Limit reached".equals(WearGlanceFormat.accountStatus(account)),
+                "Wear account status surfaces a reached limit");
+        check("2 reset credits".equals(WearGlanceFormat.resetCreditsText(account)),
+                "Wear displays reset-credit count");
+        check(WearGlanceFormat.isStale(now - TimeUnit.HOURS.toMillis(2), 30, now),
+                "Wear marks old phone data stale");
+        check(!WearGlanceFormat.isStale(now - TimeUnit.MINUTES.toMillis(10), 30, now),
+                "Wear keeps recent phone data fresh");
         System.out.println("Wear glance formatting covers tiles and complication text.");
     }
 

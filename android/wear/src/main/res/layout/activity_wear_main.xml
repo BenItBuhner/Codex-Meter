@@ -45,7 +45,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="5-hour"
+                    android:text="@string/wear_five_hour"
                     android:textColor="@color/codex_secondary_text"
                     android:textSize="14sp" />
 
@@ -66,6 +66,25 @@
                     android:gravity="center"
                     android:textColor="@color/codex_secondary_text"
                     android:textSize="20sp" />
+
+                <TextView
+                    android:id="@+id/account_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:textColor="@color/codex_secondary_text"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/credits_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:gravity="center"
+                    android:textColor="@color/codex_blue"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <TextView
@@ -92,14 +111,6 @@
                 android:layout_height="52dp"
                 android:layout_marginTop="8dp"
                 android:text="@string/wear_toggle_monitor" />
-
-            <Button
-                android:id="@+id/demo_button"
-                style="@style/OneUiWatchSecondaryButton"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/wear_load_demo" />
 
             <Button
                 android:id="@+id/settings_button"

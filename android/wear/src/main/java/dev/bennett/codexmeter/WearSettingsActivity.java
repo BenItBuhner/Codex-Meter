@@ -1,7 +1,12 @@
 package dev.bennett.codexmeter;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
@@ -13,6 +18,8 @@ import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncPaths;
 
 public final class WearSettingsActivity extends Activity {
+    private static final int REQUEST_NOTIFICATIONS = 8715;
+    private Switch acceleratedStartSwitch;
     private Switch autoStartSwitch;
     private Spinner displayModeSpinner;
     private TextView displayModeSummary;
@@ -21,10 +28,13 @@ public final class WearSettingsActivity extends Activity {
     private Spinner metricSpinner;
     private String[] metricValues;
     private Switch monitorSwitch;
+    private Spinner paceSensitivitySpinner;
+    private String[] paceSensitivityValues;
     private Spinner percentModeSpinner;
     private String[] percentModeValues;
     private Spinner thresholdSpinner;
     private String[] thresholdValues;
+    private Switch usagePaceSwitch;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,17 +44,23 @@ public final class WearSettingsActivity extends Activity {
         percentModeValues = getResources().getStringArray(R.array.wear_percent_modes);
         metricValues = getResources().getStringArray(R.array.wear_metrics);
         thresholdValues = getResources().getStringArray(R.array.wear_thresholds);
+        paceSensitivityValues = getResources()
+                .getStringArray(R.array.wear_pace_sensitivities);
         displayModeSpinner = findViewById(R.id.display_mode_spinner);
         percentModeSpinner = findViewById(R.id.percent_mode_spinner);
         metricSpinner = findViewById(R.id.metric_spinner);
         thresholdSpinner = findViewById(R.id.threshold_spinner);
+        paceSensitivitySpinner = findViewById(R.id.pace_sensitivity_spinner);
         autoStartSwitch = findViewById(R.id.auto_start_switch);
+        usagePaceSwitch = findViewById(R.id.usage_pace_switch);
+        acceleratedStartSwitch = findViewById(R.id.accelerated_start_switch);
         monitorSwitch = findViewById(R.id.monitor_switch);
         displayModeSummary = findViewById(R.id.display_mode_summary);
         bindSpinner(displayModeSpinner, R.array.wear_display_mode_labels);
         bindSpinner(percentModeSpinner, R.array.wear_percent_mode_labels);
         bindSpinner(metricSpinner, R.array.wear_metric_labels);
         bindSpinner(thresholdSpinner, R.array.wear_thresholds);
+        bindSpinner(paceSensitivitySpinner, R.array.wear_pace_sensitivity_labels);
         loadState();
         setupListeners();
         Button back = findViewById(R.id.back_button);
@@ -59,7 +75,11 @@ public final class WearSettingsActivity extends Activity {
         percentModeSpinner.setSelection(indexOf(percentModeValues, state.percentMode));
         metricSpinner.setSelection(indexOf(metricValues, state.metric));
         thresholdSpinner.setSelection(indexOf(thresholdValues, Integer.toString(state.threshold)));
+        paceSensitivitySpinner.setSelection(indexOf(paceSensitivityValues,
+                state.usagePaceSensitivity));
         autoStartSwitch.setChecked(state.autoStartEnabled);
+        usagePaceSwitch.setChecked(state.usagePaceEnabled);
+        acceleratedStartSwitch.setChecked(state.acceleratedStartEnabled);
         monitorSwitch.setChecked(state.monitorActive);
         initializing = false;
         updateDisplaySummary();
@@ -83,13 +103,24 @@ public final class WearSettingsActivity extends Activity {
         percentModeSpinner.setOnItemSelectedListener(listener);
         metricSpinner.setOnItemSelectedListener(listener);
         thresholdSpinner.setOnItemSelectedListener(listener);
+        paceSensitivitySpinner.setOnItemSelectedListener(listener);
         CompoundButton.OnCheckedChangeListener checkedListener =
                 (buttonView, isChecked) -> {
                     if (!initializing) {
+                        if (buttonView == monitorSwitch && isChecked
+                                && !WearOngoingMonitor.canPostNotifications(this)) {
+                            initializing = true;
+                            monitorSwitch.setChecked(false);
+                            initializing = false;
+                            requestNotificationPermission();
+                            return;
+                        }
                         saveCurrent(buttonView == monitorSwitch);
                     }
                 };
         autoStartSwitch.setOnCheckedChangeListener(checkedListener);
+        usagePaceSwitch.setOnCheckedChangeListener(checkedListener);
+        acceleratedStartSwitch.setOnCheckedChangeListener(checkedListener);
         monitorSwitch.setOnCheckedChangeListener(checkedListener);
     }
 
@@ -109,7 +140,10 @@ public final class WearSettingsActivity extends Activity {
                 existing.refreshMinutes,
                 System.currentTimeMillis(),
                 WearSettingsState.SOURCE_WEAR,
-                getPackageName());
+                getPackageName(),
+                usagePaceSwitch.isChecked(),
+                selected(paceSensitivityValues, paceSensitivitySpinner),
+                acceleratedStartSwitch.isChecked());
         WearPreferences.saveLocalSettings(this, state);
         WearPhoneSync.pushSettings(this);
         if (monitorChanged) {
@@ -131,13 +165,35 @@ public final class WearSettingsActivity extends Activity {
                 WearOngoingMonitor.canUseLocalLiveUpdates(this));
         String summary;
         if (resolved == WearSurfaceMode.LIVE_UPDATE) {
-            summary = "Wear OS 7+ maps this to local Live Updates when allowed; Ongoing Activity still powers the watch chip and Recents.";
+            summary = getString(R.string.wear_surface_live);
         } else if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(selected)) {
-            summary = "Samsung phone Now Bar extras do not exist on Wear. Use Tiles, Complications, and Ongoing Activity here.";
+            summary = getString(R.string.wear_surface_ongoing);
         } else {
-            summary = "Auto picks the best Wear-native surface: Ongoing Activity now, local Live Update when supported.";
+            summary = getString(R.string.wear_surface_auto);
         }
         displayModeSummary.setText(summary);
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS},
+                    REQUEST_NOTIFICATIONS);
+        } else {
+            startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATIONS && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            monitorSwitch.setChecked(true);
+        }
     }
 
     private void bindSpinner(Spinner spinner, int labelsRes) {

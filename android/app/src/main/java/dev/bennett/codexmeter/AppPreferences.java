@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import dev.bennett.codexmeter.wear.PhoneWearSync;
 import org.json.JSONObject;
 
 /* JADX INFO: loaded from: classes.dex */
@@ -63,6 +64,7 @@ public final class AppPreferences {
         NowBarPreferences.clearSuppression(context);
         ResetNotificationManager.clearState(context);
         ResetCreditExpiryScheduler.cancelAll(context);
+        PhoneWearSync.pushUsage(context, null);
     }
 
     public static void setLastError(Context context, String str) {

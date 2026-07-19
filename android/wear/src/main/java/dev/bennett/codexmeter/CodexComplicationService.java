@@ -14,6 +14,8 @@ import androidx.wear.watchface.complications.data.RangedValueComplicationData;
 import androidx.wear.watchface.complications.data.ShortTextComplicationData;
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceService;
 import androidx.wear.watchface.complications.datasource.ComplicationRequest;
+import dev.bennett.codexmeter.wear.WearSettingsState;
+import dev.bennett.codexmeter.wear.WearSyncStatus;
 import java.util.concurrent.TimeUnit;
 
 abstract class CodexComplicationService extends ComplicationDataSourceService {
@@ -80,6 +82,19 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
     protected UsageSnapshot snapshot(boolean preview) {
         return preview ? previewSnapshot()
                 : WearPreferences.loadSnapshot(this);
+    }
+
+    protected String surfaceText(boolean preview, String currentText) {
+        if (preview) return currentText;
+        WearSyncStatus status = WearPreferences.syncStatus(this);
+        if (status.updatedAtMillis > 0L && !status.signedIn) return "sign in";
+        WearSettingsState settings = WearPreferences.settingsState(this, 0L,
+                WearSettingsState.SOURCE_WEAR);
+        if (WearGlanceFormat.isStale(WearPreferences.lastUsageAt(this),
+                settings.refreshMinutes, System.currentTimeMillis())) {
+            return "stale";
+        }
+        return currentText;
     }
 
     private static UsageSnapshot previewSnapshot() {

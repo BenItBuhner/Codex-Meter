@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.MessageEvent;
+import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.WearableListenerService;
 import dev.bennett.codexmeter.AppPreferences;
 import dev.bennett.codexmeter.NowBarManager;
@@ -41,6 +42,8 @@ public final class PhoneWearListenerService extends WearableListenerService {
         String path = event.getPath();
         if (WearSyncPaths.MSG_REFRESH.equals(path)) {
             refreshInBackground();
+        } else if (WearSyncPaths.MSG_SYNC_NOW.equals(path)) {
+            PhoneWearSync.pushAll(getApplicationContext());
         } else if (WearSyncPaths.MSG_START_MONITOR.equals(path)) {
             NowBarManager.start(getApplicationContext());
             PhoneWearSync.pushSettings(getApplicationContext());
@@ -48,6 +51,11 @@ public final class PhoneWearListenerService extends WearableListenerService {
             NowBarManager.stop(getApplicationContext(), true);
             PhoneWearSync.pushSettings(getApplicationContext());
         }
+    }
+
+    @Override
+    public void onPeerConnected(Node peer) {
+        PhoneWearSync.pushAll(getApplicationContext());
     }
 
     private void applySettings(String nodeId, DataItem item) {
@@ -68,12 +76,16 @@ public final class PhoneWearListenerService extends WearableListenerService {
     private void refreshInBackground() {
         final android.content.Context app = getApplicationContext();
         new Thread(() -> {
+            PhoneWearSync.pushStatus(app, true, "");
             try {
                 UsageApi.refreshAndCache(app);
             } catch (Exception exception) {
                 AppPreferences.setLastError(app, exception.getMessage());
+                PhoneWearSync.pushStatus(app, false, exception.getMessage());
                 Log.w(TAG, "Wear-requested usage refresh failed", exception);
+                return;
             }
+            PhoneWearSync.pushStatus(app, false, "");
         }, "codex-wear-refresh").start();
     }
 }

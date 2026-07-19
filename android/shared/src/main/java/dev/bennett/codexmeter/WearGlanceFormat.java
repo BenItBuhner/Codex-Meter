@@ -102,6 +102,37 @@ public final class WearGlanceFormat {
         return active ? "Live monitor active" : "Live monitor off";
     }
 
+    public static boolean isStale(long updatedAtMillis, int refreshMinutes, long nowMillis) {
+        if (updatedAtMillis <= 0L || updatedAtMillis > nowMillis) return true;
+        long staleAfter = Math.max(TimeUnit.MINUTES.toMillis(30),
+                TimeUnit.MINUTES.toMillis(Math.max(1, refreshMinutes)) * 2L);
+        return nowMillis - updatedAtMillis > staleAfter;
+    }
+
+    public static String accountStatus(UsageSnapshot snapshot) {
+        if (snapshot == null) return "Waiting for usage";
+        if (!snapshot.allowed) return "Usage access unavailable";
+        if (snapshot.limitReached) return "Limit reached";
+        String plan = snapshot.planType == null ? "" : snapshot.planType.trim();
+        if (plan.isEmpty()) return "Codex usage";
+        return Character.toUpperCase(plan.charAt(0)) + plan.substring(1) + " plan";
+    }
+
+    public static String resetCreditsText(UsageSnapshot snapshot) {
+        if (snapshot == null || snapshot.resetCreditsAvailable < 0) return "";
+        int count = snapshot.resetCreditsAvailable;
+        return count + (count == 1 ? " reset credit" : " reset credits");
+    }
+
+    public static String paceWarning(UsageSnapshot snapshot, boolean enabled, String sensitivity,
+            long nowMillis) {
+        if (!enabled) return "";
+        int window = UsagePace.mostAcceleratedWindow(snapshot, nowMillis, sensitivity);
+        if (window == UsagePace.WINDOW_FIVE_HOUR) return "Fast 5-hour usage";
+        if (window == UsagePace.WINDOW_WEEKLY) return "Fast weekly usage";
+        return "";
+    }
+
     public static String focusSummary(UsageSnapshot snapshot) {
         UsageWindow fiveHour = currentFiveHour(snapshot);
         UsageWindow weekly = currentWeekly(snapshot);

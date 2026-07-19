@@ -85,7 +85,10 @@ public final class WearOngoingMonitor {
             post(context, snapshot);
         } else if (WearPreferences.isMonitorDesired(context)
                 || NowBarAutoStart.shouldStart(settings.autoStartEnabled, settings.metric,
-                settings.threshold, fiveHour, weekly)) {
+                settings.threshold, fiveHour, weekly)
+                || (settings.acceleratedStartEnabled && settings.usagePaceEnabled
+                && UsagePace.mostAcceleratedWindow(snapshot, now,
+                settings.usagePaceSensitivity) != UsagePace.WINDOW_NONE)) {
             // Desired-from-phone can arrive before usage; start once the snapshot exists.
             start(context);
         }
@@ -211,7 +214,7 @@ public final class WearOngoingMonitor {
         }
     }
 
-    private static boolean canPostNotifications(Context context) {
+    public static boolean canPostNotifications(Context context) {
         NotificationManager manager = manager(context);
         if (manager == null || !manager.areNotificationsEnabled()) return false;
         return Build.VERSION.SDK_INT < 33
