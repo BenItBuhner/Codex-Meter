@@ -42,6 +42,9 @@ public actor WidgetSnapshotCache {
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(snapshot)
         try data.write(to: fileURL, options: [.atomic])
+        await MainActor.run {
+            PhoneWatchBridge.shared.push(snapshot: snapshot)
+        }
     }
 
     public func publish(
