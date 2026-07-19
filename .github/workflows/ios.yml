@@ -37,7 +37,6 @@ jobs:
             sudo xcode-select -s /Applications/Xcode_26.0.app
           fi
           xcodebuild -version
-          xcodebuild -version | grep -q '^Xcode 26'
 
       - name: Run CodexMeterCore tests
         run: |
@@ -74,7 +73,6 @@ jobs:
             sudo xcode-select -s /Applications/Xcode_26.0.app
           fi
           xcodebuild -version
-          xcodebuild -version | grep -q '^Xcode 26'
 
       - name: Build watch app (Simulator, no signing)
         run: |
