@@ -397,6 +397,12 @@ grep -q 'usage_pace_enabled_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q 'usage_pace_sensitivity_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q '<item>off</item>' \
+  "$ROOT/app/src/main/res/values/settings_arrays.xml"
+grep -q 'public static final String OFF = "off"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
+grep -q 'areWarningsEnabled' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsagePacePreferences.java"
 grep -q 'now_bar_accelerated_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
 grep -q 'accelerated_enabled' \

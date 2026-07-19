@@ -262,8 +262,16 @@ public final class SettingsActivity extends AppCompatActivity {
             String refreshLabel = refreshMinutes < 60
                     ? refreshMinutes + " minutes"
                     : refreshMinutes == 60 ? "Hourly" : "Every " + (refreshMinutes / 60) + " hours";
-            findPreference("settings_refresh_usage").setSummary(refreshLabel + " · Estimates "
-                    + (UsagePacePreferences.isEnabled(requireContext()) ? "on" : "off"));
+            String estimatesSummary;
+            if (!UsagePacePreferences.isEnabled(requireContext())) {
+                estimatesSummary = "Estimates off";
+            } else if (!UsagePacePreferences.areWarningsEnabled(requireContext())) {
+                estimatesSummary = "Estimates on · Warnings off";
+            } else {
+                estimatesSummary = "Estimates on";
+            }
+            findPreference("settings_refresh_usage").setSummary(
+                    refreshLabel + " · " + estimatesSummary);
 
             findPreference("settings_notifications").setSummary(
                     ResetAlertPreferences.enabled(requireContext())
@@ -427,9 +435,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 boolean isEnabled = (Boolean) value;
                 UsagePacePreferences.setEnabled(requireContext(), isEnabled);
                 usagePaceSensitivityPreference.setEnabled(isEnabled);
-                if (nowBarAcceleratedPreference != null) {
-                    nowBarAcceleratedPreference.setEnabled(isEnabled);
-                }
+                updateNowBarAcceleratedEnabledState();
                 NowBarManager.onPaceSettingsChanged(requireContext());
                 return true;
             });
@@ -437,6 +443,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 String sensitivity = UsagePace.normalizeSensitivity(String.valueOf(value));
                 UsagePacePreferences.setSensitivity(requireContext(), sensitivity);
                 usagePaceSensitivityPreference.setValue(sensitivity);
+                updateNowBarAcceleratedEnabledState();
                 NowBarManager.onPaceSettingsChanged(requireContext());
                 return true;
             });
@@ -1041,6 +1048,12 @@ public final class SettingsActivity extends AppCompatActivity {
             if (nowBarThresholdPreference != null) nowBarThresholdPreference.setVisible(enabled);
         }
 
+        private void updateNowBarAcceleratedEnabledState() {
+            if (nowBarAcceleratedPreference == null || getContext() == null) return;
+            nowBarAcceleratedPreference.setEnabled(
+                    UsagePacePreferences.areWarningsEnabled(requireContext()));
+        }
+
         private boolean ensureNotificationPermission() {
             if (Build.VERSION.SDK_INT >= 33
                     && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
@@ -1076,7 +1089,7 @@ public final class SettingsActivity extends AppCompatActivity {
                         + UsageFormat.absolute(requireContext(), NowBarManager.activeUntil(requireContext()),
                         System.currentTimeMillis()));
             } else if (NowBarPreferences.isAutoStartEnabled(requireContext())
-                    || (UsagePacePreferences.isEnabled(requireContext())
+                    || (UsagePacePreferences.areWarningsEnabled(requireContext())
                     && NowBarPreferences.isAcceleratedStartEnabled(requireContext()))) {
                 nowBarMonitorPreference.setSummary(
                         "Waiting for a low allowance or accelerated usage trigger");
@@ -1091,8 +1104,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (nowBarAcceleratedPreference != null) {
                 nowBarAcceleratedPreference.setChecked(
                         NowBarPreferences.isAcceleratedStartEnabled(requireContext()));
-                nowBarAcceleratedPreference.setEnabled(
-                        UsagePacePreferences.isEnabled(requireContext()));
+                updateNowBarAcceleratedEnabledState();
             }
             if (nowBarDisplayModePreference != null) {
                 nowBarDisplayModePreference.setValue(

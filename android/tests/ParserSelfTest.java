@@ -98,6 +98,12 @@ public final class ParserSelfTest {
                 "balanced policy warns at 75 percent projected coverage");
         check(!UsagePace.assess(borderline, now, now, UsagePace.RELAXED).accelerated,
                 "relaxed policy requires a more severe shortfall");
+        UsagePace.Assessment offWarning = UsagePace.assess(
+                fastWeekly, now, now, UsagePace.OFF);
+        check(offWarning.available && !offWarning.accelerated,
+                "off sensitivity keeps estimates without accelerated warnings");
+        check(!UsagePace.warningsEnabled(UsagePace.OFF),
+                "off sensitivity disables warning triggers");
 
         UsageWindow tinySample = new UsageWindow(4, TimeUnit.DAYS.toSeconds(7), 0L,
                 (now - hour + week) / 1000L);
@@ -111,8 +117,13 @@ public final class ParserSelfTest {
         check(UsagePace.mostAcceleratedWindow(both, now, UsagePace.BALANCED)
                         == UsagePace.WINDOW_WEEKLY,
                 "accelerated window selection identifies weekly quota");
+        check(UsagePace.mostAcceleratedWindow(both, now, UsagePace.OFF)
+                        == UsagePace.WINDOW_NONE,
+                "off sensitivity never selects an accelerated window");
         check(UsagePace.BALANCED.equals(UsagePace.normalizeSensitivity("invalid")),
                 "invalid sensitivity falls back to balanced");
+        check(UsagePace.OFF.equals(UsagePace.normalizeSensitivity(UsagePace.OFF)),
+                "off sensitivity is preserved");
         check(!UsagePace.assess(fastWeekly, now, fast.resetAtMillis, UsagePace.BALANCED).available,
                 "expired windows do not produce stale warnings");
         System.out.println("Usage-pace demo: 15% of a week in one hour projects about 6h 40m.");
