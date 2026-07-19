@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Intent;
@@ -11,7 +12,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.InputType;
-import android.text.format.DateUtils;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -103,6 +103,9 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
+    // One UI's lint detector only associates this fragment with preferences_settings.xml.
+    // This fragment intentionally loads one of several page-specific preference resources.
+    @SuppressLint("FindPreferenceKeyNotFound")
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private static final String ARG_PAGE = "page";
         private static final int REQUEST_EXPORT_TRANSFER = 9201;
@@ -124,7 +127,6 @@ public final class SettingsActivity extends AppCompatActivity {
         private ListPreference nowBarThresholdPreference;
         private ListPreference usagePaceSensitivityPreference;
         private Preference nowBarPermissionPreference;
-        private Preference updateStatusPreference;
         private SwitchPreferenceCompat automaticUpdatePreference;
         private ListPreference updateIntervalPreference;
         private SwitchPreferenceCompat notifyUpdatePreference;
@@ -281,11 +283,13 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             findPreference("settings_now_bar").setSummary(nowBarSummary);
 
-            findPreference("settings_updates").setSummary(
-                    UpdatePreferences.automaticChecks(requireContext())
-                            ? "Automatic · " + UpdateCheckFrequency.label(
-                            UpdatePreferences.checkIntervalHours(requireContext()))
-                            : "Automatic checks off");
+            GitHubRelease availableUpdate = UpdatePreferences.availableUpdate(requireContext());
+            findPreference("settings_updates").setSummary(availableUpdate != null
+                    ? "v" + availableUpdate.version + " available"
+                    : UpdatePreferences.automaticChecks(requireContext())
+                    ? "Automatic · " + UpdateCheckFrequency.label(
+                    UpdatePreferences.checkIntervalHours(requireContext()))
+                    : "Automatic checks off");
         }
 
         private String metricLabel(String metric) {
@@ -488,7 +492,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
-            updateStatusPreference = findPreference("update_status");
             findPreference("check_for_updates").setOnPreferenceClickListener(preference -> {
                 startActivity(new Intent(requireContext(), UpdateActivity.class)
                         .putExtra(UpdateActivity.EXTRA_FORCE_CHECK, true));
@@ -567,32 +570,6 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             updateAutomaticUpdateEnabledState();
             updateAutomaticUpdateSummary();
-            GitHubRelease available = UpdatePreferences.availableUpdate(requireContext());
-            GitHubRelease latest = UpdatePreferences.latestStable(requireContext());
-            long checkedAt = UpdatePreferences.lastCheckMillis(requireContext());
-            StringBuilder summary = new StringBuilder("v")
-                    .append(UpdatePreferences.installedVersion(requireContext()));
-            if (available != null) {
-                summary.append(" installed · v").append(available.version).append(" available");
-            } else if (checkedAt == 0L) {
-                summary.append(" · Not checked yet");
-            } else if (latest == null) {
-                summary.append(" · No published releases");
-            } else {
-                summary.append(" · Up to date");
-            }
-            if (checkedAt > 0L) {
-                summary.append(" · Checked ").append(DateUtils.getRelativeTimeSpanString(
-                        checkedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
-                        DateUtils.FORMAT_ABBREV_RELATIVE));
-            }
-            String error = UpdatePreferences.lastError(requireContext());
-            if (!error.isEmpty()) {
-                summary.append(" · ").append(error);
-            }
-            if (updateStatusPreference != null) {
-                updateStatusPreference.setSummary(summary.toString());
-            }
         }
 
         private void bindNotifications() {
