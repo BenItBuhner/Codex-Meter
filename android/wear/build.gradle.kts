@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "dev.bennett.codexmeter"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.bennett.codexmeter"
