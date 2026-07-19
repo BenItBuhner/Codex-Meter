@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -30,22 +31,23 @@ public final class ResetCreditsSnapshot {
     }
 
     public RateLimitResetCredit nextExpiringAvailable(long nowMillis) {
-        RateLimitResetCredit best = null;
+        List<RateLimitResetCredit> available = availableCreditsByExpiry(nowMillis);
+        return available.isEmpty() ? null : available.get(0);
+    }
+
+    public List<RateLimitResetCredit> availableCreditsByExpiry(long nowMillis) {
+        ArrayList<RateLimitResetCredit> available = new ArrayList<>();
         for (RateLimitResetCredit credit : credits) {
             if (credit == null || !credit.isAvailable()) continue;
             long expiry = credit.expiresAtMillis;
             if (expiry > 0L && expiry <= nowMillis) continue;
-            if (best == null) {
-                best = credit;
-                continue;
-            }
-            long bestExpiry = best.expiresAtMillis;
-            // Prefer the soonest positive expiry. Credits without an expiry sort last.
-            if (expiry > 0L && (bestExpiry <= 0L || expiry < bestExpiry)) {
-                best = credit;
-            }
+            available.add(credit);
         }
-        return best;
+        available.sort(Comparator
+                .comparingLong((RateLimitResetCredit credit) ->
+                        credit.expiresAtMillis > 0L ? credit.expiresAtMillis : Long.MAX_VALUE)
+                .thenComparing(credit -> credit.id));
+        return Collections.unmodifiableList(available);
     }
 
     public String preferredCreditId(long j) {

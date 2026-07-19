@@ -3,9 +3,10 @@ package dev.bennett.codexmeter;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-/** Debug-only entry point that opens the dashboard with a deterministic pace warning. */
+/** Debug-only entry point that opens the dashboard with deterministic usage and reset credits. */
 public final class UsagePaceDemoActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
@@ -32,6 +33,14 @@ public final class UsagePaceDemoActivity extends Activity {
                     "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
                     "debug-demo-account", "demo@codexmeter.local"));
             AppPreferences.saveSnapshot(this, snapshot);
+            AppPreferences.saveResetCredits(this, new ResetCreditsSnapshot(3, Arrays.asList(
+                    new RateLimitResetCredit("demo-soon", "both", "available", now,
+                            now + TimeUnit.DAYS.toMillis(1), "Reset credit 1", ""),
+                    new RateLimitResetCredit("demo-middle", "both", "available", now,
+                            now + TimeUnit.DAYS.toMillis(3), "Reset credit 2", ""),
+                    new RateLimitResetCredit("demo-later", "both", "available", now,
+                            now + TimeUnit.DAYS.toMillis(7), "Reset credit 3", "")),
+                    now));
             AppPreferences.setRefreshOnLaunch(this, false);
             AppPreferences.completeOnboarding(this);
             UsagePacePreferences.setEnabled(this, true);
