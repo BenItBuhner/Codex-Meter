@@ -224,7 +224,7 @@ public final class SettingsActivity extends AppCompatActivity
             }
         }
 
-        private void bindAccount() {
+        protected void bindAccount() {
             boolean dark = Ui.isDark(requireContext());
             LayoutPreference preference = findPreference("account_card");
             RoundedLinearLayout card = preference.findViewById(R.id.settings_account_card);
@@ -297,7 +297,7 @@ public final class SettingsActivity extends AppCompatActivity
             dialog.show();
         }
 
-        private void bindAppearance() {
+        protected void bindAppearance() {
             String selected = AppPreferences.getAppTheme(requireContext());
             boolean useSystem = WidgetOptions.THEME_SYSTEM.equals(selected);
             HorizontalRadioPreference theme = findPreference("app_theme");
@@ -338,7 +338,7 @@ public final class SettingsActivity extends AppCompatActivity
             });
         }
 
-        private void bindRefresh() {
+        protected void bindRefresh() {
             SwitchPreferenceCompat onLaunch = findPreference("refresh_on_launch");
             onLaunch.setEnabled(true);
             onLaunch.setChecked(AppPreferences.getRefreshOnLaunch(requireContext()));
@@ -357,7 +357,7 @@ public final class SettingsActivity extends AppCompatActivity
             });
         }
 
-        private void bindUsagePace() {
+        protected void bindUsagePace() {
             SwitchPreferenceCompat enabled = findPreference("usage_pace_enabled_ui");
             enabled.setPersistent(false);
             enabled.setChecked(UsagePacePreferences.isEnabled(requireContext()));
@@ -388,7 +388,7 @@ public final class SettingsActivity extends AppCompatActivity
             });
         }
 
-        private void bindUpdates() {
+        protected void bindUpdates() {
             automaticUpdatePreference = findPreference("automatic_update_checks_ui");
             automaticUpdatePreference.setPersistent(false);
             automaticUpdatePreference.setChecked(UpdatePreferences.automaticChecks(requireContext()));
@@ -499,7 +499,7 @@ public final class SettingsActivity extends AppCompatActivity
             return false;
         }
 
-        private void updateUpdateSummary() {
+        protected void updateUpdateSummary() {
             if (updateStatusPreference == null || getContext() == null) {
                 return;
             }
@@ -543,7 +543,7 @@ public final class SettingsActivity extends AppCompatActivity
             updateStatusPreference.setSummary(summary.toString());
         }
 
-        private void bindNotifications() {
+        protected void bindNotifications() {
             TwoStatePreference allow = findPreference("notifications_allowed_ui");
             allow.setPersistent(false);
             allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
@@ -626,7 +626,7 @@ public final class SettingsActivity extends AppCompatActivity
             updateNotificationChildrenEnabled(ResetAlertPreferences.enabled(requireContext()));
         }
 
-        private void updateNotificationChildrenEnabled(boolean enabled) {
+        protected void updateNotificationChildrenEnabled(boolean enabled) {
             PreferenceCategory lowUsage = findPreference("notifications_low_usage_category");
             PreferenceCategory credits = findPreference("notifications_credits_category");
             if (lowUsage != null) lowUsage.setEnabled(enabled);
@@ -797,7 +797,7 @@ public final class SettingsActivity extends AppCompatActivity
                     AppPreferences.loadResetCredits(requireContext()));
         }
 
-        private void bindNowBar() {
+        protected void bindNowBar() {
             nowBarDisplayModePreference = findPreference("now_bar_display_mode_ui");
             nowBarDisplayModePreference.setPersistent(false);
             nowBarDisplayModePreference.setValue(
@@ -1027,7 +1027,7 @@ public final class SettingsActivity extends AppCompatActivity
             return false;
         }
 
-        private void updateNowBarSummary() {
+        protected void updateNowBarSummary() {
             if (nowBarMonitorPreference == null || getContext() == null) return;
             boolean active = NowBarManager.isActive(requireContext());
             nowBarMonitorPreference.setChecked(active);
@@ -1123,7 +1123,7 @@ public final class SettingsActivity extends AppCompatActivity
             scheduleResetCreditExpiryReminders();
         }
 
-        private void updatePermissionSummary() {
+        protected void updatePermissionSummary() {
             if (permissionPreference == null || getContext() == null) return;
             NotificationManager manager = (NotificationManager) requireContext().getSystemService(NOTIFICATION_SERVICE);
             boolean allowed = manager != null && manager.areNotificationsEnabled()
@@ -1134,7 +1134,7 @@ public final class SettingsActivity extends AppCompatActivity
             updateNotificationChildrenEnabled(ResetAlertPreferences.enabled(requireContext()));
         }
 
-        private void bindTransfer() {
+        protected void bindTransfer() {
             findPreference("export_settings_transfer").setOnPreferenceClickListener(preference -> {
                 showExportSectionDialog();
                 return true;
