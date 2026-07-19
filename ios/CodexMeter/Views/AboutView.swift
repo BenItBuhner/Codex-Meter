@@ -29,12 +29,20 @@ struct AboutView: View {
 
             Section("Source and credits") {
                 Link("BenItBuhner/Codex-Meter", destination: URL(string: "https://github.com/BenItBuhner/Codex-Meter")!)
+                Link("GitHub Releases (what’s new)", destination: URL(string: "https://github.com/BenItBuhner/Codex-Meter/releases")!)
                 LabeledContent("Original project", value: "Bennett")
                 LabeledContent("License", value: "MIT")
+                LabeledContent("iOS marketing version", value: version)
                 NavigationLink("Open-source notices") {
                     OpenSourceNoticesView()
                 }
                 Link("OpenAI", destination: URL(string: "https://openai.com")!)
+            }
+
+            Section {
+                Text("Release notes and Android APKs are published on GitHub. This iOS app is not updated via in-app APK install; use TestFlight or the App Store when available.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Important") {

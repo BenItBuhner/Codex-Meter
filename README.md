@@ -7,7 +7,7 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 |------|----------|--------|
 | Repository root | Shared | Docs, license, changelog, CI, convenience script wrappers |
 | [`android/`](android/) | **Android** | Phone app + Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
-| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable behavior (meters, reset credits, notifications, demo mode) |
+| [`ios/`](ios/) | **iPhone / iPad / Apple Watch** | Native SwiftUI + WidgetKit client (meters, reset credits, notifications, demo, Live Activity, watch companion). Marketing version **1.2.0** (independent of Android `versionName`) |
 
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
@@ -82,14 +82,22 @@ Or from `android/` directly. `build.sh` assembles the release APKs with Gradle a
 
 ### iOS
 
-See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 26+.
+See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 18+
+(watchOS 11+ companion). Marketing version **1.2.0** is independent of the
+Android APK `versionName`.
 
 ```bash
 cd ios
 swift test --package-path CodexMeterCore
 xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeterWatch \
+  -destination 'generic/platform=watchOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
+
+PRs that change `ios/` run GitHub Actions workflow **Build Codex Meter iOS**
+(`.github/workflows/ios.yml`) for core tests, an unsigned iPhone Simulator build,
+and an unsigned watchOS Simulator build.
 
 ## Releases
 

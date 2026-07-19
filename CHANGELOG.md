@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### iOS (marketing version 1.2.0)
+
+Independent of Android `versionName` / GitHub `v*` APK tags. Lives under `ios/`.
+
+#### Added
+
+- Versioned, credential-free settings import and export.
+- First-run onboarding with sign-in, demo, and skip paths.
+- Usage pace projections and configurable accelerated-usage warnings.
+- Live Activity monitoring for the Lock Screen, Dynamic Island, and Smart Stack.
+- A watchOS companion with sanitized phone-authoritative usage sync and complications.
+- macOS CI for core tests and unsigned iOS/watchOS Simulator builds.
+
+#### Notes
+
+- Samsung One UI internals, Android firmware diagnostics, and APK updates remain platform-specific.
+- App Store submission remains gated on third-party service and brand authorization.
+
 ## 2.4.3 — 2026-07-19
 
 ### Fixed
@@ -33,7 +53,6 @@
 - Live Update construction now adapts to both early Android 16's required colorization and newer uncolorized promotion rules, while notification and Now Bar Codex icons use SystemUI-compatible vector syntax.
 
 **Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.0...v2.4.1 <!-- pragma: allowlist secret -->
-
 ## 2.4.0 — 2026-07-18
 
 ### Added

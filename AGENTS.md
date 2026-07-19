@@ -8,7 +8,7 @@ Codex Meter is a **monorepo** with native clients and no backend:
 |------|--------|-------------------|
 | Repository root | Shared docs, license, changelog, CI entrypoints | — |
 | `android/` | Android (Gradle `:app`, `:shared`, `:wear`) | `dev.bennett.codexmeter` (+ Wear companion) |
-| `ios/` | SwiftUI / WidgetKit (Xcode) | `CodexMeter` app + widgets + `CodexMeterCore` package |
+| `ios/` | SwiftUI / WidgetKit / watchOS (Xcode) | `CodexMeter` app + widgets + `CodexMeterWatch` + `CodexMeterCore` (marketing **1.2.0**) |
 
 Clients talk directly to OpenAI/ChatGPT remote endpoints. Tokens stay on-device (Android Keystore / iOS Keychain).
 
@@ -39,7 +39,8 @@ iOS build instructions are in `ios/README.md`.
 ## iOS notes for agents
 
 - Work under `ios/`. Keep Android changes under `android/`. Do not flatten either tree into the repo root.
-- Prefer native SwiftUI / WidgetKit patterns; do not port Samsung One UI or Android update installers.
-- Core pure logic for the iOS app lives in `ios/CodexMeterCore`.
-- Fast checks: `swift test --package-path ios/CodexMeterCore` (from repo root) or from `ios/` as documented in `ios/README.md`.
-- Full Xcode builds need a macOS host; Linux cloud VMs typically cannot build the iOS target.
+- Prefer native SwiftUI / WidgetKit / WatchConnectivity patterns; do not port Samsung One UI or Android update installers.
+- Core pure logic lives in `ios/CodexMeterCore` (iOS + watchOS platforms). ActivityKit types stay behind `os(iOS)`.
+- Fast checks: `swift test --package-path ios/CodexMeterCore`; iPhone Simulator build of scheme `CodexMeter`; watchOS Simulator builds of schemes `CodexMeterWatch` and `CodexMeterWatchWidgets` (see `ios/README.md`).
+- CI: `.github/workflows/ios.yml` (phone + watch unsigned builds).
+- Full Xcode builds need a macOS host; Linux cloud VMs typically cannot build the iOS/watch targets.

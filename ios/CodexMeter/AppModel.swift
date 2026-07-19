@@ -37,6 +37,17 @@ extension AlertMetric {
     }
 }
 
+extension UsagePaceSensitivity {
+    var title: String {
+        switch self {
+        case .off: "Off"
+        case .sensitive: "Sensitive"
+        case .balanced: "Balanced"
+        case .relaxed: "Relaxed"
+        }
+    }
+}
+
 extension NotificationPermissionState {
     var title: String {
         switch self {
@@ -53,6 +64,7 @@ extension NotificationPermissionState {
 @Observable
 final class AppModel {
     private static let modeDefaultsKey = "codex-meter.session-mode-v1"
+    private static let onboardingCompletedKey = "codex-meter.onboarding-completed-v1"
 
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
@@ -73,12 +85,17 @@ final class AppModel {
     var isShowingSettings = false
     var isShowingReset = false
     var isShowingSignIn = false
+    var hasCompletedOnboarding = false
+    var transferStatusMessage: String?
+    var isLiveMonitorActive = false
+    var liveMonitorMessage: String?
 
     private let liveService: LiveCodexService
     private var demoService: DemoCodexService
     private let cache: AppCacheStore
     private let settingsStore: AppSettingsStore
     private let notificationCoordinator: NotificationCoordinator
+    private let liveActivityCoordinator: LiveActivityCoordinator
     private let defaults: UserDefaults
     private var hasStarted = false
     private var hasFinishedStartup = false
@@ -103,6 +120,7 @@ final class AppModel {
         cache: AppCacheStore = .shared,
         settingsStore: AppSettingsStore = AppSettingsStore(),
         notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
+        liveActivityCoordinator: LiveActivityCoordinator = .shared,
         defaults: UserDefaults = .standard,
         preview: Bool = false
     ) {
@@ -111,9 +129,16 @@ final class AppModel {
         self.cache = cache
         self.settingsStore = settingsStore
         self.notificationCoordinator = notificationCoordinator
+        self.liveActivityCoordinator = liveActivityCoordinator
         self.defaults = defaults
         self.settings = settingsStore.settings
         self.isPreview = preview
+        self.hasCompletedOnboarding = preview
+            || defaults.bool(forKey: Self.onboardingCompletedKey)
+        self.isLiveMonitorActive = liveActivityCoordinator.isActive
+        PhoneWatchBridge.shared.onRefreshRequested = { [weak self] in
+            Task { await self?.refresh() }
+        }
 
         if preview {
             let now = Date()
@@ -169,6 +194,12 @@ final class AppModel {
             settings = settingsStore.settings
         }
 
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-skip-onboarding")
+            || ProcessInfo.processInfo.arguments.contains("-ui-testing-demo")
+            || ProcessInfo.processInfo.arguments.contains("-ui-testing-signed-out") {
+            completeOnboarding()
+        }
+
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-signed-out") {
             clearSessionState()
             return
@@ -178,6 +209,12 @@ final class AppModel {
             mode = .demo
             defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
             await refresh()
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-open-settings") {
+                isShowingSettings = true
+            }
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-open-reset") {
+                isShowingReset = true
+            }
             return
         }
 #endif
@@ -255,6 +292,7 @@ final class AppModel {
     func leaveDemo() async {
         await demoService.signOut()
         await notificationCoordinator.clearAll()
+        await stopLiveMonitor(dismissed: true)
         backgroundRefreshCoordinator.cancel()
         clearSessionState()
     }
@@ -264,8 +302,45 @@ final class AppModel {
         signInTask = nil
         await activeService.signOut()
         await notificationCoordinator.clearAll()
+        await stopLiveMonitor(dismissed: true)
         backgroundRefreshCoordinator.cancel()
         clearSessionState()
+    }
+
+    func startLiveMonitor() async {
+        guard mode != .signedOut else {
+            liveMonitorMessage = "Sign in or open demo mode first."
+            return
+        }
+        guard let usage else {
+            liveMonitorMessage = LiveActivityError.noUsage.localizedDescription
+            return
+        }
+        do {
+            try await liveActivityCoordinator.start(
+                usage: usage,
+                creditCount: credits?.availableCount ?? usage.resetCreditsAvailable ?? 0,
+                planLabel: accountPlan,
+                isDemo: mode == .demo,
+                isCached: isUsingCachedData,
+                paceSensitivity: settings.usagePaceEnabled ? settings.usagePaceSensitivity : nil
+            )
+            isLiveMonitorActive = liveActivityCoordinator.isActive
+            liveMonitorMessage = isLiveMonitorActive
+                ? "Usage monitor is running on the Lock Screen and Dynamic Island."
+                : nil
+        } catch {
+            liveMonitorMessage = error.localizedDescription
+            isLiveMonitorActive = liveActivityCoordinator.isActive
+        }
+    }
+
+    func stopLiveMonitor(dismissed: Bool = true) async {
+        await liveActivityCoordinator.end(dismissed: dismissed, usage: usage)
+        isLiveMonitorActive = liveActivityCoordinator.isActive
+        if dismissed {
+            liveMonitorMessage = "Usage monitor stopped."
+        }
     }
 
     func beginSignIn() async {
@@ -408,11 +483,38 @@ final class AppModel {
         notificationPermissionState = await notificationCoordinator.permissionState()
     }
 
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        defaults.set(true, forKey: Self.onboardingCompletedKey)
+    }
+
+    func exportTransferData() throws -> Data {
+        let document = SettingsTransfer.makeDocument(settings: settings)
+        return try SettingsTransfer.encode(document)
+    }
+
+    func importTransferData(_ data: Data) async throws {
+        let document = try SettingsTransfer.parse(data)
+        let applied = SettingsTransfer.apply(document: document, to: settings)
+        save(settings: applied)
+        if applied.notificationsEnabled {
+            await applyNotificationSettings()
+        }
+
+        transferStatusMessage = "Settings imported successfully."
+    }
+
     func save(settings: AppSettings) {
         let previous = settingsStore.settings
         self.settings = settings
         settingsStore.settings = settings
         scheduleBackgroundRefresh()
+        if previous.usagePaceSensitivity != settings.usagePaceSensitivity
+            || previous.usagePaceEnabled != settings.usagePaceEnabled
+            || previous.liveMonitorAutoStartOnAcceleratedUsage != settings.liveMonitorAutoStartOnAcceleratedUsage,
+           let usage {
+            Task { await syncLiveMonitor(with: usage) }
+        }
         if previous.notificationsEnabled != settings.notificationsEnabled
             || previous.alertMetric != settings.alertMetric
             || previous.alertThreshold != settings.alertThreshold
@@ -480,6 +582,7 @@ final class AppModel {
 
     func sceneBecameActive() async {
         await refreshNotificationPermissionState()
+        isLiveMonitorActive = liveActivityCoordinator.isActive
         guard hasStarted else {
             await startIfNeeded()
             return
@@ -487,6 +590,8 @@ final class AppModel {
         guard mode != .signedOut, settings.refreshOnLaunch else { return }
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
             await refresh()
+        } else if let usage {
+            await syncLiveMonitor(with: usage)
         }
     }
 
@@ -514,7 +619,32 @@ final class AppModel {
             credits: refresh.credits,
             settings: settings
         )
+        await syncLiveMonitor(with: refresh.usage)
         scheduleBackgroundRefresh()
+    }
+
+    private func syncLiveMonitor(with usage: UsageSnapshot) async {
+        let creditCount = credits?.availableCount ?? usage.resetCreditsAvailable ?? 0
+        if liveActivityCoordinator.isActive {
+            await liveActivityCoordinator.update(
+                usage: usage,
+                creditCount: creditCount,
+                planLabel: accountPlan,
+                isDemo: mode == .demo,
+                isCached: isUsingCachedData,
+                paceSensitivity: settings.usagePaceEnabled ? settings.usagePaceSensitivity : nil
+            )
+        } else if liveActivityCoordinator.shouldAutoStart(settings: settings, usage: usage) {
+            try? await liveActivityCoordinator.start(
+                usage: usage,
+                creditCount: creditCount,
+                planLabel: accountPlan,
+                isDemo: mode == .demo,
+                isCached: isUsingCachedData,
+                paceSensitivity: settings.usagePaceEnabled ? settings.usagePaceSensitivity : nil
+            )
+        }
+        isLiveMonitorActive = liveActivityCoordinator.isActive
     }
 
     private func apply(

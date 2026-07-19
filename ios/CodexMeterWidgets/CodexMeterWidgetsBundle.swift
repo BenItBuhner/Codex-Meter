@@ -8,6 +8,7 @@ struct CodexMeterWidgetsBundle: WidgetBundle {
         FiveHourAccessoryWidget()
         WeeklyAccessoryWidget()
         DualAllowanceAccessoryWidget()
+        UsageLiveActivityWidget()
     }
 }
 

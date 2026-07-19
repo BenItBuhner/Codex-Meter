@@ -41,25 +41,42 @@ struct DashboardView: View {
                         )
                     }
 
+                    if let acceleratedWindow {
+                        StatusBanner(
+                            message: "Accelerated \(acceleratedWindow == .fiveHour ? "5-hour" : "weekly") usage may exhaust allowance before reset.",
+                            systemImage: "speedometer",
+                            tint: .orange
+                        )
+                    }
+
                     LazyVGrid(columns: columns, spacing: AppChrome.sectionSpacing) {
                         UsageMeterCard(
                             title: "5-hour",
                             systemImage: "clock",
                             window: model.usage?.fiveHour,
                             accent: .mint,
-                            fetchedAt: model.usage?.fetchedAt ?? .now
+                            fetchedAt: model.usage?.fetchedAt ?? .now,
+                            pace: paceAssessment(for: model.usage?.fiveHour)
                         )
                         UsageMeterCard(
                             title: "Weekly",
                             systemImage: "calendar",
                             window: model.usage?.weekly,
                             accent: .indigo,
-                            fetchedAt: model.usage?.fetchedAt ?? .now
+                            fetchedAt: model.usage?.fetchedAt ?? .now,
+                            pace: paceAssessment(for: model.usage?.weekly)
                         )
                     }
 
                     ResetCreditsCard()
-                    PrivacyFootnote()
+
+                    if model.isLiveMonitorActive {
+                        StatusBanner(
+                            message: "Usage monitor is live on Lock Screen / Dynamic Island",
+                            systemImage: "dot.radiowaves.left.and.right",
+                            tint: .mint
+                        )
+                    }
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
@@ -98,6 +115,24 @@ struct DashboardView: View {
         .task {
             await model.startIfNeeded()
         }
+    }
+
+    private var acceleratedWindow: UsagePaceWindow? {
+        guard model.settings.usagePaceEnabled else { return nil }
+        return UsagePace.mostAcceleratedWindow(
+            in: model.usage,
+            sensitivity: model.settings.usagePaceSensitivity
+        )
+    }
+
+    private func paceAssessment(for window: UsageWindow?) -> UsagePaceAssessment? {
+        guard model.settings.usagePaceEnabled, let usage = model.usage else { return nil }
+        let assessment = UsagePace.assess(
+            window,
+            observedAt: usage.fetchedAt,
+            sensitivity: model.settings.usagePaceSensitivity
+        )
+        return assessment.isAvailable ? assessment : nil
     }
 }
 
@@ -250,21 +285,5 @@ private struct ResetCreditsCard: View {
         }
         .padding(AppChrome.cardPadding)
         .cardSurface()
-    }
-}
-
-private struct PrivacyFootnote: View {
-    var body: some View {
-        Label {
-            Text("Tokens stay in Keychain. Requests go directly to OpenAI; widgets only get a sanitized usage snapshot.")
-        } icon: {
-            Image(systemName: "lock.shield.fill")
-                .foregroundStyle(.tint)
-        }
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
-        .accessibilityElement(children: .combine)
     }
 }

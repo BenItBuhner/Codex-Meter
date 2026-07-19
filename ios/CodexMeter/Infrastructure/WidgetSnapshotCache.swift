@@ -33,7 +33,7 @@ public actor WidgetSnapshotCache {
         self.isAvailable = true
     }
 
-    public func save(_ snapshot: SharedWidgetSnapshot) async throws {
+    public func save(_ snapshot: SharedWidgetSnapshot, nextCreditExpiry: Date? = nil) async throws {
         guard let fileURL else {
             throw CodexServiceError.storage(Self.unavailableMessage)
         }
@@ -42,6 +42,9 @@ public actor WidgetSnapshotCache {
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(snapshot)
         try data.write(to: fileURL, options: [.atomic])
+        await MainActor.run {
+            PhoneWatchBridge.shared.push(snapshot: snapshot, nextCreditExpiry: nextCreditExpiry)
+        }
     }
 
     public func publish(
@@ -65,7 +68,7 @@ public actor WidgetSnapshotCache {
             resetCreditsAvailable: credits?.availableCount ?? usage?.resetCreditsAvailable,
             freshness: freshness
         )
-        try await save(snapshot)
+        try await save(snapshot, nextCreditExpiry: credits?.nextExpiry(after: now))
     }
 
     public func publishSignedOut() async throws {
