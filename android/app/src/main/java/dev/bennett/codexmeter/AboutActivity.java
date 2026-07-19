@@ -83,6 +83,15 @@ public final class AboutActivity extends AppCompatActivity {
                 "https://tjg.gg"));
         content.addView(credits);
 
+        content.addView(sectionTitle("Privacy"));
+        RoundedLinearLayout privacy = Ui.cardGroup(this, dark);
+        CardItemView privacyRow = Ui.actionRow(this, "Local data and privacy",
+                "OAuth tokens are encrypted with Android Keystore. Requests go only to OpenAI for authentication and ChatGPT & Codex endpoints.",
+                R.drawable.ic_oui_privacy, null);
+        privacyRow.setShowTopDivider(false);
+        privacy.addView(privacyRow);
+        content.addView(privacy);
+
         content.addView(sectionTitle("Dependencies"));
         RoundedLinearLayout dependencies = Ui.cardGroup(this, dark);
         CardItemView oneUi = Ui.actionRow(this, "One UI Design Library", "The library that makes this app so pretty.", R.drawable.ic_oui_theme,

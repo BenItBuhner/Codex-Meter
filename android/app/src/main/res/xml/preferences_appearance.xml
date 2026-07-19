@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Theme">
+        <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
+            android:key="app_theme"
+            app:entries="@array/preferences_darkmode_entries"
+            app:entriesImage="@array/preferences_darkmode_entries_image"
+            app:entryValues="@array/preferences_darkmode_values"
+            app:viewType="image" />
+        <SwitchPreferenceCompat
+            android:key="theme_system_ui"
+            android:title="System default" />
+        <SwitchPreferenceCompat
+            android:key="material_you"
+            android:title="Material You"
+            android:summary="System colors when available"
+            android:defaultValue="false" />
+    </PreferenceCategory>
+</PreferenceScreen>

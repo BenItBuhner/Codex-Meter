@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <dev.oneuiproject.oneui.preference.DescriptionPreference
+        android:title="Move settings between devices. Authentication exports require an extra confirmation."
+        app:positionMode="1" />
+
+    <PreferenceCategory android:title="Transfer">
+        <Preference
+            android:key="export_settings_transfer"
+            android:title="Export"
+            android:summary="Save selected settings to a file"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="import_settings_transfer"
+            android:title="Import"
+            android:summary="Restore from a Codex Meter transfer file"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+</PreferenceScreen>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <dev.oneuiproject.oneui.preference.SwitchBarPreference
+        android:key="notifications_allowed_ui"
+        android:title="Allow notifications" />
+
+    <PreferenceCategory
+        android:key="notifications_low_usage_category"
+        android:title="Low usage">
+        <ListPreference
+            android:entries="@array/settings_metric_entries"
+            android:entryValues="@array/settings_metric_values"
+            android:key="notification_metric_ui"
+            android:title="Alert for"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_threshold_entries"
+            android:entryValues="@array/settings_threshold_values"
+            android:key="notification_threshold_ui"
+            android:title="When remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="notifications_credits_category"
+        android:title="Reset credits">
+        <SwitchPreferenceCompat
+            android:key="unexpected_refills_ui"
+            android:title="Surprise limit refills" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_increases_ui"
+            android:title="New reset credits" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_expiry_ui"
+            android:title="Expiring reset credits" />
+        <Preference
+            android:key="reset_credit_expiry_times_ui"
+            android:title="Reminder times"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Status">
+        <Preference
+            android:key="notification_permission"
+            android:title="Notification permission"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="notification_test"
+            android:title="Send test notification"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+</PreferenceScreen>

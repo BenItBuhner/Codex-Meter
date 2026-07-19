@@ -8,202 +8,43 @@
         app:allowDividerAbove="false"
         app:allowDividerBelow="false" />
 
-    <PreferenceCategory android:title="Appearance">
-        <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
-            android:key="app_theme"
-            app:entries="@array/preferences_darkmode_entries"
-            app:entriesImage="@array/preferences_darkmode_entries_image"
-            app:entryValues="@array/preferences_darkmode_values"
-            app:viewType="image" />
-        <SwitchPreferenceCompat
-            android:key="theme_system_ui"
-            android:title="System default" />
-        <SwitchPreferenceCompat
-            android:key="material_you"
-            android:title="Material You"
-            android:summary="Use the system color palette when available. Falls back to One UI blue."
-            android:defaultValue="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Refresh">
-        <SwitchPreferenceCompat
-            android:key="refresh_on_launch"
-            android:title="Refresh on launch" />
-        <ListPreference
-            android:entries="@array/settings_refresh_entries"
-            android:entryValues="@array/settings_refresh_values"
-            android:key="refresh_interval_ui"
-            android:title="Refresh interval"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Usage pace">
-        <SwitchPreferenceCompat
-            android:key="usage_pace_enabled_ui"
-            android:title="Estimated usage time"
-            android:summary="Show projected allowance life and warn when it may run out well before reset" />
-        <ListPreference
-            android:entries="@array/usage_pace_sensitivity_entries"
-            android:entryValues="@array/usage_pace_sensitivity_values"
-            android:key="usage_pace_sensitivity_ui"
-            android:title="Warning sensitivity"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="App updates">
-        <SwitchPreferenceCompat
-            android:key="automatic_update_checks_ui"
-            android:title="Check automatically"
-            android:summary="Check signed GitHub releases on a schedule" />
-        <ListPreference
-            android:entries="@array/settings_update_interval_entries"
-            android:entryValues="@array/settings_update_interval_values"
-            android:key="update_check_interval_ui"
-            android:title="Check frequency"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            android:key="notify_update_available_ui"
-            android:title="Notify when update available"
-            android:summary="Show a notification with Open and Update actions" />
+    <PreferenceCategory android:title="General">
         <Preference
-            android:key="update_status"
-            android:title="Installed version"
-            app:iconSpaceReserved="false"
-            app:selectable="false" />
-        <Preference
-            android:key="check_for_updates"
-            android:title="Check for updates"
-            android:summary="Check GitHub now"
+            android:key="open_appearance"
+            android:title="Appearance"
+            app:fragment="dev.bennett.codexmeter.SettingsActivity$AppearanceFragment"
             app:iconSpaceReserved="false" />
         <Preference
-            android:key="release_history"
-            android:title="Advanced release history"
-            android:summary="View available versions and downgrade requirements"
+            android:key="open_refresh"
+            android:title="Refresh &amp; usage"
+            app:fragment="dev.bennett.codexmeter.SettingsActivity$RefreshFragment"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Notifications">
-        <SwitchPreferenceCompat
-            android:key="notifications_allowed_ui"
-            android:title="Allow notifications" />
-        <ListPreference
-            android:entries="@array/settings_metric_entries"
-            android:entryValues="@array/settings_metric_values"
-            android:key="notification_metric_ui"
-            android:title="Low usage alerts"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/settings_threshold_entries"
-            android:entryValues="@array/settings_threshold_values"
-            android:key="notification_threshold_ui"
-            android:title="Low when remaining reaches"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            android:key="unexpected_refills_ui"
-            android:title="Surprise limit refills"
-            android:summary="Celebrate when an allowance reaches 100% before its scheduled reset" />
-        <SwitchPreferenceCompat
-            android:key="reset_credit_increases_ui"
-            android:title="New reset credits"
-            android:summary="Notify when your available reset-credit count increases" />
-        <SwitchPreferenceCompat
-            android:key="reset_credit_expiry_ui"
-            android:title="Expiring reset credits"
-            android:summary="Remind me before an available reset credit expires" />
+    <PreferenceCategory android:title="Alerts &amp; live">
         <Preference
-            android:key="reset_credit_expiry_times_ui"
-            android:title="Reminder times"
+            android:key="open_notifications"
+            android:title="Notifications"
+            app:fragment="dev.bennett.codexmeter.SettingsActivity$NotificationsFragment"
             app:iconSpaceReserved="false" />
         <Preference
-            android:key="notification_permission"
-            android:title="Notification permission"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="notification_test"
-            android:title="Send test notification"
-            android:summary="Verify alert delivery now"
+            android:key="open_now_bar"
+            android:title="Now Bar"
+            app:fragment="dev.bennett.codexmeter.SettingsActivity$NowBarFragment"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Now Bar">
-        <ListPreference
-            android:entries="@array/now_bar_display_mode_entries"
-            android:entryValues="@array/now_bar_display_mode_values"
-            android:key="now_bar_display_mode_ui"
-            android:title="Display compatibility"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/now_bar_percent_mode_entries"
-            android:entryValues="@array/now_bar_percent_mode_values"
-            android:key="now_bar_percent_mode_ui"
-            android:title="Percentage left"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            android:key="now_bar_monitor_ui"
-            android:title="Monitor until reset"
-            android:summary="Show remaining Codex allowance until the next available usage reset" />
-        <SwitchPreferenceCompat
-            android:key="now_bar_auto_start_ui"
-            android:title="Auto-start when low"
-            android:summary="Start the live monitor when remaining allowance hits the threshold below" />
-        <SwitchPreferenceCompat
-            android:key="now_bar_accelerated_ui"
-            android:title="Auto-start for accelerated usage"
-            android:summary="Keep the live monitor active until this pace improves or the affected limit resets" />
-        <ListPreference
-            android:entries="@array/settings_metric_entries"
-            android:entryValues="@array/settings_metric_values"
-            android:key="now_bar_metric_ui"
-            android:title="Auto-start for"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/settings_threshold_entries"
-            android:entryValues="@array/settings_threshold_values"
-            android:key="now_bar_threshold_ui"
-            android:title="Start when remaining reaches"
-            app:useSimpleSummaryProvider="true" />
+    <PreferenceCategory android:title="App">
         <Preference
-            android:key="now_bar_preview"
-            android:title="Start sample preview"
-            android:summary="Show a 20-minute sample activity for device testing"
+            android:key="open_updates"
+            android:title="App updates"
+            app:fragment="dev.bennett.codexmeter.SettingsActivity$UpdatesFragment"
             app:iconSpaceReserved="false" />
         <Preference
-            android:key="now_bar_permission"
-            android:title="Live notification access"
+            android:key="open_transfer"
+            android:title="Transfer"
+            app:fragment="dev.bennett.codexmeter.SettingsActivity$TransferFragment"
             app:iconSpaceReserved="false" />
-        <Preference
-            android:key="now_bar_setup_help"
-            android:title="Samsung setup help"
-            android:summary="Developer options and firmware troubleshooting"
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Transfer">
-        <Preference
-            android:key="export_settings_transfer"
-            android:title="Export"
-            android:summary="Save selected settings and optional sign-in data to a file"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="import_settings_transfer"
-            android:title="Import"
-            android:summary="Restore selected sections from a Codex Meter transfer file"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="transfer_security_notice"
-            android:title="Do not share transfer files with authentication"
-            android:summary="Exported authentication includes ChatGPT tokens. Anyone with that file can use your account. Keep it private."
-            app:iconSpaceReserved="false"
-            app:selectable="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Privacy">
-        <Preference
-            android:icon="@drawable/ic_oui_privacy"
-            android:summary="OAuth tokens are encrypted with Android Keystore. Requests go only to OpenAI for authentication and ChatGPT &amp; Codex endpoints."
-            android:title="Local data and privacy"
-            app:iconSpaceReserved="false"
-            app:selectable="false" />
     </PreferenceCategory>
 
     <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="20dp" />

@@ -24,7 +24,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.fragment.app.Fragment;
+import androidx.preference.PreferenceCategory;
 import androidx.preference.SwitchPreferenceCompat;
+import androidx.preference.TwoStatePreference;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
@@ -41,23 +44,73 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /** Settings built from the One UI Design Library preference components used by its sample app. */
-public final class SettingsActivity extends AppCompatActivity {
+public final class SettingsActivity extends AppCompatActivity
+        implements PreferenceFragmentCompat.OnPreferenceStartFragmentCallback {
+    private ToolbarLayout toolbar;
+
     @Override
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
         setContentView(R.layout.activity_settings);
-        ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
+        toolbar = findViewById(R.id.settings_toolbar_layout);
         Ui.configureReachToolbar(toolbar, "Settings", true);
+        getSupportFragmentManager().addOnBackStackChangedListener(this::syncToolbarTitle);
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, new SettingsFragment())
                     .commit();
+        } else {
+            syncToolbarTitle();
         }
     }
 
-    public static final class SettingsFragment extends PreferenceFragmentCompat {
+    private void syncToolbarTitle() {
+        if (getSupportFragmentManager().getBackStackEntryCount() == 0) {
+            Ui.configureReachToolbar(toolbar, "Settings", true);
+            return;
+        }
+        Fragment current = getSupportFragmentManager().findFragmentById(R.id.settings_fragment);
+        if (current instanceof CodexSettingsFragment) {
+            String title = ((CodexSettingsFragment) current).screenTitle();
+            if (title != null && !title.isEmpty()) {
+                Ui.configureReachToolbar(toolbar, title, true);
+            }
+        }
+    }
+
+    @Override
+    public boolean onPreferenceStartFragment(PreferenceFragmentCompat caller, Preference preference) {
+        if (preference.getFragment() == null) {
+            return false;
+        }
+        Fragment fragment = getSupportFragmentManager().getFragmentFactory()
+                .instantiate(getClassLoader(), preference.getFragment());
+        fragment.setArguments(preference.getExtras());
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.settings_fragment, fragment)
+                .addToBackStack(preference.getKey())
+                .commit();
+        CharSequence title = preference.getTitle();
+        if (title != null) {
+            Ui.configureReachToolbar(toolbar, title.toString(), true);
+        }
+        return true;
+    }
+
+    public abstract static class CodexSettingsFragment extends PreferenceFragmentCompat {
+        abstract int preferenceXml();
+        abstract void bindScreen();
+        abstract String screenTitle();
+
+        @Override
+        public void onCreatePreferences(Bundle bundle, String rootKey) {
+            getPreferenceManager().setSharedPreferencesName("codex_meter_settings_v1");
+            addPreferencesFromResource(preferenceXml());
+            bindScreen();
+        }
+
         private static final int REQUEST_EXPORT_TRANSFER = 9201;
         private static final int REQUEST_IMPORT_TRANSFER = 9202;
 
@@ -84,24 +137,6 @@ public final class SettingsActivity extends AppCompatActivity {
         private SettingsTransfer.Document pendingImportDocument;
 
         @Override
-        public void onCreatePreferences(Bundle bundle, String rootKey) {
-            getPreferenceManager().setSharedPreferencesName("codex_meter_settings_v1");
-            addPreferencesFromResource(R.xml.preferences_settings);
-            bindAccount();
-            bindAppearance();
-            bindRefresh();
-            bindUsagePace();
-            bindUpdates();
-            bindNotifications();
-            bindNowBar();
-            bindTransfer();
-            findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
-                return true;
-            });
-        }
-
-        @Override
         public void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
             if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
@@ -121,17 +156,72 @@ public final class SettingsActivity extends AppCompatActivity {
             view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
         }
 
-        @Override
-        public void onResume() {
-            super.onResume();
-            if (!NowBarManager.refreshActiveNotificationContract(requireContext())) {
-                Toast.makeText(requireContext(),
-                        "Could not refresh the live notification, so the monitor was stopped.",
-                        Toast.LENGTH_LONG).show();
+
+
+        protected void bindHub() {
+            bindAccount();
+            Preference about = findPreference("about_codex_meter");
+            if (about != null) {
+                about.setOnPreferenceClickListener(preference -> {
+                    Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
+                    return true;
+                });
             }
-            updatePermissionSummary();
-            updateNowBarSummary();
-            updateUpdateSummary();
+            updateHubSummaries();
+        }
+
+        protected void updateHubSummaries() {
+            Preference appearance = findPreference("open_appearance");
+            if (appearance != null) {
+                String theme = AppPreferences.getAppTheme(requireContext());
+                if (WidgetOptions.THEME_SYSTEM.equals(theme)) {
+                    appearance.setSummary("System default");
+                } else if (WidgetOptions.THEME_DARK.equals(theme)) {
+                    appearance.setSummary("Dark");
+                } else {
+                    appearance.setSummary("Light");
+                }
+            }
+            Preference refresh = findPreference("open_refresh");
+            if (refresh != null) {
+                int minutes = AppPreferences.getRefreshMinutes(requireContext());
+                String interval = minutes >= 120 ? "Every 2 hours"
+                        : minutes == 60 ? "Every 60 minutes"
+                        : "Every " + minutes + " minutes";
+                if (UsagePacePreferences.isEnabled(requireContext())) {
+                    refresh.setSummary(interval + " · Pace on");
+                } else {
+                    refresh.setSummary(interval);
+                }
+            }
+            Preference notifications = findPreference("open_notifications");
+            if (notifications != null) {
+                notifications.setSummary(ResetAlertPreferences.enabled(requireContext())
+                        ? "On" : "Off");
+            }
+            Preference nowBar = findPreference("open_now_bar");
+            if (nowBar != null) {
+                if (NowBarManager.isActive(requireContext())) {
+                    nowBar.setSummary("Monitoring");
+                } else if (NowBarPreferences.isAutoStartEnabled(requireContext())) {
+                    nowBar.setSummary("Auto-start");
+                } else {
+                    nowBar.setSummary("Off");
+                }
+            }
+            Preference updates = findPreference("open_updates");
+            if (updates != null) {
+                if (!UpdatePreferences.automaticChecks(requireContext())) {
+                    updates.setSummary("Manual");
+                } else {
+                    updates.setSummary(UpdateCheckFrequency.summary(
+                            UpdatePreferences.checkIntervalHours(requireContext())));
+                }
+            }
+            Preference transfer = findPreference("open_transfer");
+            if (transfer != null) {
+                transfer.setSummary("Export or import");
+            }
         }
 
         private void bindAccount() {
@@ -381,7 +471,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 return;
             }
             if (!UpdatePreferences.automaticChecks(requireContext())) {
-                automaticUpdatePreference.setSummary("Automatic GitHub release checks are off");
+                automaticUpdatePreference.setSummary("Off");
                 return;
             }
             automaticUpdatePreference.setSummary(UpdateCheckFrequency.summary(
@@ -454,11 +544,12 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindNotifications() {
-            SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
-            allow.setEnabled(true);
+            TwoStatePreference allow = findPreference("notifications_allowed_ui");
+            allow.setPersistent(false);
             allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
             allow.setOnPreferenceChangeListener((preference, value) -> {
                 setNotificationsEnabled((Boolean) value);
+                updateNotificationChildrenEnabled((Boolean) value);
                 return true;
             });
 
@@ -532,6 +623,23 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             updatePermissionSummary();
+            updateNotificationChildrenEnabled(ResetAlertPreferences.enabled(requireContext()));
+        }
+
+        private void updateNotificationChildrenEnabled(boolean enabled) {
+            PreferenceCategory lowUsage = findPreference("notifications_low_usage_category");
+            PreferenceCategory credits = findPreference("notifications_credits_category");
+            if (lowUsage != null) lowUsage.setEnabled(enabled);
+            if (credits != null) credits.setEnabled(enabled);
+            if (testNotificationPreference != null) {
+                NotificationManager manager = (NotificationManager) requireContext()
+                        .getSystemService(NOTIFICATION_SERVICE);
+                boolean allowed = manager != null && manager.areNotificationsEnabled()
+                        && (Build.VERSION.SDK_INT < 33
+                        || requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        == PackageManager.PERMISSION_GRANTED);
+                testNotificationPreference.setEnabled(enabled && allowed);
+            }
         }
 
         private void showExpiryReminderTimesDialog() {
@@ -943,8 +1051,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarMonitorPreference.setSummary(
                         "Waiting for a low allowance or accelerated usage trigger");
             } else {
-                nowBarMonitorPreference.setSummary(
-                        "Show remaining Codex allowance until the next available usage reset");
+                nowBarMonitorPreference.setSummary("Off");
             }
             if (nowBarAutoStartPreference != null) {
                 nowBarAutoStartPreference.setChecked(
@@ -1024,9 +1131,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     || requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
                     == PackageManager.PERMISSION_GRANTED);
             permissionPreference.setSummary(allowed ? "Allowed" : "Not allowed");
-            if (testNotificationPreference != null) {
-                testNotificationPreference.setEnabled(allowed && ResetAlertPreferences.enabled(requireContext()));
-            }
+            updateNotificationChildrenEnabled(ResetAlertPreferences.enabled(requireContext()));
         }
 
         private void bindTransfer() {
@@ -1271,6 +1376,155 @@ public final class SettingsActivity extends AppCompatActivity {
                                 : exception.getMessage(),
                         Toast.LENGTH_LONG).show();
             }
+        }
+    }
+
+    public static final class SettingsFragment extends CodexSettingsFragment {
+        @Override
+        int preferenceXml() {
+            return R.xml.preferences_settings;
+        }
+
+        @Override
+        String screenTitle() {
+            return "Settings";
+        }
+
+        @Override
+        void bindScreen() {
+            bindHub();
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            updateHubSummaries();
+        }
+    }
+
+    public static final class AppearanceFragment extends CodexSettingsFragment {
+        @Override
+        int preferenceXml() {
+            return R.xml.preferences_appearance;
+        }
+
+        @Override
+        String screenTitle() {
+            return "Appearance";
+        }
+
+        @Override
+        void bindScreen() {
+            bindAppearance();
+        }
+    }
+
+    public static final class RefreshFragment extends CodexSettingsFragment {
+        @Override
+        int preferenceXml() {
+            return R.xml.preferences_refresh;
+        }
+
+        @Override
+        String screenTitle() {
+            return "Refresh & usage";
+        }
+
+        @Override
+        void bindScreen() {
+            bindRefresh();
+            bindUsagePace();
+        }
+    }
+
+    public static final class NotificationsFragment extends CodexSettingsFragment {
+        @Override
+        int preferenceXml() {
+            return R.xml.preferences_notifications;
+        }
+
+        @Override
+        String screenTitle() {
+            return "Notifications";
+        }
+
+        @Override
+        void bindScreen() {
+            bindNotifications();
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            updatePermissionSummary();
+        }
+    }
+
+    public static final class NowBarFragment extends CodexSettingsFragment {
+        @Override
+        int preferenceXml() {
+            return R.xml.preferences_now_bar;
+        }
+
+        @Override
+        String screenTitle() {
+            return "Now Bar";
+        }
+
+        @Override
+        void bindScreen() {
+            bindNowBar();
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            if (!NowBarManager.refreshActiveNotificationContract(requireContext())) {
+                Toast.makeText(requireContext(),
+                        "Could not refresh the live notification, so the monitor was stopped.",
+                        Toast.LENGTH_LONG).show();
+            }
+            updateNowBarSummary();
+        }
+    }
+
+    public static final class UpdatesFragment extends CodexSettingsFragment {
+        @Override
+        int preferenceXml() {
+            return R.xml.preferences_updates;
+        }
+
+        @Override
+        String screenTitle() {
+            return "App updates";
+        }
+
+        @Override
+        void bindScreen() {
+            bindUpdates();
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            updateUpdateSummary();
+        }
+    }
+
+    public static final class TransferFragment extends CodexSettingsFragment {
+        @Override
+        int preferenceXml() {
+            return R.xml.preferences_transfer;
+        }
+
+        @Override
+        String screenTitle() {
+            return "Transfer";
+        }
+
+        @Override
+        void bindScreen() {
+            bindTransfer();
         }
     }
 }
