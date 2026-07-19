@@ -28,6 +28,7 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
+import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
 import dev.oneuiproject.oneui.preference.LayoutPreference;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
@@ -381,12 +382,31 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindAppearance() {
             String selected = AppPreferences.getAppTheme(requireContext());
-            ListPreference theme = findPreference("app_theme");
+            boolean useSystem = WidgetOptions.THEME_SYSTEM.equals(selected);
+            HorizontalRadioPreference theme = findPreference("app_theme");
+            SwitchPreferenceCompat system = findPreference("theme_system_ui");
             SwitchPreferenceCompat materialYou = findPreference("material_you");
+            system.setEnabled(true);
+            // Keep "system" persisted while previewing the currently effective light/dark mode.
             theme.setPersistent(false);
-            theme.setValue(selected);
+            theme.setDividerEnabled(false);
+            theme.setTouchEffectEnabled(false);
+            theme.setValue(useSystem
+                    ? (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT)
+                    : selected);
+            theme.setEnabled(!useSystem);
+            system.setChecked(useSystem);
             theme.setOnPreferenceChangeListener((preference, value) -> {
                 AppPreferences.setAppTheme(requireContext(), String.valueOf(value));
+                requireActivity().recreate();
+                return true;
+            });
+            system.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                AppPreferences.setAppTheme(requireContext(), enabled
+                        ? WidgetOptions.THEME_SYSTEM
+                        : (Ui.isDark(requireContext())
+                                ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT));
                 requireActivity().recreate();
                 return true;
             });

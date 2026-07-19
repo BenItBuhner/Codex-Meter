@@ -142,6 +142,16 @@ grep -q 'Protect authentication exports' \
   "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'material_you' \
   "$ROOT/app/src/main/res/xml/preferences_settings_appearance.xml"
+grep -q 'HorizontalRadioPreference' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_appearance.xml"
+grep -q 'theme_system_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_appearance.xml"
+grep -q 'preferences_darkmode_entries_image' \
+  "$ROOT/app/src/main/res/values/settings_arrays.xml"
+grep -q 'HorizontalRadioPreference theme' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+test -f "$ROOT/app/src/main/res/drawable-xxhdpi/display_help_light_mode.webp"
+test -f "$ROOT/app/src/main/res/drawable-xxhdpi/display_help_dark_mode.webp"
 grep -q 'isMaterialYouEnabled' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'AppTheme_MaterialYou' \

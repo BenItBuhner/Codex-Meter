@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string-array name="settings_theme_entries">
-        <item>System default</item>
+    <array name="preferences_darkmode_entries_image">
+        <item>@drawable/display_help_light_mode</item>
+        <item>@drawable/display_help_dark_mode</item>
+    </array>
+    <string-array name="preferences_darkmode_entries">
         <item>Light</item>
         <item>Dark</item>
     </string-array>
-    <string-array name="settings_theme_values">
-        <item>system</item>
+    <string-array name="preferences_darkmode_values">
         <item>light</item>
         <item>dark</item>
     </string-array>
