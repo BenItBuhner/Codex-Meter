@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Your data">
+        <Preference
+            android:icon="@drawable/ic_oui_privacy"
+            android:summary="OAuth tokens are encrypted with Android Keystore and remain on this device."
+            android:title="Encrypted local storage"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+        <Preference
+            android:summary="Codex Meter connects directly to OpenAI for authentication and to ChatGPT and Codex endpoints for usage data. There is no Codex Meter backend."
+            android:title="Direct network access"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+    </PreferenceCategory>
+
+</PreferenceScreen>
