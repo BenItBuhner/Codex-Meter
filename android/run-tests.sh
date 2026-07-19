@@ -62,14 +62,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.4.2"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 19' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.4.2"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 19' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.4.2"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 19' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.4.2' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.4.2"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.4.3"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 20' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.4.3"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 20' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.4.3"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 20' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.4.3' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.4.3"' "$ROOT/build.sh"
 grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
 ! grep -R -q 'thatjoshguy67/Codex-Meter' \
   "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
@@ -142,6 +142,16 @@ grep -q 'Protect authentication exports' \
   "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'material_you' \
   "$ROOT/app/src/main/res/xml/preferences_settings_appearance.xml"
+grep -q 'HorizontalRadioPreference' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_appearance.xml"
+grep -q 'theme_system_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_appearance.xml"
+grep -q 'preferences_darkmode_entries_image' \
+  "$ROOT/app/src/main/res/values/settings_arrays.xml"
+grep -q 'HorizontalRadioPreference theme' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+test -f "$ROOT/app/src/main/res/drawable-xxhdpi/display_help_light_mode.webp"
+test -f "$ROOT/app/src/main/res/drawable-xxhdpi/display_help_dark_mode.webp"
 grep -q 'isMaterialYouEnabled' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'AppTheme_MaterialYou' \

@@ -3,12 +3,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory android:title="Theme">
-        <ListPreference
-            android:entries="@array/settings_theme_entries"
-            android:entryValues="@array/settings_theme_values"
+        <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
             android:key="app_theme"
-            android:title="Theme"
-            app:useSimpleSummaryProvider="true" />
+            app:entries="@array/preferences_darkmode_entries"
+            app:entriesImage="@array/preferences_darkmode_entries_image"
+            app:entryValues="@array/preferences_darkmode_values"
+            app:viewType="image" />
+        <SwitchPreferenceCompat
+            android:key="theme_system_ui"
+            android:title="System default" />
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="material_you"

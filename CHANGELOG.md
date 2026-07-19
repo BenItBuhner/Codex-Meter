@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.4.3 — 2026-07-19
+
+### Fixed
+
+- Android Appearance settings once again show the illustrated Light and Dark theme options side by side, while preserving System default behavior in the redesigned settings navigation.
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.2...v2.4.3 <!-- pragma: allowlist secret -->
+
 ## 2.4.2 — 2026-07-19
 
 ### Added
