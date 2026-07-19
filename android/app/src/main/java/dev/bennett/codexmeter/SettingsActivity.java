@@ -124,6 +124,11 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onResume() {
             super.onResume();
+            if (!NowBarManager.refreshActiveNotificationContract(requireContext())) {
+                Toast.makeText(requireContext(),
+                        "Could not refresh the live notification, so the monitor was stopped.",
+                        Toast.LENGTH_LONG).show();
+            }
             updatePermissionSummary();
             updateNowBarSummary();
             updateUpdateSummary();

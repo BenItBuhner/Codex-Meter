@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.1 — 2026-07-18
+
+### Fixed
+
+- Active Android Live Updates now rebuild immediately after promoted-notification access changes, allowing automatic Samsung fallback and explicit Android modes to adopt the newly available notification contract without waiting for another usage refresh.
+- Live Update construction now adapts to both early Android 16's required colorization and newer uncolorized promotion rules, while notification and Now Bar Codex icons use SystemUI-compatible vector syntax.
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.0...v2.4.1 <!-- pragma: allowlist secret -->
+
 ## 2.4.0 — 2026-07-18
 
 ### Added

@@ -168,6 +168,21 @@ public final class ParserSelfTest {
         check(NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(NowBarDisplayMode.resolve(
                         NowBarDisplayMode.ANDROID_LIVE_UPDATE, true, 35, false)),
                 "explicit Android Live Update override is preserved");
+        check(!NowBarDisplayMode.notificationContractChanged(
+                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY, false,
+                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY, false),
+                "unchanged Samsung notification contract does not need a repost");
+        check(NowBarDisplayMode.notificationContractChanged(
+                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY, false,
+                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, true),
+                "granting promotion access rebuilds automatic Samsung fallback");
+        check(NowBarDisplayMode.notificationContractChanged(
+                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, false,
+                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, true),
+                "granting promotion access rebuilds an explicit Android Live Update");
+        check(NowBarDisplayMode.notificationContractChanged(
+                        null, true, NowBarDisplayMode.ANDROID_LIVE_UPDATE, true),
+                "missing posted contract is refreshed");
         System.out.println("Now Bar display mode isolates Android and Samsung notification paths.");
     }
 

@@ -29,4 +29,16 @@ public final class NowBarDisplayMode {
         }
         return ANDROID_LIVE_UPDATE;
     }
+
+    /**
+     * Returns whether an active notification must be rebuilt after Android's promotion access
+     * or the automatically resolved display mode changes.
+     */
+    public static boolean notificationContractChanged(String postedMode,
+            boolean postedPromotionAllowed, String resolvedMode,
+            boolean promotionAllowedNow) {
+        return postedMode == null
+                || !normalize(postedMode).equals(normalize(resolvedMode))
+                || postedPromotionAllowed != promotionAllowedNow;
+    }
 }
