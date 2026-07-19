@@ -31,12 +31,13 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          if [[ -d /Applications/Xcode_26.0.app ]]; then
-            sudo xcode-select -s /Applications/Xcode_26.0.app
-          elif [[ -d /Applications/Xcode.app ]]; then
+          if [[ -d /Applications/Xcode.app ]]; then
             sudo xcode-select -s /Applications/Xcode.app
+          elif [[ -d /Applications/Xcode_26.0.app ]]; then
+            sudo xcode-select -s /Applications/Xcode_26.0.app
           fi
           xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26'
 
       - name: Run CodexMeterCore tests
         run: |
@@ -67,12 +68,13 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          if [[ -d /Applications/Xcode_26.0.app ]]; then
-            sudo xcode-select -s /Applications/Xcode_26.0.app
-          elif [[ -d /Applications/Xcode.app ]]; then
+          if [[ -d /Applications/Xcode.app ]]; then
             sudo xcode-select -s /Applications/Xcode.app
+          elif [[ -d /Applications/Xcode_26.0.app ]]; then
+            sudo xcode-select -s /Applications/Xcode_26.0.app
           fi
           xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26'
 
       - name: Build watch app (Simulator, no signing)
         run: |
