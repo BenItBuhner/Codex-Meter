@@ -8,8 +8,6 @@ import WidgetKit
 final class WatchSnapshotStore {
     static let shared = WatchSnapshotStore()
 
-    private static let defaultsKey = "codex-meter.watch.snapshot-v1"
-
     var snapshot: SharedWidgetSnapshot
     var lastUpdated: Date?
 
@@ -17,7 +15,7 @@ final class WatchSnapshotStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if let data = defaults.data(forKey: Self.defaultsKey),
+        if let data = defaults.data(forKey: WatchSyncPayload.watchDefaultsKey),
            let decoded = try? WatchSyncPayload.decode(data) {
             self.snapshot = decoded
             self.lastUpdated = Date()
@@ -30,7 +28,7 @@ final class WatchSnapshotStore {
         self.snapshot = snapshot
         self.lastUpdated = Date()
         if let data = try? WatchSyncPayload.encode(snapshot) {
-            defaults.set(data, forKey: Self.defaultsKey)
+            defaults.set(data, forKey: WatchSyncPayload.watchDefaultsKey)
         }
         WidgetCenter.shared.reloadAllTimelines()
     }

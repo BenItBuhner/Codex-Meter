@@ -41,6 +41,7 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
 
-See [`ios/README.md`](ios/README.md) for device signing, App Groups, and release
-checklist notes. CI for iOS is `.github/workflows/ios.yml` (runs when `ios/`
-changes).
+See [`ios/README.md`](ios/README.md) for device signing, App Groups, Watch
+embedding, and release checklist notes. CI for iOS/watchOS is
+`.github/workflows/ios.yml` (runs when `ios/` changes): Core tests, iPhone
+Simulator build, and watchOS Simulator build.

@@ -64,7 +64,7 @@ struct WatchSnapshotProvider: TimelineProvider {
     }
 
     private func loadSnapshot() -> SharedWidgetSnapshot {
-        guard let data = UserDefaults.standard.data(forKey: "codex-meter.watch.snapshot-v1"),
+        guard let data = UserDefaults.standard.data(forKey: WatchSyncPayload.watchDefaultsKey),
               let snapshot = try? WatchSyncPayload.decode(data)
         else {
             return .signedOut
