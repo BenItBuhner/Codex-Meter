@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### iOS (marketing version 1.2.0)
+
+Independent of Android `versionName` / GitHub `v*` APK tags. Lives under `ios/`.
+
+#### Added
+
+- Settings transfer: export/import JSON for app + notification preferences; optional ChatGPT credentials with double confirmation and security warnings.
+- First-run onboarding (what it is / privacy / connect) with sign-in, demo, or skip.
+- Live Activity usage monitor (Lock Screen + Dynamic Island) with optional low-remaining auto-start; ends on next reset, stop, or sign-out.
+- watchOS companion app: phone→watch sanitized snapshot sync via WatchConnectivity; watch UI for five-hour / weekly remaining, credits, and next reset.
+- macOS CI for `CodexMeterCore` tests, iPhone Simulator build, and watchOS Simulator build (`.github/workflows/ios.yml`).
+- About → GitHub Releases link (read-only; no in-app APK installer).
+
+#### Notes
+
+- Samsung One UI, Wear-only surfaces, Material You, and Android in-app APK updates are not ported.
+- Watch face complication WidgetKit views are included; a dedicated watch Widget extension for face-picker registration may still be required depending on Xcode tooling.
+
 ## 2.4.0 — 2026-07-18
 
 ### Added

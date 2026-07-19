@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   ios:
-    name: Core tests + simulator build
+    name: Core tests + iPhone Simulator build
     runs-on: macos-15
     timeout-minutes: 45
     defaults:
@@ -31,7 +31,6 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          # Prefer the newest installed Xcode; fall back to default.
           if [[ -d /Applications/Xcode.app ]]; then
             sudo xcode-select -s /Applications/Xcode.app
           fi
@@ -49,5 +48,34 @@ jobs:
             -project CodexMeter.xcodeproj \
             -scheme CodexMeter \
             -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  watch:
+    name: watchOS Simulator build
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          if [[ -d /Applications/Xcode.app ]]; then
+            sudo xcode-select -s /Applications/Xcode.app
+          fi
+          xcodebuild -version
+
+      - name: Build watch app (Simulator, no signing)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project CodexMeter.xcodeproj \
+            -target CodexMeterWatch \
+            -destination 'generic/platform=watchOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build

@@ -4,6 +4,8 @@ import Foundation
 /// Phone and watch exchange only this sanitized schema — never tokens.
 public enum WatchSyncPayload {
     public static let contextKey = "codex_meter_watch_snapshot_v1"
+    /// UserDefaults key on the watch for the last received snapshot (app + complications).
+    public static let watchDefaultsKey = "codex-meter.watch.snapshot-v1"
     public static let format = "codex_meter_watch_snapshot"
     public static let version = 1
 
