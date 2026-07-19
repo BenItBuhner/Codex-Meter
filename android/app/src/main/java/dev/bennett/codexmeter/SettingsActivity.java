@@ -138,8 +138,14 @@ public final class SettingsActivity extends AppCompatActivity {
             boolean dark = Ui.isDark(requireContext());
             LayoutPreference preference = findPreference("account_card");
             LinearLayout card = preference.findViewById(R.id.settings_account_card);
-            card.setBackground(Ui.card(requireContext(), dark).getBackground());
-            card.setClipToOutline(Ui.isOneUi(requireContext()));
+            boolean oneUi = Ui.isOneUi(requireContext());
+            if (oneUi) {
+                card.setBackground(Ui.card(requireContext(), dark).getBackground());
+            } else {
+                // The preference host already supplies the Material surface container.
+                card.setBackgroundColor(0);
+            }
+            card.setClipToOutline(oneUi);
             ImageView avatar = preference.findViewById(R.id.settings_account_avatar);
             GradientDrawable avatarBackground = new GradientDrawable();
             avatarBackground.setShape(GradientDrawable.OVAL);
