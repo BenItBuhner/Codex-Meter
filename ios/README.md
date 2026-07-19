@@ -39,6 +39,18 @@ credits. Optional auto-start fires when remaining hits a threshold (similar to
 Android Now Bar auto-start). The activity ends at the next reset, on stop, or
 on sign-out. iOS cannot match Android exact-alarm / reboot alarm parity.
 
+## watchOS companion
+
+`CodexMeterWatch` is embedded in the iPhone app. The phone pushes a sanitized
+`SharedWidgetSnapshot` over **WatchConnectivity** whenever widgets update (no
+tokens, no network on the watch). The watch UI shows five-hour / weekly
+remaining, credits, and next reset, and can request a re-push from the phone.
+
+Watch face **complication WidgetKit definitions** live in
+`CodexMeterWatch/WatchComplications.swift` (reload when a snapshot arrives).
+Signing: enable the Watch target with the same team as the iPhone app; bundle id
+`com.bukovinafilip.CodexMeter.watchkitapp`.
+
 ## Build and test
 
 From this `ios/` directory:

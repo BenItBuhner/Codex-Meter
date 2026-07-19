@@ -6,6 +6,7 @@ let package = Package(
     name: "CodexMeterCore",
     platforms: [
         .iOS("26.0"),
+        .watchOS("11.0"),
     ],
     products: [
         .library(
