@@ -45,7 +45,7 @@
     </string-array>
     <string-array name="wear_pace_sensitivity_labels">
         <item>High</item>
-        <item>Normal</item>
+        <item>Med</item>
         <item>Low</item>
         <item>Off</item>
     </string-array>
