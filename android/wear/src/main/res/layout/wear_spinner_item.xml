@@ -6,7 +6,7 @@
     android:ellipsize="end"
     android:gravity="center_vertical"
     android:maxLines="1"
-    android:paddingStart="8dp"
-    android:paddingEnd="32dp"
+    android:paddingStart="0dp"
+    android:paddingEnd="0dp"
     android:textColor="@color/codex_text"
     android:textSize="16sp" />
