@@ -44,9 +44,9 @@
         <item>off</item>
     </string-array>
     <string-array name="wear_pace_sensitivity_labels">
-        <item>Sensitive</item>
-        <item>Balanced</item>
-        <item>Relaxed</item>
-        <item>Estimates only</item>
+        <item>High</item>
+        <item>Normal</item>
+        <item>Low</item>
+        <item>Off</item>
     </string-array>
 </resources>
