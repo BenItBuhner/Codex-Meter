@@ -37,8 +37,8 @@
     <string name="oauth_channel_name">ChatGPT sign-in</string>
     <string name="refresh">Refresh</string>
     <string name="refreshing">Refreshing…</string>
-    <string name="tips_menu">Tips and tricks</string>
-    <string name="tips_title">Tips &amp; tricks</string>
+    <string name="tips_menu">Tips</string>
+    <string name="tips_title">Tips</string>
     <string name="update_downloading">Downloading checksum and APK…</string>
     <string name="update_opening_installer">Verified. Opening Android’s install confirmation…</string>
     <string name="update_waiting_for_installer">Waiting for Android’s install confirmation.</string>

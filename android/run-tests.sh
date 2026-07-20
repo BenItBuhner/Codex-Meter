@@ -91,7 +91,7 @@ grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'TipsActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'MENU_TIPS' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'OpenAI says an active turn may continue' \
+grep -q 'This does not unlock' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/TipsActivity.java"
 grep -q 'https://developers.openai.com/codex/pricing' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/TipsActivity.java"
