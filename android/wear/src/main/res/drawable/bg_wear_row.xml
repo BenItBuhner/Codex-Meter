@@ -3,8 +3,8 @@
     android:color="@color/codex_pressed">
     <item>
         <shape>
-            <solid android:color="@color/wear_button_secondary_fill" />
-            <corners android:radius="@dimen/wear_pill_radius" />
+            <solid android:color="@color/codex_transparent" />
+            <corners android:radius="18dp" />
         </shape>
     </item>
 </ripple>

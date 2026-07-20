@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="wear_screen_padding_horizontal">8dp</dimen>
+    <dimen name="wear_screen_padding_top">22dp</dimen>
+    <dimen name="wear_screen_padding_bottom">40dp</dimen>
+    <dimen name="wear_card_radius">28dp</dimen>
+    <dimen name="wear_card_padding_horizontal">18dp</dimen>
+    <dimen name="wear_card_padding_vertical">14dp</dimen>
+    <dimen name="wear_row_height">56dp</dimen>
+    <dimen name="wear_button_height">52dp</dimen>
+    <dimen name="wear_button_gap">8dp</dimen>
+    <dimen name="wear_pill_radius">999dp</dimen>
+    <dimen name="wear_popup_radius">18dp</dimen>
+</resources>

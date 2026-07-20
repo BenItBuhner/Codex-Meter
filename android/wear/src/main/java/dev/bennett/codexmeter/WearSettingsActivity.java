@@ -4,9 +4,12 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -65,6 +68,7 @@ public final class WearSettingsActivity extends Activity {
         bindSpinner(paceSensitivitySpinner, R.array.wear_pace_sensitivity_labels);
         loadState();
         setupListeners();
+        bindRows();
         Button back = findViewById(R.id.back_button);
         back.setOnClickListener(view -> finish());
     }
@@ -124,6 +128,26 @@ public final class WearSettingsActivity extends Activity {
         usagePaceSwitch.setOnCheckedChangeListener(checkedListener);
         acceleratedStartSwitch.setOnCheckedChangeListener(checkedListener);
         monitorSwitch.setOnCheckedChangeListener(checkedListener);
+    }
+
+    private void bindRows() {
+        bindSpinnerRow(R.id.display_mode_row, displayModeSpinner);
+        bindSpinnerRow(R.id.percent_mode_row, percentModeSpinner);
+        bindSpinnerRow(R.id.metric_row, metricSpinner);
+        bindSpinnerRow(R.id.threshold_row, thresholdSpinner);
+        bindSpinnerRow(R.id.pace_sensitivity_row, paceSensitivitySpinner);
+        bindSwitchRow(R.id.auto_start_row, autoStartSwitch);
+        bindSwitchRow(R.id.usage_pace_row, usagePaceSwitch);
+        bindSwitchRow(R.id.accelerated_start_row, acceleratedStartSwitch);
+        bindSwitchRow(R.id.monitor_row, monitorSwitch);
+    }
+
+    private void bindSpinnerRow(int rowId, Spinner spinner) {
+        findViewById(rowId).setOnClickListener(view -> spinner.performClick());
+    }
+
+    private void bindSwitchRow(int rowId, Switch control) {
+        findViewById(rowId).setOnClickListener(view -> control.toggle());
     }
 
     private void saveCurrent(boolean monitorChanged) {
@@ -204,25 +228,32 @@ public final class WearSettingsActivity extends Activity {
                 getResources().getTextArray(labelsRes)) {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
-                return styleSpinnerText(super.getView(position, convertView, parent));
+                return styleSpinnerText(super.getView(position, convertView, parent), false);
             }
 
             @Override
             public View getDropDownView(int position, View convertView, ViewGroup parent) {
-                return styleSpinnerText(super.getDropDownView(position, convertView, parent));
+                return styleSpinnerText(super.getDropDownView(position, convertView, parent), true);
             }
         };
         adapter.setDropDownViewResource(R.layout.wear_spinner_dropdown_item);
         spinner.setAdapter(adapter);
+        spinner.setBackground(new ColorDrawable(0));
+        spinner.setPopupBackgroundDrawable(getDrawable(R.drawable.bg_wear_spinner_popup));
+        spinner.setElevation(0f);
+        spinner.setPadding(0, 0, 0, 0);
     }
 
-    private static View styleSpinnerText(View view) {
+    private View styleSpinnerText(View view, boolean dropdown) {
         if (view instanceof TextView) {
             TextView text = (TextView) view;
-            text.setTextColor(0xFFFFFFFF);
+            text.setTextColor(getColor(dropdown ? R.color.codex_text : R.color.codex_blue));
             text.setAlpha(1f);
             text.setSingleLine(true);
-            text.setTextSize(16f);
+            text.setIncludeFontPadding(false);
+            text.setGravity((dropdown ? Gravity.START : Gravity.END) | Gravity.CENTER_VERTICAL);
+            text.setTypeface(Typeface.create("sec", Typeface.NORMAL));
+            text.setTextSize(dropdown ? 15f : 14f);
         }
         return view;
     }

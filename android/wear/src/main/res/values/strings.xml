@@ -19,6 +19,7 @@
     <string name="wear_enable_notifications">Enable notifications for live monitor</string>
     <string name="wear_monitor_waiting">Waiting for phone usage</string>
     <string name="wear_glanceable_surfaces">Glanceable surfaces</string>
+    <string name="wear_surface">Surface</string>
     <string name="wear_percent_shown">Percent shown</string>
     <string name="wear_monitor">Monitor</string>
     <string name="wear_auto_start_threshold">Low start</string>

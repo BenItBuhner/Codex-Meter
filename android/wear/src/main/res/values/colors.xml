@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="codex_blue">#0381FE</color>
+    <!-- Phone One UI dark tokens, adapted to the OLED Wear surface. -->
+    <color name="codex_blue">#5CA9FF</color>
+    <color name="codex_primary_fill">#5CA9FF</color>
     <color name="codex_on_blue">#FFFFFFFF</color>
-    <color name="codex_background">#000000</color>
-    <color name="codex_card">#202124</color>
-    <color name="codex_outline">#3C4043</color>
-    <color name="codex_text">#FFFFFFFF</color>
-    <color name="codex_secondary_text">#B3FFFFFF</color>
+    <color name="codex_background">#050608</color>
+    <color name="codex_card">#16181C</color>
+    <color name="codex_control">#2A2C32</color>
+    <color name="codex_outline">#373A40</color>
+    <color name="codex_text">#F8F8FA</color>
+    <color name="codex_secondary_text">#B7BAC2</color>
+    <color name="codex_pressed">#2CFFFFFF</color>
+    <color name="codex_disabled">#66FFFFFF</color>
+    <color name="codex_transparent">#00000000</color>
 </resources>

@@ -3,11 +3,13 @@
     android:id="@android:id/text1"
     android:layout_width="match_parent"
     android:layout_height="48dp"
-    android:background="@color/codex_card"
+    android:background="@drawable/bg_wear_row"
     android:ellipsize="end"
+    android:fontFamily="sec"
     android:gravity="center_vertical"
+    android:includeFontPadding="false"
     android:maxLines="1"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
     android:textColor="@color/codex_text"
-    android:textSize="16sp" />
+    android:textSize="15sp" />
