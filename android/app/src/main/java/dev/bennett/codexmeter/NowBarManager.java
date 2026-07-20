@@ -433,8 +433,13 @@ public final class NowBarManager {
         int remaining = progressWindow == null ? 0 : progressWindow.remainingPercent();
         int used = progressWindow == null ? 0 : progressWindow.usedPercent;
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
-        String fiveHourText = limitText("5-hour", fiveHour);
-        String weeklyText = limitText("Weekly", weekly);
+        // Preview snapshots invent their own windows without a remote observation time;
+        // live monitors must use fetchedAt so reset_after_seconds stays anchored.
+        long observedAt = preview || snapshot == null ? now : snapshot.fetchedAtMillis;
+        String fiveHourText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
+        String weeklyText = NowBarCopy.limitText("Weekly", weekly, observedAt, now);
+        String focusCritical = NowBarCopy.focusCriticalText(
+                weeklyFocus, progressWindow, observedAt, now);
         String title = "Codex usage";
         String estimate = UsageFormat.estimatedRemaining(pace);
         String text = fiveHourText + " · " + weeklyText
@@ -473,16 +478,15 @@ public final class NowBarManager {
                     refreshActionIcon, "Refresh", refreshIntent).build());
         }
         if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(displayMode)) {
-            applySamsungCompatibility(context, builder, fiveHour, weekly, used, remaining,
-                    weeklyFocus, until, now, preview, accelerated, estimate);
+            applySamsungCompatibility(context, builder, fiveHour, weekly, used,
+                    progressWindow, weeklyFocus, until, now, observedAt, preview,
+                    accelerated, estimate);
         } else {
             Bundle promotionExtras = new Bundle();
             promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
             builder.addExtras(promotionExtras);
             if (Build.VERSION.SDK_INT >= 36) {
-                String criticalPrefix = weeklyFocus ? "W " : "";
-                Api36.applyLiveUpdateStyle(context, builder, used,
-                        criticalPrefix + remaining + "%", accelerated);
+                Api36.applyLiveUpdateStyle(context, builder, used, focusCritical, accelerated);
             }
         }
         Notification builtNotification;
@@ -512,7 +516,8 @@ public final class NowBarManager {
         Log.i(TAG, "Posting live monitor: mode=" + displayMode + " promotable=" + promotable
                 + " allowed=" + canPostPromotedNotifications(context)
                 + " legacyColorizedFallback=" + legacyColorizedFallback
-                + " preview=" + preview + " remaining=" + remaining);
+                + " preview=" + preview + " remaining=" + remaining
+                + " focusCritical=" + focusCritical);
         try {
             manager.notify(NOTIFICATION_ID, notification);
             state(context).edit()
@@ -543,12 +548,11 @@ public final class NowBarManager {
     }
 
     private static void applySamsungCompatibility(Context context, Notification.Builder builder,
-            UsageWindow fiveHour, UsageWindow weekly, int used, int focusRemaining,
-            boolean weeklyFocus, long until, long now, boolean preview, boolean accelerated,
-            String estimate) {
-        String fiveHourText = limitText("5-hour", fiveHour);
-        String weeklyText = limitText("Weekly", weekly);
-        String focusLabel = weeklyFocus ? "Weekly " : "5-hour ";
+            UsageWindow fiveHour, UsageWindow weekly, int used, UsageWindow progressWindow,
+            boolean weeklyFocus, long until, long now, long observedAt, boolean preview,
+            boolean accelerated, String estimate) {
+        String fiveHourText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
+        String weeklyText = NowBarCopy.limitText("Weekly", weekly, observedAt, now);
         String availableWindows = fiveHour != null && weekly != null
                 ? "Both usage windows"
                 : fiveHour != null ? "5-hour window"
@@ -565,7 +569,7 @@ public final class NowBarManager {
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
                 accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
-                "Codex · " + focusLabel + focusRemaining + "%");
+                NowBarCopy.chipExpandedText(weeklyFocus, progressWindow, observedAt, now));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
                 fiveHourText + " · " + weeklyText);
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
@@ -587,11 +591,6 @@ public final class NowBarManager {
                 .setUsesChronometer(true)
                 .setChronometerCountDown(true)
                 .setTimeoutAfter(Math.max(1L, until - now));
-    }
-
-    private static String limitText(String label, UsageWindow window) {
-        return label + ": " + (window == null ? "unavailable"
-                : window.remainingPercent() + "% left");
     }
 
     /**
