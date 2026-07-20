@@ -150,10 +150,12 @@ public final class WearOngoingMonitor {
                 null);
         UsageWindow progressWindow = NowBarPercentMode.selectWindow(focus, fiveHour, weekly);
         int used = progressWindow == null ? 0 : progressWindow.usedPercent;
-        int remaining = progressWindow == null ? 0 : progressWindow.remainingPercent();
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
-        String criticalText = (weeklyFocus ? "W " : "") + remaining + "%";
-        String contentText = limitText("5h", fiveHour) + " · " + limitText("Week", weekly);
+        long observedAt = snapshot.fetchedAtMillis;
+        String criticalText = NowBarCopy.focusCriticalText(
+                weeklyFocus, progressWindow, observedAt, now);
+        String contentText = NowBarCopy.wearLimitText("5h", fiveHour, observedAt, now)
+                + " · " + NowBarCopy.wearLimitText("Week", weekly, observedAt, now);
         PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT,
                 new Intent(context, WearMainActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -224,10 +226,6 @@ public final class WearOngoingMonitor {
 
     private static long elapsedTimeZero(long untilWallMillis, long nowWallMillis) {
         return SystemClock.elapsedRealtime() + Math.max(1L, untilWallMillis - nowWallMillis);
-    }
-
-    private static String limitText(String label, UsageWindow window) {
-        return label + " " + (window == null ? "--" : window.remainingPercent() + "%");
     }
 
     private static void createChannel(Context context, NotificationManager manager) {
