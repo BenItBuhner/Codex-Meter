@@ -89,6 +89,8 @@ public final class TipsActivity extends AppCompatActivity {
     private CardItemView tipRow(String title, String summary, boolean divider) {
         CardItemView row = Ui.actionRow(this, title, summary, 0, null);
         row.setShowTopDivider(divider);
+        row.setClickable(false);
+        row.setFocusable(false);
         return row;
     }
 
