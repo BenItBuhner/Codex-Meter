@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
@@ -199,9 +201,30 @@ public final class WearSettingsActivity extends Activity {
     private void bindSpinner(Spinner spinner, int labelsRes) {
         ArrayAdapter<CharSequence> adapter = new ArrayAdapter<>(this,
                 R.layout.wear_spinner_item, android.R.id.text1,
-                getResources().getTextArray(labelsRes));
+                getResources().getTextArray(labelsRes)) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                return styleSpinnerText(super.getView(position, convertView, parent));
+            }
+
+            @Override
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                return styleSpinnerText(super.getDropDownView(position, convertView, parent));
+            }
+        };
         adapter.setDropDownViewResource(R.layout.wear_spinner_dropdown_item);
         spinner.setAdapter(adapter);
+    }
+
+    private static View styleSpinnerText(View view) {
+        if (view instanceof TextView) {
+            TextView text = (TextView) view;
+            text.setTextColor(0xFFFFFFFF);
+            text.setAlpha(1f);
+            text.setSingleLine(true);
+            text.setTextSize(16f);
+        }
+        return view;
     }
 
     private static int indexOf(String[] values, String value) {
