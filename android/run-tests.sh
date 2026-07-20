@@ -93,6 +93,12 @@ grep -q 'ReleaseUpdateJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'WidgetRepairJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'TipsActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'MENU_TIPS' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'This does not unlock' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/TipsActivity.java"
+grep -q 'https://developers.openai.com/codex/pricing' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/TipsActivity.java"
 grep -q 'ReleaseNotesMarkdown.toHtml' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesUi.java"
 grep -q 'ReleaseNotesUi.create' \
@@ -422,6 +428,7 @@ test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsagePacePreferences.java"
 test -f "$ROOT/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java"
 grep -q 'UsagePaceDemoActivity' "$ROOT/app/src/debug/AndroidManifest.xml"
+grep -q 'TipsDemoActivity' "$ROOT/app/src/debug/AndroidManifest.xml"
 grep -q 'usage_pace_enabled_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q 'usage_pace_sensitivity_ui' \
