@@ -57,6 +57,11 @@ change without notice. This app is not affiliated with or endorsed by OpenAI.
 Production distribution is gated on confirming acceptable OpenAI OAuth, API,
 trademark, and branding use; see `RELEASE_CHECKLIST.md`.
 
+## Credits
+
+- Original Android project: [Bennett](https://github.com/BenItBuhner)
+- iOS development: [Filip Bukovina](https://github.com/FBukovina)
+
 ## License
 
 MIT. See the repository root `LICENSE` and the in-app acknowledgements.
