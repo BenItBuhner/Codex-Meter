@@ -29,6 +29,7 @@ public final class ParserSelfTest {
         testWearSettingsState();
         testWearGlanceFormat();
         testNowBarPercentModes();
+        testNowBarCopy();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
@@ -368,6 +369,68 @@ public final class ParserSelfTest {
                         NowBarPercentMode.focusForSettingsChange("auto", mid, low, null)),
                 "settings change to AUTO without trigger picks lower remaining");
         System.out.println("Now Bar percent mode selects auto-trigger, weekly, or five-hour focus.");
+    }
+
+    private static void testNowBarCopy() {
+        long now = 1_700_000_000_000L;
+        long observed = now - TimeUnit.MINUTES.toMillis(5);
+        UsageWindow remaining = new UsageWindow(40, 18_000L, 3_600L,
+                (now + TimeUnit.HOURS.toMillis(1)) / 1000L);
+        UsageWindow exhaustedHours = new UsageWindow(100, 18_000L, 0L,
+                (now + TimeUnit.HOURS.toMillis(3) + TimeUnit.MINUTES.toMillis(20)) / 1000L);
+        UsageWindow exhaustedDays = new UsageWindow(100, 604_800L, 0L,
+                (now + TimeUnit.DAYS.toMillis(2) + TimeUnit.HOURS.toMillis(4)) / 1000L);
+        UsageWindow exhaustedNoReset = new UsageWindow(100, 18_000L, 0L, 0L);
+
+        check("60%".equals(NowBarCopy.focusCriticalText(false, remaining, observed, now)),
+                "focus critical keeps percentage while allowance remains");
+        check("W 60%".equals(NowBarCopy.focusCriticalText(true, remaining, observed, now)),
+                "weekly focus critical keeps W prefix while allowance remains");
+        check("3h 20m".equals(NowBarCopy.focusCriticalText(false, exhaustedHours, observed, now)),
+                "exhausted five-hour focus shows hours until natural reset");
+        check("W 2d 4h".equals(NowBarCopy.focusCriticalText(true, exhaustedDays, observed, now)),
+                "exhausted weekly focus shows days and hours until natural reset");
+        check("0%".equals(NowBarCopy.focusCriticalText(false, exhaustedNoReset, observed, now)),
+                "exhausted window without reset time falls back to 0%");
+
+        check("Codex · 5-hour 60%".equals(
+                        NowBarCopy.chipExpandedText(false, remaining, observed, now)),
+                "chip keeps percentage while allowance remains");
+        check("Codex · Weekly 2d 4h".equals(
+                        NowBarCopy.chipExpandedText(true, exhaustedDays, observed, now)),
+                "exhausted chip shows that window's reset duration");
+
+        check("5-hour: 60% left".equals(
+                        NowBarCopy.limitText("5-hour", remaining, observed, now)),
+                "limit text keeps remaining percentage");
+        check("Weekly: resets in 2d 4h".equals(
+                        NowBarCopy.limitText("Weekly", exhaustedDays, observed, now)),
+                "exhausted weekly limit text announces resets in days/hours");
+        check("5-hour: resets in 3h 20m".equals(
+                        NowBarCopy.limitText("5-hour", exhaustedHours, observed, now)),
+                "exhausted five-hour limit text announces resets in hours/minutes");
+        check("5-hour: unavailable".equals(
+                        NowBarCopy.limitText("5-hour", null, observed, now)),
+                "missing window stays unavailable");
+
+        check("5h 60%".equals(NowBarCopy.wearLimitText("5h", remaining, observed, now)),
+                "Wear limit text keeps remaining percentage");
+        check("Week resets 2d 4h".equals(
+                        NowBarCopy.wearLimitText("Week", exhaustedDays, observed, now)),
+                "Wear exhausted weekly text uses compact reset duration");
+        check("2d 4h".equals(NowBarCopy.compactDuration(
+                        TimeUnit.DAYS.toMillis(2) + TimeUnit.HOURS.toMillis(4))),
+                "compact duration prefers days and hours");
+        check("2d".equals(NowBarCopy.compactDuration(TimeUnit.DAYS.toMillis(2))),
+                "compact duration omits zero hours for whole days");
+        check("4h".equals(NowBarCopy.compactDuration(TimeUnit.HOURS.toMillis(4))),
+                "compact duration omits zero minutes for whole hours");
+        check("3h 20m".equals(NowBarCopy.compactDuration(
+                        TimeUnit.HOURS.toMillis(3) + TimeUnit.MINUTES.toMillis(20))),
+                "compact duration keeps leftover minutes under a day");
+        check("12m".equals(NowBarCopy.compactDuration(TimeUnit.MINUTES.toMillis(12))),
+                "compact duration uses minutes under one hour");
+        System.out.println("Now Bar exhausted windows swap percentage copy for reset duration.");
     }
 
     private static void testStandardUsage() throws Exception {

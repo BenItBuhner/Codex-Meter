@@ -32,6 +32,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarCopy.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSettingsState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearUsageState.java" \
@@ -216,6 +217,20 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarPreferences.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarCopy.java"
+grep -q 'NowBarCopy.focusCriticalText' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NowBarCopy.limitText' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NowBarCopy.chipExpandedText' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NowBarCopy.focusCriticalText' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'NowBarCopy.wearLimitText' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
+grep -q 'testNowBarCopy' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'exhausted five-hour focus shows hours until natural reset' \
+  "$ROOT/tests/ParserSelfTest.java"
 grep -q 'Build.VERSION.SDK_INT >= 36' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'codex_live_monitor_v2' \
