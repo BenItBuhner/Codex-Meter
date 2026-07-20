@@ -10,7 +10,9 @@ import com.google.android.gms.wearable.Wearable;
 import dev.bennett.codexmeter.AppPreferences;
 import dev.bennett.codexmeter.NowBarManager;
 import dev.bennett.codexmeter.NowBarPreferences;
+import dev.bennett.codexmeter.SecureTokenStore;
 import dev.bennett.codexmeter.UsageSnapshot;
+import dev.bennett.codexmeter.UsagePacePreferences;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -26,10 +28,12 @@ public final class PhoneWearSync {
     }
 
     public static void pushUsage(Context context, UsageSnapshot snapshot) {
-        if (context == null || snapshot == null) return;
+        if (context == null) return;
         long now = System.currentTimeMillis();
         pushJson(context, WearSyncPaths.PATH_USAGE,
-                new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE));
+                new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE,
+                        SecureTokenStore.isSignedIn(context)));
+        pushStatus(context, false, "");
     }
 
     public static void pushSettings(Context context) {
@@ -55,6 +59,29 @@ public final class PhoneWearSync {
                 now));
     }
 
+    public static void pushStatus(Context context, boolean refreshInProgress, String error) {
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(app);
+        String visibleError = error == null ? AppPreferences.getLastError(app) : error;
+        pushJson(app, WearSyncPaths.PATH_STATUS, new WearSyncStatus(
+                SecureTokenStore.isSignedIn(app),
+                refreshInProgress,
+                snapshot == null ? 0L : snapshot.fetchedAtMillis,
+                visibleError,
+                appVersion(app),
+                System.currentTimeMillis()));
+    }
+
+    public static void pushAll(Context context) {
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        pushUsage(app, AppPreferences.loadSnapshot(app));
+        pushSettings(app);
+        pushMonitorState(app);
+        pushStatus(app, false, AppPreferences.getLastError(app));
+    }
+
     public static boolean applyRemoteSettings(Context context, WearSettingsState remote) {
         if (context == null || remote == null
                 || WearSettingsState.SOURCE_PHONE.equals(remote.sourceNode)) {
@@ -74,6 +101,9 @@ public final class PhoneWearSync {
             NowBarPreferences.setDisplayMode(app, remote.displayMode);
             NowBarPreferences.setPercentMode(app, remote.percentMode);
             NowBarPreferences.save(app, remote.autoStartEnabled, remote.metric, remote.threshold);
+            NowBarPreferences.setAcceleratedStartEnabled(app, remote.acceleratedStartEnabled);
+            UsagePacePreferences.setEnabled(app, remote.usagePaceEnabled);
+            UsagePacePreferences.setSensitivity(app, remote.usagePaceSensitivity);
             // Phone owns the refresh interval. Wear may echo a cached/default value before the
             // first phone→Wear settings item arrives; never let that clobber the phone schedule.
             if (remote.monitorActive != wasActive) {
@@ -125,7 +155,10 @@ public final class PhoneWearSync {
                 AppPreferences.getRefreshMinutes(context),
                 updatedAtMillis,
                 WearSettingsState.SOURCE_PHONE,
-                context.getPackageName());
+                context.getPackageName(),
+                UsagePacePreferences.isEnabled(context),
+                UsagePacePreferences.getSensitivity(context),
+                NowBarPreferences.isAcceleratedStartEnabled(context));
     }
 
     private static void pushJson(Context context, String path, Object state) {
@@ -137,6 +170,8 @@ public final class PhoneWearSync {
                 json = ((WearSettingsState) state).toJson().toString();
             } else if (state instanceof WearMonitorState) {
                 json = ((WearMonitorState) state).toJson().toString();
+            } else if (state instanceof WearSyncStatus) {
+                json = ((WearSyncStatus) state).toJson().toString();
             } else {
                 return;
             }
@@ -166,6 +201,16 @@ public final class PhoneWearSync {
 
     private static boolean isSettingsPushSuppressed() {
         return Boolean.TRUE.equals(SUPPRESS_SETTINGS_PUSH.get());
+    }
+
+    private static String appVersion(Context context) {
+        try {
+            String value = context.getPackageManager()
+                    .getPackageInfo(context.getPackageName(), 0).versionName;
+            return value == null ? "" : value;
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private static SharedPreferences prefs(Context context) {

@@ -2,8 +2,11 @@
 <resources>
     <style name="AppTheme" parent="@android:style/Theme.DeviceDefault">
         <item name="android:colorAccent">@color/codex_blue</item>
+        <item name="android:colorControlActivated">@color/codex_blue</item>
+        <item name="android:colorControlNormal">@color/codex_secondary_text</item>
         <item name="android:buttonStyle">@style/OneUiWatchButton</item>
-        <item name="android:fontFamily">sans</item>
+        <item name="android:switchStyle">@style/OneUiWatchSwitch</item>
+        <item name="android:fontFamily">sec</item>
         <item name="android:navigationBarColor">@color/codex_background</item>
         <item name="android:statusBarColor">@color/codex_background</item>
         <item name="android:windowActionModeOverlay">true</item>
@@ -12,7 +15,14 @@
 
     <style name="OneUiWatchButton" parent="@android:style/Widget.Material.Button">
         <item name="android:background">@drawable/bg_wear_button_primary</item>
-        <item name="android:minHeight">48dp</item>
+        <item name="android:backgroundTint">@null</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:minHeight">@dimen/wear_button_height</item>
         <item name="android:minWidth">48dp</item>
         <item name="android:paddingStart">18dp</item>
         <item name="android:paddingEnd">18dp</item>
@@ -20,10 +30,21 @@
         <item name="android:textColor">@color/codex_on_blue</item>
         <item name="android:textSize">18sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sec</item>
+        <item name="android:includeFontPadding">false</item>
     </style>
 
     <style name="OneUiWatchSecondaryButton" parent="@style/OneUiWatchButton">
         <item name="android:background">@drawable/bg_wear_button_secondary</item>
         <item name="android:textColor">@color/codex_text</item>
+    </style>
+
+    <style name="OneUiWatchSwitch" parent="@android:style/Widget.Material.CompoundButton.Switch">
+        <item name="android:thumbTint">@color/wear_switch_thumb</item>
+        <item name="android:trackTint">@color/wear_switch_track</item>
+        <item name="android:showText">false</item>
+        <item name="android:minWidth">48dp</item>
+        <item name="android:switchMinWidth">44dp</item>
+        <item name="android:fontFamily">sec</item>
     </style>
 </resources>

@@ -7,8 +7,8 @@
     </string-array>
     <string-array name="wear_display_mode_labels">
         <item>Auto</item>
-        <item>Android Live Update</item>
-        <item>Samsung compatibility</item>
+        <item>Live Update</item>
+        <item>Ongoing Activity</item>
     </string-array>
     <string-array name="wear_percent_modes">
         <item>auto</item>
@@ -36,5 +36,17 @@
         <item>50</item>
         <item>75</item>
         <item>100</item>
+    </string-array>
+    <string-array name="wear_pace_sensitivities">
+        <item>sensitive</item>
+        <item>balanced</item>
+        <item>relaxed</item>
+        <item>off</item>
+    </string-array>
+    <string-array name="wear_pace_sensitivity_labels">
+        <item>High</item>
+        <item>Medium</item>
+        <item>Low</item>
+        <item>Off</item>
     </string-array>
 </resources>

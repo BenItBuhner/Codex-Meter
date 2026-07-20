@@ -4,12 +4,12 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public final class WearGlanceFormat {
-    public static final int ONE_UI_PRIMARY = 0xFF0381FE;
+    public static final int ONE_UI_PRIMARY = 0xFF5CA9FF;
     public static final int ONE_UI_ON_PRIMARY = 0xFFFFFFFF;
-    public static final int ONE_UI_ON_SURFACE = 0xFFFFFFFF;
-    public static final int ONE_UI_SECONDARY_TEXT = 0xB3FFFFFF;
-    public static final int ONE_UI_SURFACE = 0xFF202124;
-    public static final int ONE_UI_TRACK = 0xFF303134;
+    public static final int ONE_UI_ON_SURFACE = 0xFFF8F8FA;
+    public static final int ONE_UI_SECONDARY_TEXT = 0xFFB7BAC2;
+    public static final int ONE_UI_SURFACE = 0xFF16181C;
+    public static final int ONE_UI_TRACK = 0xFF2A2C32;
 
     private static final long HOUR_MILLIS = TimeUnit.HOURS.toMillis(1);
     private static final long MINUTE_MILLIS = TimeUnit.MINUTES.toMillis(1);
@@ -23,9 +23,9 @@ public final class WearGlanceFormat {
      *
      * Samsung publishes One UI Watch design principles, but there is no public One UI
      * Design SDK for Wear like phone oneui-design. Wear surfaces align visually with
-     * OLED black backgrounds, high-contrast white text, Samsung-blue #0381FE accents,
+     * OLED-dark backgrounds, high-contrast text, One UI dark #5CA9FF accents,
      * large round-friendly tap targets, glanceable single-job layouts, and subtle
-     * dark cards (#202124).
+     * dark cards (#16181C), and filled control surfaces (#2A2C32).
      */
 
     public static UsageWindow currentFiveHour(UsageSnapshot snapshot) {
@@ -100,6 +100,37 @@ public final class WearGlanceFormat {
 
     public static String monitorStatusText(boolean active) {
         return active ? "Live monitor active" : "Live monitor off";
+    }
+
+    public static boolean isStale(long updatedAtMillis, int refreshMinutes, long nowMillis) {
+        if (updatedAtMillis <= 0L || updatedAtMillis > nowMillis) return true;
+        long staleAfter = Math.max(TimeUnit.MINUTES.toMillis(30),
+                TimeUnit.MINUTES.toMillis(Math.max(1, refreshMinutes)) * 2L);
+        return nowMillis - updatedAtMillis > staleAfter;
+    }
+
+    public static String accountStatus(UsageSnapshot snapshot) {
+        if (snapshot == null) return "Waiting for usage";
+        if (!snapshot.allowed) return "Usage access unavailable";
+        if (snapshot.limitReached) return "Limit reached";
+        String plan = snapshot.planType == null ? "" : snapshot.planType.trim();
+        if (plan.isEmpty()) return "Codex usage";
+        return Character.toUpperCase(plan.charAt(0)) + plan.substring(1) + " plan";
+    }
+
+    public static String resetCreditsText(UsageSnapshot snapshot) {
+        if (snapshot == null || snapshot.resetCreditsAvailable < 0) return "";
+        int count = snapshot.resetCreditsAvailable;
+        return count + (count == 1 ? " reset credit" : " reset credits");
+    }
+
+    public static String paceWarning(UsageSnapshot snapshot, boolean enabled, String sensitivity,
+            long nowMillis) {
+        if (!enabled) return "";
+        int window = UsagePace.mostAcceleratedWindow(snapshot, nowMillis, sensitivity);
+        if (window == UsagePace.WINDOW_FIVE_HOUR) return "Fast 5-hour usage";
+        if (window == UsagePace.WINDOW_WEEKLY) return "Fast weekly usage";
+        return "";
     }
 
     public static String focusSummary(UsageSnapshot snapshot) {

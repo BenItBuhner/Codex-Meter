@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="@color/codex_blue" />
-    <corners android:radius="24dp" />
-</shape>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/codex_pressed">
+    <item>
+        <shape>
+            <solid android:color="@color/wear_button_primary_fill" />
+            <corners android:radius="@dimen/wear_pill_radius" />
+        </shape>
+    </item>
+</ripple>

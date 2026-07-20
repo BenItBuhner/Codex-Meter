@@ -8,12 +8,12 @@
         android:fillColor="#000000"
         android:pathData="M60,60m-58,0a58,58 0,1 1,116 0a58,58 0,1 1,-116 0" />
     <path
-        android:fillColor="#202124"
-        android:pathData="M30,36h60a12,12 0,0 1,12 12v24a12,12 0,0 1,-12 12h-60a12,12 0,0 1,-12 -12v-24a12,12 0,0 1,12 -12z" />
+        android:fillColor="#16181C"
+        android:pathData="M34,36h52a18,18 0,0 1,18 18v12a18,18 0,0 1,-18 18h-52a18,18 0,0 1,-18 -18v-12a18,18 0,0 1,18 -18z" />
     <path
-        android:fillColor="#0381FE"
+        android:fillColor="#5CA9FF"
         android:pathData="M58,24h4v34h-4zM58,58h28v4h-28z" />
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M38,66h44v8h-44z" />
+        android:fillColor="#F8F8FA"
+        android:pathData="M42,66h36a4,4 0,0 1,4 4a4,4 0,0 1,-4 4h-36a4,4 0,0 1,-4 -4a4,4 0,0 1,4 -4z" />
 </vector>

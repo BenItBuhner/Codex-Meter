@@ -4,14 +4,18 @@ plugins {
 
 android {
     namespace = "dev.bennett.codexmeter"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 0
+        }
+    }
 
     defaultConfig {
         applicationId = "dev.bennett.codexmeter"
         minSdk = 30
         targetSdk = 36
-        versionCode = 20
-        versionName = "2.4.3"
+        versionCode = 21
+        versionName = "2.5.0"
     }
 
     signingConfigs {
@@ -44,15 +48,15 @@ android {
 
 dependencies {
     implementation(project(":shared"))
-    implementation("com.google.android.gms:play-services-wearable:19.0.0")
-    implementation("androidx.wear:wear:1.3.0")
-    implementation("androidx.wear:wear-ongoing:1.0.0")
-    implementation("androidx.wear.tiles:tiles:1.4.1")
-    implementation("androidx.wear.protolayout:protolayout:1.2.1")
-    implementation("androidx.wear.protolayout:protolayout-material:1.2.1")
-    implementation("androidx.wear.protolayout:protolayout-expression:1.2.1")
-    implementation("androidx.concurrent:concurrent-futures:1.2.0")
-    implementation("androidx.core:core:1.15.0")
-    implementation("com.google.guava:guava:33.3.1-android")
-    implementation("androidx.wear.watchface:watchface-complications-data-source:1.2.1")
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
+    implementation("androidx.wear:wear:1.4.0")
+    implementation("androidx.wear:wear-ongoing:1.1.0")
+    implementation("androidx.wear.tiles:tiles:1.6.1")
+    implementation("androidx.wear.protolayout:protolayout:1.4.1")
+    implementation("androidx.wear.protolayout:protolayout-material:1.4.1")
+    implementation("androidx.wear.protolayout:protolayout-expression:1.4.1")
+    implementation("androidx.concurrent:concurrent-futures:1.3.0")
+    implementation("androidx.core:core:1.19.0")
+    implementation("com.google.guava:guava:33.6.0-android")
+    implementation("androidx.wear.watchface:watchface-complications-data-source:1.3.0")
 }

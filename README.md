@@ -12,9 +12,9 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.4.3
+## Android — Version 2.5.0
 
-Version 2.4.3 restores the side-by-side illustrated Light and Dark theme options within the redesigned Android Appearance settings.
+Version 2.5.0 makes the Wear OS companion a first-class release: synchronized usage and monitor state, One UI Watch styling, five Tiles, four Complications, promoted ongoing monitoring, the canonical app icon, and a separately installable signed Wear APK on every tagged GitHub Release.
 
 ### Live countdowns
 
@@ -51,8 +51,9 @@ The app includes:
 
 ## Compatibility
 
-- Minimum Android 8.0 (API 26)
-- Target and compile SDK Android 16 (API 36)
+- Phone minimum Android 8.0 (API 26); Wear companion minimum API 30
+- Phone compile SDK Android 16 (API 36); Wear compile SDK Android 17 (API 37.0)
+- Phone and Wear target Android 16 (API 36)
 - Universal DEX APK with no native ABI libraries
 - Standard Android home-screen widgets
 - Private Samsung One UI lock/AOD integration on compatible Galaxy firmware
@@ -66,7 +67,7 @@ See [`android/README.md`](android/README.md). The Android project uses Gradle wi
 Requirements:
 
 - JDK 17 or newer
-- Android SDK Platform 36
+- Android SDK Platforms 36 and 37.0
 - Android Build Tools 36.x
 - `ANDROID_SDK_ROOT` or `ANDROID_HOME` configured
 - A GitHub Packages token in `GH_ACCESS_TOKEN` (with `read:packages`) and your username in `GH_USERNAME` when the OneUI-Design dependencies are not already cached
@@ -93,7 +94,7 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.4.3`) runs the full CI pipeline and publishes the signed APK plus its SHA-256 checksum to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
+Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.5.0`) runs the full CI pipeline and publishes the signed phone APK, signed Wear OS APK, and their SHA-256 checksums to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
 
 ## Platform stability
 

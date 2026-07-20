@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import dev.bennett.codexmeter.wear.PhoneWearSync;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -64,6 +65,7 @@ public final class MainActivity extends AppCompatActivity {
                     stringExtra2 = booleanExtra ? "Signed in." : "Sign-in failed.";
                 }
                 Toast.makeText(mainActivity, stringExtra2, 1).show();
+                PhoneWearSync.pushAll(MainActivity.this);
                 MainActivity.this.rebuild();
                 return;
             }
@@ -83,6 +85,7 @@ public final class MainActivity extends AppCompatActivity {
         this.appliedMaterialYou = AppPreferences.isMaterialYouEnabled(this);
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        PhoneWearSync.pushAll(this);
         if (routeToOnboarding(getIntent())) {
             return;
         }

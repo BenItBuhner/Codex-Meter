@@ -1,147 +1,357 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.wear.widget.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/codex_background">
+    android:layout_height="match_parent">
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_boxedEdges="all">
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="24dp"
-            android:paddingTop="24dp"
-            android:paddingEnd="24dp"
-            android:paddingBottom="36dp">
+            android:paddingStart="@dimen/wear_screen_padding_horizontal"
+            android:paddingTop="@dimen/wear_screen_padding_top"
+            android:paddingEnd="@dimen/wear_screen_padding_horizontal"
+            android:paddingBottom="@dimen/wear_screen_padding_bottom">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
+                android:includeFontPadding="false"
                 android:text="@string/wear_settings"
-                android:textColor="@color/codex_blue"
+                android:textColor="@color/codex_text"
                 android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginEnd="12dp"
+                android:includeFontPadding="false"
+                android:text="@string/wear_glanceable_surfaces"
+                android:textColor="@color/codex_blue"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="8dp"
                 android:background="@drawable/bg_wear_card"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:paddingStart="16dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="8dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/display_mode_row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Glanceable surfaces"
-                    android:textColor="@color/codex_blue"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <Spinner
-                    android:id="@+id/display_mode_spinner"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="6dp" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_surface"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
+
+                    <Spinner
+                        android:id="@+id/display_mode_spinner"
+                        android:layout_width="86dp"
+                        android:layout_height="52dp" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/display_mode_summary"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:includeFontPadding="false"
+                    android:lineSpacingExtra="1dp"
                     android:textColor="@color/codex_secondary_text"
                     android:textSize="12sp" />
 
-                <TextView
+                <View
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Percent shown"
-                    android:textColor="@color/codex_text"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:layout_height="1dp"
+                    android:background="@color/codex_outline" />
 
-                <Spinner
-                    android:id="@+id/percent_mode_spinner"
+                <LinearLayout
+                    android:id="@+id/percent_mode_row"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp" />
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_percent_shown"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
+
+                    <Spinner
+                        android:id="@+id/percent_mode_spinner"
+                        android:layout_width="86dp"
+                        android:layout_height="52dp" />
+                </LinearLayout>
             </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginEnd="12dp"
+                android:includeFontPadding="false"
+                android:text="@string/wear_monitor"
+                android:textColor="@color/codex_blue"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
                 android:background="@drawable/bg_wear_card"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:paddingStart="16dp"
+                android:paddingEnd="12dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/auto_start_row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Monitor"
-                    android:textColor="@color/codex_blue"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <Switch
-                    android:id="@+id/auto_start_switch"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="4dp"
-                    android:text="Auto-start at threshold"
-                    android:textColor="@color/codex_text"
-                    android:textSize="16sp" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_auto_start_threshold"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Metric"
-                    android:textColor="@color/codex_text"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    <Switch
+                        android:id="@+id/auto_start_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="52dp"
+                        android:text="" />
+                </LinearLayout>
 
-                <Spinner
-                    android:id="@+id/metric_spinner"
+                <View
                     android:layout_width="match_parent"
-                    android:layout_height="52dp" />
+                    android:layout_height="1dp"
+                    android:background="@color/codex_outline" />
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/metric_row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Threshold"
-                    android:textColor="@color/codex_text"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <Spinner
-                    android:id="@+id/threshold_spinner"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_metric"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
 
-                <Switch
-                    android:id="@+id/monitor_switch"
+                    <Spinner
+                        android:id="@+id/metric_spinner"
+                        android:layout_width="86dp"
+                        android:layout_height="52dp" />
+                </LinearLayout>
+
+                <View
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="4dp"
-                    android:text="Monitor active"
-                    android:textColor="@color/codex_text"
-                    android:textSize="16sp" />
+                    android:layout_height="1dp"
+                    android:background="@color/codex_outline" />
+
+                <LinearLayout
+                    android:id="@+id/threshold_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_threshold"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
+
+                    <Spinner
+                        android:id="@+id/threshold_spinner"
+                        android:layout_width="86dp"
+                        android:layout_height="52dp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/codex_outline" />
+
+                <LinearLayout
+                    android:id="@+id/usage_pace_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_usage_pace"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
+
+                    <Switch
+                        android:id="@+id/usage_pace_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="52dp"
+                        android:text="" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/codex_outline" />
+
+                <LinearLayout
+                    android:id="@+id/pace_sensitivity_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_pace_sensitivity"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
+
+                    <Spinner
+                        android:id="@+id/pace_sensitivity_spinner"
+                        android:layout_width="86dp"
+                        android:layout_height="52dp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/codex_outline" />
+
+                <LinearLayout
+                    android:id="@+id/accelerated_start_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_accelerated_start"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
+
+                    <Switch
+                        android:id="@+id/accelerated_start_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="52dp"
+                        android:text="" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/codex_outline" />
+
+                <LinearLayout
+                    android:id="@+id/monitor_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/wear_row_height"
+                    android:background="@drawable/bg_wear_row"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:text="@string/wear_monitor_active"
+                        android:textColor="@color/codex_text"
+                        android:textSize="15sp" />
+
+                    <Switch
+                        android:id="@+id/monitor_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="52dp"
+                        android:text="" />
+                </LinearLayout>
             </LinearLayout>
 
             <Button
                 android:id="@+id/back_button"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="@dimen/wear_button_height"
                 android:layout_marginTop="14dp"
-                android:text="Done" />
+                android:text="@string/wear_done" />
         </LinearLayout>
     </ScrollView>
 </androidx.wear.widget.BoxInsetLayout>

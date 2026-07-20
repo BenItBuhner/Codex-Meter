@@ -34,6 +34,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarCopy.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncStatus.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSettingsState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearUsageState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
@@ -63,14 +64,17 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.4.3"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 20' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.4.3"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 20' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.4.3"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 20' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.4.3' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.4.3"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.5.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 21' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.5.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 21' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.5.0"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 21' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.5.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.5.0"' "$ROOT/build.sh"
+WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
+grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
+grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
 grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
 ! grep -R -q 'thatjoshguy67/Codex-Meter' \
   "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
@@ -459,6 +463,7 @@ test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearDataLayerService.ja
 test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPhoneSync.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearSync.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearListenerService.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncStatus.java"
 grep -q 'androidx.wear.ongoing.OngoingActivity' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 grep -q 'com.google.android.wearable.standalone' "$ROOT/wear/src/main/AndroidManifest.xml"
@@ -467,6 +472,20 @@ grep -q 'codex_meter_phone' "$ROOT/app/src/main/res/values/wear.xml"
 grep -q 'PhoneWearListenerService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'PhoneWearTrust.isTrustedWearMessage' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearListenerService.java"
+grep -q 'MSG_SYNC_NOW' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java"
+grep -q 'PATH_STATUS' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java"
+grep -q 'clearSnapshot(context, state.updatedAtMillis' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearPhoneSync.java"
+! grep -Rq 'seedDemoSnapshot\\|demo_button\\|wear_load_demo' "$ROOT/wear/src/main"
+grep -q 'android:icon="@mipmap/ic_launcher"' "$ROOT/wear/src/main/AndroidManifest.xml"
+for density in mdpi xhdpi xxhdpi xxxhdpi; do
+  cmp "$ROOT/app/src/main/res/drawable-${density}/codex_meter_adaptive_bg.png" \
+    "$ROOT/wear/src/main/res/drawable-${density}/codex_meter_adaptive_bg.png"
+  cmp "$ROOT/app/src/main/res/drawable-${density}/codex_meter_adaptive_fg.png" \
+    "$ROOT/wear/src/main/res/drawable-${density}/codex_meter_adaptive_fg.png"
+done
 grep -q 'isTrustedWearSettings' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearTrust.java"
 grep -q 'package_name' \

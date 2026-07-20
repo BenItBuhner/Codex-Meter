@@ -7,7 +7,7 @@ public final class FiveHourComplicationService extends CodexComplicationService 
     @Override
     protected ComplicationData dataForType(ComplicationType type, boolean preview) {
         UsageWindow window = WearGlanceFormat.currentFiveHour(snapshot(preview));
-        String percent = WearGlanceFormat.remainingPercentText(window);
+        String percent = surfaceText(preview, WearGlanceFormat.remainingPercentText(window));
         if (type == ComplicationType.RANGED_VALUE) {
             return rangedValue(WearGlanceFormat.remainingPercentOrZero(window), percent, "5h",
                     "5-hour Codex usage remaining");

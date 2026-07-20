@@ -20,6 +20,8 @@ import androidx.wear.protolayout.material.TitleChip;
 import androidx.wear.protolayout.material.Typography;
 import androidx.wear.protolayout.material.layouts.EdgeContentLayout;
 import androidx.wear.protolayout.material.layouts.PrimaryLayout;
+import dev.bennett.codexmeter.wear.WearSettingsState;
+import dev.bennett.codexmeter.wear.WearSyncStatus;
 
 final class CodexTileLayouts {
     static final Colors ONE_UI_COLORS = new Colors(WearGlanceFormat.ONE_UI_PRIMARY,
@@ -33,7 +35,8 @@ final class CodexTileLayouts {
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
         UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
-        LayoutElement content = column(openModifiers(context, "overview"))
+        LayoutElementBuilders.Column.Builder contentBuilder =
+                column(openModifiers(context, "overview"))
                 .addContent(text(context, WearGlanceFormat.remainingPercentText(fiveHour),
                         Typography.TYPOGRAPHY_DISPLAY2, WearGlanceFormat.ONE_UI_ON_SURFACE,
                         LayoutElementBuilders.FONT_WEIGHT_BOLD))
@@ -43,8 +46,14 @@ final class CodexTileLayouts {
                 .addContent(spacer(6f))
                 .addContent(text(context, "Week " + WearGlanceFormat.remainingPercentText(weekly),
                         Typography.TYPOGRAPHY_TITLE3, WearGlanceFormat.ONE_UI_ON_SURFACE,
-                        LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .build();
+                        LayoutElementBuilders.FONT_WEIGHT_BOLD));
+        String credits = WearGlanceFormat.resetCreditsText(snapshot);
+        if (!credits.isEmpty()) {
+            contentBuilder.addContent(text(context, credits, Typography.TYPOGRAPHY_CAPTION2,
+                    WearGlanceFormat.ONE_UI_PRIMARY,
+                    LayoutElementBuilders.FONT_WEIGHT_BOLD));
+        }
+        LayoutElement content = contentBuilder.build();
         return primary(deviceParameters)
                 .setPrimaryLabelTextContent(text(context, "Codex", Typography.TYPOGRAPHY_TITLE3,
                         WearGlanceFormat.ONE_UI_PRIMARY,
@@ -59,11 +68,12 @@ final class CodexTileLayouts {
     static LayoutElement progress(Context context, DeviceParameters deviceParameters,
             String label, UsageWindow window) {
         String remaining = WearGlanceFormat.remainingPercentText(window);
+        String visibleLabel = isStale(context) ? label + " · stale" : label;
         LayoutElement center = column(openModifiers(context, label))
                 .addContent(text(context, remaining, Typography.TYPOGRAPHY_DISPLAY2,
                         WearGlanceFormat.ONE_UI_ON_SURFACE,
                         LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .addContent(text(context, label, Typography.TYPOGRAPHY_CAPTION1,
+                .addContent(text(context, visibleLabel, Typography.TYPOGRAPHY_CAPTION1,
                         WearGlanceFormat.ONE_UI_SECONDARY_TEXT,
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
@@ -72,6 +82,7 @@ final class CodexTileLayouts {
          * A fuller arc therefore means more Codex usage budget is still available.
          */
         return new EdgeContentLayout.Builder(deviceParameters)
+                .setResponsiveContentInsetEnabled(true)
                 .setEdgeContent(new CircularProgressIndicator.Builder()
                         .setProgress(WearGlanceFormat.remainingProgress(window))
                         .setCircularProgressIndicatorColors(new ProgressIndicatorColors(
@@ -100,7 +111,8 @@ final class CodexTileLayouts {
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
         return primary(deviceParameters)
-                .setPrimaryLabelTextContent(text(context, "Next reset",
+                .setPrimaryLabelTextContent(text(context,
+                        resetTitle(snapshot),
                         Typography.TYPOGRAPHY_TITLE3, WearGlanceFormat.ONE_UI_PRIMARY,
                         LayoutElementBuilders.FONT_WEIGHT_BOLD))
                 .setContent(content)
@@ -147,7 +159,8 @@ final class CodexTileLayouts {
     }
 
     private static PrimaryLayout.Builder primary(DeviceParameters deviceParameters) {
-        return new PrimaryLayout.Builder(nonNullDevice(deviceParameters));
+        return new PrimaryLayout.Builder(nonNullDevice(deviceParameters))
+                .setResponsiveContentInsetEnabled(true);
     }
 
     private static TitleChip openChip(Context context, DeviceParameters deviceParameters,
@@ -209,12 +222,36 @@ final class CodexTileLayouts {
     }
 
     private static String emptyCopy(Context context, UsageSnapshot snapshot) {
+        WearSyncStatus status = WearPreferences.syncStatus(context);
+        if (status.updatedAtMillis > 0L && !status.signedIn) return "Sign in on phone";
+        if (status.refreshInProgress) return "Refreshing";
+        if (!status.lastError.isEmpty()) return "Refresh failed";
         if (snapshot == null) {
             return WearPreferences.hasSyncedUsage(context) ? "Waiting for sync" : "No usage yet";
         }
+        if (!snapshot.allowed) return "Usage unavailable";
+        if (snapshot.limitReached) return "Limit reached";
+        if (isStale(context)) return "Stale phone data";
+        WearSettingsState settings = WearPreferences.settingsState(context, 0L,
+                WearSettingsState.SOURCE_WEAR);
+        String pace = WearGlanceFormat.paceWarning(snapshot, settings.usagePaceEnabled,
+                settings.usagePaceSensitivity, System.currentTimeMillis());
+        if (!pace.isEmpty()) return pace;
         if (WearPreferences.isConnected(context)) {
             return "Phone synced";
         }
         return "From watch cache";
+    }
+
+    private static boolean isStale(Context context) {
+        WearSettingsState settings = WearPreferences.settingsState(context, 0L,
+                WearSettingsState.SOURCE_WEAR);
+        return WearGlanceFormat.isStale(WearPreferences.lastUsageAt(context),
+                settings.refreshMinutes, System.currentTimeMillis());
+    }
+
+    private static String resetTitle(UsageSnapshot snapshot) {
+        String credits = WearGlanceFormat.resetCreditsText(snapshot);
+        return credits.isEmpty() ? "Next reset" : credits;
     }
 }
