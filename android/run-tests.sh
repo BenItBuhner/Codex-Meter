@@ -89,6 +89,12 @@ grep -q 'ReleaseUpdateJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'WidgetRepairJobService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'UpdateInstallReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'ReleaseHistoryActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'TipsActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'MENU_TIPS' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'OpenAI says an active turn may continue' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/TipsActivity.java"
+grep -q 'https://developers.openai.com/codex/pricing' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/TipsActivity.java"
 grep -q 'ReleaseNotesMarkdown.toHtml' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesUi.java"
 grep -q 'ReleaseNotesUi.create' \
