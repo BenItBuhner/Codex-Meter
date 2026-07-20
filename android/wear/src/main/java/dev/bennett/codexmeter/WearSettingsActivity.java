@@ -198,8 +198,8 @@ public final class WearSettingsActivity extends Activity {
 
     private void bindSpinner(Spinner spinner, int labelsRes) {
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, labelsRes,
-                android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                R.layout.wear_spinner_item);
+        adapter.setDropDownViewResource(R.layout.wear_spinner_dropdown_item);
         spinner.setAdapter(adapter);
     }
 

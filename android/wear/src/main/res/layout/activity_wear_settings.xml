@@ -95,7 +95,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/wear_auto_start_threshold"
                     android:textColor="@color/codex_text"
-                    android:textSize="16sp" />
+                    android:textSize="14sp" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -132,7 +132,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/wear_usage_pace"
                     android:textColor="@color/codex_text"
-                    android:textSize="16sp" />
+                    android:textSize="14sp" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -155,7 +155,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/wear_accelerated_start"
                     android:textColor="@color/codex_text"
-                    android:textSize="16sp" />
+                    android:textSize="14sp" />
 
                 <Switch
                     android:id="@+id/monitor_switch"
@@ -164,7 +164,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/wear_monitor_active"
                     android:textColor="@color/codex_text"
-                    android:textSize="16sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <Button

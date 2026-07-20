@@ -21,13 +21,13 @@
     <string name="wear_glanceable_surfaces">Glanceable surfaces</string>
     <string name="wear_percent_shown">Percent shown</string>
     <string name="wear_monitor">Monitor</string>
-    <string name="wear_auto_start_threshold">Auto-start at threshold</string>
+    <string name="wear_auto_start_threshold">Low-usage start</string>
     <string name="wear_metric">Metric</string>
     <string name="wear_threshold">Threshold</string>
-    <string name="wear_usage_pace">Usage pace estimates</string>
+    <string name="wear_usage_pace">Usage pace</string>
     <string name="wear_pace_sensitivity">Pace sensitivity</string>
-    <string name="wear_accelerated_start">Start monitor for fast usage</string>
-    <string name="wear_monitor_active">Monitor active</string>
+    <string name="wear_accelerated_start">Fast-usage start</string>
+    <string name="wear_monitor_active">Live monitor</string>
     <string name="wear_done">Done</string>
     <string name="wear_surface_live">Uses a local Wear Live Update when supported, with Ongoing Activity for watch-face chips and Recents.</string>
     <string name="wear_surface_ongoing">Uses Wear Ongoing Activity for watch-face chips and Recents.</string>
