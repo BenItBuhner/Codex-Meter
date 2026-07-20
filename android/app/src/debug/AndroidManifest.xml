@@ -8,5 +8,9 @@
             android:name="dev.bennett.codexmeter.UsagePaceDemoActivity"
             android:exported="true"
             android:theme="@style/AppTheme" />
+        <activity
+            android:name="dev.bennett.codexmeter.TipsDemoActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme" />
     </application>
 </manifest>

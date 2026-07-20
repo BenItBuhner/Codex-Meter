@@ -424,6 +424,7 @@ test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsagePacePreferences.java"
 test -f "$ROOT/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java"
 grep -q 'UsagePaceDemoActivity' "$ROOT/app/src/debug/AndroidManifest.xml"
+grep -q 'TipsDemoActivity' "$ROOT/app/src/debug/AndroidManifest.xml"
 grep -q 'usage_pace_enabled_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q 'usage_pace_sensitivity_ui' \
