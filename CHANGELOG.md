@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.5.0 — 2026-07-20
+
+### Added
+
+- Fully supported Wear OS companion distribution with a signed `CodexMeter-Wear-2.5.0.apk` attached directly to tagged GitHub Releases alongside the phone APK and shared SHA-256 checksums.
+- Phone-owned Wear sync status for sign-in, refresh progress and errors, initial state hydration, plan and limit state, reset credits, stale data, and accelerated-usage settings.
+- Wear-native overview, five-hour, weekly, reset, and monitor Tiles; five-hour, weekly, dual-usage, and next-reset Complications; and promoted Ongoing Activity / Live Update monitoring.
+
+### Changed
+
+- Rebuilt the Wear application and settings around the Android app's One UI dark design system, including matching typography and colors, 28dp cards, true pill controls, stateful touch feedback, One UI settings rows, rounded popup surfaces, and explicitly styled switches.
+- Replaced the generated Wear launcher artwork with the canonical Android adaptive icon layers and official Codex notification mark.
+- Updated the Wear dependency stack and compile platform for current Wear OS releases while retaining the Android 16 target behavior.
+- Exhausted Now Bar and Wear monitor windows show their reset countdown instead of an unhelpful `0%`.
+
+### Fixed
+
+- Signing out now clears cached usage and active monitor state from the watch instead of leaving sensitive stale data visible.
+- Wear refresh requests return useful progress and failure state, and opening the app hydrates existing Data Layer items instead of waiting indefinitely for another phone update.
+- Removed release-accessible fake demo usage that could be mistaken for real synchronized account data.
+- Tagged GitHub Releases now publish the Wear APK that CI already built and verified, rather than listing it only inside `SHA256SUMS.txt`.
+
+### Development
+
+- Added regression coverage for Wear sync clear/status payloads, pace settings, stale/account formatting, canonical icon parity, and public Wear release-asset publication.
+- Validated the signed app, all five Tiles, all four Complications, One UI controls, and promoted ongoing notification on a Wear OS 6.1 large-round emulator.
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.3...v2.5.0 <!-- pragma: allowlist secret -->
+
 ## 2.4.3 — 2026-07-19
 
 ### Fixed

@@ -37,7 +37,7 @@ jobs:
             android/**/*.gradle*
             android/**/gradle-wrapper.properties
 
-      - name: Install Android API 36 toolchain
+      - name: Install Android phone and Wear toolchains
         shell: bash
         working-directory: ${{ github.workspace }}
         run: |
@@ -47,7 +47,10 @@ jobs:
             SDKMANAGER="$(command -v sdkmanager)"
           fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "platforms;android-37.0" \
+            "build-tools;36.0.0"
 
       - name: Validate version
         id: version
@@ -121,7 +124,7 @@ jobs:
           mkdir -p dist
           ./build.sh 2>&1 | tee dist/build.log
 
-      - name: Upload APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v7
         with:
           name: codex-meter-${{ steps.version.outputs.name }}-ci
@@ -140,7 +143,7 @@ jobs:
       - name: Check out release sources
         uses: actions/checkout@v7
 
-      - name: Download verified APK
+      - name: Download verified APKs
         uses: actions/download-artifact@v8
         with:
           name: codex-meter-${{ needs.build.outputs.version }}-ci
@@ -194,6 +197,7 @@ jobs:
           fi
           gh release upload "$GITHUB_REF_NAME" \
             "release-dist/CodexMeter-$VERSION_NAME.apk#Codex Meter $VERSION_NAME APK" \
+            "release-dist/CodexMeter-Wear-$VERSION_NAME.apk#Codex Meter Wear OS $VERSION_NAME APK" \
             "release-dist/SHA256SUMS.txt#SHA-256 checksums" \
             --clobber
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest

@@ -281,7 +281,7 @@ public final class ParserSelfTest {
         check(!clearRoundTrip.signedIn,
                 "Wear usage clear payload preserves signed-out state");
         WearSyncStatus status = new WearSyncStatus(true, true, 3000L,
-                "Network unavailable", "2.4.3", 4000L);
+                "Network unavailable", "2.5.0", 4000L);
         WearSyncStatus statusRoundTrip = WearSyncStatus.fromJson(status.toJson());
         check(statusRoundTrip != null && statusRoundTrip.signedIn,
                 "Wear status preserves phone sign-in state");
