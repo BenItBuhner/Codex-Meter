@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.wear.widget.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_boxedEdges="all">
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -72,7 +70,7 @@
 
                     <Spinner
                         android:id="@+id/display_mode_spinner"
-                        android:layout_width="104dp"
+                        android:layout_width="86dp"
                         android:layout_height="52dp" />
                 </LinearLayout>
 
@@ -112,7 +110,7 @@
 
                     <Spinner
                         android:id="@+id/percent_mode_spinner"
-                        android:layout_width="104dp"
+                        android:layout_width="86dp"
                         android:layout_height="52dp" />
                 </LinearLayout>
             </LinearLayout>
@@ -190,7 +188,7 @@
 
                     <Spinner
                         android:id="@+id/metric_spinner"
-                        android:layout_width="104dp"
+                        android:layout_width="86dp"
                         android:layout_height="52dp" />
                 </LinearLayout>
 
@@ -220,7 +218,7 @@
 
                     <Spinner
                         android:id="@+id/threshold_spinner"
-                        android:layout_width="104dp"
+                        android:layout_width="86dp"
                         android:layout_height="52dp" />
                 </LinearLayout>
 
@@ -281,7 +279,7 @@
 
                     <Spinner
                         android:id="@+id/pace_sensitivity_spinner"
-                        android:layout_width="104dp"
+                        android:layout_width="86dp"
                         android:layout_height="52dp" />
                 </LinearLayout>
 

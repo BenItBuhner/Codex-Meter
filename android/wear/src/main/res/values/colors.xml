@@ -11,6 +11,5 @@
     <color name="codex_text">#F8F8FA</color>
     <color name="codex_secondary_text">#B7BAC2</color>
     <color name="codex_pressed">#2CFFFFFF</color>
-    <color name="codex_disabled">#66FFFFFF</color>
     <color name="codex_transparent">#00000000</color>
 </resources>

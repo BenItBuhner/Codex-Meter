@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="wear_screen_padding_horizontal">8dp</dimen>
+    <dimen name="wear_screen_padding_horizontal">18dp</dimen>
     <dimen name="wear_screen_padding_top">22dp</dimen>
     <dimen name="wear_screen_padding_bottom">40dp</dimen>
     <dimen name="wear_card_radius">28dp</dimen>

@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.wear.widget.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_boxedEdges="all">
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -113,34 +111,21 @@
                 android:layout_marginTop="16dp"
                 android:text="@string/wear_toggle_monitor" />
 
-            <LinearLayout
+            <Button
+                android:id="@+id/refresh_button"
+                style="@style/OneUiWatchSecondaryButton"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/wear_button_height"
                 android:layout_marginTop="@dimen/wear_button_gap"
-                android:orientation="horizontal">
+                android:text="@string/wear_refresh" />
 
-                <Button
-                    android:id="@+id/refresh_button"
-                    style="@style/OneUiWatchSecondaryButton"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:text="@string/wear_refresh"
-                    android:textSize="16sp" />
-
-                <Space
-                    android:layout_width="@dimen/wear_button_gap"
-                    android:layout_height="1dp" />
-
-                <Button
-                    android:id="@+id/settings_button"
-                    style="@style/OneUiWatchSecondaryButton"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:text="@string/wear_settings"
-                    android:textSize="16sp" />
-            </LinearLayout>
+            <Button
+                android:id="@+id/settings_button"
+                style="@style/OneUiWatchSecondaryButton"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/wear_button_height"
+                android:layout_marginTop="@dimen/wear_button_gap"
+                android:text="@string/wear_settings" />
         </LinearLayout>
     </ScrollView>
 </androidx.wear.widget.BoxInsetLayout>
