@@ -16,6 +16,8 @@ directly and stores credentials only on-device.
 
 Version 2.5.0 makes the Wear OS companion a first-class release: synchronized usage and monitor state, One UI Watch styling, five Tiles, four Complications, promoted ongoing monitoring, the canonical app icon, and a separately installable signed Wear APK on every tagged GitHub Release.
 
+On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
+
 ### Live countdowns
 
 Samsung lock-screen widgets can display the remaining time until each usage window resets. The countdown is driven locally by Android `Chronometer` views using the reset timestamp already cached from the usage response; it does not repeatedly contact the server merely to update seconds or minutes.

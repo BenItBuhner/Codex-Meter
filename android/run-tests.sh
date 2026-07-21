@@ -539,6 +539,44 @@ for provider in \
 done
 grep -q 'WearSurfaceUpdater' "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSurfaceUpdater.java"
 grep -q 'BIND_TILE_PROVIDER' "$ROOT/wear/src/main/AndroidManifest.xml"
+python3 - <<PY
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+manifest = Path(r"""$ROOT""") / "wear/src/main/AndroidManifest.xml"
+root = ET.parse(manifest).getroot()
+android = "{http://schemas.android.com/apk/res/android}"
+expected = {
+    "dev.bennett.codexmeter.UsageOverviewTileService": "2x2",
+    "dev.bennett.codexmeter.FiveHourTileService": "2x1",
+    "dev.bennett.codexmeter.WeeklyTileService": "2x1",
+    "dev.bennett.codexmeter.ResetCountdownTileService": "2x1",
+    "dev.bennett.codexmeter.MonitorStatusTileService": "2x1",
+}
+services = {service.get(android + "name"): service for service in root.findall("application/service")}
+for service_name, footprint in expected.items():
+    metadata = {
+        item.get(android + "name"): item.get(android + "value") or item.get(android + "resource")
+        for item in services[service_name].findall("meta-data")
+    }
+    assert metadata["com.samsung.android.wearable.tiles.LAYOUT_TYPE"] == footprint
+    assert metadata["com.samsung.android.wearable.tiles.category"] == \
+        "com.samsung.android.wearable.tiles.category.CONNECTED_DEVICES"
+    assert metadata["com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"] == "true"
+    for suffix in ("CATEGORY_A", "CATEGORY_B", "CATEGORY_C"):
+        assert "com.samsung.android.wearable.tiles.category." + suffix in metadata
+print("Wear tile services declare Samsung modular footprints and picker categories.")
+PY
+grep -q 'new ColorBuilders.LinearGradient.Builder' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
+grep -q 'DIAL_SWEEP_DEGREES = 228f' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
+grep -q 'Typeface.create("sec"' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileText.java"
+grep -q 'new OneUiTileText(context, scope)' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
+grep -q 'WearSurfaceUpdater.requestAll(context)' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearBootReceiver.java"
 grep -q 'ACTION_COMPLICATION_UPDATE_REQUEST' "$ROOT/wear/src/main/AndroidManifest.xml"
 grep -q 'WearGlanceFormat' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
