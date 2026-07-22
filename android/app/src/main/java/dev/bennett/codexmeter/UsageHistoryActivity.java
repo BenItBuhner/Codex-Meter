@@ -39,8 +39,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         intro.addView(title);
         TextView detail = Ui.text(this,
                 "Samples stay on this device and are recorded only after a successful refresh. "
-                        + "Solid lines are observed usage, the dotted diagonal is a sustainable "
-                        + "pace, and the dashed extension is the estimate.",
+                        + "The solid line is current usage, faint lines are previous windows, "
+                        + "the dotted diagonal is a sustainable pace, and the dashed extension "
+                        + "is the estimate.",
                 13, Ui.secondaryText(dark));
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.setMargins(0, Ui.dp(this, 8), 0, 0);

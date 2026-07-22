@@ -164,6 +164,8 @@ public final class ParserSelfTest {
                 nextReset / 1000L), reset + TimeUnit.MINUTES.toMillis(2));
         check(history.completedWindowCount() == 1, "reset boundary creates a historical window");
         check(history.currentWindowSamples().size() == 1, "latest reset window is isolated");
+        check(history.recentWindows(5).size() == 2,
+                "chart receives current and completed historical windows");
 
         UsageHistory restored = UsageHistory.fromJson(history.toJson(), UsageHistory.FIVE_HOUR);
         check(restored.samples.size() == history.samples.size(), "usage history JSON round trip");

@@ -16,9 +16,14 @@ import java.util.List;
 public final class UsageBurnChartView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+    private final DashPathEffect budgetDash;
+    private final DashPathEffect projectionDash;
+    private final Typeface regularTypeface = Typeface.create("sec", Typeface.NORMAL);
+    private final Typeface boldTypeface = Typeface.create("sec", Typeface.BOLD);
     private String label = "";
     private UsageWindow window;
     private List<UsageSample> samples = Collections.emptyList();
+    private List<List<UsageSample>> windows = Collections.emptyList();
     private UsagePace.Assessment pace;
     private long observedAtMillis;
 
@@ -28,6 +33,9 @@ public final class UsageBurnChartView extends View {
 
     public UsageBurnChartView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        float density = getResources().getDisplayMetrics().density;
+        budgetDash = new DashPathEffect(new float[]{5f * density, 5f * density}, 0);
+        projectionDash = new DashPathEffect(new float[]{7f * density, 5f * density}, 0);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
 
@@ -36,6 +44,7 @@ public final class UsageBurnChartView extends View {
         this.label = label == null ? "" : label;
         this.window = window;
         this.samples = history == null ? Collections.emptyList() : history.currentWindowSamples();
+        this.windows = history == null ? Collections.emptyList() : history.recentWindows(5);
         this.observedAtMillis = observedAtMillis;
         this.pace = pace;
         String detail = samples.size() < 2 ? "Building local history"
@@ -58,12 +67,12 @@ public final class UsageBurnChartView extends View {
         float right = getWidth() - 16f * density;
         float top = 34f * density;
         float bottom = getHeight() - 24f * density;
-        paint.setTypeface(Typeface.create("sec", Typeface.BOLD));
+        paint.setTypeface(boldTypeface);
         paint.setTextSize(14f * density);
         paint.setColor(Ui.mainText(dark));
         canvas.drawText(label, left, 20f * density, paint);
 
-        paint.setTypeface(Typeface.create("sec", Typeface.NORMAL));
+        paint.setTypeface(regularTypeface);
         paint.setTextSize(10f * density);
         paint.setColor(Ui.secondaryText(dark));
         String sampleLabel = samples.size() < 2 ? "Building history"
@@ -89,10 +98,30 @@ public final class UsageBurnChartView extends View {
         // Sustainable budget: reaching 100% used exactly at reset.
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(1.5f * density);
-        paint.setPathEffect(new DashPathEffect(new float[]{5f * density, 5f * density}, 0));
+        paint.setPathEffect(budgetDash);
         paint.setColor(Color.argb(dark ? 115 : 95, 128, 128, 128));
         canvas.drawLine(left, bottom, right, top, paint);
         paint.setPathEffect(null);
+
+        // Normalize completed windows to the same x-axis so historical burn shapes are comparable.
+        paint.setStrokeWidth(1.5f * density);
+        paint.setColor(Color.argb(dark ? 62 : 48, 128, 128, 128));
+        for (int index = 0; index < windows.size() - 1; index++) {
+            List<UsageSample> historical = windows.get(index);
+            if (historical.size() < 2) continue;
+            UsageSample reference = historical.get(historical.size() - 1);
+            long historicalStart = reference.resetAtMillis - reference.windowSeconds * 1000L;
+            path.reset();
+            for (int sampleIndex = 0; sampleIndex < historical.size(); sampleIndex++) {
+                UsageSample sample = historical.get(sampleIndex);
+                float historicalX = x(sample.observedAtMillis, historicalStart,
+                        reference.resetAtMillis, left, right);
+                float historicalY = y(sample.usedPercent, top, bottom);
+                if (sampleIndex == 0) path.moveTo(historicalX, historicalY);
+                else path.lineTo(historicalX, historicalY);
+            }
+            canvas.drawPath(path, paint);
+        }
 
         if (!samples.isEmpty()) {
             path.reset();
@@ -125,13 +154,13 @@ public final class UsageBurnChartView extends View {
             paint.setColor(pace.accelerated ? Ui.warning(dark)
                     : Ui.desaturatedAccent(getContext(), dark));
             paint.setStrokeWidth(2f * density);
-            paint.setPathEffect(new DashPathEffect(new float[]{7f * density, 5f * density}, 0));
+            paint.setPathEffect(projectionDash);
             canvas.drawLine(fromX, fromY, toX, toY, paint);
             paint.setPathEffect(null);
         }
 
         paint.setStyle(Paint.Style.FILL);
-        paint.setTypeface(Typeface.create("sec", Typeface.NORMAL));
+        paint.setTypeface(regularTypeface);
         paint.setTextSize(10f * density);
         paint.setColor(Ui.secondaryText(dark));
         canvas.drawText("0%", left, getHeight() - 7f * density, paint);
@@ -142,7 +171,7 @@ public final class UsageBurnChartView extends View {
     private void drawEmpty(Canvas canvas, float left, float top, boolean dark, float density,
             String text) {
         paint.setStyle(Paint.Style.FILL);
-        paint.setTypeface(Typeface.create("sec", Typeface.NORMAL));
+        paint.setTypeface(regularTypeface);
         paint.setTextSize(12f * density);
         paint.setColor(Ui.secondaryText(dark));
         canvas.drawText(text, left, top + 24f * density, paint);

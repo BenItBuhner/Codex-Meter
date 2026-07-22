@@ -63,6 +63,25 @@ public final class UsageHistory {
         return Collections.unmodifiableList(result);
     }
 
+    /** Most recent reset windows, oldest to newest, for normalized historical overlays. */
+    public List<List<UsageSample>> recentWindows(int maximum) {
+        if (samples.isEmpty() || maximum <= 0) return Collections.emptyList();
+        ArrayList<List<UsageSample>> windows = new ArrayList<>();
+        ArrayList<UsageSample> current = new ArrayList<>();
+        UsageSample previous = null;
+        for (UsageSample sample : samples) {
+            if (previous != null && !sameWindow(previous, sample)) {
+                windows.add(Collections.unmodifiableList(current));
+                current = new ArrayList<>();
+            }
+            current.add(sample);
+            previous = sample;
+        }
+        if (!current.isEmpty()) windows.add(Collections.unmodifiableList(current));
+        int from = Math.max(0, windows.size() - maximum);
+        return Collections.unmodifiableList(new ArrayList<>(windows.subList(from, windows.size())));
+    }
+
     public int completedWindowCount() {
         if (samples.isEmpty()) return 0;
         int boundaries = 0;
