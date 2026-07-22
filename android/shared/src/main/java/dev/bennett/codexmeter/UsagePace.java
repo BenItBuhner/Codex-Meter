@@ -61,6 +61,37 @@ public final class UsagePace {
                 elapsedMillis, window.usedPercent);
     }
 
+    /**
+     * Refines the full-window average with actual same-window samples when enough history exists.
+     * The blend keeps estimates stable while reacting to a sustained recent change in burn.
+     */
+    public static Assessment assess(UsageWindow window, UsageHistory history,
+            long observedAtMillis, long nowMillis, String sensitivity) {
+        Assessment baseline = assess(window, observedAtMillis, nowMillis, sensitivity);
+        if (!baseline.available || history == null) return baseline;
+        double observedRate = history.observedBurnRate();
+        if (observedRate <= 0d) return baseline;
+        double averageRate = window.usedPercent / (double) baseline.observedDurationMillis;
+        if (averageRate <= 0d) return baseline;
+        // Bound malformed or unusually bursty samples before blending.
+        observedRate = Math.max(averageRate * 0.25d, Math.min(averageRate * 4d, observedRate));
+        double blendedRate = averageRate * 0.4d + observedRate * 0.6d;
+        long remainingAtObservation = Math.max(0L,
+                Math.round((100d - window.usedPercent) / blendedRate));
+        long exhaustionAt = safeAdd(observedAtMillis, remainingAtObservation);
+        long estimatedRemainingNow = Math.max(0L, exhaustionAt - nowMillis);
+        long estimatedTotal = safeAdd(baseline.observedDurationMillis, remainingAtObservation);
+        Policy policy = policy(normalizeSensitivity(sensitivity),
+                safeMultiply(window.windowSeconds, 1000L));
+        boolean accelerated = warningsEnabled(sensitivity)
+                && safeMultiply(remainingAtObservation, 100L)
+                <= safeMultiply(baseline.resetAtMillis - observedAtMillis,
+                        policy.maximumCoveragePercent);
+        return new Assessment(true, accelerated, estimatedRemainingNow, estimatedTotal,
+                baseline.actualRemainingMillis, exhaustionAt, baseline.resetAtMillis,
+                baseline.observedDurationMillis, window.usedPercent);
+    }
+
     public static int mostAcceleratedWindow(UsageSnapshot snapshot, long nowMillis,
             String sensitivity) {
         if (snapshot == null || !warningsEnabled(sensitivity)) return WINDOW_NONE;

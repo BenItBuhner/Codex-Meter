@@ -37,6 +37,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private boolean dark;
     private Spinner displaySpinner;
     private CardItemView displayRow;
+    private Spinner metricSpinner;
+    private CardItemView metricRow;
     private SeslSeekBar opacitySlider;
     private SwitchCompat backgroundSwitch;
     private SwitchCompat percentSymbolSwitch;
@@ -129,11 +131,16 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
         content.addView(Ui.separator(this, "Content"));
         RoundedLinearLayout contentCard = Ui.seslRowCard(this, this.dark);
+        this.metricSpinner = Ui.spinner(this, WidgetOptionCatalog.METRIC_LABELS, this.dark);
+        WidgetOptionCatalog.selectString(this.metricSpinner, WidgetOptionCatalog.METRIC_VALUES,
+                saved.metricMode);
+        this.metricRow = addOptionRow(contentCard, "Allowance", this.metricSpinner,
+                WidgetOptionCatalog.METRIC_LABELS, false);
         this.displaySpinner = Ui.spinner(this, WidgetOptionCatalog.DISPLAY_LABELS, this.dark);
         WidgetOptionCatalog.selectString(this.displaySpinner, WidgetOptionCatalog.DISPLAY_VALUES,
                 saved.displayMode);
         this.displayRow = addOptionRow(contentCard, "Percentage", this.displaySpinner,
-                WidgetOptionCatalog.DISPLAY_LABELS, false);
+                WidgetOptionCatalog.DISPLAY_LABELS, true);
         View symbolDivider = new View(this);
         symbolDivider.setBackgroundColor(Ui.divider(this.dark));
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 1));
@@ -161,6 +168,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         this.themeSpinner.setOnItemSelectedListener(selectionListener);
         this.accentSpinner.setOnItemSelectedListener(selectionListener);
         this.displaySpinner.setOnItemSelectedListener(selectionListener);
+        this.metricSpinner.setOnItemSelectedListener(selectionListener);
         this.percentSymbolSwitch.setOnCheckedChangeListener((button, checked) -> renderPreview());
         this.backgroundSwitch.setOnCheckedChangeListener((button, checked) -> {
             applyBackgroundEnabled(checked);
@@ -394,7 +402,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 opacity,
                 WidgetOptions.RESET_HIDDEN,
                 WidgetOptionCatalog.DISPLAY_VALUES[this.displaySpinner.getSelectedItemPosition()],
-                WidgetOptions.METRIC_BOTH, false, false, false, false, false, false)
+                WidgetOptionCatalog.METRIC_VALUES[this.metricSpinner.getSelectedItemPosition()],
+                false, false, false, false, false, false)
                 .withPercentSymbol(this.percentSymbolSwitch == null
                         || this.percentSymbolSwitch.isChecked());
     }
@@ -409,6 +418,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 this.accentSpinner.getSelectedItemPosition()]);
         this.displayRow.setSummary(WidgetOptionCatalog.DISPLAY_LABELS[
                 this.displaySpinner.getSelectedItemPosition()]);
+        this.metricRow.setSummary(WidgetOptionCatalog.METRIC_LABELS[
+                this.metricSpinner.getSelectedItemPosition()]);
     }
 
     private void renderPreview() {

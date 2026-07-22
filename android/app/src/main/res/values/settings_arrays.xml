@@ -40,6 +40,12 @@
     <string-array name="settings_metric_values">
         <item>both</item><item>five_hour</item><item>weekly</item>
     </string-array>
+    <string-array name="settings_alert_style_entries">
+        <item>Silent</item><item>Notification sound</item><item>Alarm sound</item>
+    </string-array>
+    <string-array name="settings_alert_style_values">
+        <item>silent</item><item>notification</item><item>alarm</item>
+    </string-array>
     <string-array name="settings_threshold_entries">
         <item>Always</item><item>10% or lower</item><item>25% or lower</item>
         <item>50% or lower</item><item>75% or lower</item>

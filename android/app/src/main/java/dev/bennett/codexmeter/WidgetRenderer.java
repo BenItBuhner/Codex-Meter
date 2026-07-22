@@ -59,7 +59,8 @@ public final class WidgetRenderer {
                     remoteViewsBuildViews = buildResponsiveWidget(context, i, widgetOptionsLoadWidgetOptions);
                 } else {
                     remoteViewsBuildViews = buildViews(context, i, widgetOptionsLoadWidgetOptions,
-                            styleForSize(context, appWidgetOptions), appWidgetOptions);
+                            styleForSize(context, appWidgetOptions, widgetOptionsLoadWidgetOptions),
+                            appWidgetOptions);
                 }
                 appWidgetManager.updateAppWidget(i, remoteViewsBuildViews);
             } catch (RuntimeException e) {
@@ -75,32 +76,43 @@ public final class WidgetRenderer {
     @SuppressLint({"NewApi", "UseRequiresApi"})
     private static RemoteViews buildResponsiveWidget(Context context, int i, WidgetOptions widgetOptions) {
         LinkedHashMap<SizeF, RemoteViews> linkedHashMap = new LinkedHashMap<>();
+        String compactStyle = WidgetOptions.STYLE_RINGS;
+        String tallStyle = widgetOptions.singleMetric()
+                ? WidgetOptions.STYLE_DIALS : STYLE_BATTERY_LIST;
         linkedHashMap.put(new SizeF(110.0f, 60.0f),
-                buildViews(context, i, widgetOptions, WidgetOptions.STYLE_RINGS,
+                buildViews(context, i, widgetOptions, compactStyle,
                         sizeBundle(110, 70), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(250.0f, 60.0f),
-                buildViews(context, i, widgetOptions, STYLE_FOUR_DIALS,
+                buildViews(context, i, widgetOptions,
+                        widgetOptions.singleMetric() ? compactStyle : STYLE_FOUR_DIALS,
                         sizeBundle(250, 70), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(110.0f, 130.0f),
-                buildViews(context, i, widgetOptions, STYLE_BATTERY_LIST,
+                buildViews(context, i, widgetOptions, tallStyle,
                         sizeBundle(110, 156), GRAPHIC_STANDARD));
         linkedHashMap.put(new SizeF(250.0f, 130.0f),
-                buildViews(context, i, widgetOptions, STYLE_BATTERY_LIST,
-                        sizeBundle(250, 156), GRAPHIC_STANDARD));
+                buildViews(context, i, widgetOptions, tallStyle,
+                        sizeBundle(250, 156),
+                        widgetOptions.singleMetric() ? GRAPHIC_LARGE : GRAPHIC_STANDARD));
         return new RemoteViews(linkedHashMap);
     }
 
     static RemoteViews buildPreview(Context context, int appWidgetId, WidgetOptions widgetOptions,
             Bundle appWidgetOptions) {
         RemoteViews preview = buildViews(context, appWidgetId, widgetOptions,
-                styleForSize(context, appWidgetOptions), appWidgetOptions);
+                styleForSize(context, appWidgetOptions, widgetOptions), appWidgetOptions);
         preview.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
         return preview;
     }
 
-    private static String styleForSize(Context context, Bundle bundle) {
+    private static String styleForSize(Context context, Bundle bundle, WidgetOptions options) {
         int rows = option(bundle, "semAppWidgetRowSpan");
         int columns = option(bundle, "semAppWidgetColumnSpan");
+        if (options != null && options.singleMetric()) {
+            if (rows >= 2 || currentHeight(context, bundle) >= 130) {
+                return WidgetOptions.STYLE_DIALS;
+            }
+            return WidgetOptions.STYLE_RINGS;
+        }
         if (rows > 0) {
             if (rows >= 2) {
                 return STYLE_BATTERY_LIST;
@@ -212,6 +224,12 @@ public final class WidgetRenderer {
     private static int resolveGraphicTier(Context context, WidgetOptions widgetOptions, Bundle bundle) {
         int iCurrentWidth = currentWidth(context, bundle);
         int iCurrentHeight = currentHeight(context, bundle);
+        if (widgetOptions.singleMetric() && WidgetOptions.GRAPHIC_AUTO.equals(
+                widgetOptions.graphicScale) && iCurrentWidth > 0 && iCurrentHeight > 0) {
+            if (iCurrentWidth >= 340 && iCurrentHeight >= 178) return GRAPHIC_MAX;
+            if (iCurrentWidth >= 230 && iCurrentHeight >= 130) return GRAPHIC_LARGE;
+            return GRAPHIC_STANDARD;
+        }
         return (iCurrentWidth <= 0 || iCurrentHeight <= 0) ? (WidgetOptions.GRAPHIC_MAX.equals(widgetOptions.graphicScale) || WidgetOptions.GRAPHIC_LARGE.equals(widgetOptions.graphicScale)) ? GRAPHIC_LARGE : GRAPHIC_STANDARD : WidgetOptions.GRAPHIC_MAX.equals(widgetOptions.graphicScale) ? (iCurrentWidth < 340 || iCurrentHeight < 198) ? (iCurrentWidth < 270 || iCurrentHeight < 158) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX : WidgetOptions.GRAPHIC_LARGE.equals(widgetOptions.graphicScale) ? (iCurrentWidth < 400 || iCurrentHeight < 208) ? (iCurrentWidth < 290 || iCurrentHeight < 164) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX : (iCurrentWidth < 460 || iCurrentHeight < 220) ? (iCurrentWidth < 340 || iCurrentHeight < 178) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX;
     }
 

@@ -7,6 +7,12 @@
             android:key="notifications_allowed_ui"
             android:summary="Usage and account activity alerts"
             android:title="Allow notifications" />
+        <ListPreference
+            android:entries="@array/settings_alert_style_entries"
+            android:entryValues="@array/settings_alert_style_values"
+            android:key="notification_style_ui"
+            android:title="Delivery style"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory
