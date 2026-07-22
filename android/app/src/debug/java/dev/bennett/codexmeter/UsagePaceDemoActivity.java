@@ -19,6 +19,12 @@ public final class UsagePaceDemoActivity extends Activity {
             finish();
             return;
         }
+        if (getIntent().getBooleanExtra("open_usage_history", false)) {
+            startActivity(new Intent(this, UsageHistoryActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
         String widgetMetric = getIntent().getStringExtra("open_widget_metric");
         if (widgetMetric != null && !widgetMetric.isEmpty()) {
             int widgetId = getIntent().getIntExtra("appWidgetId", 42);
