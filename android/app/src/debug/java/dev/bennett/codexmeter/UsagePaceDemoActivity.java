@@ -19,6 +19,23 @@ public final class UsagePaceDemoActivity extends Activity {
             finish();
             return;
         }
+        String widgetMetric = getIntent().getStringExtra("open_widget_metric");
+        if (widgetMetric != null && !widgetMetric.isEmpty()) {
+            int widgetId = getIntent().getIntExtra("appWidgetId", 42);
+            WidgetOptions defaults = AppPreferences.loadDefaultWidgetOptions(this);
+            AppPreferences.saveWidgetOptions(this, widgetId, new WidgetOptions(
+                    defaults.layout, defaults.density, defaults.surfaceStyle,
+                    defaults.graphicScale, defaults.theme, defaults.accent, defaults.opacity,
+                    defaults.resetMode, defaults.displayMode, widgetMetric,
+                    defaults.showTitle, defaults.showPlan, defaults.showUpdated,
+                    defaults.showRefresh, defaults.showResetCredits, defaults.showResetAction)
+                    .withPercentSymbol(defaults.showPercentSymbol));
+            startActivity(new Intent(this, WidgetConfigActivity.class)
+                    .putExtra("appWidgetId", widgetId)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
         if (getIntent().getBooleanExtra("resume_live_settings", false)) {
             startActivity(new Intent(this, SettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
