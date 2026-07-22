@@ -24,6 +24,7 @@ public final class ParserSelfTest {
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
         testFullWindowHidesResetCountdown();
+        testUsageHistory();
         testUsagePace();
         testNowBarAutoStart();
         testNowBarDisplayModes();
@@ -131,6 +132,45 @@ public final class ParserSelfTest {
         check(!UsagePace.assess(fastWeekly, now, fast.resetAtMillis, UsagePace.BALANCED).available,
                 "expired windows do not produce stale warnings");
         System.out.println("Usage-pace demo: 15% of a week in one hour projects about 6h 40m.");
+    }
+
+    private static void testUsageHistory() throws Exception {
+        long start = 2_000_000_000_000L;
+        long reset = start + TimeUnit.HOURS.toMillis(5);
+        UsageHistory history = UsageHistory.empty(UsageHistory.FIVE_HOUR);
+        history = history.append(new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
+                reset / 1000L), start + TimeUnit.MINUTES.toMillis(5));
+        history = history.append(new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
+                reset / 1000L), start + TimeUnit.MINUTES.toMillis(6));
+        check(history.samples.size() == 1, "near-identical history samples are coalesced");
+        history = history.append(new UsageWindow(20, TimeUnit.HOURS.toSeconds(5), 0L,
+                reset / 1000L), start + TimeUnit.MINUTES.toMillis(20));
+        check(history.currentWindowSamples().size() == 2, "same-window samples are retained");
+        check(history.observedBurnRate() > 0d, "sustained usage produces an observed burn rate");
+
+        UsageWindow current = new UsageWindow(20, TimeUnit.HOURS.toSeconds(5), 0L,
+                reset / 1000L);
+        long observed = start + TimeUnit.MINUTES.toMillis(20);
+        UsagePace.Assessment baseline = UsagePace.assess(current, observed, observed,
+                UsagePace.BALANCED);
+        UsagePace.Assessment refined = UsagePace.assess(current, history, observed, observed,
+                UsagePace.BALANCED);
+        check(refined.available, "history-refined pace is available");
+        check(refined.estimatedExhaustionAtMillis != baseline.estimatedExhaustionAtMillis,
+                "history changes the estimate after a meaningful trend");
+
+        long nextReset = reset + TimeUnit.HOURS.toMillis(5);
+        history = history.append(new UsageWindow(1, TimeUnit.HOURS.toSeconds(5), 0L,
+                nextReset / 1000L), reset + TimeUnit.MINUTES.toMillis(2));
+        check(history.completedWindowCount() == 1, "reset boundary creates a historical window");
+        check(history.currentWindowSamples().size() == 1, "latest reset window is isolated");
+
+        UsageHistory restored = UsageHistory.fromJson(history.toJson(), UsageHistory.FIVE_HOUR);
+        check(restored.samples.size() == history.samples.size(), "usage history JSON round trip");
+        check(UsageHistory.WEEKLY.equals(
+                        UsageHistory.empty(UsageHistory.WEEKLY).kind),
+                "weekly history kind is preserved");
+        System.out.println("Usage-history demo: local samples produce reset-aware burn trends.");
     }
 
     private static void testNowBarAutoStart() {
@@ -926,6 +966,22 @@ public final class ParserSelfTest {
                 "both", false, false, false, false, false, false);
         check(low.opacity == 56, "low fill strength accepted");
         check(high.opacity == 100, "full fill strength accepted");
+        WidgetOptions fiveOnly = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_BLUE,
+                88, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                WidgetOptions.METRIC_FIVE_HOUR, false, false, false, false, false, false);
+        WidgetOptions weeklyOnly = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_BLUE,
+                88, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                WidgetOptions.METRIC_WEEKLY, false, false, false, false, false, false);
+        check(fiveOnly.singleMetric() && fiveOnly.showsFiveHour()
+                        && !fiveOnly.showsWeekly(),
+                "5-hour-only widget exposes one dial");
+        check(weeklyOnly.singleMetric() && !weeklyOnly.showsFiveHour()
+                        && weeklyOnly.showsWeekly(),
+                "weekly-only widget exposes one dial");
     }
 
     private static void testOnboardingFlow() {

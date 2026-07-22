@@ -119,6 +119,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private PreferenceCategory notificationLowUsageCategory;
         private PreferenceCategory notificationResetCreditCategory;
         private PreferenceCategory notificationTroubleshootingCategory;
+        private ListPreference notificationStylePreference;
         private SwitchPreferenceCompat nowBarMonitorPreference;
         private SwitchPreferenceCompat nowBarAutoStartPreference;
         private SwitchPreferenceCompat nowBarAcceleratedPreference;
@@ -612,6 +613,17 @@ public final class SettingsActivity extends AppCompatActivity {
                 setNotificationsEnabled((Boolean) value);
                 return true;
             });
+            notificationStylePreference = findPreference("notification_style_ui");
+            String currentStyle = ResetAlertPreferences.getStyle(requireContext());
+            notificationStylePreference.setValue(ResetAlertPreferences.STYLE_OFF.equals(currentStyle)
+                    ? ResetAlertPreferences.STYLE_NOTIFICATION : currentStyle);
+            notificationStylePreference.setEnabled(ResetAlertPreferences.enabled(requireContext()));
+            notificationStylePreference.setOnPreferenceChangeListener((preference, value) -> {
+                String style = String.valueOf(value);
+                saveAlert(style, ResetAlertPreferences.getMetric(requireContext()),
+                        ResetAlertPreferences.getThreshold(requireContext()));
+                return true;
+            });
 
             ListPreference metric = findPreference("notification_metric_ui");
             metric.setValue(ResetAlertPreferences.getMetric(requireContext()));
@@ -688,6 +700,9 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateNotificationEnabledState() {
             boolean enabled = ResetAlertPreferences.enabled(requireContext());
+            if (notificationStylePreference != null) {
+                notificationStylePreference.setEnabled(enabled);
+            }
             if (notificationLowUsageCategory != null) {
                 notificationLowUsageCategory.setVisible(enabled);
             }
@@ -1160,7 +1175,10 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void setNotificationsEnabled(boolean enabled) {
-            saveAlert(enabled ? ResetAlertPreferences.STYLE_NOTIFICATION : ResetAlertPreferences.STYLE_OFF,
+            String selectedStyle = notificationStylePreference == null
+                    ? ResetAlertPreferences.STYLE_NOTIFICATION
+                    : notificationStylePreference.getValue();
+            saveAlert(enabled ? selectedStyle : ResetAlertPreferences.STYLE_OFF,
                     ResetAlertPreferences.getMetric(requireContext()),
                     ResetAlertPreferences.getThreshold(requireContext()));
             if (enabled && Build.VERSION.SDK_INT >= 33

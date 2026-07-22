@@ -24,6 +24,8 @@ public final class AppPreferences {
     private static final String KEY_RESET_ERROR_AT = "reset_credits_error_at";
     private static final String KEY_SCHEDULER_ERROR = "scheduler_error";
     private static final String KEY_SNAPSHOT = "last_snapshot";
+    private static final String KEY_HISTORY_FIVE_HOUR = "usage_history_five_hour";
+    private static final String KEY_HISTORY_WEEKLY = "usage_history_weekly";
     private static final long OAUTH_STALE_AFTER_MS = 720000;
     private static final String PREFS = "codex_meter_settings_v1";
 
@@ -59,7 +61,9 @@ public final class AppPreferences {
     }
 
     public static void clearSnapshot(Context context) {
-        prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT).remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).apply();
+        prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
+                .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
+                .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY).apply();
         NowBarManager.stop(context);
         NowBarPreferences.clearSuppression(context);
         ResetNotificationManager.clearState(context);
@@ -77,6 +81,33 @@ public final class AppPreferences {
 
     public static void clearLastError(Context context) {
         prefs(context).edit().remove(KEY_ERROR).remove(KEY_ERROR_AT).apply();
+    }
+
+    public static UsageHistory loadUsageHistory(Context context, String kind) {
+        String key = UsageHistory.WEEKLY.equals(kind)
+                ? KEY_HISTORY_WEEKLY : KEY_HISTORY_FIVE_HOUR;
+        String stored = prefs(context).getString(key, null);
+        if (stored == null || stored.isEmpty()) return UsageHistory.empty(kind);
+        try {
+            return UsageHistory.fromJson(new JSONObject(stored), kind);
+        } catch (Exception ignored) {
+            return UsageHistory.empty(kind);
+        }
+    }
+
+    public static boolean saveUsageHistory(Context context, UsageHistory history) {
+        if (history == null) return false;
+        String key = UsageHistory.WEEKLY.equals(history.kind)
+                ? KEY_HISTORY_WEEKLY : KEY_HISTORY_FIVE_HOUR;
+        try {
+            return prefs(context).edit().putString(key, history.toJson().toString()).commit();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    public static void clearUsageHistory(Context context) {
+        prefs(context).edit().remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY).apply();
     }
 
     public static String getLastError(Context context) {
@@ -238,7 +269,7 @@ public final class AppPreferences {
 
     public static WidgetOptions loadDefaultWidgetOptions(Context context) {
         SharedPreferences sharedPreferencesPrefs = prefs(context);
-        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString("default_style", WidgetOptions.STYLE_RINGS), sharedPreferencesPrefs.getString("default_density", "auto"), sharedPreferencesPrefs.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI), sharedPreferencesPrefs.getString("default_graphic_scale", "auto"), sharedPreferencesPrefs.getString("default_theme", WidgetOptions.THEME_SYSTEM), sharedPreferencesPrefs.getString("default_accent", WidgetOptions.ACCENT_BLUE), sharedPreferencesPrefs.getInt("default_opacity", 88), sharedPreferencesPrefs.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE), sharedPreferencesPrefs.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING), "both", false, sharedPreferencesPrefs.getBoolean("default_show_plan", false), sharedPreferencesPrefs.getBoolean("default_show_updated", false), sharedPreferencesPrefs.getBoolean("default_show_refresh", true), sharedPreferencesPrefs.getBoolean("default_show_reset_credits", false), sharedPreferencesPrefs.getBoolean("default_show_reset_action", false)))
+        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString("default_style", WidgetOptions.STYLE_RINGS), sharedPreferencesPrefs.getString("default_density", "auto"), sharedPreferencesPrefs.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI), sharedPreferencesPrefs.getString("default_graphic_scale", "auto"), sharedPreferencesPrefs.getString("default_theme", WidgetOptions.THEME_SYSTEM), sharedPreferencesPrefs.getString("default_accent", WidgetOptions.ACCENT_BLUE), sharedPreferencesPrefs.getInt("default_opacity", 88), sharedPreferencesPrefs.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE), sharedPreferencesPrefs.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING), sharedPreferencesPrefs.getString("default_metric_mode", WidgetOptions.METRIC_BOTH), false, sharedPreferencesPrefs.getBoolean("default_show_plan", false), sharedPreferencesPrefs.getBoolean("default_show_updated", false), sharedPreferencesPrefs.getBoolean("default_show_refresh", true), sharedPreferencesPrefs.getBoolean("default_show_reset_credits", false), sharedPreferencesPrefs.getBoolean("default_show_reset_action", false)))
                 .withPercentSymbol(sharedPreferencesPrefs.getBoolean(
                         "default_show_percent_symbol", true));
     }
@@ -254,7 +285,7 @@ public final class AppPreferences {
         SharedPreferences sharedPreferencesPrefs = prefs(context);
         WidgetOptions widgetOptionsLoadDefaultWidgetOptions = loadDefaultWidgetOptions(context);
         String str = "widget_" + i + "_";
-        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString(str + "style", widgetOptionsLoadDefaultWidgetOptions.layout), sharedPreferencesPrefs.getString(str + "density", widgetOptionsLoadDefaultWidgetOptions.density), sharedPreferencesPrefs.getString(str + "surface_style", widgetOptionsLoadDefaultWidgetOptions.surfaceStyle), sharedPreferencesPrefs.getString(str + "graphic_scale", widgetOptionsLoadDefaultWidgetOptions.graphicScale), sharedPreferencesPrefs.getString(str + "theme", widgetOptionsLoadDefaultWidgetOptions.theme), sharedPreferencesPrefs.getString(str + "accent", widgetOptionsLoadDefaultWidgetOptions.accent), sharedPreferencesPrefs.getInt(str + "opacity", widgetOptionsLoadDefaultWidgetOptions.opacity), sharedPreferencesPrefs.getString(str + "reset_mode", widgetOptionsLoadDefaultWidgetOptions.resetMode), sharedPreferencesPrefs.getString(str + "display_mode", widgetOptionsLoadDefaultWidgetOptions.displayMode), "both", false, sharedPreferencesPrefs.getBoolean(str + "show_plan", widgetOptionsLoadDefaultWidgetOptions.showPlan), sharedPreferencesPrefs.getBoolean(str + "show_updated", widgetOptionsLoadDefaultWidgetOptions.showUpdated), sharedPreferencesPrefs.getBoolean(str + "show_refresh", widgetOptionsLoadDefaultWidgetOptions.showRefresh), sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", widgetOptionsLoadDefaultWidgetOptions.showResetCredits), sharedPreferencesPrefs.getBoolean(str + "show_reset_action", widgetOptionsLoadDefaultWidgetOptions.showResetAction)))
+        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString(str + "style", widgetOptionsLoadDefaultWidgetOptions.layout), sharedPreferencesPrefs.getString(str + "density", widgetOptionsLoadDefaultWidgetOptions.density), sharedPreferencesPrefs.getString(str + "surface_style", widgetOptionsLoadDefaultWidgetOptions.surfaceStyle), sharedPreferencesPrefs.getString(str + "graphic_scale", widgetOptionsLoadDefaultWidgetOptions.graphicScale), sharedPreferencesPrefs.getString(str + "theme", widgetOptionsLoadDefaultWidgetOptions.theme), sharedPreferencesPrefs.getString(str + "accent", widgetOptionsLoadDefaultWidgetOptions.accent), sharedPreferencesPrefs.getInt(str + "opacity", widgetOptionsLoadDefaultWidgetOptions.opacity), sharedPreferencesPrefs.getString(str + "reset_mode", widgetOptionsLoadDefaultWidgetOptions.resetMode), sharedPreferencesPrefs.getString(str + "display_mode", widgetOptionsLoadDefaultWidgetOptions.displayMode), sharedPreferencesPrefs.getString(str + "metric_mode", widgetOptionsLoadDefaultWidgetOptions.metricMode), false, sharedPreferencesPrefs.getBoolean(str + "show_plan", widgetOptionsLoadDefaultWidgetOptions.showPlan), sharedPreferencesPrefs.getBoolean(str + "show_updated", widgetOptionsLoadDefaultWidgetOptions.showUpdated), sharedPreferencesPrefs.getBoolean(str + "show_refresh", widgetOptionsLoadDefaultWidgetOptions.showRefresh), sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", widgetOptionsLoadDefaultWidgetOptions.showResetCredits), sharedPreferencesPrefs.getBoolean(str + "show_reset_action", widgetOptionsLoadDefaultWidgetOptions.showResetAction)))
                 .withPercentSymbol(sharedPreferencesPrefs.getBoolean(str + "show_percent_symbol",
                         widgetOptionsLoadDefaultWidgetOptions.showPercentSymbol));
     }
@@ -278,7 +309,7 @@ public final class AppPreferences {
     private static WidgetOptions batteryStyle(WidgetOptions options) {
         return new WidgetOptions(WidgetOptions.STYLE_RINGS, WidgetOptions.DENSITY_AUTO,
                 WidgetOptions.SURFACE_ONE_UI, "auto", options.theme, options.accent,
-                options.opacity, WidgetOptions.RESET_HIDDEN, options.displayMode, "both",
+                options.opacity, WidgetOptions.RESET_HIDDEN, options.displayMode, options.metricMode,
                 false, false, false, false, false, false);
     }
 

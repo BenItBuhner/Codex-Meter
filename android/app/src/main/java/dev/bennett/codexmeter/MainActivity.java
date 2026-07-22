@@ -263,6 +263,8 @@ public final class MainActivity extends AppCompatActivity {
             }
             this.content.addView(buildUsageDashboard());
             Ui.addSpacer(this.content, 20);
+            this.content.addView(buildUsageHistoryCard());
+            Ui.addSpacer(this.content, 20);
             if (!SecureTokenStore.isSignedIn(this)) {
                 Button signIn = Ui.nativePrimaryButton(this,
                         AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
@@ -331,6 +333,47 @@ public final class MainActivity extends AppCompatActivity {
                 "Weekly".equals(label) ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
                 invertedWave, pace.accelerated);
         card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
+        return card;
+    }
+
+    private LinearLayout buildUsageHistoryCard() {
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setPadding(Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 12));
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        long now = System.currentTimeMillis();
+        TextView title = Ui.text(this, "Usage history", 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+        titleParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), 0);
+        card.addView(title, titleParams);
+        TextView detail = Ui.text(this,
+                "On-device burn trends improve estimates as samples accumulate.",
+                12, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
+        detailParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4));
+        card.addView(detail, detailParams);
+
+        UsageBurnChartView fiveChart = new UsageBurnChartView(this);
+        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
+        fiveChart.setData("5-hour", fiveWindow,
+                AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
+                snapshot == null ? now : snapshot.fetchedAtMillis,
+                UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
+        card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+
+        UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
+        UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
+        weeklyChart.setData("Weekly", weeklyWindow,
+                AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
+                snapshot == null ? now : snapshot.fetchedAtMillis,
+                UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
+        card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+
+        Button open = Ui.button(this, "View history", false, this.dark);
+        open.setOnClickListener(view -> Ui.startSecondaryActivity(this, UsageHistoryActivity.class));
+        LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
+        openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
+        card.addView(open, openParams);
         return card;
     }
 
