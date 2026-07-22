@@ -11,6 +11,14 @@ public final class UsagePaceDemoActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        String settingsPage = getIntent().getStringExtra("open_settings_page");
+        if (settingsPage != null && !settingsPage.isEmpty()) {
+            startActivity(new Intent(this, SettingsActivity.class)
+                    .putExtra("settings_page", settingsPage)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
         if (getIntent().getBooleanExtra("resume_live_settings", false)) {
             startActivity(new Intent(this, SettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
