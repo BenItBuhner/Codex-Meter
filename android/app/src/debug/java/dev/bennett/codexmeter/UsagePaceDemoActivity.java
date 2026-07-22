@@ -33,6 +33,7 @@ public final class UsagePaceDemoActivity extends Activity {
                     "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
                     "debug-demo-account", "demo@codexmeter.local"));
             AppPreferences.saveSnapshot(this, snapshot);
+            seedHistory(now, fiveHourReset, weeklyReset);
             AppPreferences.saveResetCredits(this, new ResetCreditsSnapshot(3, Arrays.asList(
                     new RateLimitResetCredit("demo-soon", "both", "available", now,
                             now + TimeUnit.DAYS.toMillis(1), "Reset credit 1", ""),
@@ -57,5 +58,43 @@ public final class UsagePaceDemoActivity extends Activity {
         } finally {
             finish();
         }
+    }
+
+    private void seedHistory(long now, long fiveHourReset, long weeklyReset) {
+        UsageHistory five = UsageHistory.empty(UsageHistory.FIVE_HOUR);
+        for (int window = 2; window >= 1; window--) {
+            long reset = fiveHourReset - TimeUnit.HOURS.toMillis(5L * window);
+            for (int point = 1; point <= 5; point++) {
+                long observed = reset - TimeUnit.HOURS.toMillis(5)
+                        + TimeUnit.MINUTES.toMillis(45L * point);
+                int used = Math.min(96, point * (window == 1 ? 18 : 15));
+                five = five.append(new UsageWindow(used, TimeUnit.HOURS.toSeconds(5), 0L,
+                        reset / 1000L), observed);
+            }
+        }
+        int[] fiveUsed = {4, 9, 15};
+        for (int point = 0; point < fiveUsed.length; point++) {
+            five = five.append(new UsageWindow(fiveUsed[point],
+                            TimeUnit.HOURS.toSeconds(5), 0L, fiveHourReset / 1000L),
+                    now - TimeUnit.MINUTES.toMillis(40L - 20L * point));
+        }
+        AppPreferences.saveUsageHistory(this, five);
+
+        UsageHistory weekly = UsageHistory.empty(UsageHistory.WEEKLY);
+        long previousWeeklyReset = weeklyReset - TimeUnit.DAYS.toMillis(7);
+        for (int point = 1; point <= 6; point++) {
+            long observed = previousWeeklyReset - TimeUnit.DAYS.toMillis(7)
+                    + TimeUnit.HOURS.toMillis(24L * point);
+            weekly = weekly.append(new UsageWindow(point * 9,
+                            TimeUnit.DAYS.toSeconds(7), 0L, previousWeeklyReset / 1000L),
+                    observed);
+        }
+        int[] weeklyUsed = {4, 9, 15};
+        for (int point = 0; point < weeklyUsed.length; point++) {
+            weekly = weekly.append(new UsageWindow(weeklyUsed[point],
+                            TimeUnit.DAYS.toSeconds(7), 0L, weeklyReset / 1000L),
+                    now - TimeUnit.MINUTES.toMillis(40L - 20L * point));
+        }
+        AppPreferences.saveUsageHistory(this, weekly);
     }
 }
