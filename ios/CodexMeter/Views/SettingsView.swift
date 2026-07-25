@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 
 struct SettingsView: View {
@@ -56,6 +57,22 @@ struct SettingsView: View {
             } footer: {
                 Text("iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
             }
+
+            Section {
+                Toggle("Usage pace estimates", isOn: $model.settings.usagePaceEnabled)
+                if model.settings.usagePaceEnabled {
+                    Picker("Sensitivity", selection: $model.settings.usagePaceSensitivity) {
+                        ForEach(UsagePace.Sensitivity.allCases) { sensitivity in
+                            Text(sensitivity.title).tag(sensitivity)
+                        }
+                    }
+                }
+            } header: {
+                Text("Usage pace")
+            } footer: {
+                Text("Projects how long the current average consumption rate would take to exhaust the window. Orange highlights mean you are on track to run out before the scheduled reset.")
+            }
+            .disabled(model.mode == .signedOut)
 
             Section {
                 Toggle("Allow notifications", isOn: $model.settings.notificationsEnabled)

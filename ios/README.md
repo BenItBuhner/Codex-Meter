@@ -9,9 +9,11 @@ application lives under [`../android/`](../android/). Behavior is aligned with
 the Android app where platform APIs allow; it does not include Samsung One UI,
 Now Bar / Live Update monitors, or Android in-app APK updates.
 
-Portable notification features from Android 2.1/2.2 are included: unexpected
-refill alerts, independent reset-credit increase alerts, and configurable
-reset-credit expiry reminders.
+Portable features from recent Android releases include unexpected refill
+alerts, independent reset-credit increase alerts, configurable reset-credit
+expiry reminders, and usage-pace exhaustion estimates with sensitivity
+controls (Android 2.4). Samsung One UI, Wear OS, Now Bar / Live Updates, and
+APK self-update are intentionally not ported.
 
 ## Requirements
 
