@@ -9,7 +9,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.tribalfs</groupId>
   <artifactId>oneui-design</artifactId>
-  <version>0.9.13+oneui8</version>
+  <version>0.9.14+oneui8</version>
   <packaging>aar</packaging>
   <name>oneui-design</name>
   <url>https://github.com/tribalfs/oneui-design</url>
