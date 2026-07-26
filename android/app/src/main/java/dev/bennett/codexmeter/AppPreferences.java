@@ -11,9 +11,11 @@ public final class AppPreferences {
     private static final String KEY_APP_THEME = "app_theme";
     private static final String KEY_DASHBOARD_ADDITIONAL_LIMITS = "dashboard_additional_limits";
     private static final String KEY_DASHBOARD_FIVE_HOUR = "dashboard_five_hour";
+    private static final String KEY_DASHBOARD_HIDDEN_SECTIONS = "dashboard_hidden_sections";
     private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
     private static final String KEY_DASHBOARD_SECTION_ORDER = "dashboard_section_order";
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
+    private static final String KEY_DASHBOARD_USAGE_HISTORY = "dashboard_usage_history";
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
     private static final String KEY_MATERIAL_YOU = "material_you";
     private static final String KEY_ERROR = "last_error";
@@ -268,8 +270,16 @@ public final class AppPreferences {
         return prefs(context).getBoolean(KEY_DASHBOARD_FIVE_HOUR, true);
     }
 
+    public static void setShowDashboardFiveHour(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_FIVE_HOUR, show).apply();
+    }
+
     public static boolean showDashboardWeekly(Context context) {
         return prefs(context).getBoolean(KEY_DASHBOARD_WEEKLY, true);
+    }
+
+    public static void setShowDashboardWeekly(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_WEEKLY, show).apply();
     }
 
     public static boolean showDashboardAdditionalLimits(Context context) {
@@ -280,19 +290,54 @@ public final class AppPreferences {
         return prefs(context).getBoolean(KEY_DASHBOARD_USAGE_CREDITS, true);
     }
 
+    public static void setShowDashboardUsageCredits(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_USAGE_CREDITS, show).apply();
+    }
+
+    public static boolean showDashboardUsageHistory(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_USAGE_HISTORY, true);
+    }
+
+    public static void setShowDashboardUsageHistory(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_USAGE_HISTORY, show).apply();
+    }
+
     public static boolean showDashboardResetCredits(Context context) {
         return prefs(context).getBoolean(KEY_DASHBOARD_RESET_CREDITS, true);
     }
 
+    /** Hidden section keys (currently model-specific limits) as a {@link DashboardSections} CSV. */
+    public static String getDashboardHiddenSections(Context context) {
+        return prefs(context).getString(KEY_DASHBOARD_HIDDEN_SECTIONS, "");
+    }
+
+    public static void setDashboardHiddenSections(Context context, String hiddenCsv) {
+        if (hiddenCsv == null || hiddenCsv.trim().isEmpty()) {
+            prefs(context).edit().remove(KEY_DASHBOARD_HIDDEN_SECTIONS).apply();
+        } else {
+            prefs(context).edit().putString(KEY_DASHBOARD_HIDDEN_SECTIONS, hiddenCsv).apply();
+        }
+    }
+
+    public static boolean isDashboardSectionHidden(Context context, String key) {
+        return DashboardSections.isHidden(getDashboardHiddenSections(context), key);
+    }
+
+    public static void setDashboardSectionHidden(Context context, String key, boolean hidden) {
+        setDashboardHiddenSections(context,
+                DashboardSections.setHidden(getDashboardHiddenSections(context), key, hidden));
+    }
+
     public static void setDashboardVisibility(Context context, boolean fiveHour,
             boolean weekly, boolean additionalLimits, boolean usageCredits,
-            boolean resetCredits) {
+            boolean resetCredits, boolean usageHistory) {
         prefs(context).edit()
                 .putBoolean(KEY_DASHBOARD_FIVE_HOUR, fiveHour)
                 .putBoolean(KEY_DASHBOARD_WEEKLY, weekly)
                 .putBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, additionalLimits)
                 .putBoolean(KEY_DASHBOARD_USAGE_CREDITS, usageCredits)
                 .putBoolean(KEY_DASHBOARD_RESET_CREDITS, resetCredits)
+                .putBoolean(KEY_DASHBOARD_USAGE_HISTORY, usageHistory)
                 .apply();
     }
 

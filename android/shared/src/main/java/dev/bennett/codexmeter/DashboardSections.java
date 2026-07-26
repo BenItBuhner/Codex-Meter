@@ -8,14 +8,17 @@ import java.util.Locale;
 /**
  * Stable keys and ordering rules for the movable dashboard sections: the built-in 5-hour and
  * weekly windows, every automatically detected additional limit (for example
- * GPT-5.3-Codex-Spark), and the usage-credit balance. The saved order is a comma-separated key
- * list; unknown saved keys are dropped and newly detected sections slot into their default
- * position, so accounts gaining or losing model-specific limits never lose their arrangement.
+ * GPT-5.3-Codex-Spark), the usage-credit balance, and the local usage-history charts. The saved
+ * order is a comma-separated key list; unknown saved keys are dropped and newly detected
+ * sections slot into their default position, so accounts gaining or losing model-specific
+ * limits never lose their arrangement. A separate comma-separated hidden-key list tracks the
+ * sections a user switched off from the edit screen.
  */
 public final class DashboardSections {
     public static final String FIVE_HOUR = "five_hour";
     public static final String WEEKLY = "weekly";
     public static final String USAGE_CREDITS = "usage_credits";
+    public static final String USAGE_HISTORY = "usage_history";
     private static final String LIMIT_PREFIX = "limit:";
 
     private DashboardSections() {
@@ -40,7 +43,7 @@ public final class DashboardSections {
         return key != null && key.startsWith(LIMIT_PREFIX);
     }
 
-    /** Default order: 5-hour, weekly, detected additional limits, usage credits. */
+    /** Default order: 5-hour, weekly, detected additional limits, usage credits, history. */
     public static List<String> defaultOrder(List<UsageLimit> additionalLimits) {
         List<String> order = new ArrayList<>();
         order.add(FIVE_HOUR);
@@ -53,7 +56,30 @@ public final class DashboardSections {
             }
         }
         order.add(USAGE_CREDITS);
+        order.add(USAGE_HISTORY);
         return order;
+    }
+
+    /** Whether a section key is present in the saved hidden-key CSV. */
+    public static boolean isHidden(String hiddenCsv, String key) {
+        return key != null && parseCsv(hiddenCsv).contains(key);
+    }
+
+    /** Adds or removes a key from the hidden-key CSV, deduplicating existing entries. */
+    public static String setHidden(String hiddenCsv, String key, boolean hidden) {
+        if (key == null || key.trim().isEmpty()) {
+            return serialize(parseCsv(hiddenCsv));
+        }
+        List<String> keys = new ArrayList<>(new LinkedHashSet<>(parseCsv(hiddenCsv)));
+        String trimmed = key.trim();
+        if (hidden) {
+            if (!keys.contains(trimmed)) {
+                keys.add(trimmed);
+            }
+        } else {
+            keys.remove(trimmed);
+        }
+        return serialize(keys);
     }
 
     /**

@@ -49,12 +49,29 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         content.addView(intro);
         Ui.addSpacer(content, 20);
 
-        content.addView(buildChartCard("5-hour", snapshot == null ? null : snapshot.fiveHour,
-                snapshot, five));
-        Ui.addSpacer(content, 20);
-        content.addView(buildChartCard("Weekly", snapshot == null ? null : snapshot.weekly,
-                snapshot, weekly));
-        Ui.addSpacer(content, 20);
+        // Windows still waiting for usage data are skipped instead of rendering blank charts.
+        boolean hasCharts = false;
+        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
+        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
+            content.addView(buildChartCard("5-hour", fiveWindow, snapshot, five));
+            Ui.addSpacer(content, 20);
+            hasCharts = true;
+        }
+        UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
+        if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
+            content.addView(buildChartCard("Weekly", weeklyWindow, snapshot, weekly));
+            Ui.addSpacer(content, 20);
+            hasCharts = true;
+        }
+        if (!hasCharts) {
+            LinearLayout waiting = Ui.card(this, dark);
+            waiting.addView(Ui.text(this,
+                    "Charts appear once OpenAI reports your 5-hour or weekly usage windows. "
+                            + "Refresh usage from the dashboard to check again.",
+                    13, Ui.secondaryText(dark)));
+            content.addView(waiting);
+            Ui.addSpacer(content, 20);
+        }
 
         Button clear = Ui.button(this, "Clear local history", false, dark);
         clear.setEnabled(!five.samples.isEmpty() || !weekly.samples.isEmpty());

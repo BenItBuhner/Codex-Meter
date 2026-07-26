@@ -180,6 +180,9 @@ public final class SettingsTransferStore {
                 AppPreferences.showDashboardAdditionalLimits(context));
         json.put("dashboard_usage_credits", AppPreferences.showDashboardUsageCredits(context));
         json.put("dashboard_reset_credits", AppPreferences.showDashboardResetCredits(context));
+        json.put("dashboard_usage_history", AppPreferences.showDashboardUsageHistory(context));
+        json.put("dashboard_hidden_sections",
+                AppPreferences.getDashboardHiddenSections(context));
         json.put("usage_pace_enabled", UsagePacePreferences.isEnabled(context));
         json.put("usage_pace_sensitivity", UsagePacePreferences.getSensitivity(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
@@ -240,7 +243,12 @@ public final class SettingsTransferStore {
                 json.optBoolean("dashboard_usage_credits",
                         AppPreferences.showDashboardUsageCredits(context)),
                 json.optBoolean("dashboard_reset_credits",
-                        AppPreferences.showDashboardResetCredits(context)));
+                        AppPreferences.showDashboardResetCredits(context)),
+                json.optBoolean("dashboard_usage_history",
+                        AppPreferences.showDashboardUsageHistory(context)));
+        AppPreferences.setDashboardHiddenSections(context,
+                json.optString("dashboard_hidden_sections",
+                        AppPreferences.getDashboardHiddenSections(context)));
         UsagePacePreferences.setEnabled(context, json.optBoolean("usage_pace_enabled",
                 UsagePacePreferences.isEnabled(context)));
         UsagePacePreferences.setSensitivity(context, json.optString("usage_pace_sensitivity",

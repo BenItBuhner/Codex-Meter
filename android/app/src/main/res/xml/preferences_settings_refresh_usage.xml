@@ -23,8 +23,8 @@
     <PreferenceCategory android:title="Dashboard">
         <Preference
             android:key="dashboard_reorder_ui"
-            android:summary="Drag usage cards above or below each other"
-            android:title="Reorder dashboard" />
+            android:summary="Arrange usage cards and choose which ones appear"
+            android:title="Edit dashboard" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_five_hour"
@@ -45,6 +45,11 @@
             android:key="dashboard_usage_credits"
             android:summary="Purchased credits returned by OpenAI"
             android:title="Usage-credit balance" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_usage_history"
+            android:summary="Local burn charts for your usage windows"
+            android:title="Usage history" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_reset_credits"

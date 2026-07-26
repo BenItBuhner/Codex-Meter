@@ -710,21 +710,24 @@ public final class ParserSelfTest {
         List<String> defaults = DashboardSections.defaultOrder(Arrays.asList(spark));
         check(defaults.equals(Arrays.asList(
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY, sparkKey,
-                        DashboardSections.USAGE_CREDITS)),
-                "default order is 5-hour, weekly, detected limits, credits");
+                        DashboardSections.USAGE_CREDITS, DashboardSections.USAGE_HISTORY)),
+                "default order is 5-hour, weekly, detected limits, credits, history");
 
         check(DashboardSections.resolveOrder("", defaults).equals(defaults),
                 "no saved order keeps the defaults");
         List<String> saved = DashboardSections.resolveOrder(
                 "usage_credits, limit:codex-spark ,five_hour,weekly", defaults);
         check(saved.equals(Arrays.asList(DashboardSections.USAGE_CREDITS, sparkKey,
-                        DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY)),
-                "saved order is applied with whitespace tolerated");
+                        DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
+                        DashboardSections.USAGE_HISTORY)),
+                "saved order is applied with whitespace tolerated and the new history "
+                        + "section slots in at its default position");
         List<String> withoutSpark = DashboardSections.resolveOrder(
                 "weekly,five_hour,usage_credits",
                 DashboardSections.defaultOrder(Arrays.asList(spark)));
         check(withoutSpark.equals(Arrays.asList(DashboardSections.WEEKLY,
-                        DashboardSections.FIVE_HOUR, sparkKey, DashboardSections.USAGE_CREDITS)),
+                        DashboardSections.FIVE_HOUR, sparkKey, DashboardSections.USAGE_CREDITS,
+                        DashboardSections.USAGE_HISTORY)),
                 "newly detected Spark limit slots in before credits, not at the end");
         List<String> staleKeys = DashboardSections.resolveOrder(
                 "limit:old-model,weekly,five_hour",
@@ -733,14 +736,34 @@ public final class ParserSelfTest {
                         DashboardSections.FIVE_HOUR)),
                 "keys for limits no longer reported are dropped");
         check(DashboardSections.serialize(saved)
-                        .equals("usage_credits,limit:codex-spark,five_hour,weekly"),
+                        .equals("usage_credits,limit:codex-spark,five_hour,weekly,usage_history"),
                 "order round-trips through the stored CSV form");
         check(DashboardSections.resolveOrder(null,
                         Arrays.asList(DashboardSections.FIVE_HOUR))
                         .equals(Arrays.asList(DashboardSections.FIVE_HOUR)),
                 "null saved order is tolerated");
+
+        check(!DashboardSections.isHidden("", sparkKey)
+                        && !DashboardSections.isHidden(null, sparkKey),
+                "no sections are hidden by default");
+        String hidden = DashboardSections.setHidden("", sparkKey, true);
+        check(sparkKey.equals(hidden) && DashboardSections.isHidden(hidden, sparkKey),
+                "hiding a section stores its key");
+        hidden = DashboardSections.setHidden(hidden, DashboardSections.USAGE_HISTORY, true);
+        check(DashboardSections.isHidden(hidden, sparkKey)
+                        && DashboardSections.isHidden(hidden, DashboardSections.USAGE_HISTORY),
+                "multiple hidden sections coexist");
+        check(DashboardSections.setHidden(hidden, sparkKey, true).equals(hidden),
+                "re-hiding an already hidden section is idempotent");
+        hidden = DashboardSections.setHidden(hidden, sparkKey, false);
+        check(!DashboardSections.isHidden(hidden, sparkKey)
+                        && DashboardSections.isHidden(hidden, DashboardSections.USAGE_HISTORY),
+                "unhiding removes only the requested key");
+        check("".equals(DashboardSections.setHidden(hidden,
+                        DashboardSections.USAGE_HISTORY, false)),
+                "unhiding the last section empties the CSV");
         System.out.println("Dashboard sections: saved order honored, auto-detected limits "
-                + "keep a stable slot.");
+                + "keep a stable slot, and hidden-section keys round-trip.");
     }
 
     private static void testMalformedWindowIgnored() throws Exception {
