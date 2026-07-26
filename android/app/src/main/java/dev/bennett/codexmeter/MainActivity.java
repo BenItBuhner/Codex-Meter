@@ -35,6 +35,7 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
+    private static final int MENU_TIPS = 8100;
     private static final int MENU_SETTINGS = 8101;
     private String appliedTheme;
     private boolean appliedMaterialYou;
@@ -107,7 +108,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
+        menu.add(Menu.NONE, MENU_TIPS, 0, getString(R.string.tips_menu))
+                .setIcon(R.drawable.ic_oui_info_outline)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        menu.add(Menu.NONE, MENU_SETTINGS, 1, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
@@ -115,6 +119,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_TIPS) {
+            Ui.startSecondaryActivity(this, TipsActivity.class);
+            return true;
+        }
         if (item.getItemId() == MENU_SETTINGS) {
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return true;
