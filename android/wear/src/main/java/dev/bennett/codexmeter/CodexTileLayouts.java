@@ -11,6 +11,7 @@ import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement;
 import androidx.wear.protolayout.ModifiersBuilders;
 import androidx.wear.protolayout.ProtoLayoutScope;
 import androidx.wear.protolayout.ResourceBuilders;
+import dev.bennett.codexmeter.wear.WearSettingsState;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -38,10 +39,11 @@ final class CodexTileLayouts {
         UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
         long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
         long now = System.currentTimeMillis();
-        String fiveReset = resetCopy(fiveHour, observedAt, now);
-        String weekReset = resetCopy(weekly, observedAt, now);
+        boolean stale = snapshot != null && isStale(context);
+        String fiveReset = stale ? "Stale phone data" : resetCopy(fiveHour, observedAt, now);
+        String weekReset = stale ? "Stale phone data" : resetCopy(weekly, observedAt, now);
         LayoutElement content = new LayoutElementBuilders.Column.Builder()
-                .setWidth(DimensionBuilders.wrap())
+                .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
                 .addContent(metricRow(context, fiveHour, "5hr", false, fiveReset, 9f, text, scope))
@@ -62,13 +64,18 @@ final class CodexTileLayouts {
         boolean weekly = label.toLowerCase(Locale.ROOT).contains("week");
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
-        String reset = resetCopy(window, observedAt, System.currentTimeMillis());
+        String reset = snapshot != null && isStale(context)
+                ? "Stale phone data"
+                : resetCopy(window, observedAt, System.currentTimeMillis());
         String designLabel = weekly ? "Weekly" : "5hr";
-        LayoutElement content = metricRow(context, window, designLabel, weekly, reset, 14f,
-                text, scope);
+        boolean compact = isCompactViewport(deviceParameters);
+        float gap = compact ? 9f : 14f;
+        float inset = compact ? 8f : 14f;
+        LayoutElement content = metricRow(context, window, designLabel, weekly, reset, gap, text,
+                scope);
         String description = label + ", " + WearGlanceFormat.remainingPercentText(window)
                 + " remaining, " + reset + ". Open Codex Meter.";
-        return card(context, label, leadingInset(content, 14f), 0f, 46f, 92f, description);
+        return card(context, label, leadingInset(content, inset), 0f, 46f, 92f, description);
     }
 
     static LayoutElement reset(Context context, DeviceParameters deviceParameters,
@@ -235,7 +242,7 @@ final class CodexTileLayouts {
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
         LayoutElement copy = new LayoutElementBuilders.Column.Builder()
-                .setWidth(DimensionBuilders.dp(132.5f))
+                .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
                 .addContent(headline)
@@ -244,7 +251,7 @@ final class CodexTileLayouts {
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
         return new LayoutElementBuilders.Row.Builder()
-                .setWidth(DimensionBuilders.wrap())
+                .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                 .addContent(usageDial(context, window, weekly, scope))
@@ -362,6 +369,19 @@ final class CodexTileLayouts {
             copy.append(remainderMinutes).append(remainderMinutes == 1L ? "min" : "mins");
         }
         return copy.toString();
+    }
+
+    private static boolean isCompactViewport(DeviceParameters deviceParameters) {
+        return deviceParameters != null
+                && deviceParameters.getScreenWidthDp() > 0
+                && deviceParameters.getScreenWidthDp() < 217;
+    }
+
+    private static boolean isStale(Context context) {
+        WearSettingsState settings = WearPreferences.settingsState(context, 0L,
+                WearSettingsState.SOURCE_WEAR);
+        return WearGlanceFormat.isStale(WearPreferences.lastUsageAt(context),
+                settings.refreshMinutes, System.currentTimeMillis());
     }
 
 }

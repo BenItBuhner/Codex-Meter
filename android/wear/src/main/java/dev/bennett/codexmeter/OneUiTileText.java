@@ -11,7 +11,6 @@ import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement;
 import androidx.wear.protolayout.ModifiersBuilders;
 import androidx.wear.protolayout.ProtoLayoutScope;
 import androidx.wear.protolayout.ResourceBuilders;
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -45,18 +44,10 @@ final class OneUiTileText {
         Canvas canvas = new Canvas(bitmap);
         canvas.drawText(text, 1f, 1f - metrics.ascent, paint);
 
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
-        bitmap.recycle();
-        byte[] png = output.toByteArray();
         String resourceId = resourceId(text, sizeSp, color, numericWeight);
         ResourceBuilders.InlineImageResource inline =
-                new ResourceBuilders.InlineImageResource.Builder()
-                        .setData(png)
-                        .setWidthPx(widthPx)
-                        .setHeightPx(heightPx)
-                        .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
-                        .build();
+                TileImageResources.argb8888(bitmap);
+        bitmap.recycle();
         ResourceBuilders.ImageResource imageResource =
                 new ResourceBuilders.ImageResource.Builder()
                         .setInlineResource(inline)

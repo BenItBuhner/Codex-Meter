@@ -10,7 +10,6 @@ import androidx.wear.protolayout.LayoutElementBuilders;
 import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement;
 import androidx.wear.protolayout.ProtoLayoutScope;
 import androidx.wear.protolayout.ResourceBuilders;
-import java.io.ByteArrayOutputStream;
 
 /** Renders Twidget's inset usage ring without ProtoLayout host-specific arc clipping. */
 final class OneUiTileDial {
@@ -51,16 +50,9 @@ final class OneUiTileDial {
             canvas.drawArc(arc, START_DEGREES, SWEEP_DEGREES * progress, false, paint);
         }
 
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
-        bitmap.recycle();
         ResourceBuilders.InlineImageResource inline =
-                new ResourceBuilders.InlineImageResource.Builder()
-                        .setData(output.toByteArray())
-                        .setWidthPx(sizePx)
-                        .setHeightPx(sizePx)
-                        .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
-                        .build();
+                TileImageResources.argb8888(bitmap);
+        bitmap.recycle();
         ResourceBuilders.ImageResource image =
                 new ResourceBuilders.ImageResource.Builder()
                         .setInlineResource(inline)

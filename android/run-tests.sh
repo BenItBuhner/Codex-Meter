@@ -575,6 +575,12 @@ grep -q 'GRADIENT_START = 0xFF534FA7' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
 grep -q 'setContentDescription(text)' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileText.java"
+grep -q 'IMAGE_FORMAT_ARGB_8888' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/TileImageResources.java"
+grep -q 'setWidth(DimensionBuilders.expand())' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
+grep -q 'Stale phone data' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
 grep -q 'readPersisted(requestedVersion)' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileService.java"
 grep -q 'Typeface.create("sec"' \
