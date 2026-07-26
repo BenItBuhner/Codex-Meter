@@ -12,6 +12,7 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_ADDITIONAL_LIMITS = "dashboard_additional_limits";
     private static final String KEY_DASHBOARD_FIVE_HOUR = "dashboard_five_hour";
     private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
+    private static final String KEY_DASHBOARD_SECTION_ORDER = "dashboard_section_order";
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
     private static final String KEY_MATERIAL_YOU = "material_you";
@@ -293,6 +294,20 @@ public final class AppPreferences {
                 .putBoolean(KEY_DASHBOARD_USAGE_CREDITS, usageCredits)
                 .putBoolean(KEY_DASHBOARD_RESET_CREDITS, resetCredits)
                 .apply();
+    }
+
+    /** Saved dashboard section order as a comma-separated {@link DashboardSections} key list. */
+    public static String getDashboardOrder(Context context) {
+        return prefs(context).getString(KEY_DASHBOARD_SECTION_ORDER, "");
+    }
+
+    public static void setDashboardOrder(Context context, java.util.List<String> order) {
+        String csv = DashboardSections.serialize(order);
+        if (csv.isEmpty()) {
+            prefs(context).edit().remove(KEY_DASHBOARD_SECTION_ORDER).apply();
+        } else {
+            prefs(context).edit().putString(KEY_DASHBOARD_SECTION_ORDER, csv).apply();
+        }
     }
 
     private static boolean validRefresh(int i) {

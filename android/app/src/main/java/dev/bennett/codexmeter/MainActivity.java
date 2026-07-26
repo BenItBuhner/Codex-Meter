@@ -29,7 +29,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
@@ -39,6 +43,7 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
     private static final int MENU_SETTINGS = 8101;
+    private static final int MENU_REORDER = 8102;
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -110,7 +115,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
+        menu.add(Menu.NONE, MENU_REORDER, 0, "Edit dashboard")
+                .setIcon(R.drawable.ic_oui_edit_outline)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        menu.add(Menu.NONE, MENU_SETTINGS, 1, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
@@ -120,6 +128,10 @@ public final class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == MENU_SETTINGS) {
             Ui.startSecondaryActivity(this, SettingsActivity.class);
+            return true;
+        }
+        if (item.getItemId() == MENU_REORDER) {
+            Ui.startSecondaryActivity(this, DashboardReorderActivity.class);
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -338,35 +350,64 @@ public final class MainActivity extends AppCompatActivity {
         if (!signedIn || snapshot == null) {
             return column;
         }
-        boolean inverted = false;
+        Map<String, List<UsageLimit>> limitsByKey = new LinkedHashMap<>();
+        for (UsageLimit limit : snapshot.additionalLimits) {
+            String key = DashboardSections.limitKey(limit);
+            List<UsageLimit> group = limitsByKey.get(key);
+            if (group == null) {
+                group = new ArrayList<>();
+                limitsByKey.put(key, group);
+            }
+            group.add(limit);
+        }
+        List<String> available = new ArrayList<>();
         if (AppPreferences.showDashboardFiveHour(this) && snapshot.fiveHour != null) {
-            addDashboardCard(column, buildMetricCard(
-                    "5-hour", snapshot, snapshot.fiveHour, inverted));
-            inverted = !inverted;
+            available.add(DashboardSections.FIVE_HOUR);
         }
         if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
-            addDashboardCard(column, buildMetricCard(
-                    "Weekly", snapshot, snapshot.weekly, inverted));
-            inverted = !inverted;
+            available.add(DashboardSections.WEEKLY);
         }
         if (AppPreferences.showDashboardAdditionalLimits(this)) {
-            for (UsageLimit limit : snapshot.additionalLimits) {
-                if (limit.primary != null) {
-                    addDashboardCard(column, buildMetricCard(
-                            limitTitle(limit) + " · " + cadenceLabel(limit.primary),
-                            snapshot, limit.primary, inverted));
-                    inverted = !inverted;
+            available.addAll(limitsByKey.keySet());
+        }
+        // Zero, near-zero, and negative balances are always hidden regardless of settings.
+        if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null
+                && snapshot.usageCredits.shouldDisplay()) {
+            available.add(DashboardSections.USAGE_CREDITS);
+        }
+        boolean inverted = false;
+        for (String key : DashboardSections.resolveOrder(
+                AppPreferences.getDashboardOrder(this), available)) {
+            if (DashboardSections.FIVE_HOUR.equals(key)) {
+                addDashboardCard(column, buildMetricCard(
+                        "5-hour", snapshot, snapshot.fiveHour, inverted));
+                inverted = !inverted;
+            } else if (DashboardSections.WEEKLY.equals(key)) {
+                addDashboardCard(column, buildMetricCard(
+                        "Weekly", snapshot, snapshot.weekly, inverted));
+                inverted = !inverted;
+            } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
+                addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
+            } else {
+                List<UsageLimit> group = limitsByKey.get(key);
+                if (group == null) {
+                    continue;
                 }
-                if (limit.secondary != null) {
-                    addDashboardCard(column, buildMetricCard(
-                            limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
-                            snapshot, limit.secondary, inverted));
-                    inverted = !inverted;
+                for (UsageLimit limit : group) {
+                    if (limit.primary != null) {
+                        addDashboardCard(column, buildMetricCard(
+                                limitTitle(limit) + " · " + cadenceLabel(limit.primary),
+                                snapshot, limit.primary, inverted));
+                        inverted = !inverted;
+                    }
+                    if (limit.secondary != null) {
+                        addDashboardCard(column, buildMetricCard(
+                                limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
+                                snapshot, limit.secondary, inverted));
+                        inverted = !inverted;
+                    }
                 }
             }
-        }
-        if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null) {
-            addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
         }
         return column;
     }

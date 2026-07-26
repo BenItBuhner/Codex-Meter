@@ -427,6 +427,11 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindRefresh() {
+            findPreference("dashboard_reorder_ui").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
+                return true;
+            });
+
             SwitchPreferenceCompat onLaunch = findPreference("refresh_on_launch");
             onLaunch.setEnabled(true);
             onLaunch.setChecked(AppPreferences.getRefreshOnLaunch(requireContext()));
