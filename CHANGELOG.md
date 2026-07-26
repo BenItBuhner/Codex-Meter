@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.6.5 — 2026-07-26
+
+### Added
+
+- Local usage history with burn charts and trend-aware pace estimates on Android (#68).
+- Responsive single-dial home and lock widgets that adapt to available size, with clarified Both windows / 5-hour only / Weekly only allowance labels (#68).
+- Samsung One UI Watch modular tile metadata (2×2 overview and 2×1 focused tiles), redesigned Wear tiles with One UI Sans and battery-style dials, and adaptive complications across short/long text, ranged/goal progress, and image slots (#67).
+- Drag-to-reorder dashboard sections for the 5-hour limit, weekly limit, additional model limits, and usage-credit balance, with a One UI edit screen and Settings entry (#75).
+
+### Changed
+
+- Usage-credit balance cards auto-hide when the balance is empty, effectively zero, negative, or absent (#75).
+- Widget allowance configuration uses shared One UI choice dialogs on phone and lock widgets (#68).
+
+### Development
+
+- Expanded regression coverage for usage-credit auto-hide, dashboard section order merging, Wear modular tile metadata, and widget configuration wiring (#67, #68, #75).
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.0...v2.6.5 <!-- pragma: allowlist secret -->
+
 ## 2.6.0 — 2026-07-26
 
 ### Added
