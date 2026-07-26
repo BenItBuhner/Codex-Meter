@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.7 — 2026-07-26
+
+### Fixed
+
+- Reset credits is now a real dashboard section that reorders and hides with the rest of the cards, so the usage-history chart (or any other card) can be placed below it instead of the reset-credit card being pinned to the bottom of the page.
+- Reset-credit and usage-credit cards use bold in-card titles with left-aligned icon rows, matching the 5-hour, weekly, and usage-history cards, instead of external One UI section separators that looked inconsistent.
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.6...v2.6.7 <!-- pragma: allowlist secret -->
+
 ## 2.6.6 — 2026-07-26
 
 ### Added

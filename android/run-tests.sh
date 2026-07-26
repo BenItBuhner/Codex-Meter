@@ -70,14 +70,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.6.6"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 24' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.6.6"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 24' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.6.6"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 24' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.6.6' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.6.6"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.6.7"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 25' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.6.7"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 25' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.6.7"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 25' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.6.7' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.6.7"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -126,21 +126,34 @@ grep -q 'weeklyWindow != null && snapshot.fetchedAtMillis > 0L' \
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 
-# Reset/usage-credit sections keep the One UI Separator + CardItemView design (left-aligned
-# rows with icons) instead of the old centered blocks.
-grep -Fq 'Ui.separator(this, "Reset credits")' \
+# Reset/usage-credit dashboard cards use bold in-card titles with left-aligned icon rows,
+# matching the other dashboard cards, instead of external One UI separators or centered blocks.
+grep -Fq 'Ui.text(this, "Reset credits", 18' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -Fq 'Ui.separator(this, "Usage credits")' \
+grep -Fq 'Ui.text(this, "Usage credits", 18' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'buildIconDetailRow' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'ic_oui_battery' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'ic_oui_credit_card_outline' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+! grep -q 'Ui.separator' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -Fq 'Ui.separator(this, "Available credits")' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
 grep -Fq 'Ui.separator(this, "Credit expirations")' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
 ! grep -q 'ic_reset_credit_details' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# Reset credits is an orderable dashboard section, not a card pinned below the dashboard.
+grep -q 'RESET_CREDITS = "reset_credits"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'DashboardSections.RESET_CREDITS.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.RESET_CREDITS.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+! grep -q 'this.content.addView(buildResetCreditsCard())' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 
 grep -q 'android.permission.ACCESS_NETWORK_STATE' "$ROOT/app/src/main/AndroidManifest.xml"
