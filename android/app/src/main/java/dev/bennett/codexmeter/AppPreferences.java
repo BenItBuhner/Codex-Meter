@@ -9,6 +9,11 @@ import org.json.JSONObject;
 public final class AppPreferences {
     private static final String KEY_APP_STYLE = "app_surface_style";
     private static final String KEY_APP_THEME = "app_theme";
+    private static final String KEY_DASHBOARD_ADDITIONAL_LIMITS = "dashboard_additional_limits";
+    private static final String KEY_DASHBOARD_FIVE_HOUR = "dashboard_five_hour";
+    private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
+    private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
+    private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
     private static final String KEY_MATERIAL_YOU = "material_you";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
@@ -201,6 +206,38 @@ public final class AppPreferences {
 
     public static void setRefreshOnLaunch(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_REFRESH_ON_LAUNCH, enabled).apply();
+    }
+
+    public static boolean showDashboardFiveHour(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_FIVE_HOUR, true);
+    }
+
+    public static boolean showDashboardWeekly(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_WEEKLY, true);
+    }
+
+    public static boolean showDashboardAdditionalLimits(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, true);
+    }
+
+    public static boolean showDashboardUsageCredits(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_USAGE_CREDITS, true);
+    }
+
+    public static boolean showDashboardResetCredits(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_RESET_CREDITS, true);
+    }
+
+    public static void setDashboardVisibility(Context context, boolean fiveHour,
+            boolean weekly, boolean additionalLimits, boolean usageCredits,
+            boolean resetCredits) {
+        prefs(context).edit()
+                .putBoolean(KEY_DASHBOARD_FIVE_HOUR, fiveHour)
+                .putBoolean(KEY_DASHBOARD_WEEKLY, weekly)
+                .putBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, additionalLimits)
+                .putBoolean(KEY_DASHBOARD_USAGE_CREDITS, usageCredits)
+                .putBoolean(KEY_DASHBOARD_RESET_CREDITS, resetCredits)
+                .apply();
     }
 
     private static boolean validRefresh(int i) {
