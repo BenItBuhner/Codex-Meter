@@ -152,6 +152,7 @@ public final class MainActivity extends AppCompatActivity {
     @SuppressLint({"UnspecifiedRegisterReceiverFlag"})
     protected void onStart() {
         super.onStart();
+        RefreshEngagement.onForeground(this);
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(AppConstants.ACTION_OAUTH_READY);
         intentFilter.addAction(AppConstants.ACTION_OAUTH_RESULT);
@@ -186,6 +187,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override // android.app.Activity
     protected void onStop() {
+        RefreshEngagement.onBackground(this);
+        if (AppPreferences.getAutomaticRefresh(this)) {
+            RefreshScheduler.schedulePeriodic(this);
+        }
         if (this.receiverRegistered) {
             try {
                 unregisterReceiver(this.authReceiver);

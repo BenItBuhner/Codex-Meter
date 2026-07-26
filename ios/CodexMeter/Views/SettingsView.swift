@@ -46,15 +46,23 @@ struct SettingsView: View {
 
             Section {
                 Toggle("Refresh on launch", isOn: $model.settings.refreshOnLaunch)
-                Picker("Preferred interval", selection: $model.settings.refreshMinutes) {
-                    ForEach([5, 10, 15, 30, 60, 120], id: \.self) { minutes in
-                        Text(minutes == 120 ? "2 hours" : "\(minutes) minutes").tag(minutes)
+                Picker("Mode", selection: $model.settings.refreshMode) {
+                    Text("Automatic").tag(RefreshMode.automatic)
+                    Text("Manual").tag(RefreshMode.manual)
+                }
+                if model.settings.refreshMode == .manual {
+                    Picker("Preferred interval", selection: $model.settings.refreshMinutes) {
+                        ForEach(AppSettings.allowedRefreshMinutes, id: \.self) { minutes in
+                            Text(minutes == 120 ? "2 hours" : "\(minutes) minutes").tag(minutes)
+                        }
                     }
                 }
             } header: {
                 Text("Refresh")
             } footer: {
-                Text("iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
+                Text(model.settings.refreshMode == .automatic
+                    ? "Automatic adapts on device to remaining usage, app attention, reset timing, quiet hours, and recent failures. iOS still decides when background work runs."
+                    : "iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
             }
 
             Section {

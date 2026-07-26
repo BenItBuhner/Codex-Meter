@@ -10,6 +10,7 @@ import com.google.android.gms.wearable.Wearable;
 import dev.bennett.codexmeter.AppPreferences;
 import dev.bennett.codexmeter.NowBarManager;
 import dev.bennett.codexmeter.NowBarPreferences;
+import dev.bennett.codexmeter.RefreshScheduler;
 import dev.bennett.codexmeter.SecureTokenStore;
 import dev.bennett.codexmeter.UsageSnapshot;
 import dev.bennett.codexmeter.UsagePacePreferences;
@@ -152,7 +153,7 @@ public final class PhoneWearSync {
                 NowBarPreferences.getMetric(context),
                 NowBarPreferences.getThreshold(context),
                 NowBarManager.isActive(context),
-                AppPreferences.getRefreshMinutes(context),
+                RefreshScheduler.effectiveRefreshMinutes(context),
                 updatedAtMillis,
                 WearSettingsState.SOURCE_PHONE,
                 context.getPackageName(),

@@ -171,6 +171,7 @@ public final class SettingsTransferStore {
         JSONObject json = new JSONObject();
         json.put("app_theme", AppPreferences.getAppTheme(context));
         json.put("material_you", AppPreferences.isMaterialYouEnabled(context));
+        json.put("automatic_refresh", AppPreferences.getAutomaticRefresh(context));
         json.put("refresh_minutes", AppPreferences.getRefreshMinutes(context));
         json.put("refresh_on_launch", AppPreferences.getRefreshOnLaunch(context));
         json.put("usage_pace_enabled", UsagePacePreferences.isEnabled(context));
@@ -216,6 +217,8 @@ public final class SettingsTransferStore {
         AppPreferences.setAppTheme(context, theme);
         AppPreferences.setMaterialYouEnabled(context,
                 json.optBoolean("material_you", previousMaterialYou));
+        AppPreferences.setAutomaticRefresh(context, json.optBoolean("automatic_refresh",
+                AppPreferences.getAutomaticRefresh(context)));
         AppPreferences.setRefreshMinutes(context, json.optInt("refresh_minutes",
                 AppPreferences.getRefreshMinutes(context)));
         AppPreferences.setRefreshOnLaunch(context, json.optBoolean("refresh_on_launch",

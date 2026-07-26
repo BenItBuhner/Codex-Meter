@@ -259,10 +259,15 @@ public final class SettingsActivity extends AppCompatActivity {
             findPreference("settings_appearance").setSummary(themeLabel + " · Material You "
                     + (AppPreferences.isMaterialYouEnabled(requireContext()) ? "on" : "off"));
 
-            int refreshMinutes = AppPreferences.getRefreshMinutes(requireContext());
+            int refreshMinutes = AppPreferences.getAutomaticRefresh(requireContext())
+                    ? RefreshScheduler.effectiveRefreshMinutes(requireContext())
+                    : AppPreferences.getRefreshMinutes(requireContext());
             String refreshLabel = refreshMinutes < 60
                     ? refreshMinutes + " minutes"
                     : refreshMinutes == 60 ? "Hourly" : "Every " + (refreshMinutes / 60) + " hours";
+            if (AppPreferences.getAutomaticRefresh(requireContext())) {
+                refreshLabel = "Automatic · currently " + refreshLabel;
+            }
             String estimatesSummary;
             if (!UsagePacePreferences.isEnabled(requireContext())) {
                 estimatesSummary = "Estimates off";
@@ -430,9 +435,24 @@ public final class SettingsActivity extends AppCompatActivity {
             });
 
             ListPreference interval = findPreference("refresh_interval_ui");
+            interval.setPersistent(false);
             interval.setValue(String.valueOf(AppPreferences.getRefreshMinutes(requireContext())));
+            interval.setEnabled(!AppPreferences.getAutomaticRefresh(requireContext()));
             interval.setOnPreferenceChangeListener((preference, value) -> {
                 AppPreferences.setRefreshMinutes(requireContext(), Integer.parseInt(String.valueOf(value)));
+                RefreshScheduler.schedulePeriodic(requireContext());
+                PhoneWearSync.pushSettings(requireContext());
+                return true;
+            });
+
+            ListPreference mode = findPreference("refresh_mode_ui");
+            mode.setPersistent(false);
+            mode.setValue(AppPreferences.getAutomaticRefresh(requireContext())
+                    ? "automatic" : "manual");
+            mode.setOnPreferenceChangeListener((preference, value) -> {
+                boolean automatic = "automatic".equals(String.valueOf(value));
+                AppPreferences.setAutomaticRefresh(requireContext(), automatic);
+                interval.setEnabled(!automatic);
                 RefreshScheduler.schedulePeriodic(requireContext());
                 PhoneWearSync.pushSettings(requireContext());
                 return true;
