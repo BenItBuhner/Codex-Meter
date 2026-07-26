@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.6.0 — 2026-07-26
+
+### Added
+
+- Adaptive Automatic refresh mode (now the default) on Android and iOS that adjusts cadence from remaining quota, reset proximity, recent engagement, quiet hours, accelerated usage, and failure backoff (#71).
+- Adaptive usage dashboard sections that preserve and render named additional rate limits such as GPT-5.3-Codex-Spark, hide missing standard windows instead of empty cards, and show purchased usage-credit balances separately from reset credits (#70).
+- Dashboard visibility controls on Android and iOS so users choose which usage sections appear, with safe migration defaults (#70).
+
+### Changed
+
+- Bumped the phone app One UI design library to `0.9.14+oneui8` and refreshed `android/vendor/m2` so offline and release builds resolve the new AAR without GitHub Packages auth (#69).
+- Wear freshness now follows the phone's effective adaptive refresh cadence (#71).
+
+### Fixed
+
+- One UI `CardItemView` / `SwitchItemView` RTL summary `ViewStub` inflation via the design-library update (#69).
+
+### Development
+
+- Expanded regression coverage for adaptive refresh policy and settings migration, plus adaptive usage parsing for partial, additional-only, and credit-only responses (#70, #71).
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.5.0...v2.6.0 <!-- pragma: allowlist secret -->
+
 ## 2.5.0 — 2026-07-20
 
 ### Added

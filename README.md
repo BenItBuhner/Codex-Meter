@@ -12,9 +12,9 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.5.0
+## Android — Version 2.6.0
 
-Version 2.5.0 makes the Wear OS companion a first-class release: synchronized usage and monitor state, One UI Watch styling, five Tiles, four Complications, promoted ongoing monitoring, the canonical app icon, and a separately installable signed Wear APK on every tagged GitHub Release.
+Version 2.6.0 adds adaptive Automatic refresh scheduling and an adaptive usage dashboard: named additional rate limits, purchased usage credits, hide-missing windows, and per-section visibility controls on Android and iOS, plus the One UI design library bump to `0.9.14+oneui8`.
 
 ### Live countdowns
 
@@ -94,7 +94,7 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.5.0`) runs the full CI pipeline and publishes the signed phone APK, signed Wear OS APK, and their SHA-256 checksums to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
+Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` (for example `v2.6.0`) runs the full CI pipeline and publishes the signed phone APK, signed Wear OS APK, and their SHA-256 checksums to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release is signed with the same certificate and installs in place over previous releases. Release notes are taken from the root `CHANGELOG.md`.
 
 ## Platform stability
 
