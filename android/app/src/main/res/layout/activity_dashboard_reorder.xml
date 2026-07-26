@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dev.oneuiproject.oneui.layout.ToolbarLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/dashboard_reorder_toolbar"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:expanded="true"
+    app:expandable="true"
+    app:showNavButtonAsBack="true"
+    app:title="Edit dashboard">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="24dp">
+
+        <TextView
+            android:id="@+id/dashboard_reorder_help"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:paddingBottom="12dp"
+            android:text="Drag items using the handle to move them above or below each other. Zero usage-credit balances stay hidden automatically."
+            android:textSize="14sp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/dashboard_reorder_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:overScrollMode="ifContentScrolls"
+            android:scrollbars="vertical" />
+    </LinearLayout>
+
+</dev.oneuiproject.oneui.layout.ToolbarLayout>

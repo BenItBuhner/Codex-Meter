@@ -3,6 +3,7 @@ package dev.bennett.codexmeter;
 import android.content.Context;
 import android.content.SharedPreferences;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
+import java.util.List;
 import org.json.JSONObject;
 
 /* JADX INFO: loaded from: classes.dex */
@@ -11,6 +12,7 @@ public final class AppPreferences {
     private static final String KEY_APP_THEME = "app_theme";
     private static final String KEY_DASHBOARD_ADDITIONAL_LIMITS = "dashboard_additional_limits";
     private static final String KEY_DASHBOARD_FIVE_HOUR = "dashboard_five_hour";
+    private static final String KEY_DASHBOARD_ITEM_ORDER = "dashboard_item_order";
     private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
@@ -262,6 +264,16 @@ public final class AppPreferences {
                 .putBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, additionalLimits)
                 .putBoolean(KEY_DASHBOARD_USAGE_CREDITS, usageCredits)
                 .putBoolean(KEY_DASHBOARD_RESET_CREDITS, resetCredits)
+                .apply();
+    }
+
+    public static List<String> getDashboardItemOrder(Context context) {
+        return DashboardOrder.parse(prefs(context).getString(KEY_DASHBOARD_ITEM_ORDER, ""));
+    }
+
+    public static void setDashboardItemOrder(Context context, List<String> order) {
+        prefs(context).edit()
+                .putString(KEY_DASHBOARD_ITEM_ORDER, DashboardOrder.serialize(order))
                 .apply();
     }
 

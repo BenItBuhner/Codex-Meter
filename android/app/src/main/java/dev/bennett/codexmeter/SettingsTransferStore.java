@@ -180,6 +180,8 @@ public final class SettingsTransferStore {
                 AppPreferences.showDashboardAdditionalLimits(context));
         json.put("dashboard_usage_credits", AppPreferences.showDashboardUsageCredits(context));
         json.put("dashboard_reset_credits", AppPreferences.showDashboardResetCredits(context));
+        json.put("dashboard_item_order",
+                DashboardOrder.serialize(AppPreferences.getDashboardItemOrder(context)));
         json.put("usage_pace_enabled", UsagePacePreferences.isEnabled(context));
         json.put("usage_pace_sensitivity", UsagePacePreferences.getSensitivity(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
@@ -241,6 +243,10 @@ public final class SettingsTransferStore {
                         AppPreferences.showDashboardUsageCredits(context)),
                 json.optBoolean("dashboard_reset_credits",
                         AppPreferences.showDashboardResetCredits(context)));
+        if (json.has("dashboard_item_order")) {
+            AppPreferences.setDashboardItemOrder(context,
+                    DashboardOrder.parse(json.optString("dashboard_item_order", "")));
+        }
         UsagePacePreferences.setEnabled(context, json.optBoolean("usage_pace_enabled",
                 UsagePacePreferences.isEnabled(context)));
         UsagePacePreferences.setSensitivity(context, json.optString("usage_pace_sensitivity",

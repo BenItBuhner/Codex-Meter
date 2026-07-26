@@ -457,6 +457,14 @@ public final class SettingsActivity extends AppCompatActivity {
                 PhoneWearSync.pushSettings(requireContext());
                 return true;
             });
+
+            Preference reorder = findPreference("dashboard_reorder");
+            if (reorder != null) {
+                reorder.setOnPreferenceClickListener(preference -> {
+                    Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
+                    return true;
+                });
+            }
         }
 
         private void bindUsagePace() {

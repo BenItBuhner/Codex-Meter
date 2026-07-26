@@ -29,6 +29,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -38,6 +40,7 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
+    private static final int MENU_EDIT_DASHBOARD = 8100;
     private static final int MENU_SETTINGS = 8101;
     private String appliedTheme;
     private boolean appliedMaterialYou;
@@ -110,7 +113,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
+        menu.add(Menu.NONE, MENU_EDIT_DASHBOARD, 0, "Edit")
+                .setIcon(R.drawable.ic_oui_reorder)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        menu.add(Menu.NONE, MENU_SETTINGS, 1, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
@@ -118,6 +124,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_EDIT_DASHBOARD) {
+            Ui.startSecondaryActivity(this, DashboardReorderActivity.class);
+            return true;
+        }
         if (item.getItemId() == MENU_SETTINGS) {
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return true;
@@ -281,15 +291,7 @@ public final class MainActivity extends AppCompatActivity {
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
-            }
-            UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
-            boolean showResetCredits = AppPreferences.showDashboardResetCredits(this)
-                    && signedIn
-                    && (AppPreferences.loadResetCredits(this) != null
-                    || (snapshot != null && snapshot.resetCreditsAvailable >= 0));
-            if (showResetCredits) {
-                this.content.addView(buildResetCreditsCard());
-            } else if (signedIn && dashboard.getChildCount() == 0) {
+            } else if (dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
                                 + "Settings → Refresh & usage.",
@@ -335,37 +337,94 @@ public final class MainActivity extends AppCompatActivity {
         if (!signedIn || snapshot == null) {
             return column;
         }
+        boolean showResetCredits = AppPreferences.showDashboardResetCredits(this)
+                && (AppPreferences.loadResetCredits(this) != null
+                || snapshot.resetCreditsAvailable >= 0);
+        List<String> available = availableDashboardIds(snapshot, showResetCredits);
+        List<String> ordered = DashboardOrder.merge(
+                AppPreferences.getDashboardItemOrder(this), available);
         boolean inverted = false;
+        for (String id : ordered) {
+            View card = buildDashboardCard(id, snapshot, inverted);
+            if (card == null) {
+                continue;
+            }
+            addDashboardCard(column, card);
+            if (!DashboardOrder.USAGE_CREDITS.equals(id)
+                    && !DashboardOrder.RESET_CREDITS.equals(id)) {
+                inverted = !inverted;
+            }
+        }
+        return column;
+    }
+
+    private List<String> availableDashboardIds(UsageSnapshot snapshot, boolean showResetCredits) {
+        List<String> available = new ArrayList<>();
         if (AppPreferences.showDashboardFiveHour(this) && snapshot.fiveHour != null) {
-            addDashboardCard(column, buildMetricCard(
-                    "5-hour", snapshot, snapshot.fiveHour, inverted));
-            inverted = !inverted;
+            available.add(DashboardOrder.FIVE_HOUR);
         }
         if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
-            addDashboardCard(column, buildMetricCard(
-                    "Weekly", snapshot, snapshot.weekly, inverted));
-            inverted = !inverted;
+            available.add(DashboardOrder.WEEKLY);
         }
-        if (AppPreferences.showDashboardAdditionalLimits(this)) {
+        if (AppPreferences.showDashboardAdditionalLimits(this)
+                && snapshot.additionalLimits != null) {
             for (UsageLimit limit : snapshot.additionalLimits) {
+                if (limit == null) {
+                    continue;
+                }
                 if (limit.primary != null) {
-                    addDashboardCard(column, buildMetricCard(
-                            limitTitle(limit) + " · " + cadenceLabel(limit.primary),
-                            snapshot, limit.primary, inverted));
-                    inverted = !inverted;
+                    available.add(DashboardOrder.additionalPrimary(limit.id));
                 }
                 if (limit.secondary != null) {
-                    addDashboardCard(column, buildMetricCard(
-                            limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
-                            snapshot, limit.secondary, inverted));
-                    inverted = !inverted;
+                    available.add(DashboardOrder.additionalSecondary(limit.id));
                 }
             }
         }
-        if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null) {
-            addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
+        if (AppPreferences.showDashboardUsageCredits(this)
+                && snapshot.usageCredits != null
+                && snapshot.usageCredits.isDashboardVisible()) {
+            available.add(DashboardOrder.USAGE_CREDITS);
         }
-        return column;
+        if (showResetCredits) {
+            available.add(DashboardOrder.RESET_CREDITS);
+        }
+        return available;
+    }
+
+    private View buildDashboardCard(String id, UsageSnapshot snapshot, boolean invertedWave) {
+        if (DashboardOrder.FIVE_HOUR.equals(id) && snapshot.fiveHour != null) {
+            return buildMetricCard("5-hour", snapshot, snapshot.fiveHour, invertedWave);
+        }
+        if (DashboardOrder.WEEKLY.equals(id) && snapshot.weekly != null) {
+            return buildMetricCard("Weekly", snapshot, snapshot.weekly, invertedWave);
+        }
+        if (DashboardOrder.USAGE_CREDITS.equals(id) && snapshot.usageCredits != null
+                && snapshot.usageCredits.isDashboardVisible()) {
+            return buildUsageCreditsCard(snapshot.usageCredits);
+        }
+        if (DashboardOrder.RESET_CREDITS.equals(id)) {
+            return buildResetCreditsCard();
+        }
+        if (DashboardOrder.isAdditional(id) && snapshot.additionalLimits != null) {
+            for (UsageLimit limit : snapshot.additionalLimits) {
+                if (limit == null) {
+                    continue;
+                }
+                if (DashboardOrder.additionalPrimary(limit.id).equals(id)
+                        && limit.primary != null) {
+                    return buildMetricCard(
+                            limitTitle(limit) + " · " + cadenceLabel(limit.primary),
+                            snapshot, limit.primary, invertedWave);
+                }
+                if (DashboardOrder.additionalSecondary(limit.id).equals(id)
+                        && limit.secondary != null) {
+                    return buildMetricCard(
+                            limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
+                            snapshot, limit.secondary, invertedWave);
+                }
+            }
+        }
+        return null;
     }
 
     private void addDashboardCard(LinearLayout column, View card) {

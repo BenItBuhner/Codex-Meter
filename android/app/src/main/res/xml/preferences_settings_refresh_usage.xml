@@ -21,6 +21,10 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Dashboard">
+        <Preference
+            android:key="dashboard_reorder"
+            android:summary="Drag 5-hour, weekly, Spark, and credit cards above or below each other"
+            android:title="Reorder dashboard items" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_five_hour"
@@ -39,7 +43,7 @@
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_usage_credits"
-            android:summary="Purchased credits returned by OpenAI"
+            android:summary="Purchased credits; auto-hidden at zero, near-zero, or negative"
             android:title="Usage-credit balance" />
         <SwitchPreferenceCompat
             android:defaultValue="true"

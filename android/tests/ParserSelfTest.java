@@ -19,6 +19,7 @@ public final class ParserSelfTest {
         testPrimaryLimitWinsOverAdditional();
         testOptionalUsageSections();
         testUsageCredits();
+        testDashboardOrder();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
         testNextResetSelection();
@@ -622,6 +623,78 @@ public final class ParserSelfTest {
         check(none.usageCredits != null && none.usageCredits.balance.isEmpty()
                         && !none.hasDisplayableData(),
                 "zero balance for an account without purchased credits is not standalone data");
+        check(!none.usageCredits.isDashboardVisible(),
+                "zero / no-purchase credits auto-hide on the dashboard");
+
+        UsageSnapshot zeroBalance = UsageParser.parse(
+                "{\"credits\":{\"has_credits\":true,\"balance\":\"0\"}}", 6L);
+        check(zeroBalance.usageCredits != null
+                        && !zeroBalance.usageCredits.isDashboardVisible(),
+                "explicit zero balance auto-hides");
+        check(!new UsageCredits(true, false, "0.009").isDashboardVisible(),
+                "near-zero balance auto-hides");
+        check(!new UsageCredits(true, false, "-3").isDashboardVisible(),
+                "negative balance auto-hides");
+        check(new UsageCredits(true, false, "0.01").isDashboardVisible(),
+                "meaningful positive balance remains visible");
+        check(new UsageCredits(true, true, "0").isDashboardVisible(),
+                "unlimited credits remain visible even with a zero balance string");
+    }
+
+    private static void testDashboardOrder() throws Exception {
+        UsageSnapshot snapshot = UsageParser.parse(
+                "{\"plan_type\":\"pro\",\"rate_limit\":{"
+                        + "\"primary_window\":{\"used_percent\":10,"
+                        + "\"limit_window_seconds\":18000,\"reset_at\":1},"
+                        + "\"secondary_window\":{\"used_percent\":20,"
+                        + "\"limit_window_seconds\":604800,\"reset_at\":2}},"
+                        + "\"additional_rate_limits\":[{"
+                        + "\"limit_name\":\"GPT-5.3-Codex-Spark\","
+                        + "\"metered_feature\":\"codex_bengalfox\","
+                        + "\"rate_limit\":{\"primary_window\":{\"used_percent\":5,"
+                        + "\"limit_window_seconds\":18000},"
+                        + "\"secondary_window\":{\"used_percent\":8,"
+                        + "\"limit_window_seconds\":604800}}}],"
+                        + "\"credits\":{\"has_credits\":true,\"balance\":\"12\"}}",
+                9L);
+        List<String> natural = DashboardOrder.defaultAvailable(snapshot, true);
+        check(natural.indexOf(DashboardOrder.FIVE_HOUR) == 0, "default starts with 5-hour");
+        check(natural.contains(DashboardOrder.WEEKLY), "weekly present by default");
+        check(natural.contains(DashboardOrder.additionalPrimary(
+                        snapshot.additionalLimits.get(0).id)),
+                "spark primary window is reorderable");
+        check(natural.contains(DashboardOrder.USAGE_CREDITS),
+                "visible usage credits are reorderable");
+        check(natural.get(natural.size() - 1).equals(DashboardOrder.RESET_CREDITS),
+                "reset credits trail by default");
+
+        List<String> preferred = Arrays.asList(
+                DashboardOrder.USAGE_CREDITS,
+                DashboardOrder.WEEKLY,
+                "stale-item",
+                DashboardOrder.FIVE_HOUR);
+        List<String> merged = DashboardOrder.merge(preferred, natural);
+        check(DashboardOrder.USAGE_CREDITS.equals(merged.get(0)),
+                "preferred order is preserved for still-available items");
+        check(DashboardOrder.WEEKLY.equals(merged.get(1)), "weekly follows credits when preferred");
+        check(DashboardOrder.FIVE_HOUR.equals(merged.get(2)), "five-hour follows weekly");
+        check(!merged.contains("stale-item"), "unknown ids are dropped");
+        check(merged.contains(DashboardOrder.additionalPrimary(
+                        snapshot.additionalLimits.get(0).id)),
+                "new spark windows append after preferred ids");
+
+        String serialized = DashboardOrder.serialize(merged);
+        List<String> parsed = DashboardOrder.parse(serialized);
+        check(parsed.equals(merged), "dashboard order survives JSON round-trip");
+
+        UsageSnapshot zeroCredits = UsageParser.parse(
+                "{\"credits\":{\"has_credits\":true,\"balance\":\"0\"},"
+                        + "\"rate_limit\":{\"primary_window\":{\"used_percent\":1,"
+                        + "\"limit_window_seconds\":18000,\"reset_at\":1}}}",
+                10L);
+        List<String> withoutCredits = DashboardOrder.defaultAvailable(zeroCredits, false);
+        check(!withoutCredits.contains(DashboardOrder.USAGE_CREDITS),
+                "zero usage credits are omitted from reorderable items");
     }
 
     private static void testMalformedWindowIgnored() throws Exception {

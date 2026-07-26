@@ -44,6 +44,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardOrder.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
@@ -427,6 +428,23 @@ test -f "$ROOT/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.j
 grep -q 'UsagePaceDemoActivity' "$ROOT/app/src/debug/AndroidManifest.xml"
 grep -q 'usage_pace_enabled_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'dashboard_reorder' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'auto-hidden at zero' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'DashboardReorderActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'isDashboardVisible' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java"
+grep -q 'testDashboardOrder' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'MENU_EDIT_DASHBOARD' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'ItemTouchHelper' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'dashboard_item_order' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardOrder.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+test -f "$ROOT/app/src/main/res/layout/activity_dashboard_reorder.xml"
 grep -q 'usage_pace_sensitivity_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q '<item>off</item>' \
