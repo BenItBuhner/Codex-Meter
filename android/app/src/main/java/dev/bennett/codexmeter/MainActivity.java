@@ -9,18 +9,14 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -39,6 +35,8 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
+import dev.oneuiproject.oneui.widget.CardItemView;
+import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -393,7 +391,8 @@ public final class MainActivity extends AppCompatActivity {
                         "Weekly", snapshot, snapshot.weekly, inverted));
                 inverted = !inverted;
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
-                addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
+                // The One UI separator provides section spacing; skip the usual card spacer.
+                column.addView(buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard());
             } else {
@@ -507,22 +506,20 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildUsageCreditsCard(UsageCredits credits) {
-        LinearLayout card = Ui.card(this, this.dark);
-        card.setGravity(Gravity.CENTER);
-        card.setPadding(Ui.dp(this, 20), Ui.dp(this, 20),
-                Ui.dp(this, 20), Ui.dp(this, 20));
-        TextView balance = Ui.text(this, usageCreditBalance(credits), 30.0f,
-                Ui.mainText(this.dark));
-        balance.setTypeface(Ui.mediumTypeface(this));
-        balance.setGravity(Gravity.CENTER);
-        card.addView(balance);
-        TextView label = Ui.text(this, "Usage-credit balance", 16.0f,
-                Ui.secondaryText(this.dark));
-        label.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
-        labelParams.setMargins(0, Ui.dp(this, 4), 0, 0);
-        card.addView(label, labelParams);
-        return card;
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+        column.addView(Ui.separator(this, "Usage credits"));
+
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        card.addView(Ui.actionRow(
+                this,
+                usageCreditBalance(credits),
+                usageCreditsSummary(credits),
+                R.drawable.ic_oui_credit_card_outline,
+                null));
+        column.addView(card);
+        return column;
     }
 
     private static String usageCreditBalance(UsageCredits credits) {
@@ -530,7 +527,7 @@ public final class MainActivity extends AppCompatActivity {
             return "Unlimited";
         }
         if (credits.balance.isEmpty()) {
-            return credits.hasCredits ? "Available" : "No purchased credits";
+            return credits.hasCredits ? "Credits available" : "No purchased credits";
         }
         try {
             BigDecimal amount = new BigDecimal(credits.balance.replace(",", ""));
@@ -540,6 +537,16 @@ public final class MainActivity extends AppCompatActivity {
         } catch (NumberFormatException ignored) {
             return credits.balance;
         }
+    }
+
+    private static String usageCreditsSummary(UsageCredits credits) {
+        if (credits.unlimited) {
+            return "Usage-credit balance is not capped";
+        }
+        if (credits.balance.isEmpty() && !credits.hasCredits) {
+            return "Purchase credits in ChatGPT Codex";
+        }
+        return "Purchased Codex usage-credit balance";
     }
 
     private static String cadenceLabel(UsageWindow window) {
@@ -669,75 +676,66 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildResetCreditsCard() {
-        LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        linearLayoutCard.setPadding(Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f), Ui.dp(this, 10.0f));
-        boolean zIsSignedIn = SecureTokenStore.isSignedIn(this);
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
-        int i = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
+        boolean signedIn = SecureTokenStore.isSignedIn(this);
+        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
+        int available = credits == null ? 0 : credits.availableCount;
         long now = System.currentTimeMillis();
-        long nextExpiry = resetCreditsSnapshotLoadResetCredits == null
-                ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(now);
+        long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
 
-        FrameLayout header = new FrameLayout(this);
-        LinearLayout summary = new LinearLayout(this);
-        summary.setOrientation(LinearLayout.VERTICAL);
-        summary.setGravity(Gravity.CENTER);
-        LinearLayout countRow = Ui.horizontal(this, Gravity.CENTER);
-        TextView count = Ui.text(this, zIsSignedIn ? String.valueOf(i) : "—", 30.0f, Ui.mainText(this.dark));
-        count.setTypeface(Ui.mediumTypeface(this));
-        countRow.addView(count);
-        TextView label = Ui.text(this, zIsSignedIn ? "Resets available" : "Sign in to view resets", 18.0f, Ui.mainText(this.dark));
-        label.setTypeface(Ui.mediumTypeface(this));
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
-        labelParams.setMargins(Ui.dp(this, 18.0f), 0, 0, 0);
-        countRow.addView(label, labelParams);
-        summary.addView(countRow);
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+        column.addView(Ui.separator(this, "Reset credits"));
 
-        String expiryText;
-        if (!zIsSignedIn) {
-            expiryText = "Connect to load expiration dates";
-        } else if (nextExpiry > 0L) {
-            expiryText = "Next expires " + UsageFormat.absolute(this, nextExpiry, now)
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        CardItemView row = Ui.actionRow(
+                this,
+                resetCreditsTitle(signedIn, available),
+                resetCreditsSummary(signedIn, available, nextExpiry, now),
+                R.drawable.ic_oui_battery,
+                signedIn ? view -> openResetCredits() : null);
+        card.addView(row);
+        column.addView(card);
+
+        if (signedIn) {
+            Button button = Ui.nativePrimaryButton(this,
+                    available > 0 ? "Use 1 reset" : "No resets available");
+            button.setEnabled(available > 0);
+            button.setOnClickListener(view -> openResetCredits());
+            LinearLayout.LayoutParams buttonParams =
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
+            buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
+            column.addView(button, buttonParams);
+        }
+        return column;
+    }
+
+    private static String resetCreditsTitle(boolean signedIn, int available) {
+        if (!signedIn) {
+            return "Reset credits";
+        }
+        if (available <= 0) {
+            return "No resets available";
+        }
+        if (available == 1) {
+            return "1 reset available";
+        }
+        return available + " resets available";
+    }
+
+    private String resetCreditsSummary(boolean signedIn, int available, long nextExpiry,
+            long now) {
+        if (!signedIn) {
+            return "Sign in to view reset credits";
+        }
+        if (nextExpiry > 0L) {
+            return "Next expires " + UsageFormat.absolute(this, nextExpiry, now)
                     + " · " + UsageFormat.relative(nextExpiry, now);
-        } else if (i > 0) {
-            expiryText = "Expiration details unavailable";
-        } else {
-            expiryText = "No credits to expire";
         }
-        TextView expiry = Ui.text(this, expiryText, 13.0f, Ui.secondaryText(this.dark));
-        expiry.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams expiryParams = new LinearLayout.LayoutParams(-2, -2);
-        expiryParams.setMargins(0, Ui.dp(this, 4.0f), 0, 0);
-        summary.addView(expiry, expiryParams);
-        FrameLayout.LayoutParams summaryParams = new FrameLayout.LayoutParams(-1, -1);
-        summaryParams.setMargins(Ui.dp(this, 44.0f), 0, Ui.dp(this, 44.0f), 0);
-        header.addView(summary, summaryParams);
-
-        if (zIsSignedIn) {
-            ImageButton details = new ImageButton(this);
-            details.setImageResource(R.drawable.ic_reset_credit_details);
-            details.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
-            details.setPadding(Ui.dp(this, 10.0f), Ui.dp(this, 10.0f),
-                    Ui.dp(this, 10.0f), Ui.dp(this, 10.0f));
-            details.setContentDescription("View all reset credit expirations");
-            details.setTooltipText("Credit expirations");
-            TypedValue selectable = new TypedValue();
-            if (getTheme().resolveAttribute(
-                    android.R.attr.selectableItemBackgroundBorderless, selectable, true)) {
-                details.setBackgroundResource(selectable.resourceId);
-            }
-            details.setOnClickListener(view -> openResetCredits());
-            FrameLayout.LayoutParams detailsParams = new FrameLayout.LayoutParams(
-                    Ui.dp(this, 44.0f), Ui.dp(this, 44.0f), Gravity.TOP | Gravity.END);
-            header.addView(details, detailsParams);
+        if (available > 0) {
+            return "Expiration details unavailable";
         }
-        linearLayoutCard.addView(header, new LinearLayout.LayoutParams(-1, Ui.dp(this, 80.0f)));
-
-        Button button = Ui.nativePrimaryButton(this, i > 0 ? "Use 1 reset" : "No resets available");
-        button.setEnabled(zIsSignedIn && i > 0);
-        button.setOnClickListener(view -> openResetCredits());
-        linearLayoutCard.addView(button, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f)));
-        return linearLayoutCard;
+        return "Earn credits from ChatGPT Codex";
     }
 
     private void openResetCredits() {

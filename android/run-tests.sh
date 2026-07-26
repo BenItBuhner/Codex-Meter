@@ -126,6 +126,23 @@ grep -q 'weeklyWindow != null && snapshot.fetchedAtMillis > 0L' \
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 
+# Reset/usage-credit sections keep the One UI Separator + CardItemView design (left-aligned
+# rows with icons) instead of the old centered blocks.
+grep -Fq 'Ui.separator(this, "Reset credits")' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -Fq 'Ui.separator(this, "Usage credits")' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'ic_oui_battery' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'ic_oui_credit_card_outline' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -Fq 'Ui.separator(this, "Available credits")' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+grep -Fq 'Ui.separator(this, "Credit expirations")' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+! grep -q 'ic_reset_credit_details' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+
 grep -q 'android.permission.ACCESS_NETWORK_STATE' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.POST_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.SCHEDULE_EXACT_ALARM' "$ROOT/app/src/main/AndroidManifest.xml"

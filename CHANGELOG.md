@@ -12,6 +12,10 @@
 - 5-hour and weekly burn charts hide from the usage-history card and the full history screen while OpenAI has not yet reported those windows, replacing blank "Waiting for usage data" graphs with a short hint.
 - Dashboard visibility and hidden-section choices are included in settings transfer exports.
 
+### Fixed
+
+- Restored the One UI design for the reset-credit and usage-credit sections (left-aligned Separator + CardItemView rows with icons) that regressed when the dashboard-reordering branch superseded the earlier cleanup.
+
 ### Development
 
 - Expanded dashboard-section regression coverage for the usage-history key and hidden-section CSV round-trips.
