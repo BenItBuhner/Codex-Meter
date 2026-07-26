@@ -139,7 +139,7 @@ public final class ParserSelfTest {
         UsageWindow healthy = new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
                 (now + TimeUnit.HOURS.toMillis(4)) / 1000L);
         UsageWindow mid = new UsageWindow(60, TimeUnit.HOURS.toSeconds(5), 0L,
-                (now + TimeUnit.HOURS.toMillis(3)) / 1000L);
+                (now + TimeUnit.HOURS.toMillis(2)) / 1000L);
         UsageWindow low = new UsageWindow(92, TimeUnit.HOURS.toSeconds(5), 0L,
                 (now + TimeUnit.HOURS.toMillis(2)) / 1000L);
         UsageWindow nearReset = new UsageWindow(20, TimeUnit.HOURS.toSeconds(5), 0L,
