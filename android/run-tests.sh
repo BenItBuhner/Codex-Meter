@@ -30,6 +30,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/AdaptiveRefreshPolicy.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
@@ -392,6 +394,16 @@ grep -q 'OPACITY_LEVELS = {56, 88, 100}' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java"
 grep -q 'widget_background' "$ROOT/app/src/main/res/values/strings.xml"
 grep -q 'backgroundSwitch' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'RadioItemViewGroup' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OneUiChoiceDialog.java"
+grep -q 'OneUiChoiceDialog.show' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'OneUiChoiceDialog.show' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+grep -q '"Both windows", "5-hour only", "Weekly only"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptionCatalog.java"
+! grep -q 'ListPopupWindow' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -q 'android:max="2"' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"
 ! grep -q 'opacity_tick_3' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"

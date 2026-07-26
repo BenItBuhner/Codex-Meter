@@ -57,6 +57,9 @@
             android:name="dev.bennett.codexmeter.ReleaseHistoryActivity"
             android:exported="false"/>
         <activity
+            android:name="dev.bennett.codexmeter.UsageHistoryActivity"
+            android:exported="false"/>
+        <activity
             android:name="dev.bennett.codexmeter.AboutActivity"
             android:exported="false"/>
         <activity

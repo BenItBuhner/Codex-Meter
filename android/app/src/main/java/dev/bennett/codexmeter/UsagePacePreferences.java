@@ -47,7 +47,8 @@ public final class UsagePacePreferences {
         if (!isEnabled(context) || snapshot == null) {
             return UsagePace.assess(null, 0L, nowMillis, getSensitivity(context));
         }
-        return UsagePace.assess(window, snapshot.fetchedAtMillis, nowMillis,
-                getSensitivity(context));
+        String kind = window == snapshot.weekly ? UsageHistory.WEEKLY : UsageHistory.FIVE_HOUR;
+        return UsagePace.assess(window, AppPreferences.loadUsageHistory(context, kind),
+                snapshot.fetchedAtMillis, nowMillis, getSensitivity(context));
     }
 }

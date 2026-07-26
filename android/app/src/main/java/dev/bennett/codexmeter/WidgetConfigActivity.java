@@ -1,7 +1,6 @@
 package dev.bennett.codexmeter;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.appwidget.AppWidgetManager;
 import android.content.Intent;
 import android.graphics.Color;
@@ -11,12 +10,9 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ListPopupWindow;
 import android.widget.ImageView;
 import android.widget.RemoteViews;
 import android.widget.Spinner;
@@ -37,6 +33,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private boolean dark;
     private Spinner displaySpinner;
     private CardItemView displayRow;
+    private Spinner metricSpinner;
+    private CardItemView metricRow;
     private SeslSeekBar opacitySlider;
     private SwitchCompat backgroundSwitch;
     private SwitchCompat percentSymbolSwitch;
@@ -124,16 +122,20 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 WidgetOptionCatalog.THEME_LABELS, true);
         this.accentRow = addOptionRow(appearanceCard, "Accent", this.accentSpinner,
                 WidgetOptionCatalog.ACCENT_LABELS, true);
-        this.accentRow.setOnClickListener(view -> showAccentDialog());
         content.addView(appearanceCard);
 
         content.addView(Ui.separator(this, "Content"));
         RoundedLinearLayout contentCard = Ui.seslRowCard(this, this.dark);
+        this.metricSpinner = Ui.spinner(this, WidgetOptionCatalog.METRIC_LABELS, this.dark);
+        WidgetOptionCatalog.selectString(this.metricSpinner, WidgetOptionCatalog.METRIC_VALUES,
+                saved.metricMode);
+        this.metricRow = addOptionRow(contentCard, "Allowance", this.metricSpinner,
+                WidgetOptionCatalog.METRIC_LABELS, false);
         this.displaySpinner = Ui.spinner(this, WidgetOptionCatalog.DISPLAY_LABELS, this.dark);
         WidgetOptionCatalog.selectString(this.displaySpinner, WidgetOptionCatalog.DISPLAY_VALUES,
                 saved.displayMode);
         this.displayRow = addOptionRow(contentCard, "Percentage", this.displaySpinner,
-                WidgetOptionCatalog.DISPLAY_LABELS, false);
+                WidgetOptionCatalog.DISPLAY_LABELS, true);
         View symbolDivider = new View(this);
         symbolDivider.setBackgroundColor(Ui.divider(this.dark));
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 1));
@@ -161,6 +163,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         this.themeSpinner.setOnItemSelectedListener(selectionListener);
         this.accentSpinner.setOnItemSelectedListener(selectionListener);
         this.displaySpinner.setOnItemSelectedListener(selectionListener);
+        this.metricSpinner.setOnItemSelectedListener(selectionListener);
         this.percentSymbolSwitch.setOnCheckedChangeListener((button, checked) -> renderPreview());
         this.backgroundSwitch.setOnCheckedChangeListener((button, checked) -> {
             applyBackgroundEnabled(checked);
@@ -272,105 +275,11 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         row.setSummary(labels[Math.max(0, spinner.getSelectedItemPosition())]);
         row.setShowTopDivider(divider);
         row.setShowBottomDivider(false);
-        row.setOnClickListener(view -> showDropDown(row, spinner, labels));
+        row.setOnClickListener(view -> OneUiChoiceDialog.show(this, title, labels,
+                spinner.getSelectedItemPosition(),
+                position -> applyPreviewSelection(spinner, position)));
         card.addView(row);
         return row;
-    }
-
-    private void showDropDown(View anchor, Spinner spinner, String[] labels) {
-        ArrayAdapter<String> adapter = checkAdapter(spinner, labels);
-        ListPopupWindow popup = new ListPopupWindow(this);
-        popup.setAdapter(adapter);
-        popup.setAnchorView(anchor);
-        popup.setWidth(Ui.dp(this, 240.0f));
-        popup.setHeight(ListPopupWindow.WRAP_CONTENT);
-        popup.setModal(true);
-        popup.setOnItemClickListener((parent, view, position, id) -> {
-            applyPreviewSelection(spinner, position);
-            popup.dismiss();
-        });
-        popup.show();
-    }
-
-    private void showAccentDialog() {
-        ArrayAdapter<String> adapter = checkAdapter(this.accentSpinner,
-                WidgetOptionCatalog.ACCENT_LABELS);
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Accent")
-                .setAdapter(adapter, null)
-                .setNegativeButton(android.R.string.cancel, null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getListView().setOnItemClickListener(
-                (parent, view, position, id) -> {
-                    applyPreviewSelection(this.accentSpinner, position);
-                    dialog.dismiss();
-                }));
-        dialog.show();
-    }
-
-    private ArrayAdapter<String> checkAdapter(Spinner spinner, String[] labels) {
-        return new ArrayAdapter<>(this,
-                R.layout.widget_popup_check_item, R.id.popup_item_text, labels) {
-            @Override
-            public View getView(int position, View convertView, ViewGroup parent) {
-                View row = convertView;
-                if (row == null) {
-                    row = LayoutInflater.from(WidgetConfigActivity.this).inflate(
-                            R.layout.widget_popup_check_item, parent, false);
-                }
-                TextView text = row.findViewById(R.id.popup_item_text);
-                ImageView check = row.findViewById(R.id.popup_item_check);
-                text.setText(labels[position]);
-                check.setImageTintList(null);
-                check.setImageDrawable(new AccentCheckDrawable(
-                        Ui.accent(WidgetConfigActivity.this, dark),
-                        Ui.dp(WidgetConfigActivity.this, 24.0f)));
-                check.setVisibility(position == spinner.getSelectedItemPosition()
-                        ? View.VISIBLE : View.INVISIBLE);
-                return row;
-            }
-        };
-    }
-
-    private static final class AccentCheckDrawable extends android.graphics.drawable.Drawable {
-        private final android.graphics.Paint paint = new android.graphics.Paint(
-                android.graphics.Paint.ANTI_ALIAS_FLAG);
-        private final int accent;
-        private final int size;
-
-        AccentCheckDrawable(int accent, int size) {
-            this.accent = accent;
-            this.size = size;
-        }
-
-        @Override
-        public void draw(android.graphics.Canvas canvas) {
-            float scale = size / 24.0f;
-            float left = getBounds().left;
-            float top = getBounds().top;
-            paint.setStyle(android.graphics.Paint.Style.FILL);
-            paint.setColor(accent);
-            canvas.drawCircle(left + (12.0f * scale), top + (12.0f * scale),
-                    12.0f * scale, paint);
-            paint.setStyle(android.graphics.Paint.Style.STROKE);
-            paint.setStrokeWidth(2.4f * scale);
-            paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
-            paint.setStrokeJoin(android.graphics.Paint.Join.ROUND);
-            paint.setColor(android.graphics.Color.WHITE);
-            android.graphics.Path path = new android.graphics.Path();
-            path.moveTo(left + (6.5f * scale), top + (12.2f * scale));
-            path.lineTo(left + (10.2f * scale), top + (15.9f * scale));
-            path.lineTo(left + (17.8f * scale), top + (8.3f * scale));
-            canvas.drawPath(path, paint);
-        }
-
-        @Override public int getIntrinsicWidth() { return size; }
-        @Override public int getIntrinsicHeight() { return size; }
-        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
-        @Override public void setColorFilter(android.graphics.ColorFilter filter) {
-            paint.setColorFilter(filter);
-        }
-        @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
     }
 
     private void applyPreviewSelection(Spinner spinner, int position) {
@@ -394,7 +303,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 opacity,
                 WidgetOptions.RESET_HIDDEN,
                 WidgetOptionCatalog.DISPLAY_VALUES[this.displaySpinner.getSelectedItemPosition()],
-                WidgetOptions.METRIC_BOTH, false, false, false, false, false, false)
+                WidgetOptionCatalog.METRIC_VALUES[this.metricSpinner.getSelectedItemPosition()],
+                false, false, false, false, false, false)
                 .withPercentSymbol(this.percentSymbolSwitch == null
                         || this.percentSymbolSwitch.isChecked());
     }
@@ -409,6 +319,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 this.accentSpinner.getSelectedItemPosition()]);
         this.displayRow.setSummary(WidgetOptionCatalog.DISPLAY_LABELS[
                 this.displaySpinner.getSelectedItemPosition()]);
+        this.metricRow.setSummary(WidgetOptionCatalog.METRIC_LABELS[
+                this.metricSpinner.getSelectedItemPosition()]);
     }
 
     private void renderPreview() {

@@ -14,12 +14,14 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class LockWidgetConfigActivity extends AppCompatActivity {
     private int appWidgetId = 0;
     private boolean dark;
+    private CardItemView metricRow;
     private Spinner metricSpinner;
     private ImageView preview;
     private CheckBox showCountdown;
@@ -61,7 +63,16 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions = AppPreferences.loadLockWidgetOptions(this, this.appWidgetId);
         this.metricSpinner = Ui.spinner(this, WidgetOptionCatalog.METRIC_LABELS, this.dark);
         WidgetOptionCatalog.selectString(this.metricSpinner, WidgetOptionCatalog.METRIC_VALUES, lockWidgetOptionsLoadLockWidgetOptions.metricMode);
-        Ui.addLabeledSpinner(contentCard, "Usage windows", this.metricSpinner, this.dark);
+        this.metricRow = new CardItemView(this);
+        this.metricRow.setTitle("Usage windows");
+        this.metricRow.setSummary(WidgetOptionCatalog.METRIC_LABELS[
+                this.metricSpinner.getSelectedItemPosition()]);
+        this.metricRow.setShowBottomDivider(false);
+        this.metricRow.setOnClickListener(view -> OneUiChoiceDialog.show(this,
+                "Usage windows", WidgetOptionCatalog.METRIC_LABELS,
+                this.metricSpinner.getSelectedItemPosition(),
+                position -> this.metricSpinner.setSelection(position)));
+        contentCard.addView(this.metricRow);
         this.showCountdown = Ui.checkbox(this, "Show live time until reset", lockWidgetOptionsLoadLockWidgetOptions.showCountdown, this.dark);
         this.showResetCredits = Ui.checkbox(this, "Show reset-credit count", lockWidgetOptionsLoadLockWidgetOptions.showResetCredits, this.dark);
         this.showResetAction = Ui.checkbox(this, "Tap tile to open Use reset confirmation", lockWidgetOptionsLoadLockWidgetOptions.showResetAction, this.dark);
@@ -77,6 +88,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         AdapterView.OnItemSelectedListener previewSelectionListener = new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                LockWidgetConfigActivity.this.metricRow.setSummary(
+                        WidgetOptionCatalog.METRIC_LABELS[position]);
                 LockWidgetConfigActivity.this.updatePreview();
             }
 
