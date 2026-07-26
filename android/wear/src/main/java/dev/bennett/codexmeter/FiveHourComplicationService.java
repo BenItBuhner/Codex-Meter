@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.os.Build;
 import androidx.wear.watchface.complications.data.ComplicationData;
 import androidx.wear.watchface.complications.data.ComplicationType;
 
@@ -11,12 +12,16 @@ public final class FiveHourComplicationService extends CodexComplicationService 
         if (type == ComplicationType.RANGED_VALUE) {
             return rangedValue(WearGlanceFormat.remainingPercentOrZero(window), percent, "5h",
                     "5-hour Codex usage remaining");
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && type == ComplicationType.GOAL_PROGRESS) {
+            return goalProgress(WearGlanceFormat.remainingPercentOrZero(window), percent, "5h",
+                    "5-hour Codex usage remaining");
         } else if (type == ComplicationType.SHORT_TEXT) {
             return shortText(percent, "5h", "5-hour Codex usage remaining");
         } else if (type == ComplicationType.LONG_TEXT) {
             return longText("5-hour " + percent + " left",
                     "5-hour Codex usage remaining");
         }
-        return null;
+        return imageForType(type, "5-hour Codex usage");
     }
 }

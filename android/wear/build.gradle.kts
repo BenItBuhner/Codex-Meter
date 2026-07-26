@@ -53,6 +53,7 @@ dependencies {
     implementation("androidx.wear:wear-ongoing:1.1.0")
     implementation("androidx.wear.tiles:tiles:1.6.1")
     implementation("androidx.wear.protolayout:protolayout:1.4.1")
+    implementation("androidx.wear.protolayout:protolayout-proto:1.4.1")
     implementation("androidx.wear.protolayout:protolayout-material:1.4.1")
     implementation("androidx.wear.protolayout:protolayout-expression:1.4.1")
     implementation("androidx.concurrent:concurrent-futures:1.3.0")

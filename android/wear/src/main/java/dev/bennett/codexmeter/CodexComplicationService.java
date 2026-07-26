@@ -3,14 +3,23 @@ package dev.bennett.codexmeter;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.Icon;
+import android.os.Build;
 import android.os.RemoteException;
 import android.util.Log;
+import androidx.annotation.RequiresApi;
 import androidx.wear.watchface.complications.data.ComplicationData;
 import androidx.wear.watchface.complications.data.ComplicationText;
 import androidx.wear.watchface.complications.data.ComplicationType;
+import androidx.wear.watchface.complications.data.GoalProgressComplicationData;
 import androidx.wear.watchface.complications.data.LongTextComplicationData;
+import androidx.wear.watchface.complications.data.MonochromaticImage;
+import androidx.wear.watchface.complications.data.MonochromaticImageComplicationData;
 import androidx.wear.watchface.complications.data.PlainComplicationText;
 import androidx.wear.watchface.complications.data.RangedValueComplicationData;
+import androidx.wear.watchface.complications.data.SmallImage;
+import androidx.wear.watchface.complications.data.SmallImageComplicationData;
+import androidx.wear.watchface.complications.data.SmallImageType;
 import androidx.wear.watchface.complications.data.ShortTextComplicationData;
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceService;
 import androidx.wear.watchface.complications.datasource.ComplicationRequest;
@@ -42,7 +51,9 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
 
     protected ShortTextComplicationData shortText(String text, String title, String description) {
         ShortTextComplicationData.Builder builder = new ShortTextComplicationData.Builder(
-                plain(text), plain(description)).setTapAction(tapAction(this));
+                plain(text), plain(description))
+                .setMonochromaticImage(monochromaticImage())
+                .setTapAction(tapAction(this));
         if (title != null && !title.isEmpty()) {
             builder.setTitle(plain(title));
         }
@@ -51,6 +62,7 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
 
     protected LongTextComplicationData longText(String text, String description) {
         return new LongTextComplicationData.Builder(plain(text), plain(description))
+                .setMonochromaticImage(monochromaticImage())
                 .setTapAction(tapAction(this))
                 .build();
     }
@@ -61,11 +73,54 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
         RangedValueComplicationData.Builder builder = new RangedValueComplicationData.Builder(
                 clamped, 0f, 100f, plain(description))
                 .setText(plain(text))
+                .setMonochromaticImage(monochromaticImage())
                 .setTapAction(tapAction(this));
         if (title != null && !title.isEmpty()) {
             builder.setTitle(plain(title));
         }
         return builder.build();
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    protected GoalProgressComplicationData goalProgress(float value, String text, String title,
+            String description) {
+        float clamped = Math.max(0f, Math.min(100f, value));
+        GoalProgressComplicationData.Builder builder = new GoalProgressComplicationData.Builder(
+                clamped, 100f, plain(description))
+                .setText(plain(text))
+                .setMonochromaticImage(monochromaticImage())
+                .setTapAction(tapAction(this));
+        if (title != null && !title.isEmpty()) {
+            builder.setTitle(plain(title));
+        }
+        return builder.build();
+    }
+
+    /** Image-only fallback keeps Codex selectable in icon slots on Samsung faces. */
+    protected ComplicationData imageForType(ComplicationType type, String description) {
+        if (type == ComplicationType.MONOCHROMATIC_IMAGE) {
+            return new MonochromaticImageComplicationData.Builder(
+                    monochromaticImage(), plain(description))
+                    .setTapAction(tapAction(this))
+                    .build();
+        }
+        if (type == ComplicationType.SMALL_IMAGE) {
+            return new SmallImageComplicationData.Builder(smallImage(), plain(description))
+                    .setTapAction(tapAction(this))
+                    .build();
+        }
+        return null;
+    }
+
+    private MonochromaticImage monochromaticImage() {
+        return new MonochromaticImage.Builder(
+                Icon.createWithResource(this, R.drawable.ic_notification)).build();
+    }
+
+    private SmallImage smallImage() {
+        return new SmallImage.Builder(
+                Icon.createWithResource(this, R.drawable.ic_notification), SmallImageType.ICON)
+                .build();
     }
 
     protected static ComplicationText plain(String text) {
