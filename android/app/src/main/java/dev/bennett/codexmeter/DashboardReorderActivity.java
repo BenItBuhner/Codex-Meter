@@ -26,6 +26,7 @@ import java.util.List;
  */
 public final class DashboardReorderActivity extends AppCompatActivity {
     private final List<SectionItem> items = new ArrayList<>();
+    private RecyclerView recycler;
     private boolean dark;
 
     private static final class SectionItem {
@@ -46,6 +47,10 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         super.onCreate(state);
         this.dark = Ui.isDark(this);
         LinearLayout content = Ui.installPage(this, "Edit dashboard", true).content;
+        // Pull-to-refresh would swallow downward drag gestures while rearranging rows.
+        androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =
+                findViewById(R.id.dashboard_refresh);
+        refresh.setEnabled(false);
 
         TextView hint = Ui.text(this,
                 "Drag the handles to arrange your usage cards. Model-specific limits such as "
@@ -59,7 +64,7 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         buildItems();
 
         RoundedLinearLayout listCard = Ui.cardGroup(this, dark);
-        RecyclerView recycler = new RecyclerView(this);
+        recycler = new RecyclerView(this);
         recycler.setLayoutManager(new LinearLayoutManager(this));
         recycler.setNestedScrollingEnabled(false);
         SectionAdapter adapter = new SectionAdapter();
@@ -111,6 +116,16 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                         match == null ? "Additional limit" : match.displayName(),
                         "Model-specific limit · detected automatically"));
             }
+        }
+    }
+
+    /**
+     * Stops the scroll containers above the list from intercepting the vertical drag while
+     * leaving the RecyclerView itself free to run the ItemTouchHelper reorder gesture.
+     */
+    private void lockAncestorScrolling() {
+        if (recycler != null && recycler.getParent() != null) {
+            recycler.getParent().requestDisallowInterceptTouchEvent(true);
         }
     }
 
@@ -167,6 +182,7 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         private void bindDragHandle(SectionHolder holder) {
             holder.handle.setOnTouchListener((view, event) -> {
                 if (event.getActionMasked() == MotionEvent.ACTION_DOWN && touchHelper != null) {
+                    lockAncestorScrolling();
                     touchHelper.startDrag(holder);
                     return true;
                 }
@@ -237,6 +253,7 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         public void onSelectedChanged(RecyclerView.ViewHolder holder, int actionState) {
             super.onSelectedChanged(holder, actionState);
             if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && holder != null) {
+                lockAncestorScrolling();
                 holder.itemView.setAlpha(0.85f);
                 holder.itemView.setElevation(Ui.dp(holder.itemView.getContext(), 4));
             }
