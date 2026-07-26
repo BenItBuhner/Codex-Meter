@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -35,8 +36,6 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
-import dev.oneuiproject.oneui.widget.CardItemView;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -292,14 +291,7 @@ public final class MainActivity extends AppCompatActivity {
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
             }
-            UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
-            boolean showResetCredits = AppPreferences.showDashboardResetCredits(this)
-                    && signedIn
-                    && (AppPreferences.loadResetCredits(this) != null
-                    || (snapshot != null && snapshot.resetCreditsAvailable >= 0));
-            if (showResetCredits) {
-                this.content.addView(buildResetCreditsCard());
-            } else if (signedIn && dashboard.getChildCount() == 0) {
+            if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
                                 + "Settings → Refresh & usage.",
@@ -379,6 +371,11 @@ public final class MainActivity extends AppCompatActivity {
         if (AppPreferences.showDashboardUsageHistory(this)) {
             available.add(DashboardSections.USAGE_HISTORY);
         }
+        if (AppPreferences.showDashboardResetCredits(this)
+                && (AppPreferences.loadResetCredits(this) != null
+                || (snapshot != null && snapshot.resetCreditsAvailable >= 0))) {
+            available.add(DashboardSections.RESET_CREDITS);
+        }
         boolean inverted = false;
         for (String key : DashboardSections.resolveOrder(
                 AppPreferences.getDashboardOrder(this), available)) {
@@ -391,10 +388,11 @@ public final class MainActivity extends AppCompatActivity {
                         "Weekly", snapshot, snapshot.weekly, inverted));
                 inverted = !inverted;
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
-                // The One UI separator provides section spacing; skip the usual card spacer.
-                column.addView(buildUsageCreditsCard(snapshot.usageCredits));
+                addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard());
+            } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+                addDashboardCard(column, buildResetCreditsCard());
             } else {
                 List<UsageLimit> group = limitsByKey.get(key);
                 if (group == null) {
@@ -506,20 +504,40 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildUsageCreditsCard(UsageCredits credits) {
-        LinearLayout column = new LinearLayout(this);
-        column.setOrientation(LinearLayout.VERTICAL);
-        column.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
-        column.addView(Ui.separator(this, "Usage credits"));
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "Usage credits", 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_credit_card_outline,
+                usageCreditBalance(credits), usageCreditsSummary(credits)));
+        return card;
+    }
 
-        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
-        card.addView(Ui.actionRow(
-                this,
-                usageCreditBalance(credits),
-                usageCreditsSummary(credits),
-                R.drawable.ic_oui_credit_card_outline,
-                null));
-        column.addView(card);
-        return column;
+    /** Left-aligned icon + value + summary row used inside the credit dashboard cards. */
+    private LinearLayout buildIconDetailRow(int icon, String value, String summary) {
+        LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        ImageView image = new ImageView(this);
+        image.setImageResource(icon);
+        image.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
+        row.addView(image, new LinearLayout.LayoutParams(Ui.dp(this, 30), Ui.dp(this, 30)));
+
+        LinearLayout labels = new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        TextView valueText = Ui.text(this, value, 17.0f, Ui.mainText(this.dark));
+        valueText.setTypeface(Ui.mediumTypeface(this));
+        labels.addView(valueText);
+        TextView summaryText = Ui.text(this, summary, 13.0f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-2, -2);
+        summaryParams.setMargins(0, Ui.dp(this, 2), 0, 0);
+        labels.addView(summaryText, summaryParams);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        labelParams.setMargins(Ui.dp(this, 16), 0, 0, 0);
+        row.addView(labels, labelParams);
+
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+        rowParams.setMargins(0, Ui.dp(this, 12), 0, 0);
+        row.setLayoutParams(rowParams);
+        return row;
     }
 
     private static String usageCreditBalance(UsageCredits credits) {
@@ -682,22 +700,16 @@ public final class MainActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
 
-        LinearLayout column = new LinearLayout(this);
-        column.setOrientation(LinearLayout.VERTICAL);
-        column.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
-        column.addView(Ui.separator(this, "Reset credits"));
-
-        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
-        CardItemView row = Ui.actionRow(
-                this,
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "Reset credits", 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_battery,
                 resetCreditsTitle(signedIn, available),
-                resetCreditsSummary(signedIn, available, nextExpiry, now),
-                R.drawable.ic_oui_battery,
-                signedIn ? view -> openResetCredits() : null);
-        card.addView(row);
-        column.addView(card);
+                resetCreditsSummary(signedIn, available, nextExpiry, now)));
 
         if (signedIn) {
+            card.setOnClickListener(view -> openResetCredits());
             Button button = Ui.nativePrimaryButton(this,
                     available > 0 ? "Use 1 reset" : "No resets available");
             button.setEnabled(available > 0);
@@ -705,9 +717,9 @@ public final class MainActivity extends AppCompatActivity {
             LinearLayout.LayoutParams buttonParams =
                     new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
             buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
-            column.addView(button, buttonParams);
+            card.addView(button, buttonParams);
         }
-        return column;
+        return card;
     }
 
     private static String resetCreditsTitle(boolean signedIn, int available) {

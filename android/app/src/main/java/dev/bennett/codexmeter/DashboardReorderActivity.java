@@ -110,6 +110,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 items.add(new SectionItem(key, "Usage history",
                         "Local burn charts for your usage windows"));
+            } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+                items.add(new SectionItem(key, "Reset credits",
+                        "Earned credits that can reset usage windows"));
             } else {
                 UsageLimit match = null;
                 for (UsageLimit limit : limits) {
@@ -156,6 +159,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         if (DashboardSections.USAGE_HISTORY.equals(key)) {
             return AppPreferences.showDashboardUsageHistory(this);
         }
+        if (DashboardSections.RESET_CREDITS.equals(key)) {
+            return AppPreferences.showDashboardResetCredits(this);
+        }
         return !AppPreferences.isDashboardSectionHidden(this, key);
     }
 
@@ -168,6 +174,8 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             AppPreferences.setShowDashboardUsageCredits(this, visible);
         } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
             AppPreferences.setShowDashboardUsageHistory(this, visible);
+        } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+            AppPreferences.setShowDashboardResetCredits(this, visible);
         } else {
             AppPreferences.setDashboardSectionHidden(this, key, !visible);
         }

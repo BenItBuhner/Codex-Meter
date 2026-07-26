@@ -306,6 +306,10 @@ public final class AppPreferences {
         return prefs(context).getBoolean(KEY_DASHBOARD_RESET_CREDITS, true);
     }
 
+    public static void setShowDashboardResetCredits(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_RESET_CREDITS, show).apply();
+    }
+
     /** Hidden section keys (currently model-specific limits) as a {@link DashboardSections} CSV. */
     public static String getDashboardHiddenSections(Context context) {
         return prefs(context).getString(KEY_DASHBOARD_HIDDEN_SECTIONS, "");

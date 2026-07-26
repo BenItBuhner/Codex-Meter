@@ -710,8 +710,9 @@ public final class ParserSelfTest {
         List<String> defaults = DashboardSections.defaultOrder(Arrays.asList(spark));
         check(defaults.equals(Arrays.asList(
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY, sparkKey,
-                        DashboardSections.USAGE_CREDITS, DashboardSections.USAGE_HISTORY)),
-                "default order is 5-hour, weekly, detected limits, credits, history");
+                        DashboardSections.USAGE_CREDITS, DashboardSections.USAGE_HISTORY,
+                        DashboardSections.RESET_CREDITS)),
+                "default order is 5-hour, weekly, detected limits, credits, history, resets");
 
         check(DashboardSections.resolveOrder("", defaults).equals(defaults),
                 "no saved order keeps the defaults");
@@ -719,15 +720,15 @@ public final class ParserSelfTest {
                 "usage_credits, limit:codex-spark ,five_hour,weekly", defaults);
         check(saved.equals(Arrays.asList(DashboardSections.USAGE_CREDITS, sparkKey,
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
-                        DashboardSections.USAGE_HISTORY)),
-                "saved order is applied with whitespace tolerated and the new history "
-                        + "section slots in at its default position");
+                        DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
+                "saved order is applied with whitespace tolerated and the new history and "
+                        + "reset-credit sections slot in at their default positions");
         List<String> withoutSpark = DashboardSections.resolveOrder(
                 "weekly,five_hour,usage_credits",
                 DashboardSections.defaultOrder(Arrays.asList(spark)));
         check(withoutSpark.equals(Arrays.asList(DashboardSections.WEEKLY,
                         DashboardSections.FIVE_HOUR, sparkKey, DashboardSections.USAGE_CREDITS,
-                        DashboardSections.USAGE_HISTORY)),
+                        DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
                 "newly detected Spark limit slots in before credits, not at the end");
         List<String> staleKeys = DashboardSections.resolveOrder(
                 "limit:old-model,weekly,five_hour",
@@ -736,7 +737,8 @@ public final class ParserSelfTest {
                         DashboardSections.FIVE_HOUR)),
                 "keys for limits no longer reported are dropped");
         check(DashboardSections.serialize(saved)
-                        .equals("usage_credits,limit:codex-spark,five_hour,weekly,usage_history"),
+                        .equals("usage_credits,limit:codex-spark,five_hour,weekly,"
+                                + "usage_history,reset_credits"),
                 "order round-trips through the stored CSV form");
         check(DashboardSections.resolveOrder(null,
                         Arrays.asList(DashboardSections.FIVE_HOUR))
