@@ -32,6 +32,13 @@ nonisolated public enum AlertMetric: String, Codable, Sendable, CaseIterable, Id
     }
 }
 
+nonisolated public enum RefreshMode: String, Codable, Sendable, CaseIterable, Identifiable {
+    case automatic
+    case manual
+
+    public var id: String { rawValue }
+}
+
 nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public static let allowedRefreshMinutes = [5, 10, 15, 30, 60, 120]
     public static let allowedAlertThresholds = [100, 10, 25, 50, 75]
@@ -42,7 +49,13 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
 
     public var appearance: AppAppearance
     public var refreshOnLaunch: Bool
+    public var refreshMode: RefreshMode
     public var refreshMinutes: Int
+    public var showFiveHour: Bool
+    public var showWeekly: Bool
+    public var showAdditionalLimits: Bool
+    public var showUsageCredits: Bool
+    public var showResetCredits: Bool
     public var notificationsEnabled: Bool
     public var alertMetric: AlertMetric
     /// Remaining allowance percentage. `100` corresponds to the “Always” UI option.
@@ -56,7 +69,13 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public init(
         appearance: AppAppearance = .system,
         refreshOnLaunch: Bool = true,
+        refreshMode: RefreshMode = .automatic,
         refreshMinutes: Int = 30,
+        showFiveHour: Bool = true,
+        showWeekly: Bool = true,
+        showAdditionalLimits: Bool = true,
+        showUsageCredits: Bool = true,
+        showResetCredits: Bool = true,
         notificationsEnabled: Bool = false,
         alertMetric: AlertMetric = .both,
         alertThreshold: Int = 25,
@@ -67,7 +86,13 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
+        self.refreshMode = refreshMode
         self.refreshMinutes = Self.allowedRefreshMinutes.contains(refreshMinutes) ? refreshMinutes : 30
+        self.showFiveHour = showFiveHour
+        self.showWeekly = showWeekly
+        self.showAdditionalLimits = showAdditionalLimits
+        self.showUsageCredits = showUsageCredits
+        self.showResetCredits = showResetCredits
         self.notificationsEnabled = notificationsEnabled
         self.alertMetric = alertMetric
         self.alertThreshold = Self.allowedAlertThresholds.contains(alertThreshold) ? alertThreshold : 25
@@ -100,7 +125,13 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case appearance
         case refreshOnLaunch
+        case refreshMode
         case refreshMinutes
+        case showFiveHour
+        case showWeekly
+        case showAdditionalLimits
+        case showUsageCredits
+        case showResetCredits
         case notificationsEnabled
         case alertMetric
         case alertThreshold
@@ -115,7 +146,13 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.init(
             appearance: try container.decodeIfPresent(AppAppearance.self, forKey: .appearance) ?? .system,
             refreshOnLaunch: try container.decodeIfPresent(Bool.self, forKey: .refreshOnLaunch) ?? true,
+            refreshMode: try container.decodeIfPresent(RefreshMode.self, forKey: .refreshMode) ?? .automatic,
             refreshMinutes: try container.decodeIfPresent(Int.self, forKey: .refreshMinutes) ?? 30,
+            showFiveHour: try container.decodeIfPresent(Bool.self, forKey: .showFiveHour) ?? true,
+            showWeekly: try container.decodeIfPresent(Bool.self, forKey: .showWeekly) ?? true,
+            showAdditionalLimits: try container.decodeIfPresent(Bool.self, forKey: .showAdditionalLimits) ?? true,
+            showUsageCredits: try container.decodeIfPresent(Bool.self, forKey: .showUsageCredits) ?? true,
+            showResetCredits: try container.decodeIfPresent(Bool.self, forKey: .showResetCredits) ?? true,
             notificationsEnabled: try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false,
             alertMetric: try container.decodeIfPresent(AlertMetric.self, forKey: .alertMetric) ?? .both,
             alertThreshold: try container.decodeIfPresent(Int.self, forKey: .alertThreshold) ?? 25,
@@ -158,6 +195,11 @@ public final class AppSettingsStore: ObservableObject {
         set { settings.refreshOnLaunch = newValue }
     }
 
+    public var refreshMode: RefreshMode {
+        get { settings.refreshMode }
+        set { settings.refreshMode = newValue }
+    }
+
     public var refreshMinutes: Int {
         get { settings.refreshMinutes }
         set {
@@ -191,5 +233,78 @@ public final class AppSettingsStore: ObservableObject {
     private func persist() {
         guard let data = try? JSONEncoder().encode(settings) else { return }
         defaults.set(data, forKey: Self.storageKey)
+    }
+}
+
+@MainActor
+final class RefreshEngagementStore {
+    private static let foregroundKey = "codex-meter.refresh-foreground-at-v1"
+    private static let lastOpenKey = "codex-meter.refresh-last-open-at-v1"
+    private static let scoreKey = "codex-meter.refresh-attention-score-v1"
+    private static let scoreDateKey = "codex-meter.refresh-attention-score-date-v1"
+    private static let failuresKey = "codex-meter.refresh-failures-v1"
+    private static let halfLife: TimeInterval = 6 * 60 * 60
+    private static let openDebounce: TimeInterval = 10 * 60
+    private static let foregroundUnit: TimeInterval = 10 * 60
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func recordForeground(at date: Date = Date()) {
+        var score = decayedScore(at: date)
+        let lastOpen = defaults.double(forKey: Self.lastOpenKey)
+        if lastOpen <= 0 || date.timeIntervalSince1970 - lastOpen >= Self.openDebounce {
+            score += 1
+            defaults.set(date.timeIntervalSince1970, forKey: Self.lastOpenKey)
+        }
+        save(score: score, at: date)
+        defaults.set(date.timeIntervalSince1970, forKey: Self.foregroundKey)
+    }
+
+    func recordBackground(at date: Date = Date()) {
+        var score = decayedScore(at: date)
+        let foregroundAt = defaults.double(forKey: Self.foregroundKey)
+        if foregroundAt > 0, date.timeIntervalSince1970 > foregroundAt {
+            score += min(6, (date.timeIntervalSince1970 - foregroundAt) / Self.foregroundUnit)
+        }
+        save(score: score, at: date)
+        defaults.removeObject(forKey: Self.foregroundKey)
+    }
+
+    func attentionScore(at date: Date = Date()) -> Double {
+        var score = decayedScore(at: date)
+        let foregroundAt = defaults.double(forKey: Self.foregroundKey)
+        if foregroundAt > 0, date.timeIntervalSince1970 > foregroundAt {
+            score += min(6, (date.timeIntervalSince1970 - foregroundAt) / Self.foregroundUnit)
+        }
+        return max(0, score)
+    }
+
+    var consecutiveFailures: Int {
+        min(3, max(0, defaults.integer(forKey: Self.failuresKey)))
+    }
+
+    func recordRefreshSuccess() {
+        defaults.removeObject(forKey: Self.failuresKey)
+    }
+
+    func recordRefreshFailure() {
+        defaults.set(min(3, consecutiveFailures + 1), forKey: Self.failuresKey)
+    }
+
+    private func decayedScore(at date: Date) -> Double {
+        let score = defaults.double(forKey: Self.scoreKey)
+        let scoreDate = defaults.double(forKey: Self.scoreDateKey)
+        guard score.isFinite, score > 0, scoreDate > 0 else { return 0 }
+        let elapsed = max(0, date.timeIntervalSince1970 - scoreDate)
+        return score * pow(0.5, elapsed / Self.halfLife)
+    }
+
+    private func save(score: Double, at date: Date) {
+        defaults.set(max(0, score), forKey: Self.scoreKey)
+        defaults.set(date.timeIntervalSince1970, forKey: Self.scoreDateKey)
     }
 }

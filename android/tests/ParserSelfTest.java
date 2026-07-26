@@ -17,6 +17,8 @@ public final class ParserSelfTest {
         testWindowIdentification();
         testAdditionalLimits();
         testPrimaryLimitWinsOverAdditional();
+        testOptionalUsageSections();
+        testUsageCredits();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
         testNextResetSelection();
@@ -26,6 +28,7 @@ public final class ParserSelfTest {
         testFullWindowHidesResetCountdown();
         testUsageHistory();
         testUsagePace();
+        testAdaptiveRefreshPolicy();
         testNowBarAutoStart();
         testNowBarDisplayModes();
         testWearSurfaceModes();
@@ -173,6 +176,54 @@ public final class ParserSelfTest {
                         UsageHistory.empty(UsageHistory.WEEKLY).kind),
                 "weekly history kind is preserved");
         System.out.println("Usage-history demo: local samples produce reset-aware burn trends.");
+    }
+
+    private static void testAdaptiveRefreshPolicy() {
+        long now = 2_000_000_000_000L;
+        UsageWindow healthy = new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.HOURS.toMillis(4)) / 1000L);
+        UsageWindow mid = new UsageWindow(60, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.HOURS.toMillis(2)) / 1000L);
+        UsageWindow low = new UsageWindow(92, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.HOURS.toMillis(2)) / 1000L);
+        UsageWindow nearReset = new UsageWindow(20, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.MINUTES.toMillis(10)) / 1000L);
+
+        check(AdaptiveRefreshPolicy.chooseMinutes(null, 0.0d, 12, 0, now) == 30,
+                "automatic refresh uses a balanced interval before data exists");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        0.0d, 12, 0, now) == 60,
+                "healthy quota refreshes less often");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, mid, null, now),
+                        0.0d, 12, 0, now) == 15,
+                "lower quota increases refresh frequency");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, low, null, now),
+                        0.0d, 12, 0, now) == 5,
+                "critical quota uses the fastest interval");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        3.0d, 12, 0, now) == 10,
+                "frequent attention increases refresh frequency");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        0.0d, 3, 0, now) == 120,
+                "quiet hours reduce healthy unattended polling");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, nearReset, null, now),
+                        0.0d, 12, 0, now) == 5,
+                "an approaching used-window reset refreshes precisely");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, low, null, now),
+                        0.0d, 12, 2, now) == 15,
+                "consecutive failures back off even when quota is low");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", false, true, low, null, now),
+                        0.0d, 12, 3, now) == 30,
+                "failure backoff remains bounded for a limited account");
+        System.out.println("Automatic refresh demo: quota, attention, resets, quiet hours, and failures adapt the cadence.");
     }
 
     private static void testNowBarAutoStart() {
@@ -323,7 +374,7 @@ public final class ParserSelfTest {
         check(!clearRoundTrip.signedIn,
                 "Wear usage clear payload preserves signed-out state");
         WearSyncStatus status = new WearSyncStatus(true, true, 3000L,
-                "Network unavailable", "2.5.0", 4000L);
+                "Network unavailable", "2.6.0", 4000L);
         WearSyncStatus statusRoundTrip = WearSyncStatus.fromJson(status.toJson());
         check(statusRoundTrip != null && statusRoundTrip.signedIn,
                 "Wear status preserves phone sign-in state");
@@ -545,8 +596,11 @@ public final class ParserSelfTest {
                 "\"rate_limit\":{\"primary_window\":{\"used_percent\":150,\"limit_window_seconds\":18000,\"reset_after_seconds\":1,\"reset_at\":2}," +
                 "\"secondary_window\":{\"used_percent\":-5,\"limit_window_seconds\":604800,\"reset_after_seconds\":1,\"reset_at\":3}}}]}";
         UsageSnapshot snapshot = UsageParser.parse(json, 1L);
-        check(snapshot.fiveHour.remainingPercent() == 0, "upper clamp");
-        check(snapshot.weekly.remainingPercent() == 100, "lower clamp");
+        check(snapshot.fiveHour == null && snapshot.weekly == null,
+                "additional limits do not masquerade as standard limits");
+        check(snapshot.additionalLimits.size() == 1, "additional limit preserved");
+        check(snapshot.additionalLimits.get(0).primary.remainingPercent() == 0, "upper clamp");
+        check(snapshot.additionalLimits.get(0).secondary.remainingPercent() == 100, "lower clamp");
     }
 
 
@@ -562,6 +616,54 @@ public final class ParserSelfTest {
                 "main Codex limit takes precedence over additional feature limits");
         check(snapshot.weekly != null && snapshot.weekly.usedPercent == 20,
                 "main weekly limit takes precedence");
+        check(snapshot.additionalLimits.size() == 1
+                        && snapshot.additionalLimits.get(0).primary.usedPercent == 90,
+                "additional feature limit remains independently available");
+    }
+
+    private static void testOptionalUsageSections() throws Exception {
+        String weeklyOnly = "{\"plan_type\":\"pro\",\"rate_limit\":{"
+                + "\"secondary_window\":{\"used_percent\":25,"
+                + "\"limit_window_seconds\":604800,\"reset_at\":2000}}}";
+        UsageSnapshot snapshot = UsageParser.parse(weeklyOnly, 1L);
+        check(snapshot.fiveHour == null, "missing five-hour limit stays absent");
+        check(snapshot.weekly != null && snapshot.weekly.usedPercent == 25,
+                "weekly limit remains available without five-hour data");
+
+        String namedAdditional = "{\"additional_rate_limits\":[{"
+                + "\"limit_name\":\"GPT-5.3-Codex-Spark\","
+                + "\"metered_feature\":\"codex_bengalfox\","
+                + "\"rate_limit\":{\"allowed\":false,\"limit_reached\":true,"
+                + "\"primary_window\":{\"used_percent\":40,\"limit_window_seconds\":18000}}}]}";
+        UsageSnapshot additional = UsageParser.parse(namedAdditional, 2L);
+        UsageLimit limit = additional.additionalLimits.get(0);
+        check("GPT-5.3-Codex-Spark".equals(limit.displayName()),
+                "API-provided additional limit label preserved");
+        check(!limit.allowed && limit.limitReached, "additional limit status preserved");
+        check(additional.hasDisplayableData(), "additional-only response is displayable");
+    }
+
+    private static void testUsageCredits() throws Exception {
+        UsageSnapshot snapshot = UsageParser.parse(
+                "{\"credits\":{\"has_credits\":true,\"unlimited\":false,"
+                        + "\"balance\":\"2500.5\"}}",
+                3L);
+        check(snapshot.usageCredits != null && snapshot.usageCredits.hasCredits,
+                "purchased usage credits parsed");
+        check("2500.5".equals(snapshot.usageCredits.balance), "usage-credit balance preserved");
+        check(snapshot.hasDisplayableData(), "credit-only response is displayable");
+        UsageSnapshot restored = UsageSnapshot.fromJson(snapshot.toJson());
+        check(restored != null && restored.usageCredits != null
+                        && "2500.5".equals(restored.usageCredits.balance),
+                "usage credits survive cache round trip");
+        UsageSnapshot empty = UsageParser.parse("{\"credits\":{}}", 4L);
+        check(empty.usageCredits == null && !empty.hasDisplayableData(),
+                "empty credits object does not become dashboard data");
+        UsageSnapshot none = UsageParser.parse(
+                "{\"credits\":{\"has_credits\":false,\"balance\":\"0\"}}", 5L);
+        check(none.usageCredits != null && none.usageCredits.balance.isEmpty()
+                        && !none.hasDisplayableData(),
+                "zero balance for an account without purchased credits is not standalone data");
     }
 
     private static void testMalformedWindowIgnored() throws Exception {

@@ -79,6 +79,7 @@ final class AppModel {
     private let cache: AppCacheStore
     private let settingsStore: AppSettingsStore
     private let notificationCoordinator: NotificationCoordinator
+    private let refreshEngagementStore: RefreshEngagementStore
     private let defaults: UserDefaults
     private var hasStarted = false
     private var hasFinishedStartup = false
@@ -104,6 +105,7 @@ final class AppModel {
         settingsStore: AppSettingsStore = AppSettingsStore(),
         notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
         defaults: UserDefaults = .standard,
+        refreshEngagementStore: RefreshEngagementStore? = nil,
         preview: Bool = false
     ) {
         self.liveService = liveService
@@ -112,6 +114,8 @@ final class AppModel {
         self.settingsStore = settingsStore
         self.notificationCoordinator = notificationCoordinator
         self.defaults = defaults
+        self.refreshEngagementStore = refreshEngagementStore
+            ?? RefreshEngagementStore(defaults: defaults)
         self.settings = settingsStore.settings
         self.isPreview = preview
 
@@ -133,6 +137,28 @@ final class AppModel {
                     resetAt: now.addingTimeInterval(280_000)
                 ),
                 resetCreditsAvailable: 2,
+                additionalLimits: [
+                    UsageLimit(
+                        id: "codex-spark",
+                        name: "GPT-5.3-Codex-Spark",
+                        meteredFeature: "codex_bengalfox",
+                        primary: UsageWindow(
+                            usedPercent: 24,
+                            windowSeconds: 18_000,
+                            resetAt: now.addingTimeInterval(10_800)
+                        ),
+                        secondary: UsageWindow(
+                            usedPercent: 42,
+                            windowSeconds: 604_800,
+                            resetAt: now.addingTimeInterval(432_000)
+                        )
+                    )
+                ],
+                usageCredits: UsageCredits(
+                    hasCredits: true,
+                    unlimited: false,
+                    balance: "2500"
+                ),
                 fetchedAt: now
             )
             credits = ResetCreditsSnapshot(
@@ -232,14 +258,17 @@ final class AppModel {
 
         do {
             let snapshot = try await activeService.refresh()
+            refreshEngagementStore.recordRefreshSuccess()
             await apply(refresh: snapshot)
         } catch is CancellationError {
             return
         } catch {
+            refreshEngagementStore.recordRefreshFailure()
             visibleError = error.localizedDescription
             if let cached = try? await cache.load() {
                 apply(cache: cached, preservingVisibleError: true)
             }
+            scheduleBackgroundRefresh()
         }
     }
 
@@ -479,6 +508,7 @@ final class AppModel {
     }
 
     func sceneBecameActive() async {
+        refreshEngagementStore.recordForeground()
         await refreshNotificationPermissionState()
         guard hasStarted else {
             await startIfNeeded()
@@ -488,6 +518,11 @@ final class AppModel {
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
             await refresh()
         }
+    }
+
+    func sceneBecameInactive() {
+        refreshEngagementStore.recordBackground()
+        scheduleBackgroundRefresh()
     }
 
     private var activeService: any CodexService {
@@ -564,9 +599,23 @@ final class AppModel {
             if mode != .live { backgroundRefreshCoordinator.cancel() }
             return
         }
+        let now = Date()
         try? backgroundRefreshCoordinator.schedule(
-            preferredMinutes: settings.refreshMinutes,
+            preferredMinutes: effectiveRefreshMinutes(at: now),
             nextReset: usage?.nextReset(after: .now)
+        )
+    }
+
+    private func effectiveRefreshMinutes(at date: Date) -> Int {
+        guard settings.refreshMode == .automatic else {
+            return settings.refreshMinutes
+        }
+        return AdaptiveRefreshPolicy.chooseMinutes(
+            snapshot: usage,
+            attentionScore: refreshEngagementStore.attentionScore(at: date),
+            localHour: Calendar.current.component(.hour, from: date),
+            consecutiveFailures: refreshEngagementStore.consecutiveFailures,
+            now: date
         )
     }
 
@@ -596,11 +645,23 @@ final class AppModel {
             defaults.set(AppMode.live.rawValue, forKey: Self.modeDefaultsKey)
             apply(tokens: tokens)
         }
-        let refreshed = try await liveService.refresh()
-        await apply(refresh: refreshed)
-        return BackgroundRefreshOutcome(
-            preferredMinutes: settings.refreshMinutes,
-            nextReset: refreshed.usage.nextReset(after: .now)
-        )
+        do {
+            let refreshed = try await liveService.refresh()
+            refreshEngagementStore.recordRefreshSuccess()
+            await apply(refresh: refreshed)
+            let now = Date()
+            return BackgroundRefreshOutcome(
+                preferredMinutes: effectiveRefreshMinutes(at: now),
+                nextReset: refreshed.usage.nextReset(after: now)
+            )
+        } catch {
+            refreshEngagementStore.recordRefreshFailure()
+            let now = Date()
+            return BackgroundRefreshOutcome(
+                preferredMinutes: effectiveRefreshMinutes(at: now),
+                nextReset: usage?.nextReset(after: now),
+                succeeded: false
+            )
+        }
     }
 }

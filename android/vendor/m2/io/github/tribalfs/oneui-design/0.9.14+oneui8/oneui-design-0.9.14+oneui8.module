@@ -3,7 +3,7 @@
   "component": {
     "group": "io.github.tribalfs",
     "module": "oneui-design",
-    "version": "0.9.13+oneui8",
+    "version": "0.9.14+oneui8",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -1846,13 +1846,13 @@
       ],
       "files": [
         {
-          "name": "oneui-design-0.9.13+oneui8.aar",
-          "url": "oneui-design-0.9.13+oneui8.aar",
-          "size": 1767012,
-          "sha512": "4715910e51d5910e4062aa11bcea8a8b5091d3feaa55d22f4f67752d55b330de406d295b9614ae42f90d3485bd3a039a904430c6397abf8b3f6f2d579f44081f",
-          "sha256": "f3ec9936ca227838dd5de4e99c8e0edaf5684dd089492f1b5070024f2202570d",
-          "sha1": "dff9fc00ff135a8f98e7dd0d4808a5697205fd71",
-          "md5": "43d8d8a9c9d52633b6959df59ae5fd99"
+          "name": "oneui-design-0.9.14+oneui8.aar",
+          "url": "oneui-design-0.9.14+oneui8.aar",
+          "size": 1764998,
+          "sha512": "e2f58bcb9a925833a037c0727a865c0ef210064e78ae7050fa73035b2bc9c6b8aac462bdede8454826bf40aa9f48d26b8d80995a3336c8555577340ce6f7ff1f",
+          "sha256": "c8937f1aede8c8ccf1b9652db3f42e61a65d5aebeaf6ca6001d238e01f8c697a",
+          "sha1": "7231cfaedc18ec399e0da2ff0dc0f75de5df5bac",
+          "md5": "d1b45504a133ff5096da7274d9df55c4"
         }
       ]
     },
@@ -4143,13 +4143,13 @@
       ],
       "files": [
         {
-          "name": "oneui-design-0.9.13+oneui8.aar",
-          "url": "oneui-design-0.9.13+oneui8.aar",
-          "size": 1767012,
-          "sha512": "4715910e51d5910e4062aa11bcea8a8b5091d3feaa55d22f4f67752d55b330de406d295b9614ae42f90d3485bd3a039a904430c6397abf8b3f6f2d579f44081f",
-          "sha256": "f3ec9936ca227838dd5de4e99c8e0edaf5684dd089492f1b5070024f2202570d",
-          "sha1": "dff9fc00ff135a8f98e7dd0d4808a5697205fd71",
-          "md5": "43d8d8a9c9d52633b6959df59ae5fd99"
+          "name": "oneui-design-0.9.14+oneui8.aar",
+          "url": "oneui-design-0.9.14+oneui8.aar",
+          "size": 1764998,
+          "sha512": "e2f58bcb9a925833a037c0727a865c0ef210064e78ae7050fa73035b2bc9c6b8aac462bdede8454826bf40aa9f48d26b8d80995a3336c8555577340ce6f7ff1f",
+          "sha256": "c8937f1aede8c8ccf1b9652db3f42e61a65d5aebeaf6ca6001d238e01f8c697a",
+          "sha1": "7231cfaedc18ec399e0da2ff0dc0f75de5df5bac",
+          "md5": "d1b45504a133ff5096da7274d9df55c4"
         }
       ]
     },
@@ -4163,13 +4163,13 @@
       },
       "files": [
         {
-          "name": "oneui-design-0.9.13+oneui8-sources.jar",
-          "url": "oneui-design-0.9.13+oneui8-sources.jar",
-          "size": 333779,
-          "sha512": "61b3f0b065e3eda995f245ee6f00eb6c5b0f12db09cfadf8c33703b0d98d13bb101bfa22718c796d2f2c89e155e81281eb88c7d371a10beddb0eee69bc8be039",
-          "sha256": "1957f85d3592bd23f4957511ab336efa14238c869e6619dd326a5b12141c0f39",
-          "sha1": "356d3964e9c3b7619c8a404af5e3613b57f666c9",
-          "md5": "c3cbece37f304e8ddbf6f0c4e3ffa996"
+          "name": "oneui-design-0.9.14+oneui8-sources.jar",
+          "url": "oneui-design-0.9.14+oneui8-sources.jar",
+          "size": 333487,
+          "sha512": "15c8c355ef8cfdfc8aafac2e3c346e0f330bdb70105579b253895331b33eb4447004bfa2e669473d65bbe7e5e6290a05b4cbe0bf776e14d13443e51ce152551c",
+          "sha256": "5d31834f8dabe84c9f480f6fd7077a22b4f4e92dbb79cf2e4f96c86aad9ac383",
+          "sha1": "1c444eb8d24236d50036772f00903009dff572d6",
+          "md5": "5f780f7ae4b5d5a3e86fd7d4a1c3cbd1"
         }
       ]
     },
@@ -4183,13 +4183,13 @@
       },
       "files": [
         {
-          "name": "oneui-design-0.9.13+oneui8-javadoc.jar",
-          "url": "oneui-design-0.9.13+oneui8-javadoc.jar",
-          "size": 1875648,
-          "sha512": "3516dcae457b30017f8ab2c09fd1334ff36d26475e1776d01c7d80c047460b6b14e94f96ca86b633743593b163c2c114d729817f81e4b66fb5e50509b8043f7c",
-          "sha256": "f7feeb79fa2969d13c17042428f894c42d1f47d30283f9223512a7ee947af5c8",
-          "sha1": "03fdf911f7990ad0c84845abe4ce232c6c7b6671",
-          "md5": "604bf98373888d40f339ec5c4aa661bc"
+          "name": "oneui-design-0.9.14+oneui8-javadoc.jar",
+          "url": "oneui-design-0.9.14+oneui8-javadoc.jar",
+          "size": 1875787,
+          "sha512": "0db95aa93fe711112af9b05000d21c9156e61404ea289af198619901b2607c0c8dd5add0370a9dd3ff21b024aac7b070b9a3765cc6e5dccc375c04aa192441d4",
+          "sha256": "c212ea2c370ccce9249b9949379512fab5398ae96f9ba30a03927efa2f105828",
+          "sha1": "ff487f0538fa4707023ed048b183ff4aa33f450b",
+          "md5": "5dff7255297859371ac3e88aa9861aed"
         }
       ]
     }

@@ -9,6 +9,11 @@ import org.json.JSONObject;
 public final class AppPreferences {
     private static final String KEY_APP_STYLE = "app_surface_style";
     private static final String KEY_APP_THEME = "app_theme";
+    private static final String KEY_DASHBOARD_ADDITIONAL_LIMITS = "dashboard_additional_limits";
+    private static final String KEY_DASHBOARD_FIVE_HOUR = "dashboard_five_hour";
+    private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
+    private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
+    private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
     private static final String KEY_MATERIAL_YOU = "material_you";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
@@ -17,6 +22,8 @@ public final class AppPreferences {
     private static final String KEY_OAUTH_URL = "oauth_url";
     private static final String KEY_ONBOARDING_COMPLETE = "onboarding_complete";
     private static final String KEY_ONBOARDING_STEP = "onboarding_step";
+    private static final String KEY_AUTOMATIC_REFRESH = "automatic_refresh";
+    private static final String KEY_REFRESH_FAILURES = "refresh_failures";
     private static final String KEY_REFRESH_MINUTES = "refresh_minutes";
     private static final String KEY_REFRESH_ON_LAUNCH = "refresh_on_launch";
     private static final String KEY_RESET_CREDITS = "reset_credits_snapshot";
@@ -63,7 +70,8 @@ public final class AppPreferences {
     public static void clearSnapshot(Context context) {
         prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
                 .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
-                .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY).apply();
+                .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
+                .remove(KEY_REFRESH_FAILURES).apply();
         NowBarManager.stop(context);
         NowBarPreferences.clearSuppression(context);
         ResetNotificationManager.clearState(context);
@@ -226,12 +234,65 @@ public final class AppPreferences {
         editorEdit.putInt(KEY_REFRESH_MINUTES, i).apply();
     }
 
+    public static boolean getAutomaticRefresh(Context context) {
+        return prefs(context).getBoolean(KEY_AUTOMATIC_REFRESH, true);
+    }
+
+    public static void setAutomaticRefresh(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_AUTOMATIC_REFRESH, enabled).apply();
+    }
+
+    public static int getRefreshFailures(Context context) {
+        return Math.max(0, Math.min(3, prefs(context).getInt(KEY_REFRESH_FAILURES, 0)));
+    }
+
+    public static void recordRefreshSuccess(Context context) {
+        prefs(context).edit().remove(KEY_REFRESH_FAILURES).apply();
+    }
+
+    public static void recordRefreshFailure(Context context) {
+        int failures = Math.min(3, getRefreshFailures(context) + 1);
+        prefs(context).edit().putInt(KEY_REFRESH_FAILURES, failures).apply();
+    }
+
     public static boolean getRefreshOnLaunch(Context context) {
         return prefs(context).getBoolean(KEY_REFRESH_ON_LAUNCH, true);
     }
 
     public static void setRefreshOnLaunch(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_REFRESH_ON_LAUNCH, enabled).apply();
+    }
+
+    public static boolean showDashboardFiveHour(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_FIVE_HOUR, true);
+    }
+
+    public static boolean showDashboardWeekly(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_WEEKLY, true);
+    }
+
+    public static boolean showDashboardAdditionalLimits(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, true);
+    }
+
+    public static boolean showDashboardUsageCredits(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_USAGE_CREDITS, true);
+    }
+
+    public static boolean showDashboardResetCredits(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_RESET_CREDITS, true);
+    }
+
+    public static void setDashboardVisibility(Context context, boolean fiveHour,
+            boolean weekly, boolean additionalLimits, boolean usageCredits,
+            boolean resetCredits) {
+        prefs(context).edit()
+                .putBoolean(KEY_DASHBOARD_FIVE_HOUR, fiveHour)
+                .putBoolean(KEY_DASHBOARD_WEEKLY, weekly)
+                .putBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, additionalLimits)
+                .putBoolean(KEY_DASHBOARD_USAGE_CREDITS, usageCredits)
+                .putBoolean(KEY_DASHBOARD_RESET_CREDITS, resetCredits)
+                .apply();
     }
 
     private static boolean validRefresh(int i) {

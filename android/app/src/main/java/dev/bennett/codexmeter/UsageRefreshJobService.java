@@ -61,13 +61,16 @@ public final class UsageRefreshJobService extends JobService {
 
     private final class JobRun implements Runnable {
         private final JobParameters params;
-        private final boolean shortCycle;
+        private final boolean chainedCycle;
         private volatile boolean stopped;
         private FutureTask<Void> task;
 
         JobRun(JobParameters jobParameters) {
             this.params = jobParameters;
-            this.shortCycle = "short_periodic".equals(jobParameters.getExtras() == null ? "" : jobParameters.getExtras().getString("reason", ""));
+            String reason = jobParameters.getExtras() == null
+                    ? "" : jobParameters.getExtras().getString("reason", "");
+            this.chainedCycle = RefreshScheduler.REASON_SHORT_PERIODIC.equals(reason)
+                    || RefreshScheduler.REASON_ADAPTIVE.equals(reason);
         }
 
         @Override // java.lang.Runnable
@@ -75,25 +78,27 @@ public final class UsageRefreshJobService extends JobService {
             try {
                 try {
                     RefreshScheduler.scheduleAtNextReset(UsageRefreshJobService.this.getApplicationContext(), UsageApi.refreshAndCache(UsageRefreshJobService.this.getApplicationContext()));
+                    AppPreferences.recordRefreshSuccess(
+                            UsageRefreshJobService.this.getApplicationContext());
                     WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
                     UsageRefreshJobService.this.active.remove(Integer.valueOf(this.params.getJobId()), this);
                     if (!this.stopped) {
                         UsageRefreshJobService usageRefreshJobService = UsageRefreshJobService.this;
                         JobParameters jobParameters = this.params;
-                        if (this.shortCycle) {
-                        }
                         usageRefreshJobService.jobFinished(jobParameters, false);
-                        if (this.shortCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
+                        if (this.chainedCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
                             RefreshScheduler.scheduleNextShort(UsageRefreshJobService.this.getApplicationContext(), this.params.getJobId());
                         }
                     }
                 } catch (Exception e) {
                     AppPreferences.setLastError(UsageRefreshJobService.this.getApplicationContext(), UsageRefreshJobService.safeMessage(e));
+                    AppPreferences.recordRefreshFailure(
+                            UsageRefreshJobService.this.getApplicationContext());
                     WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
                     UsageRefreshJobService.this.active.remove(Integer.valueOf(this.params.getJobId()), this);
                     if (!this.stopped) {
-                        UsageRefreshJobService.this.jobFinished(this.params, !this.shortCycle);
-                        if (this.shortCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
+                        UsageRefreshJobService.this.jobFinished(this.params, !this.chainedCycle);
+                        if (this.chainedCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
                             RefreshScheduler.scheduleNextShort(UsageRefreshJobService.this.getApplicationContext(), this.params.getJobId());
                         }
                     }
@@ -104,10 +109,8 @@ public final class UsageRefreshJobService extends JobService {
                 if (!this.stopped) {
                     UsageRefreshJobService usageRefreshJobService2 = UsageRefreshJobService.this;
                     JobParameters jobParameters2 = this.params;
-                    if (this.shortCycle) {
-                    }
                     usageRefreshJobService2.jobFinished(jobParameters2, false);
-                    if (this.shortCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
+                    if (this.chainedCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
                         RefreshScheduler.scheduleNextShort(UsageRefreshJobService.this.getApplicationContext(), this.params.getJobId());
                     }
                 }

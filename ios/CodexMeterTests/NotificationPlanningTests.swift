@@ -189,6 +189,7 @@ final class NotificationPlanningTests: XCTestCase {
         """.data(using: .utf8)!
 
         let settings = try JSONDecoder().decode(AppSettings.self, from: legacy)
+        XCTAssertEqual(settings.refreshMode, .automatic)
         XCTAssertTrue(settings.creditIncreaseAlertsEnabled)
         XCTAssertTrue(settings.unexpectedRefillAlertsEnabled)
         XCTAssertTrue(settings.creditExpiryRemindersEnabled)

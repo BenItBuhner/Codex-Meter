@@ -1,7 +1,6 @@
 package dev.bennett.codexmeter;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -23,7 +22,7 @@ public final class UsageParser {
         String strOptString = jSONObject.optString("plan_type", "");
         JSONObject jSONObjectNullableObject = nullableObject(jSONObject, "rate_limit");
         ArrayList arrayList = new ArrayList();
-        ArrayList arrayList2 = new ArrayList();
+        ArrayList<UsageLimit> additionalLimits = new ArrayList<>();
         UsageWindow usageWindowFromJson = null;
         if (jSONObjectNullableObject == null) {
             z = true;
@@ -55,39 +54,48 @@ public final class UsageParser {
                     }
                     UsageWindow usageWindowFromJson3 = UsageWindow.fromJson(nullableObject(jSONObjectNullableObject2, "primary_window"));
                     UsageWindow usageWindowFromJson4 = UsageWindow.fromJson(nullableObject(jSONObjectNullableObject2, "secondary_window"));
-                    if (usageWindowFromJson3 != null) {
-                        arrayList2.add(usageWindowFromJson3);
-                    }
-                    if (usageWindowFromJson4 != null) {
-                        arrayList2.add(usageWindowFromJson4);
+                    if (usageWindowFromJson3 != null || usageWindowFromJson4 != null) {
+                        String name = jSONObjectOptJSONObject.optString("limit_name", "");
+                        String feature = jSONObjectOptJSONObject.optString("metered_feature", "");
+                        String id = firstNonEmpty(
+                                jSONObjectOptJSONObject.optString("limit_id", ""),
+                                name, feature, "additional");
+                        additionalLimits.add(new UsageLimit(
+                                id + "-" + i,
+                                name,
+                                feature,
+                                jSONObjectNullableObject2.optBoolean("allowed", true),
+                                jSONObjectNullableObject2.optBoolean("limit_reached", false),
+                                usageWindowFromJson3,
+                                usageWindowFromJson4));
                     }
                 }
             }
         }
         UsageWindow usageWindowNearest = nearest(arrayList, FIVE_HOURS, 10800L, 28800L);
         UsageWindow usageWindowNearestExcluding = nearestExcluding(arrayList, WEEK, 432000L, 777600L, usageWindowNearest);
-        if (usageWindowNearest == null) {
-            if (usageWindow != null && usageWindow != usageWindowNearestExcluding) {
-                usageWindowNearest = usageWindow;
-            } else if (usageWindowFromJson != null && usageWindowFromJson != usageWindowNearestExcluding) {
-                usageWindowNearest = usageWindowFromJson;
+        JSONObject jSONObjectNullableObject3 = nullableObject(jSONObject, "rate_limit_reset_credits");
+        UsageCredits usageCredits = UsageCredits.fromJson(nullableObject(jSONObject, "credits"));
+        return new UsageSnapshot(
+                strOptString,
+                z,
+                z2,
+                usageWindowNearest,
+                usageWindowNearestExcluding,
+                additionalLimits,
+                usageCredits,
+                jSONObjectNullableObject3 == null
+                        ? -1 : jSONObjectNullableObject3.optInt("available_count", -1),
+                j);
+    }
+
+    private static String firstNonEmpty(String... values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value.trim();
             }
         }
-        if (usageWindowNearestExcluding != null) {
-            usageWindowFromJson = usageWindowNearestExcluding;
-        } else if (usageWindowFromJson == null || usageWindowFromJson == usageWindowNearest) {
-            usageWindowFromJson = farthestDifferent(arrayList, usageWindowNearest);
-        }
-        if (usageWindowNearest == null) {
-            usageWindowNearest = nearest(arrayList2, FIVE_HOURS, 10800L, 28800L);
-        }
-        UsageWindow usageWindowNearestExcluding2 = usageWindowFromJson == null ? nearestExcluding(arrayList2, WEEK, 432000L, 777600L, usageWindowNearest) : usageWindowFromJson;
-        UsageWindow usageWindow2 = (usageWindowNearest != null || arrayList2.isEmpty()) ? usageWindowNearest : (UsageWindow) arrayList2.get(0);
-        if (usageWindowNearestExcluding2 == null) {
-            usageWindowNearestExcluding2 = farthestDifferent(arrayList2, usageWindow2);
-        }
-        JSONObject jSONObjectNullableObject3 = nullableObject(jSONObject, "rate_limit_reset_credits");
-        return new UsageSnapshot(strOptString, z, z2, usageWindow2, usageWindowNearestExcluding2, jSONObjectNullableObject3 == null ? -1 : jSONObjectNullableObject3.optInt("available_count", -1), j);
+        return "";
     }
 
     private static JSONObject nullableObject(JSONObject jSONObject, String str) {
@@ -151,27 +159,4 @@ public final class UsageParser {
         return usageWindow3;
     }
 
-    private static UsageWindow farthestDifferent(List<UsageWindow> list, UsageWindow usageWindow) {
-        UsageWindow usageWindow2;
-        UsageWindow usageWindow3 = null;
-        long j = -1;
-        Iterator<UsageWindow> it = list.iterator();
-        while (true) {
-            UsageWindow usageWindow4 = usageWindow3;
-            long j2 = j;
-            if (it.hasNext()) {
-                UsageWindow next = it.next();
-                if (next == usageWindow || next.windowSeconds <= j2) {
-                    usageWindow2 = usageWindow4;
-                } else {
-                    j2 = next.windowSeconds;
-                    usageWindow2 = next;
-                }
-                j = j2;
-                usageWindow3 = usageWindow2;
-            } else {
-                return usageWindow4;
-            }
-        }
-    }
 }

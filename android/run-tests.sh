@@ -27,10 +27,13 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/AdaptiveRefreshPolicy.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
@@ -66,14 +69,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.5.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 21' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.5.0"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 21' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.5.0"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 21' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.5.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.5.0"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.6.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 22' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.6.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 22' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.6.0"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 22' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.6.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.6.0"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -391,6 +394,14 @@ grep -q 'OPACITY_LEVELS = {56, 88, 100}' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java"
 grep -q 'widget_background' "$ROOT/app/src/main/res/values/strings.xml"
 grep -q 'backgroundSwitch' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'RadioItemViewGroup' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OneUiChoiceDialog.java"
+grep -q 'OneUiChoiceDialog.show' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'OneUiChoiceDialog.show' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+! grep -q 'ListPopupWindow' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -q 'android:max="2"' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"
 ! grep -q 'opacity_tick_3' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"

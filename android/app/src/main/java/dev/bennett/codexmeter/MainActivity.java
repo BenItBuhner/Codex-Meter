@@ -27,6 +27,9 @@ import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
@@ -152,6 +155,7 @@ public final class MainActivity extends AppCompatActivity {
     @SuppressLint({"UnspecifiedRegisterReceiverFlag"})
     protected void onStart() {
         super.onStart();
+        RefreshEngagement.onForeground(this);
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(AppConstants.ACTION_OAUTH_READY);
         intentFilter.addAction(AppConstants.ACTION_OAUTH_RESULT);
@@ -186,6 +190,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override // android.app.Activity
     protected void onStop() {
+        RefreshEngagement.onBackground(this);
+        if (AppPreferences.getAutomaticRefresh(this)) {
+            RefreshScheduler.schedulePeriodic(this);
+        }
         if (this.receiverRegistered) {
             try {
                 unregisterReceiver(this.authReceiver);
@@ -261,18 +269,37 @@ public final class MainActivity extends AppCompatActivity {
                 this.content.addView(buildUpdateCard(update));
                 Ui.addSpacer(this.content, 20);
             }
-            this.content.addView(buildUsageDashboard());
-            Ui.addSpacer(this.content, 20);
-            this.content.addView(buildUsageHistoryCard());
-            Ui.addSpacer(this.content, 20);
-            if (!SecureTokenStore.isSignedIn(this)) {
+            LinearLayout dashboard = buildUsageDashboard();
+            if (dashboard.getChildCount() > 0) {
+                this.content.addView(dashboard);
+                Ui.addSpacer(this.content, 20);
+            }
+            boolean signedIn = SecureTokenStore.isSignedIn(this);
+            if (signedIn) {
+                this.content.addView(buildUsageHistoryCard());
+                Ui.addSpacer(this.content, 20);
+            } else {
                 Button signIn = Ui.nativePrimaryButton(this,
                         AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
             }
-            this.content.addView(buildResetCreditsCard());
+            UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+            boolean showResetCredits = AppPreferences.showDashboardResetCredits(this)
+                    && signedIn
+                    && (AppPreferences.loadResetCredits(this) != null
+                    || (snapshot != null && snapshot.resetCreditsAvailable >= 0));
+            if (showResetCredits) {
+                this.content.addView(buildResetCreditsCard());
+            } else if (signedIn && dashboard.getChildCount() == 0) {
+                TextView empty = Ui.text(this,
+                        "No dashboard items are available. Refresh usage or choose items in "
+                                + "Settings → Refresh & usage.",
+                        14.0f, Ui.secondaryText(this.dark));
+                empty.setGravity(Gravity.CENTER);
+                this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
+            }
         }
     }
 
@@ -308,29 +335,63 @@ public final class MainActivity extends AppCompatActivity {
         boolean signedIn = SecureTokenStore.isSignedIn(this);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
-        column.addView(buildMetricCard("5 hour", snapshot,
-                signedIn && snapshot != null ? snapshot.fiveHour : null, signedIn, false));
-        Ui.addSpacer(column, 20);
-        column.addView(buildMetricCard("Weekly", snapshot,
-                signedIn && snapshot != null ? snapshot.weekly : null, signedIn, true));
+        if (!signedIn || snapshot == null) {
+            return column;
+        }
+        boolean inverted = false;
+        if (AppPreferences.showDashboardFiveHour(this) && snapshot.fiveHour != null) {
+            addDashboardCard(column, buildMetricCard(
+                    "5-hour", snapshot, snapshot.fiveHour, inverted));
+            inverted = !inverted;
+        }
+        if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
+            addDashboardCard(column, buildMetricCard(
+                    "Weekly", snapshot, snapshot.weekly, inverted));
+            inverted = !inverted;
+        }
+        if (AppPreferences.showDashboardAdditionalLimits(this)) {
+            for (UsageLimit limit : snapshot.additionalLimits) {
+                if (limit.primary != null) {
+                    addDashboardCard(column, buildMetricCard(
+                            limitTitle(limit) + " · " + cadenceLabel(limit.primary),
+                            snapshot, limit.primary, inverted));
+                    inverted = !inverted;
+                }
+                if (limit.secondary != null) {
+                    addDashboardCard(column, buildMetricCard(
+                            limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
+                            snapshot, limit.secondary, inverted));
+                    inverted = !inverted;
+                }
+            }
+        }
+        if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null) {
+            addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
+        }
         return column;
     }
 
+    private void addDashboardCard(LinearLayout column, View card) {
+        if (column.getChildCount() > 0) {
+            Ui.addSpacer(column, 20);
+        }
+        column.addView(card);
+    }
+
     private LinearLayout buildMetricCard(String label, UsageSnapshot snapshot, UsageWindow window,
-            boolean signedIn, boolean invertedWave) {
+            boolean invertedWave) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(0, 0, 0, 0);
         card.setMinimumHeight(Ui.dp(this, 103.0f));
         long now = System.currentTimeMillis();
-        String reset = window == null
-                ? (signedIn ? "Waiting for data" : "Not connected")
-                : UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
-                        snapshot == null ? now : snapshot.fetchedAtMillis, now);
+        String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
+                snapshot.fetchedAtMillis, now);
         UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
         UsageWaveView wave = new UsageWaveView(this);
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
-                window == null ? 0 : window.remainingPercent(),
-                "Weekly".equals(label) ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
+                window.remainingPercent(),
+                window.windowSeconds >= 86_400L
+                        ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
                 invertedWave, pace.accelerated);
         card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
         return card;
@@ -375,6 +436,72 @@ public final class MainActivity extends AppCompatActivity {
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
         return card;
+    }
+
+    private LinearLayout buildUsageCreditsCard(UsageCredits credits) {
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(Ui.dp(this, 20), Ui.dp(this, 20),
+                Ui.dp(this, 20), Ui.dp(this, 20));
+        TextView balance = Ui.text(this, usageCreditBalance(credits), 30.0f,
+                Ui.mainText(this.dark));
+        balance.setTypeface(Ui.mediumTypeface(this));
+        balance.setGravity(Gravity.CENTER);
+        card.addView(balance);
+        TextView label = Ui.text(this, "Usage-credit balance", 16.0f,
+                Ui.secondaryText(this.dark));
+        label.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
+        labelParams.setMargins(0, Ui.dp(this, 4), 0, 0);
+        card.addView(label, labelParams);
+        return card;
+    }
+
+    private static String usageCreditBalance(UsageCredits credits) {
+        if (credits.unlimited) {
+            return "Unlimited";
+        }
+        if (credits.balance.isEmpty()) {
+            return credits.hasCredits ? "Available" : "No purchased credits";
+        }
+        try {
+            BigDecimal amount = new BigDecimal(credits.balance.replace(",", ""));
+            NumberFormat format = NumberFormat.getNumberInstance(Locale.getDefault());
+            format.setMaximumFractionDigits(2);
+            return format.format(amount) + " credits";
+        } catch (NumberFormatException ignored) {
+            return credits.balance;
+        }
+    }
+
+    private static String cadenceLabel(UsageWindow window) {
+        long seconds = window.windowSeconds;
+        if (seconds >= 432_000L && seconds <= 777_600L) {
+            return "Weekly";
+        }
+        if (seconds >= 10_800L && seconds <= 28_800L) {
+            long hours = Math.max(1L, Math.round(seconds / 3600.0d));
+            return hours + "-hour";
+        }
+        if (seconds % 86_400L == 0L) {
+            long days = seconds / 86_400L;
+            return days + "-day";
+        }
+        if (seconds % 3_600L == 0L) {
+            long hours = seconds / 3_600L;
+            return hours + "-hour";
+        }
+        return "Usage";
+    }
+
+    private static String limitTitle(UsageLimit limit) {
+        if (limit.limitReached) {
+            return limit.displayName() + " (limit reached)";
+        }
+        if (!limit.allowed) {
+            return limit.displayName() + " (unavailable)";
+        }
+        return limit.displayName();
     }
 
     private LinearLayout buildUsageCard() {

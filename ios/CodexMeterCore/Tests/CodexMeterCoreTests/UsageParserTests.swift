@@ -36,11 +36,19 @@ final class UsageParserTests: XCTestCase {
             FixtureLoader.data(named: "usage-additional"),
             fetchedAt: fetchedAt
         )
-        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 100)
-        XCTAssertEqual(snapshot.fiveHour?.remainingPercent, 0)
-        XCTAssertEqual(snapshot.fiveHour?.resetAfterSeconds, 0)
-        XCTAssertEqual(snapshot.weekly?.usedPercent, 0)
-        XCTAssertEqual(snapshot.weekly?.remainingPercent, 100)
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+        let limit = try XCTUnwrap(snapshot.additionalLimits.first)
+        XCTAssertEqual(limit.displayName, "GPT-5.3-Codex-Spark")
+        XCTAssertEqual(limit.meteredFeature, "codex_bengalfox")
+        XCTAssertFalse(limit.allowed)
+        XCTAssertTrue(limit.limitReached)
+        XCTAssertEqual(limit.primary?.usedPercent, 100)
+        XCTAssertEqual(limit.primary?.remainingPercent, 0)
+        XCTAssertEqual(limit.primary?.resetAfterSeconds, 0)
+        XCTAssertEqual(limit.secondary?.usedPercent, 0)
+        XCTAssertEqual(limit.secondary?.remainingPercent, 100)
+        XCTAssertEqual(snapshot.usageCredits?.balance, "2500.5")
     }
 
     func testMainRateLimitTakesPrecedenceOverCloserAdditionalWindow() throws {
@@ -60,20 +68,23 @@ final class UsageParserTests: XCTestCase {
         )
         XCTAssertFalse(snapshot.allowed)
         XCTAssertTrue(snapshot.limitReached)
-        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 45)
-        XCTAssertEqual(snapshot.fiveHour?.resetAfterSeconds, 0)
-        XCTAssertNil(snapshot.fiveHour?.resetAt)
+        XCTAssertNil(snapshot.fiveHour)
         XCTAssertNil(snapshot.weekly)
+        XCTAssertEqual(snapshot.additionalLimits.first?.primary?.usedPercent, 45)
+        XCTAssertEqual(snapshot.additionalLimits.first?.primary?.resetAfterSeconds, 0)
+        XCTAssertNil(snapshot.additionalLimits.first?.primary?.resetAt)
         XCTAssertNil(snapshot.resetCreditsAvailable)
     }
 
-    func testAdditionalLimitsOnlyFillMissingPrimarySlots() throws {
+    func testAdditionalLimitsRemainIndependentFromMissingPrimarySlots() throws {
         let snapshot = try UsageParser.parse(
             FixtureLoader.data(named: "usage-fill-missing"),
             fetchedAt: fetchedAt
         )
-        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 30)
+        XCTAssertNil(snapshot.fiveHour)
         XCTAssertEqual(snapshot.weekly?.usedPercent, 70)
+        XCTAssertEqual(snapshot.additionalLimits.first?.primary?.usedPercent, 30)
+        XCTAssertEqual(snapshot.additionalLimits.first?.secondary?.usedPercent, 99)
     }
 
     func testDefaultsWhenRateLimitIsMissing() throws {
@@ -82,9 +93,47 @@ final class UsageParserTests: XCTestCase {
         XCTAssertFalse(snapshot.limitReached)
         XCTAssertNil(snapshot.fiveHour)
         XCTAssertNil(snapshot.weekly)
+        XCTAssertFalse(snapshot.hasDisplayableData)
     }
 
-    func testTieChoosesFirstWindow() throws {
+    func testWeeklyAndCreditsCanExistWithoutFiveHourWindow() throws {
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "rate_limit": {
+                "secondary_window": {
+                  "used_percent": 25,
+                  "limit_window_seconds": 604800
+                }
+              },
+              "credits": {
+                "has_credits": true,
+                "unlimited": false,
+                "balance": 2500
+              }
+            }
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertEqual(snapshot.weekly?.usedPercent, 25)
+        XCTAssertEqual(snapshot.usageCredits?.balance, "2500")
+        XCTAssertTrue(snapshot.hasDisplayableData)
+    }
+
+    func testNoCreditsBalanceIsNotStandaloneUsageData() throws {
+        let snapshot = try UsageParser.parse(
+            """
+            {"credits":{"has_credits":false,"unlimited":false,"balance":"0"}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNotNil(snapshot.usageCredits)
+        XCTAssertNil(snapshot.usageCredits?.balance)
+        XCTAssertFalse(snapshot.hasDisplayableData)
+    }
+
+    func testFiveHourTieChoosesFirstAndDoesNotInventWeeklyWindow() throws {
         let json = """
         {
           "rate_limit": {
@@ -95,7 +144,7 @@ final class UsageParserTests: XCTestCase {
         """
         let snapshot = try UsageParser.parse(json, fetchedAt: fetchedAt)
         XCTAssertEqual(snapshot.fiveHour?.usedPercent, 11)
-        XCTAssertEqual(snapshot.weekly?.usedPercent, 22)
+        XCTAssertNil(snapshot.weekly)
     }
 
     func testInvalidRootThrows() {

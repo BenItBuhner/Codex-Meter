@@ -57,6 +57,99 @@ public struct UsageWindow: Codable, Sendable, Equatable {
     }
 }
 
+public struct UsageLimit: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let name: String
+    public let meteredFeature: String
+    public let allowed: Bool
+    public let limitReached: Bool
+    public let primary: UsageWindow?
+    public let secondary: UsageWindow?
+
+    public init(
+        id: String,
+        name: String = "",
+        meteredFeature: String = "",
+        allowed: Bool = true,
+        limitReached: Bool = false,
+        primary: UsageWindow?,
+        secondary: UsageWindow?
+    ) {
+        self.id = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.meteredFeature = meteredFeature.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.allowed = allowed
+        self.limitReached = limitReached
+        self.primary = primary
+        self.secondary = secondary
+    }
+
+    public var displayName: String {
+        if !name.isEmpty {
+            return name
+        }
+        if !meteredFeature.isEmpty {
+            return meteredFeature
+                .replacingOccurrences(of: "_", with: " ")
+                .replacingOccurrences(of: "-", with: " ")
+                .capitalized
+        }
+        return "Additional usage"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case meteredFeature
+        case allowed
+        case limitReached
+        case primary
+        case secondary
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decodeIfPresent(String.self, forKey: .id) ?? "",
+            name: try container.decodeIfPresent(String.self, forKey: .name) ?? "",
+            meteredFeature: try container.decodeIfPresent(String.self, forKey: .meteredFeature) ?? "",
+            allowed: try container.decodeIfPresent(Bool.self, forKey: .allowed) ?? true,
+            limitReached: try container.decodeIfPresent(Bool.self, forKey: .limitReached) ?? false,
+            primary: try container.decodeIfPresent(UsageWindow.self, forKey: .primary),
+            secondary: try container.decodeIfPresent(UsageWindow.self, forKey: .secondary)
+        )
+    }
+}
+
+public struct UsageCredits: Codable, Sendable, Equatable {
+    public let hasCredits: Bool
+    public let unlimited: Bool
+    public let balance: String?
+
+    public init(hasCredits: Bool, unlimited: Bool, balance: String?) {
+        self.hasCredits = hasCredits
+        self.unlimited = unlimited
+        let cleanBalance = balance?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.balance = (hasCredits || unlimited) && cleanBalance?.isEmpty == false
+            ? cleanBalance : nil
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hasCredits
+        case unlimited
+        case balance
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            hasCredits: try container.decodeIfPresent(Bool.self, forKey: .hasCredits) ?? false,
+            unlimited: try container.decodeIfPresent(Bool.self, forKey: .unlimited) ?? false,
+            balance: try container.decodeIfPresent(String.self, forKey: .balance)
+        )
+    }
+}
+
 public struct UsageSnapshot: Codable, Sendable, Equatable {
     public let planType: String
     public let allowed: Bool
@@ -64,6 +157,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     public let fiveHour: UsageWindow?
     public let weekly: UsageWindow?
     public let resetCreditsAvailable: Int?
+    public let additionalLimits: [UsageLimit]
+    public let usageCredits: UsageCredits?
     public let fetchedAt: Date
 
     public init(
@@ -73,6 +168,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         fiveHour: UsageWindow?,
         weekly: UsageWindow?,
         resetCreditsAvailable: Int? = nil,
+        additionalLimits: [UsageLimit] = [],
+        usageCredits: UsageCredits? = nil,
         fetchedAt: Date
     ) {
         self.planType = planType
@@ -81,14 +178,24 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         self.fiveHour = fiveHour
         self.weekly = weekly
         self.resetCreditsAvailable = resetCreditsAvailable.map { max(0, $0) }
+        self.additionalLimits = additionalLimits.filter {
+            $0.primary != nil || $0.secondary != nil
+        }
+        self.usageCredits = usageCredits
         self.fetchedAt = fetchedAt
     }
 
     public func nextReset(after date: Date) -> Date? {
-        [fiveHour, weekly]
+        ([fiveHour, weekly] + additionalLimits.flatMap { [$0.primary, $0.secondary] })
             .compactMap { $0?.effectiveResetDate(relativeTo: fetchedAt) }
             .filter { $0 > date }
             .min()
+    }
+
+    public var hasDisplayableData: Bool {
+        fiveHour != nil || weekly != nil || !additionalLimits.isEmpty
+            || usageCredits?.hasCredits == true || usageCredits?.unlimited == true
+            || usageCredits?.balance != nil || resetCreditsAvailable != nil
     }
 
     public func isStale(at date: Date = Date(), maxAge: TimeInterval) -> Bool {
@@ -102,6 +209,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         case fiveHour
         case weekly
         case resetCreditsAvailable
+        case additionalLimits
+        case usageCredits
         case fetchedAt
     }
 
@@ -114,6 +223,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
             fiveHour: try container.decodeIfPresent(UsageWindow.self, forKey: .fiveHour),
             weekly: try container.decodeIfPresent(UsageWindow.self, forKey: .weekly),
             resetCreditsAvailable: try container.decodeIfPresent(Int.self, forKey: .resetCreditsAvailable),
+            additionalLimits: try container.decodeIfPresent([UsageLimit].self, forKey: .additionalLimits) ?? [],
+            usageCredits: try container.decodeIfPresent(UsageCredits.self, forKey: .usageCredits),
             fetchedAt: try container.decodeIfPresent(Date.self, forKey: .fetchedAt)
                 ?? Date(timeIntervalSince1970: 0)
         )

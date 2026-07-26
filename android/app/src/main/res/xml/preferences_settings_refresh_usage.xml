@@ -7,11 +7,45 @@
             android:key="refresh_on_launch"
             android:title="Refresh on launch" />
         <ListPreference
+            android:entries="@array/settings_refresh_mode_entries"
+            android:entryValues="@array/settings_refresh_mode_values"
+            android:key="refresh_mode_ui"
+            android:summary="Adapts to remaining usage, app attention, reset timing, and recent failures"
+            android:title="Refresh mode" />
+        <ListPreference
             android:entries="@array/settings_refresh_entries"
             android:entryValues="@array/settings_refresh_values"
             android:key="refresh_interval_ui"
-            android:title="Refresh interval"
+            android:title="Manual interval"
             app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Dashboard">
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_five_hour"
+            android:summary="Shown only when OpenAI returns this window"
+            android:title="5-hour limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_weekly"
+            android:summary="Shown only when OpenAI returns this window"
+            android:title="Weekly limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_additional_limits"
+            android:summary="Model-specific limits such as GPT-5.3-Codex-Spark"
+            android:title="Additional limits" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_usage_credits"
+            android:summary="Purchased credits returned by OpenAI"
+            android:title="Usage-credit balance" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_reset_credits"
+            android:summary="Earned credits that can reset usage windows"
+            android:title="Reset credits" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Usage estimates">

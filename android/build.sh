@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-VERSION_NAME="2.5.0"
+VERSION_NAME="2.6.0"
 DIST="$ROOT/dist"
 SIGNING_DIR="$ROOT/.local-signing"
 KEYSTORE="$SIGNING_DIR/codex-meter-local.p12"

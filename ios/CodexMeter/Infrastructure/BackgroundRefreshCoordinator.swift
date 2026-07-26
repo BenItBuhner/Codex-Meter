@@ -4,12 +4,14 @@ import Foundation
 nonisolated public struct BackgroundRefreshOutcome: Sendable, Equatable {
     public let preferredMinutes: Int
     public let nextReset: Date?
+    public let succeeded: Bool
 
-    public init(preferredMinutes: Int, nextReset: Date?) {
+    public init(preferredMinutes: Int, nextReset: Date?, succeeded: Bool = true) {
         self.preferredMinutes = AppSettings.allowedRefreshMinutes.contains(preferredMinutes)
             ? preferredMinutes
             : 30
         self.nextReset = nextReset
+        self.succeeded = succeeded
     }
 }
 
@@ -129,7 +131,9 @@ public final class BackgroundRefreshCoordinator {
                     }
                 }
                 let isCurrent = self?.runGate.isCurrent(generation) == true
-                task.setTaskCompleted(success: !Task.isCancelled && isCurrent)
+                task.setTaskCompleted(
+                    success: outcome.succeeded && !Task.isCancelled && isCurrent
+                )
             } catch {
                 if let self, self.runGate.isCurrent(generation) {
                     try? self.schedule(
