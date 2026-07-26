@@ -21,6 +21,10 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Dashboard">
+        <Preference
+            android:key="dashboard_reorder_ui"
+            android:summary="Drag usage cards above or below each other"
+            android:title="Reorder dashboard" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_five_hour"

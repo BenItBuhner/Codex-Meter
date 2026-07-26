@@ -121,8 +121,7 @@ public final class UsageSnapshot {
 
     public boolean hasDisplayableData() {
         return fiveHour != null || weekly != null || !additionalLimits.isEmpty()
-                || (usageCredits != null && (usageCredits.hasCredits
-                || usageCredits.unlimited || !usageCredits.balance.isEmpty()))
+                || (usageCredits != null && usageCredits.shouldDisplay())
                 || resetCreditsAvailable >= 0;
     }
 

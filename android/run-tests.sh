@@ -29,6 +29,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java" \
@@ -83,6 +84,23 @@ grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
 grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
 ! grep -R -q 'thatjoshguy67/Codex-Meter' \
   "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
+
+# Dashboard reorder + usage-credit auto-hide wiring.
+grep -q 'testUsageCreditsAutoHide' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'testDashboardSectionOrder' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'DashboardReorderActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'snapshot.usageCredits.shouldDisplay()' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.resolveOrder' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'ItemTouchHelper' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'ic_oui_reorder' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'dashboard_reorder_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'dashboard_reorder_ui' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 
 grep -q 'android.permission.ACCESS_NETWORK_STATE' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.POST_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"

@@ -19,6 +19,8 @@ public final class ParserSelfTest {
         testPrimaryLimitWinsOverAdditional();
         testOptionalUsageSections();
         testUsageCredits();
+        testUsageCreditsAutoHide();
+        testDashboardSectionOrder();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
         testNextResetSelection();
@@ -664,6 +666,81 @@ public final class ParserSelfTest {
         check(none.usageCredits != null && none.usageCredits.balance.isEmpty()
                         && !none.hasDisplayableData(),
                 "zero balance for an account without purchased credits is not standalone data");
+    }
+
+    private static void testUsageCreditsAutoHide() {
+        check(new UsageCredits(true, false, "2500").shouldDisplay(),
+                "positive usage-credit balance stays visible");
+        check(new UsageCredits(true, false, "0.01").shouldDisplay(),
+                "smallest renderable balance stays visible");
+        check(new UsageCredits(false, true, "").shouldDisplay(),
+                "unlimited plans always show the credits card");
+        check(new UsageCredits(true, false, "").shouldDisplay(),
+                "credits without a reported amount stay visible");
+        check(new UsageCredits(true, false, "12k credits").shouldDisplay(),
+                "unparseable non-empty balance stays visible rather than silently vanishing");
+        check(!new UsageCredits(true, false, "0").shouldDisplay(),
+                "zero balance is always hidden");
+        check(!new UsageCredits(true, false, "0.00").shouldDisplay(),
+                "fractional zero balance is always hidden");
+        check(!new UsageCredits(true, false, "0.004").shouldDisplay(),
+                "balance that would render as 0 is always hidden");
+        check(!new UsageCredits(true, false, "-12.5").shouldDisplay(),
+                "negative balance is always hidden");
+        check(!new UsageCredits(false, false, "500").shouldDisplay(),
+                "no purchased credits hides the card entirely");
+        UsageSnapshot zeroOnly = new UsageSnapshot("plus", true, false, null, null,
+                java.util.Collections.emptyList(), new UsageCredits(true, false, "0"), -1, 9L);
+        check(!zeroOnly.hasDisplayableData(),
+                "snapshot with only a zero balance has nothing to display");
+        System.out.println("Usage-credit auto-hide: zero, near-zero, and negative balances "
+                + "never render.");
+    }
+
+    private static void testDashboardSectionOrder() {
+        UsageLimit spark = new UsageLimit("codex-spark", "GPT-5.3-Codex-Spark",
+                "codex_bengalfox", true, false,
+                new UsageWindow(24, 18000L, 0L, 2_000_000_000L), null);
+        String sparkKey = DashboardSections.limitKey(spark);
+        check("limit:codex-spark".equals(sparkKey), "limit key prefers the API id");
+        check("limit:gpt-5.3-codex-spark".equals(DashboardSections.limitKey(new UsageLimit(
+                        "", "GPT-5.3-Codex-Spark", "", true, false,
+                        new UsageWindow(1, 18000L, 0L, 2_000_000_000L), null))),
+                "limit key falls back to the display name");
+        List<String> defaults = DashboardSections.defaultOrder(Arrays.asList(spark));
+        check(defaults.equals(Arrays.asList(
+                        DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY, sparkKey,
+                        DashboardSections.USAGE_CREDITS)),
+                "default order is 5-hour, weekly, detected limits, credits");
+
+        check(DashboardSections.resolveOrder("", defaults).equals(defaults),
+                "no saved order keeps the defaults");
+        List<String> saved = DashboardSections.resolveOrder(
+                "usage_credits, limit:codex-spark ,five_hour,weekly", defaults);
+        check(saved.equals(Arrays.asList(DashboardSections.USAGE_CREDITS, sparkKey,
+                        DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY)),
+                "saved order is applied with whitespace tolerated");
+        List<String> withoutSpark = DashboardSections.resolveOrder(
+                "weekly,five_hour,usage_credits",
+                DashboardSections.defaultOrder(Arrays.asList(spark)));
+        check(withoutSpark.equals(Arrays.asList(DashboardSections.WEEKLY,
+                        DashboardSections.FIVE_HOUR, sparkKey, DashboardSections.USAGE_CREDITS)),
+                "newly detected Spark limit slots in before credits, not at the end");
+        List<String> staleKeys = DashboardSections.resolveOrder(
+                "limit:old-model,weekly,five_hour",
+                Arrays.asList(DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY));
+        check(staleKeys.equals(Arrays.asList(DashboardSections.WEEKLY,
+                        DashboardSections.FIVE_HOUR)),
+                "keys for limits no longer reported are dropped");
+        check(DashboardSections.serialize(saved)
+                        .equals("usage_credits,limit:codex-spark,five_hour,weekly"),
+                "order round-trips through the stored CSV form");
+        check(DashboardSections.resolveOrder(null,
+                        Arrays.asList(DashboardSections.FIVE_HOUR))
+                        .equals(Arrays.asList(DashboardSections.FIVE_HOUR)),
+                "null saved order is tolerated");
+        System.out.println("Dashboard sections: saved order honored, auto-detected limits "
+                + "keep a stable slot.");
     }
 
     private static void testMalformedWindowIgnored() throws Exception {

@@ -49,6 +49,9 @@ public final class UsagePaceDemoActivity extends Activity {
             return;
         }
         try {
+            // Optional overrides for demoing the non-configurable zero-balance auto-hide.
+            String creditsBalance = getIntent().getStringExtra("credits_balance");
+            boolean creditsNone = getIntent().getBooleanExtra("credits_none", false);
             long now = System.currentTimeMillis();
             long fiveHourReset = now - TimeUnit.HOURS.toMillis(1)
                     + TimeUnit.HOURS.toMillis(5);
@@ -69,7 +72,10 @@ public final class UsagePaceDemoActivity extends Activity {
                                     (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
                             new UsageWindow(42, TimeUnit.DAYS.toSeconds(7), 0L,
                                     (now + TimeUnit.DAYS.toMillis(5)) / 1000L))),
-                    new UsageCredits(true, false, "2500"),
+                    creditsNone
+                            ? new UsageCredits(false, false, "")
+                            : new UsageCredits(true, false,
+                                    creditsBalance == null ? "2500" : creditsBalance),
                     3,
                     now);
             SecureTokenStore.save(this, new AuthTokens(
