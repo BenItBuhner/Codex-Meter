@@ -16,46 +16,52 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 
-/** Renders tile copy in the local Samsung system typeface before the remote host can replace it. */
+/** Renders quota-safe tile copy in Samsung's local One UI Sans system typeface. */
 final class OneUiTileText {
-    private final float density;
-    private final float scaledDensity;
+    private static final float MAX_RENDER_SCALE = 1.25f;
+    private final float fontScale;
     private final ProtoLayoutScope scope;
 
     OneUiTileText(Context context, ProtoLayoutScope scope) {
-        density = context.getResources().getDisplayMetrics().density;
-        scaledDensity = context.getResources().getDisplayMetrics().scaledDensity;
+        float density = context.getResources().getDisplayMetrics().density;
+        float scaledDensity = context.getResources().getDisplayMetrics().scaledDensity;
+        fontScale = density <= 0f ? 1f : scaledDensity / density;
         this.scope = scope;
     }
 
     LayoutElement element(String value, float sizeSp, int color, int weight) {
         String text = value == null ? "" : value;
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
-        paint.setColor(color);
-        paint.setTextSize(sizeSp * scaledDensity);
-        Typeface oneUi = Typeface.create("sec", Typeface.NORMAL);
         int numericWeight = weight == LayoutElementBuilders.FONT_WEIGHT_BOLD ? 700 : 400;
-        paint.setTypeface(Typeface.create(oneUi, numericWeight, false));
+        float logicalSize = sizeSp * fontScale;
+        float renderScale = MAX_RENDER_SCALE;
+        Paint paint;
+        int widthPx;
+        int heightPx;
+        do {
+            paint = textPaint(logicalSize * renderScale, color, numericWeight);
+            Paint.FontMetrics metrics = paint.getFontMetrics();
+            widthPx = Math.max(1, (int) Math.ceil(paint.measureText(text)) + 2);
+            heightPx = Math.max(1, (int) Math.ceil(metrics.descent - metrics.ascent) + 2);
+            long byteCount = (long) widthPx * heightPx * 4L;
+            if (byteCount <= TileImageResources.MAX_INLINE_IMAGE_BYTES) break;
+            renderScale *= Math.sqrt(
+                    (TileImageResources.MAX_INLINE_IMAGE_BYTES * 0.96d) / byteCount);
+        } while (renderScale > 0.25f);
 
-        Paint.FontMetrics metrics = paint.getFontMetrics();
-        int widthPx = Math.max(1, (int) Math.ceil(paint.measureText(text)) + 2);
-        int heightPx = Math.max(1, (int) Math.ceil(metrics.descent - metrics.ascent) + 2);
         Bitmap bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
-        canvas.drawText(text, 1f, 1f - metrics.ascent, paint);
-
-        String resourceId = resourceId(text, sizeSp, color, numericWeight);
-        ResourceBuilders.InlineImageResource inline =
-                TileImageResources.argb8888(bitmap);
+        canvas.drawText(text, 1f, 1f - paint.getFontMetrics().ascent, paint);
+        ResourceBuilders.InlineImageResource inline = TileImageResources.argb8888(bitmap);
         bitmap.recycle();
-        ResourceBuilders.ImageResource imageResource =
+        ResourceBuilders.ImageResource image =
                 new ResourceBuilders.ImageResource.Builder()
                         .setInlineResource(inline)
                         .build();
+        String resourceId = resourceId(text, logicalSize, color, numericWeight);
         return new LayoutElementBuilders.Image.Builder(scope)
-                .setImageResource(imageResource, resourceId)
-                .setWidth(DimensionBuilders.dp(widthPx / density))
-                .setHeight(DimensionBuilders.dp(heightPx / density))
+                .setImageResource(image, resourceId)
+                .setWidth(DimensionBuilders.dp(widthPx / renderScale))
+                .setHeight(DimensionBuilders.dp(heightPx / renderScale))
                 .setContentScaleMode(LayoutElementBuilders.CONTENT_SCALE_MODE_FIT)
                 .setModifiers(new ModifiersBuilders.Modifiers.Builder()
                         .setSemantics(new ModifiersBuilders.Semantics.Builder()
@@ -63,6 +69,14 @@ final class OneUiTileText {
                                 .build())
                         .build())
                 .build();
+    }
+
+    private static Paint textPaint(float sizePx, int color, int weight) {
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
+        paint.setColor(color);
+        paint.setTextSize(sizePx);
+        paint.setTypeface(Typeface.create(Typeface.create("sec", Typeface.NORMAL), weight, false));
+        return paint;
     }
 
     private static String resourceId(String text, float sizeSp, int color, int weight) {

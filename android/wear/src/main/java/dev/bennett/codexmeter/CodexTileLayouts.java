@@ -20,6 +20,7 @@ final class CodexTileLayouts {
     private static final int GRADIENT_FALLBACK = 0xFF1C197E;
     private static final int GRADIENT_START = 0xFF534FA7;
     private static final int GRADIENT_END = 0xFF1C197E;
+    private static final int DIAL_BACKGROUND = 0xFF0B0B10;
     private static final int DIAL_PROGRESS = 0xFF6B6EE0;
     private static final int RESET_ACCENT = 0xFFFFC56E;
     private static final int MONITOR_ACCENT = 0xFF73E1B7;
@@ -268,12 +269,18 @@ final class CodexTileLayouts {
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                 .setModifiers(new ModifiersBuilders.Modifiers.Builder()
+                        .setBackground(new ModifiersBuilders.Background.Builder()
+                                .setColor(ColorBuilders.argb(DIAL_BACKGROUND))
+                                .setCorner(new ModifiersBuilders.Corner.Builder()
+                                        .setRadius(DimensionBuilders.dp(28f))
+                                        .build())
+                                .build())
                         .setSemantics(new ModifiersBuilders.Semantics.Builder()
                                 .setContentDescription(WearGlanceFormat.remainingPercentText(window)
                                         + " remaining")
                                 .build())
                         .build())
-                .addContent(OneUiTileDial.element(context, window, scope))
+                .addContent(OneUiTileDial.element(window))
                 .addContent(dialIcon(weekly, scope))
                 .build();
     }

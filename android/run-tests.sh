@@ -573,17 +573,21 @@ grep -q 'SWEEP_DEGREES = 270f' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileDial.java"
 grep -q 'GRADIENT_START = 0xFF534FA7' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
-grep -q 'setContentDescription(text)' \
+grep -q 'Typeface.create("sec"' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileText.java"
-grep -q 'IMAGE_FORMAT_ARGB_8888' \
+grep -Fq 'MAX_INLINE_IMAGE_BYTES = 10 * 1024' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/TileImageResources.java"
+grep -q 'ARC_DIAMETER_DP = 44f' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileDial.java"
+! grep -q 'InlineImageResource' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileDial.java"
 grep -q 'setWidth(DimensionBuilders.expand())' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
 grep -q 'Stale phone data' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
 grep -q 'readPersisted(requestedVersion)' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileService.java"
-grep -q 'Typeface.create("sec"' \
+grep -q 'TileImageResources.argb8888(bitmap)' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileText.java"
 grep -q 'new OneUiTileText(context, scope)' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
