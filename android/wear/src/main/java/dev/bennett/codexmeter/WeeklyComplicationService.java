@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.os.Build;
 import androidx.wear.watchface.complications.data.ComplicationData;
 import androidx.wear.watchface.complications.data.ComplicationType;
 
@@ -11,12 +12,16 @@ public final class WeeklyComplicationService extends CodexComplicationService {
         if (type == ComplicationType.RANGED_VALUE) {
             return rangedValue(WearGlanceFormat.remainingPercentOrZero(window), percent, "Week",
                     "Weekly Codex usage remaining");
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && type == ComplicationType.GOAL_PROGRESS) {
+            return goalProgress(WearGlanceFormat.remainingPercentOrZero(window), percent, "Week",
+                    "Weekly Codex usage remaining");
         } else if (type == ComplicationType.SHORT_TEXT) {
             return shortText(percent, "Week", "Weekly Codex usage remaining");
         } else if (type == ComplicationType.LONG_TEXT) {
             return longText("Weekly " + percent + " left",
                     "Weekly Codex usage remaining");
         }
-        return null;
+        return imageForType(type, "Weekly Codex usage");
     }
 }

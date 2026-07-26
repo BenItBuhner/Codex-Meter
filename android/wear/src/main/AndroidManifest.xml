@@ -81,6 +81,25 @@
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/preview_tile_overview" />
+            <!-- One UI Watch modular-grid hints; ignored by stock Wear OS hosts. -->
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.LAYOUT_TYPE"
+                android:value="2x2" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category"
+                android:value="com.samsung.android.wearable.tiles.category.CONNECTED_DEVICES" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_A"
+                android:resource="@string/tile_category_primary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_B"
+                android:resource="@string/tile_category_secondary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_C"
+                android:resource="@string/tile_category_tertiary" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
         </service>
 
         <service
@@ -95,6 +114,24 @@
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/preview_tile_five_hour" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.LAYOUT_TYPE"
+                android:value="2x1" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category"
+                android:value="com.samsung.android.wearable.tiles.category.CONNECTED_DEVICES" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_A"
+                android:resource="@string/tile_category_primary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_B"
+                android:resource="@string/tile_category_secondary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_C"
+                android:resource="@string/tile_category_tertiary" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
         </service>
 
         <service
@@ -109,6 +146,24 @@
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/preview_tile_weekly" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.LAYOUT_TYPE"
+                android:value="2x1" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category"
+                android:value="com.samsung.android.wearable.tiles.category.CONNECTED_DEVICES" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_A"
+                android:resource="@string/tile_category_primary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_B"
+                android:resource="@string/tile_category_secondary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_C"
+                android:resource="@string/tile_category_tertiary" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
         </service>
 
         <service
@@ -123,6 +178,24 @@
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/preview_tile_reset" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.LAYOUT_TYPE"
+                android:value="2x1" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category"
+                android:value="com.samsung.android.wearable.tiles.category.CONNECTED_DEVICES" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_A"
+                android:resource="@string/tile_category_primary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_B"
+                android:resource="@string/tile_category_secondary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_C"
+                android:resource="@string/tile_category_tertiary" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
         </service>
 
         <service
@@ -137,6 +210,24 @@
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/preview_tile_monitor" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.LAYOUT_TYPE"
+                android:value="2x1" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category"
+                android:value="com.samsung.android.wearable.tiles.category.CONNECTED_DEVICES" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_A"
+                android:resource="@string/tile_category_primary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_B"
+                android:resource="@string/tile_category_secondary" />
+            <meta-data
+                android:name="com.samsung.android.wearable.tiles.category.CATEGORY_C"
+                android:resource="@string/tile_category_tertiary" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
         </service>
 
         <service
@@ -150,7 +241,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
-                android:value="RANGED_VALUE,SHORT_TEXT,LONG_TEXT" />
+                android:value="RANGED_VALUE,GOAL_PROGRESS,SHORT_TEXT,LONG_TEXT,MONOCHROMATIC_IMAGE,SMALL_IMAGE" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
                 android:value="900" />
@@ -167,7 +258,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
-                android:value="RANGED_VALUE,SHORT_TEXT,LONG_TEXT" />
+                android:value="RANGED_VALUE,GOAL_PROGRESS,SHORT_TEXT,LONG_TEXT,MONOCHROMATIC_IMAGE,SMALL_IMAGE" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
                 android:value="900" />
@@ -184,7 +275,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
-                android:value="SHORT_TEXT,LONG_TEXT" />
+                android:value="RANGED_VALUE,GOAL_PROGRESS,SHORT_TEXT,LONG_TEXT,MONOCHROMATIC_IMAGE,SMALL_IMAGE" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
                 android:value="900" />
@@ -201,7 +292,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
-                android:value="SHORT_TEXT,LONG_TEXT" />
+                android:value="RANGED_VALUE,GOAL_PROGRESS,SHORT_TEXT,LONG_TEXT,MONOCHROMATIC_IMAGE,SMALL_IMAGE" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
                 android:value="900" />

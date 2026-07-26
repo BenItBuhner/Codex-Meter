@@ -40,6 +40,9 @@
     <string name="tile_weekly">Codex weekly</string>
     <string name="tile_reset">Codex reset</string>
     <string name="tile_monitor">Codex monitor</string>
+    <string name="tile_category_primary">Productivity</string>
+    <string name="tile_category_secondary">Usage</string>
+    <string name="tile_category_tertiary">Codex Meter</string>
     <string name="complication_five_hour">Codex 5-hour</string>
     <string name="complication_weekly">Codex weekly</string>
     <string name="complication_dual_usage">Codex dual usage</string>
