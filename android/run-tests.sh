@@ -569,8 +569,14 @@ print("Wear tile services declare Samsung modular footprints and picker categori
 PY
 grep -q 'new ColorBuilders.LinearGradient.Builder' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
-grep -q 'DIAL_SWEEP_DEGREES = 228f' \
+grep -q 'SWEEP_DEGREES = 270f' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileDial.java"
+grep -q 'GRADIENT_START = 0xFF534FA7' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileLayouts.java"
+grep -q 'setContentDescription(text)' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileText.java"
+grep -q 'readPersisted(requestedVersion)' \
+  "$ROOT/wear/src/main/java/dev/bennett/codexmeter/CodexTileService.java"
 grep -q 'Typeface.create("sec"' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileText.java"
 grep -q 'new OneUiTileText(context, scope)' \

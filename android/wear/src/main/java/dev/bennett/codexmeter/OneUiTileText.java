@@ -5,10 +5,10 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
-import android.os.Build;
 import androidx.wear.protolayout.DimensionBuilders;
 import androidx.wear.protolayout.LayoutElementBuilders;
 import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement;
+import androidx.wear.protolayout.ModifiersBuilders;
 import androidx.wear.protolayout.ProtoLayoutScope;
 import androidx.wear.protolayout.ResourceBuilders;
 import java.io.ByteArrayOutputStream;
@@ -36,9 +36,7 @@ final class OneUiTileText {
         paint.setTextSize(sizeSp * scaledDensity);
         Typeface oneUi = Typeface.create("sec", Typeface.NORMAL);
         int numericWeight = weight == LayoutElementBuilders.FONT_WEIGHT_BOLD ? 700 : 400;
-        paint.setTypeface(Build.VERSION.SDK_INT >= 28
-                ? Typeface.create(oneUi, numericWeight, false)
-                : Typeface.create("sec", numericWeight >= 600 ? Typeface.BOLD : Typeface.NORMAL));
+        paint.setTypeface(Typeface.create(oneUi, numericWeight, false));
 
         Paint.FontMetrics metrics = paint.getFontMetrics();
         int widthPx = Math.max(1, (int) Math.ceil(paint.measureText(text)) + 2);
@@ -68,6 +66,11 @@ final class OneUiTileText {
                 .setWidth(DimensionBuilders.dp(widthPx / density))
                 .setHeight(DimensionBuilders.dp(heightPx / density))
                 .setContentScaleMode(LayoutElementBuilders.CONTENT_SCALE_MODE_FIT)
+                .setModifiers(new ModifiersBuilders.Modifiers.Builder()
+                        .setSemantics(new ModifiersBuilders.Semantics.Builder()
+                                .setContentDescription(text)
+                                .build())
+                        .build())
                 .build();
     }
 

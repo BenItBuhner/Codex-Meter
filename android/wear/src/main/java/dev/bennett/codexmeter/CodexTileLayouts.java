@@ -10,26 +10,22 @@ import androidx.wear.protolayout.LayoutElementBuilders;
 import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement;
 import androidx.wear.protolayout.ModifiersBuilders;
 import androidx.wear.protolayout.ProtoLayoutScope;
-import dev.bennett.codexmeter.wear.WearSettingsState;
-import dev.bennett.codexmeter.wear.WearSyncStatus;
+import androidx.wear.protolayout.ResourceBuilders;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 /** One UI Watch tile layouts shared by the full-screen and Samsung modular hosts. */
 final class CodexTileLayouts {
-    private static final int GRADIENT_FALLBACK = 0xFF263765;
-    private static final int GRADIENT_START = 0xFF14274F;
-    private static final int GRADIENT_MIDDLE = 0xFF293A78;
-    private static final int GRADIENT_END = 0xFF56366F;
-    private static final int DIAL_TRACK = 0x667A8AB4;
-    private static final int FIVE_HOUR_ACCENT = 0xFF64D8FF;
-    private static final int WEEKLY_ACCENT = 0xFFAB9CFF;
+    private static final int GRADIENT_FALLBACK = 0xFF1C197E;
+    private static final int GRADIENT_START = 0xFF534FA7;
+    private static final int GRADIENT_END = 0xFF1C197E;
+    private static final int DIAL_PROGRESS = 0xFF6B6EE0;
     private static final int RESET_ACCENT = 0xFFFFC56E;
     private static final int MONITOR_ACCENT = 0xFF73E1B7;
     private static final int TEXT_PRIMARY = 0xFFFFFFFF;
-    private static final int TEXT_SECONDARY = 0xFFD5DDF2;
-    private static final int TEXT_TERTIARY = 0xFFABB7D4;
-    private static final float DIAL_START_DEGREES = 246f;
-    private static final float DIAL_SWEEP_DEGREES = 228f;
+    private static final int TEXT_SECONDARY = 0xCCFFFFFF;
+    private static final int TEXT_TERTIARY = 0xCCFFFFFF;
+    private static final int TEXT_DIVIDER = 0x66FFFFFF;
 
     private CodexTileLayouts() {
     }
@@ -40,58 +36,39 @@ final class CodexTileLayouts {
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
         UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
-
-        LayoutElement dials = new LayoutElementBuilders.Row.Builder()
+        long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
+        long now = System.currentTimeMillis();
+        String fiveReset = resetCopy(fiveHour, observedAt, now);
+        String weekReset = resetCopy(weekly, observedAt, now);
+        LayoutElement content = new LayoutElementBuilders.Column.Builder()
                 .setWidth(DimensionBuilders.wrap())
                 .setHeight(DimensionBuilders.wrap())
-                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(dial(fiveHour, "5H", FIVE_HOUR_ACCENT, 46f, text))
-                .addContent(horizontalSpacer(6f))
-                .addContent(dial(weekly, "WEEK", WEEKLY_ACCENT, 46f, text))
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+                .addContent(metricRow(context, fiveHour, "5hr", false, fiveReset, 9f, text, scope))
+                .addContent(verticalSpacer(6.5f))
+                .addContent(metricRow(context, weekly, "Weekly", true, weekReset, 9f, text, scope))
                 .build();
-
-        LayoutElementBuilders.Column.Builder content = centeredColumn()
-                .addContent(text.element("CODEX METER", 10f, TEXT_SECONDARY,
-                        LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .addContent(verticalSpacer(3f))
-                .addContent(dials)
-                .addContent(verticalSpacer(3f))
-                .addContent(text.element(emptyCopy(context, snapshot), 8f, TEXT_TERTIARY,
-                        LayoutElementBuilders.FONT_WEIGHT_NORMAL));
-        String credits = WearGlanceFormat.resetCreditsText(snapshot);
-        if (!credits.isEmpty()) {
-            content.addContent(text.element(credits, 7f, FIVE_HOUR_ACCENT,
-                    LayoutElementBuilders.FONT_WEIGHT_BOLD));
-        }
-        // Samsung's 2x2 Media Controller tile uses the entire host allocation with a
-        // 62dp corner radius. Its content supplies its own spacing; the root has none.
-        return card(context, "overview", content.build(), 0f, 62f);
+        String description = "Five hour usage, "
+                + WearGlanceFormat.remainingPercentText(fiveHour) + " remaining, " + fiveReset
+                + ". Weekly usage, " + WearGlanceFormat.remainingPercentText(weekly)
+                + " remaining, " + weekReset + ". Open Codex Meter.";
+        return card(context, "overview", leadingInset(content, 12f), 0f, 72f, 176f,
+                description);
     }
 
     static LayoutElement progress(Context context, DeviceParameters deviceParameters,
             String label, UsageWindow window, ProtoLayoutScope scope) {
         OneUiTileText text = new OneUiTileText(context, scope);
         boolean weekly = label.toLowerCase(Locale.ROOT).contains("week");
-        int accent = weekly ? WEEKLY_ACCENT : FIVE_HOUR_ACCENT;
-        String shortLabel = weekly ? "WEEK" : "5H";
-        String remaining = WearGlanceFormat.remainingPercentText(window);
-        String state = isStale(context) ? "Stale phone data" : "Remaining";
-
-        LayoutElement content = compactRow(
-                dial(window, shortLabel, accent, 56f, text),
-                new LayoutElementBuilders.Column.Builder()
-                        .setWidth(DimensionBuilders.expand())
-                        .setHeight(DimensionBuilders.wrap())
-                        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
-                        .addContent(text.element(label, 13f, TEXT_PRIMARY,
-                                LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                        .addContent(verticalSpacer(2f))
-                        .addContent(text.element(remaining + " remaining", 11f, TEXT_SECONDARY,
-                                LayoutElementBuilders.FONT_WEIGHT_NORMAL))
-                        .addContent(text.element(state, 9f, TEXT_TERTIARY,
-                                LayoutElementBuilders.FONT_WEIGHT_NORMAL))
-                        .build());
-        return card(context, label, content, 10f, 34f);
+        UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
+        long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
+        String reset = resetCopy(window, observedAt, System.currentTimeMillis());
+        String designLabel = weekly ? "Weekly" : "5hr";
+        LayoutElement content = metricRow(context, window, designLabel, weekly, reset, 14f,
+                text, scope);
+        String description = label + ", " + WearGlanceFormat.remainingPercentText(window)
+                + " remaining, " + reset + ". Open Codex Meter.";
+        return card(context, label, leadingInset(content, 14f), 0f, 46f, 92f, description);
     }
 
     static LayoutElement reset(Context context, DeviceParameters deviceParameters,
@@ -122,9 +99,11 @@ final class CodexTileLayouts {
             copy.addContent(text.element(credits, 9f, TEXT_SECONDARY,
                     LayoutElementBuilders.FONT_WEIGHT_NORMAL));
         }
+        String description = "Next reset, " + relative + ", " + windowLabel
+                + (credits.isEmpty() ? "" : ", " + credits) + ". Open Codex Meter.";
         return card(context, "reset", compactRow(
-                dial(dialWindow, weekly ? "WEEK" : "5H", RESET_ACCENT, 56f, text),
-                copy.build()), 10f, 34f);
+                usageDial(context, dialWindow, weekly, scope),
+                copy.build()), 10f, 46f, 92f, description);
     }
 
     static LayoutElement monitor(Context context, DeviceParameters deviceParameters,
@@ -136,7 +115,7 @@ final class CodexTileLayouts {
         UsageWindow focus = lowerRemaining(fiveHour, weekly);
         boolean focusWeekly = focus != null && focus == weekly;
         boolean active = WearOngoingMonitor.isActive(context);
-        int accent = active ? MONITOR_ACCENT : WEEKLY_ACCENT;
+        int accent = active ? MONITOR_ACCENT : DIAL_PROGRESS;
 
         LayoutElement copy = new LayoutElementBuilders.Column.Builder()
                 .setWidth(DimensionBuilders.expand())
@@ -150,8 +129,11 @@ final class CodexTileLayouts {
                 .addContent(text.element(WearGlanceFormat.focusSummary(snapshot), 9f, TEXT_TERTIARY,
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
+        String description = "Live monitor " + (active ? "active" : "off") + ". "
+                + WearGlanceFormat.focusSummary(snapshot) + ". Open Codex Meter.";
         return card(context, "monitor", compactRow(
-                dial(focus, focusWeekly ? "WEEK" : "5H", accent, 56f, text), copy), 10f, 34f);
+                usageDial(context, focus, focusWeekly, scope), copy),
+                10f, 46f, 92f, description);
     }
 
     static UsageWindow fiveHour(Context context) {
@@ -164,22 +146,30 @@ final class CodexTileLayouts {
 
     private static LayoutElement card(Context context, String idSuffix, LayoutElement content,
             float paddingDp, float cornerRadiusDp) {
-        return card(context, idSuffix, content, paddingDp, cornerRadiusDp,
+        return card(context, idSuffix, content, paddingDp, cornerRadiusDp, 92f,
+                "Open Codex Meter",
                 DimensionBuilders.expand(), DimensionBuilders.expand());
     }
 
     private static LayoutElement card(Context context, String idSuffix, LayoutElement content,
-            float paddingDp, float cornerRadiusDp,
+            float paddingDp, float cornerRadiusDp, float gradientHeightDp,
+            String contentDescription) {
+        return card(context, idSuffix, content, paddingDp, cornerRadiusDp, gradientHeightDp,
+                contentDescription, DimensionBuilders.expand(), DimensionBuilders.expand());
+    }
+
+    private static LayoutElement card(Context context, String idSuffix, LayoutElement content,
+            float paddingDp, float cornerRadiusDp, float gradientHeightDp,
+            String contentDescription,
             DimensionBuilders.ContainerDimension width,
             DimensionBuilders.ContainerDimension height) {
         ModifiersBuilders.Background background = new ModifiersBuilders.Background.Builder()
                 .setColor(ColorBuilders.argb(GRADIENT_FALLBACK))
                 .setBrush(new ColorBuilders.LinearGradient.Builder(
                         ColorBuilders.argb(GRADIENT_START),
-                        ColorBuilders.argb(GRADIENT_MIDDLE),
                         ColorBuilders.argb(GRADIENT_END))
                         .setStartY(DimensionBuilders.dp(0f))
-                        .setEndY(DimensionBuilders.dp(110f))
+                        .setEndY(DimensionBuilders.dp(gradientHeightDp))
                         .build())
                 .setCorner(new ModifiersBuilders.Corner.Builder()
                         .setRadius(DimensionBuilders.dp(cornerRadiusDp))
@@ -189,7 +179,7 @@ final class CodexTileLayouts {
                 .setBackground(background)
                 .setClickable(openClickable(context, idSuffix))
                 .setSemantics(new ModifiersBuilders.Semantics.Builder()
-                        .setContentDescription("Open Codex Meter")
+                        .setContentDescription(contentDescription)
                         .setRole(ModifiersBuilders.SEMANTICS_ROLE_BUTTON)
                         .build())
                 .build();
@@ -218,49 +208,85 @@ final class CodexTileLayouts {
                 .build();
     }
 
-    /** Matches the phone battery widget's rounded 228-degree arc and wide bottom opening. */
-    private static LayoutElement dial(UsageWindow window, String label, int accent, float sizeDp,
-            OneUiTileText text) {
-        float progress = WearGlanceFormat.remainingProgress(window);
-        LayoutElementBuilders.Arc.Builder track = new LayoutElementBuilders.Arc.Builder()
-                .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
-                .setAnchorAngle(DimensionBuilders.degrees(DIAL_START_DEGREES))
-                .setArcDirection(LayoutElementBuilders.ARC_DIRECTION_CLOCKWISE)
-                .addContent(arcLine(DIAL_SWEEP_DEGREES, DIAL_TRACK, sizeDp));
-        LayoutElementBuilders.Arc.Builder fill = new LayoutElementBuilders.Arc.Builder()
-                .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
-                .setAnchorAngle(DimensionBuilders.degrees(DIAL_START_DEGREES))
-                .setArcDirection(LayoutElementBuilders.ARC_DIRECTION_CLOCKWISE);
-        if (window != null && progress > 0f) {
-            fill.addContent(arcLine(DIAL_SWEEP_DEGREES * progress, accent, sizeDp));
-        }
-
-        LayoutElement value = centeredColumn()
-                .addContent(text.element(WearGlanceFormat.remainingNumberText(window),
-                        sizeDp >= 70f ? 22f : sizeDp >= 54f ? 18f : 14f, TEXT_PRIMARY,
-                        LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .addContent(text.element(label, sizeDp >= 70f ? 9f : sizeDp >= 54f ? 8f : 7f,
-                        accent,
-                        LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .build();
-        return new LayoutElementBuilders.Box.Builder()
-                .setWidth(DimensionBuilders.dp(sizeDp))
-                .setHeight(DimensionBuilders.dp(sizeDp))
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+    private static LayoutElement metricRow(Context context, UsageWindow window, String label,
+            boolean weekly, String reset, float gapDp, OneUiTileText text,
+            ProtoLayoutScope scope) {
+        LayoutElement headline = new LayoutElementBuilders.Row.Builder()
+                .setWidth(DimensionBuilders.wrap())
+                .setHeight(DimensionBuilders.wrap())
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(track.build())
-                .addContent(fill.build())
-                .addContent(value)
+                .addContent(text.element(WearGlanceFormat.remainingPercentText(window), 20f,
+                        TEXT_PRIMARY, LayoutElementBuilders.FONT_WEIGHT_BOLD))
+                .addContent(horizontalSpacer(5f))
+                .addContent(new LayoutElementBuilders.Box.Builder()
+                        .setWidth(DimensionBuilders.dp(4f))
+                        .setHeight(DimensionBuilders.dp(4f))
+                        .setModifiers(new ModifiersBuilders.Modifiers.Builder()
+                                .setBackground(new ModifiersBuilders.Background.Builder()
+                                        .setColor(ColorBuilders.argb(TEXT_DIVIDER))
+                                        .setCorner(new ModifiersBuilders.Corner.Builder()
+                                                .setRadius(DimensionBuilders.dp(2f))
+                                                .build())
+                                        .build())
+                                .build())
+                        .build())
+                .addContent(horizontalSpacer(5f))
+                .addContent(text.element(label, 20f, TEXT_SECONDARY,
+                        LayoutElementBuilders.FONT_WEIGHT_NORMAL))
+                .build();
+        LayoutElement copy = new LayoutElementBuilders.Column.Builder()
+                .setWidth(DimensionBuilders.dp(132.5f))
+                .setHeight(DimensionBuilders.wrap())
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+                .addContent(headline)
+                .addContent(verticalSpacer(4f))
+                .addContent(text.element(reset, 13f, TEXT_SECONDARY,
+                        LayoutElementBuilders.FONT_WEIGHT_NORMAL))
+                .build();
+        return new LayoutElementBuilders.Row.Builder()
+                .setWidth(DimensionBuilders.wrap())
+                .setHeight(DimensionBuilders.wrap())
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                .addContent(usageDial(context, window, weekly, scope))
+                .addContent(horizontalSpacer(gapDp))
+                .addContent(copy)
                 .build();
     }
 
-    private static LayoutElementBuilders.ArcLine arcLine(float degrees, int color, float sizeDp) {
-        return new LayoutElementBuilders.ArcLine.Builder()
-                .setLength(DimensionBuilders.degrees(degrees))
-                .setThickness(DimensionBuilders.dp(
-                        sizeDp >= 70f ? 6f : sizeDp >= 54f ? 5f : 4f))
-                .setColor(ColorBuilders.argb(color))
-                .setStrokeCap(LayoutElementBuilders.STROKE_CAP_ROUND)
+    private static LayoutElement usageDial(Context context, UsageWindow window, boolean weekly,
+            ProtoLayoutScope scope) {
+        return new LayoutElementBuilders.Box.Builder()
+                .setWidth(DimensionBuilders.dp(56f))
+                .setHeight(DimensionBuilders.dp(56f))
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                .setModifiers(new ModifiersBuilders.Modifiers.Builder()
+                        .setSemantics(new ModifiersBuilders.Semantics.Builder()
+                                .setContentDescription(WearGlanceFormat.remainingPercentText(window)
+                                        + " remaining")
+                                .build())
+                        .build())
+                .addContent(OneUiTileDial.element(context, window, scope))
+                .addContent(dialIcon(weekly, scope))
+                .build();
+    }
+
+    private static LayoutElement dialIcon(boolean weekly, ProtoLayoutScope scope) {
+        int resourceId = weekly ? R.drawable.tile_icon_weekly : R.drawable.tile_icon_time;
+        String key = weekly ? "tile_icon_weekly" : "tile_icon_time";
+        ResourceBuilders.AndroidImageResourceByResId androidResource =
+                new ResourceBuilders.AndroidImageResourceByResId.Builder()
+                        .setResourceId(resourceId)
+                        .build();
+        ResourceBuilders.ImageResource image =
+                new ResourceBuilders.ImageResource.Builder()
+                        .setAndroidResourceByResId(androidResource)
+                        .build();
+        return new LayoutElementBuilders.Image.Builder(scope)
+                .setImageResource(image, key)
+                .setWidth(DimensionBuilders.dp(24f))
+                .setHeight(DimensionBuilders.dp(24f))
+                .setContentScaleMode(LayoutElementBuilders.CONTENT_SCALE_MODE_FIT)
                 .build();
     }
 
@@ -275,11 +301,18 @@ final class CodexTileLayouts {
                 .build();
     }
 
-    private static LayoutElementBuilders.Column.Builder centeredColumn() {
-        return new LayoutElementBuilders.Column.Builder()
-                .setWidth(DimensionBuilders.wrap())
+    private static LayoutElement leadingInset(LayoutElement content, float insetDp) {
+        return new LayoutElementBuilders.Box.Builder()
+                .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER);
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+                .setModifiers(new ModifiersBuilders.Modifiers.Builder()
+                        .setPadding(new ModifiersBuilders.Padding.Builder()
+                                .setStart(DimensionBuilders.dp(insetDp))
+                                .build())
+                        .build())
+                .addContent(content)
+                .build();
     }
 
     private static LayoutElement horizontalSpacer(float widthDp) {
@@ -308,29 +341,27 @@ final class CodexTileLayouts {
         return first.remainingPercent() <= second.remainingPercent() ? first : second;
     }
 
-    private static String emptyCopy(Context context, UsageSnapshot snapshot) {
-        WearSyncStatus status = WearPreferences.syncStatus(context);
-        if (status.updatedAtMillis > 0L && !status.signedIn) return "Sign in on phone";
-        if (status.refreshInProgress) return "Refreshing";
-        if (!status.lastError.isEmpty()) return "Refresh failed";
-        if (snapshot == null) {
-            return WearPreferences.hasSyncedUsage(context) ? "Waiting for sync" : "No usage yet";
+    private static String resetCopy(UsageWindow window, long observedAtMillis, long nowMillis) {
+        if (window == null) return "Reset unavailable";
+        long resetAt = window.effectiveResetAtMillis(observedAtMillis);
+        if (resetAt <= nowMillis) return "Resets soon";
+        long minutes = Math.max(1L,
+                (resetAt - nowMillis + TimeUnit.MINUTES.toMillis(1) - 1L)
+                        / TimeUnit.MINUTES.toMillis(1));
+        long days = minutes / TimeUnit.DAYS.toMinutes(1);
+        long hours = (minutes % TimeUnit.DAYS.toMinutes(1)) / TimeUnit.HOURS.toMinutes(1);
+        long remainderMinutes = minutes % TimeUnit.HOURS.toMinutes(1);
+        StringBuilder copy = new StringBuilder("Resets in ");
+        if (days > 0L) copy.append(days).append('d');
+        if (hours > 0L) {
+            if (days > 0L) copy.append(' ');
+            copy.append(hours).append("hr");
         }
-        if (!snapshot.allowed) return "Usage unavailable";
-        if (snapshot.limitReached) return "Limit reached";
-        if (isStale(context)) return "Stale phone data";
-        WearSettingsState settings = WearPreferences.settingsState(context, 0L,
-                WearSettingsState.SOURCE_WEAR);
-        String pace = WearGlanceFormat.paceWarning(snapshot, settings.usagePaceEnabled,
-                settings.usagePaceSensitivity, System.currentTimeMillis());
-        if (!pace.isEmpty()) return pace;
-        return WearPreferences.isConnected(context) ? "Phone synced" : "From watch cache";
+        if (days == 0L && remainderMinutes > 0L) {
+            if (hours > 0L) copy.append(' ');
+            copy.append(remainderMinutes).append(remainderMinutes == 1L ? "min" : "mins");
+        }
+        return copy.toString();
     }
 
-    private static boolean isStale(Context context) {
-        WearSettingsState settings = WearPreferences.settingsState(context, 0L,
-                WearSettingsState.SOURCE_WEAR);
-        return WearGlanceFormat.isStale(WearPreferences.lastUsageAt(context),
-                settings.refreshMinutes, System.currentTimeMillis());
-    }
 }
