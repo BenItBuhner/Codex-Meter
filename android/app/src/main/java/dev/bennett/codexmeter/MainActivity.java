@@ -361,7 +361,8 @@ public final class MainActivity extends AppCompatActivity {
             }
         }
         if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null) {
-            addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
+            // Separator provides section spacing; do not add the usual card spacer above it.
+            column.addView(buildUsageCreditsCard(snapshot.usageCredits));
         }
         return column;
     }
@@ -393,22 +394,20 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildUsageCreditsCard(UsageCredits credits) {
-        LinearLayout card = Ui.card(this, this.dark);
-        card.setGravity(Gravity.CENTER);
-        card.setPadding(Ui.dp(this, 20), Ui.dp(this, 20),
-                Ui.dp(this, 20), Ui.dp(this, 20));
-        TextView balance = Ui.text(this, usageCreditBalance(credits), 30.0f,
-                Ui.mainText(this.dark));
-        balance.setTypeface(Ui.mediumTypeface(this));
-        balance.setGravity(Gravity.CENTER);
-        card.addView(balance);
-        TextView label = Ui.text(this, "Usage-credit balance", 16.0f,
-                Ui.secondaryText(this.dark));
-        label.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
-        labelParams.setMargins(0, Ui.dp(this, 4), 0, 0);
-        card.addView(label, labelParams);
-        return card;
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+        column.addView(Ui.separator(this, "Usage credits"));
+
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        card.addView(Ui.actionRow(
+                this,
+                usageCreditBalance(credits),
+                usageCreditsSummary(credits),
+                R.drawable.ic_oui_credit_card_outline,
+                null));
+        column.addView(card);
+        return column;
     }
 
     private static String usageCreditBalance(UsageCredits credits) {
@@ -416,7 +415,7 @@ public final class MainActivity extends AppCompatActivity {
             return "Unlimited";
         }
         if (credits.balance.isEmpty()) {
-            return credits.hasCredits ? "Available" : "No purchased credits";
+            return credits.hasCredits ? "Credits available" : "No purchased credits";
         }
         try {
             BigDecimal amount = new BigDecimal(credits.balance.replace(",", ""));
@@ -426,6 +425,16 @@ public final class MainActivity extends AppCompatActivity {
         } catch (NumberFormatException ignored) {
             return credits.balance;
         }
+    }
+
+    private static String usageCreditsSummary(UsageCredits credits) {
+        if (credits.unlimited) {
+            return "Usage-credit balance is not capped";
+        }
+        if (credits.balance.isEmpty() && !credits.hasCredits) {
+            return "Purchase credits in ChatGPT Codex";
+        }
+        return "Purchased Codex usage-credit balance";
     }
 
     private static String cadenceLabel(UsageWindow window) {
