@@ -2,7 +2,11 @@
   "plan_type": "team",
   "additional_rate_limits": [
     {
+      "limit_name": "GPT-5.3-Codex-Spark",
+      "metered_feature": "codex_bengalfox",
       "rate_limit": {
+        "allowed": false,
+        "limit_reached": true,
         "primary_window": {
           "used_percent": 150,
           "limit_window_seconds": 18000,
@@ -17,5 +21,10 @@
         }
       }
     }
-  ]
+  ],
+  "credits": {
+    "has_credits": true,
+    "unlimited": false,
+    "balance": "2500.5"
+  }
 }

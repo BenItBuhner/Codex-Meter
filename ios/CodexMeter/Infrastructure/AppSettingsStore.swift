@@ -51,6 +51,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var refreshOnLaunch: Bool
     public var refreshMode: RefreshMode
     public var refreshMinutes: Int
+    public var showFiveHour: Bool
+    public var showWeekly: Bool
+    public var showAdditionalLimits: Bool
+    public var showUsageCredits: Bool
+    public var showResetCredits: Bool
     public var notificationsEnabled: Bool
     public var alertMetric: AlertMetric
     /// Remaining allowance percentage. `100` corresponds to the “Always” UI option.
@@ -66,6 +71,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         refreshOnLaunch: Bool = true,
         refreshMode: RefreshMode = .automatic,
         refreshMinutes: Int = 30,
+        showFiveHour: Bool = true,
+        showWeekly: Bool = true,
+        showAdditionalLimits: Bool = true,
+        showUsageCredits: Bool = true,
+        showResetCredits: Bool = true,
         notificationsEnabled: Bool = false,
         alertMetric: AlertMetric = .both,
         alertThreshold: Int = 25,
@@ -78,6 +88,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.refreshOnLaunch = refreshOnLaunch
         self.refreshMode = refreshMode
         self.refreshMinutes = Self.allowedRefreshMinutes.contains(refreshMinutes) ? refreshMinutes : 30
+        self.showFiveHour = showFiveHour
+        self.showWeekly = showWeekly
+        self.showAdditionalLimits = showAdditionalLimits
+        self.showUsageCredits = showUsageCredits
+        self.showResetCredits = showResetCredits
         self.notificationsEnabled = notificationsEnabled
         self.alertMetric = alertMetric
         self.alertThreshold = Self.allowedAlertThresholds.contains(alertThreshold) ? alertThreshold : 25
@@ -112,6 +127,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case refreshOnLaunch
         case refreshMode
         case refreshMinutes
+        case showFiveHour
+        case showWeekly
+        case showAdditionalLimits
+        case showUsageCredits
+        case showResetCredits
         case notificationsEnabled
         case alertMetric
         case alertThreshold
@@ -128,6 +148,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             refreshOnLaunch: try container.decodeIfPresent(Bool.self, forKey: .refreshOnLaunch) ?? true,
             refreshMode: try container.decodeIfPresent(RefreshMode.self, forKey: .refreshMode) ?? .automatic,
             refreshMinutes: try container.decodeIfPresent(Int.self, forKey: .refreshMinutes) ?? 30,
+            showFiveHour: try container.decodeIfPresent(Bool.self, forKey: .showFiveHour) ?? true,
+            showWeekly: try container.decodeIfPresent(Bool.self, forKey: .showWeekly) ?? true,
+            showAdditionalLimits: try container.decodeIfPresent(Bool.self, forKey: .showAdditionalLimits) ?? true,
+            showUsageCredits: try container.decodeIfPresent(Bool.self, forKey: .showUsageCredits) ?? true,
+            showResetCredits: try container.decodeIfPresent(Bool.self, forKey: .showResetCredits) ?? true,
             notificationsEnabled: try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false,
             alertMetric: try container.decodeIfPresent(AlertMetric.self, forKey: .alertMetric) ?? .both,
             alertThreshold: try container.decodeIfPresent(Int.self, forKey: .alertThreshold) ?? 25,

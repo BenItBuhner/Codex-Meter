@@ -17,6 +17,8 @@ public final class ParserSelfTest {
         testWindowIdentification();
         testAdditionalLimits();
         testPrimaryLimitWinsOverAdditional();
+        testOptionalUsageSections();
+        testUsageCredits();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
         testNextResetSelection();
@@ -552,8 +554,11 @@ public final class ParserSelfTest {
                 "\"rate_limit\":{\"primary_window\":{\"used_percent\":150,\"limit_window_seconds\":18000,\"reset_after_seconds\":1,\"reset_at\":2}," +
                 "\"secondary_window\":{\"used_percent\":-5,\"limit_window_seconds\":604800,\"reset_after_seconds\":1,\"reset_at\":3}}}]}";
         UsageSnapshot snapshot = UsageParser.parse(json, 1L);
-        check(snapshot.fiveHour.remainingPercent() == 0, "upper clamp");
-        check(snapshot.weekly.remainingPercent() == 100, "lower clamp");
+        check(snapshot.fiveHour == null && snapshot.weekly == null,
+                "additional limits do not masquerade as standard limits");
+        check(snapshot.additionalLimits.size() == 1, "additional limit preserved");
+        check(snapshot.additionalLimits.get(0).primary.remainingPercent() == 0, "upper clamp");
+        check(snapshot.additionalLimits.get(0).secondary.remainingPercent() == 100, "lower clamp");
     }
 
 
@@ -569,6 +574,54 @@ public final class ParserSelfTest {
                 "main Codex limit takes precedence over additional feature limits");
         check(snapshot.weekly != null && snapshot.weekly.usedPercent == 20,
                 "main weekly limit takes precedence");
+        check(snapshot.additionalLimits.size() == 1
+                        && snapshot.additionalLimits.get(0).primary.usedPercent == 90,
+                "additional feature limit remains independently available");
+    }
+
+    private static void testOptionalUsageSections() throws Exception {
+        String weeklyOnly = "{\"plan_type\":\"pro\",\"rate_limit\":{"
+                + "\"secondary_window\":{\"used_percent\":25,"
+                + "\"limit_window_seconds\":604800,\"reset_at\":2000}}}";
+        UsageSnapshot snapshot = UsageParser.parse(weeklyOnly, 1L);
+        check(snapshot.fiveHour == null, "missing five-hour limit stays absent");
+        check(snapshot.weekly != null && snapshot.weekly.usedPercent == 25,
+                "weekly limit remains available without five-hour data");
+
+        String namedAdditional = "{\"additional_rate_limits\":[{"
+                + "\"limit_name\":\"GPT-5.3-Codex-Spark\","
+                + "\"metered_feature\":\"codex_bengalfox\","
+                + "\"rate_limit\":{\"allowed\":false,\"limit_reached\":true,"
+                + "\"primary_window\":{\"used_percent\":40,\"limit_window_seconds\":18000}}}]}";
+        UsageSnapshot additional = UsageParser.parse(namedAdditional, 2L);
+        UsageLimit limit = additional.additionalLimits.get(0);
+        check("GPT-5.3-Codex-Spark".equals(limit.displayName()),
+                "API-provided additional limit label preserved");
+        check(!limit.allowed && limit.limitReached, "additional limit status preserved");
+        check(additional.hasDisplayableData(), "additional-only response is displayable");
+    }
+
+    private static void testUsageCredits() throws Exception {
+        UsageSnapshot snapshot = UsageParser.parse(
+                "{\"credits\":{\"has_credits\":true,\"unlimited\":false,"
+                        + "\"balance\":\"2500.5\"}}",
+                3L);
+        check(snapshot.usageCredits != null && snapshot.usageCredits.hasCredits,
+                "purchased usage credits parsed");
+        check("2500.5".equals(snapshot.usageCredits.balance), "usage-credit balance preserved");
+        check(snapshot.hasDisplayableData(), "credit-only response is displayable");
+        UsageSnapshot restored = UsageSnapshot.fromJson(snapshot.toJson());
+        check(restored != null && restored.usageCredits != null
+                        && "2500.5".equals(restored.usageCredits.balance),
+                "usage credits survive cache round trip");
+        UsageSnapshot empty = UsageParser.parse("{\"credits\":{}}", 4L);
+        check(empty.usageCredits == null && !empty.hasDisplayableData(),
+                "empty credits object does not become dashboard data");
+        UsageSnapshot none = UsageParser.parse(
+                "{\"credits\":{\"has_credits\":false,\"balance\":\"0\"}}", 5L);
+        check(none.usageCredits != null && none.usageCredits.balance.isEmpty()
+                        && !none.hasDisplayableData(),
+                "zero balance for an account without purchased credits is not standalone data");
     }
 
     private static void testMalformedWindowIgnored() throws Exception {

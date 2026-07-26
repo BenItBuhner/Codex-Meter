@@ -174,6 +174,12 @@ public final class SettingsTransferStore {
         json.put("automatic_refresh", AppPreferences.getAutomaticRefresh(context));
         json.put("refresh_minutes", AppPreferences.getRefreshMinutes(context));
         json.put("refresh_on_launch", AppPreferences.getRefreshOnLaunch(context));
+        json.put("dashboard_five_hour", AppPreferences.showDashboardFiveHour(context));
+        json.put("dashboard_weekly", AppPreferences.showDashboardWeekly(context));
+        json.put("dashboard_additional_limits",
+                AppPreferences.showDashboardAdditionalLimits(context));
+        json.put("dashboard_usage_credits", AppPreferences.showDashboardUsageCredits(context));
+        json.put("dashboard_reset_credits", AppPreferences.showDashboardResetCredits(context));
         json.put("usage_pace_enabled", UsagePacePreferences.isEnabled(context));
         json.put("usage_pace_sensitivity", UsagePacePreferences.getSensitivity(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
@@ -223,6 +229,18 @@ public final class SettingsTransferStore {
                 AppPreferences.getRefreshMinutes(context)));
         AppPreferences.setRefreshOnLaunch(context, json.optBoolean("refresh_on_launch",
                 AppPreferences.getRefreshOnLaunch(context)));
+        AppPreferences.setDashboardVisibility(
+                context,
+                json.optBoolean("dashboard_five_hour",
+                        AppPreferences.showDashboardFiveHour(context)),
+                json.optBoolean("dashboard_weekly",
+                        AppPreferences.showDashboardWeekly(context)),
+                json.optBoolean("dashboard_additional_limits",
+                        AppPreferences.showDashboardAdditionalLimits(context)),
+                json.optBoolean("dashboard_usage_credits",
+                        AppPreferences.showDashboardUsageCredits(context)),
+                json.optBoolean("dashboard_reset_credits",
+                        AppPreferences.showDashboardResetCredits(context)));
         UsagePacePreferences.setEnabled(context, json.optBoolean("usage_pace_enabled",
                 UsagePacePreferences.isEnabled(context)));
         UsagePacePreferences.setSensitivity(context, json.optString("usage_pace_sensitivity",

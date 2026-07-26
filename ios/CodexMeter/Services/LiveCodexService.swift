@@ -281,9 +281,21 @@ public actor LiveCodexService: CodexService {
             fiveHour: resolvingResetDate(in: parsed.fiveHour, relativeTo: fetchedAt),
             weekly: resolvingResetDate(in: parsed.weekly, relativeTo: fetchedAt),
             resetCreditsAvailable: parsed.resetCreditsAvailable,
+            additionalLimits: parsed.additionalLimits.map {
+                UsageLimit(
+                    id: $0.id,
+                    name: $0.name,
+                    meteredFeature: $0.meteredFeature,
+                    allowed: $0.allowed,
+                    limitReached: $0.limitReached,
+                    primary: resolvingResetDate(in: $0.primary, relativeTo: fetchedAt),
+                    secondary: resolvingResetDate(in: $0.secondary, relativeTo: fetchedAt)
+                )
+            },
+            usageCredits: parsed.usageCredits,
             fetchedAt: fetchedAt
         )
-        guard usage.fiveHour != nil || usage.weekly != nil else {
+        guard usage.hasDisplayableData else {
             throw CodexServiceError.invalidResponse
         }
         return usage
@@ -310,6 +322,8 @@ public actor LiveCodexService: CodexService {
             fiveHour: usage.fiveHour,
             weekly: usage.weekly,
             resetCreditsAvailable: count,
+            additionalLimits: usage.additionalLimits,
+            usageCredits: usage.usageCredits,
             fetchedAt: usage.fetchedAt
         )
     }

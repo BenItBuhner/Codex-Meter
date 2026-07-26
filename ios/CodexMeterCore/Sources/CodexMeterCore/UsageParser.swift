@@ -42,80 +42,74 @@ public enum UsageParser {
             secondary = nil
         }
 
-        var additionalCandidates: [Candidate] = []
-        if let additionalLimits = JSONSupport.array(root["additional_rate_limits"]) {
-            for item in additionalLimits {
+        var additionalLimits: [UsageLimit] = []
+        if let rawAdditionalLimits = JSONSupport.array(root["additional_rate_limits"]) {
+            for (index, item) in rawAdditionalLimits.enumerated() {
                 guard let item = JSONSupport.object(item) else {
                     continue
                 }
                 let nested = JSONSupport.object(item["rate_limit"]) ?? item
-                if let window = candidate(from: JSONSupport.object(nested["primary_window"])) {
-                    additionalCandidates.append(window)
-                }
-                if let window = candidate(from: JSONSupport.object(nested["secondary_window"])) {
-                    additionalCandidates.append(window)
+                let additionalPrimary = parseWindow(JSONSupport.object(nested["primary_window"]))
+                let additionalSecondary = parseWindow(JSONSupport.object(nested["secondary_window"]))
+                if additionalPrimary != nil || additionalSecondary != nil {
+                    let name = JSONSupport.string(item["limit_name"])
+                    let feature = JSONSupport.string(item["metered_feature"])
+                    let id = [
+                        JSONSupport.string(item["limit_id"]),
+                        name,
+                        feature,
+                        "additional-\(index)"
+                    ].first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }!
+                    additionalLimits.append(
+                        UsageLimit(
+                            id: "\(id)-\(index)",
+                            name: name,
+                            meteredFeature: feature,
+                            allowed: JSONSupport.bool(nested["allowed"], default: true),
+                            limitReached: JSONSupport.bool(nested["limit_reached"], default: false),
+                            primary: additionalPrimary,
+                            secondary: additionalSecondary
+                        )
+                    )
                 }
             }
         }
 
-        var fiveHour = nearest(
+        let fiveHour = nearest(
             in: primaryCandidates,
             target: fiveHours,
             range: 10_800 ... 28_800,
             excluding: nil
         )
-        var weekly = nearest(
+        let weekly = nearest(
             in: primaryCandidates,
             target: week,
             range: 432_000 ... 777_600,
             excluding: fiveHour?.id
         )
 
-        if fiveHour == nil {
-            if let primary, primary.id != weekly?.id {
-                fiveHour = primary
-            } else if let secondary, secondary.id != weekly?.id {
-                fiveHour = secondary
-            }
-        }
-
-        if let durationMatchedWeekly = weekly {
-            weekly = durationMatchedWeekly
-        } else if secondary == nil || secondary?.id == fiveHour?.id {
-            weekly = farthestDifferent(in: primaryCandidates, excluding: fiveHour?.id)
-        } else {
-            weekly = secondary
-        }
-
-        if fiveHour == nil {
-            fiveHour = nearest(
-                in: additionalCandidates,
-                target: fiveHours,
-                range: 10_800 ... 28_800,
-                excluding: nil
-            )
-        }
-
-        if weekly == nil {
-            weekly = nearest(
-                in: additionalCandidates,
-                target: week,
-                range: 432_000 ... 777_600,
-                excluding: fiveHour?.id
-            )
-        }
-
-        if fiveHour == nil, let firstAdditional = additionalCandidates.first {
-            fiveHour = firstAdditional
-        }
-        if weekly == nil {
-            weekly = farthestDifferent(in: additionalCandidates, excluding: fiveHour?.id)
-        }
-
         let resetCredits = JSONSupport.object(root["rate_limit_reset_credits"])
         let rawAvailableCount = resetCredits.map {
             JSONSupport.int($0["available_count"], default: -1)
         } ?? -1
+        let usageCredits = JSONSupport.object(root["credits"]).flatMap { credits in
+            guard credits.keys.contains("has_credits")
+                    || credits.keys.contains("unlimited")
+                    || credits.keys.contains("balance") else {
+                return nil
+            }
+            return UsageCredits(
+                hasCredits: JSONSupport.bool(credits["has_credits"], default: false),
+                unlimited: JSONSupport.bool(credits["unlimited"], default: false),
+                balance: {
+                    guard credits.keys.contains("balance"),
+                          !(credits["balance"] is NSNull) else {
+                        return nil
+                    }
+                    return JSONSupport.string(credits["balance"])
+                }()
+            )
+        }
 
         return UsageSnapshot(
             planType: planType,
@@ -124,6 +118,8 @@ public enum UsageParser {
             fiveHour: fiveHour?.window,
             weekly: weekly?.window,
             resetCreditsAvailable: rawAvailableCount >= 0 ? rawAvailableCount : nil,
+            additionalLimits: additionalLimits,
+            usageCredits: usageCredits,
             fetchedAt: fetchedAt
         )
     }
@@ -188,20 +184,6 @@ public enum UsageParser {
                 best = candidate
                 bestDistance = distance
             }
-        }
-        return best
-    }
-
-    private static func farthestDifferent(
-        in candidates: [Candidate],
-        excluding excludedID: Int?
-    ) -> Candidate? {
-        var best: Candidate?
-        var longestDuration: Int64 = -1
-        for candidate in candidates
-        where candidate.id != excludedID && candidate.window.windowSeconds > longestDuration {
-            best = candidate
-            longestDuration = candidate.window.windowSeconds
         }
         return best
     }

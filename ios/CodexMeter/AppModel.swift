@@ -137,6 +137,28 @@ final class AppModel {
                     resetAt: now.addingTimeInterval(280_000)
                 ),
                 resetCreditsAvailable: 2,
+                additionalLimits: [
+                    UsageLimit(
+                        id: "codex-spark",
+                        name: "GPT-5.3-Codex-Spark",
+                        meteredFeature: "codex_bengalfox",
+                        primary: UsageWindow(
+                            usedPercent: 24,
+                            windowSeconds: 18_000,
+                            resetAt: now.addingTimeInterval(10_800)
+                        ),
+                        secondary: UsageWindow(
+                            usedPercent: 42,
+                            windowSeconds: 604_800,
+                            resetAt: now.addingTimeInterval(432_000)
+                        )
+                    )
+                ],
+                usageCredits: UsageCredits(
+                    hasCredits: true,
+                    unlimited: false,
+                    balance: "2500"
+                ),
                 fetchedAt: now
             )
             credits = ResetCreditsSnapshot(

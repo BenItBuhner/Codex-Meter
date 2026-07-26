@@ -11,6 +11,40 @@ struct DashboardView: View {
             : [GridItem(.flexible())]
     }
 
+    private var additionalWindows: [AdditionalWindowPresentation] {
+        guard model.settings.showAdditionalLimits else { return [] }
+        return (model.usage?.additionalLimits ?? []).flatMap { limit in
+            var windows: [AdditionalWindowPresentation] = []
+            if let primary = limit.primary {
+                windows.append(
+                    AdditionalWindowPresentation(
+                        id: "\(limit.id)-primary",
+                        title: "\(Self.limitTitle(limit)) · \(Self.cadenceLabel(primary))",
+                        window: primary,
+                        accent: .teal
+                    )
+                )
+            }
+            if let secondary = limit.secondary {
+                windows.append(
+                    AdditionalWindowPresentation(
+                        id: "\(limit.id)-secondary",
+                        title: "\(Self.limitTitle(limit)) · \(Self.cadenceLabel(secondary))",
+                        window: secondary,
+                        accent: .purple
+                    )
+                )
+            }
+            return windows
+        }
+    }
+
+    private var hasVisibleUsageWindows: Bool {
+        (model.settings.showFiveHour && model.usage?.fiveHour != nil)
+            || (model.settings.showWeekly && model.usage?.weekly != nil)
+            || !additionalWindows.isEmpty
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
@@ -41,24 +75,49 @@ struct DashboardView: View {
                         )
                     }
 
-                    LazyVGrid(columns: columns, spacing: AppChrome.sectionSpacing) {
-                        UsageMeterCard(
-                            title: "5-hour",
-                            systemImage: "clock",
-                            window: model.usage?.fiveHour,
-                            accent: .mint,
-                            fetchedAt: model.usage?.fetchedAt ?? .now
-                        )
-                        UsageMeterCard(
-                            title: "Weekly",
-                            systemImage: "calendar",
-                            window: model.usage?.weekly,
-                            accent: .indigo,
-                            fetchedAt: model.usage?.fetchedAt ?? .now
-                        )
+                    if hasVisibleUsageWindows {
+                        LazyVGrid(columns: columns, spacing: AppChrome.sectionSpacing) {
+                            if model.settings.showFiveHour,
+                               let window = model.usage?.fiveHour {
+                                UsageMeterCard(
+                                    title: "5-hour",
+                                    systemImage: "clock",
+                                    window: window,
+                                    accent: .mint,
+                                    fetchedAt: model.usage?.fetchedAt ?? .now
+                                )
+                            }
+                            if model.settings.showWeekly,
+                               let window = model.usage?.weekly {
+                                UsageMeterCard(
+                                    title: "Weekly",
+                                    systemImage: "calendar",
+                                    window: window,
+                                    accent: .indigo,
+                                    fetchedAt: model.usage?.fetchedAt ?? .now
+                                )
+                            }
+                            ForEach(additionalWindows) { item in
+                                UsageMeterCard(
+                                    title: LocalizedStringKey(item.title),
+                                    systemImage: item.window.windowSeconds >= 86_400
+                                        ? "calendar.badge.clock" : "clock.badge",
+                                    window: item.window,
+                                    accent: item.accent,
+                                    fetchedAt: model.usage?.fetchedAt ?? .now
+                                )
+                            }
+                        }
                     }
 
-                    ResetCreditsCard()
+                    if model.settings.showUsageCredits,
+                       let usageCredits = model.usage?.usageCredits {
+                        UsageCreditsCard(credits: usageCredits)
+                    }
+                    if model.settings.showResetCredits,
+                       model.credits != nil || model.usage?.resetCreditsAvailable != nil {
+                        ResetCreditsCard()
+                    }
                     PrivacyFootnote()
                 }
             }
@@ -99,6 +158,40 @@ struct DashboardView: View {
             await model.startIfNeeded()
         }
     }
+
+    private static func cadenceLabel(_ window: UsageWindow) -> String {
+        let seconds = window.windowSeconds
+        if (432_000 ... 777_600).contains(seconds) {
+            return "Weekly"
+        }
+        if (10_800 ... 28_800).contains(seconds) {
+            return "\(max(1, Int((Double(seconds) / 3_600).rounded())))-hour"
+        }
+        if seconds.isMultiple(of: 86_400) {
+            return "\(seconds / 86_400)-day"
+        }
+        if seconds.isMultiple(of: 3_600) {
+            return "\(seconds / 3_600)-hour"
+        }
+        return "Usage"
+    }
+
+    private static func limitTitle(_ limit: UsageLimit) -> String {
+        if limit.limitReached {
+            return "\(limit.displayName) (limit reached)"
+        }
+        if !limit.allowed {
+            return "\(limit.displayName) (unavailable)"
+        }
+        return limit.displayName
+    }
+}
+
+private struct AdditionalWindowPresentation: Identifiable {
+    let id: String
+    let title: String
+    let window: UsageWindow
+    let accent: Color
 }
 
 private struct DashboardStatusStrip: View {
@@ -160,7 +253,7 @@ private struct SignedOutView: View {
                 Text("Your Codex allowance at a glance")
                     .font(.title2.bold())
                     .multilineTextAlignment(.center)
-                Text("Connect your ChatGPT account to see the current five-hour and weekly windows, reset times, and earned reset credits.")
+                Text("Connect your ChatGPT account to see current usage limits, purchased usage credits, reset times, and earned reset credits.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -190,6 +283,48 @@ private struct SignedOutView: View {
         .frame(maxWidth: .infinity)
         .padding(28)
         .cardSurface()
+    }
+}
+
+private struct UsageCreditsCard: View {
+    let credits: UsageCredits
+
+    private var balance: String {
+        if credits.unlimited {
+            return "Unlimited"
+        }
+        guard let raw = credits.balance else {
+            return credits.hasCredits ? "Available" : "No purchased credits"
+        }
+        if let number = Double(raw.replacingOccurrences(of: ",", with: "")),
+           number.isFinite {
+            return number.formatted(
+                .number.precision(.fractionLength(0 ... 2))
+            ) + " credits"
+        }
+        return raw
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: "creditcard.fill")
+                .font(.system(size: 34))
+                .foregroundStyle(.tint)
+                .symbolRenderingMode(.hierarchical)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(balance)
+                    .font(.title2.bold())
+                    .contentTransition(.numericText())
+                Text("Usage-credit balance")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(AppChrome.cardPadding)
+        .cardSurface()
+        .accessibilityElement(children: .combine)
     }
 }
 

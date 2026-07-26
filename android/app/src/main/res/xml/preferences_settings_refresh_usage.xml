@@ -20,6 +20,34 @@
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Dashboard">
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_five_hour"
+            android:summary="Shown only when OpenAI returns this window"
+            android:title="5-hour limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_weekly"
+            android:summary="Shown only when OpenAI returns this window"
+            android:title="Weekly limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_additional_limits"
+            android:summary="Model-specific limits such as GPT-5.3-Codex-Spark"
+            android:title="Additional limits" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_usage_credits"
+            android:summary="Purchased credits returned by OpenAI"
+            android:title="Usage-credit balance" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_reset_credits"
+            android:summary="Earned credits that can reset usage windows"
+            android:title="Reset credits" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Usage estimates">
         <SwitchPreferenceCompat
             android:key="usage_pace_enabled_ui"

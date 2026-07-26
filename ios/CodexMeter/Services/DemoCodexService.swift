@@ -92,6 +92,28 @@ public actor DemoCodexService: CodexService {
                 resetAt: referenceDate.addingTimeInterval(3 * 24 * 60 * 60 + 8 * 60 * 60)
             ),
             resetCreditsAvailable: availableCredits,
+            additionalLimits: [
+                UsageLimit(
+                    id: "codex-spark",
+                    name: "GPT-5.3-Codex-Spark",
+                    meteredFeature: "codex_bengalfox",
+                    primary: UsageWindow(
+                        usedPercent: 24,
+                        windowSeconds: 18_000,
+                        resetAt: referenceDate.addingTimeInterval(3 * 60 * 60)
+                    ),
+                    secondary: UsageWindow(
+                        usedPercent: 42,
+                        windowSeconds: 604_800,
+                        resetAt: referenceDate.addingTimeInterval(5 * 24 * 60 * 60)
+                    )
+                )
+            ],
+            usageCredits: UsageCredits(
+                hasCredits: true,
+                unlimited: false,
+                balance: "2500"
+            ),
             fetchedAt: fetchedAt
         )
         try await appCache.save(

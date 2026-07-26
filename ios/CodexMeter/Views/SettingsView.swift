@@ -45,6 +45,18 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
+                Toggle("Weekly limit", isOn: $model.settings.showWeekly)
+                Toggle("Additional limits", isOn: $model.settings.showAdditionalLimits)
+                Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
+                Toggle("Reset credits", isOn: $model.settings.showResetCredits)
+            } header: {
+                Text("Dashboard")
+            } footer: {
+                Text("Enabled items still appear only when OpenAI returns data for them. Additional limits include temporary model-specific allowances.")
+            }
+
+            Section {
                 Toggle("Refresh on launch", isOn: $model.settings.refreshOnLaunch)
                 Picker("Mode", selection: $model.settings.refreshMode) {
                     Text("Automatic").tag(RefreshMode.automatic)

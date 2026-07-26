@@ -43,8 +43,8 @@ public final class UsageApi {
                 throw new Exception(OAuthClient.readError(responseRequestUsage.body, str));
             }
             usageSnapshot = UsageParser.parse(responseRequestUsage.body, System.currentTimeMillis());
-            if (usageSnapshot.fiveHour == null && usageSnapshot.weekly == null) {
-                throw new Exception("OpenAI returned no recognizable Codex usage windows.");
+            if (!usageSnapshot.hasDisplayableData()) {
+                throw new Exception("OpenAI returned no recognizable Codex usage data.");
             }
             UsageSnapshot previousSnapshot = AppPreferences.loadSnapshot(context);
             if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
