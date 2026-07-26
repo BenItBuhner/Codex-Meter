@@ -5,18 +5,16 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
 import android.widget.Toast;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
+import dev.oneuiproject.oneui.widget.CardItemView;
+import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class ResetCreditActivity extends AppCompatActivity {
@@ -54,114 +52,92 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     public void rebuild() {
-        String str;
         this.content.removeAllViews();
-        this.content.addView(Ui.sectionTitle(this, "Available credits", this.dark));
-        LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
-        int i = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
-        TextView textViewText = Ui.text(this, i + " reset credit" + (i == 1 ? "" : "s") + " available", 20.0f, Ui.mainText(this.dark));
-        textViewText.setTypeface(Ui.mediumTypeface(this));
-        linearLayoutCard.addView(textViewText);
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        List<RateLimitResetCredit> availableCredits = resetCreditsSnapshotLoadResetCredits == null
+        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
+        int available = snapshot == null ? 0 : snapshot.availableCount;
+        long now = System.currentTimeMillis();
+        List<RateLimitResetCredit> availableCredits = snapshot == null
                 ? Collections.emptyList()
-                : resetCreditsSnapshotLoadResetCredits.availableCreditsByExpiry(jCurrentTimeMillis);
-        long jNextExpiryMillis = resetCreditsSnapshotLoadResetCredits == null ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(jCurrentTimeMillis);
-        if (jNextExpiryMillis > 0) {
-            str = "Next credit expires " + UsageFormat.absolute(this, jNextExpiryMillis, jCurrentTimeMillis) + " (" + UsageFormat.relative(jNextExpiryMillis, jCurrentTimeMillis) + ").";
-        } else if (i > 0) {
-            str = "Expiry details are unavailable; OpenAI will choose an eligible credit.";
-        } else {
-            str = "No reset credit is currently available.";
-        }
-        View viewText = Ui.text(this, str, 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams2.setMargins(0, Ui.dp(this, 8.0f), 0, Ui.dp(this, 14.0f));
-        linearLayoutCard.addView(viewText, layoutParams2);
-        addCreditExpirations(linearLayoutCard, availableCredits, i, jCurrentTimeMillis);
+                : snapshot.availableCreditsByExpiry(now);
+        long nextExpiry = snapshot == null ? 0L : snapshot.nextExpiryMillis(now);
+
+        this.content.addView(Ui.separator(this, "Available credits"));
+        RoundedLinearLayout summaryCard = Ui.seslRowCard(this, this.dark);
+        summaryCard.addView(Ui.actionRow(
+                this,
+                available <= 0
+                        ? "No resets available"
+                        : (available == 1 ? "1 reset available" : available + " resets available"),
+                summaryText(available, nextExpiry, now),
+                R.drawable.ic_oui_battery,
+                null));
+        this.content.addView(summaryCard);
+
+        this.content.addView(Ui.separator(this, "Credit expirations"));
+        RoundedLinearLayout expirations = Ui.seslRowCard(this, this.dark);
+        addCreditExpirations(expirations, availableCredits, available, now);
+        this.content.addView(expirations);
+
         String visibleResetCreditsError = AppPreferences.getVisibleResetCreditsError(this);
         if (!visibleResetCreditsError.isEmpty()) {
-            View viewText3 = Ui.text(this, visibleResetCreditsError, 12.0f, Ui.danger(this.dark));
-            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams4.setMargins(0, Ui.dp(this, 12.0f), 0, 0);
-            linearLayoutCard.addView(viewText3, layoutParams4);
+            Ui.addSpacer(this.content, 12);
+            RoundedLinearLayout errorCard = Ui.seslCard(this, this.dark);
+            errorCard.addView(Ui.text(this, visibleResetCreditsError, 13.0f,
+                    Ui.danger(this.dark)));
+            this.content.addView(errorCard);
         }
+
         this.useButton = Ui.nativePrimaryButton(
-                this, i > 0 ? "Use 1 reset" : "No resets available");
-        this.useButton.setEnabled(i > 0 && SecureTokenStore.isSignedIn(this));
+                this, available > 0 ? "Use 1 reset" : "No resets available");
+        this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this));
         LinearLayout.LayoutParams useButtonParams =
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
-        useButtonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
-        this.useButton.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.3
-            @Override // android.view.View.OnClickListener
-            public void onClick(View view) {
-                ResetCreditActivity.this.confirmUse();
-            }
-        });
-        linearLayoutCard.addView(this.useButton, useButtonParams);
-        this.content.addView(linearLayoutCard);
+        useButtonParams.setMargins(0, Ui.dp(this, 22.0f), 0, Ui.dp(this, 8.0f));
+        this.useButton.setOnClickListener(view -> confirmUse());
+        this.content.addView(this.useButton, useButtonParams);
     }
 
-    private void addCreditExpirations(LinearLayout card,
+    private String summaryText(int available, long nextExpiry, long now) {
+        if (nextExpiry > 0L) {
+            return "Next expires " + UsageFormat.absolute(this, nextExpiry, now)
+                    + " · " + UsageFormat.relative(nextExpiry, now);
+        }
+        if (available > 0) {
+            return "OpenAI will choose an eligible credit";
+        }
+        return "No reset credit is currently available";
+    }
+
+    private void addCreditExpirations(RoundedLinearLayout card,
             List<RateLimitResetCredit> credits, int availableCount, long nowMillis) {
-        View divider = new View(this);
-        divider.setBackgroundColor(Ui.divider(this.dark));
-        card.addView(divider, new LinearLayout.LayoutParams(-1, Ui.dp(this, 1.0f)));
-
-        TextView heading = Ui.text(this, "Credit expirations", 15.0f, Ui.mainText(this.dark));
-        heading.setTypeface(Ui.mediumTypeface(this));
-        LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(-1, -2);
-        headingParams.setMargins(0, Ui.dp(this, 15.0f), 0, Ui.dp(this, 5.0f));
-        card.addView(heading, headingParams);
-
         for (int index = 0; index < credits.size(); index++) {
             RateLimitResetCredit credit = credits.get(index);
-            LinearLayout row = Ui.horizontal(this, android.view.Gravity.CENTER_VERTICAL);
-            LinearLayout labels = new LinearLayout(this);
-            labels.setOrientation(LinearLayout.VERTICAL);
             String titleText = credit.title.trim().isEmpty()
                     ? "Reset credit " + (index + 1) : credit.title.trim();
-            TextView title = Ui.text(this, titleText, 15.0f, Ui.mainText(this.dark));
-            title.setTypeface(Ui.mediumTypeface(this));
-            labels.addView(title);
+            if (index == 0 && credit.expiresAtMillis > 0L) {
+                titleText = titleText + " · Next";
+            }
             String expiryText = credit.expiresAtMillis > 0L
                     ? UsageFormat.absolute(this, credit.expiresAtMillis, nowMillis)
                             + " · " + UsageFormat.relative(credit.expiresAtMillis, nowMillis)
                     : "Expiration unavailable";
-            TextView expiry = Ui.text(this, expiryText, 13.0f, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams expiryParams = new LinearLayout.LayoutParams(-1, -2);
-            expiryParams.setMargins(0, Ui.dp(this, 3.0f), 0, 0);
-            labels.addView(expiry, expiryParams);
-            row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1.0f));
-            if (index == 0 && credit.expiresAtMillis > 0L) {
-                TextView next = Ui.text(this, "Next", 12.0f, Ui.accent(this, this.dark));
-                next.setTypeface(Ui.mediumTypeface(this));
-                LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(-2, -2);
-                nextParams.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
-                row.addView(next, nextParams);
-            }
-            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
-            rowParams.setMargins(0, Ui.dp(this, 9.0f), 0, Ui.dp(this, 9.0f));
-            card.addView(row, rowParams);
+            CardItemView row = Ui.actionRow(this, titleText, expiryText, 0, null);
+            row.setShowTopDivider(index > 0);
+            card.addView(row);
         }
 
         int missingCount = Math.max(0, availableCount - credits.size());
         if (missingCount > 0) {
             String missingText = credits.isEmpty()
-                    ? "Expiration details are not available yet."
+                    ? "Expiration details are not available yet"
                     : missingCount + " additional credit" + (missingCount == 1 ? "" : "s")
-                            + " without expiration details.";
-            TextView missing = Ui.text(this, missingText, 13.0f, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams missingParams = new LinearLayout.LayoutParams(-1, -2);
-            missingParams.setMargins(0, Ui.dp(this, 9.0f), 0, Ui.dp(this, 5.0f));
-            card.addView(missing, missingParams);
+                            + " without expiration details";
+            CardItemView missing = Ui.actionRow(this, "More credits", missingText, 0, null);
+            missing.setShowTopDivider(!credits.isEmpty());
+            card.addView(missing);
         } else if (availableCount == 0) {
-            TextView none = Ui.text(this, "No available credits.", 13.0f,
-                    Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams noneParams = new LinearLayout.LayoutParams(-1, -2);
-            noneParams.setMargins(0, Ui.dp(this, 9.0f), 0, Ui.dp(this, 5.0f));
-            card.addView(none, noneParams);
+            card.addView(Ui.actionRow(this, "No available credits",
+                    "Earn credits from ChatGPT Codex", 0, null));
         }
     }
 
