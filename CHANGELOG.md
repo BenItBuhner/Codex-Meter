@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.7.0 — 2026-07-26
+## 2.6.5 — 2026-07-26
 
 ### Added
 
@@ -18,7 +18,7 @@
 
 - Expanded regression coverage for usage-credit auto-hide, dashboard section order merging, Wear modular tile metadata, and widget configuration wiring (#67, #68, #75).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.0...v2.7.0 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.0...v2.6.5 <!-- pragma: allowlist secret -->
 
 ## 2.6.0 — 2026-07-26
 
