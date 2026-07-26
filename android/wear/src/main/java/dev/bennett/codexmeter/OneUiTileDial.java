@@ -11,7 +11,7 @@ final class OneUiTileDial {
     private static final int PROGRESS = 0xFF6B6EE0;
     private static final float START_DEGREES = 225f;
     private static final float SWEEP_DEGREES = 270f;
-    private static final float ARC_DIAMETER_DP = 44f;
+    private static final float ARC_DIAMETER_DP = 52f;
     private static final float STROKE_DP = 4f;
 
     private OneUiTileDial() {

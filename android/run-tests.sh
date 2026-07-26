@@ -577,7 +577,7 @@ grep -q 'Typeface.create("sec"' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileText.java"
 grep -Fq 'MAX_INLINE_IMAGE_BYTES = 10 * 1024' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/TileImageResources.java"
-grep -q 'ARC_DIAMETER_DP = 44f' \
+grep -q 'ARC_DIAMETER_DP = 52f' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileDial.java"
 ! grep -q 'InlineImageResource' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/OneUiTileDial.java"
