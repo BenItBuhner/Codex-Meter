@@ -21,7 +21,7 @@ final class WidgetOptionCatalog {
     static final int[] OPACITY_VALUES = WidgetOptions.OPACITY_LEVELS;
     static final String[] RESET_LABELS = {"Absolute time", "Relative time", "Both", "Hide reset time"};
     static final String[] RESET_VALUES = {WidgetOptions.RESET_ABSOLUTE, WidgetOptions.RESET_RELATIVE, "both", WidgetOptions.RESET_HIDDEN};
-    static final String[] METRIC_LABELS = {"5-hour and weekly", "5-hour only", "Weekly only"};
+    static final String[] METRIC_LABELS = {"Both windows", "5-hour only", "Weekly only"};
     static final String[] METRIC_VALUES = {WidgetOptions.METRIC_BOTH,
             WidgetOptions.METRIC_FIVE_HOUR, WidgetOptions.METRIC_WEEKLY};
     static final String[] DISPLAY_LABELS = {"Percent remaining", "Percent used"};

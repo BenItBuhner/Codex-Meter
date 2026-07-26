@@ -401,6 +401,8 @@ grep -q 'OneUiChoiceDialog.show' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -q 'OneUiChoiceDialog.show' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+grep -q '"Both windows", "5-hour only", "Weekly only"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptionCatalog.java"
 ! grep -q 'ListPopupWindow' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -q 'android:max="2"' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"
