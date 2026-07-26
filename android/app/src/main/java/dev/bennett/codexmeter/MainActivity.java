@@ -287,10 +287,7 @@ public final class MainActivity extends AppCompatActivity {
                 Ui.addSpacer(this.content, 20);
             }
             boolean signedIn = SecureTokenStore.isSignedIn(this);
-            if (signedIn) {
-                this.content.addView(buildUsageHistoryCard());
-                Ui.addSpacer(this.content, 20);
-            } else {
+            if (!signedIn) {
                 Button signIn = Ui.nativePrimaryButton(this,
                         AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
@@ -347,33 +344,42 @@ public final class MainActivity extends AppCompatActivity {
         boolean signedIn = SecureTokenStore.isSignedIn(this);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
-        if (!signedIn || snapshot == null) {
+        if (!signedIn) {
             return column;
         }
         Map<String, List<UsageLimit>> limitsByKey = new LinkedHashMap<>();
-        for (UsageLimit limit : snapshot.additionalLimits) {
-            String key = DashboardSections.limitKey(limit);
-            List<UsageLimit> group = limitsByKey.get(key);
-            if (group == null) {
-                group = new ArrayList<>();
-                limitsByKey.put(key, group);
-            }
-            group.add(limit);
-        }
         List<String> available = new ArrayList<>();
-        if (AppPreferences.showDashboardFiveHour(this) && snapshot.fiveHour != null) {
-            available.add(DashboardSections.FIVE_HOUR);
+        if (snapshot != null) {
+            for (UsageLimit limit : snapshot.additionalLimits) {
+                String key = DashboardSections.limitKey(limit);
+                List<UsageLimit> group = limitsByKey.get(key);
+                if (group == null) {
+                    group = new ArrayList<>();
+                    limitsByKey.put(key, group);
+                }
+                group.add(limit);
+            }
+            if (AppPreferences.showDashboardFiveHour(this) && snapshot.fiveHour != null) {
+                available.add(DashboardSections.FIVE_HOUR);
+            }
+            if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
+                available.add(DashboardSections.WEEKLY);
+            }
+            if (AppPreferences.showDashboardAdditionalLimits(this)) {
+                for (String key : limitsByKey.keySet()) {
+                    if (!AppPreferences.isDashboardSectionHidden(this, key)) {
+                        available.add(key);
+                    }
+                }
+            }
+            // Zero, near-zero, and negative balances are always hidden regardless of settings.
+            if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null
+                    && snapshot.usageCredits.shouldDisplay()) {
+                available.add(DashboardSections.USAGE_CREDITS);
+            }
         }
-        if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
-            available.add(DashboardSections.WEEKLY);
-        }
-        if (AppPreferences.showDashboardAdditionalLimits(this)) {
-            available.addAll(limitsByKey.keySet());
-        }
-        // Zero, near-zero, and negative balances are always hidden regardless of settings.
-        if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null
-                && snapshot.usageCredits.shouldDisplay()) {
-            available.add(DashboardSections.USAGE_CREDITS);
+        if (AppPreferences.showDashboardUsageHistory(this)) {
+            available.add(DashboardSections.USAGE_HISTORY);
         }
         boolean inverted = false;
         for (String key : DashboardSections.resolveOrder(
@@ -388,6 +394,8 @@ public final class MainActivity extends AppCompatActivity {
                 inverted = !inverted;
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
+            } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+                addDashboardCard(column, buildUsageHistoryCard());
             } else {
                 List<UsageLimit> group = limitsByKey.get(key);
                 if (group == null) {
@@ -455,21 +463,40 @@ public final class MainActivity extends AppCompatActivity {
         detailParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4));
         card.addView(detail, detailParams);
 
-        UsageBurnChartView fiveChart = new UsageBurnChartView(this);
+        // Windows still waiting for usage data would only render a blank "Waiting for usage
+        // data" chart, so they are dropped from the card until OpenAI reports them.
+        boolean hasCharts = false;
         UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
-        fiveChart.setData("5-hour", fiveWindow,
-                AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
-                snapshot == null ? now : snapshot.fetchedAtMillis,
-                UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
-        card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
+            UsageBurnChartView fiveChart = new UsageBurnChartView(this);
+            fiveChart.setData("5-hour", fiveWindow,
+                    AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
+                    snapshot.fetchedAtMillis,
+                    UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
+            card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+            hasCharts = true;
+        }
 
-        UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
         UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
-        weeklyChart.setData("Weekly", weeklyWindow,
-                AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
-                snapshot == null ? now : snapshot.fetchedAtMillis,
-                UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
-        card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+        if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
+            UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
+            weeklyChart.setData("Weekly", weeklyWindow,
+                    AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
+                    snapshot.fetchedAtMillis,
+                    UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
+            card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+            hasCharts = true;
+        }
+
+        if (!hasCharts) {
+            TextView waiting = Ui.text(this,
+                    "Charts appear once OpenAI reports your 5-hour or weekly usage windows.",
+                    12, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams waitingParams = new LinearLayout.LayoutParams(-1, -2);
+            waitingParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 8),
+                    Ui.dp(this, 10), Ui.dp(this, 8));
+            card.addView(waiting, waitingParams);
+        }
 
         Button open = Ui.button(this, "View history", false, this.dark);
         open.setOnClickListener(view -> Ui.startSecondaryActivity(this, UsageHistoryActivity.class));

@@ -70,14 +70,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.6.5"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 23' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.6.5"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 23' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.6.5"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 23' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.6.5' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.6.5"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.6.6"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 24' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.6.6"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 24' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.6.6"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 24' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.6.6' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.6.6"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -101,6 +101,30 @@ grep -q 'dashboard_reorder_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q 'dashboard_reorder_ui' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+
+# Edit-dashboard visibility switches + sortable/hideable usage-history section.
+grep -q 'USAGE_HISTORY = "usage_history"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'SwitchCompat' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'setSectionVisible' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'DashboardSections.USAGE_HISTORY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'setDashboardSectionHidden' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'dashboard_usage_history' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'dashboard_hidden_sections' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'hidden-section keys round-trip' "$ROOT/tests/ParserSelfTest.java"
+# Usage-history charts must be gated on real usage data instead of blank placeholders.
+grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'weeklyWindow != null && snapshot.fetchedAtMillis > 0L' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 
 grep -q 'android.permission.ACCESS_NETWORK_STATE' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'android.permission.POST_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"

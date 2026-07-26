@@ -92,7 +92,7 @@ public final class UsagePaceDemoActivity extends Activity {
                             now + TimeUnit.DAYS.toMillis(7), "Reset credit 3", "")),
                     now));
             AppPreferences.setRefreshOnLaunch(this, false);
-            AppPreferences.setDashboardVisibility(this, true, true, true, true, true);
+            AppPreferences.setDashboardVisibility(this, true, true, true, true, true, true);
             AppPreferences.completeOnboarding(this);
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);

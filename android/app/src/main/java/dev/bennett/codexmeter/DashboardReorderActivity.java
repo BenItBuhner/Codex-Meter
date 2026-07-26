@@ -11,6 +11,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -21,8 +22,9 @@ import java.util.List;
 
 /**
  * One UI edit screen for arranging the dashboard sections. Rows are dragged with the SESL
- * RecyclerView ItemTouchHelper, either from the reorder handle or with a long-press, and the
- * order is saved immediately so the dashboard rebuilds on return.
+ * RecyclerView ItemTouchHelper, either from the reorder handle or with a long-press, and each
+ * row carries a visibility switch so sections can be hidden without leaving the list. Order and
+ * visibility are saved immediately so the dashboard rebuilds on return.
  */
 public final class DashboardReorderActivity extends AppCompatActivity {
     private final List<SectionItem> items = new ArrayList<>();
@@ -53,9 +55,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         refresh.setEnabled(false);
 
         TextView hint = Ui.text(this,
-                "Drag the handles to arrange your usage cards. Model-specific limits such as "
-                        + "GPT-5.3-Codex-Spark appear here automatically once OpenAI reports "
-                        + "them for your account.",
+                "Drag the handles to arrange your usage cards and use the switches to hide the "
+                        + "ones you don't need. Model-specific limits such as GPT-5.3-Codex-Spark "
+                        + "appear here automatically once OpenAI reports them for your account.",
                 14.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));
@@ -77,7 +79,8 @@ public final class DashboardReorderActivity extends AppCompatActivity {
 
         TextView note = Ui.text(this,
                 "Changes are saved instantly. The usage-credit balance stays hidden whenever "
-                        + "it is zero or below, no matter where it is placed.",
+                        + "it is zero or below, no matter where it is placed or whether it is "
+                        + "switched on.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
@@ -104,6 +107,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 items.add(new SectionItem(key, "Usage-credit balance",
                         "Hidden automatically at a zero or negative balance"));
+            } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+                items.add(new SectionItem(key, "Usage history",
+                        "Local burn charts for your usage windows"));
             } else {
                 UsageLimit match = null;
                 for (UsageLimit limit : limits) {
@@ -137,6 +143,36 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         AppPreferences.setDashboardOrder(this, order);
     }
 
+    private boolean isSectionVisible(String key) {
+        if (DashboardSections.FIVE_HOUR.equals(key)) {
+            return AppPreferences.showDashboardFiveHour(this);
+        }
+        if (DashboardSections.WEEKLY.equals(key)) {
+            return AppPreferences.showDashboardWeekly(this);
+        }
+        if (DashboardSections.USAGE_CREDITS.equals(key)) {
+            return AppPreferences.showDashboardUsageCredits(this);
+        }
+        if (DashboardSections.USAGE_HISTORY.equals(key)) {
+            return AppPreferences.showDashboardUsageHistory(this);
+        }
+        return !AppPreferences.isDashboardSectionHidden(this, key);
+    }
+
+    private void setSectionVisible(String key, boolean visible) {
+        if (DashboardSections.FIVE_HOUR.equals(key)) {
+            AppPreferences.setShowDashboardFiveHour(this, visible);
+        } else if (DashboardSections.WEEKLY.equals(key)) {
+            AppPreferences.setShowDashboardWeekly(this, visible);
+        } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
+            AppPreferences.setShowDashboardUsageCredits(this, visible);
+        } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+            AppPreferences.setShowDashboardUsageHistory(this, visible);
+        } else {
+            AppPreferences.setDashboardSectionHidden(this, key, !visible);
+        }
+    }
+
     private final class SectionAdapter extends RecyclerView.Adapter<SectionHolder> {
         ItemTouchHelper touchHelper;
 
@@ -163,6 +199,13 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             labels.addView(summary, summaryParams);
             row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
+            SwitchCompat toggle = new SwitchCompat(DashboardReorderActivity.this);
+            toggle.setContentDescription("Show on dashboard");
+            LinearLayout.LayoutParams toggleParams = new LinearLayout.LayoutParams(-2, -2);
+            toggleParams.setMargins(Ui.dp(DashboardReorderActivity.this, 8), 0,
+                    Ui.dp(DashboardReorderActivity.this, 4), 0);
+            row.addView(toggle, toggleParams);
+
             ImageView handle = new ImageView(DashboardReorderActivity.this);
             handle.setImageResource(R.drawable.ic_oui_reorder);
             handle.setImageTintList(ColorStateList.valueOf(Ui.secondaryText(dark)));
@@ -173,7 +216,7 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                     Ui.dp(DashboardReorderActivity.this, 48),
                     Ui.dp(DashboardReorderActivity.this, 48)));
 
-            SectionHolder holder = new SectionHolder(row, title, summary, handle);
+            SectionHolder holder = new SectionHolder(row, title, summary, toggle, handle);
             bindDragHandle(holder);
             return holder;
         }
@@ -195,6 +238,20 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             SectionItem item = items.get(position);
             holder.title.setText(item.title);
             holder.summary.setText(item.summary);
+            holder.toggle.setOnCheckedChangeListener(null);
+            boolean visible = isSectionVisible(item.key);
+            holder.toggle.setChecked(visible);
+            applyRowVisibility(holder, visible);
+            holder.toggle.setOnCheckedChangeListener((button, checked) -> {
+                setSectionVisible(item.key, checked);
+                applyRowVisibility(holder, checked);
+            });
+        }
+
+        private void applyRowVisibility(SectionHolder holder, boolean visible) {
+            float alpha = visible ? 1.0f : 0.45f;
+            holder.title.setAlpha(alpha);
+            holder.summary.setAlpha(alpha);
         }
 
         @Override
@@ -206,12 +263,15 @@ public final class DashboardReorderActivity extends AppCompatActivity {
     private static final class SectionHolder extends RecyclerView.ViewHolder {
         final TextView title;
         final TextView summary;
+        final SwitchCompat toggle;
         final ImageView handle;
 
-        SectionHolder(View row, TextView title, TextView summary, ImageView handle) {
+        SectionHolder(View row, TextView title, TextView summary, SwitchCompat toggle,
+                ImageView handle) {
             super(row);
             this.title = title;
             this.summary = summary;
+            this.toggle = toggle;
             this.handle = handle;
         }
     }
