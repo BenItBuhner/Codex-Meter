@@ -17,6 +17,8 @@ public final class AppPreferences {
     private static final String KEY_OAUTH_URL = "oauth_url";
     private static final String KEY_ONBOARDING_COMPLETE = "onboarding_complete";
     private static final String KEY_ONBOARDING_STEP = "onboarding_step";
+    private static final String KEY_AUTOMATIC_REFRESH = "automatic_refresh";
+    private static final String KEY_REFRESH_FAILURES = "refresh_failures";
     private static final String KEY_REFRESH_MINUTES = "refresh_minutes";
     private static final String KEY_REFRESH_ON_LAUNCH = "refresh_on_launch";
     private static final String KEY_RESET_CREDITS = "reset_credits_snapshot";
@@ -59,7 +61,9 @@ public final class AppPreferences {
     }
 
     public static void clearSnapshot(Context context) {
-        prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT).remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).apply();
+        prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
+                .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
+                .remove(KEY_REFRESH_FAILURES).apply();
         NowBarManager.stop(context);
         NowBarPreferences.clearSuppression(context);
         ResetNotificationManager.clearState(context);
@@ -193,6 +197,27 @@ public final class AppPreferences {
             i = 30;
         }
         editorEdit.putInt(KEY_REFRESH_MINUTES, i).apply();
+    }
+
+    public static boolean getAutomaticRefresh(Context context) {
+        return prefs(context).getBoolean(KEY_AUTOMATIC_REFRESH, true);
+    }
+
+    public static void setAutomaticRefresh(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_AUTOMATIC_REFRESH, enabled).apply();
+    }
+
+    public static int getRefreshFailures(Context context) {
+        return Math.max(0, Math.min(3, prefs(context).getInt(KEY_REFRESH_FAILURES, 0)));
+    }
+
+    public static void recordRefreshSuccess(Context context) {
+        prefs(context).edit().remove(KEY_REFRESH_FAILURES).apply();
+    }
+
+    public static void recordRefreshFailure(Context context) {
+        int failures = Math.min(3, getRefreshFailures(context) + 1);
+        prefs(context).edit().putInt(KEY_REFRESH_FAILURES, failures).apply();
     }
 
     public static boolean getRefreshOnLaunch(Context context) {

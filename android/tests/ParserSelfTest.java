@@ -25,6 +25,7 @@ public final class ParserSelfTest {
         testResetCreditExpiryOrdering();
         testFullWindowHidesResetCountdown();
         testUsagePace();
+        testAdaptiveRefreshPolicy();
         testNowBarAutoStart();
         testNowBarDisplayModes();
         testWearSurfaceModes();
@@ -131,6 +132,54 @@ public final class ParserSelfTest {
         check(!UsagePace.assess(fastWeekly, now, fast.resetAtMillis, UsagePace.BALANCED).available,
                 "expired windows do not produce stale warnings");
         System.out.println("Usage-pace demo: 15% of a week in one hour projects about 6h 40m.");
+    }
+
+    private static void testAdaptiveRefreshPolicy() {
+        long now = 2_000_000_000_000L;
+        UsageWindow healthy = new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.HOURS.toMillis(4)) / 1000L);
+        UsageWindow mid = new UsageWindow(60, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.HOURS.toMillis(3)) / 1000L);
+        UsageWindow low = new UsageWindow(92, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.HOURS.toMillis(2)) / 1000L);
+        UsageWindow nearReset = new UsageWindow(20, TimeUnit.HOURS.toSeconds(5), 0L,
+                (now + TimeUnit.MINUTES.toMillis(10)) / 1000L);
+
+        check(AdaptiveRefreshPolicy.chooseMinutes(null, 0.0d, 12, 0, now) == 30,
+                "automatic refresh uses a balanced interval before data exists");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        0.0d, 12, 0, now) == 60,
+                "healthy quota refreshes less often");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, mid, null, now),
+                        0.0d, 12, 0, now) == 15,
+                "lower quota increases refresh frequency");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, low, null, now),
+                        0.0d, 12, 0, now) == 5,
+                "critical quota uses the fastest interval");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        3.0d, 12, 0, now) == 10,
+                "frequent attention increases refresh frequency");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        0.0d, 3, 0, now) == 120,
+                "quiet hours reduce healthy unattended polling");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, nearReset, null, now),
+                        0.0d, 12, 0, now) == 5,
+                "an approaching used-window reset refreshes precisely");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, low, null, now),
+                        0.0d, 12, 2, now) == 15,
+                "consecutive failures back off even when quota is low");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", false, true, low, null, now),
+                        0.0d, 12, 3, now) == 30,
+                "failure backoff remains bounded for a limited account");
+        System.out.println("Automatic refresh demo: quota, attention, resets, quiet hours, and failures adapt the cadence.");
     }
 
     private static void testNowBarAutoStart() {

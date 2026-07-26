@@ -7,10 +7,16 @@
             android:key="refresh_on_launch"
             android:title="Refresh on launch" />
         <ListPreference
+            android:entries="@array/settings_refresh_mode_entries"
+            android:entryValues="@array/settings_refresh_mode_values"
+            android:key="refresh_mode_ui"
+            android:summary="Adapts to remaining usage, app attention, reset timing, and recent failures"
+            android:title="Refresh mode" />
+        <ListPreference
             android:entries="@array/settings_refresh_entries"
             android:entryValues="@array/settings_refresh_values"
             android:key="refresh_interval_ui"
-            android:title="Refresh interval"
+            android:title="Manual interval"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
