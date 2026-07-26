@@ -24,10 +24,22 @@ public final class UsagePaceDemoActivity extends Activity {
             long weeklyReset = now - TimeUnit.HOURS.toMillis(1)
                     + TimeUnit.DAYS.toMillis(7);
             UsageSnapshot snapshot = new UsageSnapshot("pro", true, false,
-                    new UsageWindow(15, TimeUnit.HOURS.toSeconds(5), 0L,
+                    new UsageWindow(37, TimeUnit.HOURS.toSeconds(5), 0L,
                             fiveHourReset / 1000L),
-                    new UsageWindow(15, TimeUnit.DAYS.toSeconds(7), 0L,
+                    new UsageWindow(61, TimeUnit.DAYS.toSeconds(7), 0L,
                             weeklyReset / 1000L),
+                    Arrays.asList(new UsageLimit(
+                            "codex-spark",
+                            "GPT-5.3-Codex-Spark",
+                            "codex_bengalfox",
+                            true,
+                            false,
+                            new UsageWindow(24, TimeUnit.HOURS.toSeconds(5), 0L,
+                                    (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
+                            new UsageWindow(42, TimeUnit.DAYS.toSeconds(7), 0L,
+                                    (now + TimeUnit.DAYS.toMillis(5)) / 1000L))),
+                    new UsageCredits(true, false, "2500"),
+                    3,
                     now);
             SecureTokenStore.save(this, new AuthTokens(
                     "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
@@ -42,6 +54,7 @@ public final class UsagePaceDemoActivity extends Activity {
                             now + TimeUnit.DAYS.toMillis(7), "Reset credit 3", "")),
                     now));
             AppPreferences.setRefreshOnLaunch(this, false);
+            AppPreferences.setDashboardVisibility(this, true, true, true, true, true);
             AppPreferences.completeOnboarding(this);
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
