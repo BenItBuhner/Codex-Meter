@@ -121,6 +121,18 @@ final class UsageParserTests: XCTestCase {
         XCTAssertTrue(snapshot.hasDisplayableData)
     }
 
+    func testNoCreditsBalanceIsNotStandaloneUsageData() throws {
+        let snapshot = try UsageParser.parse(
+            """
+            {"credits":{"has_credits":false,"unlimited":false,"balance":"0"}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNotNil(snapshot.usageCredits)
+        XCTAssertNil(snapshot.usageCredits?.balance)
+        XCTAssertFalse(snapshot.hasDisplayableData)
+    }
+
     func testFiveHourTieChoosesFirstAndDoesNotInventWeeklyWindow() throws {
         let json = """
         {

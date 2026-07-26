@@ -99,7 +99,7 @@ struct DashboardView: View {
                             }
                             ForEach(additionalWindows) { item in
                                 UsageMeterCard(
-                                    title: item.title,
+                                    title: LocalizedStringKey(item.title),
                                     systemImage: item.window.windowSeconds >= 86_400
                                         ? "calendar.badge.clock" : "clock.badge",
                                     window: item.window,

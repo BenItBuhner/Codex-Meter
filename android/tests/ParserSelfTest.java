@@ -568,6 +568,11 @@ public final class ParserSelfTest {
         UsageSnapshot empty = UsageParser.parse("{\"credits\":{}}", 4L);
         check(empty.usageCredits == null && !empty.hasDisplayableData(),
                 "empty credits object does not become dashboard data");
+        UsageSnapshot none = UsageParser.parse(
+                "{\"credits\":{\"has_credits\":false,\"balance\":\"0\"}}", 5L);
+        check(none.usageCredits != null && none.usageCredits.balance.isEmpty()
+                        && !none.hasDisplayableData(),
+                "zero balance for an account without purchased credits is not standalone data");
     }
 
     private static void testMalformedWindowIgnored() throws Exception {

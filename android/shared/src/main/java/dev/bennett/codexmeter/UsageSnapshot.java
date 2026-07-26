@@ -121,7 +121,9 @@ public final class UsageSnapshot {
 
     public boolean hasDisplayableData() {
         return fiveHour != null || weekly != null || !additionalLimits.isEmpty()
-                || usageCredits != null || resetCreditsAvailable >= 0;
+                || (usageCredits != null && (usageCredits.hasCredits
+                || usageCredits.unlimited || !usageCredits.balance.isEmpty()))
+                || resetCreditsAvailable >= 0;
     }
 
     private long earlierFutureReset(long current, UsageWindow window, long now) {

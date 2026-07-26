@@ -96,6 +96,29 @@ public struct UsageLimit: Codable, Sendable, Equatable, Identifiable {
         }
         return "Additional usage"
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case meteredFeature
+        case allowed
+        case limitReached
+        case primary
+        case secondary
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decodeIfPresent(String.self, forKey: .id) ?? "",
+            name: try container.decodeIfPresent(String.self, forKey: .name) ?? "",
+            meteredFeature: try container.decodeIfPresent(String.self, forKey: .meteredFeature) ?? "",
+            allowed: try container.decodeIfPresent(Bool.self, forKey: .allowed) ?? true,
+            limitReached: try container.decodeIfPresent(Bool.self, forKey: .limitReached) ?? false,
+            primary: try container.decodeIfPresent(UsageWindow.self, forKey: .primary),
+            secondary: try container.decodeIfPresent(UsageWindow.self, forKey: .secondary)
+        )
+    }
 }
 
 public struct UsageCredits: Codable, Sendable, Equatable {
@@ -107,7 +130,23 @@ public struct UsageCredits: Codable, Sendable, Equatable {
         self.hasCredits = hasCredits
         self.unlimited = unlimited
         let cleanBalance = balance?.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.balance = cleanBalance?.isEmpty == false ? cleanBalance : nil
+        self.balance = (hasCredits || unlimited) && cleanBalance?.isEmpty == false
+            ? cleanBalance : nil
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hasCredits
+        case unlimited
+        case balance
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            hasCredits: try container.decodeIfPresent(Bool.self, forKey: .hasCredits) ?? false,
+            unlimited: try container.decodeIfPresent(Bool.self, forKey: .unlimited) ?? false,
+            balance: try container.decodeIfPresent(String.self, forKey: .balance)
+        )
     }
 }
 
@@ -155,7 +194,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
 
     public var hasDisplayableData: Bool {
         fiveHour != nil || weekly != nil || !additionalLimits.isEmpty
-            || usageCredits != nil || resetCreditsAvailable != nil
+            || usageCredits?.hasCredits == true || usageCredits?.unlimited == true
+            || usageCredits?.balance != nil || resetCreditsAvailable != nil
     }
 
     public func isStale(at date: Date = Date(), maxAge: TimeInterval) -> Bool {

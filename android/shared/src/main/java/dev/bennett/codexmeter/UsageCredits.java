@@ -12,7 +12,8 @@ public final class UsageCredits {
     public UsageCredits(boolean hasCredits, boolean unlimited, String balance) {
         this.hasCredits = hasCredits;
         this.unlimited = unlimited;
-        this.balance = balance == null ? "" : balance.trim();
+        String cleanBalance = balance == null ? "" : balance.trim();
+        this.balance = hasCredits || unlimited ? cleanBalance : "";
     }
 
     public JSONObject toJson() throws JSONException {
