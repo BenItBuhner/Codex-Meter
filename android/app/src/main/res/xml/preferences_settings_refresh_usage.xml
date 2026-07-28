@@ -43,17 +43,17 @@
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_usage_credits"
-            android:summary="Purchased credits returned by OpenAI"
+            android:summary="Hidden automatically at a zero or negative balance"
             android:title="Usage-credit balance" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_usage_history"
-            android:summary="Local burn charts for your usage windows"
+            android:summary="Shown only when a 5-hour or weekly window is available"
             android:title="Usage history" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_reset_credits"
-            android:summary="Earned credits that can reset usage windows"
+            android:summary="Hidden automatically when no resets are available"
             android:title="Reset credits" />
     </PreferenceCategory>
 

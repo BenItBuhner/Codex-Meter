@@ -20,6 +20,7 @@ public final class ParserSelfTest {
         testOptionalUsageSections();
         testUsageCredits();
         testUsageCreditsAutoHide();
+        testResetCreditsAutoHide();
         testDashboardSectionOrder();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
@@ -695,6 +696,30 @@ public final class ParserSelfTest {
                 "snapshot with only a zero balance has nothing to display");
         System.out.println("Usage-credit auto-hide: zero, near-zero, and negative balances "
                 + "never render.");
+    }
+
+    private static void testResetCreditsAutoHide() {
+        check(new ResetCreditsSnapshot(3, java.util.Collections.emptyList(), 1L).shouldDisplay(),
+                "positive reset-credit inventory stays visible");
+        check(new ResetCreditsSnapshot(1, java.util.Collections.emptyList(), 1L).shouldDisplay(),
+                "single available reset stays visible");
+        check(!new ResetCreditsSnapshot(0, java.util.Collections.emptyList(), 1L).shouldDisplay(),
+                "zero available resets always hide the card");
+        check(ResetCreditsSnapshot.shouldDisplayCount(2),
+                "usage-endpoint summary count above zero stays visible");
+        check(!ResetCreditsSnapshot.shouldDisplayCount(0),
+                "usage-endpoint summary of zero hides the card");
+        check(!ResetCreditsSnapshot.shouldDisplayCount(-1),
+                "unknown reset-credit count never displays");
+        UsageSnapshot zeroResetsOnly = new UsageSnapshot("plus", true, false, null, null,
+                java.util.Collections.emptyList(), null, 0, 10L);
+        check(!zeroResetsOnly.hasDisplayableData(),
+                "snapshot with only a zero reset-credit count has nothing to display");
+        UsageSnapshot positiveResetsOnly = new UsageSnapshot("plus", true, false, null, null,
+                java.util.Collections.emptyList(), null, 2, 11L);
+        check(positiveResetsOnly.hasDisplayableData(),
+                "snapshot with available resets remains displayable");
+        System.out.println("Reset-credit auto-hide: zero inventory never renders on the dashboard.");
     }
 
     private static void testDashboardSectionOrder() {

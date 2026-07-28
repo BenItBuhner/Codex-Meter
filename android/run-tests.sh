@@ -85,12 +85,17 @@ grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.k
 ! grep -R -q 'thatjoshguy67/Codex-Meter' \
   "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
 
-# Dashboard reorder + usage-credit auto-hide wiring.
+# Dashboard reorder + usage-credit / reset-credit auto-hide wiring.
 grep -q 'testUsageCreditsAutoHide' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'testResetCreditsAutoHide' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'testDashboardSectionOrder' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'DashboardReorderActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'snapshot.usageCredits.shouldDisplay()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'shouldShowResetCreditsCard' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'public boolean shouldDisplay()' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java"
 grep -q 'DashboardSections.resolveOrder' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'ItemTouchHelper' \
@@ -125,6 +130,11 @@ grep -q 'weeklyWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+# The usage-history section itself also hides until a window can feed a chart.
+grep -q 'snapshot.fiveHour != null || snapshot.weekly != null' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'Hidden automatically when no resets are available' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
 
 # Reset/usage-credit dashboard cards use bold in-card titles with left-aligned icon rows,
 # matching the other dashboard cards, instead of external One UI separators or centered blocks.

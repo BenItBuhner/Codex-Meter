@@ -122,6 +122,10 @@ public struct UsageLimit: Codable, Sendable, Equatable, Identifiable {
 }
 
 public struct UsageCredits: Codable, Sendable, Equatable {
+    /// Balances below this render as "0" with the two fraction digits used across the app,
+    /// so they are treated as exhausted and never displayed.
+    private static let nearZeroBalance = Decimal(string: "0.005")!
+
     public let hasCredits: Bool
     public let unlimited: Bool
     public let balance: String?
@@ -132,6 +136,26 @@ public struct UsageCredits: Codable, Sendable, Equatable {
         let cleanBalance = balance?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.balance = (hasCredits || unlimited) && cleanBalance?.isEmpty == false
             ? cleanBalance : nil
+    }
+
+    /// Whether the balance is worth surfacing anywhere in the UI. Zero, effectively-zero,
+    /// and negative balances always hide the card, as does an account without purchased
+    /// credits. Unlimited plans and unparseable non-empty balances remain visible.
+    public var shouldDisplay: Bool {
+        if unlimited {
+            return true
+        }
+        if !hasCredits {
+            return false
+        }
+        guard let balance, !balance.isEmpty else {
+            return true
+        }
+        let normalized = balance.replacingOccurrences(of: ",", with: "")
+        guard let amount = Decimal(string: normalized) else {
+            return true
+        }
+        return amount >= Self.nearZeroBalance
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -194,8 +218,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
 
     public var hasDisplayableData: Bool {
         fiveHour != nil || weekly != nil || !additionalLimits.isEmpty
-            || usageCredits?.hasCredits == true || usageCredits?.unlimited == true
-            || usageCredits?.balance != nil || resetCreditsAvailable != nil
+            || usageCredits?.shouldDisplay == true
+            || (resetCreditsAvailable ?? 0) > 0
     }
 
     public func isStale(at date: Date = Date(), maxAge: TimeInterval) -> Bool {
@@ -305,6 +329,12 @@ public struct ResetCreditsSnapshot: Codable, Sendable, Equatable {
         self.availableCount = max(0, availableCount)
         self.credits = credits
         self.fetchedAt = fetchedAt
+    }
+
+    /// Whether inventory is worth surfacing on the dashboard. Zero available resets always
+    /// hide the card, even when the Settings toggle is on.
+    public var shouldDisplay: Bool {
+        availableCount > 0
     }
 
     public static func summary(availableCount: Int, fetchedAt: Date) -> Self {

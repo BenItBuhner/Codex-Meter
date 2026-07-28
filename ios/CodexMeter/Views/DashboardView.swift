@@ -45,6 +45,17 @@ struct DashboardView: View {
             || !additionalWindows.isEmpty
     }
 
+    /// Prefer the detailed credits snapshot; fall back to the usage-endpoint summary count.
+    private var shouldShowResetCredits: Bool {
+        if let credits = model.credits {
+            return credits.shouldDisplay
+        }
+        guard let count = model.usage?.resetCreditsAvailable else {
+            return false
+        }
+        return count > 0
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
@@ -111,11 +122,11 @@ struct DashboardView: View {
                     }
 
                     if model.settings.showUsageCredits,
-                       let usageCredits = model.usage?.usageCredits {
+                       let usageCredits = model.usage?.usageCredits,
+                       usageCredits.shouldDisplay {
                         UsageCreditsCard(credits: usageCredits)
                     }
-                    if model.settings.showResetCredits,
-                       model.credits != nil || model.usage?.resetCreditsAvailable != nil {
+                    if model.settings.showResetCredits, shouldShowResetCredits {
                         ResetCreditsCard()
                     }
                     PrivacyFootnote()

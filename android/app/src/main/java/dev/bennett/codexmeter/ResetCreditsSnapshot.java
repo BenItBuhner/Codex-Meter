@@ -30,6 +30,23 @@ public final class ResetCreditsSnapshot {
         return new ResetCreditsSnapshot(i, Collections.emptyList(), j);
     }
 
+    /**
+     * Whether inventory is worth surfacing on the dashboard. Zero available resets always
+     * hide the card, even when the Edit dashboard switch is on — matching usage-credit
+     * auto-hide and data-gated 5-hour / weekly cards.
+     */
+    public boolean shouldDisplay() {
+        return availableCount > 0;
+    }
+
+    /**
+     * Same rule for a summary count from the usage endpoint when the detailed credits
+     * snapshot is not cached yet. Negative / unknown counts never display.
+     */
+    public static boolean shouldDisplayCount(int availableCount) {
+        return availableCount > 0;
+    }
+
     public RateLimitResetCredit nextExpiringAvailable(long nowMillis) {
         List<RateLimitResetCredit> available = availableCreditsByExpiry(nowMillis);
         return available.isEmpty() ? null : available.get(0);

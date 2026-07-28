@@ -78,9 +78,10 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         content.addView(listCard);
 
         TextView note = Ui.text(this,
-                "Changes are saved instantly. The usage-credit balance stays hidden whenever "
-                        + "it is zero or below, no matter where it is placed or whether it is "
-                        + "switched on.",
+                "Changes are saved instantly. Usage-credit balance and reset credits stay hidden "
+                        + "when they have nothing to show (zero or below), and 5-hour, weekly, "
+                        + "and usage-history cards appear only while OpenAI reports data for them "
+                        + "— no matter where each card is placed or whether its switch is on.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
@@ -109,10 +110,10 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                         "Hidden automatically at a zero or negative balance"));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 items.add(new SectionItem(key, "Usage history",
-                        "Local burn charts for your usage windows"));
+                        "Shown only when a 5-hour or weekly window is available"));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
                 items.add(new SectionItem(key, "Reset credits",
-                        "Earned credits that can reset usage windows"));
+                        "Hidden automatically when no resets are available"));
             } else {
                 UsageLimit match = null;
                 for (UsageLimit limit : limits) {
