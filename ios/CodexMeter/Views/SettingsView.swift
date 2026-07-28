@@ -53,7 +53,7 @@ struct SettingsView: View {
             } header: {
                 Text("Dashboard")
             } footer: {
-                Text("Enabled items still appear only when OpenAI returns data for them. Additional limits include temporary model-specific allowances.")
+                Text("Enabled items still appear only when OpenAI returns data for them. Usage-credit balance and reset credits also stay hidden when the inventory is zero. Additional limits include temporary model-specific allowances.")
             }
 
             Section {

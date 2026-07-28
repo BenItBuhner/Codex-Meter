@@ -367,13 +367,15 @@ public final class MainActivity extends AppCompatActivity {
                     && snapshot.usageCredits.shouldDisplay()) {
                 available.add(DashboardSections.USAGE_CREDITS);
             }
+            // Usage history only appears once at least one window can feed a burn chart.
+            if (AppPreferences.showDashboardUsageHistory(this)
+                    && snapshot.fetchedAtMillis > 0L
+                    && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+                available.add(DashboardSections.USAGE_HISTORY);
+            }
         }
-        if (AppPreferences.showDashboardUsageHistory(this)) {
-            available.add(DashboardSections.USAGE_HISTORY);
-        }
-        if (AppPreferences.showDashboardResetCredits(this)
-                && (AppPreferences.loadResetCredits(this) != null
-                || (snapshot != null && snapshot.resetCreditsAvailable >= 0))) {
+        // Zero available resets always hide the card, even when the Edit dashboard switch is on.
+        if (AppPreferences.showDashboardResetCredits(this) && shouldShowResetCreditsCard(snapshot)) {
             available.add(DashboardSections.RESET_CREDITS);
         }
         boolean inverted = false;
@@ -752,6 +754,19 @@ public final class MainActivity extends AppCompatActivity {
 
     private void openResetCredits() {
         Ui.startSecondaryActivity(this, ResetCreditActivity.class);
+    }
+
+    /**
+     * Prefer the detailed reset-credits cache; fall back to the usage-endpoint summary count.
+     * Unknown inventory never surfaces an empty card.
+     */
+    private boolean shouldShowResetCreditsCard(UsageSnapshot snapshot) {
+        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
+        if (credits != null) {
+            return credits.shouldDisplay();
+        }
+        return snapshot != null
+                && ResetCreditsSnapshot.shouldDisplayCount(snapshot.resetCreditsAvailable);
     }
 
     private LinearLayout buildWidgetCard() {

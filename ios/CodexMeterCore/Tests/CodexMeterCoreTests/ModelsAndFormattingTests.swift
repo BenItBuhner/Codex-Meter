@@ -148,6 +148,44 @@ final class ModelsAndFormattingTests: XCTestCase {
         )
     }
 
+    func testUsageAndResetCreditsAutoHide() {
+        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "2500").shouldDisplay)
+        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "0.01").shouldDisplay)
+        XCTAssertTrue(UsageCredits(hasCredits: false, unlimited: true, balance: nil).shouldDisplay)
+        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: nil).shouldDisplay)
+        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "12k credits").shouldDisplay)
+        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0").shouldDisplay)
+        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0.00").shouldDisplay)
+        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0.004").shouldDisplay)
+        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "-12.5").shouldDisplay)
+        XCTAssertFalse(UsageCredits(hasCredits: false, unlimited: false, balance: "500").shouldDisplay)
+
+        XCTAssertTrue(ResetCreditsSnapshot.summary(availableCount: 2, fetchedAt: .now).shouldDisplay)
+        XCTAssertFalse(ResetCreditsSnapshot.summary(availableCount: 0, fetchedAt: .now).shouldDisplay)
+
+        let zeroResetsOnly = UsageSnapshot(
+            planType: "plus",
+            allowed: true,
+            limitReached: false,
+            fiveHour: nil,
+            weekly: nil,
+            resetCreditsAvailable: 0,
+            fetchedAt: Date(timeIntervalSince1970: 1)
+        )
+        XCTAssertFalse(zeroResetsOnly.hasDisplayableData)
+
+        let positiveResetsOnly = UsageSnapshot(
+            planType: "plus",
+            allowed: true,
+            limitReached: false,
+            fiveHour: nil,
+            weekly: nil,
+            resetCreditsAvailable: 3,
+            fetchedAt: Date(timeIntervalSince1970: 1)
+        )
+        XCTAssertTrue(positiveResetsOnly.hasDisplayableData)
+    }
+
     func testResetOutcomeMessagesAndRoundTrip() throws {
         let success = ResetConsumeResult(
             outcome: .reset,
