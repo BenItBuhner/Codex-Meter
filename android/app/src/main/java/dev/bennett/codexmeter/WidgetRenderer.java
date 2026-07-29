@@ -176,7 +176,8 @@ public final class WidgetRenderer {
         boolean zChooseDark = chooseDark(context, widgetOptionsDefaults);
         WidgetState widgetStateError = WidgetState.error("Open Codex Meter to recover");
         applyRootAndHeader(context, remoteViews, i, widgetOptionsDefaults, zChooseDark, widgetStateError);
-        renderMinimal(context, remoteViews, widgetOptionsDefaults, zChooseDark, widgetStateError);
+        renderMinimal(context, remoteViews, widgetOptionsDefaults, zChooseDark, widgetStateError,
+                java.util.Collections.emptyList());
         return remoteViews;
     }
 
