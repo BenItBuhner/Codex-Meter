@@ -62,6 +62,8 @@ public final class WidgetOptions {
     public final boolean showPercentSymbol;
     public final String surfaceStyle;
     public final String theme;
+    /** Ordered CSV of {@link WidgetMeters} keys; empty means migrate from {@link #metricMode}. */
+    public final String visibleMeters;
 
     public WidgetOptions(String str, String str2, String str3, int i, String str4, String str5) {
         this(str, "auto", SURFACE_MATERIAL, "auto", str2, str3, i, str4, str5, "both", false, true, true, true, false, false);
@@ -81,12 +83,20 @@ public final class WidgetOptions {
 
     public WidgetOptions(String str, String str2, String str3, String str4, String str5, String str6, int i, String str7, String str8, String str9, boolean z, boolean z2, boolean z3, boolean z4, boolean z5, boolean z6) {
         this(str, str2, str3, str4, str5, str6, i, str7, str8, str9, z, z2, z3,
-                z4, z5, z6, true);
+                z4, z5, z6, true, "");
     }
 
     private WidgetOptions(String str, String str2, String str3, String str4, String str5,
             String str6, int i, String str7, String str8, String str9, boolean z, boolean z2,
             boolean z3, boolean z4, boolean z5, boolean z6, boolean showPercentSymbol) {
+        this(str, str2, str3, str4, str5, str6, i, str7, str8, str9, z, z2, z3, z4, z5, z6,
+                showPercentSymbol, "");
+    }
+
+    private WidgetOptions(String str, String str2, String str3, String str4, String str5,
+            String str6, int i, String str7, String str8, String str9, boolean z, boolean z2,
+            boolean z3, boolean z4, boolean z5, boolean z6, boolean showPercentSymbol,
+            String visibleMeters) {
         this.layout = normalizeStyle(str);
         this.density = oneOf(str2, "auto", "compact", DENSITY_COMFORTABLE) ? str2 : "auto";
         this.surfaceStyle = oneOf(str3, SURFACE_MATERIAL, SURFACE_ONE_UI) ? str3 : SURFACE_MATERIAL;
@@ -112,6 +122,7 @@ public final class WidgetOptions {
         this.showResetCredits = z5;
         this.showResetAction = z6;
         this.showPercentSymbol = showPercentSymbol;
+        this.visibleMeters = visibleMeters == null ? "" : visibleMeters.trim();
     }
 
     public WidgetOptions withPercentSymbol(boolean show) {
@@ -119,11 +130,23 @@ public final class WidgetOptions {
                 this.graphicScale, this.theme, this.accent, this.opacity, this.resetMode,
                 this.displayMode, this.metricMode, this.showTitle, this.showPlan,
                 this.showUpdated, this.showRefresh, this.showResetCredits,
-                this.showResetAction, show);
+                this.showResetAction, show, this.visibleMeters);
+    }
+
+    public WidgetOptions withVisibleMeters(String metersCsv) {
+        return new WidgetOptions(this.layout, this.density, this.surfaceStyle,
+                this.graphicScale, this.theme, this.accent, this.opacity, this.resetMode,
+                this.displayMode, this.metricMode, this.showTitle, this.showPlan,
+                this.showUpdated, this.showRefresh, this.showResetCredits,
+                this.showResetAction, this.showPercentSymbol,
+                metersCsv == null ? "" : metersCsv);
     }
 
     public static WidgetOptions defaults() {
-        return new WidgetOptions(STYLE_RINGS, "auto", SURFACE_ONE_UI, "auto", THEME_SYSTEM, ACCENT_BLUE, DEFAULT_OPACITY, RESET_HIDDEN, DISPLAY_REMAINING, "both", false, false, false, false, false, false);
+        return new WidgetOptions(STYLE_AUTO, "auto", SURFACE_ONE_UI, "auto", THEME_SYSTEM,
+                ACCENT_BLUE, DEFAULT_OPACITY, RESET_HIDDEN, DISPLAY_REMAINING, "both",
+                false, false, false, false, false, false)
+                .withVisibleMeters(WidgetMeters.serialize(WidgetMeters.defaultVisible()));
     }
 
     /** Nearest allowed opacity when background is on; {@code 0} stays fully off. */
@@ -155,16 +178,28 @@ public final class WidgetOptions {
         return 1;
     }
 
+    /** Effective auto / dials / bars preference used by the renderer. */
+    public String layoutPreference() {
+        return WidgetMeters.layoutPreference(this.layout);
+    }
+
+    /** Resolved visible-meters CSV, migrating from metric_mode when unset. */
+    public String effectiveVisibleMeters() {
+        return WidgetMeters.effectiveVisibleCsv(this.visibleMeters, this.metricMode);
+    }
+
     public boolean showsFiveHour() {
-        return !"weekly".equals(this.metricMode);
+        return WidgetMeters.contains(
+                WidgetMeters.parse(effectiveVisibleMeters()), WidgetMeters.FIVE_HOUR);
     }
 
     public boolean showsWeekly() {
-        return !"five_hour".equals(this.metricMode);
+        return WidgetMeters.contains(
+                WidgetMeters.parse(effectiveVisibleMeters()), WidgetMeters.WEEKLY);
     }
 
     public boolean singleMetric() {
-        return !"both".equals(this.metricMode);
+        return WidgetMeters.singleUsageMetric(WidgetMeters.parse(effectiveVisibleMeters()));
     }
 
     public static String normalizeStyle(String str) {
@@ -174,7 +209,10 @@ public final class WidgetOptions {
         if ("compact".equals(str)) {
             return STYLE_MINIMAL;
         }
-        return !oneOf(str, "auto", STYLE_BARS, STYLE_RINGS, STYLE_DIALS, STYLE_MINIMAL) ? "auto" : str;
+        // Keep rings/minimal as stored values for transfer round-trips; layoutPreference()
+        // maps them to adaptive auto at render time.
+        return !oneOf(str, "auto", STYLE_BARS, STYLE_RINGS, STYLE_DIALS, STYLE_MINIMAL)
+                ? "auto" : str;
     }
 
     public static String normalizeTapAction(String value) {

@@ -25,6 +25,9 @@ import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RadioItemView;
 import dev.oneuiproject.oneui.widget.RadioItemViewGroup;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 public final class WidgetConfigActivity extends AppCompatActivity {
     private Spinner accentSpinner;
@@ -33,8 +36,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private boolean dark;
     private Spinner displaySpinner;
     private CardItemView displayRow;
-    private Spinner metricSpinner;
-    private CardItemView metricRow;
+    private Spinner styleSpinner;
+    private CardItemView styleRow;
     private SeslSeekBar opacitySlider;
     private SwitchCompat backgroundSwitch;
     private SwitchCompat percentSymbolSwitch;
@@ -44,6 +47,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private Bundle widgetSize = new Bundle();
     private Spinner themeSpinner;
     private CardItemView themeRow;
+    private TextView metersHint;
+    private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private String tapAction = WidgetOptions.TAP_OPEN_APP;
     private final int tapOpenId = View.generateViewId();
     private final int tapRefreshId = View.generateViewId();
@@ -86,6 +91,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
         WidgetOptions saved = AppPreferences.loadWidgetOptions(this, this.appWidgetId);
         this.tapAction = AppPreferences.getWidgetTapAction(this, this.appWidgetId);
+        this.selectedMeters.clear();
+        this.selectedMeters.addAll(WidgetMeters.parse(saved.effectiveVisibleMeters()));
 
         content.addView(Ui.separator(this, "Appearance"));
         RoundedLinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
@@ -114,28 +121,60 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
         this.themeSpinner = Ui.spinner(this, WidgetOptionCatalog.THEME_LABELS, this.dark);
         this.accentSpinner = Ui.spinner(this, WidgetOptionCatalog.ACCENT_LABELS, this.dark);
+        this.styleSpinner = Ui.spinner(this, WidgetOptionCatalog.STYLE_LABELS, this.dark);
         WidgetOptionCatalog.selectString(this.themeSpinner, WidgetOptionCatalog.THEME_VALUES,
                 saved.theme);
         WidgetOptionCatalog.selectString(this.accentSpinner, WidgetOptionCatalog.ACCENT_VALUES,
                 saved.accent);
+        WidgetOptionCatalog.selectString(this.styleSpinner, WidgetOptionCatalog.STYLE_VALUES,
+                saved.layoutPreference());
+        this.styleRow = addOptionRow(appearanceCard, "Layout", this.styleSpinner,
+                WidgetOptionCatalog.STYLE_LABELS, true);
         this.themeRow = addOptionRow(appearanceCard, "Theme", this.themeSpinner,
                 WidgetOptionCatalog.THEME_LABELS, true);
         this.accentRow = addOptionRow(appearanceCard, "Accent", this.accentSpinner,
                 WidgetOptionCatalog.ACCENT_LABELS, true);
         content.addView(appearanceCard);
 
+        content.addView(Ui.separator(this, "Meters"));
+        RoundedLinearLayout metersCard = Ui.seslRowCard(this, this.dark);
+        this.metersHint = Ui.text(this, "", 13, Ui.secondaryText(this.dark));
+        this.metersHint.setPadding(Ui.dp(this, 20), Ui.dp(this, 12), Ui.dp(this, 20),
+                Ui.dp(this, 4));
+        metersCard.addView(this.metersHint);
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        List<String> available = WidgetMeters.availableKeys(snapshot);
+        boolean firstMeter = true;
+        for (String key : available) {
+            SwitchCompat toggle = new SwitchCompat(this);
+            toggle.setChecked(this.selectedMeters.contains(key));
+            String label = WidgetMeters.configLabel(key, snapshot);
+            metersCard.addView(buildSwitchRow(label, toggle, !firstMeter));
+            firstMeter = false;
+            toggle.setOnCheckedChangeListener((button, checked) -> {
+                if (checked) {
+                    this.selectedMeters.add(key);
+                } else {
+                    this.selectedMeters.remove(key);
+                    if (this.selectedMeters.isEmpty()) {
+                        this.selectedMeters.add(key);
+                        button.setChecked(true);
+                        return;
+                    }
+                }
+                updateMetersHint();
+                renderPreview();
+            });
+        }
+        content.addView(metersCard);
+
         content.addView(Ui.separator(this, "Content"));
         RoundedLinearLayout contentCard = Ui.seslRowCard(this, this.dark);
-        this.metricSpinner = Ui.spinner(this, WidgetOptionCatalog.METRIC_LABELS, this.dark);
-        WidgetOptionCatalog.selectString(this.metricSpinner, WidgetOptionCatalog.METRIC_VALUES,
-                saved.metricMode);
-        this.metricRow = addOptionRow(contentCard, "Allowance", this.metricSpinner,
-                WidgetOptionCatalog.METRIC_LABELS, false);
         this.displaySpinner = Ui.spinner(this, WidgetOptionCatalog.DISPLAY_LABELS, this.dark);
         WidgetOptionCatalog.selectString(this.displaySpinner, WidgetOptionCatalog.DISPLAY_VALUES,
                 saved.displayMode);
         this.displayRow = addOptionRow(contentCard, "Percentage", this.displaySpinner,
-                WidgetOptionCatalog.DISPLAY_LABELS, true);
+                WidgetOptionCatalog.DISPLAY_LABELS, false);
         View symbolDivider = new View(this);
         symbolDivider.setBackgroundColor(Ui.divider(this.dark));
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 1));
@@ -153,6 +192,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 updateRowSummaries();
+                updateMetersHint();
                 renderPreview();
             }
 
@@ -160,10 +200,10 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             public void onNothingSelected(AdapterView<?> parent) {
             }
         };
+        this.styleSpinner.setOnItemSelectedListener(selectionListener);
         this.themeSpinner.setOnItemSelectedListener(selectionListener);
         this.accentSpinner.setOnItemSelectedListener(selectionListener);
         this.displaySpinner.setOnItemSelectedListener(selectionListener);
-        this.metricSpinner.setOnItemSelectedListener(selectionListener);
         this.percentSymbolSwitch.setOnCheckedChangeListener((button, checked) -> renderPreview());
         this.backgroundSwitch.setOnCheckedChangeListener((button, checked) -> {
             applyBackgroundEnabled(checked);
@@ -189,6 +229,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         page.save.setOnClickListener(view -> save());
         updateSliderVisuals();
         updateRowSummaries();
+        updateMetersHint();
         renderPreview();
     }
 
@@ -285,6 +326,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private void applyPreviewSelection(Spinner spinner, int position) {
         spinner.setSelection(position);
         updateRowSummaries();
+        updateMetersHint();
         renderPreview();
     }
 
@@ -295,7 +337,9 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                         WidgetOptionCatalog.OPACITY_VALUES.length - 1,
                         this.opacitySlider.getProgress()))]
                 : 0;
-        return new WidgetOptions(WidgetOptions.STYLE_RINGS,
+        String layout = WidgetOptionCatalog.STYLE_VALUES[
+                Math.max(0, this.styleSpinner.getSelectedItemPosition())];
+        return new WidgetOptions(layout,
                 WidgetOptions.DENSITY_AUTO,
                 WidgetOptions.SURFACE_ONE_UI, WidgetOptions.GRAPHIC_AUTO,
                 WidgetOptionCatalog.THEME_VALUES[this.themeSpinner.getSelectedItemPosition()],
@@ -303,15 +347,20 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 opacity,
                 WidgetOptions.RESET_HIDDEN,
                 WidgetOptionCatalog.DISPLAY_VALUES[this.displaySpinner.getSelectedItemPosition()],
-                WidgetOptionCatalog.METRIC_VALUES[this.metricSpinner.getSelectedItemPosition()],
+                WidgetOptions.METRIC_BOTH,
                 false, false, false, false, false, false)
                 .withPercentSymbol(this.percentSymbolSwitch == null
-                        || this.percentSymbolSwitch.isChecked());
+                        || this.percentSymbolSwitch.isChecked())
+                .withVisibleMeters(WidgetMeters.serialize(new ArrayList<>(this.selectedMeters)));
     }
 
     private void updateRowSummaries() {
         if (this.themeRow == null) {
             return;
+        }
+        if (this.styleRow != null) {
+            this.styleRow.setSummary(WidgetOptionCatalog.STYLE_LABELS[
+                    this.styleSpinner.getSelectedItemPosition()]);
         }
         this.themeRow.setSummary(WidgetOptionCatalog.THEME_LABELS[
                 this.themeSpinner.getSelectedItemPosition()]);
@@ -319,8 +368,29 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 this.accentSpinner.getSelectedItemPosition()]);
         this.displayRow.setSummary(WidgetOptionCatalog.DISPLAY_LABELS[
                 this.displaySpinner.getSelectedItemPosition()]);
-        this.metricRow.setSummary(WidgetOptionCatalog.METRIC_LABELS[
-                this.metricSpinner.getSelectedItemPosition()]);
+    }
+
+    private void updateMetersHint() {
+        if (this.metersHint == null) {
+            return;
+        }
+        WidgetOptions options = currentOptions();
+        int height = positiveOption("appWidgetMinHeight", "appWidgetMaxHeight", 70);
+        int width = positiveOption("appWidgetMinWidth", "appWidgetMaxWidth", 110);
+        int rows = this.widgetSize.getInt("semAppWidgetRowSpan", 0);
+        int columns = this.widgetSize.getInt("semAppWidgetColumnSpan", 0);
+        String visual = WidgetMeters.resolveHomeVisualStyle(options.layoutPreference(),
+                options.singleMetric(), rows, columns, height, width);
+        int capacity = WidgetMeters.slotCapacity(visual, height);
+        int selected = this.selectedMeters.size();
+        String message = "This size shows up to " + capacity + " meter"
+                + (capacity == 1 ? "" : "s") + ".";
+        if (selected > capacity) {
+            message += " " + (selected - capacity) + " extra selection"
+                    + (selected - capacity == 1 ? " is" : "s are")
+                    + " saved and appear when the widget is larger.";
+        }
+        this.metersHint.setText(message);
     }
 
     private void renderPreview() {

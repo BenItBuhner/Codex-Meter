@@ -30,6 +30,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java" \
