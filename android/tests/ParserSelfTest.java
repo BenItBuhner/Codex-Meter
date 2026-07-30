@@ -29,6 +29,7 @@ public final class ParserSelfTest {
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
         testFullWindowHidesResetCountdown();
+        testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
         testAdaptiveRefreshPolicy();
@@ -66,6 +67,42 @@ public final class ParserSelfTest {
         check(almostFull.showsResetCountdown(), "99% remaining still shows reset countdown");
         check(used.showsResetCountdown(), "partial usage shows reset countdown");
         System.out.println("Reset-countdown demo: hide at 100% remaining, show again at 99% or less.");
+    }
+
+    private static void testLowUsageAlertDedup() {
+        long windowSeconds = TimeUnit.HOURS.toSeconds(5);
+        long reset = 2_000_000_000_000L;
+        check(UsageWindow.shouldAnnounceLowUsage(0L, reset, windowSeconds),
+                "first low-usage sighting announces");
+        check(!UsageWindow.shouldAnnounceLowUsage(reset, reset, windowSeconds),
+                "exact same reset does not re-announce");
+        check(!UsageWindow.shouldAnnounceLowUsage(reset, reset + TimeUnit.SECONDS.toMillis(1),
+                        windowSeconds),
+                "one-second reset drift does not re-announce");
+        check(!UsageWindow.shouldAnnounceLowUsage(reset, reset + TimeUnit.MINUTES.toMillis(1),
+                        windowSeconds),
+                "one-minute reset drift does not re-announce");
+        check(!UsageWindow.shouldAnnounceLowUsage(reset, reset + TimeUnit.MINUTES.toMillis(14),
+                        windowSeconds),
+                "sub-tolerance drift does not re-announce");
+        check(UsageWindow.shouldAnnounceLowUsage(reset,
+                        reset + TimeUnit.HOURS.toMillis(5), windowSeconds),
+                "next five-hour window announces again");
+        check(UsageWindow.sameResetWindow(reset, windowSeconds,
+                        reset + TimeUnit.SECONDS.toMillis(45), windowSeconds),
+                "nearby resets are the same window");
+        check(!UsageWindow.sameResetWindow(reset, windowSeconds,
+                        reset + TimeUnit.HOURS.toMillis(5), windowSeconds),
+                "hours-apart resets are distinct windows");
+        long fetchedAt = reset - TimeUnit.HOURS.toMillis(2);
+        UsageWindow relative = new UsageWindow(75, windowSeconds,
+                TimeUnit.HOURS.toSeconds(2), 0L);
+        long computed = relative.effectiveResetAtMillis(fetchedAt);
+        check(computed == reset, "reset-after fallback yields absolute reset");
+        check(!UsageWindow.shouldAnnounceLowUsage(reset,
+                        relative.effectiveResetAtMillis(fetchedAt + 500L), windowSeconds),
+                "millisecond fetch skew with reset-after does not re-announce");
+        System.out.println("Low-usage alert dedupe: one shot per window despite reset drift.");
     }
 
     private static void testUsagePace() {

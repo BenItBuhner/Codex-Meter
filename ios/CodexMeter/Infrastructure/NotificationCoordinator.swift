@@ -22,15 +22,38 @@ nonisolated public enum NotificationDeduplication {
         Int(resetDate.timeIntervalSince1970)
     }
 
-    public static func shouldDeliverLowUsage(
-        lastDeliveredWindowToken: Int?,
-        resetDate: Date
-    ) -> Bool {
-        lastDeliveredWindowToken != windowToken(for: resetDate)
+    /// OpenAI reset timestamps drift across refreshes; match Android's window tolerance.
+    public static func resetWindowToleranceSeconds(windowSeconds: Int64) -> Int {
+        if windowSeconds <= 0 { return 60 }
+        let proportional = Int(windowSeconds / 20)
+        return min(15 * 60, max(60, proportional))
     }
 
-    public static func lowUsageIdentifier(metric: AlertMetric, resetDate: Date) -> String {
-        "\(identifierPrefix)low.\(metric.rawValue).\(windowToken(for: resetDate))"
+    public static func sameResetWindow(
+        leftToken: Int,
+        rightToken: Int,
+        windowSeconds: Int64
+    ) -> Bool {
+        abs(leftToken - rightToken) <= resetWindowToleranceSeconds(windowSeconds: windowSeconds)
+    }
+
+    public static func shouldDeliverLowUsage(
+        lastDeliveredWindowToken: Int?,
+        resetDate: Date,
+        windowSeconds: Int64
+    ) -> Bool {
+        let current = windowToken(for: resetDate)
+        guard let lastDeliveredWindowToken else { return true }
+        return !sameResetWindow(
+            leftToken: lastDeliveredWindowToken,
+            rightToken: current,
+            windowSeconds: windowSeconds
+        )
+    }
+
+    /// Stable per-metric id so refresh drift cannot create a second low-usage alert.
+    public static func lowUsageIdentifier(metric: AlertMetric) -> String {
+        "\(identifierPrefix)low.\(metric.rawValue)"
     }
 
     public static func resetIdentifier(metric: AlertMetric, resetDate: Date) -> String {
@@ -264,19 +287,21 @@ public actor NotificationCoordinator {
             )
         )
         guard window.hasRemainingAllowance(atOrBelow: threshold) else { return }
-        let identifier = NotificationDeduplication.lowUsageIdentifier(
-            metric: metric,
-            resetDate: resetDate
-        )
+        let identifier = NotificationDeduplication.lowUsageIdentifier(metric: metric)
         currentLowIdentifiers.insert(identifier)
         let stateKey = Self.lowUsageStatePrefix + metric.rawValue
         let previousWindowToken = defaults.object(forKey: stateKey) == nil
             ? nil
             : defaults.integer(forKey: stateKey)
+        let currentToken = NotificationDeduplication.windowToken(for: resetDate)
         guard NotificationDeduplication.shouldDeliverLowUsage(
             lastDeliveredWindowToken: previousWindowToken,
-            resetDate: resetDate
+            resetDate: resetDate,
+            windowSeconds: window.windowSeconds
         ) else {
+            if previousWindowToken != currentToken {
+                defaults.set(currentToken, forKey: stateKey)
+            }
             return
         }
         let lowContent = UNMutableNotificationContent()
@@ -287,7 +312,7 @@ public actor NotificationCoordinator {
             try await center.add(
                 UNNotificationRequest(identifier: identifier, content: lowContent, trigger: nil)
             )
-            defaults.set(NotificationDeduplication.windowToken(for: resetDate), forKey: stateKey)
+            defaults.set(currentToken, forKey: stateKey)
         } catch {
             // Leave the state unset so a later refresh can retry delivery.
         }
