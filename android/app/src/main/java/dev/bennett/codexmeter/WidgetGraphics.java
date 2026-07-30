@@ -86,6 +86,12 @@ public final class WidgetGraphics {
     }
 
     public static Bitmap dial(int i, int i2, int i3, int i4, String str, float f) {
+        return dial(i, i2, i3, i4, i < 0 ? "—" : clamp(i) + "%", str, f);
+    }
+
+    /** Gauge dial with an explicit center value (countdowns, credit counts, plain percents). */
+    public static Bitmap dial(int i, int i2, int i3, int i4, String centerText, String str,
+            float f) {
         float fClampScale = clampScale(f);
         int iRound = Math.round(260.0f * fClampScale);
         Bitmap bitmapCreateBitmap = Bitmap.createBitmap(iRound, Math.round(190.0f * fClampScale), Bitmap.Config.ARGB_8888);
@@ -115,8 +121,12 @@ public final class WidgetGraphics {
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setTypeface(Typeface.create("sans-serif", 1));
         paint.setColor(i4);
-        paint.setTextSize(48.0f * fClampScale);
-        canvas.drawText(i < 0 ? "—" : clamp(i) + "%", iRound / 2.0f, 130.0f * fClampScale, paint);
+        String center = centerText == null || centerText.isEmpty() ? "—" : centerText;
+        // Percent values fit at full size; longer countdown strings scale down to stay inside.
+        float centerSize = center.length() <= 4
+                ? 48.0f : Math.max(24.0f, 48.0f * (4.5f / center.length()));
+        paint.setTextSize(centerSize * fClampScale);
+        canvas.drawText(center, iRound / 2.0f, 130.0f * fClampScale, paint);
         paint.setTypeface(Typeface.create("sans-serif-medium", 0));
         paint.setTextSize(19.0f * fClampScale);
         paint.setColor(withAlpha(i4, 0.68f));

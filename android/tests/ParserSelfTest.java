@@ -43,6 +43,7 @@ public final class ParserSelfTest {
         testJwtMerge();
         testPkce();
         testWidgetOptions();
+        testWidgetMeters();
         testOnboardingFlow();
         testOAuthBrowserPage();
         testReleaseVersions();
@@ -984,12 +985,13 @@ public final class ParserSelfTest {
 
 
     private static void testSettingsTransfer() throws Exception {
-        WidgetOptions widget = new WidgetOptions(WidgetOptions.STYLE_RINGS,
+        WidgetOptions widget = new WidgetOptions(WidgetOptions.STYLE_DIALS,
                 WidgetOptions.DENSITY_COMFORTABLE, WidgetOptions.SURFACE_ONE_UI,
                 WidgetOptions.GRAPHIC_MAX, WidgetOptions.THEME_DARK, WidgetOptions.ACCENT_BLUE,
                 94, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
                 WidgetOptions.METRIC_BOTH, false, true, false, true, true, false)
-                .withPercentSymbol(false);
+                .withPercentSymbol(false)
+                .withVisibleMeters("five_hour,limit:codex-spark:primary,weekly");
         org.json.JSONObject appSettings = new org.json.JSONObject()
                 .put("app_theme", WidgetOptions.THEME_DARK)
                 .put("material_you", true)
@@ -1041,6 +1043,9 @@ public final class ParserSelfTest {
                 parsed.appSettings.getJSONObject("default_widget"));
         check(WidgetOptions.THEME_DARK.equals(restored.theme), "widget theme restored");
         check(WidgetOptions.ACCENT_BLUE.equals(restored.accent), "widget accent restored");
+        check(WidgetOptions.STYLE_DIALS.equals(restored.layout), "widget layout preference restored");
+        check("five_hour,limit:codex-spark:primary,weekly".equals(restored.visibleMeters),
+                "widget visible meters restored");
         check(parsed.appSettings.getBoolean("material_you"), "material you preference restored");
         check(UsagePace.RELAXED.equals(
                         parsed.appSettings.getString("usage_pace_sensitivity")),
@@ -1213,6 +1218,124 @@ public final class ParserSelfTest {
         check(weeklyOnly.singleMetric() && !weeklyOnly.showsFiveHour()
                         && weeklyOnly.showsWeekly(),
                 "weekly-only widget exposes one dial");
+        check(WidgetMeters.PREF_AUTO.equals(WidgetOptions.defaults().layoutPreference()),
+                "default layout preference is adaptive");
+        WidgetOptions dialsPref = new WidgetOptions(WidgetOptions.STYLE_DIALS,
+                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_BLUE,
+                88, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                "both", false, false, false, false, false, false);
+        check(WidgetMeters.PREF_DIALS.equals(dialsPref.layoutPreference()),
+                "dials layout preference preserved");
+        WidgetOptions barsPref = new WidgetOptions(WidgetOptions.STYLE_BARS,
+                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI,
+                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM, WidgetOptions.ACCENT_BLUE,
+                88, WidgetOptions.RESET_HIDDEN, WidgetOptions.DISPLAY_REMAINING,
+                "both", false, false, false, false, false, false);
+        check(WidgetMeters.PREF_BARS.equals(barsPref.layoutPreference()),
+                "bars layout preference preserved");
+        check(WidgetMeters.PREF_AUTO.equals(
+                        new WidgetOptions(WidgetOptions.STYLE_RINGS,
+                                WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI,
+                                WidgetOptions.GRAPHIC_AUTO, WidgetOptions.THEME_SYSTEM,
+                                WidgetOptions.ACCENT_BLUE, 88, WidgetOptions.RESET_HIDDEN,
+                                WidgetOptions.DISPLAY_REMAINING, "both", false, false, false,
+                                false, false, false).layoutPreference()),
+                "legacy rings maps to adaptive preference");
+    }
+
+    private static void testWidgetMeters() {
+        check(WidgetMeters.serialize(WidgetMeters.defaultVisible())
+                        .equals("five_hour,weekly,next_reset,reset_credits"),
+                "default visible meters csv");
+        check(WidgetMeters.serialize(WidgetMeters.fromMetricMode("five_hour"))
+                        .equals("five_hour"),
+                "metric mode five-hour migrates");
+        check(WidgetMeters.serialize(WidgetMeters.fromMetricMode("weekly"))
+                        .equals("weekly"),
+                "metric mode weekly migrates");
+        check(WidgetMeters.effectiveVisibleCsv("", "both")
+                        .equals("five_hour,weekly,next_reset,reset_credits"),
+                "empty visible meters falls back to metric mode");
+        check(WidgetMeters.effectiveVisibleCsv("weekly,five_hour", "both")
+                        .equals("weekly,five_hour"),
+                "saved visible meters keep order");
+
+        UsageLimit spark = new UsageLimit("codex-spark", "GPT-5.3-Codex-Spark",
+                "codex_bengalfox", true, false,
+                new UsageWindow(40, 18000L, 600L, 0L),
+                new UsageWindow(70, 604800L, 600L, 0L));
+        UsageSnapshot snapshot = new UsageSnapshot("plus", true, false,
+                new UsageWindow(20, 18000L, 600L, 0L),
+                new UsageWindow(50, 604800L, 600L, 0L),
+                java.util.Arrays.asList(spark), null, 0, System.currentTimeMillis());
+        List<String> available = WidgetMeters.availableKeys(snapshot);
+        check(available.contains(WidgetMeters.FIVE_HOUR)
+                        && available.contains(WidgetMeters.WEEKLY)
+                        && available.contains(WidgetMeters.limitPrimaryKey(spark))
+                        && available.contains(WidgetMeters.limitSecondaryKey(spark))
+                        && available.contains(WidgetMeters.NEXT_RESET)
+                        && available.contains(WidgetMeters.RESET_CREDITS),
+                "available meters include spark windows");
+        List<String> resolved = WidgetMeters.resolveVisible(
+                "five_hour,limit:codex-spark:primary,limit:missing:primary,weekly",
+                available);
+        check(resolved.equals(java.util.Arrays.asList(
+                        WidgetMeters.FIVE_HOUR,
+                        WidgetMeters.limitPrimaryKey(spark),
+                        WidgetMeters.WEEKLY)),
+                "resolveVisible drops stale keys and keeps order");
+        check(WidgetMeters.cap(resolved, 2).equals(java.util.Arrays.asList(
+                        WidgetMeters.FIVE_HOUR, WidgetMeters.limitPrimaryKey(spark))),
+                "capacity truncates to first N meters");
+        check(WidgetMeters.resolveVisibleOrDefault(
+                        "limit:gone-model:primary", available, "both")
+                        .equals(WidgetMeters.defaultVisible()),
+                "all-stale selection falls back to default meters");
+        check(WidgetMeters.resolveVisibleOrDefault(
+                        "limit:gone-model:primary", available, "weekly")
+                        .equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
+                "stale selection falls back to legacy metric mode");
+        check(WidgetMeters.resolveVisibleOrDefault(
+                        "weekly,five_hour", available, "both")
+                        .equals(java.util.Arrays.asList(WidgetMeters.WEEKLY,
+                                WidgetMeters.FIVE_HOUR)),
+                "valid selection is not replaced by fallback");
+        check(WidgetMeters.lockSlotCapacity() == 2, "lock widgets cap at two meters");
+        check(WidgetMeters.shortLabel(WidgetMeters.limitPrimaryKey(spark), snapshot)
+                        .equals("Spark 5h"),
+                "spark primary short label");
+        check(WidgetMeters.shortLabel(WidgetMeters.limitSecondaryKey(spark), snapshot)
+                        .equals("Spark W"),
+                "spark secondary short label");
+
+        check(WidgetMeters.VISUAL_RINGS.equals(WidgetMeters.resolveHomeVisualStyle(
+                        WidgetMeters.PREF_AUTO, false, 1, 2, 70, 110)),
+                "auto short both uses rings");
+        check(WidgetMeters.VISUAL_FOUR_DIALS.equals(WidgetMeters.resolveHomeVisualStyle(
+                        WidgetMeters.PREF_AUTO, false, 1, 4, 70, 250)),
+                "auto wide short both uses four dials");
+        check(WidgetMeters.VISUAL_BATTERY_LIST.equals(WidgetMeters.resolveHomeVisualStyle(
+                        WidgetMeters.PREF_AUTO, false, 2, 2, 156, 110)),
+                "auto tall both uses battery list");
+        check(WidgetMeters.VISUAL_DIALS.equals(WidgetMeters.resolveHomeVisualStyle(
+                        WidgetMeters.PREF_AUTO, true, 2, 2, 156, 110)),
+                "auto tall single uses dials");
+        check(WidgetMeters.VISUAL_FOUR_DIALS.equals(WidgetMeters.resolveHomeVisualStyle(
+                        WidgetMeters.PREF_DIALS, false, 2, 2, 156, 110)),
+                "forced dials never returns battery list");
+        check(WidgetMeters.VISUAL_BATTERY_LIST.equals(WidgetMeters.resolveHomeVisualStyle(
+                        WidgetMeters.PREF_BARS, true, 1, 2, 70, 110)),
+                "forced bars always returns battery list");
+        check(WidgetMeters.slotCapacity(WidgetMeters.VISUAL_BATTERY_LIST, 70) == 2,
+                "short bars capacity is 2");
+        check(WidgetMeters.slotCapacity(WidgetMeters.VISUAL_BATTERY_LIST, 156) == 4,
+                "tall bars capacity is 4");
+        check(WidgetMeters.slotCapacity(WidgetMeters.VISUAL_FOUR_DIALS, 70) == 4,
+                "four dials capacity is 4");
+        check(WidgetMeters.slotCapacity(WidgetMeters.VISUAL_RINGS, 70) == 2,
+                "rings capacity is 2");
+        System.out.println("Widget meter catalog, capacity, and layout preference checks passed.");
     }
 
     private static void testOnboardingFlow() {

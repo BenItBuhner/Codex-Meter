@@ -394,13 +394,50 @@ public final class AppPreferences {
 
     public static WidgetOptions loadDefaultWidgetOptions(Context context) {
         SharedPreferences sharedPreferencesPrefs = prefs(context);
-        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString("default_style", WidgetOptions.STYLE_RINGS), sharedPreferencesPrefs.getString("default_density", "auto"), sharedPreferencesPrefs.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI), sharedPreferencesPrefs.getString("default_graphic_scale", "auto"), sharedPreferencesPrefs.getString("default_theme", WidgetOptions.THEME_SYSTEM), sharedPreferencesPrefs.getString("default_accent", WidgetOptions.ACCENT_BLUE), sharedPreferencesPrefs.getInt("default_opacity", 88), sharedPreferencesPrefs.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE), sharedPreferencesPrefs.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING), sharedPreferencesPrefs.getString("default_metric_mode", WidgetOptions.METRIC_BOTH), false, sharedPreferencesPrefs.getBoolean("default_show_plan", false), sharedPreferencesPrefs.getBoolean("default_show_updated", false), sharedPreferencesPrefs.getBoolean("default_show_refresh", true), sharedPreferencesPrefs.getBoolean("default_show_reset_credits", false), sharedPreferencesPrefs.getBoolean("default_show_reset_action", false)))
+        return normalizeLoaded(new WidgetOptions(
+                sharedPreferencesPrefs.getString("default_style", WidgetOptions.STYLE_AUTO),
+                sharedPreferencesPrefs.getString("default_density", "auto"),
+                sharedPreferencesPrefs.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI),
+                sharedPreferencesPrefs.getString("default_graphic_scale", "auto"),
+                sharedPreferencesPrefs.getString("default_theme", WidgetOptions.THEME_SYSTEM),
+                sharedPreferencesPrefs.getString("default_accent", WidgetOptions.ACCENT_BLUE),
+                sharedPreferencesPrefs.getInt("default_opacity", 88),
+                sharedPreferencesPrefs.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE),
+                sharedPreferencesPrefs.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING),
+                sharedPreferencesPrefs.getString("default_metric_mode", WidgetOptions.METRIC_BOTH),
+                false,
+                sharedPreferencesPrefs.getBoolean("default_show_plan", false),
+                sharedPreferencesPrefs.getBoolean("default_show_updated", false),
+                sharedPreferencesPrefs.getBoolean("default_show_refresh", true),
+                sharedPreferencesPrefs.getBoolean("default_show_reset_credits", false),
+                sharedPreferencesPrefs.getBoolean("default_show_reset_action", false))
                 .withPercentSymbol(sharedPreferencesPrefs.getBoolean(
-                        "default_show_percent_symbol", true));
+                        "default_show_percent_symbol", true))
+                .withVisibleMeters(sharedPreferencesPrefs.getString("default_visible_meters", "")));
     }
 
     public static void saveDefaultWidgetOptions(Context context, WidgetOptions widgetOptions) {
-        prefs(context).edit().putString("default_style", widgetOptions.layout).putString("default_layout", widgetOptions.layout).putString("default_density", widgetOptions.density).putString("default_surface_style", widgetOptions.surfaceStyle).putString("default_graphic_scale", widgetOptions.graphicScale).putString("default_theme", widgetOptions.theme).putString("default_accent", widgetOptions.accent).putInt("default_opacity", widgetOptions.opacity).putString("default_reset_mode", widgetOptions.resetMode).putString("default_display_mode", widgetOptions.displayMode).putString("default_metric_mode", widgetOptions.metricMode).putBoolean("default_show_title", widgetOptions.showTitle).putBoolean("default_show_plan", widgetOptions.showPlan).putBoolean("default_show_updated", widgetOptions.showUpdated).putBoolean("default_show_refresh", widgetOptions.showRefresh).putBoolean("default_show_reset_credits", widgetOptions.showResetCredits).putBoolean("default_show_reset_action", widgetOptions.showResetAction).putBoolean("default_show_percent_symbol", widgetOptions.showPercentSymbol).apply();
+        prefs(context).edit()
+                .putString("default_style", widgetOptions.layout)
+                .putString("default_layout", widgetOptions.layout)
+                .putString("default_density", widgetOptions.density)
+                .putString("default_surface_style", widgetOptions.surfaceStyle)
+                .putString("default_graphic_scale", widgetOptions.graphicScale)
+                .putString("default_theme", widgetOptions.theme)
+                .putString("default_accent", widgetOptions.accent)
+                .putInt("default_opacity", widgetOptions.opacity)
+                .putString("default_reset_mode", widgetOptions.resetMode)
+                .putString("default_display_mode", widgetOptions.displayMode)
+                .putString("default_metric_mode", widgetOptions.metricMode)
+                .putString("default_visible_meters", widgetOptions.visibleMeters)
+                .putBoolean("default_show_title", widgetOptions.showTitle)
+                .putBoolean("default_show_plan", widgetOptions.showPlan)
+                .putBoolean("default_show_updated", widgetOptions.showUpdated)
+                .putBoolean("default_show_refresh", widgetOptions.showRefresh)
+                .putBoolean("default_show_reset_credits", widgetOptions.showResetCredits)
+                .putBoolean("default_show_reset_action", widgetOptions.showResetAction)
+                .putBoolean("default_show_percent_symbol", widgetOptions.showPercentSymbol)
+                .apply();
     }
 
     public static WidgetOptions loadWidgetOptions(Context context, int i) {
@@ -410,9 +447,42 @@ public final class AppPreferences {
         SharedPreferences sharedPreferencesPrefs = prefs(context);
         WidgetOptions widgetOptionsLoadDefaultWidgetOptions = loadDefaultWidgetOptions(context);
         String str = "widget_" + i + "_";
-        return batteryStyle(new WidgetOptions(sharedPreferencesPrefs.getString(str + "style", widgetOptionsLoadDefaultWidgetOptions.layout), sharedPreferencesPrefs.getString(str + "density", widgetOptionsLoadDefaultWidgetOptions.density), sharedPreferencesPrefs.getString(str + "surface_style", widgetOptionsLoadDefaultWidgetOptions.surfaceStyle), sharedPreferencesPrefs.getString(str + "graphic_scale", widgetOptionsLoadDefaultWidgetOptions.graphicScale), sharedPreferencesPrefs.getString(str + "theme", widgetOptionsLoadDefaultWidgetOptions.theme), sharedPreferencesPrefs.getString(str + "accent", widgetOptionsLoadDefaultWidgetOptions.accent), sharedPreferencesPrefs.getInt(str + "opacity", widgetOptionsLoadDefaultWidgetOptions.opacity), sharedPreferencesPrefs.getString(str + "reset_mode", widgetOptionsLoadDefaultWidgetOptions.resetMode), sharedPreferencesPrefs.getString(str + "display_mode", widgetOptionsLoadDefaultWidgetOptions.displayMode), sharedPreferencesPrefs.getString(str + "metric_mode", widgetOptionsLoadDefaultWidgetOptions.metricMode), false, sharedPreferencesPrefs.getBoolean(str + "show_plan", widgetOptionsLoadDefaultWidgetOptions.showPlan), sharedPreferencesPrefs.getBoolean(str + "show_updated", widgetOptionsLoadDefaultWidgetOptions.showUpdated), sharedPreferencesPrefs.getBoolean(str + "show_refresh", widgetOptionsLoadDefaultWidgetOptions.showRefresh), sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", widgetOptionsLoadDefaultWidgetOptions.showResetCredits), sharedPreferencesPrefs.getBoolean(str + "show_reset_action", widgetOptionsLoadDefaultWidgetOptions.showResetAction)))
+        return normalizeLoaded(new WidgetOptions(
+                sharedPreferencesPrefs.getString(str + "style",
+                        widgetOptionsLoadDefaultWidgetOptions.layout),
+                sharedPreferencesPrefs.getString(str + "density",
+                        widgetOptionsLoadDefaultWidgetOptions.density),
+                sharedPreferencesPrefs.getString(str + "surface_style",
+                        widgetOptionsLoadDefaultWidgetOptions.surfaceStyle),
+                sharedPreferencesPrefs.getString(str + "graphic_scale",
+                        widgetOptionsLoadDefaultWidgetOptions.graphicScale),
+                sharedPreferencesPrefs.getString(str + "theme",
+                        widgetOptionsLoadDefaultWidgetOptions.theme),
+                sharedPreferencesPrefs.getString(str + "accent",
+                        widgetOptionsLoadDefaultWidgetOptions.accent),
+                sharedPreferencesPrefs.getInt(str + "opacity",
+                        widgetOptionsLoadDefaultWidgetOptions.opacity),
+                sharedPreferencesPrefs.getString(str + "reset_mode",
+                        widgetOptionsLoadDefaultWidgetOptions.resetMode),
+                sharedPreferencesPrefs.getString(str + "display_mode",
+                        widgetOptionsLoadDefaultWidgetOptions.displayMode),
+                sharedPreferencesPrefs.getString(str + "metric_mode",
+                        widgetOptionsLoadDefaultWidgetOptions.metricMode),
+                false,
+                sharedPreferencesPrefs.getBoolean(str + "show_plan",
+                        widgetOptionsLoadDefaultWidgetOptions.showPlan),
+                sharedPreferencesPrefs.getBoolean(str + "show_updated",
+                        widgetOptionsLoadDefaultWidgetOptions.showUpdated),
+                sharedPreferencesPrefs.getBoolean(str + "show_refresh",
+                        widgetOptionsLoadDefaultWidgetOptions.showRefresh),
+                sharedPreferencesPrefs.getBoolean(str + "show_reset_credits",
+                        widgetOptionsLoadDefaultWidgetOptions.showResetCredits),
+                sharedPreferencesPrefs.getBoolean(str + "show_reset_action",
+                        widgetOptionsLoadDefaultWidgetOptions.showResetAction))
                 .withPercentSymbol(sharedPreferencesPrefs.getBoolean(str + "show_percent_symbol",
-                        widgetOptionsLoadDefaultWidgetOptions.showPercentSymbol));
+                        widgetOptionsLoadDefaultWidgetOptions.showPercentSymbol))
+                .withVisibleMeters(sharedPreferencesPrefs.getString(str + "visible_meters",
+                        widgetOptionsLoadDefaultWidgetOptions.visibleMeters)));
     }
 
     public static String getWidgetTapAction(Context context, int appWidgetId) {
@@ -431,22 +501,66 @@ public final class AppPreferences {
         }
     }
 
-    private static WidgetOptions batteryStyle(WidgetOptions options) {
-        return new WidgetOptions(WidgetOptions.STYLE_RINGS, WidgetOptions.DENSITY_AUTO,
+    /**
+     * Keeps One UI surface defaults and hides unused chrome flags without wiping the user's
+     * layout preference or visible-meters selection.
+     */
+    private static WidgetOptions normalizeLoaded(WidgetOptions options) {
+        return new WidgetOptions(options.layout, WidgetOptions.DENSITY_AUTO,
                 WidgetOptions.SURFACE_ONE_UI, "auto", options.theme, options.accent,
                 options.opacity, WidgetOptions.RESET_HIDDEN, options.displayMode, options.metricMode,
-                false, false, false, false, false, false);
+                false, false, false, false, false, false)
+                .withPercentSymbol(options.showPercentSymbol)
+                .withVisibleMeters(options.visibleMeters);
     }
 
     public static void saveWidgetOptions(Context context, int i, WidgetOptions widgetOptions) {
         String str = "widget_" + i + "_";
-        prefs(context).edit().putString(str + "style", widgetOptions.layout).putString(str + "layout", widgetOptions.layout).putString(str + "density", widgetOptions.density).putString(str + "surface_style", widgetOptions.surfaceStyle).putString(str + "graphic_scale", widgetOptions.graphicScale).putString(str + "theme", widgetOptions.theme).putString(str + "accent", widgetOptions.accent).putInt(str + "opacity", widgetOptions.opacity).putString(str + "reset_mode", widgetOptions.resetMode).putString(str + "display_mode", widgetOptions.displayMode).putString(str + "metric_mode", widgetOptions.metricMode).putBoolean(str + "show_title", widgetOptions.showTitle).putBoolean(str + "show_plan", widgetOptions.showPlan).putBoolean(str + "show_updated", widgetOptions.showUpdated).putBoolean(str + "show_refresh", widgetOptions.showRefresh).putBoolean(str + "show_reset_credits", widgetOptions.showResetCredits).putBoolean(str + "show_reset_action", widgetOptions.showResetAction).putBoolean(str + "show_percent_symbol", widgetOptions.showPercentSymbol).apply();
+        String metricMode = metricModeFromVisible(widgetOptions.effectiveVisibleMeters());
+        prefs(context).edit()
+                .putString(str + "style", widgetOptions.layout)
+                .putString(str + "layout", widgetOptions.layout)
+                .putString(str + "density", widgetOptions.density)
+                .putString(str + "surface_style", widgetOptions.surfaceStyle)
+                .putString(str + "graphic_scale", widgetOptions.graphicScale)
+                .putString(str + "theme", widgetOptions.theme)
+                .putString(str + "accent", widgetOptions.accent)
+                .putInt(str + "opacity", widgetOptions.opacity)
+                .putString(str + "reset_mode", widgetOptions.resetMode)
+                .putString(str + "display_mode", widgetOptions.displayMode)
+                .putString(str + "metric_mode", metricMode)
+                .putString(str + "visible_meters", widgetOptions.visibleMeters)
+                .putBoolean(str + "show_title", widgetOptions.showTitle)
+                .putBoolean(str + "show_plan", widgetOptions.showPlan)
+                .putBoolean(str + "show_updated", widgetOptions.showUpdated)
+                .putBoolean(str + "show_refresh", widgetOptions.showRefresh)
+                .putBoolean(str + "show_reset_credits", widgetOptions.showResetCredits)
+                .putBoolean(str + "show_reset_action", widgetOptions.showResetAction)
+                .putBoolean(str + "show_percent_symbol", widgetOptions.showPercentSymbol)
+                .apply();
+    }
+
+    private static String metricModeFromVisible(String visibleCsv) {
+        java.util.List<String> keys = WidgetMeters.parse(visibleCsv);
+        boolean five = WidgetMeters.contains(keys, WidgetMeters.FIVE_HOUR);
+        boolean weekly = WidgetMeters.contains(keys, WidgetMeters.WEEKLY);
+        if (five && !weekly) {
+            return WidgetOptions.METRIC_FIVE_HOUR;
+        }
+        if (weekly && !five) {
+            return WidgetOptions.METRIC_WEEKLY;
+        }
+        return WidgetOptions.METRIC_BOTH;
     }
 
     public static void deleteWidgetOptions(Context context, int i) {
         String str = "widget_" + i + "_";
         SharedPreferences.Editor editorEdit = prefs(context).edit();
-        for (String str2 : new String[]{"style", "layout", "density", "surface_style", "graphic_scale", "theme", "accent", "opacity", "reset_mode", "display_mode", "metric_mode", "show_title", "show_plan", "show_updated", "show_refresh", "show_reset_credits", "show_reset_action", "show_percent_symbol", "tap_action"}) {
+        for (String str2 : new String[]{"style", "layout", "density", "surface_style",
+                "graphic_scale", "theme", "accent", "opacity", "reset_mode", "display_mode",
+                "metric_mode", "visible_meters", "show_title", "show_plan", "show_updated",
+                "show_refresh", "show_reset_credits", "show_reset_action", "show_percent_symbol",
+                "tap_action"}) {
             editorEdit.remove(str + str2);
         }
         editorEdit.apply();
@@ -458,19 +572,36 @@ public final class AppPreferences {
         }
         SharedPreferences sharedPreferencesPrefs = prefs(context);
         String str = "lock_widget_" + i + "_";
-        return new LockWidgetOptions(sharedPreferencesPrefs.getString(str + "metric_mode", "both"), sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", false), sharedPreferencesPrefs.getBoolean(str + "show_reset_action", false), sharedPreferencesPrefs.getBoolean(str + "show_countdown", true));
+        return new LockWidgetOptions(
+                sharedPreferencesPrefs.getString(str + "metric_mode", "both"),
+                sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", false),
+                sharedPreferencesPrefs.getBoolean(str + "show_reset_action", false),
+                sharedPreferencesPrefs.getBoolean(str + "show_countdown", true),
+                sharedPreferencesPrefs.getString(str + "visible_meters", ""));
     }
 
     public static void saveLockWidgetOptions(Context context, int i, LockWidgetOptions lockWidgetOptions) {
         if (i != 0 && lockWidgetOptions != null) {
             String str = "lock_widget_" + i + "_";
-            prefs(context).edit().putString(str + "metric_mode", lockWidgetOptions.metricMode).putBoolean(str + "show_reset_credits", lockWidgetOptions.showResetCredits).putBoolean(str + "show_reset_action", lockWidgetOptions.showResetAction).putBoolean(str + "show_countdown", lockWidgetOptions.showCountdown).apply();
+            prefs(context).edit()
+                    .putString(str + "metric_mode", lockWidgetOptions.metricMode)
+                    .putBoolean(str + "show_reset_credits", lockWidgetOptions.showResetCredits)
+                    .putBoolean(str + "show_reset_action", lockWidgetOptions.showResetAction)
+                    .putBoolean(str + "show_countdown", lockWidgetOptions.showCountdown)
+                    .putString(str + "visible_meters", lockWidgetOptions.visibleMeters)
+                    .apply();
         }
     }
 
     public static void deleteLockWidgetOptions(Context context, int i) {
         String str = "lock_widget_" + i + "_";
-        prefs(context).edit().remove(str + "metric_mode").remove(str + "show_reset_credits").remove(str + "show_reset_action").remove(str + "show_countdown").apply();
+        prefs(context).edit()
+                .remove(str + "metric_mode")
+                .remove(str + "show_reset_credits")
+                .remove(str + "show_reset_action")
+                .remove(str + "show_countdown")
+                .remove(str + "visible_meters")
+                .apply();
     }
 
     public static void setOAuthPending(Context context, boolean z, String str) {

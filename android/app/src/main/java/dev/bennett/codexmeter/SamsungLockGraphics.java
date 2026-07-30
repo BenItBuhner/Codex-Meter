@@ -22,6 +22,15 @@ final class SamsungLockGraphics {
     static Bitmap render(Context context, SamsungLockWidgetSupport.Shape shape,
             SamsungLockWidgetSupport.Style style, int fiveHour, int weekly, boolean signedIn,
             int requestedWidth, int requestedHeight, LockWidgetOptions options, int resetCredits) {
+        return render(context, shape, style, fiveHour, weekly, signedIn, requestedWidth,
+                requestedHeight, options, resetCredits,
+                R.drawable.ic_oui_time, R.drawable.ic_oui_calendar_week);
+    }
+
+    static Bitmap render(Context context, SamsungLockWidgetSupport.Shape shape,
+            SamsungLockWidgetSupport.Style style, int fiveHour, int weekly, boolean signedIn,
+            int requestedWidth, int requestedHeight, LockWidgetOptions options, int resetCredits,
+            int primaryIconRes, int secondaryIconRes) {
         int width = clamp(requestedWidth, 44, shape == SamsungLockWidgetSupport.Shape.SQUARE ? 96 : 200,
                 shape == SamsungLockWidgetSupport.Shape.SQUARE ? 56 : 124);
         int height = clamp(requestedHeight, 44, 96, 56);
@@ -41,12 +50,12 @@ final class SamsungLockGraphics {
         float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 124.0f));
         float top = (height - (56.0f * dialScale)) / 2.0f;
         float spacer = (width - (92.0f * dialScale)) / 3.0f;
-        Drawable fiveHourIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_time);
-        Drawable weeklyIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_calendar_week);
+        Drawable primaryIcon = context == null ? null : context.getDrawable(primaryIconRes);
+        Drawable secondaryIcon = context == null ? null : context.getDrawable(secondaryIconRes);
         drawDial(canvas, paint, spacer + (23.0f * dialScale), top, dialScale,
-                fiveHour, fiveHourIcon);
+                fiveHour, primaryIcon);
         drawDial(canvas, paint, (2.0f * spacer) + (69.0f * dialScale), top, dialScale,
-                weekly, weeklyIcon);
+                weekly, secondaryIcon);
         return bitmap;
     }
 

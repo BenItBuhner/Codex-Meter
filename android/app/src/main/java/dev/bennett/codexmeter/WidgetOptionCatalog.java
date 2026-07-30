@@ -8,8 +8,9 @@ final class WidgetOptionCatalog {
     static final String[] THEME_VALUES = {WidgetOptions.THEME_SYSTEM, WidgetOptions.THEME_DARK, WidgetOptions.THEME_LIGHT};
     static final String[] SURFACE_LABELS = {"One UI"};
     static final String[] SURFACE_VALUES = {WidgetOptions.SURFACE_ONE_UI};
-    static final String[] STYLE_LABELS = {"Two usage dials"};
-    static final String[] STYLE_VALUES = {WidgetOptions.STYLE_RINGS};
+    static final String[] STYLE_LABELS = {"Adaptive by size", "Dials", "Progress bars"};
+    static final String[] STYLE_VALUES = {WidgetOptions.STYLE_AUTO, WidgetOptions.STYLE_DIALS,
+            WidgetOptions.STYLE_BARS};
     static final String[] DENSITY_LABELS = {"Auto", "Compact", "Comfortable"};
     static final String[] DENSITY_VALUES = {"auto", "compact", WidgetOptions.DENSITY_COMFORTABLE};
     static final String[] GRAPHIC_LABELS = {"Fit automatically", "Large", "Maximum"};
