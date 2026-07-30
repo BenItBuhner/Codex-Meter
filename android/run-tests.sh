@@ -482,10 +482,25 @@ grep -q 'RadioItemViewGroup' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OneUiChoiceDialog.java"
 grep -q 'OneUiChoiceDialog.show' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
-grep -q 'OneUiChoiceDialog.show' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
 grep -q '"Both windows", "5-hour only", "Weekly only"' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptionCatalog.java"
+# Home widget layout picker exposes Auto / Dials / Progress bars.
+grep -q '"Adaptive by size", "Dials", "Progress bars"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptionCatalog.java"
+grep -q 'styleSpinner' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+# Home and lock config drive the shared meter catalog for per-meter visibility.
+grep -q 'WidgetMeters' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'WidgetMeters' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+grep -q 'selectedMeters' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+# Renderer honors the layout preference and binds ordered meter slots.
+grep -q 'resolveHomeVisualStyle' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
+grep -q 'resolveSlots' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
 ! grep -q 'ListPopupWindow' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -q 'android:max="2"' "$ROOT/app/src/main/res/layout/view_widget_opacity.xml"
