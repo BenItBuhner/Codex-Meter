@@ -142,10 +142,9 @@ public final class UsageHistory {
     }
 
     static boolean sameWindow(UsageSample left, UsageSample right) {
-        if (left == null || right == null || left.windowSeconds != right.windowSeconds) return false;
-        long tolerance = Math.min(TimeUnit.MINUTES.toMillis(15),
-                Math.max(TimeUnit.MINUTES.toMillis(1), left.windowSeconds * 1000L / 20L));
-        return Math.abs(left.resetAtMillis - right.resetAtMillis) <= tolerance;
+        if (left == null || right == null) return false;
+        return UsageWindow.sameResetWindow(left.resetAtMillis, left.windowSeconds,
+                right.resetAtMillis, right.windowSeconds);
     }
 
     private static String normalizeKind(String kind) {

@@ -259,18 +259,22 @@ public final class ResetNotificationManager {
     private static void notifyLowWindow(Context context, UsageWindow window, long fetchedAt,
             String label, String stateKey, int notificationId) {
         if (window == null || window.remainingPercent() > ResetAlertPreferences.getThreshold(context)) return;
-        long windowId = window.resetAtMillis();
-        if (windowId <= 0L && window.resetAfterSeconds > 0L) {
-            windowId = fetchedAt + window.resetAfterSeconds * 1000L;
-        }
+        long windowId = window.effectiveResetAtMillis(fetchedAt);
         if (windowId <= 0L) return;
         SharedPreferences state = state(context);
-        if (state.getLong(stateKey, 0L) == windowId) return;
+        long previousWindowId = state.getLong(stateKey, 0L);
+        if (!UsageWindow.shouldAnnounceLowUsage(previousWindowId, windowId, window.windowSeconds)) {
+            // Keep the stored reset aligned with API drift so slow skew cannot re-arm the alert.
+            if (previousWindowId != windowId) {
+                state.edit().putLong(stateKey, windowId).apply();
+            }
+            return;
+        }
         int remaining = window.remainingPercent();
         if (post(context, notificationId, label + " Codex usage is low",
                 remaining + "% remaining in the current "
                         + label.toLowerCase(Locale.ROOT) + " window.",
-                notificationId)) {
+                notificationId, true)) {
             state.edit().putLong(stateKey, windowId).apply();
         }
     }
@@ -334,6 +338,11 @@ public final class ResetNotificationManager {
     }
 
     private static boolean post(Context context, int id, String title, String text, int requestCode) {
+        return post(context, id, title, text, requestCode, false);
+    }
+
+    private static boolean post(Context context, int id, String title, String text, int requestCode,
+            boolean onlyAlertOnce) {
         NotificationManager manager = manager(context);
         if (manager == null) return false;
         String channel = createChannel(manager, ResetAlertPreferences.getStyle(context));
@@ -349,6 +358,7 @@ public final class ResetNotificationManager {
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(contentIntent)
                 .setAutoCancel(true)
+                .setOnlyAlertOnce(onlyAlertOnce)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setShowWhen(true)

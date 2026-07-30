@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import java.util.concurrent.TimeUnit;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -44,6 +45,38 @@ public final class UsageWindow {
             return 0L;
         }
         return observedAtMillis + resetAfterSeconds * 1000L;
+    }
+
+    /**
+     * OpenAI reset timestamps drift slightly across refreshes. Treat nearby reset times for the
+     * same window length as one window so low-usage alerts stay one-shot until the real reset.
+     */
+    public static long resetWindowToleranceMillis(long windowSeconds) {
+        if (windowSeconds <= 0L) return TimeUnit.MINUTES.toMillis(1);
+        return Math.min(TimeUnit.MINUTES.toMillis(15),
+                Math.max(TimeUnit.MINUTES.toMillis(1), windowSeconds * 1000L / 20L));
+    }
+
+    public static boolean sameResetWindow(long leftResetAtMillis, long leftWindowSeconds,
+            long rightResetAtMillis, long rightWindowSeconds) {
+        if (leftResetAtMillis <= 0L || rightResetAtMillis <= 0L
+                || leftWindowSeconds != rightWindowSeconds) {
+            return false;
+        }
+        return Math.abs(leftResetAtMillis - rightResetAtMillis)
+                <= resetWindowToleranceMillis(leftWindowSeconds);
+    }
+
+    /**
+     * Whether a low-usage alert should fire for {@code currentResetAtMillis}. Returns false when
+     * {@code lastAnnouncedResetAtMillis} already covers the same usage window.
+     */
+    public static boolean shouldAnnounceLowUsage(long lastAnnouncedResetAtMillis,
+            long currentResetAtMillis, long windowSeconds) {
+        if (currentResetAtMillis <= 0L) return false;
+        if (lastAnnouncedResetAtMillis <= 0L) return true;
+        return !sameResetWindow(lastAnnouncedResetAtMillis, windowSeconds,
+                currentResetAtMillis, windowSeconds);
     }
 
     public JSONObject toJson() throws JSONException {
