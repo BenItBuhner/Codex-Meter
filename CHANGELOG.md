@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.6.8 — 2026-07-30
+
+### Added
+
+- Home and Samsung lock widget layout and meter customization: choose Adaptive by size, Dials, or Progress bars, and pick which Codex 5-hour/weekly, Spark (and other additional limits), next-reset, and reset-credits meters fill the available slots (#81).
+
+### Changed
+
+- Reset-credit cards auto-hide when no resets are available (or inventory is unknown), even if the Edit dashboard / Settings toggle is on (#80).
+- Usage history stays off the Android dashboard until OpenAI reports a 5-hour or weekly window that can feed a burn chart (#80).
+- Usage-credit balances on iOS now hide when zero, near-zero, or negative, matching Android (#80).
+
+### Fixed
+
+- Low-usage alerts no longer re-fire every adaptive refresh when OpenAI's reset timestamp drifts slightly within the same usage window; dedupe uses the same reset-time tolerance as local usage history (#82).
+
+### Development
+
+- Expanded regression coverage for widget meter catalogs, capacity/layout preferences, stale meter fallbacks, reset-credit auto-hide, and low-usage alert dedupe (#80, #81, #82).
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.6.7...v2.6.8 <!-- pragma: allowlist secret -->
+
 ## 2.6.7 — 2026-07-26
 
 ### Fixed
