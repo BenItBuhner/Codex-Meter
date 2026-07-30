@@ -168,7 +168,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             return;
         }
         int selected = this.selectedMeters.size();
-        int capacity = WidgetMeters.lockSlotCapacity(true);
+        int capacity = WidgetMeters.lockSlotCapacity();
         String message = "Lock widgets show up to " + capacity + " meters.";
         if (selected > capacity) {
             message += " " + (selected - capacity)
@@ -200,20 +200,32 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         List<String> available = WidgetMeters.availableKeys(snapshot);
         List<String> visible = WidgetMeters.cap(
-                WidgetMeters.resolveVisible(options.effectiveVisibleMeters(), available), 2);
+                WidgetMeters.resolveVisible(options.effectiveVisibleMeters(), available),
+                WidgetMeters.lockSlotCapacity());
         int primary = 73;
-        int secondary = 44;
+        int secondary = -1;
+        int primaryIcon = R.drawable.ic_oui_time;
+        int secondaryIcon = R.drawable.ic_oui_calendar_week;
         if (!visible.isEmpty()) {
             primary = previewRemaining(visible.get(0), snapshot, 73);
+            primaryIcon = previewIcon(visible.get(0));
         }
         if (visible.size() > 1) {
             secondary = previewRemaining(visible.get(1), snapshot, 44);
-        } else if (options.singleMetric()) {
-            secondary = -1;
+            secondaryIcon = previewIcon(visible.get(1));
         }
         this.preview.setImageBitmap(SamsungLockGraphics.render(this,
                 SamsungLockWidgetSupport.Shape.WIDE, SamsungLockWidgetSupport.Style.DIALS,
-                primary, secondary < 0 ? primary : secondary, true, 180, 82, options, 2));
+                primary, secondary, true, 180, 82, options, 2,
+                primaryIcon, secondaryIcon));
+    }
+
+    private static int previewIcon(String key) {
+        if (WidgetMeters.WEEKLY.equals(key)
+                || (WidgetMeters.isLimitKey(key) && !WidgetMeters.isLimitPrimary(key))) {
+            return R.drawable.ic_oui_calendar_week;
+        }
+        return R.drawable.ic_oui_time;
     }
 
     private static int previewRemaining(String key, UsageSnapshot snapshot, int fallback) {

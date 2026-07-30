@@ -1288,6 +1288,20 @@ public final class ParserSelfTest {
         check(WidgetMeters.cap(resolved, 2).equals(java.util.Arrays.asList(
                         WidgetMeters.FIVE_HOUR, WidgetMeters.limitPrimaryKey(spark))),
                 "capacity truncates to first N meters");
+        check(WidgetMeters.resolveVisibleOrDefault(
+                        "limit:gone-model:primary", available, "both")
+                        .equals(WidgetMeters.defaultVisible()),
+                "all-stale selection falls back to default meters");
+        check(WidgetMeters.resolveVisibleOrDefault(
+                        "limit:gone-model:primary", available, "weekly")
+                        .equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
+                "stale selection falls back to legacy metric mode");
+        check(WidgetMeters.resolveVisibleOrDefault(
+                        "weekly,five_hour", available, "both")
+                        .equals(java.util.Arrays.asList(WidgetMeters.WEEKLY,
+                                WidgetMeters.FIVE_HOUR)),
+                "valid selection is not replaced by fallback");
+        check(WidgetMeters.lockSlotCapacity() == 2, "lock widgets cap at two meters");
         check(WidgetMeters.shortLabel(WidgetMeters.limitPrimaryKey(spark), snapshot)
                         .equals("Spark 5h"),
                 "spark primary short label");

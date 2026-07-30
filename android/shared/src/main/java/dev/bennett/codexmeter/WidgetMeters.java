@@ -169,6 +169,20 @@ public final class WidgetMeters {
         return result;
     }
 
+    /**
+     * Like {@link #resolveVisible} but never returns an empty list: when every saved key has
+     * gone stale (for example a widget pinned only to a model limit the account no longer
+     * reports), falls back to the legacy metric-mode selection so the widget keeps rendering.
+     */
+    public static List<String> resolveVisibleOrDefault(String savedCsv, List<String> available,
+            String metricMode) {
+        List<String> resolved = resolveVisible(savedCsv, available);
+        if (!resolved.isEmpty()) {
+            return resolved;
+        }
+        return resolveVisible(serialize(fromMetricMode(metricMode)), available);
+    }
+
     /** Truncates an ordered visible list to the host's slot capacity. */
     public static List<String> cap(List<String> visible, int capacity) {
         List<String> source = visible == null ? new ArrayList<>() : visible;
@@ -269,8 +283,8 @@ public final class WidgetMeters {
         return 2;
     }
 
-    /** Lock widgets expose at most two meter groups. */
-    public static int lockSlotCapacity(boolean wide) {
+    /** Lock widgets expose at most two meter groups regardless of shape. */
+    public static int lockSlotCapacity() {
         return 2;
     }
 
@@ -353,10 +367,6 @@ public final class WidgetMeters {
 
     public static boolean isLimitPrimary(String key) {
         return key != null && key.endsWith(PRIMARY_SUFFIX);
-    }
-
-    public static boolean isLimitSecondary(String key) {
-        return key != null && key.endsWith(SECONDARY_SUFFIX);
     }
 
     private static String shortLimitName(String displayName) {

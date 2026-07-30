@@ -239,7 +239,7 @@ final class SamsungLockWidgetSupport {
                 usageKeys.add(key);
             }
         }
-        usageKeys = new ArrayList<>(WidgetMeters.cap(usageKeys, WidgetMeters.lockSlotCapacity(true)));
+        usageKeys = new ArrayList<>(WidgetMeters.cap(usageKeys, WidgetMeters.lockSlotCapacity()));
         if (usageKeys.isEmpty()) {
             usageKeys.add(WidgetMeters.FIVE_HOUR);
         }
@@ -252,12 +252,14 @@ final class SamsungLockWidgetSupport {
         if (WidgetMeters.FIVE_HOUR.equals(key)) {
             return new LockMeterSlot(key, "5H",
                     remaining(snapshot == null ? null : snapshot.fiveHour),
-                    snapshot == null ? null : snapshot.fiveHour);
+                    snapshot == null ? null : snapshot.fiveHour,
+                    R.drawable.ic_oui_time);
         }
         if (WidgetMeters.WEEKLY.equals(key)) {
             return new LockMeterSlot(key, "W",
                     remaining(snapshot == null ? null : snapshot.weekly),
-                    snapshot == null ? null : snapshot.weekly);
+                    snapshot == null ? null : snapshot.weekly,
+                    R.drawable.ic_oui_calendar_week);
         }
         UsageLimit limit = WidgetMeters.findLimit(key, snapshot);
         UsageWindow window = limit == null ? null
@@ -266,7 +268,9 @@ final class SamsungLockWidgetSupport {
         if (label.length() > 6) {
             label = label.substring(0, 6);
         }
-        return new LockMeterSlot(key, label.toUpperCase(Locale.ROOT), remaining(window), window);
+        return new LockMeterSlot(key, label.toUpperCase(Locale.ROOT), remaining(window), window,
+                WidgetMeters.isLimitPrimary(key)
+                        ? R.drawable.ic_oui_time : R.drawable.ic_oui_calendar_week);
     }
 
     private static final class LockMeterSlot {
@@ -274,12 +278,14 @@ final class SamsungLockWidgetSupport {
         final String label;
         final int remaining;
         final UsageWindow window;
+        final int iconRes;
 
-        LockMeterSlot(String key, String label, int remaining, UsageWindow window) {
+        LockMeterSlot(String key, String label, int remaining, UsageWindow window, int iconRes) {
             this.key = key;
             this.label = label;
             this.remaining = remaining;
             this.window = window;
+            this.iconRes = iconRes;
         }
     }
 
@@ -369,11 +375,15 @@ final class SamsungLockWidgetSupport {
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), graphicLayout(shape, style));
         int i2 = binding.primaryRemaining;
         int i3 = binding.secondaryRemaining;
+        int primaryIconRes = binding.primary == null
+                ? R.drawable.ic_oui_time : binding.primary.iconRes;
+        int secondaryIconRes = binding.secondary == null
+                ? R.drawable.ic_oui_calendar_week : binding.secondary.iconRes;
         if (shape == Shape.WIDE) {
             int[] size = grantedSize(appWidgetManager, i, shape);
             remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
                     SamsungLockGraphics.render(context, shape, style, i2, i3, z, size[0], size[1],
-                            lockWidgetOptions, i4));
+                            lockWidgetOptions, i4, primaryIconRes, secondaryIconRes));
             if (!z) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
                 remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
@@ -388,7 +398,10 @@ final class SamsungLockWidgetSupport {
             return remoteViews;
         }
         int[] iArrGrantedSize = grantedSize(appWidgetManager, i, shape);
-        remoteViews.setImageViewBitmap(R.id.lock_graphic_image, SamsungLockGraphics.render(context, shape, style, i2, i3, z, iArrGrantedSize[0], iArrGrantedSize[1], lockWidgetOptions, i4));
+        remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
+                SamsungLockGraphics.render(context, shape, style, i2, i3, z,
+                        iArrGrantedSize[0], iArrGrantedSize[1], lockWidgetOptions, i4,
+                        primaryIconRes, secondaryIconRes));
         if (z) {
             if (shape == Shape.SQUARE) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_center_value, View.GONE);

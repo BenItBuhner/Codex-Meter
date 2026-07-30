@@ -477,9 +477,13 @@ public final class WidgetRenderer {
             remoteViews.setInt(R.id.secondary_samsung_icon, "setColorFilter", iMainTextColor);
         } else {
             remoteViews.setImageViewBitmap(R.id.primary_graphic,
-                    WidgetGraphics.dial(primaryProgress, iAccentColor, iTrackColor, iMainTextColor, str, fMin));
+                    WidgetGraphics.dial(primaryProgress, iAccentColor, iTrackColor, iMainTextColor,
+                            primary == null ? "—" : primary.valueText,
+                            primary == null || primary.usage ? str : primary.label, fMin));
             remoteViews.setImageViewBitmap(R.id.secondary_graphic,
-                    WidgetGraphics.dial(secondaryProgress, iAccentColor, iTrackColor, iMainTextColor, str, fMin));
+                    WidgetGraphics.dial(secondaryProgress, iAccentColor, iTrackColor, iMainTextColor,
+                            secondary == null ? "—" : secondary.valueText,
+                            secondary == null || secondary.usage ? str : secondary.label, fMin));
         }
         remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
         remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
@@ -630,7 +634,8 @@ public final class WidgetRenderer {
         int capacity = WidgetMeters.slotCapacity(visualStyle, height);
         List<String> available = WidgetMeters.availableKeys(snapshot);
         List<String> visible = WidgetMeters.cap(
-                WidgetMeters.resolveVisible(options.effectiveVisibleMeters(), available),
+                WidgetMeters.resolveVisibleOrDefault(options.effectiveVisibleMeters(),
+                        available, options.metricMode),
                 capacity);
         ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
         int resetCount = credits == null ? 0 : credits.availableCount;
@@ -659,13 +664,13 @@ public final class WidgetRenderer {
         }
         if (WidgetMeters.NEXT_RESET.equals(key)) {
             return new MeterSlot(key, "Reset", R.drawable.ic_oui_alarm, state.nextResetProgress,
-                    state.nextResetText, state.nextResetText, 100);
+                    state.nextResetText, state.nextResetText, 100, false);
         }
         if (WidgetMeters.RESET_CREDITS.equals(key)) {
             int progress = Math.min(100, Math.round((Math.min(4, resetCount) / 4.0f) * 100));
             String text = String.valueOf(resetCount);
             return new MeterSlot(key, "Credits", R.drawable.ic_oui_refresh, progress, text, text,
-                    Math.max(4, resetCount));
+                    Math.max(4, resetCount), false);
         }
         UsageLimit limit = WidgetMeters.findLimit(key, snapshot);
         if (limit != null) {
@@ -682,7 +687,7 @@ public final class WidgetRenderer {
 
     private static MeterSlot usageSlot(String key, String label, int icon, int progress,
             String valueText, String shortText) {
-        return new MeterSlot(key, label, icon, progress, valueText, shortText, 100);
+        return new MeterSlot(key, label, icon, progress, valueText, shortText, 100, true);
     }
 
     private static final class MeterSlot {
@@ -693,9 +698,11 @@ public final class WidgetRenderer {
         final String valueText;
         final String shortText;
         final int progressMax;
+        /** True for percent-based usage windows; false for countdown/credit helpers. */
+        final boolean usage;
 
         MeterSlot(String key, String label, int iconRes, int progress, String valueText,
-                String shortText, int progressMax) {
+                String shortText, int progressMax, boolean usage) {
             this.key = key;
             this.label = label;
             this.iconRes = iconRes;
@@ -703,6 +710,7 @@ public final class WidgetRenderer {
             this.valueText = valueText;
             this.shortText = shortText;
             this.progressMax = progressMax;
+            this.usage = usage;
         }
     }
 
