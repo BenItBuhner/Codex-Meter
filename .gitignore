@@ -20,6 +20,8 @@ build/
 android/dist/
 android/.gradle/
 android/.local-signing/
+android/local.properties
+local.properties
 .gradle/
 .local-signing/
 dist/
