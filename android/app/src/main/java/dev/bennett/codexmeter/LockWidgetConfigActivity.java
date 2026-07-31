@@ -63,8 +63,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         LockWidgetOptions saved = AppPreferences.loadLockWidgetOptions(this, this.appWidgetId);
         this.selectedMeters.clear();
         for (String key : WidgetMeters.parse(saved.effectiveVisibleMeters())) {
-            if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)
-                    || WidgetMeters.isLimitKey(key)) {
+            if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)) {
                 this.selectedMeters.add(key);
             }
         }
@@ -82,13 +81,24 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         List<String> available = new ArrayList<>();
         for (String key : WidgetMeters.availableKeys(snapshot)) {
-            if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)
-                    || WidgetMeters.isLimitKey(key)) {
+            if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)) {
                 available.add(key);
             }
         }
-        boolean first = true;
+        // Prefer saved selection order so the first enabled meter stays primary.
+        List<String> ordered = new ArrayList<>();
+        for (String key : this.selectedMeters) {
+            if (available.contains(key) && !ordered.contains(key)) {
+                ordered.add(key);
+            }
+        }
         for (String key : available) {
+            if (!ordered.contains(key)) {
+                ordered.add(key);
+            }
+        }
+        boolean first = true;
+        for (String key : ordered) {
             SwitchCompat toggle = new SwitchCompat(this);
             toggle.setChecked(this.selectedMeters.contains(key));
             metersCard.addView(buildSwitchRow(WidgetMeters.configLabel(key, snapshot), toggle,
@@ -179,7 +189,13 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
     }
 
     private LockWidgetOptions currentOptions() {
-        String visible = WidgetMeters.serialize(new ArrayList<>(this.selectedMeters));
+        List<String> ordered = new ArrayList<>();
+        for (String key : this.selectedMeters) {
+            if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)) {
+                ordered.add(key);
+            }
+        }
+        String visible = WidgetMeters.serialize(ordered);
         boolean five = this.selectedMeters.contains(WidgetMeters.FIVE_HOUR);
         boolean weekly = this.selectedMeters.contains(WidgetMeters.WEEKLY);
         String metricMode = WidgetOptions.METRIC_BOTH;

@@ -129,24 +129,15 @@ public final class WidgetMeters {
         return identity.toLowerCase(Locale.ROOT).replace(',', '_');
     }
 
-    /** Catalog of meters that can be offered in config for the current snapshot. */
+    /**
+     * Catalog of meters that can be offered in widget config. Model-specific additional limits
+     * (for example GPT-5.3-Codex-Spark) stay on the in-app dashboard only — widgets stick to the
+     * Codex 5-hour/weekly windows plus next-reset and reset-credit helpers.
+     */
     public static List<String> availableKeys(UsageSnapshot snapshot) {
         LinkedHashSet<String> keys = new LinkedHashSet<>();
         keys.add(FIVE_HOUR);
         keys.add(WEEKLY);
-        if (snapshot != null && snapshot.additionalLimits != null) {
-            for (UsageLimit limit : snapshot.additionalLimits) {
-                if (limit == null) {
-                    continue;
-                }
-                if (limit.primary != null) {
-                    keys.add(limitPrimaryKey(limit));
-                }
-                if (limit.secondary != null) {
-                    keys.add(limitSecondaryKey(limit));
-                }
-            }
-        }
         keys.add(NEXT_RESET);
         keys.add(RESET_CREDITS);
         return new ArrayList<>(keys);
@@ -374,9 +365,6 @@ public final class WidgetMeters {
             return "Limit";
         }
         String trimmed = displayName.trim();
-        if (trimmed.toLowerCase(Locale.ROOT).contains("spark")) {
-            return "Spark";
-        }
         if (trimmed.length() <= 10) {
             return trimmed;
         }

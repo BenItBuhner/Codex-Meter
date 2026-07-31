@@ -91,10 +91,6 @@ grep -q 'testUsageCreditsAutoHide' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'testResetCreditsAutoHide' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'testDashboardSectionOrder' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'DashboardReorderActivity' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'snapshot.usageCredits.shouldDisplay()' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'shouldShowResetCreditsCard' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'public boolean shouldDisplay()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java"
 grep -q 'DashboardSections.resolveOrder' \
@@ -124,18 +120,39 @@ grep -q 'dashboard_usage_history' \
 grep -q 'dashboard_hidden_sections' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'hidden-section keys round-trip' "$ROOT/tests/ParserSelfTest.java"
-# Usage-history charts must be gated on real usage data instead of blank placeholders.
+# Usage-history charts still gate on real windows; the section itself stays when toggled on.
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'weeklyWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-# The usage-history section itself also hides until a window can feed a chart.
-grep -q 'snapshot.fiveHour != null || snapshot.weekly != null' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'Hidden automatically when no resets are available' \
+grep -q 'blank dash placeholder' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'Keeps a blank placeholder when this window is missing' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+# Toggled-on dashboard sections keep placeholders instead of auto-hiding.
+grep -q 'showDashboardFiveHour(this))' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'showDashboardUsageCredits(this))' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'showDashboardResetCredits(this))' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+! grep -q 'shouldShowResetCreditsCard' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+! grep -q 'snapshot.usageCredits.shouldDisplay()' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# Widget meter catalog excludes Spark / additional model limits; config supports drag reorder.
+grep -q 'Model-specific additional limits' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
+grep -q 'available meters exclude model-specific Spark limits' \
+  "$ROOT/tests/ParserSelfTest.java"
+grep -q 'ItemTouchHelper' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'orderedSelectedMeters' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+grep -q 'ic_oui_reorder' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 
 # Reset/usage-credit dashboard cards use bold in-card titles with left-aligned icon rows,
 # matching the other dashboard cards, instead of external One UI separators or centered blocks.

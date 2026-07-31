@@ -732,8 +732,8 @@ public final class ParserSelfTest {
                 java.util.Collections.emptyList(), new UsageCredits(true, false, "0"), -1, 9L);
         check(!zeroOnly.hasDisplayableData(),
                 "snapshot with only a zero balance has nothing to display");
-        System.out.println("Usage-credit auto-hide: zero, near-zero, and negative balances "
-                + "never render.");
+        System.out.println("Usage-credit shouldDisplay: zero, near-zero, and negative balances "
+                + "are treated as empty.");
     }
 
     private static void testResetCreditsAutoHide() {
@@ -757,7 +757,7 @@ public final class ParserSelfTest {
                 java.util.Collections.emptyList(), null, 2, 11L);
         check(positiveResetsOnly.hasDisplayableData(),
                 "snapshot with available resets remains displayable");
-        System.out.println("Reset-credit auto-hide: zero inventory never renders on the dashboard.");
+        System.out.println("Reset-credit shouldDisplay: zero inventory is treated as empty.");
     }
 
     private static void testDashboardSectionOrder() {
@@ -1307,23 +1307,24 @@ public final class ParserSelfTest {
                 new UsageWindow(50, 604800L, 600L, 0L),
                 java.util.Arrays.asList(spark), null, 0, System.currentTimeMillis());
         List<String> available = WidgetMeters.availableKeys(snapshot);
-        check(available.contains(WidgetMeters.FIVE_HOUR)
-                        && available.contains(WidgetMeters.WEEKLY)
-                        && available.contains(WidgetMeters.limitPrimaryKey(spark))
-                        && available.contains(WidgetMeters.limitSecondaryKey(spark))
-                        && available.contains(WidgetMeters.NEXT_RESET)
-                        && available.contains(WidgetMeters.RESET_CREDITS),
-                "available meters include spark windows");
+        check(available.equals(java.util.Arrays.asList(
+                        WidgetMeters.FIVE_HOUR,
+                        WidgetMeters.WEEKLY,
+                        WidgetMeters.NEXT_RESET,
+                        WidgetMeters.RESET_CREDITS)),
+                "available meters exclude model-specific Spark limits");
+        check(!available.contains(WidgetMeters.limitPrimaryKey(spark))
+                        && !available.contains(WidgetMeters.limitSecondaryKey(spark)),
+                "Spark limit keys are not offered for widgets");
         List<String> resolved = WidgetMeters.resolveVisible(
                 "five_hour,limit:codex-spark:primary,limit:missing:primary,weekly",
                 available);
         check(resolved.equals(java.util.Arrays.asList(
                         WidgetMeters.FIVE_HOUR,
-                        WidgetMeters.limitPrimaryKey(spark),
                         WidgetMeters.WEEKLY)),
-                "resolveVisible drops stale keys and keeps order");
+                "resolveVisible drops Spark and stale keys and keeps order");
         check(WidgetMeters.cap(resolved, 2).equals(java.util.Arrays.asList(
-                        WidgetMeters.FIVE_HOUR, WidgetMeters.limitPrimaryKey(spark))),
+                        WidgetMeters.FIVE_HOUR, WidgetMeters.WEEKLY)),
                 "capacity truncates to first N meters");
         check(WidgetMeters.resolveVisibleOrDefault(
                         "limit:gone-model:primary", available, "both")
@@ -1341,10 +1342,14 @@ public final class ParserSelfTest {
         check(WidgetMeters.lockSlotCapacity() == 2, "lock widgets cap at two meters");
         check(WidgetMeters.shortLabel(WidgetMeters.limitPrimaryKey(spark), snapshot)
                         .equals("Spark 5h"),
-                "spark primary short label");
+                "limit primary short label still formats from display name");
         check(WidgetMeters.shortLabel(WidgetMeters.limitSecondaryKey(spark), snapshot)
                         .equals("Spark W"),
-                "spark secondary short label");
+                "limit secondary short label still formats from display name");
+        check(WidgetMeters.shortLabel(WidgetMeters.FIVE_HOUR, snapshot).equals("5h"),
+                "five-hour short label");
+        check(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, snapshot).equals("Wk"),
+                "weekly short label");
 
         check(WidgetMeters.VISUAL_RINGS.equals(WidgetMeters.resolveHomeVisualStyle(
                         WidgetMeters.PREF_AUTO, false, 1, 2, 70, 110)),

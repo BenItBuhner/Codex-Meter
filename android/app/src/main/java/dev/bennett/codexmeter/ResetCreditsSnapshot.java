@@ -31,9 +31,8 @@ public final class ResetCreditsSnapshot {
     }
 
     /**
-     * Whether inventory is worth surfacing on the dashboard. Zero available resets always
-     * hide the card, even when the Edit dashboard switch is on — matching usage-credit
-     * auto-hide and data-gated 5-hour / weekly cards.
+     * Whether inventory has at least one available reset. Dashboard cards that the user
+     * explicitly enabled still render a blank state when this returns false.
      */
     public boolean shouldDisplay() {
         return availableCount > 0;
@@ -41,7 +40,7 @@ public final class ResetCreditsSnapshot {
 
     /**
      * Same rule for a summary count from the usage endpoint when the detailed credits
-     * snapshot is not cached yet. Negative / unknown counts never display.
+     * snapshot is not cached yet.
      */
     public static boolean shouldDisplayCount(int availableCount) {
         return availableCount > 0;
