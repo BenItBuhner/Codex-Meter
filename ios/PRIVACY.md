@@ -1,30 +1,56 @@
 # Codex Meter Privacy Policy
 
-Last updated: July 12, 2026
+Last updated: July 20, 2026
 
-Codex Meter does not operate an account system, analytics service, advertising
-network, or application relay server.
+Codex Meter is designed so the iOS developer does not collect user data. The
+app has no analytics, advertising, tracking, developer-operated account system,
+or application relay server.
 
-When you choose to sign in, the app opens an OpenAI-controlled authentication
-page and exchanges the resulting device authorization directly with OpenAI.
-OAuth access, refresh, and identity tokens are stored in the Apple Keychain on
-your device and are not included in backups or synchronized through iCloud.
+## Authentication and OpenAI services
 
-The app sends authenticated requests directly to OpenAI and ChatGPT only to:
+When the user chooses to sign in, Codex Meter uses OpenAI’s device
+authorization service. Authenticated requests travel directly between the
+device and OpenAI to load Codex allowance, reset times, reset-credit inventory,
+and to redeem a reset credit after confirmation.
 
-- load your Codex allowance and reset times;
-- load your earned reset-credit inventory; and
-- redeem a reset credit after you explicitly confirm the action.
+OpenAI may process information under its own privacy policy and terms. Codex
+Meter does not receive a copy on a developer-controlled server. See the
+[OpenAI Privacy Policy](https://openai.com/policies/privacy-policy/).
 
-The app stores the last successful response locally so information remains
-visible offline. Its widget extension receives only a sanitized snapshot with
-percentages, reset dates, plan label, update time, and reset-credit count. It
-never receives OAuth credentials, account identifiers, or reset-credit IDs.
+## Information stored on the device
 
-You can remove all locally stored credentials and cached account data by using
-Sign Out in Settings. The app also attempts to revoke the refresh token with
-OpenAI, but local deletion succeeds even if the network is unavailable.
+- OAuth access, refresh, and identity tokens are stored in Apple Keychain.
+- The last successful usage response is cached locally for offline display.
+- Notification and appearance preferences remain on the device.
+- Widgets receive only percentages, reset dates, plan label, update time, and
+  reset-credit count.
 
-Demo mode is entirely local and does not contact OpenAI.
+Widgets never receive OAuth credentials, account identifiers, or reset-credit
+IDs.
+
+## Notifications and diagnostics
+
+Notifications are scheduled locally after permission is granted. Codex Meter
+does not include a crash-reporting or telemetry SDK and does not transmit app
+interaction, advertising, or diagnostic data to the developer.
+
+## Retention, deletion, and choices
+
+Local cache data remains until it is replaced or the user signs out. Choosing
+Sign Out removes credentials, cached account data, pending background work, and
+scheduled notifications from the device. The app also attempts to revoke the
+OpenAI refresh token; local deletion succeeds even when the network is
+unavailable.
+
+Demo mode is entirely local and does not contact OpenAI. Notification
+permission is optional.
+
+## Children, changes, and contact
+
+Codex Meter is not directed to children and does not knowingly collect personal
+information from children. Material changes will be posted with a revised date.
+
+For privacy or support questions, contact
+[Filip Bukovina](https://github.com/FBukovina) through GitHub.
 
 Codex Meter is unofficial and is not affiliated with or endorsed by OpenAI.
