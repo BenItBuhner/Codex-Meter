@@ -79,8 +79,8 @@ public final class DashboardReorderActivity extends AppCompatActivity {
 
         TextView note = Ui.text(this,
                 "Changes are saved instantly. Toggled-on sections always keep their place on the "
-                        + "dashboard — when OpenAI has not reported data yet, the card shows a blank "
-                        + "dash placeholder instead of disappearing.",
+                        + "dashboard — when OpenAI has not reported data yet, the card shows a "
+                        + "blank dash placeholder instead of disappearing.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
