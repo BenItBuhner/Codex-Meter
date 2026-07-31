@@ -24,8 +24,10 @@ public final class UsageCredits {
     }
 
     /**
-     * Whether the balance has a meaningful non-empty amount. Dashboard cards that the user
-     * explicitly enabled still render a blank dash when this returns false.
+     * Whether the balance is worth surfacing anywhere in the UI. This is intentionally not
+     * configurable: zero, effectively-zero, and negative balances always hide the card, as does
+     * an account without purchased credits. Unlimited plans and unparseable non-empty balances
+     * remain visible.
      */
     public boolean shouldDisplay() {
         if (unlimited) {

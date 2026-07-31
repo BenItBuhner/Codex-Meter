@@ -357,10 +357,11 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
     private void loadMeterSelection(WidgetOptions saved, UsageSnapshot snapshot) {
         List<String> available = WidgetMeters.availableKeys(snapshot);
-        List<String> savedVisible = WidgetMeters.parse(saved.effectiveVisibleMeters());
+        List<String> selected = WidgetMeters.resolveVisibleForWidget(
+                saved.effectiveVisibleMeters(), available, saved.metricMode);
         this.meterOrder.clear();
         this.selectedMeters.clear();
-        for (String key : savedVisible) {
+        for (String key : selected) {
             if (available.contains(key) && !this.meterOrder.contains(key)) {
                 this.meterOrder.add(key);
                 this.selectedMeters.add(key);

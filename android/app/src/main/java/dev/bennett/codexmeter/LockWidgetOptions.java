@@ -49,6 +49,7 @@ public final class LockWidgetOptions {
     }
 
     public boolean singleMetric() {
-        return WidgetMeters.singleUsageMetric(WidgetMeters.parse(effectiveVisibleMeters()));
+        return WidgetMeters.resolvedSingleUsageMetric(effectiveVisibleMeters(),
+                WidgetMeters.availableKeys(null), metricMode);
     }
 }

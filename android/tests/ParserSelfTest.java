@@ -415,7 +415,7 @@ public final class ParserSelfTest {
         check(!clearRoundTrip.signedIn,
                 "Wear usage clear payload preserves signed-out state");
         WearSyncStatus status = new WearSyncStatus(true, true, 3000L,
-                "Network unavailable", "2.6.9", 4000L);
+                "Network unavailable", "2.6.10", 4000L);
         WearSyncStatus statusRoundTrip = WearSyncStatus.fromJson(status.toJson());
         check(statusRoundTrip != null && statusRoundTrip.signedIn,
                 "Wear status preserves phone sign-in state");
@@ -732,8 +732,8 @@ public final class ParserSelfTest {
                 java.util.Collections.emptyList(), new UsageCredits(true, false, "0"), -1, 9L);
         check(!zeroOnly.hasDisplayableData(),
                 "snapshot with only a zero balance has nothing to display");
-        System.out.println("Usage-credit shouldDisplay: zero, near-zero, and negative balances "
-                + "are treated as empty.");
+        System.out.println("Usage-credit auto-hide: zero, near-zero, and negative balances "
+                + "never render.");
     }
 
     private static void testResetCreditsAutoHide() {
@@ -1329,16 +1329,32 @@ public final class ParserSelfTest {
         check(WidgetMeters.resolveVisibleOrDefault(
                         "limit:gone-model:primary", available, "both")
                         .equals(WidgetMeters.defaultVisible()),
-                "all-stale selection falls back to default meters");
+                "all-stale Spark-only selection falls back to default meters");
         check(WidgetMeters.resolveVisibleOrDefault(
                         "limit:gone-model:primary", available, "weekly")
-                        .equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
-                "stale selection falls back to legacy metric mode");
+                        .equals(WidgetMeters.defaultVisible()),
+                "stale Spark-only selection falls back to defaults, not single weekly");
         check(WidgetMeters.resolveVisibleOrDefault(
                         "weekly,five_hour", available, "both")
                         .equals(java.util.Arrays.asList(WidgetMeters.WEEKLY,
                                 WidgetMeters.FIVE_HOUR)),
                 "valid selection is not replaced by fallback");
+        check(WidgetMeters.resolveVisibleForWidget(
+                        "five_hour,limit:codex-spark:primary", available, "both")
+                        .equals(java.util.Arrays.asList(
+                                WidgetMeters.FIVE_HOUR, WidgetMeters.WEEKLY)),
+                "dropping Spark restores weekly so adaptive stays multi-meter");
+        check(!WidgetMeters.resolvedSingleUsageMetric(
+                        "five_hour,limit:codex-spark:primary", available, "both"),
+                "Spark-stripped multi selection is not single-metric");
+        check(WidgetMeters.VISUAL_BATTERY_LIST.equals(WidgetMeters.resolveHomeVisualStyle(
+                        WidgetMeters.PREF_AUTO,
+                        WidgetMeters.resolvedSingleUsageMetric(
+                                "five_hour,limit:codex-spark:primary", available, "both"),
+                        2, 2, 156, 110)),
+                "adaptive tall stays bars after Spark keys are stripped");
+        check(WidgetMeters.resolvedSingleUsageMetric("five_hour", available, "five_hour"),
+                "intentional five-hour-only selection stays single-metric");
         check(WidgetMeters.lockSlotCapacity() == 2, "lock widgets cap at two meters");
         check(WidgetMeters.shortLabel(WidgetMeters.limitPrimaryKey(spark), snapshot)
                         .equals("Spark 5h"),

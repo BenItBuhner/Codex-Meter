@@ -230,8 +230,9 @@ final class SamsungLockWidgetSupport {
 
     private static LockMeterBinding bindLockMeters(UsageSnapshot snapshot, LockWidgetOptions options) {
         List<String> available = WidgetMeters.availableKeys(snapshot);
-        List<String> resolved = WidgetMeters.resolveVisible(
-                options == null ? "" : options.effectiveVisibleMeters(), available);
+        String metricMode = options == null ? WidgetOptions.METRIC_BOTH : options.metricMode;
+        List<String> resolved = WidgetMeters.resolveVisibleForWidget(
+                options == null ? "" : options.effectiveVisibleMeters(), available, metricMode);
         ArrayList<String> usageKeys = new ArrayList<>();
         for (String key : resolved) {
             if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)

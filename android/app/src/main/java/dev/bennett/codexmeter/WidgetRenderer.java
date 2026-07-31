@@ -634,7 +634,7 @@ public final class WidgetRenderer {
         int capacity = WidgetMeters.slotCapacity(visualStyle, height);
         List<String> available = WidgetMeters.availableKeys(snapshot);
         List<String> visible = WidgetMeters.cap(
-                WidgetMeters.resolveVisibleOrDefault(options.effectiveVisibleMeters(),
+                WidgetMeters.resolveVisibleForWidget(options.effectiveVisibleMeters(),
                         available, options.metricMode),
                 capacity);
         ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);

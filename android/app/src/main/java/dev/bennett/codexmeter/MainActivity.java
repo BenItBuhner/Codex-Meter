@@ -349,29 +349,33 @@ public final class MainActivity extends AppCompatActivity {
                 }
                 group.add(limit);
             }
-        }
-        // Visibility switches win: toggled-on sections keep a blank/dash placeholder when
-        // OpenAI has not reported data yet, instead of disappearing inconsistently.
-        if (AppPreferences.showDashboardFiveHour(this)) {
-            available.add(DashboardSections.FIVE_HOUR);
-        }
-        if (AppPreferences.showDashboardWeekly(this)) {
-            available.add(DashboardSections.WEEKLY);
-        }
-        if (AppPreferences.showDashboardAdditionalLimits(this)) {
-            for (String key : limitsByKey.keySet()) {
-                if (!AppPreferences.isDashboardSectionHidden(this, key)) {
-                    available.add(key);
+            if (AppPreferences.showDashboardFiveHour(this) && snapshot.fiveHour != null) {
+                available.add(DashboardSections.FIVE_HOUR);
+            }
+            if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
+                available.add(DashboardSections.WEEKLY);
+            }
+            if (AppPreferences.showDashboardAdditionalLimits(this)) {
+                for (String key : limitsByKey.keySet()) {
+                    if (!AppPreferences.isDashboardSectionHidden(this, key)) {
+                        available.add(key);
+                    }
                 }
             }
+            // Zero, near-zero, and negative balances are always hidden regardless of settings.
+            if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null
+                    && snapshot.usageCredits.shouldDisplay()) {
+                available.add(DashboardSections.USAGE_CREDITS);
+            }
+            // Usage history only appears once at least one window can feed a burn chart.
+            if (AppPreferences.showDashboardUsageHistory(this)
+                    && snapshot.fetchedAtMillis > 0L
+                    && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+                available.add(DashboardSections.USAGE_HISTORY);
+            }
         }
-        if (AppPreferences.showDashboardUsageCredits(this)) {
-            available.add(DashboardSections.USAGE_CREDITS);
-        }
-        if (AppPreferences.showDashboardUsageHistory(this)) {
-            available.add(DashboardSections.USAGE_HISTORY);
-        }
-        if (AppPreferences.showDashboardResetCredits(this)) {
+        // Zero available resets always hide the card, even when the Edit dashboard switch is on.
+        if (AppPreferences.showDashboardResetCredits(this) && shouldShowResetCreditsCard(snapshot)) {
             available.add(DashboardSections.RESET_CREDITS);
         }
         boolean inverted = false;
@@ -379,17 +383,14 @@ public final class MainActivity extends AppCompatActivity {
                 AppPreferences.getDashboardOrder(this), available)) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
-                        "5-hour", snapshot, snapshot == null ? null : snapshot.fiveHour,
-                        inverted));
+                        "5-hour", snapshot, snapshot.fiveHour, inverted));
                 inverted = !inverted;
             } else if (DashboardSections.WEEKLY.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
-                        "Weekly", snapshot, snapshot == null ? null : snapshot.weekly,
-                        inverted));
+                        "Weekly", snapshot, snapshot.weekly, inverted));
                 inverted = !inverted;
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
-                addDashboardCard(column, buildUsageCreditsCard(
-                        snapshot == null ? null : snapshot.usageCredits));
+                addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard());
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
@@ -431,24 +432,15 @@ public final class MainActivity extends AppCompatActivity {
         card.setPadding(0, 0, 0, 0);
         card.setMinimumHeight(Ui.dp(this, 103.0f));
         long now = System.currentTimeMillis();
+        String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
+                snapshot.fetchedAtMillis, now);
+        UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
         UsageWaveView wave = new UsageWaveView(this);
-        int icon = R.drawable.ic_oui_time;
-        if (window != null && window.windowSeconds >= 86_400L) {
-            icon = R.drawable.ic_oui_calendar_week;
-        } else if (label != null && label.toLowerCase(java.util.Locale.ROOT).contains("week")) {
-            icon = R.drawable.ic_oui_calendar_week;
-        }
-        if (window == null) {
-            wave.setUsage(label, "Waiting for OpenAI to report this window", "", -1, icon,
-                    invertedWave, false);
-        } else {
-            long fetchedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
-            String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
-                    fetchedAt, now);
-            UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
-            wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
-                    window.remainingPercent(), icon, invertedWave, pace.accelerated);
-        }
+        wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
+                window.remainingPercent(),
+                window.windowSeconds >= 86_400L
+                        ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
+                invertedWave, pace.accelerated);
         card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
         return card;
     }
@@ -518,13 +510,8 @@ public final class MainActivity extends AppCompatActivity {
         TextView title = Ui.text(this, "Usage credits", 18, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
-        if (credits == null || !credits.shouldDisplay()) {
-            card.addView(buildIconDetailRow(R.drawable.ic_oui_credit_card_outline,
-                    "—", "No usage-credit balance to show yet"));
-        } else {
-            card.addView(buildIconDetailRow(R.drawable.ic_oui_credit_card_outline,
-                    usageCreditBalance(credits), usageCreditsSummary(credits)));
-        }
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_credit_card_outline,
+                usageCreditBalance(credits), usageCreditsSummary(credits)));
         return card;
     }
 
@@ -742,7 +729,7 @@ public final class MainActivity extends AppCompatActivity {
             return "Reset credits";
         }
         if (available <= 0) {
-            return "—";
+            return "No resets available";
         }
         if (available == 1) {
             return "1 reset available";
@@ -762,11 +749,24 @@ public final class MainActivity extends AppCompatActivity {
         if (available > 0) {
             return "Expiration details unavailable";
         }
-        return "No resets available yet";
+        return "Earn credits from ChatGPT Codex";
     }
 
     private void openResetCredits() {
         Ui.startSecondaryActivity(this, ResetCreditActivity.class);
+    }
+
+    /**
+     * Prefer the detailed reset-credits cache; fall back to the usage-endpoint summary count.
+     * Unknown inventory never surfaces an empty card.
+     */
+    private boolean shouldShowResetCreditsCard(UsageSnapshot snapshot) {
+        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
+        if (credits != null) {
+            return credits.shouldDisplay();
+        }
+        return snapshot != null
+                && ResetCreditsSnapshot.shouldDisplayCount(snapshot.resetCreditsAvailable);
     }
 
     private LinearLayout buildWidgetCard() {
