@@ -12,9 +12,9 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.6.8
+## Android — Version 2.6.9
 
-Version 2.6.8 adds home and lock widget layout and meter customization (Adaptive / Dials / Progress bars plus per-meter slot selection), auto-hides empty reset-credit and usage-history dashboard cards, and stops low-usage alerts from re-firing when OpenAI's reset timestamp drifts within the same window.
+Version 2.6.9 drops Spark and other model-specific limits from home and lock widgets, keeps toggled-on dashboard sections as blank dash placeholders instead of auto-hiding them, and adds drag-to-reorder for widget meter selection.
 
 On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
 
@@ -34,7 +34,7 @@ Users can choose silent, notification-sound, or alarm-sound alerts for the five-
 
 The app includes:
 
-- Responsive home-screen widgets with ring, four-dial, and battery-list layouts, plus Adaptive / Dials / Progress bars layout preference and configurable meter slots (Codex windows, additional model limits, next reset, reset credits).
+- Responsive home-screen widgets with ring, four-dial, and battery-list layouts, plus Adaptive / Dials / Progress bars layout preference and drag-reorderable meter slots (Codex 5-hour/weekly, next reset, reset credits).
 - Both-window, five-hour-only, and weekly-only configurations (legacy metric mode; meters checklist supersedes this when customized).
 - Optional reset-credit inventory, expiration, and redemption controls.
 - Transparent through opaque backgrounds, including a Background off toggle and three One UI-style opacity steps.

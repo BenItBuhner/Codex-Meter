@@ -28,12 +28,12 @@
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_five_hour"
-            android:summary="Shown only when OpenAI returns this window"
+            android:summary="Keeps a blank placeholder when this window is missing"
             android:title="5-hour limit" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_weekly"
-            android:summary="Shown only when OpenAI returns this window"
+            android:summary="Keeps a blank placeholder when this window is missing"
             android:title="Weekly limit" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
@@ -43,17 +43,17 @@
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_usage_credits"
-            android:summary="Hidden automatically at a zero or negative balance"
+            android:summary="Keeps a blank dash when the balance is empty"
             android:title="Usage-credit balance" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_usage_history"
-            android:summary="Shown only when a 5-hour or weekly window is available"
+            android:summary="Keeps a placeholder until burn charts have data"
             android:title="Usage history" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_reset_credits"
-            android:summary="Hidden automatically when no resets are available"
+            android:summary="Keeps a blank state when no resets are available"
             android:title="Reset credits" />
     </PreferenceCategory>
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.6.9 — 2026-07-31
+
+### Changed
+
+- Home and lock widgets no longer offer GPT-5.3-Codex-Spark or other model-specific additional limits; those stay on the in-app dashboard while widgets stick to Codex 5-hour/weekly, next-reset, and reset-credit meters (#84).
+- Customize widget meters can be drag-reordered (handle or long-press) so slot priority matches the user’s order, matching Edit dashboard (#84).
+- Edit dashboard / Settings visibility switches keep toggled-on sections on screen with a blank dash placeholder when OpenAI has not reported data yet, instead of auto-hiding empty cards inconsistently (#84).
+
+### Fixed
+
+- Selected widget meters that fail to resolve no longer collapse away; they keep a reserved blank dash slot (#84).
+
+### Development
+
+- Regression coverage and static checks updated for the Spark-free widget catalog, dashboard placeholder visibility, and widget meter drag reorder (#84).
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.8...v2.6.9 <!-- pragma: allowlist secret -->
+
 ## 2.6.8 — 2026-07-30
 
 ### Added

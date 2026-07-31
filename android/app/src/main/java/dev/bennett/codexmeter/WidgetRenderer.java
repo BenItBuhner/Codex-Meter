@@ -642,11 +642,27 @@ public final class WidgetRenderer {
         ArrayList<MeterSlot> slots = new ArrayList<>();
         for (String key : visible) {
             MeterSlot slot = buildSlot(key, snapshot, state, options, resetCount);
-            if (slot != null) {
-                slots.add(slot);
+            if (slot == null) {
+                // Keep the reserved slot so a toggled-on meter never collapses away.
+                slot = blankSlot(key, snapshot);
             }
+            slots.add(slot);
         }
         return slots;
+    }
+
+    private static MeterSlot blankSlot(String key, UsageSnapshot snapshot) {
+        String label = WidgetMeters.shortLabel(key, snapshot);
+        int icon = WidgetMeters.WEEKLY.equals(key)
+                || (WidgetMeters.isLimitKey(key) && !WidgetMeters.isLimitPrimary(key))
+                ? R.drawable.ic_oui_calendar_week
+                : R.drawable.ic_oui_time;
+        if (WidgetMeters.NEXT_RESET.equals(key)) {
+            icon = R.drawable.ic_oui_alarm;
+        } else if (WidgetMeters.RESET_CREDITS.equals(key)) {
+            icon = R.drawable.ic_oui_refresh;
+        }
+        return new MeterSlot(key, label, icon, -1, "—", "—", 100, true);
     }
 
     private static MeterSlot buildSlot(String key, UsageSnapshot snapshot, WidgetState state,
