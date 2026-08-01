@@ -11,7 +11,7 @@
 
 - Shared `resolveVisibleForWidget` / `resolvedSingleUsageMetric` migration helpers cover layout, slot selection, config load, and lock widgets (#85).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.9...v2.6.10 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.6.9...v2.6.10 <!-- pragma: allowlist secret -->
 
 ## 2.6.9 — 2026-07-31
 
@@ -29,7 +29,7 @@
 
 - Regression coverage and static checks updated for the Spark-free widget catalog, dashboard placeholder visibility, and widget meter drag reorder (#84).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.8...v2.6.9 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.6.8...v2.6.9 <!-- pragma: allowlist secret -->
 
 ## 2.6.8 — 2026-07-30
 
@@ -60,7 +60,7 @@
 - Reset credits is now a real dashboard section that reorders and hides with the rest of the cards, so the usage-history chart (or any other card) can be placed below it instead of the reset-credit card being pinned to the bottom of the page.
 - Reset-credit and usage-credit cards use bold in-card titles with left-aligned icon rows, matching the 5-hour, weekly, and usage-history cards, instead of external One UI section separators that looked inconsistent.
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.6...v2.6.7 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.6.6...v2.6.7 <!-- pragma: allowlist secret -->
 
 ## 2.6.6 — 2026-07-26
 
@@ -82,7 +82,7 @@
 
 - Expanded dashboard-section regression coverage for the usage-history key and hidden-section CSV round-trips.
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.5...v2.6.6 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.6.5...v2.6.6 <!-- pragma: allowlist secret -->
 
 ## 2.6.5 — 2026-07-26
 
@@ -102,7 +102,7 @@
 
 - Expanded regression coverage for usage-credit auto-hide, dashboard section order merging, Wear modular tile metadata, and widget configuration wiring (#67, #68, #75).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.0...v2.6.5 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.6.0...v2.6.5 <!-- pragma: allowlist secret -->
 
 ## 2.6.0 — 2026-07-26
 
@@ -125,7 +125,7 @@
 
 - Expanded regression coverage for adaptive refresh policy and settings migration, plus adaptive usage parsing for partial, additional-only, and credit-only responses (#70, #71).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.5.0...v2.6.0 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.5.0...v2.6.0 <!-- pragma: allowlist secret -->
 
 ## 2.5.0 — 2026-07-20
 
@@ -154,7 +154,7 @@
 - Added regression coverage for Wear sync clear/status payloads, pace settings, stale/account formatting, canonical icon parity, and public Wear release-asset publication.
 - Validated the signed app, all five Tiles, all four Complications, One UI controls, and promoted ongoing notification on a Wear OS 6.1 large-round emulator.
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.3...v2.5.0 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.4.3...v2.5.0 <!-- pragma: allowlist secret -->
 
 ## 2.4.3 — 2026-07-19
 
@@ -162,7 +162,7 @@
 
 - Android Appearance settings once again show the illustrated Light and Dark theme options side by side, while preserving System default behavior in the redesigned settings navigation.
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.2...v2.4.3 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.4.2...v2.4.3 <!-- pragma: allowlist secret -->
 
 ## 2.4.2 — 2026-07-19
 
@@ -179,7 +179,7 @@
 
 - Onboarding card spacing and Settings bottom padding no longer collapse against adjacent cards or the screen edge (#52).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.1...v2.4.2 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.4.1...v2.4.2 <!-- pragma: allowlist secret -->
 
 ## 2.4.1 — 2026-07-18
 
@@ -188,7 +188,7 @@
 - Active Android Live Updates now rebuild immediately after promoted-notification access changes, allowing automatic Samsung fallback and explicit Android modes to adopt the newly available notification contract without waiting for another usage refresh.
 - Live Update construction now adapts to both early Android 16's required colorization and newer uncolorized promotion rules, while notification and Now Bar Codex icons use SystemUI-compatible vector syntax.
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.4.0...v2.4.1 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.4.0...v2.4.1 <!-- pragma: allowlist secret -->
 
 ## 2.4.0 — 2026-07-18
 
@@ -219,7 +219,7 @@
 - Fixed Cloud Agent setup to invoke `android/gradlew` after the monorepo move (#43).
 - Expanded regression coverage for settings transfer, update-check frequency, usage-pace estimates, widget fill controls, Material You preferences, and Wear sync contracts (#37, #38, #42, #44, #45, #47).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.3.3...v2.4.0 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.3.3...v2.4.0 <!-- pragma: allowlist secret -->
 
 ## 2.3.3 — 2026-07-17
 
@@ -259,7 +259,7 @@
 
 - Added regression coverage for display-mode normalization and firmware-dependent mode resolution (#29).
 
-**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.3.1...v2.3.2 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.3.1...v2.3.2 <!-- pragma: allowlist secret -->
 
 ## 2.3.1 — 2026-07-14
 

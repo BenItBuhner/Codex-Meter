@@ -24,6 +24,7 @@ public final class ReleaseNotesMarkdown {
 
     public static String toHtml(String markdown) {
         String source = markdown == null ? "" : markdown.replace("\r\n", "\n").replace('\r', '\n');
+        source = repairRedactedRepositoryLinks(source);
         source = HTML_COMMENT.matcher(source).replaceAll("");
         source = source.trim();
         if (source.isEmpty()) {
@@ -96,6 +97,21 @@ public final class ReleaseNotesMarkdown {
             html.append("</p>");
         }
         return html.toString();
+    }
+
+    /**
+     * Older published release notes accidentally contain a literal
+     * {@code [REDACTED]} owner placeholder copied from agent tooling output.
+     * Rewrite those URLs to the canonical public repository before rendering.
+     */
+    static String repairRedactedRepositoryLinks(String source) {
+        if (source == null || source.isEmpty() || !source.contains("[REDACTED]")) {
+            return source == null ? "" : source;
+        }
+        String repository = GitHubReleaseSource.REPOSITORY_URL;
+        return source
+                .replace("https://github.com/[REDACTED]/Codex-Meter", repository)
+                .replace("http://github.com/[REDACTED]/Codex-Meter", repository);
     }
 
     private static String inline(String text) {
