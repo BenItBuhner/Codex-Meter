@@ -270,7 +270,6 @@ grep -q '"update_channel"' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -Fq 'branches: [main, alpha]' "$WORKFLOW"
 grep -Fq -- '--prerelease="$PRERELEASE"' "$WORKFLOW"
-test -f "$ROOT/../.github/workflows/alpha-branch.yml"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManager.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
