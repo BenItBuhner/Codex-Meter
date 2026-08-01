@@ -9,6 +9,7 @@ import java.util.List;
 public final class UpdatePreferences {
     private static final String PREFS = "codex_meter_updates_v1";
     private static final String KEY_AUTOMATIC = "automatic";
+    private static final String KEY_CHANNEL = "release_channel";
     private static final String KEY_NOTIFY = "notify_updates";
     private static final String KEY_CHECK_INTERVAL_HOURS = "check_interval_hours";
     private static final String KEY_NOTIFIED_VERSION = "notified_version";
@@ -39,6 +40,23 @@ public final class UpdatePreferences {
             UpdateNotificationManager.dismiss(context);
             clearNotifiedVersion(context);
         }
+    }
+
+    public static String channel(Context context) {
+        return UpdateChannel.normalize(
+                prefs(context).getString(KEY_CHANNEL, UpdateChannel.STABLE));
+    }
+
+    public static void setChannel(Context context, String channel) {
+        String normalized = UpdateChannel.normalize(channel);
+        if (normalized.equals(channel(context))) {
+            return;
+        }
+        prefs(context).edit().putString(KEY_CHANNEL, normalized).apply();
+        UpdateNotificationManager.dismiss(context);
+        clearNotifiedVersion(context);
+        broadcast(context);
+        UpdateNotificationManager.onReleasesUpdated(context);
     }
 
     public static boolean notifyUpdatesEnabled(Context context) {
@@ -180,8 +198,8 @@ public final class UpdatePreferences {
     }
 
     public static GitHubRelease availableUpdate(Context context) {
-        GitHubRelease latest = latestStable(context);
-        return latest != null && latest.isNewerThan(installedVersion(context)) ? latest : null;
+        return UpdateChannel.selectUpdate(releases(context), installedVersion(context),
+                channel(context));
     }
 
     public static String installedVersion(Context context) {

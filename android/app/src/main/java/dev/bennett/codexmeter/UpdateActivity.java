@@ -104,7 +104,8 @@ public final class UpdateActivity extends AppCompatActivity {
                 List<GitHubRelease> releases = ReleaseUpdateClient.check(getApplicationContext());
                 GitHubRelease selected = GitHubReleaseParser.findVersion(releases, requestedVersion);
                 if (selected == null) {
-                    selected = GitHubReleaseParser.latestStable(releases);
+                    selected = UpdateChannel.trackedRelease(releases,
+                            UpdatePreferences.channel(getApplicationContext()));
                 }
                 GitHubRelease result = selected;
                 postUi(() -> {
@@ -133,10 +134,12 @@ public final class UpdateActivity extends AppCompatActivity {
         String installedVersion = UpdatePreferences.installedVersion(this);
         int comparison = ReleaseVersion.compare(release.version, installedVersion);
         boolean irreversible = ReleaseUpdatePolicy.isIrreversible(release.version);
+        boolean returnToStable = UpdateChannel.isReturnToStable(release, installedVersion);
         LinearLayout card = Ui.card(this, dark);
         TextView title = Ui.text(this,
                 comparison > 0 ? "Codex Meter " + release.version + " is available"
                         : comparison == 0 ? "Codex Meter " + release.version
+                        : returnToStable ? "Return to Codex Meter " + release.version
                         : "Older release " + release.version,
                 20, Ui.mainText(dark));
         title.setTypeface(Ui.mediumTypeface(this));
@@ -146,9 +149,14 @@ public final class UpdateActivity extends AppCompatActivity {
             detail = ReleaseUpdatePolicy.irreversibleSummary()
                     + " · Installed: " + installedVersion;
         } else if (comparison > 0) {
-            detail = "Installed: " + installedVersion + " · Verified GitHub upgrade";
+            detail = "Installed: " + installedVersion + (release.prerelease
+                    ? " · Verified GitHub alpha upgrade" : " · Verified GitHub upgrade");
         } else if (comparison == 0) {
             detail = "This version is currently installed. You can verify and reinstall it.";
+        } else if (returnToStable) {
+            detail = "Installed: " + installedVersion + " · Alpha builds share the stable "
+                    + "version code, so the newest stable release installs in place without "
+                    + "uninstalling or losing data.";
         } else {
             detail = "Installed: " + installedVersion
                     + " · Android requires uninstalling before this downgrade.";
@@ -172,11 +180,12 @@ public final class UpdateActivity extends AppCompatActivity {
             status = null;
         } else {
             Button action = Ui.nativePrimaryButton(this,
-                    comparison < 0 ? "Download older APK"
+                    returnToStable ? "Return to stable"
+                            : comparison < 0 ? "Download older APK"
                             : comparison == 0 ? "Verify and reinstall"
                             : "Download and install");
             action.setOnClickListener(view -> {
-                if (comparison < 0) {
+                if (comparison < 0 && !returnToStable) {
                     confirmOlderDownload();
                 } else {
                     requestInstall();
@@ -218,7 +227,7 @@ public final class UpdateActivity extends AppCompatActivity {
         historyParams.setMargins(0, Ui.dp(this, 20), 0, 0);
         content.addView(history, historyParams);
 
-        if (startInstallPending && comparison > 0 && !irreversible) {
+        if (startInstallPending && (comparison > 0 || returnToStable) && !irreversible) {
             startInstallPending = false;
             content.post(this::requestInstall);
         } else {

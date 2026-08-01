@@ -70,8 +70,16 @@ public final class UpdateNotificationManager {
         if (!canPost(context, manager)) {
             return false;
         }
-        String title = "Codex Meter " + release.version + " is available";
-        String text = "A signed GitHub release is ready to install.";
+        boolean returnToStable = UpdateChannel.isReturnToStable(release,
+                UpdatePreferences.installedVersion(context));
+        String title = returnToStable
+                ? "Return to Codex Meter " + release.version
+                : "Codex Meter " + release.version + " is available";
+        String text = returnToStable
+                ? "The stable release installs in place over this alpha build."
+                : release.prerelease
+                ? "A signed alpha release is ready to install."
+                : "A signed GitHub release is ready to install.";
         PendingIntent open = activityPending(context, NOTIFICATION_ID,
                 updateIntent(context, release.version, false));
         PendingIntent update = activityPending(context, NOTIFICATION_ID + 1,
