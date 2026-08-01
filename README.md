@@ -12,9 +12,9 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.6.9
+## Android — Version 2.6.10
 
-Version 2.6.9 drops Spark and other model-specific limits from home and lock widgets, keeps toggled-on dashboard sections as blank dash placeholders instead of auto-hiding them, and adds drag-to-reorder for widget meter selection.
+Version 2.6.10 keeps Spark off widgets and restores dashboard auto-hide for empty cards, while fixing Adaptive tall layouts that incorrectly showed oversized dials after Spark meters were removed from saved widget configs.
 
 On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
 

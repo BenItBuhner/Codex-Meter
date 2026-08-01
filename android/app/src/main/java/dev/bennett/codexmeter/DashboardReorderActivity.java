@@ -78,9 +78,10 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         content.addView(listCard);
 
         TextView note = Ui.text(this,
-                "Changes are saved instantly. Toggled-on sections always keep their place on the "
-                        + "dashboard — when OpenAI has not reported data yet, the card shows a "
-                        + "blank dash placeholder instead of disappearing.",
+                "Changes are saved instantly. Usage-credit balance and reset credits stay hidden "
+                        + "when they have nothing to show (zero or below), and 5-hour, weekly, "
+                        + "and usage-history cards appear only while OpenAI reports data for them "
+                        + "— no matter where each card is placed or whether its switch is on.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
@@ -106,13 +107,13 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                 items.add(new SectionItem(key, "Weekly limit", "Rolling 7-day Codex window"));
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 items.add(new SectionItem(key, "Usage-credit balance",
-                        "Shows a blank dash when no balance is available"));
+                        "Hidden automatically at a zero or negative balance"));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 items.add(new SectionItem(key, "Usage history",
-                        "Shows a placeholder until burn charts have data"));
+                        "Shown only when a 5-hour or weekly window is available"));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
                 items.add(new SectionItem(key, "Reset credits",
-                        "Shows a blank state when no resets are available"));
+                        "Hidden automatically when no resets are available"));
             } else {
                 UsageLimit match = null;
                 for (UsageLimit limit : limits) {

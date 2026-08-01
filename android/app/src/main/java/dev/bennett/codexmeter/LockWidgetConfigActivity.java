@@ -216,7 +216,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         List<String> available = WidgetMeters.availableKeys(snapshot);
         List<String> visible = WidgetMeters.cap(
-                WidgetMeters.resolveVisible(options.effectiveVisibleMeters(), available),
+                WidgetMeters.resolveVisibleForWidget(options.effectiveVisibleMeters(), available,
+                        options.metricMode),
                 WidgetMeters.lockSlotCapacity());
         int primary = 73;
         int secondary = -1;

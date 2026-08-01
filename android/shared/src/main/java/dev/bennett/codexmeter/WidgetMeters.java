@@ -167,11 +167,55 @@ public final class WidgetMeters {
      */
     public static List<String> resolveVisibleOrDefault(String savedCsv, List<String> available,
             String metricMode) {
+        return resolveVisibleForWidget(savedCsv, available, metricMode);
+    }
+
+    /**
+     * Resolves saved widget meters against the current catalog and migrates away from
+     * removed model-specific limit keys without silently collapsing a multi-meter widget
+     * into a single-usage adaptive layout.
+     */
+    public static List<String> resolveVisibleForWidget(String savedCsv, List<String> available,
+            String metricMode) {
+        List<String> saved = parse(savedCsv);
         List<String> resolved = resolveVisible(savedCsv, available);
-        if (!resolved.isEmpty()) {
-            return resolved;
+        boolean savedHadLimit = false;
+        int savedUsage = 0;
+        for (String key : saved) {
+            if (isLimitKey(key)) {
+                savedHadLimit = true;
+                savedUsage++;
+            } else if (FIVE_HOUR.equals(key) || WEEKLY.equals(key)) {
+                savedUsage++;
+            }
         }
-        return resolveVisible(serialize(fromMetricMode(metricMode)), available);
+
+        if (resolved.isEmpty()) {
+            if (savedHadLimit) {
+                return resolveVisible(serialize(defaultVisible()), available);
+            }
+            return resolveVisible(serialize(fromMetricMode(metricMode)), available);
+        }
+
+        // Dropping Spark/other limit keys must not flip Adaptive tall layouts from bars to
+        // two oversized dials when the saved selection was multi-usage only because of them.
+        if (savedHadLimit && savedUsage > 1 && usageMeterCount(resolved) <= 1) {
+            List<String> repaired = new ArrayList<>(resolved);
+            if (!contains(repaired, FIVE_HOUR) && contains(available, FIVE_HOUR)) {
+                repaired.add(FIVE_HOUR);
+            }
+            if (!contains(repaired, WEEKLY) && contains(available, WEEKLY)) {
+                repaired.add(WEEKLY);
+            }
+            return repaired;
+        }
+        return resolved;
+    }
+
+    /** Single-usage layout decision after migrating away from removed limit meters. */
+    public static boolean resolvedSingleUsageMetric(String savedCsv, List<String> available,
+            String metricMode) {
+        return singleUsageMetric(resolveVisibleForWidget(savedCsv, available, metricMode));
     }
 
     /** Truncates an ordered visible list to the host's slot capacity. */

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.6.10 — 2026-07-31
+
+### Fixed
+
+- Restored dashboard auto-hide for empty usage-credit, reset-credit, and missing-window cards. The 2.6.9 blank-placeholder behavior was intended for widgets only, not the home-screen dashboard (#85).
+- Adaptive widget layouts no longer flip to two oversized dials after Spark/additional-limit meters are stripped from saved configs; multi-usage selections migrate to Codex 5-hour + weekly so tall Adaptive sizing keeps progress bars (#85).
+
+### Development
+
+- Shared `resolveVisibleForWidget` / `resolvedSingleUsageMetric` migration helpers cover layout, slot selection, config load, and lock widgets (#85).
+
+**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter/compare/v2.6.9...v2.6.10 <!-- pragma: allowlist secret -->
+
 ## 2.6.9 — 2026-07-31
 
 ### Changed

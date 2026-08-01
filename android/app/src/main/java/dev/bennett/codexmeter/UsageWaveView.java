@@ -30,7 +30,6 @@ public final class UsageWaveView extends View {
     private String resetBottom = "";
     private String pace = "";
     private int percent;
-    private boolean unavailable;
     private boolean warning;
     private float phase;
     private float phaseOffset;
@@ -52,18 +51,14 @@ public final class UsageWaveView extends View {
     public void setUsage(String label, String reset, String paceEstimate, int remainingPercent,
             int iconRes, boolean invertedWave, boolean acceleratedWarning) {
         title = label;
-        unavailable = remainingPercent < 0;
-        percent = unavailable ? 0 : Math.max(0, Math.min(100, remainingPercent));
+        percent = Math.max(0, Math.min(100, remainingPercent));
         pace = paceEstimate == null ? "" : paceEstimate;
-        warning = !unavailable && acceleratedWarning;
+        warning = acceleratedWarning;
         if (animator != null) {
             animator.setDuration(warning ? WARNING_WAVE_DURATION_MS : NORMAL_WAVE_DURATION_MS);
         }
         phaseOffset = invertedWave ? (float) Math.PI : 0f;
-        if (unavailable) {
-            resetTop = reset == null || reset.isEmpty() ? "Unavailable" : reset;
-            resetBottom = "";
-        } else if (reset != null && reset.startsWith("Resets in ")) {
+        if (reset != null && reset.startsWith("Resets in ")) {
             resetTop = "Resets in";
             resetBottom = reset.substring("Resets in ".length());
         } else {
@@ -71,15 +66,9 @@ public final class UsageWaveView extends View {
             resetBottom = "";
         }
         icon = AppCompatResources.getDrawable(getContext(), iconRes);
-        String description = unavailable
-                ? label + ", unavailable. " + resetTop
-                : label + ", " + percent + " percent. " + reset;
-        if (!unavailable && !pace.isEmpty()) {
-            description += ". " + pace.replace("Est.", "Estimated");
-        }
-        if (warning) {
-            description += ". Accelerated usage warning";
-        }
+        String description = label + ", " + percent + " percent. " + reset;
+        if (!pace.isEmpty()) description += ". " + pace.replace("Est.", "Estimated");
+        if (warning) description += ". Accelerated usage warning";
         setContentDescription(description);
         invalidate();
     }
@@ -170,7 +159,6 @@ public final class UsageWaveView extends View {
         }
         percentPaint.setColor(foreground);
         percentPaint.setTextSize(22f * density);
-        canvas.drawText(unavailable ? "—" : percent + "%", rightCenter, 85f * density,
-                percentPaint);
+        canvas.drawText(percent + "%", rightCenter, 85f * density, percentPaint);
     }
 }

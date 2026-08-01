@@ -199,7 +199,8 @@ public final class WidgetOptions {
     }
 
     public boolean singleMetric() {
-        return WidgetMeters.singleUsageMetric(WidgetMeters.parse(effectiveVisibleMeters()));
+        return WidgetMeters.resolvedSingleUsageMetric(effectiveVisibleMeters(),
+                WidgetMeters.availableKeys(null), metricMode);
     }
 
     public static String normalizeStyle(String str) {
