@@ -130,6 +130,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private ListPreference usagePaceSensitivityPreference;
         private Preference nowBarPermissionPreference;
         private SwitchPreferenceCompat automaticUpdatePreference;
+        private ListPreference updateChannelPreference;
         private ListPreference updateIntervalPreference;
         private SwitchPreferenceCompat notifyUpdatePreference;
         private boolean pendingExportAppSettings;
@@ -299,12 +300,14 @@ public final class SettingsActivity extends AppCompatActivity {
             findPreference("settings_now_bar").setSummary(nowBarSummary);
 
             GitHubRelease availableUpdate = UpdatePreferences.availableUpdate(requireContext());
-            findPreference("settings_updates").setSummary(availableUpdate != null
+            String channelSuffix = UpdateChannel.isAlpha(
+                    UpdatePreferences.channel(requireContext())) ? " · Alpha channel" : "";
+            findPreference("settings_updates").setSummary((availableUpdate != null
                     ? "v" + availableUpdate.version + " available"
                     : UpdatePreferences.automaticChecks(requireContext())
                     ? "Automatic · " + UpdateCheckFrequency.label(
                     UpdatePreferences.checkIntervalHours(requireContext()))
-                    : "Automatic checks off");
+                    : "Automatic checks off") + channelSuffix);
         }
 
         private String metricLabel(String metric) {
@@ -496,6 +499,31 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindUpdates() {
+            updateChannelPreference = findPreference("update_channel_ui");
+            updateChannelPreference.setPersistent(false);
+            updateChannelPreference.setValue(UpdatePreferences.channel(requireContext()));
+            updateChannelPreference.setOnPreferenceChangeListener((preference, value) -> {
+                String channel = UpdateChannel.normalize(String.valueOf(value));
+                if (channel.equals(UpdatePreferences.channel(requireContext()))) {
+                    return true;
+                }
+                if (UpdateChannel.ALPHA.equals(channel)) {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("Switch to the alpha channel?")
+                            .setMessage("Alpha builds ship faster with less testing and may be "
+                                    + "unstable. They use the same signing key and version code "
+                                    + "as stable releases, so switching back to stable later is "
+                                    + "one in-place install with no uninstalling or data loss.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Use alpha", (dialog, which) ->
+                                    applyUpdateChannel(UpdateChannel.ALPHA))
+                            .show();
+                    return false;
+                }
+                applyUpdateChannel(UpdateChannel.STABLE);
+                return true;
+            });
+
             automaticUpdatePreference = findPreference("automatic_update_checks_ui");
             automaticUpdatePreference.setPersistent(false);
             automaticUpdatePreference.setChecked(UpdatePreferences.automaticChecks(requireContext()));
@@ -559,6 +587,16 @@ public final class SettingsActivity extends AppCompatActivity {
             updateUpdateSummary();
         }
 
+        private void applyUpdateChannel(String channel) {
+            UpdatePreferences.setChannel(requireContext(), channel);
+            if (updateChannelPreference != null) {
+                updateChannelPreference.setValue(channel);
+            }
+            updateUpdateSummary();
+            startActivity(new Intent(requireContext(), UpdateActivity.class)
+                    .putExtra(UpdateActivity.EXTRA_FORCE_CHECK, true));
+        }
+
         private void updateAutomaticUpdateEnabledState() {
             boolean enabled = UpdatePreferences.automaticChecks(requireContext());
             if (updateIntervalPreference != null) {
@@ -620,6 +658,9 @@ public final class SettingsActivity extends AppCompatActivity {
             if (notifyUpdatePreference != null) {
                 notifyUpdatePreference.setChecked(
                         UpdatePreferences.notifyUpdatesEnabled(requireContext()));
+            }
+            if (updateChannelPreference != null) {
+                updateChannelPreference.setValue(UpdatePreferences.channel(requireContext()));
             }
             updateAutomaticUpdateEnabledState();
             updateAutomaticUpdateSummary();

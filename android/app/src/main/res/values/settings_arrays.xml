@@ -26,6 +26,14 @@
     <string-array name="settings_refresh_values">
         <item>5</item><item>10</item><item>15</item><item>30</item><item>60</item><item>120</item>
     </string-array>
+    <string-array name="settings_update_channel_entries">
+        <item>Stable</item>
+        <item>Alpha (early builds)</item>
+    </string-array>
+    <string-array name="settings_update_channel_values">
+        <item>stable</item>
+        <item>alpha</item>
+    </string-array>
     <string-array name="settings_update_interval_entries">
         <item>Every hour</item>
         <item>Every 6 hours</item>

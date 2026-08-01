@@ -303,14 +303,24 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildUpdateCard(GitHubRelease release) {
+        boolean returnToStable = UpdateChannel.isReturnToStable(release,
+                UpdatePreferences.installedVersion(this));
         LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, "Codex Meter " + release.version + " is ready", 18,
+        TextView title = Ui.text(this, returnToStable
+                        ? "Return to Codex Meter " + release.version
+                        : "Codex Meter " + release.version + " is ready", 18,
                 Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         TextView summary = Ui.text(this,
-                "A signed GitHub release is available. The APK will be checksum-verified before "
-                        + "Android asks you to approve installation.",
+                returnToStable
+                        ? "You are back on the stable channel. The stable APK installs in place "
+                        + "over this alpha build after checksum verification."
+                        : release.prerelease
+                        ? "A signed alpha release is available. The APK will be checksum-verified "
+                        + "before Android asks you to approve installation."
+                        : "A signed GitHub release is available. The APK will be checksum-verified "
+                        + "before Android asks you to approve installation.",
                 13, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
         summaryParams.setMargins(0, Ui.dp(this, 7), 0, Ui.dp(this, 14));

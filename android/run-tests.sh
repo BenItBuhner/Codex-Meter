@@ -63,6 +63,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseSource.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubRelease.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateChannel.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
@@ -251,6 +252,25 @@ grep -q 'UpdateNotificationManager.onReleasesUpdated' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdatePreferences.java"
 grep -q 'testUpdateCheckFrequency' "$ROOT/tests/ParserSelfTest.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java"
+
+# Alpha/stable release channels with in-place channel switching.
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateChannel.java"
+grep -q 'testUpdateChannel' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'UpdateChannel.selectUpdate' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdatePreferences.java"
+grep -q 'UpdateChannel.isReturnToStable' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateActivity.java"
+grep -q 'update_channel_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_updates.xml"
+grep -q 'update_channel_ui' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'settings_update_channel_entries' \
+  "$ROOT/app/src/main/res/values/settings_arrays.xml"
+grep -q '"update_channel"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -Fq 'branches: [main, alpha]' "$WORKFLOW"
+grep -Fq -- '--prerelease="$PRERELEASE"' "$WORKFLOW"
+test -f "$ROOT/../.github/workflows/alpha-branch.yml"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManager.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"

@@ -1,0 +1,34 @@
+name: Ensure alpha branch
+
+# Bootstraps the rapid-iteration alpha branch alongside main. Runs after every push to
+# main so merging the workflow itself creates the branch; it never force-updates an
+# existing alpha branch, which diverges from main between stable promotions.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ensure-alpha:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create alpha branch from main when missing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GH_REPO/git/ref/heads/alpha" >/dev/null 2>&1; then
+            echo "alpha branch already exists; leaving it untouched"
+            exit 0
+          fi
+          gh api "repos/$GH_REPO/git/refs" \
+            -f ref="refs/heads/alpha" \
+            -f sha="$GITHUB_SHA"
+          echo "Created alpha branch at $GITHUB_SHA"

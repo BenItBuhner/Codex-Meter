@@ -83,7 +83,9 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
                 + ReleaseUpdatePolicy.FIRST_IN_APP_UPDATE_VERSION
                 + " are irreversible and must be installed from GitHub because those builds lack "
                 + "working in-app updates. Other older versions still require uninstalling first, "
-                + "which removes local data and widgets.";
+                + "which removes local data and widgets. Alpha builds are the exception: they "
+                + "share the stable version code, so the newest stable release always installs "
+                + "back in place.";
         TextView detail = Ui.text(this, note, 13, Ui.secondaryText(dark));
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.setMargins(0, Ui.dp(this, 8), 0, 0);
@@ -126,9 +128,10 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
     }
 
     private void addRelease(GitHubRelease release) {
-        int comparison = ReleaseVersion.compare(release.version,
-                UpdatePreferences.installedVersion(this));
+        String installedVersion = UpdatePreferences.installedVersion(this);
+        int comparison = ReleaseVersion.compare(release.version, installedVersion);
         boolean irreversible = ReleaseUpdatePolicy.isIrreversible(release.version);
+        boolean returnToStable = UpdateChannel.isReturnToStable(release, installedVersion);
         LinearLayout card = Ui.card(this, dark);
         String suffix = release.prerelease ? " · Prerelease"
                 : irreversible ? " · Irreversible"
@@ -180,8 +183,9 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
             card.addView(details, detailsParams);
         } else {
             Button action = Ui.button(this,
-                    comparison < 0 ? "View downgrade" : comparison == 0 ? "View reinstall"
-                            : "View update", comparison > 0, dark);
+                    returnToStable ? "View stable return"
+                            : comparison < 0 ? "View downgrade" : comparison == 0 ? "View reinstall"
+                            : "View update", comparison > 0 || returnToStable, dark);
             action.setOnClickListener(view -> startActivity(new Intent(this, UpdateActivity.class)
                     .putExtra(UpdateActivity.EXTRA_VERSION, release.version)));
             card.addView(action, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));

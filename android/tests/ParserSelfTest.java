@@ -51,6 +51,7 @@ public final class ParserSelfTest {
         testOAuthBrowserPage();
         testReleaseVersions();
         testGitHubReleases();
+        testUpdateChannel();
         testReleaseChecksums();
         testReleaseNotesMarkdown();
         testReleaseUpdatePolicy();
@@ -1500,6 +1501,49 @@ public final class ParserSelfTest {
                 "local fixture rejected by production parser");
         check(GitHubReleaseParser.parse(localFixture, true).size() == 1,
                 "local fixture accepted only in explicit debug mode");
+    }
+
+    private static void testUpdateChannel() throws Exception {
+        check(UpdateChannel.STABLE.equals(UpdateChannel.normalize(null)),
+                "update channel defaults to stable");
+        check(UpdateChannel.ALPHA.equals(UpdateChannel.normalize(" Alpha ")),
+                "update channel normalization");
+        check(!UpdateChannel.isAlpha("nonsense"), "unknown channel treated as stable");
+        String json = "["
+                + releaseJson("v2.7.0-alpha.2", false, true, true, true)
+                + "," + releaseJson("v2.6.10", false, false, true, true)
+                + "," + releaseJson("v2.6.9", false, false, true, true)
+                + "]";
+        java.util.List<GitHubRelease> releases = GitHubReleaseParser.parse(json);
+        check(UpdateChannel.selectUpdate(releases, "2.6.10", UpdateChannel.STABLE) == null,
+                "stable channel ignores alpha builds");
+        GitHubRelease alphaPick = UpdateChannel.selectUpdate(
+                releases, "2.6.10", UpdateChannel.ALPHA);
+        check(alphaPick != null && "2.7.0-alpha.2".equals(alphaPick.version),
+                "alpha channel offers newest alpha");
+        GitHubRelease alphaHop = UpdateChannel.selectUpdate(
+                releases, "2.7.0-alpha.1", UpdateChannel.ALPHA);
+        check(alphaHop != null && "2.7.0-alpha.2".equals(alphaHop.version),
+                "alpha channel upgrades between alphas");
+        check(UpdateChannel.selectUpdate(releases, "2.7.0-alpha.2", UpdateChannel.ALPHA) == null,
+                "alpha channel idle on newest alpha");
+        GitHubRelease revert = UpdateChannel.selectUpdate(
+                releases, "2.7.0-alpha.2", UpdateChannel.STABLE);
+        check(revert != null && "2.6.10".equals(revert.version),
+                "stable channel offers in-place return from alpha");
+        check(UpdateChannel.isReturnToStable(revert, "2.7.0-alpha.2"),
+                "return-to-stable detected from alpha build");
+        check(!UpdateChannel.isReturnToStable(revert, "2.6.9"),
+                "stable-to-stable downgrade is not a return");
+        check(UpdateChannel.selectUpdate(releases, "2.6.9", UpdateChannel.STABLE) != null,
+                "stable channel still upgrades stable builds");
+        String promoted = "[" + releaseJson("v2.7.0", false, false, true, true)
+                + "," + releaseJson("v2.7.0-alpha.2", false, true, true, true) + "]";
+        java.util.List<GitHubRelease> promotedReleases = GitHubReleaseParser.parse(promoted);
+        GitHubRelease promotedPick = UpdateChannel.selectUpdate(
+                promotedReleases, "2.7.0-alpha.2", UpdateChannel.ALPHA);
+        check(promotedPick != null && "2.7.0".equals(promotedPick.version),
+                "alpha channel follows stable promotions");
     }
 
     private static String releaseJson(String tag, boolean draft, boolean prerelease,

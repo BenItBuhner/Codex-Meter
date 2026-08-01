@@ -186,6 +186,7 @@ public final class SettingsTransferStore {
         json.put("usage_pace_enabled", UsagePacePreferences.isEnabled(context));
         json.put("usage_pace_sensitivity", UsagePacePreferences.getSensitivity(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
+        json.put("update_channel", UpdatePreferences.channel(context));
         json.put("notify_updates", UpdatePreferences.notifyUpdatesEnabled(context));
         json.put("check_interval_hours", UpdatePreferences.checkIntervalHours(context));
         json.put("default_widget", SettingsTransfer.widgetOptionsToJson(
@@ -260,6 +261,8 @@ public final class SettingsTransferStore {
                 UpdatePreferences.checkIntervalHours(context)));
         UpdatePreferences.setNotifyUpdatesEnabled(context,
                 json.optBoolean("notify_updates", UpdatePreferences.notifyUpdatesEnabled(context)));
+        UpdatePreferences.setChannel(context, json.optString("update_channel",
+                UpdatePreferences.channel(context)));
         JSONObject widget = json.optJSONObject("default_widget");
         if (widget != null) {
             AppPreferences.saveDefaultWidgetOptions(context,
