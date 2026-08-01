@@ -14,8 +14,8 @@ android {
         applicationId = "dev.bennett.codexmeter"
         minSdk = 30
         targetSdk = 36
-        versionCode = 28
-        versionName = "2.6.10"
+        versionCode = 29
+        versionName = "2.7.0"
     }
 
     signingConfigs {

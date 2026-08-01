@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.7.0 — 2026-08-01
+
+### Added
+
+- Alpha release channel with one-tap in-place switching: Settings → Updates → Update channel opts into signed alpha builds, and returning to stable installs in place with no uninstall or data loss because alpha builds share the stable signing key and version code (#88).
+- Scrubbable usage-history analytics with per-window insights and plan value estimates (#87).
+
+### Development
+
+- New `alpha` branch (auto-created by CI after merge) feeds `v*-alpha.N` tags; release CI publishes them as GitHub prereleases, never marks them latest, and enforces the shared-versionCode invariant that keeps channel switching downgrade-free (#88).
+- Channel-selection self-tests and source guards cover stable/alpha update picks, alpha-to-alpha upgrades, stable promotions, and the return-to-stable flow (#88).
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.6.10...v2.7.0 <!-- pragma: allowlist secret -->
+
 ## 2.6.10 — 2026-07-31
 
 ### Fixed
