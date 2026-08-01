@@ -1,14 +1,24 @@
 package dev.bennett.codexmeter;
 
 import android.app.AlertDialog;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.format.DateFormat;
+import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
-/** Full local-history view with explicit privacy and deletion controls. */
+/** Full local-history view with scrubbable charts, insights, and value estimates. */
 public final class UsageHistoryActivity extends AppCompatActivity {
+    private static final int MAX_BREAKDOWN_WINDOWS = 5;
+
     private LinearLayout content;
     private boolean dark;
 
@@ -32,6 +42,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         UsageHistory five = AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR);
         UsageHistory weekly = AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY);
+        PlanPricing pricing = snapshot == null ? null : PlanPricing.forPlan(snapshot.planType);
 
         LinearLayout intro = Ui.card(this, dark);
         TextView title = Ui.text(this, "Burn trends", 20, Ui.mainText(dark));
@@ -41,7 +52,8 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                 "Samples stay on this device and are recorded only after a successful refresh. "
                         + "The solid line is current usage, faint lines are previous windows, "
                         + "the dotted diagonal is a sustainable pace, and the dashed extension "
-                        + "is the estimate.",
+                        + "is the estimate. Touch and drag a chart to inspect any moment, and "
+                        + "tap a window below a chart to compare previous windows.",
                 13, Ui.secondaryText(dark));
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.setMargins(0, Ui.dp(this, 8), 0, 0);
@@ -53,14 +65,12 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         boolean hasCharts = false;
         UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
         if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
-            content.addView(buildChartCard("5-hour", fiveWindow, snapshot, five));
-            Ui.addSpacer(content, 20);
+            addWindowSection("5-hour", fiveWindow, snapshot, five, pricing);
             hasCharts = true;
         }
         UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
         if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
-            content.addView(buildChartCard("Weekly", weeklyWindow, snapshot, weekly));
-            Ui.addSpacer(content, 20);
+            addWindowSection("Weekly", weeklyWindow, snapshot, weekly, pricing);
             hasCharts = true;
         }
         if (!hasCharts) {
@@ -70,6 +80,12 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                             + "Refresh usage from the dashboard to check again.",
                     13, Ui.secondaryText(dark)));
             content.addView(waiting);
+            Ui.addSpacer(content, 20);
+        }
+
+        if (snapshot != null && hasCharts) {
+            content.addView(Ui.separator(this, "Estimated value"));
+            content.addView(buildValueCard(snapshot, pricing));
             Ui.addSpacer(content, 20);
         }
 
@@ -88,8 +104,21 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         content.addView(clear, new LinearLayout.LayoutParams(-1, Ui.dp(this, 58)));
     }
 
+    private void addWindowSection(String label, UsageWindow window, UsageSnapshot snapshot,
+            UsageHistory history, PlanPricing pricing) {
+        content.addView(Ui.separator(this, label + " window"));
+        content.addView(buildChartCard(label, window, snapshot, history, pricing));
+        Ui.addSpacer(content, 12);
+        LinearLayout insights = buildInsightsCard(window, snapshot, history, pricing);
+        if (insights != null) {
+            content.addView(insights);
+            Ui.addSpacer(content, 12);
+        }
+        Ui.addSpacer(content, 8);
+    }
+
     private LinearLayout buildChartCard(String label, UsageWindow window, UsageSnapshot snapshot,
-            UsageHistory history) {
+            UsageHistory history, PlanPricing pricing) {
         LinearLayout card = Ui.card(this, dark);
         card.setPadding(Ui.dp(this, 6), Ui.dp(this, 8), Ui.dp(this, 6), Ui.dp(this, 8));
         long now = System.currentTimeMillis();
@@ -97,16 +126,251 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                 ? UsagePace.assess(null, 0L, now, UsagePace.BALANCED)
                 : UsagePacePreferences.assess(this, snapshot, window, now);
         UsageBurnChartView chart = new UsageBurnChartView(this);
+        chart.setScrubEnabled(true);
         chart.setData(label, window, history,
                 snapshot == null ? now : snapshot.fetchedAtMillis, pace);
-        card.addView(chart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 190)));
+        card.addView(chart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 200)));
+
+        String defaultDetail = "Touch and drag the chart to inspect any moment in time.";
+        TextView scrubDetail = Ui.text(this, defaultDetail, 12, Ui.secondaryText(dark));
+        LinearLayout.LayoutParams scrubParams = new LinearLayout.LayoutParams(-1, -2);
+        scrubParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 2), Ui.dp(this, 12), 0);
+        card.addView(scrubDetail, scrubParams);
+        chart.setOnScrubListener(new UsageBurnChartView.OnScrubListener() {
+            @Override
+            public void onScrub(long timeMillis, double usedPercent, boolean historicalWindow) {
+                String moment = UsageFormat.absolute(UsageHistoryActivity.this, timeMillis,
+                        System.currentTimeMillis());
+                String text = moment + " — " + Math.round(usedPercent) + "% used";
+                if (pricing != null) {
+                    text += " · ≈ " + PlanPricing.formatUsd(
+                            pricing.estimatedValueUsd(history.kind, usedPercent)) + " of usage";
+                }
+                scrubDetail.setTextColor(Ui.mainText(dark));
+                scrubDetail.setText(text);
+            }
+
+            @Override
+            public void onScrubEnd() {
+                scrubDetail.setTextColor(Ui.secondaryText(dark));
+                scrubDetail.setText(defaultDetail);
+            }
+        });
+
         String summary = history.samples.size() + " samples · "
                 + history.completedWindowCount() + " completed window"
                 + (history.completedWindowCount() == 1 ? "" : "s");
         TextView stats = Ui.text(this, summary, 12, Ui.secondaryText(dark));
         LinearLayout.LayoutParams statsParams = new LinearLayout.LayoutParams(-1, -2);
-        statsParams.setMargins(Ui.dp(this, 12), 0, Ui.dp(this, 12), Ui.dp(this, 6));
+        statsParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
         card.addView(stats, statsParams);
+
+        List<UsageStats.WindowStats> breakdown =
+                UsageStats.windowBreakdown(history, MAX_BREAKDOWN_WINDOWS);
+        if (breakdown.size() > 1) {
+            View divider = new View(this);
+            divider.setBackgroundColor(Ui.divider(dark));
+            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
+            dividerParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12),
+                    Ui.dp(this, 4));
+            card.addView(divider, dividerParams);
+            addWindowRows(card, chart, history, breakdown, pricing);
+        }
         return card;
+    }
+
+    /** Tappable per-window rows that select a window on the chart for scrubbing. */
+    private void addWindowRows(LinearLayout card, UsageBurnChartView chart, UsageHistory history,
+            List<UsageStats.WindowStats> breakdown, PlanPricing pricing) {
+        boolean weekly = UsageHistory.WEEKLY.equals(history.kind);
+        TextView[] titles = new TextView[breakdown.size()];
+        Runnable[] selections = new Runnable[breakdown.size()];
+        for (int index = breakdown.size() - 1; index >= 0; index--) {
+            UsageStats.WindowStats stats = breakdown.get(index);
+            boolean current = !stats.complete;
+            String rowTitle = current ? "Current window" : windowRangeLabel(stats, weekly);
+            StringBuilder subtitle = new StringBuilder();
+            subtitle.append(stats.finalPercent).append("% used");
+            if (stats.averageBurnPercentPerHour > 0d) {
+                subtitle.append(" · avg ").append(formatRate(stats.averageBurnPercentPerHour));
+            }
+            if (pricing != null) {
+                subtitle.append(" · ≈ ").append(PlanPricing.formatUsd(
+                        pricing.estimatedValueUsd(history.kind, stats.finalPercent)));
+            }
+            if (stats.exhausted) subtitle.append(" · hit limit");
+
+            LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+            row.setPadding(Ui.dp(this, 12), Ui.dp(this, 8), Ui.dp(this, 12), Ui.dp(this, 8));
+            LinearLayout texts = new LinearLayout(this);
+            texts.setOrientation(LinearLayout.VERTICAL);
+            TextView titleView = Ui.text(this, rowTitle, 14,
+                    current ? Ui.accent(this, dark) : Ui.mainText(dark));
+            titleView.setTypeface(Ui.mediumTypeface(this));
+            texts.addView(titleView);
+            texts.addView(Ui.text(this, subtitle.toString(), 12, Ui.secondaryText(dark)));
+            row.addView(texts, new LinearLayout.LayoutParams(0, -2, 1f));
+            card.addView(row, new LinearLayout.LayoutParams(-1, -2));
+
+            titles[index] = titleView;
+            int chartWindowIndex = chart.windowCount() - breakdown.size() + index;
+            boolean selectsCurrent = current;
+            int rowIndex = index;
+            selections[index] = () -> {
+                chart.setSelectedWindow(selectsCurrent ? -1 : chartWindowIndex);
+                for (int i = 0; i < titles.length; i++) {
+                    boolean selected = i == rowIndex;
+                    titles[i].setTextColor(selected ? Ui.accent(this, dark)
+                            : Ui.mainText(dark));
+                }
+            };
+            row.setOnClickListener(view -> selections[rowIndex].run());
+            row.setClickable(true);
+            row.setFocusable(true);
+            row.setContentDescription("Inspect " + rowTitle + ". " + subtitle);
+        }
+    }
+
+    private LinearLayout buildInsightsCard(UsageWindow window, UsageSnapshot snapshot,
+            UsageHistory history, PlanPricing pricing) {
+        long now = System.currentTimeMillis();
+        long observedAt = snapshot == null ? now : snapshot.fetchedAtMillis;
+        LinearLayout card = Ui.card(this, dark);
+        TextView title = Ui.text(this, "Insights", 16, Ui.mainText(dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        int rows = 0;
+
+        // Current position against the typical pace of completed windows.
+        long resetAt = window.effectiveResetAtMillis(observedAt);
+        long durationMillis = window.windowSeconds * 1000L;
+        if (resetAt > 0L && durationMillis > 0L) {
+            double elapsedFraction = 1d - Math.max(0d, Math.min(1d,
+                    (resetAt - now) / (double) durationMillis));
+            double typical = UsageStats.typicalUsedPercentAt(history, elapsedFraction);
+            if (typical >= 0d) {
+                long delta = Math.round(window.usedPercent - typical);
+                String value;
+                if (delta >= 2L) {
+                    value = delta + " pts ahead of typical";
+                } else if (delta <= -2L) {
+                    value = (-delta) + " pts behind typical";
+                } else {
+                    value = "On par with typical";
+                }
+                addStatRow(card, "Pace vs. previous windows", value);
+                rows++;
+            }
+        }
+
+        UsagePace.Assessment pace = snapshot == null ? null
+                : UsagePacePreferences.assess(this, snapshot, window, now);
+        if (pace != null && pace.available) {
+            addStatRow(card, "Projected exhaustion",
+                    UsageFormat.relative(pace.estimatedExhaustionAtMillis, now));
+            rows++;
+        }
+
+        double averageFinal = UsageStats.averageFinalPercent(history);
+        if (averageFinal >= 0d) {
+            addStatRow(card, "Avg. completed window", Math.round(averageFinal) + "% used");
+            rows++;
+        }
+
+        double peakBurn = UsageStats.peakBurnPercentPerHour(history);
+        if (peakBurn > 0d) {
+            String value = formatRate(peakBurn);
+            if (pricing != null) {
+                value += " · ≈ " + PlanPricing.formatUsd(
+                        pricing.windowValueUsd(history.kind) * peakBurn / 100d) + "/h";
+            }
+            addStatRow(card, "Peak burn observed", value);
+            rows++;
+        }
+
+        if (pricing != null) {
+            addStatRow(card, "Est. value used this window",
+                    "≈ " + PlanPricing.formatUsd(pricing.estimatedValueUsd(history.kind,
+                            window.usedPercent))
+                            + " of " + PlanPricing.formatUsd(
+                                    pricing.windowValueUsd(history.kind)));
+            rows++;
+        }
+        return rows == 0 ? null : card;
+    }
+
+    private LinearLayout buildValueCard(UsageSnapshot snapshot, PlanPricing pricing) {
+        LinearLayout card = Ui.card(this, dark);
+        if (pricing == null) {
+            String plan = UsageFormat.planLabel(snapshot.planType);
+            card.addView(Ui.text(this,
+                    (plan.isEmpty() ? "Your plan" : "The " + plan + " plan")
+                            + " has no researched usage-value estimates yet. Estimates cover "
+                            + "Plus, Pro 5x, and Pro 20x subscriptions.",
+                    13, Ui.secondaryText(dark)));
+            return card;
+        }
+        TextView title = Ui.text(this, pricing.planLabel + " · "
+                + PlanPricing.formatUsd(pricing.monthlyPriceUsd) + "/month", 16,
+                Ui.mainText(dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        addStatRow(card, "Est. included usage",
+                "≈ " + PlanPricing.formatUsd(pricing.monthlyValueUsd) + "/month");
+        addStatRow(card, "Weekly allowance",
+                "≈ " + PlanPricing.formatUsd(pricing.weeklyValueUsd()));
+        addStatRow(card, "5-hour allowance",
+                "≈ " + PlanPricing.formatUsd(pricing.fiveHourValueUsd()));
+        addStatRow(card, "Vs. subscription price",
+                "≈ " + Math.round(pricing.valueMultiplier()) + "x the monthly cost");
+        if (snapshot.weekly != null) {
+            addStatRow(card, "Weekly value remaining",
+                    "≈ " + PlanPricing.formatUsd(pricing.estimatedValueUsd(UsageHistory.WEEKLY,
+                            snapshot.weekly.remainingPercent())));
+        }
+        TextView disclaimer = Ui.text(this,
+                "Rough estimates from community research comparing subscription allowances "
+                        + "with equivalent API pricing. Actual limits vary by model and "
+                        + "workload; nothing here is a billing statement.",
+                12, Ui.secondaryText(dark));
+        LinearLayout.LayoutParams disclaimerParams = new LinearLayout.LayoutParams(-1, -2);
+        disclaimerParams.setMargins(0, Ui.dp(this, 10), 0, 0);
+        card.addView(disclaimer, disclaimerParams);
+        return card;
+    }
+
+    private void addStatRow(LinearLayout card, String label, String value) {
+        LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+        rowParams.setMargins(0, Ui.dp(this, 8), 0, 0);
+        TextView labelView = Ui.text(this, label, 13, Ui.secondaryText(dark));
+        row.addView(labelView, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView valueView = Ui.text(this, value, 13, Ui.mainText(dark));
+        valueView.setTypeface(Typeface.create("sec", Typeface.NORMAL));
+        valueView.setGravity(Gravity.END);
+        row.addView(valueView, new LinearLayout.LayoutParams(-2, -2));
+        card.addView(row, rowParams);
+    }
+
+    private String windowRangeLabel(UsageStats.WindowStats stats, boolean weekly) {
+        boolean is24Hour = DateFormat.is24HourFormat(this);
+        if (weekly) {
+            SimpleDateFormat day = new SimpleDateFormat("MMM d", Locale.getDefault());
+            return day.format(new Date(stats.windowStartMillis)) + " – "
+                    + day.format(new Date(stats.resetAtMillis));
+        }
+        SimpleDateFormat day = new SimpleDateFormat("MMM d", Locale.getDefault());
+        SimpleDateFormat time = new SimpleDateFormat(is24Hour ? "HH:mm" : "h:mm a",
+                Locale.getDefault());
+        return day.format(new Date(stats.windowStartMillis)) + " · "
+                + time.format(new Date(stats.windowStartMillis)) + " – "
+                + time.format(new Date(stats.resetAtMillis));
+    }
+
+    private static String formatRate(double percentPerHour) {
+        if (percentPerHour >= 10d) {
+            return Math.round(percentPerHour) + "%/h";
+        }
+        return String.format(Locale.US, "%.1f%%/h", percentPerHour);
     }
 }

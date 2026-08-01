@@ -35,6 +35,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/PlanPricing.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageStats.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/AdaptiveRefreshPolicy.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
@@ -124,6 +126,22 @@ grep -q 'dashboard_usage_history' \
 grep -q 'dashboard_hidden_sections' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'hidden-section keys round-trip' "$ROOT/tests/ParserSelfTest.java"
+# Usage-history analytics: scrubbable charts, per-window insights, and value estimates.
+grep -q 'testPlanPricing' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'testUsageStats' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'setScrubEnabled' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageBurnChartView.java"
+grep -q 'requestDisallowInterceptTouchEvent' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageBurnChartView.java"
+grep -q 'setOnScrubListener' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+grep -q 'PlanPricing.forPlan' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+grep -q 'UsageStats.windowBreakdown' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/PlanPricing.java"
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageStats.java"
+
 # Usage-history charts must be gated on real usage data instead of blank placeholders.
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"

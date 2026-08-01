@@ -111,39 +111,57 @@ public final class UsagePaceDemoActivity extends Activity {
     }
 
     private void seedHistory(long now, long fiveHourReset, long weeklyReset) {
+        // Varied historical shapes exercise the per-window breakdown, typical-pace
+        // comparison, and scrubbable overlays: quiet, steady, heavy, and bursty windows.
         UsageHistory five = UsageHistory.empty(UsageHistory.FIVE_HOUR);
-        for (int window = 2; window >= 1; window--) {
+        int[][] fiveShapes = {
+                {3, 7, 12, 18, 22},
+                {6, 14, 25, 33, 41},
+                {12, 30, 52, 74, 96},
+                {10, 26, 38, 61, 83},
+        };
+        for (int window = fiveShapes.length; window >= 1; window--) {
             long reset = fiveHourReset - TimeUnit.HOURS.toMillis(5L * window);
-            for (int point = 1; point <= 5; point++) {
+            int[] shape = fiveShapes[fiveShapes.length - window];
+            for (int point = 0; point < shape.length; point++) {
                 long observed = reset - TimeUnit.HOURS.toMillis(5)
-                        + TimeUnit.MINUTES.toMillis(45L * point);
-                int used = Math.min(96, point * (window == 1 ? 18 : 15));
-                five = five.append(new UsageWindow(used, TimeUnit.HOURS.toSeconds(5), 0L,
-                        reset / 1000L), observed);
+                        + TimeUnit.MINUTES.toMillis(45L * (point + 1));
+                five = five.append(new UsageWindow(shape[point],
+                        TimeUnit.HOURS.toSeconds(5), 0L, reset / 1000L), observed);
             }
         }
-        int[] fiveUsed = {4, 9, 15};
+        // Current 5-hour window climbs to the snapshot's 37% over the elapsed hour.
+        int[] fiveUsed = {8, 15, 22, 30, 37};
         for (int point = 0; point < fiveUsed.length; point++) {
             five = five.append(new UsageWindow(fiveUsed[point],
                             TimeUnit.HOURS.toSeconds(5), 0L, fiveHourReset / 1000L),
-                    now - TimeUnit.MINUTES.toMillis(40L - 20L * point));
+                    now - TimeUnit.MINUTES.toMillis(48L - 12L * point));
         }
         AppPreferences.saveUsageHistory(this, five);
 
         UsageHistory weekly = UsageHistory.empty(UsageHistory.WEEKLY);
-        long previousWeeklyReset = weeklyReset - TimeUnit.DAYS.toMillis(7);
-        for (int point = 1; point <= 6; point++) {
-            long observed = previousWeeklyReset - TimeUnit.DAYS.toMillis(7)
-                    + TimeUnit.HOURS.toMillis(24L * point);
-            weekly = weekly.append(new UsageWindow(point * 9,
-                            TimeUnit.DAYS.toSeconds(7), 0L, previousWeeklyReset / 1000L),
-                    observed);
+        int[][] weeklyShapes = {
+                {5, 9, 14, 22, 30, 38},
+                {8, 19, 33, 47, 58, 71},
+                {15, 34, 52, 78, 95, 100},
+                {11, 24, 39, 52, 66, 84},
+        };
+        for (int window = weeklyShapes.length; window >= 1; window--) {
+            long reset = weeklyReset - TimeUnit.DAYS.toMillis(7L * window);
+            int[] shape = weeklyShapes[weeklyShapes.length - window];
+            for (int point = 0; point < shape.length; point++) {
+                long observed = reset - TimeUnit.DAYS.toMillis(7)
+                        + TimeUnit.HOURS.toMillis(24L * (point + 1));
+                weekly = weekly.append(new UsageWindow(shape[point],
+                        TimeUnit.DAYS.toSeconds(7), 0L, reset / 1000L), observed);
+            }
         }
-        int[] weeklyUsed = {4, 9, 15};
+        // Current weekly window climbs to the snapshot's 61% over the elapsed hour.
+        int[] weeklyUsed = {12, 28, 41, 53, 61};
         for (int point = 0; point < weeklyUsed.length; point++) {
             weekly = weekly.append(new UsageWindow(weeklyUsed[point],
                             TimeUnit.DAYS.toSeconds(7), 0L, weeklyReset / 1000L),
-                    now - TimeUnit.MINUTES.toMillis(40L - 20L * point));
+                    now - TimeUnit.MINUTES.toMillis(48L - 12L * point));
         }
         AppPreferences.saveUsageHistory(this, weekly);
     }
