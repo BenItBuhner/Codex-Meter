@@ -32,6 +32,8 @@ public final class ParserSelfTest {
         testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
+        testPlanPricing();
+        testUsageStats();
         testAdaptiveRefreshPolicy();
         testNowBarAutoStart();
         testNowBarDisplayModes();
@@ -1653,6 +1655,107 @@ public final class ParserSelfTest {
         Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         return encoder.encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8)) + "." +
                 encoder.encodeToString(payload.getBytes(StandardCharsets.UTF_8)) + ".x";
+    }
+
+    private static void testPlanPricing() {
+        check(PlanPricing.forPlan(null) == null, "null plan has no pricing");
+        check(PlanPricing.forPlan("free") == null, "free plan has no researched estimates");
+        check(PlanPricing.forPlan("go") == null, "go plan has no researched estimates");
+        check(PlanPricing.forPlan("enterprise") == null, "unknown plans have no estimates");
+
+        PlanPricing plus = PlanPricing.forPlan("plus");
+        check(plus != null && plus.monthlyPriceUsd == 20d, "plus subscription price");
+        check(plus.monthlyValueUsd == 700d, "plus monthly value backsolves from 5x anchor");
+        check(plus.weeklyValueUsd() == 175d, "plus weekly value is month over four weeks");
+
+        PlanPricing pro5x = PlanPricing.forPlan("pro_5x");
+        check(pro5x != null && pro5x.monthlyPriceUsd == 100d, "pro 5x price normalizes underscores");
+        check(pro5x.monthlyValueUsd == 3500d, "pro 5x monthly value anchor");
+        check(pro5x.weeklyValueUsd() == 875d, "pro 5x weekly value");
+        check(PlanPricing.forPlan("prolite") != null
+                && PlanPricing.forPlan("prolite").monthlyValueUsd == 3500d,
+                "prolite aliases pro 5x");
+
+        PlanPricing pro20x = PlanPricing.forPlan("pro");
+        check(pro20x != null && pro20x.monthlyPriceUsd == 200d, "pro aliases pro 20x");
+        check(pro20x.monthlyValueUsd == 14000d, "pro 20x monthly value anchor");
+        check(pro20x.weeklyValueUsd() == 3500d, "pro 20x weekly value");
+        check(Math.round(pro20x.valueMultiplier()) == 70L, "pro 20x multiplier of price");
+        check(pro20x.fiveHourValueUsd() > 0d
+                && pro20x.fiveHourValueUsd() < pro20x.weeklyValueUsd(),
+                "5-hour burst allowance is a fraction of the weekly value");
+
+        check(pro20x.estimatedValueUsd(UsageHistory.WEEKLY, 0) == 0d, "zero percent burns nothing");
+        check(pro20x.estimatedValueUsd(UsageHistory.WEEKLY, 50) == 1750d,
+                "half the weekly window burns half the weekly value");
+        check(pro20x.estimatedValueUsd(UsageHistory.WEEKLY, 250)
+                == pro20x.weeklyValueUsd(), "burned value clamps at the full allowance");
+
+        check("$3,500".equals(PlanPricing.formatUsd(3500d)), "thousands formatting");
+        check("$29".equals(PlanPricing.formatUsd(29.2d)), "two-digit dollars drop cents");
+        check("$4.20".equals(PlanPricing.formatUsd(4.2d)), "small values keep cents");
+        check("$0.00".equals(PlanPricing.formatUsd(-3d)), "negative values clamp to zero");
+        System.out.println("Plan pricing demo: Plus $700/mo, Pro 5x $3,500/mo, Pro 20x $14,000/mo.");
+    }
+
+    private static void testUsageStats() {
+        long start = 2_100_000_000_000L;
+        long windowSeconds = TimeUnit.HOURS.toSeconds(5);
+        long firstReset = start + TimeUnit.HOURS.toMillis(5);
+        UsageHistory history = UsageHistory.empty(UsageHistory.FIVE_HOUR);
+        // Completed window: 10% -> 40% -> 90% over four hours.
+        history = history.append(new UsageWindow(10, windowSeconds, 0L, firstReset / 1000L),
+                start + TimeUnit.HOURS.toMillis(1));
+        history = history.append(new UsageWindow(40, windowSeconds, 0L, firstReset / 1000L),
+                start + TimeUnit.HOURS.toMillis(3));
+        history = history.append(new UsageWindow(90, windowSeconds, 0L, firstReset / 1000L),
+                start + TimeUnit.HOURS.toMillis(5) - TimeUnit.MINUTES.toMillis(1));
+        // Current window: slow burn.
+        long secondReset = firstReset + TimeUnit.HOURS.toMillis(5);
+        history = history.append(new UsageWindow(5, windowSeconds, 0L, secondReset / 1000L),
+                firstReset + TimeUnit.HOURS.toMillis(1));
+        history = history.append(new UsageWindow(10, windowSeconds, 0L, secondReset / 1000L),
+                firstReset + TimeUnit.HOURS.toMillis(2));
+
+        List<UsageStats.WindowStats> breakdown =
+                UsageStats.windowBreakdown(history, 5);
+        check(breakdown.size() == 2, "breakdown covers completed plus current window");
+        UsageStats.WindowStats completed = breakdown.get(0);
+        UsageStats.WindowStats current = breakdown.get(1);
+        check(completed.complete && !current.complete, "completion flags follow window order");
+        check(completed.finalPercent == 90, "completed window final percent");
+        check(completed.sampleCount == 3, "completed window sample count");
+        check(!completed.exhausted, "90% never reached the limit");
+        check(current.finalPercent == 10, "current window final percent");
+        double expectedAverage = 80d / (4d - 1d / 60d);
+        check(Math.abs(completed.averageBurnPercentPerHour - expectedAverage) < 0.1d,
+                "average burn spans first to last sample");
+        check(completed.peakBurnPercentPerHour > completed.averageBurnPercentPerHour,
+                "peak burn exceeds the average for an accelerating window");
+
+        // Interpolation: halfway between the 10% and 40% samples reads 25%.
+        List<UsageSample> completedSamples = history.recentWindows(5).get(0);
+        double midpoint = UsageStats.usedPercentAt(completedSamples,
+                start + TimeUnit.HOURS.toMillis(2));
+        check(Math.abs(midpoint - 25d) < 0.01d, "scrub interpolation between samples");
+        check(UsageStats.usedPercentAt(completedSamples, start) < 0d,
+                "times before the first sample are unavailable");
+        check(UsageStats.usedPercentAt(completedSamples,
+                start + TimeUnit.HOURS.toMillis(1)) == 10d, "exact sample time reads its value");
+
+        // Typical pace across completed windows at 60% elapsed (three hours in) is 40%.
+        double typical = UsageStats.typicalUsedPercentAt(history, 0.6d);
+        check(Math.abs(typical - 40d) < 0.01d, "typical pace at an elapsed fraction");
+        check(UsageStats.typicalUsedPercentAt(UsageHistory.empty(UsageHistory.FIVE_HOUR), 0.5d)
+                < 0d, "typical pace needs a completed window");
+        check(Math.abs(UsageStats.averageFinalPercent(history) - 90d) < 0.01d,
+                "average completed final percent");
+        check(UsageStats.peakBurnPercentPerHour(history) > 0d, "peak burn is available");
+        check(UsageStats.windowStats(java.util.Collections.emptyList(), false) == null,
+                "empty windows produce no stats");
+        System.out.println("Usage stats demo: completed window avg "
+                + Math.round(completed.averageBurnPercentPerHour) + "%/h, typical@60% = "
+                + Math.round(typical) + "%.");
     }
 
     private static void check(boolean condition, String name) {
