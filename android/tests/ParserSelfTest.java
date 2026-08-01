@@ -34,6 +34,7 @@ public final class ParserSelfTest {
         testUsagePace();
         testPlanPricing();
         testUsageStats();
+        testHistorySections();
         testAdaptiveRefreshPolicy();
         testNowBarAutoStart();
         testNowBarDisplayModes();
@@ -1756,6 +1757,52 @@ public final class ParserSelfTest {
         System.out.println("Usage stats demo: completed window avg "
                 + Math.round(completed.averageBurnPercentPerHour) + "%/h, typical@60% = "
                 + Math.round(typical) + "%.");
+    }
+
+    private static void testHistorySections() {
+        check(HistorySections.all().size() == 7, "seven customizable history highlights");
+        check(!HistorySections.defaultVisible(HistorySections.GUIDE),
+                "chart guide starts hidden for a minimal default page");
+        check(HistorySections.defaultVisible(HistorySections.WINDOW_LIST),
+                "previous-window list starts visible");
+        check(HistorySections.defaultVisible(HistorySections.VALUE_ESTIMATES),
+                "value estimates start visible");
+        check(HistorySections.isVisible("", HistorySections.INSIGHT_PACE),
+                "empty overrides keep defaults");
+        check(!HistorySections.isVisible(null, HistorySections.GUIDE),
+                "null overrides keep defaults");
+
+        String overrides = HistorySections.setVisible("", HistorySections.GUIDE, true);
+        check(HistorySections.isVisible(overrides, HistorySections.GUIDE),
+                "guide can be switched on");
+        overrides = HistorySections.setVisible(overrides,
+                HistorySections.VALUE_ESTIMATES, false);
+        check(!HistorySections.isVisible(overrides, HistorySections.VALUE_ESTIMATES),
+                "value estimates can be switched off");
+        check(HistorySections.isVisible(overrides, HistorySections.INSIGHT_PEAK),
+                "untouched highlights keep their defaults");
+        check("guide,value_estimates".equals(overrides),
+                "overrides serialize as a stable csv");
+
+        overrides = HistorySections.setVisible(overrides, HistorySections.GUIDE, false);
+        overrides = HistorySections.setVisible(overrides,
+                HistorySections.VALUE_ESTIMATES, true);
+        check(overrides.isEmpty(), "restoring defaults clears every override");
+        check("guide".equals(HistorySections.setVisible("guide, guide ,",
+                HistorySections.WINDOW_LIST, true)),
+                "duplicate and blank override entries collapse");
+
+        // Full minimal mode: everything optional switched off leaves just the charts.
+        String minimal = "";
+        for (String key : HistorySections.all()) {
+            minimal = HistorySections.setVisible(minimal, key, false);
+            check(!HistorySections.label(key).isEmpty(), "every highlight has a label");
+        }
+        for (String key : HistorySections.all()) {
+            check(!HistorySections.isVisible(minimal, key),
+                    "minimal mode hides every optional highlight");
+        }
+        System.out.println("History highlights: minimal defaults + per-insight overrides verified.");
     }
 
     private static void check(boolean condition, String name) {

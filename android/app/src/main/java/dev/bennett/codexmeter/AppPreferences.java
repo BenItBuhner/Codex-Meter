@@ -17,6 +17,7 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
     private static final String KEY_DASHBOARD_USAGE_HISTORY = "dashboard_usage_history";
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
+    private static final String KEY_HISTORY_SECTION_OVERRIDES = "history_section_overrides";
     private static final String KEY_MATERIAL_YOU = "material_you";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
@@ -330,6 +331,28 @@ public final class AppPreferences {
     public static void setDashboardSectionHidden(Context context, String key, boolean hidden) {
         setDashboardHiddenSections(context,
                 DashboardSections.setHidden(getDashboardHiddenSections(context), key, hidden));
+    }
+
+    /** Usage-history highlight overrides as a {@link HistorySections} CSV. */
+    public static String getHistorySectionOverrides(Context context) {
+        return prefs(context).getString(KEY_HISTORY_SECTION_OVERRIDES, "");
+    }
+
+    public static void setHistorySectionOverrides(Context context, String overridesCsv) {
+        if (overridesCsv == null || overridesCsv.trim().isEmpty()) {
+            prefs(context).edit().remove(KEY_HISTORY_SECTION_OVERRIDES).apply();
+        } else {
+            prefs(context).edit().putString(KEY_HISTORY_SECTION_OVERRIDES, overridesCsv).apply();
+        }
+    }
+
+    public static boolean isHistorySectionVisible(Context context, String key) {
+        return HistorySections.isVisible(getHistorySectionOverrides(context), key);
+    }
+
+    public static void setHistorySectionVisible(Context context, String key, boolean visible) {
+        setHistorySectionOverrides(context,
+                HistorySections.setVisible(getHistorySectionOverrides(context), key, visible));
     }
 
     public static void setDashboardVisibility(Context context, boolean fiveHour,

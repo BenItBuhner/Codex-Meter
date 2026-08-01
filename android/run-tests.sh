@@ -30,6 +30,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
@@ -141,6 +142,23 @@ grep -q 'UsageStats.windowBreakdown' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/PlanPricing.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageStats.java"
+
+# Usage-history declutter: customizable highlights with minimal defaults.
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java"
+grep -q 'testHistorySections' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'MENU_CUSTOMIZE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+grep -q 'HistorySections.GUIDE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+grep -q 'isHistorySectionVisible' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'history_section_overrides' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+# The old always-on explainer card and sample-count summary row must stay gone.
+! grep -q 'Burn trends' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+! grep -q 'completed window count' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 
 # Usage-history charts must be gated on real usage data instead of blank placeholders.
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
