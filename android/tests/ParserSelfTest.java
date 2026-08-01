@@ -1574,6 +1574,19 @@ public final class ParserSelfTest {
                 "unsafe markdown links stay plain text");
         check(!ReleaseNotesMarkdown.toHtml("[bad](javascript:alert(1))").contains("<a "),
                 "unsafe markdown links are not anchored");
+
+        String redactedNotes = "**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter"
+                + "/compare/v2.6.9...v2.6.10";
+        String repaired = ReleaseNotesMarkdown.toHtml(redactedNotes);
+        String expectedHref = GitHubReleaseSource.REPOSITORY_URL
+                + "/compare/v2.6.9...v2.6.10";
+        check(repaired.contains("<a href=\"" + expectedHref + "\">"),
+                "redacted changelog owner rewritten to canonical repository");
+        check(!repaired.contains("[REDACTED]"),
+                "redacted changelog owner placeholder removed from rendered notes");
+        check(ReleaseNotesMarkdown.repairRedactedRepositoryLinks(redactedNotes)
+                        .startsWith("**Full Changelog**: " + GitHubReleaseSource.REPOSITORY_URL),
+                "redacted repository link repair is reusable");
     }
 
     private static void testReleaseUpdatePolicy() {
