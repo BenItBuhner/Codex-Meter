@@ -10,7 +10,7 @@ public final class ResetAlertReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (context != null && intent != null && AppConstants.ACTION_RESET_ALERT.equals(intent.getAction()) && SecureTokenStore.isSignedIn(context) && ResetAlertPreferences.enabled(context)) {
             String stringExtra = intent.getStringExtra("metric");
-            if (!"weekly".equals(stringExtra)) {
+            if (!"weekly".equals(stringExtra) && !"monthly".equals(stringExtra)) {
                 stringExtra = "five_hour";
             }
             if (stillRelevant(context, stringExtra, intent.getLongExtra("reset_at", 0L))) {
@@ -26,7 +26,9 @@ public final class ResetAlertReceiver extends BroadcastReceiver {
         if (j <= 0 || (usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context)) == null) {
             return true;
         }
-        UsageWindow usageWindow = "weekly".equals(str) ? usageSnapshotLoadSnapshot.weekly : usageSnapshotLoadSnapshot.fiveHour;
+        UsageWindow usageWindow = "weekly".equals(str) ? usageSnapshotLoadSnapshot.weekly
+                : "monthly".equals(str) ? usageSnapshotLoadSnapshot.monthly
+                : usageSnapshotLoadSnapshot.fiveHour;
         return usageWindow == null || usageWindow.resetAtMillis() <= 0 || Math.abs(usageWindow.resetAtMillis() - j) < 60000;
     }
 

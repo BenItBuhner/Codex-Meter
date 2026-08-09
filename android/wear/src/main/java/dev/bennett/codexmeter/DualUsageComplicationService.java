@@ -10,7 +10,7 @@ public final class DualUsageComplicationService extends CodexComplicationService
         UsageSnapshot snapshot = snapshot(preview);
         String shortValue = surfaceText(preview, WearGlanceFormat.dualShortText(snapshot));
         UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
+        UsageWindow weekly = WearGlanceFormat.currentLongWindow(snapshot);
         float constrained = constrainedRemaining(fiveHour, weekly);
         if (type == ComplicationType.RANGED_VALUE) {
             return rangedValue(constrained, shortValue, "Codex",

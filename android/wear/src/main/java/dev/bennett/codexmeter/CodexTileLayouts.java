@@ -37,23 +37,26 @@ final class CodexTileLayouts {
         OneUiTileText text = new OneUiTileText(context, scope);
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
+        UsageWindow longWindow = WearGlanceFormat.currentLongWindow(snapshot);
+        String longLabel = WearGlanceFormat.longWindowLabel(snapshot);
         long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
         long now = System.currentTimeMillis();
         boolean stale = snapshot != null && isStale(context);
         String fiveReset = stale ? "Stale phone data" : resetCopy(fiveHour, observedAt, now);
-        String weekReset = stale ? "Stale phone data" : resetCopy(weekly, observedAt, now);
+        String weekReset = stale ? "Stale phone data" : resetCopy(longWindow, observedAt, now);
         LayoutElement content = new LayoutElementBuilders.Column.Builder()
                 .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
                 .addContent(metricRow(context, fiveHour, "5hr", false, fiveReset, 9f, text, scope))
                 .addContent(verticalSpacer(6.5f))
-                .addContent(metricRow(context, weekly, "Weekly", true, weekReset, 9f, text, scope))
+                .addContent(metricRow(context, longWindow, longLabel, true, weekReset, 9f, text,
+                        scope))
                 .build();
         String description = "Five hour usage, "
                 + WearGlanceFormat.remainingPercentText(fiveHour) + " remaining, " + fiveReset
-                + ". Weekly usage, " + WearGlanceFormat.remainingPercentText(weekly)
+                + ". " + longLabel + " usage, "
+                + WearGlanceFormat.remainingPercentText(longWindow)
                 + " remaining, " + weekReset + ". Open Codex Meter.";
         return card(context, "overview", leadingInset(content, 12f), 0f, 72f, 176f,
                 description);
@@ -62,13 +65,14 @@ final class CodexTileLayouts {
     static LayoutElement progress(Context context, DeviceParameters deviceParameters,
             String label, UsageWindow window, ProtoLayoutScope scope) {
         OneUiTileText text = new OneUiTileText(context, scope);
-        boolean weekly = label.toLowerCase(Locale.ROOT).contains("week");
+        String lowered = label.toLowerCase(Locale.ROOT);
+        boolean weekly = lowered.contains("week") || lowered.contains("month");
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
         String reset = snapshot != null && isStale(context)
                 ? "Stale phone data"
                 : resetCopy(window, observedAt, System.currentTimeMillis());
-        String designLabel = weekly ? "Weekly" : "5hr";
+        String designLabel = lowered.contains("month") ? "Monthly" : weekly ? "Weekly" : "5hr";
         boolean compact = isCompactViewport(deviceParameters);
         float gap = compact ? 9f : 14f;
         float inset = compact ? 8f : 14f;
@@ -86,8 +90,11 @@ final class CodexTileLayouts {
         long now = System.currentTimeMillis();
         String windowLabel = WearGlanceFormat.nextResetWindowLabel(snapshot, now);
         String relative = WearGlanceFormat.nextResetRelativeText(snapshot, now);
-        boolean weekly = windowLabel.toLowerCase(Locale.ROOT).contains("week");
-        UsageWindow dialWindow = weekly
+        String loweredLabel = windowLabel.toLowerCase(Locale.ROOT);
+        boolean weekly = loweredLabel.contains("week") || loweredLabel.contains("month");
+        UsageWindow dialWindow = loweredLabel.contains("month")
+                ? WearGlanceFormat.currentMonthly(snapshot)
+                : weekly
                 ? WearGlanceFormat.currentWeekly(snapshot)
                 : WearGlanceFormat.currentFiveHour(snapshot);
         String credits = WearGlanceFormat.resetCreditsText(snapshot);
@@ -119,9 +126,9 @@ final class CodexTileLayouts {
         OneUiTileText text = new OneUiTileText(context, scope);
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
-        UsageWindow focus = lowerRemaining(fiveHour, weekly);
-        boolean focusWeekly = focus != null && focus == weekly;
+        UsageWindow longWindow = WearGlanceFormat.currentLongWindow(snapshot);
+        UsageWindow focus = lowerRemaining(fiveHour, longWindow);
+        boolean focusWeekly = focus != null && focus == longWindow;
         boolean active = WearOngoingMonitor.isActive(context);
         int accent = active ? MONITOR_ACCENT : DIAL_PROGRESS;
 
@@ -148,8 +155,12 @@ final class CodexTileLayouts {
         return WearGlanceFormat.currentFiveHour(WearPreferences.loadSnapshot(context));
     }
 
-    static UsageWindow weekly(Context context) {
-        return WearGlanceFormat.currentWeekly(WearPreferences.loadSnapshot(context));
+    static UsageWindow longWindow(Context context) {
+        return WearGlanceFormat.currentLongWindow(WearPreferences.loadSnapshot(context));
+    }
+
+    static String longWindowLabel(Context context) {
+        return WearGlanceFormat.longWindowLabel(WearPreferences.loadSnapshot(context));
     }
 
     private static LayoutElement card(Context context, String idSuffix, LayoutElement content,

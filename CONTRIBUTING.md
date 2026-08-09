@@ -38,8 +38,9 @@ Update channel):
 
 - `main` is the **stable** channel. Tags look like `v2.7.0`.
 - `alpha` is the **rapid-iteration** channel. Tags look like `v2.7.0-alpha.1` and
-  publish as GitHub prereleases. The `Ensure alpha branch` workflow creates the
-  branch from `main` automatically if it is ever missing.
+  publish as GitHub prereleases. The branch was bootstrapped from `main` at the
+  2.7.0 rollout; if it is ever deleted, recreate it from `main` (`git push origin
+  main:refs/heads/alpha`).
 
 Both channels are built by the same tag-triggered CI job and signed with the same
 release keystore, so the in-app updater's SHA-256 and signing-certificate checks

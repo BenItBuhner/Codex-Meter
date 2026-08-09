@@ -30,7 +30,7 @@ public final class NextResetComplicationService extends CodexComplicationService
     private static float resetProgress(UsageSnapshot snapshot, long nowMillis) {
         if (snapshot == null) return 0f;
         UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
+        UsageWindow weekly = WearGlanceFormat.currentLongWindow(snapshot);
         UsageWindow next = earlierReset(fiveHour, weekly, snapshot.fetchedAtMillis, nowMillis);
         if (next == null || next.windowSeconds <= 0L) return 0f;
         long resetAt = next.effectiveResetAtMillis(snapshot.fetchedAtMillis);

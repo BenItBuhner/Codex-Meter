@@ -12,6 +12,23 @@ Codex Meter is a **monorepo** with native clients and no backend:
 
 Clients talk directly to OpenAI/ChatGPT remote endpoints. Tokens stay on-device (Android Keystore / iOS Keychain).
 
+## Release channels & etiquette (Android)
+
+Two long-lived branches feed the app's two update channels (Settings → Updates → Update channel); the full process lives in `CONTRIBUTING.md`:
+
+- `main` — **stable** channel. Tags look like `v2.7.0` and publish as regular GitHub releases marked latest.
+- `alpha` — **rapid-iteration** channel. Tags look like `v2.7.0-alpha.1` (lowercase) and publish as GitHub prereleases, never latest.
+
+Rules for agents:
+
+- Target **`alpha`** with feature and experimental PRs unless the user explicitly says the work is for `main`. Docs, CI, and user-requested hotfixes to the shipped stable go to `main`.
+- **Never push `v*` tags or create/edit GitHub releases unless the user explicitly asks.** Tags trigger signed public releases that ship to real users on both channels.
+- **Never bump `versionCode`/`versionName` on your own.** Version bumps are release preparation and happen only when the user asks to cut a release.
+- Preparing an **alpha release** (`X.Y.Z-alpha.N`): bump `versionName` only; `versionCode` must stay **equal to** the newest stable release's versionCode. CI rejects the tag otherwise — this invariant is what keeps in-app channel switching (including "Return to stable") an in-place install with no uninstall.
+- Preparing a **stable release** (promotion): merge `alpha` into `main`, drop the suffix, bump `versionCode` by exactly one, and consolidate the alpha changelog sections under the stable version.
+- Any release prep must update every synced version touchpoint together, or `run-tests.sh` fails: `android/app/build.gradle.kts`, `android/wear/build.gradle.kts`, `AppConstants.java` (`VERSION_NAME`, `VERSION_CODE`, and the literal user-agent string), `android/build.sh`, the version guards in `android/run-tests.sh`, and a matching `## <version>` section in root `CHANGELOG.md` (the release job fails when notes are missing).
+- Merging `main` into `alpha` to keep it fresh is fine; never force-push either branch, and never delete or recreate `alpha` on your own.
+
 Convenience wrappers at the repo root forward into the Android project:
 
 - `./run-tests.sh` → `android/run-tests.sh`

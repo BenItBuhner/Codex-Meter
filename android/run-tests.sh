@@ -30,6 +30,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
@@ -144,6 +145,23 @@ grep -q 'UsageStats.windowBreakdown' \
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/PlanPricing.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageStats.java"
 
+# Usage-history declutter: customizable highlights with minimal defaults.
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java"
+grep -q 'testHistorySections' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'MENU_CUSTOMIZE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+grep -q 'HistorySections.GUIDE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+grep -q 'isHistorySectionVisible' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'history_section_overrides' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+# The old always-on explainer card and sample-count summary row must stay gone.
+! grep -q 'Burn trends' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+! grep -q 'completed window count' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+
 # Usage-history charts must be gated on real usage data instead of blank placeholders.
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
@@ -154,6 +172,34 @@ grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
 # The usage-history section itself also hides until a window can feed a chart.
 grep -q 'snapshot.fiveHour != null || snapshot.weekly != null' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+
+# Free-tier monthly Codex window: parsing, dashboard card, history, and the long-window
+# fallbacks that keep widgets, Wear, and the live monitor adapting to subscription changes.
+grep -q 'testMonthlyWindow' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'MONTHLY = "monthly"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'MONTHLY = "monthly"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java"
+grep -q 'public UsageWindow longWindow()' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java"
+grep -q 'monthlyWindow != null && snapshot.fetchedAtMillis > 0L' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'usage_history_monthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'dashboard_monthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'WINDOW_MONTHLY' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
+grep -q 'longWindowIsMonthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'currentLongWindow' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
+grep -q 'meterWindow' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
 grep -q 'Hidden automatically when no resets are available' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.
@@ -271,7 +317,6 @@ grep -q '"update_channel"' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -Fq 'branches: [main, alpha]' "$WORKFLOW"
 grep -Fq -- '--prerelease="$PRERELEASE"' "$WORKFLOW"
-test -f "$ROOT/../.github/workflows/alpha-branch.yml"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManager.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"

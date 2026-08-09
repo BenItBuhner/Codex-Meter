@@ -176,6 +176,7 @@ public final class SettingsTransferStore {
         json.put("refresh_on_launch", AppPreferences.getRefreshOnLaunch(context));
         json.put("dashboard_five_hour", AppPreferences.showDashboardFiveHour(context));
         json.put("dashboard_weekly", AppPreferences.showDashboardWeekly(context));
+        json.put("dashboard_monthly", AppPreferences.showDashboardMonthly(context));
         json.put("dashboard_additional_limits",
                 AppPreferences.showDashboardAdditionalLimits(context));
         json.put("dashboard_usage_credits", AppPreferences.showDashboardUsageCredits(context));
@@ -183,6 +184,8 @@ public final class SettingsTransferStore {
         json.put("dashboard_usage_history", AppPreferences.showDashboardUsageHistory(context));
         json.put("dashboard_hidden_sections",
                 AppPreferences.getDashboardHiddenSections(context));
+        json.put("history_section_overrides",
+                AppPreferences.getHistorySectionOverrides(context));
         json.put("usage_pace_enabled", UsagePacePreferences.isEnabled(context));
         json.put("usage_pace_sensitivity", UsagePacePreferences.getSensitivity(context));
         json.put("automatic_update_checks", UpdatePreferences.automaticChecks(context));
@@ -239,6 +242,8 @@ public final class SettingsTransferStore {
                         AppPreferences.showDashboardFiveHour(context)),
                 json.optBoolean("dashboard_weekly",
                         AppPreferences.showDashboardWeekly(context)),
+                json.optBoolean("dashboard_monthly",
+                        AppPreferences.showDashboardMonthly(context)),
                 json.optBoolean("dashboard_additional_limits",
                         AppPreferences.showDashboardAdditionalLimits(context)),
                 json.optBoolean("dashboard_usage_credits",
@@ -250,6 +255,9 @@ public final class SettingsTransferStore {
         AppPreferences.setDashboardHiddenSections(context,
                 json.optString("dashboard_hidden_sections",
                         AppPreferences.getDashboardHiddenSections(context)));
+        AppPreferences.setHistorySectionOverrides(context,
+                json.optString("history_section_overrides",
+                        AppPreferences.getHistorySectionOverrides(context)));
         UsagePacePreferences.setEnabled(context, json.optBoolean("usage_pace_enabled",
                 UsagePacePreferences.isEnabled(context)));
         UsagePacePreferences.setSensitivity(context, json.optString("usage_pace_sensitivity",

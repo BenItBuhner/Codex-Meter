@@ -249,8 +249,9 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         if (WidgetMeters.FIVE_HOUR.equals(key) && snapshot != null && snapshot.fiveHour != null) {
             return snapshot.fiveHour.remainingPercent();
         }
-        if (WidgetMeters.WEEKLY.equals(key) && snapshot != null && snapshot.weekly != null) {
-            return snapshot.weekly.remainingPercent();
+        if (WidgetMeters.WEEKLY.equals(key) && snapshot != null
+                && WidgetMeters.meterWindow(key, snapshot) != null) {
+            return WidgetMeters.meterWindow(key, snapshot).remainingPercent();
         }
         UsageLimit limit = WidgetMeters.findLimit(key, snapshot);
         if (limit != null) {

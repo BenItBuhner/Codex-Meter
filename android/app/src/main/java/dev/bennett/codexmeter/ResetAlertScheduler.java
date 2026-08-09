@@ -13,6 +13,7 @@ public final class ResetAlertScheduler {
     static final String EXTRA_RESET_AT = "reset_at";
     private static final int REQUEST_FIVE_HOUR = 74205;
     private static final int REQUEST_WEEKLY = 74207;
+    private static final int REQUEST_MONTHLY = 74208;
 
     private ResetAlertScheduler() {
     }
@@ -28,6 +29,7 @@ public final class ResetAlertScheduler {
                 }
                 if (!"five_hour".equals(metric)) {
                     scheduleWindow(contextAppContext, usageSnapshot.weekly, "weekly", REQUEST_WEEKLY);
+                    scheduleWindow(contextAppContext, usageSnapshot.monthly, "monthly", REQUEST_MONTHLY);
                 }
             }
         }
@@ -39,6 +41,7 @@ public final class ResetAlertScheduler {
         if (contextAppContext != null && (alarmManager = (AlarmManager) contextAppContext.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {
             alarmManager.cancel(pending(contextAppContext, "five_hour", 0L, REQUEST_FIVE_HOUR));
             alarmManager.cancel(pending(contextAppContext, "weekly", 0L, REQUEST_WEEKLY));
+            alarmManager.cancel(pending(contextAppContext, "monthly", 0L, REQUEST_MONTHLY));
         }
     }
 

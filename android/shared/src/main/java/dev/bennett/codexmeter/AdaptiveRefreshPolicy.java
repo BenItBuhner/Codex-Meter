@@ -17,7 +17,10 @@ public final class AdaptiveRefreshPolicy {
         UsageWindow weekly = snapshot == null ? null
                 : UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis,
                         nowMillis);
-        int remaining = minimumRemaining(fiveHour, weekly);
+        UsageWindow monthly = snapshot == null ? null
+                : UsageSnapshot.currentWindow(snapshot.monthly, snapshot.fetchedAtMillis,
+                        nowMillis);
+        int remaining = minimumRemaining(fiveHour, weekly, monthly);
         boolean limited = snapshot != null && (!snapshot.allowed || snapshot.limitReached);
 
         int minutes;
@@ -35,8 +38,9 @@ public final class AdaptiveRefreshPolicy {
             minutes = 30;
         }
 
-        long nextUsedReset = nextUsedReset(fiveHour, weekly,
-                snapshot == null ? 0L : snapshot.fetchedAtMillis, nowMillis);
+        long nextUsedReset = nextUsedReset(
+                snapshot == null ? 0L : snapshot.fetchedAtMillis, nowMillis,
+                fiveHour, weekly, monthly);
         long untilReset = nextUsedReset <= nowMillis ? Long.MAX_VALUE : nextUsedReset - nowMillis;
         if (untilReset <= TimeUnit.MINUTES.toMillis(15)) {
             minutes = Math.min(minutes, 5);
@@ -75,23 +79,22 @@ public final class AdaptiveRefreshPolicy {
         return urgent ? Math.min(minutes, 30) : Math.min(minutes, 120);
     }
 
-    private static int minimumRemaining(UsageWindow first, UsageWindow second) {
+    private static int minimumRemaining(UsageWindow... windows) {
         int remaining = 101;
-        if (first != null) remaining = Math.min(remaining, first.remainingPercent());
-        if (second != null) remaining = Math.min(remaining, second.remainingPercent());
+        for (UsageWindow window : windows) {
+            if (window != null) remaining = Math.min(remaining, window.remainingPercent());
+        }
         return remaining;
     }
 
-    private static long nextUsedReset(UsageWindow first, UsageWindow second,
-            long observedAtMillis, long nowMillis) {
+    private static long nextUsedReset(long observedAtMillis, long nowMillis,
+            UsageWindow... windows) {
         long next = Long.MAX_VALUE;
-        if (first != null && first.usedPercent > 0) {
-            long reset = first.effectiveResetAtMillis(observedAtMillis);
-            if (reset > nowMillis) next = Math.min(next, reset);
-        }
-        if (second != null && second.usedPercent > 0) {
-            long reset = second.effectiveResetAtMillis(observedAtMillis);
-            if (reset > nowMillis) next = Math.min(next, reset);
+        for (UsageWindow window : windows) {
+            if (window != null && window.usedPercent > 0) {
+                long reset = window.effectiveResetAtMillis(observedAtMillis);
+                if (reset > nowMillis) next = Math.min(next, reset);
+            }
         }
         return next == Long.MAX_VALUE ? 0L : next;
     }
