@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter;
 
 import android.content.Context;
+import android.os.SystemClock;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -22,9 +23,17 @@ public final class ReleaseUpdateClient {
             app = context;
         }
         synchronized (LOCK) {
+            long started = SystemClock.elapsedRealtime();
+            DiagnosticLog.info(app, "update", "release_check_started");
             try {
-                return request(app, true);
+                List<GitHubRelease> releases = request(app, true);
+                DiagnosticLog.info(app, "update", "release_check_succeeded",
+                        "duration_ms", SystemClock.elapsedRealtime() - started,
+                        "release_count", releases.size());
+                return releases;
             } catch (Exception exception) {
+                DiagnosticLog.error(app, "update", "release_check_failed", exception,
+                        "duration_ms", SystemClock.elapsedRealtime() - started);
                 UpdatePreferences.saveError(app, safeMessage(exception));
                 throw exception;
             }
@@ -39,6 +48,12 @@ public final class ReleaseUpdateClient {
                     ? BuildConfig.UPDATE_API_URL : GitHubReleaseSource.RELEASES_API_URL;
             boolean localDebugServer = isLocalDebugServer(endpoint);
             connection = (HttpURLConnection) new URL(endpoint).openConnection();
+            long started = SystemClock.elapsedRealtime();
+            DiagnosticLog.info(app, "network", "request_started",
+                    "operation", "github_release_check",
+                    "method", "GET",
+                    "url", DiagnosticSanitizer.safeUrl(endpoint),
+                    "conditional", conditional);
             connection.setConnectTimeout(15_000);
             connection.setReadTimeout(25_000);
             connection.setInstanceFollowRedirects(true);
@@ -52,6 +67,11 @@ public final class ReleaseUpdateClient {
             }
             int status = connection.getResponseCode();
             URL finalUrl = connection.getURL();
+            DiagnosticLog.info(app, "network", "request_finished",
+                    "operation", "github_release_check",
+                    "status", status,
+                    "duration_ms", SystemClock.elapsedRealtime() - started,
+                    "url", DiagnosticSanitizer.safeUrl(finalUrl.toString()));
             if (!trustedApiUrl(finalUrl, localDebugServer)) {
                 throw new SecurityException("GitHub redirected the update check to an untrusted host.");
             }

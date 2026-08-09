@@ -41,11 +41,16 @@ public final class WidgetRenderer {
                 AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
                 int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(context, (Class<?>) CodexUsageWidget.class));
                 int length = appWidgetIds.length;
+                DiagnosticLog.info(context, "widget", "update_all_started",
+                        "home_widget_count", length,
+                        "lock_widget_count", SamsungLockWidgetSupport.countAll(context));
                 for (int i = GRAPHIC_STANDARD; i < length; i += GRAPHIC_LARGE) {
                     update(context, appWidgetManager, appWidgetIds[i]);
                 }
                 SamsungLockWidgetSupport.updateAll(context);
+                DiagnosticLog.info(context, "widget", "update_all_finished");
             } catch (RuntimeException e) {
+                DiagnosticLog.error(context, "widget", "update_all_failed", e);
                 Log.w("CodexMeterWidget", "Widget update failed: " + safeMessage(e));
             }
         }
@@ -66,10 +71,14 @@ public final class WidgetRenderer {
                 }
                 appWidgetManager.updateAppWidget(i, remoteViewsBuildViews);
             } catch (RuntimeException e) {
+                DiagnosticLog.error(context, "widget", "render_failed", e,
+                        "widget_id", i);
                 Log.w("CodexMeterWidget", "Widget render failed: " + safeMessage(e));
                 try {
                     appWidgetManager.updateAppWidget(i, buildFallback(context, i));
                 } catch (RuntimeException e2) {
+                    DiagnosticLog.error(context, "widget", "fallback_render_failed", e2,
+                            "widget_id", i);
                 }
             }
         }

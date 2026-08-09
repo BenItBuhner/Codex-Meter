@@ -68,6 +68,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
@@ -275,6 +276,15 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManage
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'testSettingsTransfer' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'testDiagnosticSanitizer' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'android:name="dev.bennett.codexmeter.CodexMeterApplication"' \
+  "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'preferences_settings_diagnostics' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'application/x-ndjson' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'DiagnosticSanitizer.safeUrl' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
 grep -q 'export_settings_transfer' \
   "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'import_settings_transfer' \

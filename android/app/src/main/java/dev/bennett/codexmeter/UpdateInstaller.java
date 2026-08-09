@@ -9,6 +9,7 @@ import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.os.Build;
+import android.os.SystemClock;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -59,7 +60,12 @@ public final class UpdateInstaller {
         if (release.apkSize <= 0L || release.apkSize > MAX_APK_BYTES) {
             throw new IllegalStateException("The release APK has an unsafe file size.");
         }
-        String checksumFile = downloadText(release.checksumUrl, MAX_CHECKSUM_BYTES);
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "update", "update_prepare_started",
+                "version", release.version,
+                "expected_bytes", release.apkSize);
+        String checksumFile = downloadText(context, "update_checksum",
+                release.checksumUrl, MAX_CHECKSUM_BYTES);
         String expected = ReleaseIntegrity.expectedSha256(checksumFile, release.apkName);
         if (expected.isEmpty()) {
             throw new SecurityException("The release checksum does not list "
@@ -74,7 +80,8 @@ public final class UpdateInstaller {
         deleteQuietly(partial);
         deleteQuietly(apk);
         try {
-            downloadFile(release.apkUrl, partial, release.apkSize, listener);
+            downloadFile(context, "update_apk", release.apkUrl, partial, release.apkSize,
+                    listener);
             if (partial.length() != release.apkSize) {
                 throw new SecurityException("The APK size does not match the GitHub release.");
             }
@@ -86,8 +93,16 @@ public final class UpdateInstaller {
                 copy(partial, apk);
                 deleteQuietly(partial);
             }
-            return verifyPackage(context, release, apk);
+            PreparedUpdate prepared = verifyPackage(context, release, apk);
+            DiagnosticLog.info(context, "update", "update_prepare_succeeded",
+                    "version", prepared.versionName,
+                    "version_code", prepared.versionCode,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
+            return prepared;
         } catch (Exception exception) {
+            DiagnosticLog.error(context, "update", "update_prepare_failed", exception,
+                    "version", release.version,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
             deleteQuietly(partial);
             deleteQuietly(apk);
             throw exception;
@@ -107,6 +122,10 @@ public final class UpdateInstaller {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
         }
         int sessionId = installer.createSession(params);
+        DiagnosticLog.info(context, "update", "installer_session_created",
+                "session_id", sessionId,
+                "version", update.versionName,
+                "apk_bytes", update.apk.length());
         PackageInstaller.Session session = null;
         try {
             session = installer.openSession(sessionId);
@@ -126,8 +145,14 @@ public final class UpdateInstaller {
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
             IntentSender sender = callback.getIntentSender();
             session.commit(sender);
+            DiagnosticLog.info(context, "update", "installer_session_committed",
+                    "session_id", sessionId,
+                    "version", update.versionName);
             return sessionId;
         } catch (Exception exception) {
+            DiagnosticLog.error(context, "update", "installer_session_failed", exception,
+                    "session_id", sessionId,
+                    "version", update.versionName);
             try {
                 installer.abandonSession(sessionId);
             } catch (RuntimeException ignored) {
@@ -198,10 +223,16 @@ public final class UpdateInstaller {
         return result;
     }
 
-    private static String downloadText(String url, int limit) throws Exception {
+    private static String downloadText(Context context, String operation, String url, int limit)
+            throws Exception {
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "network", "request_started",
+                "operation", operation,
+                "method", "GET",
+                "url", DiagnosticSanitizer.safeUrl(url));
         HttpURLConnection connection = open(url);
         try {
-            requireOk(connection);
+            int status = requireOk(connection);
             try (InputStream input = connection.getInputStream();
                     ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[4096];
@@ -214,18 +245,36 @@ public final class UpdateInstaller {
                     }
                     output.write(buffer, 0, read);
                 }
-                return output.toString(java.nio.charset.StandardCharsets.UTF_8.name());
+                String result = output.toString(java.nio.charset.StandardCharsets.UTF_8.name());
+                DiagnosticLog.info(context, "network", "request_finished",
+                        "operation", operation,
+                        "status", status,
+                        "duration_ms", SystemClock.elapsedRealtime() - started,
+                        "response_bytes", result.getBytes(
+                                java.nio.charset.StandardCharsets.UTF_8).length);
+                return result;
             }
+        } catch (Exception exception) {
+            DiagnosticLog.error(context, "network", "request_failed", exception,
+                    "operation", operation,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
+            throw exception;
         } finally {
             connection.disconnect();
         }
     }
 
-    private static void downloadFile(String url, File destination, long expected,
-            ProgressListener listener) throws Exception {
+    private static void downloadFile(Context context, String operation, String url,
+            File destination, long expected, ProgressListener listener) throws Exception {
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "network", "request_started",
+                "operation", operation,
+                "method", "GET",
+                "url", DiagnosticSanitizer.safeUrl(url),
+                "expected_bytes", expected);
         HttpURLConnection connection = open(url);
         try {
-            requireOk(connection);
+            int status = requireOk(connection);
             long declared = connection.getContentLengthLong();
             if (declared > MAX_APK_BYTES || (declared > 0L && declared != expected)) {
                 throw new SecurityException("The APK download size changed unexpectedly.");
@@ -248,7 +297,17 @@ public final class UpdateInstaller {
                         listener.onProgress(total, expected);
                     }
                 }
+                DiagnosticLog.info(context, "network", "request_finished",
+                        "operation", operation,
+                        "status", status,
+                        "duration_ms", SystemClock.elapsedRealtime() - started,
+                        "response_bytes", total);
             }
+        } catch (Exception exception) {
+            DiagnosticLog.error(context, "network", "request_failed", exception,
+                    "operation", operation,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
+            throw exception;
         } finally {
             connection.disconnect();
         }
@@ -269,7 +328,7 @@ public final class UpdateInstaller {
         return connection;
     }
 
-    private static void requireOk(HttpURLConnection connection) throws Exception {
+    private static int requireOk(HttpURLConnection connection) throws Exception {
         int status = connection.getResponseCode();
         URL finalUrl = connection.getURL();
         if (!trustedDownloadUrl(finalUrl)) {
@@ -278,6 +337,7 @@ public final class UpdateInstaller {
         if (status != HttpURLConnection.HTTP_OK) {
             throw new IllegalStateException("GitHub download failed with HTTP " + status + ".");
         }
+        return status;
     }
 
     private static boolean allowedHost(String host) {

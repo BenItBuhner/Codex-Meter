@@ -3,6 +3,7 @@ package dev.bennett.codexmeter;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -52,6 +53,12 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String PAGE_UPDATES = "updates";
     private static final String PAGE_TRANSFER = "transfer";
     private static final String PAGE_PRIVACY = "privacy";
+    private static final String PAGE_DIAGNOSTICS = "diagnostics";
+
+    static Intent diagnosticsIntent(Context context) {
+        return new Intent(context, SettingsActivity.class)
+                .putExtra(EXTRA_PAGE, PAGE_DIAGNOSTICS);
+    }
 
     @Override
     protected void onCreate(Bundle bundle) {
@@ -76,7 +83,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 || PAGE_NOW_BAR.equals(page)
                 || PAGE_UPDATES.equals(page)
                 || PAGE_TRANSFER.equals(page)
-                || PAGE_PRIVACY.equals(page)) {
+                || PAGE_PRIVACY.equals(page)
+                || PAGE_DIAGNOSTICS.equals(page)) {
             return page;
         }
         return PAGE_ROOT;
@@ -98,6 +106,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 return "Backup & transfer";
             case PAGE_PRIVACY:
                 return "Privacy";
+            case PAGE_DIAGNOSTICS:
+                return "Diagnostics";
             case PAGE_ROOT:
             default:
                 return "Settings";
@@ -111,6 +121,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private static final String ARG_PAGE = "page";
         private static final int REQUEST_EXPORT_TRANSFER = 9201;
         private static final int REQUEST_IMPORT_TRANSFER = 9202;
+        private static final int REQUEST_EXPORT_DIAGNOSTICS = 9203;
 
         private String page = PAGE_ROOT;
         private Preference expiryTimesPreference;
@@ -181,6 +192,10 @@ public final class SettingsActivity extends AppCompatActivity {
                 case PAGE_PRIVACY:
                     addPreferencesFromResource(R.xml.preferences_settings_privacy);
                     break;
+                case PAGE_DIAGNOSTICS:
+                    addPreferencesFromResource(R.xml.preferences_settings_diagnostics);
+                    bindDiagnostics();
+                    break;
                 case PAGE_ROOT:
                 default:
                     addPreferencesFromResource(R.xml.preferences_settings);
@@ -200,6 +215,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 finishExport(uri);
             } else if (requestCode == REQUEST_IMPORT_TRANSFER) {
                 beginImport(uri);
+            } else if (requestCode == REQUEST_EXPORT_DIAGNOSTICS) {
+                finishDiagnosticExport(uri);
             }
         }
 
@@ -225,6 +242,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 updateNowBarSummary();
             } else if (PAGE_UPDATES.equals(page)) {
                 updateUpdateSummary();
+            } else if (PAGE_DIAGNOSTICS.equals(page)) {
+                updateDiagnosticSummary();
             }
         }
 
@@ -246,10 +265,104 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindPageLink(String key, String targetPage) {
             findPreference(key).setOnPreferenceClickListener(preference -> {
+                DiagnosticLog.info(requireContext(), "user", "settings_page_opened",
+                        "page", targetPage);
                 startActivity(new Intent(requireContext(), SettingsActivity.class)
                         .putExtra(EXTRA_PAGE, targetPage));
                 return true;
             });
+        }
+
+        private void bindDiagnostics() {
+            SwitchPreferenceCompat enabled = findPreference("diagnostic_logging_enabled");
+            enabled.setPersistent(false);
+            enabled.setChecked(DiagnosticLog.isEnabled(requireContext()));
+            enabled.setOnPreferenceChangeListener((preference, value) -> {
+                boolean loggingEnabled = (Boolean) value;
+                DiagnosticLog.setEnabled(requireContext(), loggingEnabled);
+                enabled.setChecked(loggingEnabled);
+                updateDiagnosticSummary();
+                Toast.makeText(requireContext(), loggingEnabled
+                                ? "Diagnostic tracing enabled."
+                                : "Diagnostic tracing disabled. Saved logs were kept.",
+                        Toast.LENGTH_LONG).show();
+                return true;
+            });
+            findPreference("export_diagnostic_logs").setOnPreferenceClickListener(preference -> {
+                launchDiagnosticExport();
+                return true;
+            });
+            findPreference("clear_diagnostic_logs").setOnPreferenceClickListener(preference -> {
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Clear diagnostic logs?")
+                        .setMessage("This permanently deletes all saved diagnostic events.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Clear", (dialog, which) -> {
+                            DiagnosticLog.clear(requireContext());
+                            updateDiagnosticSummary();
+                            Toast.makeText(requireContext(), "Diagnostic logs cleared.",
+                                    Toast.LENGTH_SHORT).show();
+                        })
+                        .show();
+                return true;
+            });
+            updateDiagnosticSummary();
+        }
+
+        private void updateDiagnosticSummary() {
+            if (!PAGE_DIAGNOSTICS.equals(page) || getContext() == null) {
+                return;
+            }
+            boolean enabled = DiagnosticLog.isEnabled(requireContext());
+            SwitchPreferenceCompat toggle = findPreference("diagnostic_logging_enabled");
+            if (toggle != null) {
+                toggle.setChecked(enabled);
+            }
+            DiagnosticLog.Stats stats = DiagnosticLog.stats(requireContext());
+            Preference status = findPreference("diagnostic_log_status");
+            status.setSummary((enabled ? "Tracing on" : "Tracing off")
+                    + " · " + DiagnosticLog.formatBytes(stats.bytes)
+                    + (stats.files == 1 ? " in 1 file" : " across " + stats.files + " files"));
+            findPreference("export_diagnostic_logs").setEnabled(stats.hasLogs());
+            findPreference("clear_diagnostic_logs").setEnabled(stats.hasLogs());
+        }
+
+        private void launchDiagnosticExport() {
+            DiagnosticLog.Stats stats = DiagnosticLog.stats(requireContext());
+            if (!stats.hasLogs()) {
+                Toast.makeText(requireContext(), "There are no diagnostic logs to export.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+            Intent create = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/x-ndjson")
+                    .putExtra(Intent.EXTRA_TITLE, "codex-meter-diagnostics-" + stamp + ".jsonl");
+            try {
+                startActivityForResult(create, REQUEST_EXPORT_DIAGNOSTICS);
+            } catch (RuntimeException exception) {
+                DiagnosticLog.error(requireContext(), "diagnostics", "export_picker_failed",
+                        exception);
+                Toast.makeText(requireContext(),
+                        "No file picker is available to export diagnostic logs.",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+
+        private void finishDiagnosticExport(Uri uri) {
+            try {
+                DiagnosticLog.export(requireContext(), uri);
+                updateDiagnosticSummary();
+                Toast.makeText(requireContext(),
+                        "Diagnostic logs exported. Review the file before sharing it.",
+                        Toast.LENGTH_LONG).show();
+            } catch (Exception exception) {
+                DiagnosticLog.error(requireContext(), "diagnostics", "export_failed", exception);
+                Toast.makeText(requireContext(),
+                        "Could not export diagnostic logs: " + MainActivity.safeMessage(exception),
+                        Toast.LENGTH_LONG).show();
+            }
         }
 
         private void updateRootSummaries() {
@@ -382,7 +495,9 @@ public final class SettingsActivity extends AppCompatActivity {
                         Toast.makeText(requireContext(), "Signed out.", Toast.LENGTH_SHORT).show();
                         requireActivity().recreate();
                         if (tokens != null) {
-                            new Thread(() -> OAuthClient.revokeBestEffort(tokens), "codex-sign-out").start();
+                            Context app = requireContext().getApplicationContext();
+                            new Thread(() -> OAuthClient.revokeBestEffort(app, tokens),
+                                    "codex-sign-out").start();
                         }
                     })
                     .create();

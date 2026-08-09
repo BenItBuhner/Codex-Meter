@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.Menu;
@@ -14,6 +15,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
@@ -28,7 +30,10 @@ import dev.oneuiproject.oneui.utils.EdgeToEdge;
 public final class AboutActivity extends AppCompatActivity {
     private static final int MENU_GITHUB = 8201;
     private static final int MENU_APP_INFO = 8202;
+    private static final int DIAGNOSTIC_TAPS = 7;
     private boolean dark;
+    private int versionTaps;
+    private long lastVersionTap;
 
     @Override
     protected void onCreate(Bundle bundle) {
@@ -40,7 +45,9 @@ public final class AboutActivity extends AppCompatActivity {
         applySystemBarInsets();
         setupToolbar();
         setupCollapsingContent();
-        ((TextView) findViewById(R.id.about_header_version)).setText(getString(R.string.about_version, Ui.versionName(this)));
+        TextView version = findViewById(R.id.about_header_version);
+        version.setText(getString(R.string.about_version, Ui.versionName(this)));
+        version.setOnClickListener(this::onVersionTap);
         build(findViewById(R.id.about_content));
     }
 
@@ -111,7 +118,26 @@ public final class AboutActivity extends AppCompatActivity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
         params.setMargins(Ui.dp(this, 20), 0, 0, 0);
         card.addView(text, params);
+        card.setOnClickListener(this::onVersionTap);
         return card;
+    }
+
+    private void onVersionTap(View ignored) {
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastVersionTap > 3_000L) {
+            versionTaps = 0;
+        }
+        lastVersionTap = now;
+        versionTaps++;
+        int remaining = DIAGNOSTIC_TAPS - versionTaps;
+        if (remaining <= 0) {
+            versionTaps = 0;
+            Toast.makeText(this, "Diagnostics unlocked.", Toast.LENGTH_SHORT).show();
+            startActivity(SettingsActivity.diagnosticsIntent(this));
+        } else if (remaining <= 3) {
+            Toast.makeText(this, remaining + " more tap" + (remaining == 1 ? "" : "s")
+                    + " for diagnostics.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private CardItemView personRow(String title, String summary, int avatar, boolean divider, String url) {
