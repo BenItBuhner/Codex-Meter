@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter;
 
 import java.net.URI;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,9 +51,9 @@ public final class DiagnosticSanitizer {
                 return redact(value);
             }
             StringBuilder safe = new StringBuilder()
-                    .append(scheme.toLowerCase())
+                    .append(scheme.toLowerCase(Locale.ROOT))
                     .append("://")
-                    .append(host.toLowerCase());
+                    .append(host.toLowerCase(Locale.ROOT));
             if (uri.getPort() >= 0) {
                 safe.append(':').append(uri.getPort());
             }

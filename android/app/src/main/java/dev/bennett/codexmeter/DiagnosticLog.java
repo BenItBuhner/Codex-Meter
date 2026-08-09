@@ -2,6 +2,8 @@ package dev.bennett.codexmeter;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.SystemClock;
@@ -60,6 +62,9 @@ public final class DiagnosticLog {
         if (app == null || !INSTALLED.compareAndSet(false, true)) {
             return;
         }
+        if (isEnabled(app)) {
+            preferences(app).edit().putString(PREF_SESSION, UUID.randomUUID().toString()).apply();
+        }
         Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             error(app, "process", "uncaught_exception", throwable,
@@ -90,14 +95,14 @@ public final class DiagnosticLog {
             preferences(app).edit()
                     .putString(PREF_SESSION, session)
                     .putBoolean(PREF_ENABLED, true)
-                    .commit();
+                    .apply();
             info(app, "diagnostics", "tracing_enabled",
                     "app_version", appVersion(app),
                     "android_sdk", Build.VERSION.SDK_INT,
                     "device", Build.MANUFACTURER + " " + Build.MODEL);
         } else {
             info(app, "diagnostics", "tracing_disabled");
-            preferences(app).edit().putBoolean(PREF_ENABLED, false).commit();
+            preferences(app).edit().putBoolean(PREF_ENABLED, false).apply();
         }
     }
 
@@ -219,6 +224,9 @@ public final class DiagnosticLog {
             if (details.length() > 0) {
                 record.put("details", details);
             }
+            if ("network".equals(category)) {
+                record.put("connectivity", connectivity(app));
+            }
             if (error != null) {
                 record.put("error", errorDetails(error));
             }
@@ -226,6 +234,40 @@ public final class DiagnosticLog {
         } catch (Exception ignored) {
             // Diagnostics must never break the operation being diagnosed.
         }
+    }
+
+    private static JSONObject connectivity(Context app) throws Exception {
+        JSONObject result = new JSONObject();
+        try {
+            ConnectivityManager manager =
+                    (ConnectivityManager) app.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (manager == null) {
+                result.put("available", false);
+                return result;
+            }
+            NetworkCapabilities capabilities =
+                    manager.getNetworkCapabilities(manager.getActiveNetwork());
+            result.put("available", capabilities != null);
+            result.put("metered", manager.isActiveNetworkMetered());
+            if (capabilities != null) {
+                result.put("internet",
+                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+                result.put("validated",
+                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+                result.put("wifi",
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));
+                result.put("cellular",
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR));
+                result.put("ethernet",
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
+                result.put("vpn",
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN));
+            }
+        } catch (RuntimeException exception) {
+            result.put("available", false);
+            result.put("read_error", safe(exception.getClass().getSimpleName()));
+        }
+        return result;
     }
 
     private static JSONObject details(Object... fields) throws Exception {
