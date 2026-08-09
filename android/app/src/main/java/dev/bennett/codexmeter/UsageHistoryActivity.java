@@ -5,6 +5,8 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -15,9 +17,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** Full local-history view with scrubbable charts, insights, and value estimates. */
+/**
+ * Full local-history view: scrubbable charts always, with every extra highlight —
+ * chart guide, previous-window list, insight rows, and value estimates — individually
+ * customizable so the page can stay as minimal as the user likes.
+ */
 public final class UsageHistoryActivity extends AppCompatActivity {
     private static final int MAX_BREAKDOWN_WINDOWS = 5;
+    private static final int MENU_CUSTOMIZE = 8201;
 
     private LinearLayout content;
     private boolean dark;
@@ -37,29 +44,65 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         return true;
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(Menu.NONE, MENU_CUSTOMIZE, 0, "Customize")
+                .setIcon(R.drawable.ic_oui_edit_outline)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_CUSTOMIZE) {
+            showCustomizeDialog();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    /** Checklist of every optional highlight; changes persist and apply immediately. */
+    private void showCustomizeDialog() {
+        List<String> keys = HistorySections.all();
+        String[] labels = new String[keys.size()];
+        boolean[] checked = new boolean[keys.size()];
+        for (int i = 0; i < keys.size(); i++) {
+            labels[i] = HistorySections.label(keys.get(i));
+            checked[i] = AppPreferences.isHistorySectionVisible(this, keys.get(i));
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Highlights to show")
+                .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) ->
+                        AppPreferences.setHistorySectionVisible(this, keys.get(which), isChecked))
+                .setPositiveButton("Done", null)
+                .setOnDismissListener(dialog -> render())
+                .show();
+    }
+
+    private boolean visible(String key) {
+        return AppPreferences.isHistorySectionVisible(this, key);
+    }
+
     private void render() {
         content.removeAllViews();
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         UsageHistory five = AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR);
         UsageHistory weekly = AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY);
-        PlanPricing pricing = snapshot == null ? null : PlanPricing.forPlan(snapshot.planType);
+        // Dollar figures ride on the value-estimates highlight; hiding it hides them all.
+        PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
+                ? null : PlanPricing.forPlan(snapshot.planType);
 
-        LinearLayout intro = Ui.card(this, dark);
-        TextView title = Ui.text(this, "Burn trends", 20, Ui.mainText(dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        intro.addView(title);
-        TextView detail = Ui.text(this,
-                "Samples stay on this device and are recorded only after a successful refresh. "
-                        + "The solid line is current usage, faint lines are previous windows, "
-                        + "the dotted diagonal is a sustainable pace, and the dashed extension "
-                        + "is the estimate. Touch and drag a chart to inspect any moment, and "
-                        + "tap a window below a chart to compare previous windows.",
-                13, Ui.secondaryText(dark));
-        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
-        detailParams.setMargins(0, Ui.dp(this, 8), 0, 0);
-        intro.addView(detail, detailParams);
-        content.addView(intro);
-        Ui.addSpacer(content, 20);
+        if (visible(HistorySections.GUIDE)) {
+            LinearLayout guide = Ui.card(this, dark);
+            guide.addView(Ui.text(this,
+                    "The solid line is this window's usage, faint lines are previous windows, "
+                            + "the dotted diagonal is a sustainable pace, and the dashed line is "
+                            + "the projection. Drag a chart to inspect any moment. Samples are "
+                            + "recorded after each successful refresh and stay on this device.",
+                    13, Ui.secondaryText(dark)));
+            content.addView(guide);
+            Ui.addSpacer(content, 20);
+        }
 
         // Windows still waiting for usage data are skipped instead of rendering blank charts.
         boolean hasCharts = false;
@@ -83,7 +126,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             Ui.addSpacer(content, 20);
         }
 
-        if (snapshot != null && hasCharts) {
+        if (pricing != null && hasCharts) {
             content.addView(Ui.separator(this, "Estimated value"));
             content.addView(buildValueCard(snapshot, pricing));
             Ui.addSpacer(content, 20);
@@ -131,10 +174,15 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                 snapshot == null ? now : snapshot.fetchedAtMillis, pace);
         card.addView(chart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 200)));
 
-        String defaultDetail = "Touch and drag the chart to inspect any moment in time.";
+        List<UsageStats.WindowStats> breakdown =
+                UsageStats.windowBreakdown(history, MAX_BREAKDOWN_WINDOWS);
+        boolean showWindowRows = visible(HistorySections.WINDOW_LIST) && breakdown.size() > 1;
+
+        String defaultDetail = showWindowRows
+                ? "Drag to inspect · tap a window to compare" : "Drag to inspect";
         TextView scrubDetail = Ui.text(this, defaultDetail, 12, Ui.secondaryText(dark));
         LinearLayout.LayoutParams scrubParams = new LinearLayout.LayoutParams(-1, -2);
-        scrubParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 2), Ui.dp(this, 12), 0);
+        scrubParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 2), Ui.dp(this, 12), Ui.dp(this, 6));
         card.addView(scrubDetail, scrubParams);
         chart.setOnScrubListener(new UsageBurnChartView.OnScrubListener() {
             @Override
@@ -144,7 +192,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                 String text = moment + " — " + Math.round(usedPercent) + "% used";
                 if (pricing != null) {
                     text += " · ≈ " + PlanPricing.formatUsd(
-                            pricing.estimatedValueUsd(history.kind, usedPercent)) + " of usage";
+                            pricing.estimatedValueUsd(history.kind, usedPercent));
                 }
                 scrubDetail.setTextColor(Ui.mainText(dark));
                 scrubDetail.setText(text);
@@ -157,17 +205,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             }
         });
 
-        String summary = history.samples.size() + " samples · "
-                + history.completedWindowCount() + " completed window"
-                + (history.completedWindowCount() == 1 ? "" : "s");
-        TextView stats = Ui.text(this, summary, 12, Ui.secondaryText(dark));
-        LinearLayout.LayoutParams statsParams = new LinearLayout.LayoutParams(-1, -2);
-        statsParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
-        card.addView(stats, statsParams);
-
-        List<UsageStats.WindowStats> breakdown =
-                UsageStats.windowBreakdown(history, MAX_BREAKDOWN_WINDOWS);
-        if (breakdown.size() > 1) {
+        if (showWindowRows) {
             View divider = new View(this);
             divider.setBackgroundColor(Ui.divider(dark));
             LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
@@ -244,7 +282,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         // Current position against the typical pace of completed windows.
         long resetAt = window.effectiveResetAtMillis(observedAt);
         long durationMillis = window.windowSeconds * 1000L;
-        if (resetAt > 0L && durationMillis > 0L) {
+        if (visible(HistorySections.INSIGHT_PACE) && resetAt > 0L && durationMillis > 0L) {
             double elapsedFraction = 1d - Math.max(0d, Math.min(1d,
                     (resetAt - now) / (double) durationMillis));
             double typical = UsageStats.typicalUsedPercentAt(history, elapsedFraction);
@@ -263,29 +301,35 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             }
         }
 
-        UsagePace.Assessment pace = snapshot == null ? null
-                : UsagePacePreferences.assess(this, snapshot, window, now);
-        if (pace != null && pace.available) {
-            addStatRow(card, "Projected exhaustion",
-                    UsageFormat.relative(pace.estimatedExhaustionAtMillis, now));
-            rows++;
-        }
-
-        double averageFinal = UsageStats.averageFinalPercent(history);
-        if (averageFinal >= 0d) {
-            addStatRow(card, "Avg. completed window", Math.round(averageFinal) + "% used");
-            rows++;
-        }
-
-        double peakBurn = UsageStats.peakBurnPercentPerHour(history);
-        if (peakBurn > 0d) {
-            String value = formatRate(peakBurn);
-            if (pricing != null) {
-                value += " · ≈ " + PlanPricing.formatUsd(
-                        pricing.windowValueUsd(history.kind) * peakBurn / 100d) + "/h";
+        if (visible(HistorySections.INSIGHT_EXHAUSTION)) {
+            UsagePace.Assessment pace = snapshot == null ? null
+                    : UsagePacePreferences.assess(this, snapshot, window, now);
+            if (pace != null && pace.available) {
+                addStatRow(card, "Projected exhaustion",
+                        UsageFormat.relative(pace.estimatedExhaustionAtMillis, now));
+                rows++;
             }
-            addStatRow(card, "Peak burn observed", value);
-            rows++;
+        }
+
+        if (visible(HistorySections.INSIGHT_AVERAGE)) {
+            double averageFinal = UsageStats.averageFinalPercent(history);
+            if (averageFinal >= 0d) {
+                addStatRow(card, "Avg. completed window", Math.round(averageFinal) + "% used");
+                rows++;
+            }
+        }
+
+        if (visible(HistorySections.INSIGHT_PEAK)) {
+            double peakBurn = UsageStats.peakBurnPercentPerHour(history);
+            if (peakBurn > 0d) {
+                String value = formatRate(peakBurn);
+                if (pricing != null) {
+                    value += " · ≈ " + PlanPricing.formatUsd(
+                            pricing.windowValueUsd(history.kind) * peakBurn / 100d) + "/h";
+                }
+                addStatRow(card, "Peak burn observed", value);
+                rows++;
+            }
         }
 
         if (pricing != null) {
@@ -301,15 +345,6 @@ public final class UsageHistoryActivity extends AppCompatActivity {
 
     private LinearLayout buildValueCard(UsageSnapshot snapshot, PlanPricing pricing) {
         LinearLayout card = Ui.card(this, dark);
-        if (pricing == null) {
-            String plan = UsageFormat.planLabel(snapshot.planType);
-            card.addView(Ui.text(this,
-                    (plan.isEmpty() ? "Your plan" : "The " + plan + " plan")
-                            + " has no researched usage-value estimates yet. Estimates cover "
-                            + "Plus, Pro 5x, and Pro 20x subscriptions.",
-                    13, Ui.secondaryText(dark)));
-            return card;
-        }
         TextView title = Ui.text(this, pricing.planLabel + " · "
                 + PlanPricing.formatUsd(pricing.monthlyPriceUsd) + "/month", 16,
                 Ui.mainText(dark));
@@ -329,9 +364,8 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                             snapshot.weekly.remainingPercent())));
         }
         TextView disclaimer = Ui.text(this,
-                "Rough estimates from community research comparing subscription allowances "
-                        + "with equivalent API pricing. Actual limits vary by model and "
-                        + "workload; nothing here is a billing statement.",
+                "Rough community estimates comparing plan allowances with API pricing; "
+                        + "not a billing statement.",
                 12, Ui.secondaryText(dark));
         LinearLayout.LayoutParams disclaimerParams = new LinearLayout.LayoutParams(-1, -2);
         disclaimerParams.setMargins(0, Ui.dp(this, 10), 0, 0);
