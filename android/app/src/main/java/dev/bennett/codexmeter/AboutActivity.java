@@ -48,6 +48,7 @@ public final class AboutActivity extends AppCompatActivity {
         TextView version = findViewById(R.id.about_header_version);
         version.setText(getString(R.string.about_version, Ui.versionName(this)));
         version.setOnClickListener(this::onVersionTap);
+        findViewById(R.id.about_header_icon).setOnClickListener(this::onVersionTap);
         build(findViewById(R.id.about_content));
     }
 
@@ -124,7 +125,7 @@ public final class AboutActivity extends AppCompatActivity {
 
     private void onVersionTap(View ignored) {
         long now = SystemClock.elapsedRealtime();
-        if (now - lastVersionTap > 3_000L) {
+        if (now - lastVersionTap > 10_000L) {
             versionTaps = 0;
         }
         lastVersionTap = now;
