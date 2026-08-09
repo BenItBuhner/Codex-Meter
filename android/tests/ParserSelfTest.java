@@ -56,8 +56,36 @@ public final class ParserSelfTest {
         testReleaseNotesMarkdown();
         testReleaseUpdatePolicy();
         testUpdateCheckFrequency();
+        testDiagnosticSanitizer();
         testSettingsTransfer();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
+    }
+
+    private static void testDiagnosticSanitizer() {
+        String jwt = "abcdefghijklmnop.qrstuvwxyzABCDE.FGHIJKLMNOP";
+        String input = "Authorization: Bearer top-secret "
+                + "access_token=\"access-secret\" refresh_token=refresh-secret "
+                + "Cookie: session=private-cookie email=user@example.com jwt=" + jwt + " "
+                + "https://example.com/callback?code=oauth-code&state=oauth-state";
+        String redacted = DiagnosticSanitizer.redact(input);
+        check(!redacted.contains("top-secret"), "bearer token redacted");
+        check(!redacted.contains("access-secret"), "access token redacted");
+        check(!redacted.contains("refresh-secret"), "refresh token redacted");
+        check(!redacted.contains("private-cookie"), "cookie redacted");
+        check(!redacted.contains("user@example.com"), "email redacted");
+        check(!redacted.contains(jwt), "JWT redacted");
+        check(!redacted.contains("oauth-code"), "OAuth code redacted");
+        check(!redacted.contains("oauth-state"), "OAuth state redacted");
+        check(redacted.contains("[REDACTED]"), "redaction marker present");
+        check("https://example.com:8443/path/to/resource".equals(
+                        DiagnosticSanitizer.safeUrl(
+                                "https://example.com:8443/path/to/resource?token=secret#fragment")),
+                "safe URL strips query and fragment");
+        check("The authorization server returned an error.".equals(
+                        DiagnosticSanitizer.redact(
+                                "The authorization server returned an error.")),
+                "ordinary authorization wording remains readable");
+        System.out.println("Diagnostic sanitizer strips credentials, identity, and URL queries.");
     }
 
     private static void testFullWindowHidesResetCountdown() {

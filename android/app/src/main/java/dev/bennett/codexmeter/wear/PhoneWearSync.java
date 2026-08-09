@@ -8,6 +8,7 @@ import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 import dev.bennett.codexmeter.AppPreferences;
+import dev.bennett.codexmeter.DiagnosticLog;
 import dev.bennett.codexmeter.NowBarManager;
 import dev.bennett.codexmeter.NowBarPreferences;
 import dev.bennett.codexmeter.RefreshScheduler;
@@ -123,6 +124,9 @@ public final class PhoneWearSync {
                 .putLong(KEY_LAST_APPLIED_SETTINGS_AT, remote.updatedAtMillis)
                 .putLong(KEY_LOCAL_SETTINGS_AT, remote.updatedAtMillis)
                 .apply();
+        DiagnosticLog.info(app, "wear", "remote_settings_applied",
+                "monitor_active", remote.monitorActive,
+                "source", remote.sourceNode);
         return true;
     }
 
@@ -130,9 +134,16 @@ public final class PhoneWearSync {
         if (context == null || path == null || path.isEmpty()) return;
         Context app = context.getApplicationContext();
         Wearable.getNodeClient(app).getConnectedNodes()
-                .addOnSuccessListener(nodes -> sendMessageToNodes(app, nodes, path))
-                .addOnFailureListener(error -> Log.w(TAG,
-                        "Could not resolve Wear nodes for " + path, error));
+                .addOnSuccessListener(nodes -> {
+                    DiagnosticLog.info(app, "wear", "nodes_resolved",
+                            "path", path, "node_count", nodes.size());
+                    sendMessageToNodes(app, nodes, path);
+                })
+                .addOnFailureListener(error -> {
+                    DiagnosticLog.error(app, "wear", "node_resolution_failed", error,
+                            "path", path);
+                    Log.w(TAG, "Could not resolve Wear nodes for " + path, error);
+                });
     }
 
     private static void sendMessageToNodes(Context context, List<Node> nodes, String path) {
@@ -140,8 +151,13 @@ public final class PhoneWearSync {
         for (Node node : nodes) {
             Wearable.getMessageClient(context)
                     .sendMessage(node.getId(), path, auth)
-                    .addOnFailureListener(error -> Log.w(TAG,
-                            "Could not send Wear message " + path, error));
+                    .addOnSuccessListener(result -> DiagnosticLog.info(context, "wear",
+                            "message_sent", "path", path))
+                    .addOnFailureListener(error -> {
+                        DiagnosticLog.error(context, "wear", "message_send_failed", error,
+                                "path", path);
+                        Log.w(TAG, "Could not send Wear message " + path, error);
+                    });
         }
     }
 
@@ -182,9 +198,17 @@ public final class PhoneWearSync {
             PutDataRequest request = map.asPutDataRequest().setUrgent();
             Wearable.getDataClient(context.getApplicationContext())
                     .putDataItem(request)
-                    .addOnFailureListener(error -> Log.w(TAG,
-                            "Could not push Wear data " + path, error));
+                    .addOnSuccessListener(item -> DiagnosticLog.info(context, "wear",
+                            "data_pushed", "path", path,
+                            "payload_bytes", json.getBytes(StandardCharsets.UTF_8).length))
+                    .addOnFailureListener(error -> {
+                        DiagnosticLog.error(context, "wear", "data_push_failed", error,
+                                "path", path);
+                        Log.w(TAG, "Could not push Wear data " + path, error);
+                    });
         } catch (Exception exception) {
+            DiagnosticLog.error(context, "wear", "data_encode_failed", exception,
+                    "path", path);
             Log.w(TAG, "Could not encode Wear data " + path, exception);
         }
     }

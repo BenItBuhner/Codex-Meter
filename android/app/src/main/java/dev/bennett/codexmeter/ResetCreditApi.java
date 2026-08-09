@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.SystemClock;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -26,14 +27,19 @@ public final class ResetCreditApi {
     }
 
     static ResetCreditsSnapshot refreshAndCacheLocked(Context context, AuthTokens authTokens) throws Exception {
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "refresh", "reset_credit_refresh_started");
         if (authTokens == null) {
             authTokens = UsageApi.usableTokens(context);
         }
-        Response responseRequest = request("GET", AppConstants.RESET_CREDITS_URL, authTokens, null);
+        Response responseRequest = request(context, "reset_credit_list", "GET",
+                AppConstants.RESET_CREDITS_URL, authTokens, null);
         if (responseRequest.status == 401) {
-            AuthTokens authTokensRefresh = OAuthClient.refresh(authTokens);
+            DiagnosticLog.warn(context, "auth", "reset_credit_token_rejected_refreshing");
+            AuthTokens authTokensRefresh = OAuthClient.refresh(context, authTokens);
             SecureTokenStore.save(context, authTokensRefresh);
-            responseRequest = request("GET", AppConstants.RESET_CREDITS_URL, authTokensRefresh, null);
+            responseRequest = request(context, "reset_credit_list", "GET",
+                    AppConstants.RESET_CREDITS_URL, authTokensRefresh, null);
         }
         ensureSuccess(responseRequest, "Could not load Codex reset credits");
         ResetCreditsSnapshot resetCreditsSnapshot = ResetCreditsParser.parse(responseRequest.body, System.currentTimeMillis());
@@ -42,11 +48,16 @@ public final class ResetCreditApi {
         }
         ResetNotificationManager.onResetCreditsUpdated(context, resetCreditsSnapshot);
         notifyUpdated(context);
+        DiagnosticLog.info(context, "refresh", "reset_credit_refresh_succeeded",
+                "duration_ms", SystemClock.elapsedRealtime() - started,
+                "available", resetCreditsSnapshot.availableCount);
         return resetCreditsSnapshot;
     }
 
     public static ResetConsumeResult consumeBestAvailable(Context context) throws Exception {
         Context app = context.getApplicationContext() == null ? context : context.getApplicationContext();
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(app, "user", "reset_credit_use_requested");
         synchronized (UsageApi.NETWORK_LOCK) {
             UsageApi.installCookieManager();
             AuthTokens tokens = UsageApi.usableTokens(app);
@@ -75,11 +86,14 @@ public final class ResetCreditApi {
             }
             byte[] payload = requestBody.toString().getBytes(StandardCharsets.UTF_8);
 
-            Response response = request("POST", AppConstants.RESET_CREDITS_CONSUME_URL, tokens, payload);
+            Response response = request(app, "reset_credit_consume", "POST",
+                    AppConstants.RESET_CREDITS_CONSUME_URL, tokens, payload);
             if (response.status == 401) {
-                tokens = OAuthClient.refresh(tokens);
+                DiagnosticLog.warn(app, "auth", "reset_consume_token_rejected_refreshing");
+                tokens = OAuthClient.refresh(app, tokens);
                 SecureTokenStore.save(app, tokens);
-                response = request("POST", AppConstants.RESET_CREDITS_CONSUME_URL, tokens, payload);
+                response = request(app, "reset_credit_consume", "POST",
+                        AppConstants.RESET_CREDITS_CONSUME_URL, tokens, payload);
             }
             ensureSuccess(response, "Could not apply the Codex reset");
 
@@ -107,12 +121,23 @@ public final class ResetCreditApi {
             }
             WidgetRenderer.updateAll(app);
             notifyUpdated(app);
+            DiagnosticLog.info(app, "user", "reset_credit_use_finished",
+                    "result", code,
+                    "windows_reset", windowsReset,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
             return new ResetConsumeResult(code, windowsReset, message);
         }
     }
 
-    private static Response request(String str, String str2, AuthTokens authTokens, byte[] bArr) throws Exception {
+    private static Response request(Context context, String operation, String str, String str2,
+            AuthTokens authTokens, byte[] bArr) throws Exception {
         HttpsURLConnection httpsURLConnection = (HttpsURLConnection) URI.create(str2).toURL().openConnection();
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "network", "request_started",
+                "operation", operation,
+                "method", str,
+                "url", DiagnosticSanitizer.safeUrl(str2),
+                "request_bytes", bArr == null ? 0 : bArr.length);
         try {
             UsageApi.applyHeaders(httpsURLConnection, authTokens);
             httpsURLConnection.setRequestMethod(str);
@@ -130,7 +155,19 @@ public final class ResetCreditApi {
                 }
             }
             int responseCode = httpsURLConnection.getResponseCode();
-            return new Response(responseCode, OAuthClient.readBody(httpsURLConnection, responseCode));
+            String body = OAuthClient.readBody(httpsURLConnection, responseCode);
+            DiagnosticLog.info(context, "network", "request_finished",
+                    "operation", operation,
+                    "status", responseCode,
+                    "duration_ms", SystemClock.elapsedRealtime() - started,
+                    "response_bytes",
+                    body.getBytes(StandardCharsets.UTF_8).length);
+            return new Response(responseCode, body);
+        } catch (Exception exception) {
+            DiagnosticLog.error(context, "network", "request_failed", exception,
+                    "operation", operation,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
+            throw exception;
         } finally {
             httpsURLConnection.disconnect();
         }

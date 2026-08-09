@@ -52,6 +52,8 @@ public final class OAuthService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? ACTION_START : intent.getAction();
+        DiagnosticLog.info(this, "auth", "oauth_service_command",
+                "action", action == null ? "" : action);
         if (ACTION_CANCEL.equals(action) || ACTION_CANCEL_SILENT.equals(action)) {
             cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
             return START_NOT_STICKY;
@@ -93,6 +95,8 @@ public final class OAuthService extends Service {
     private void runFlow() {
         Socket browser = null;
         boolean credentialsCommitted = false;
+        long started = android.os.SystemClock.elapsedRealtime();
+        DiagnosticLog.info(this, "auth", "oauth_flow_started");
         try {
             Pkce pkce = Pkce.generate();
             int port = bindServer();
@@ -117,6 +121,7 @@ public final class OAuthService extends Service {
                     continue;
                 }
                 if (!secureEquals(pkce.state, callback.parameters.get("state"))) {
+                    DiagnosticLog.warn(this, "auth", "oauth_callback_state_mismatch");
                     writeBrowser(browser, 400,
                             "The sign-in state did not match. Return to Codex Meter and try again.", false);
                     closeQuietly(browser);
@@ -142,7 +147,8 @@ public final class OAuthService extends Service {
                 }
 
                 updateNotification("Securing your ChatGPT session…", null);
-                AuthTokens tokens = OAuthClient.exchangeCode(code, redirectUri, pkce.verifier);
+                AuthTokens tokens = OAuthClient.exchangeCode(this, code, redirectUri,
+                        pkce.verifier);
                 SecureTokenStore.save(this, tokens);
                 credentialsCommitted = true;
                 AppPreferences.setOAuthPending(this, false, "");
@@ -163,10 +169,15 @@ public final class OAuthService extends Service {
 
                 updateNotification("Loading Codex usage…", null);
                 performPostAuthenticationSetup();
+                DiagnosticLog.info(this, "auth", "oauth_flow_succeeded",
+                        "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
                 finishService();
                 return;
             }
         } catch (Exception exception) {
+            DiagnosticLog.error(this, "auth", "oauth_flow_failed", exception,
+                    "credentials_committed", credentialsCommitted,
+                    "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
             if (credentialsCommitted) {
                 // A post-commit failure is not an authentication failure. Preserve the session,
                 // show a valid success state, and let manual refresh recover later.

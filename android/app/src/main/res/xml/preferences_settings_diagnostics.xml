@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Log tracing">
+        <SwitchPreferenceCompat
+            android:key="diagnostic_logging_enabled"
+            android:summary="Record detailed app, refresh, scheduler, Wear, and network events"
+            android:title="Save diagnostic logs"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="diagnostic_log_status"
+            android:title="Saved logs"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+        <Preference
+            android:key="export_diagnostic_logs"
+            android:summary="Save a structured JSON Lines file"
+            android:title="Export logs"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="clear_diagnostic_logs"
+            android:summary="Permanently delete saved diagnostic events"
+            android:title="Clear logs"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Privacy">
+        <Preference
+            android:summary="Logs stay in private app storage until you export or clear them. Authentication tokens, cookies, authorization codes, email addresses, URL queries, and request/response bodies are never intentionally recorded. Review an export before sharing it."
+            android:title="Sensitive data protection"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

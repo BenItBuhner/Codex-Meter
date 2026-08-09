@@ -16,6 +16,8 @@ public final class UsageRefreshJobService extends JobService {
     @Override // android.app.job.JobService
     public boolean onStartJob(final JobParameters jobParameters) {
         if (!SecureTokenStore.isSignedIn(this)) {
+            DiagnosticLog.info(this, "scheduler", "refresh_job_skipped_signed_out",
+                    "job_id", jobParameters.getJobId());
             WidgetRenderer.updateAll(this);
             return false;
         }
@@ -40,6 +42,8 @@ public final class UsageRefreshJobService extends JobService {
 
     @Override // android.app.job.JobService
     public boolean onStopJob(JobParameters jobParameters) {
+        DiagnosticLog.warn(this, "scheduler", "refresh_job_stopped",
+                "job_id", jobParameters.getJobId());
         JobRun jobRunRemove = this.active.remove(Integer.valueOf(jobParameters.getJobId()));
         if (jobRunRemove != null) {
             jobRunRemove.stopped = true;
@@ -62,25 +66,36 @@ public final class UsageRefreshJobService extends JobService {
     private final class JobRun implements Runnable {
         private final JobParameters params;
         private final boolean chainedCycle;
+        private final String reason;
         private volatile boolean stopped;
         private FutureTask<Void> task;
 
         JobRun(JobParameters jobParameters) {
             this.params = jobParameters;
-            String reason = jobParameters.getExtras() == null
+            this.reason = jobParameters.getExtras() == null
                     ? "" : jobParameters.getExtras().getString("reason", "");
-            this.chainedCycle = RefreshScheduler.REASON_SHORT_PERIODIC.equals(reason)
-                    || RefreshScheduler.REASON_ADAPTIVE.equals(reason);
+            this.chainedCycle = RefreshScheduler.REASON_SHORT_PERIODIC.equals(this.reason)
+                    || RefreshScheduler.REASON_ADAPTIVE.equals(this.reason);
         }
 
         @Override // java.lang.Runnable
         public void run() {
+            long started = android.os.SystemClock.elapsedRealtime();
+            DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
+                    "refresh_job_started",
+                    "job_id", this.params.getJobId(),
+                    "reason", this.reason);
             try {
                 try {
                     RefreshScheduler.scheduleAtNextReset(UsageRefreshJobService.this.getApplicationContext(), UsageApi.refreshAndCache(UsageRefreshJobService.this.getApplicationContext()));
                     AppPreferences.recordRefreshSuccess(
                             UsageRefreshJobService.this.getApplicationContext());
                     WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
+                    DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
+                            "refresh_job_succeeded",
+                            "job_id", this.params.getJobId(),
+                            "reason", this.reason,
+                            "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
                     UsageRefreshJobService.this.active.remove(Integer.valueOf(this.params.getJobId()), this);
                     if (!this.stopped) {
                         UsageRefreshJobService usageRefreshJobService = UsageRefreshJobService.this;
@@ -91,6 +106,11 @@ public final class UsageRefreshJobService extends JobService {
                         }
                     }
                 } catch (Exception e) {
+                    DiagnosticLog.error(UsageRefreshJobService.this, "scheduler",
+                            "refresh_job_failed", e,
+                            "job_id", this.params.getJobId(),
+                            "reason", this.reason,
+                            "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
                     AppPreferences.setLastError(UsageRefreshJobService.this.getApplicationContext(), UsageRefreshJobService.safeMessage(e));
                     AppPreferences.recordRefreshFailure(
                             UsageRefreshJobService.this.getApplicationContext());

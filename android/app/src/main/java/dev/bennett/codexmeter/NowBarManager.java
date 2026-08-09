@@ -64,8 +64,11 @@ public final class NowBarManager {
 
     private static boolean startInternal(Context context, String reason, String triggerFocus,
             long requestedUntil) {
+        DiagnosticLog.info(context, "now_bar", "start_requested", "reason", reason);
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
         if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+            DiagnosticLog.warn(context, "now_bar", "start_rejected",
+                    "reason", "missing_usage");
             return false;
         }
         long now = System.currentTimeMillis();
@@ -88,10 +91,15 @@ public final class NowBarManager {
                 : null;
         saveState(context, false, until, focus, true, autoTrigger, reason);
         if (post(context, snapshot, until, false)) {
+            DiagnosticLog.info(context, "now_bar", "started",
+                    "reason", reason,
+                    "focus", focus,
+                    "until", until);
             PhoneWearSync.pushSettings(context);
             return true;
         }
         stop(context, false);
+        DiagnosticLog.warn(context, "now_bar", "start_failed", "reason", reason);
         return false;
     }
 
@@ -312,6 +320,9 @@ public final class NowBarManager {
     public static synchronized void stop(Context context, boolean suppressAutoRestart) {
         long until = activeUntil(context);
         boolean wasActive = hasStoredActiveState(context);
+        DiagnosticLog.info(context, "now_bar", "stop_requested",
+                "was_active", wasActive,
+                "suppress_auto_restart", suppressAutoRestart);
         state(context).edit().clear().apply();
         if (suppressAutoRestart && wasActive && until > System.currentTimeMillis()) {
             // Respect an explicit stop/dismiss until the window would have ended anyway.
@@ -322,6 +333,8 @@ public final class NowBarManager {
             try {
                 manager.cancel(NOTIFICATION_ID);
             } catch (RuntimeException exception) {
+                DiagnosticLog.error(context, "now_bar", "notification_cancel_failed",
+                        exception);
                 Log.w(TAG, "Could not cancel live monitor notification", exception);
             }
         }
@@ -330,6 +343,7 @@ public final class NowBarManager {
             try {
                 alarms.cancel(endIntent(context));
             } catch (RuntimeException exception) {
+                DiagnosticLog.error(context, "now_bar", "expiry_cancel_failed", exception);
                 Log.w(TAG, "Could not cancel live monitor expiry", exception);
             }
         }
@@ -401,6 +415,7 @@ public final class NowBarManager {
         try {
             createChannel(manager);
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "channel_create_failed", exception);
             Log.w(TAG, "Could not create live monitor notification channel", exception);
             return false;
         }
@@ -507,6 +522,7 @@ public final class NowBarManager {
                 }
             }
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "notification_build_failed", exception);
             Log.w(TAG, "Could not build live monitor notification", exception);
             return false;
         }
@@ -518,6 +534,14 @@ public final class NowBarManager {
                 + " legacyColorizedFallback=" + legacyColorizedFallback
                 + " preview=" + preview + " remaining=" + remaining
                 + " focusCritical=" + focusCritical);
+        DiagnosticLog.info(context, "now_bar", "notification_posting",
+                "display_mode", displayMode,
+                "promotable", promotable,
+                "promotion_allowed", canPostPromotedNotifications(context),
+                "legacy_colorized_fallback", legacyColorizedFallback,
+                "preview", preview,
+                "remaining_percent", remaining,
+                "focus", focus);
         try {
             manager.notify(NOTIFICATION_ID, notification);
             state(context).edit()
@@ -531,6 +555,8 @@ public final class NowBarManager {
                         () -> Api36.logPostedPromotionState(manager, NOTIFICATION_ID), 1000L);
             }
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "notification_post_failed", exception,
+                    "display_mode", displayMode);
             Log.w(TAG, "Could not post live monitor notification", exception);
             try {
                 manager.cancel(NOTIFICATION_ID);
@@ -541,6 +567,8 @@ public final class NowBarManager {
         try {
             scheduleEnd(context, until);
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "expiry_schedule_failed", exception,
+                    "until", until);
             Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
         PhoneWearSync.pushMonitorState(context);

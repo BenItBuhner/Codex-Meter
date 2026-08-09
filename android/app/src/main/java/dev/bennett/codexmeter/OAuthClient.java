@@ -1,5 +1,7 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
+import android.os.SystemClock;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,40 +19,47 @@ public final class OAuthClient {
     private OAuthClient() {
     }
 
-    public static AuthTokens exchangeCode(String str, String str2, String str3) throws Exception {
+    public static AuthTokens exchangeCode(Context context, String str, String str2, String str3)
+            throws Exception {
         LinkedHashMap linkedHashMap = new LinkedHashMap();
         linkedHashMap.put("grant_type", "authorization_code");
         linkedHashMap.put("code", str);
         linkedHashMap.put("redirect_uri", str2);
         linkedHashMap.put("client_id", AppConstants.OAUTH_CLIENT_ID);
         linkedHashMap.put("code_verifier", str3);
-        return parseTokens(postForm(AppConstants.TOKEN_URL, linkedHashMap), null);
+        return parseTokens(postForm(context, "oauth_code_exchange", AppConstants.TOKEN_URL,
+                linkedHashMap), null);
     }
 
-    public static AuthTokens refresh(AuthTokens authTokens) throws Exception {
+    public static AuthTokens refresh(Context context, AuthTokens authTokens) throws Exception {
         JSONObject jSONObject = new JSONObject();
         jSONObject.put("grant_type", "refresh_token");
         jSONObject.put("refresh_token", authTokens.refreshToken);
         jSONObject.put("client_id", AppConstants.OAUTH_CLIENT_ID);
-        return authTokens.mergeRefresh(parseTokens(postJson(AppConstants.TOKEN_URL, jSONObject), authTokens));
+        return authTokens.mergeRefresh(parseTokens(postJson(context, "oauth_token_refresh",
+                AppConstants.TOKEN_URL, jSONObject), authTokens));
     }
 
-    public static void revokeBestEffort(AuthTokens authTokens) {
+    public static void revokeBestEffort(Context context, AuthTokens authTokens) {
         if (authTokens != null && !authTokens.refreshToken.isEmpty()) {
             JSONObject jSONObject = new JSONObject();
             try {
                 jSONObject.put("token", authTokens.refreshToken);
                 jSONObject.put("token_type_hint", "refresh_token");
                 jSONObject.put("client_id", AppConstants.OAUTH_CLIENT_ID);
-                postJson(AppConstants.REVOKE_URL, jSONObject);
-            } catch (Exception e) {
+                postJson(context, "oauth_token_revoke", AppConstants.REVOKE_URL, jSONObject);
+            } catch (Exception firstError) {
+                DiagnosticLog.warn(context, "auth", "json_revocation_failed_trying_form",
+                        "error", firstError.getClass().getSimpleName());
                 try {
                     LinkedHashMap linkedHashMap = new LinkedHashMap();
                     linkedHashMap.put("token", authTokens.refreshToken);
                     linkedHashMap.put("token_type_hint", "refresh_token");
                     linkedHashMap.put("client_id", AppConstants.OAUTH_CLIENT_ID);
-                    postForm(AppConstants.REVOKE_URL, linkedHashMap);
-                } catch (Exception e2) {
+                    postForm(context, "oauth_token_revoke", AppConstants.REVOKE_URL,
+                            linkedHashMap);
+                } catch (Exception secondError) {
+                    DiagnosticLog.error(context, "auth", "token_revocation_failed", secondError);
                 }
             }
         }
@@ -100,16 +109,27 @@ public final class OAuthClient {
         throw new Exception("The authorization server returned incomplete credentials.");
     }
 
-    private static String postForm(String str, Map<String, String> map) throws Exception {
-        return post(str, "application/x-www-form-urlencoded", formEncode(map).getBytes(StandardCharsets.UTF_8));
+    private static String postForm(Context context, String operation, String str,
+            Map<String, String> map) throws Exception {
+        return post(context, operation, str, "application/x-www-form-urlencoded",
+                formEncode(map).getBytes(StandardCharsets.UTF_8));
     }
 
-    private static String postJson(String str, JSONObject jSONObject) throws Exception {
-        return post(str, "application/json", jSONObject.toString().getBytes(StandardCharsets.UTF_8));
+    private static String postJson(Context context, String operation, String str,
+            JSONObject jSONObject) throws Exception {
+        return post(context, operation, str, "application/json",
+                jSONObject.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    private static String post(String str, String str2, byte[] bArr) throws Exception {
+    private static String post(Context context, String operation, String str, String str2,
+            byte[] bArr) throws Exception {
         HttpsURLConnection httpsURLConnection = (HttpsURLConnection) URI.create(str).toURL().openConnection();
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "network", "request_started",
+                "operation", operation,
+                "method", "POST",
+                "url", DiagnosticSanitizer.safeUrl(str),
+                "request_bytes", bArr.length);
         try {
             httpsURLConnection.setRequestMethod("POST");
             httpsURLConnection.setConnectTimeout(15000);
@@ -128,12 +148,23 @@ public final class OAuthClient {
                 }
                 int responseCode = httpsURLConnection.getResponseCode();
                 String body = readBody(httpsURLConnection, responseCode);
+                DiagnosticLog.info(context, "network", "request_finished",
+                        "operation", operation,
+                        "status", responseCode,
+                        "duration_ms", SystemClock.elapsedRealtime() - started,
+                        "response_bytes",
+                        body.getBytes(StandardCharsets.UTF_8).length);
                 if (responseCode < 200 || responseCode >= 300) {
                     throw new Exception(readError(body, "Authentication failed (HTTP " + responseCode + ")."));
                 }
                 return body;
             } finally {
             }
+        } catch (Exception exception) {
+            DiagnosticLog.error(context, "network", "request_failed", exception,
+                    "operation", operation,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
+            throw exception;
         } finally {
             httpsURLConnection.disconnect();
         }
