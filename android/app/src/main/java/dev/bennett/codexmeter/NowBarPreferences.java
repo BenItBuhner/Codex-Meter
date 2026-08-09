@@ -90,7 +90,8 @@ public final class NowBarPreferences {
         return NowBarAutoStart.shouldStart(isAutoStartEnabled(context), getMetric(context),
                 getThreshold(context),
                 UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis, now),
-                UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis, now));
+                UsageSnapshot.currentWindow(snapshot.longWindow(), snapshot.fetchedAtMillis,
+                        now));
     }
 
     public static boolean isSuppressed(Context context) {

@@ -5,7 +5,7 @@
     <string name="wear_refresh">Refresh</string>
     <string name="wear_toggle_monitor">Toggle monitor</string>
     <string name="wear_five_hour">5-hour</string>
-    <string name="wear_week_value">Week %1$s</string>
+    <string name="wear_long_window_value">%1$s %2$s</string>
     <string name="wear_start_monitor">Start monitor</string>
     <string name="wear_stop_monitor">Stop monitor</string>
     <string name="wear_refresh_requested">Refresh requested</string>

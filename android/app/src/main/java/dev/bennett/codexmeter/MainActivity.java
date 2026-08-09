@@ -367,6 +367,9 @@ public final class MainActivity extends AppCompatActivity {
             if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
                 available.add(DashboardSections.WEEKLY);
             }
+            if (AppPreferences.showDashboardMonthly(this) && snapshot.monthly != null) {
+                available.add(DashboardSections.MONTHLY);
+            }
             if (AppPreferences.showDashboardAdditionalLimits(this)) {
                 for (String key : limitsByKey.keySet()) {
                     if (!AppPreferences.isDashboardSectionHidden(this, key)) {
@@ -382,7 +385,8 @@ public final class MainActivity extends AppCompatActivity {
             // Usage history only appears once at least one window can feed a burn chart.
             if (AppPreferences.showDashboardUsageHistory(this)
                     && snapshot.fetchedAtMillis > 0L
-                    && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+                    && (snapshot.fiveHour != null || snapshot.weekly != null
+                            || snapshot.monthly != null)) {
                 available.add(DashboardSections.USAGE_HISTORY);
             }
         }
@@ -400,6 +404,10 @@ public final class MainActivity extends AppCompatActivity {
             } else if (DashboardSections.WEEKLY.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
                         "Weekly", snapshot, snapshot.weekly, inverted));
+                inverted = !inverted;
+            } else if (DashboardSections.MONTHLY.equals(key)) {
+                addDashboardCard(column, buildMetricCard(
+                        "Monthly", snapshot, snapshot.monthly, inverted));
                 inverted = !inverted;
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
@@ -499,9 +507,20 @@ public final class MainActivity extends AppCompatActivity {
             hasCharts = true;
         }
 
+        UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
+        if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
+            UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
+            monthlyChart.setData("Monthly", monthlyWindow,
+                    AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY),
+                    snapshot.fetchedAtMillis,
+                    UsagePacePreferences.assess(this, snapshot, monthlyWindow, now));
+            card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+            hasCharts = true;
+        }
+
         if (!hasCharts) {
             TextView waiting = Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour or weekly usage windows.",
+                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage windows.",
                     12, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams waitingParams = new LinearLayout.LayoutParams(-1, -2);
             waitingParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 8),

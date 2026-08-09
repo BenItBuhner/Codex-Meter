@@ -172,6 +172,34 @@ grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
 # The usage-history section itself also hides until a window can feed a chart.
 grep -q 'snapshot.fiveHour != null || snapshot.weekly != null' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+
+# Free-tier monthly Codex window: parsing, dashboard card, history, and the long-window
+# fallbacks that keep widgets, Wear, and the live monitor adapting to subscription changes.
+grep -q 'testMonthlyWindow' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'MONTHLY = "monthly"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'MONTHLY = "monthly"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java"
+grep -q 'public UsageWindow longWindow()' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java"
+grep -q 'monthlyWindow != null && snapshot.fetchedAtMillis > 0L' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'usage_history_monthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'dashboard_monthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'WINDOW_MONTHLY' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
+grep -q 'longWindowIsMonthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'currentLongWindow' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
+grep -q 'meterWindow' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
 grep -q 'Hidden automatically when no resets are available' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.

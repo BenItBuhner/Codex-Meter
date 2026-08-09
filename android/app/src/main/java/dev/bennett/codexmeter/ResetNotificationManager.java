@@ -23,22 +23,27 @@ public final class ResetNotificationManager {
     private static final String PREFS = "codex_meter_notification_state_v1";
     private static final String KEY_FIVE_HOUR_WINDOW = "low_five_hour_window";
     private static final String KEY_WEEKLY_WINDOW = "low_weekly_window";
+    private static final String KEY_MONTHLY_WINDOW = "low_monthly_window";
     private static final String KEY_CREDIT_COUNT = "known_reset_credit_count";
     private static final String KEY_CREDIT_EXPIRY_ANNOUNCED =
             "reset_credit_expiry_announced";
     private static final String KEY_USER_RESET_FIVE_HOUR_UNTIL = "user_reset_five_hour_until";
     private static final String KEY_USER_RESET_WEEKLY_UNTIL = "user_reset_weekly_until";
+    private static final String KEY_USER_RESET_MONTHLY_UNTIL = "user_reset_monthly_until";
     private static final long UNKNOWN_USER_RESET_SUPPRESSION_MS = 15 * 60 * 1000L;
     private static final int NOTIFICATION_TEST = 74400;
     private static final int NOTIFICATION_RESET_FIVE_HOUR = 74405;
     private static final int NOTIFICATION_RESET_WEEKLY = 74407;
+    private static final int NOTIFICATION_RESET_MONTHLY = 74408;
     private static final int NOTIFICATION_LOW_FIVE_HOUR = 74505;
     private static final int NOTIFICATION_LOW_WEEKLY = 74507;
+    private static final int NOTIFICATION_LOW_MONTHLY = 74508;
     private static final int NOTIFICATION_NEW_CREDIT = 74509;
     private static final int NOTIFICATION_CREDIT_EXPIRY_BASE = 74600;
     private static final int NOTIFICATION_REFILL_FIVE_HOUR = 74511;
     private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
     private static final int NOTIFICATION_REFILL_BOTH = 74513;
+    private static final int NOTIFICATION_REFILL_MONTHLY = 74514;
     private static final Object EXPIRY_STATE_LOCK = new Object();
 
     private ResetNotificationManager() {
@@ -63,6 +68,9 @@ public final class ResetNotificationManager {
         if (!ResetAlertPreferences.METRIC_FIVE_HOUR.equals(metric)) {
             notifyLowWindow(context, snapshot.weekly, snapshot.fetchedAtMillis,
                     "Weekly", KEY_WEEKLY_WINDOW, NOTIFICATION_LOW_WEEKLY);
+            // The monthly free-tier window rides on the same long-cadence metric as weekly.
+            notifyLowWindow(context, snapshot.monthly, snapshot.fetchedAtMillis,
+                    "Monthly", KEY_MONTHLY_WINDOW, NOTIFICATION_LOW_MONTHLY);
         }
         if (ResetAlertPreferences.unexpectedRefillsEnabled(context)) {
             notifyUnexpectedRefill(context, unexpectedRefills);
@@ -120,16 +128,27 @@ public final class ResetNotificationManager {
                 snapshot, snapshot.fiveHour, now);
         markUserResetWindow(editor, KEY_USER_RESET_WEEKLY_UNTIL,
                 snapshot, snapshot.weekly, now);
+        markUserResetWindow(editor, KEY_USER_RESET_MONTHLY_UNTIL,
+                snapshot, snapshot.monthly, now);
         editor.apply();
     }
 
     public static void showResetNotification(Context context, String metric) {
-        boolean weekly = ResetAlertPreferences.METRIC_WEEKLY.equals(metric);
-        String label = weekly ? "Weekly" : "5-hour";
-        post(context, weekly ? NOTIFICATION_RESET_WEEKLY : NOTIFICATION_RESET_FIVE_HOUR,
-                "Codex " + label + " usage reset",
+        String label;
+        int id;
+        if (ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
+            label = "Weekly";
+            id = NOTIFICATION_RESET_WEEKLY;
+        } else if ("monthly".equals(metric)) {
+            label = "Monthly";
+            id = NOTIFICATION_RESET_MONTHLY;
+        } else {
+            label = "5-hour";
+            id = NOTIFICATION_RESET_FIVE_HOUR;
+        }
+        post(context, id, "Codex " + label + " usage reset",
                 "Your " + label + " allowance should be available again. Refreshing usage now.",
-                weekly ? NOTIFICATION_RESET_WEEKLY : NOTIFICATION_RESET_FIVE_HOUR);
+                id);
     }
 
     public static boolean showResetCreditExpiryNotification(Context context, String creditId,
@@ -215,6 +234,7 @@ public final class ResetNotificationManager {
         state(context).edit()
                 .remove(KEY_FIVE_HOUR_WINDOW)
                 .remove(KEY_WEEKLY_WINDOW)
+                .remove(KEY_MONTHLY_WINDOW)
                 .remove(KEY_CREDIT_COUNT)
                 .apply();
         clearResetCreditExpiryReminderHistory(context);
@@ -283,14 +303,19 @@ public final class ResetNotificationManager {
         if (refills == 0) return;
         boolean fiveHour = (refills & CelebrationDetector.FIVE_HOUR) != 0;
         boolean weekly = (refills & CelebrationDetector.WEEKLY) != 0;
-        if (fiveHour && weekly) {
+        boolean monthly = (refills & CelebrationDetector.MONTHLY) != 0;
+        if ((fiveHour && weekly) || (fiveHour && monthly)) {
             post(context, NOTIFICATION_REFILL_BOTH, "Surprise Codex refill",
-                    "Your 5-hour and weekly allowances jumped to 100% before their scheduled resets. Enjoy the bonus capacity.",
+                    "Your Codex allowances jumped to 100% before their scheduled resets. Enjoy the bonus capacity.",
                     NOTIFICATION_REFILL_BOTH);
         } else if (weekly) {
             post(context, NOTIFICATION_REFILL_WEEKLY, "Surprise weekly Codex refill",
                     "Your weekly allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
                     NOTIFICATION_REFILL_WEEKLY);
+        } else if (monthly) {
+            post(context, NOTIFICATION_REFILL_MONTHLY, "Surprise monthly Codex refill",
+                    "Your monthly allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
+                    NOTIFICATION_REFILL_MONTHLY);
         } else {
             post(context, NOTIFICATION_REFILL_FIVE_HOUR, "Surprise 5-hour Codex refill",
                     "Your 5-hour allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
@@ -302,17 +327,21 @@ public final class ResetNotificationManager {
         SharedPreferences preferences = state(context);
         long fiveHourUntil = preferences.getLong(KEY_USER_RESET_FIVE_HOUR_UNTIL, 0L);
         long weeklyUntil = preferences.getLong(KEY_USER_RESET_WEEKLY_UNTIL, 0L);
-        if (fiveHourUntil <= 0L && weeklyUntil <= 0L) return refills;
+        long monthlyUntil = preferences.getLong(KEY_USER_RESET_MONTHLY_UNTIL, 0L);
+        if (fiveHourUntil <= 0L && weeklyUntil <= 0L && monthlyUntil <= 0L) return refills;
         int filtered = CelebrationDetector.withoutUserResetRefills(refills, observedAt,
-                fiveHourUntil, weeklyUntil);
+                fiveHourUntil, weeklyUntil, monthlyUntil);
         boolean clearFiveHour = shouldClearSuppression(CelebrationDetector.FIVE_HOUR,
                 refills, filtered, observedAt, fiveHourUntil);
         boolean clearWeekly = shouldClearSuppression(CelebrationDetector.WEEKLY,
                 refills, filtered, observedAt, weeklyUntil);
-        if (clearFiveHour || clearWeekly) {
+        boolean clearMonthly = shouldClearSuppression(CelebrationDetector.MONTHLY,
+                refills, filtered, observedAt, monthlyUntil);
+        if (clearFiveHour || clearWeekly || clearMonthly) {
             SharedPreferences.Editor editor = preferences.edit();
             if (clearFiveHour) editor.remove(KEY_USER_RESET_FIVE_HOUR_UNTIL);
             if (clearWeekly) editor.remove(KEY_USER_RESET_WEEKLY_UNTIL);
+            if (clearMonthly) editor.remove(KEY_USER_RESET_MONTHLY_UNTIL);
             editor.apply();
         }
         return filtered;

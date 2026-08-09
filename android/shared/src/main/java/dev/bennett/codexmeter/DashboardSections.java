@@ -17,6 +17,7 @@ import java.util.Locale;
 public final class DashboardSections {
     public static final String FIVE_HOUR = "five_hour";
     public static final String WEEKLY = "weekly";
+    public static final String MONTHLY = "monthly";
     public static final String USAGE_CREDITS = "usage_credits";
     public static final String USAGE_HISTORY = "usage_history";
     public static final String RESET_CREDITS = "reset_credits";
@@ -45,13 +46,14 @@ public final class DashboardSections {
     }
 
     /**
-     * Default order: 5-hour, weekly, detected additional limits, usage credits, history,
-     * reset credits.
+     * Default order: 5-hour, weekly, monthly, detected additional limits, usage credits,
+     * history, reset credits.
      */
     public static List<String> defaultOrder(List<UsageLimit> additionalLimits) {
         List<String> order = new ArrayList<>();
         order.add(FIVE_HOUR);
         order.add(WEEKLY);
+        order.add(MONTHLY);
         if (additionalLimits != null) {
             for (UsageLimit limit : additionalLimits) {
                 if (limit != null && !order.contains(limitKey(limit))) {

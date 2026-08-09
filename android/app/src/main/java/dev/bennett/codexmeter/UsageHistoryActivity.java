@@ -88,6 +88,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         UsageHistory five = AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR);
         UsageHistory weekly = AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY);
+        UsageHistory monthly = AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY);
         // Dollar figures ride on the value-estimates highlight; hiding it hides them all.
         PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
                 ? null : PlanPricing.forPlan(snapshot.planType);
@@ -116,11 +117,16 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             addWindowSection("Weekly", weeklyWindow, snapshot, weekly, pricing);
             hasCharts = true;
         }
+        UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
+        if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
+            addWindowSection("Monthly", monthlyWindow, snapshot, monthly, pricing);
+            hasCharts = true;
+        }
         if (!hasCharts) {
             LinearLayout waiting = Ui.card(this, dark);
             waiting.addView(Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour or weekly usage windows. "
-                            + "Refresh usage from the dashboard to check again.",
+                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage "
+                            + "windows. Refresh usage from the dashboard to check again.",
                     13, Ui.secondaryText(dark)));
             content.addView(waiting);
             Ui.addSpacer(content, 20);
@@ -133,7 +139,8 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         }
 
         Button clear = Ui.button(this, "Clear local history", false, dark);
-        clear.setEnabled(!five.samples.isEmpty() || !weekly.samples.isEmpty());
+        clear.setEnabled(!five.samples.isEmpty() || !weekly.samples.isEmpty()
+                || !monthly.samples.isEmpty());
         clear.setOnClickListener(view -> new AlertDialog.Builder(this)
                 .setTitle("Clear usage history?")
                 .setMessage("This removes every locally stored usage sample. Your latest "
@@ -220,13 +227,15 @@ public final class UsageHistoryActivity extends AppCompatActivity {
     /** Tappable per-window rows that select a window on the chart for scrubbing. */
     private void addWindowRows(LinearLayout card, UsageBurnChartView chart, UsageHistory history,
             List<UsageStats.WindowStats> breakdown, PlanPricing pricing) {
-        boolean weekly = UsageHistory.WEEKLY.equals(history.kind);
+        boolean dayGranularity = UsageHistory.WEEKLY.equals(history.kind)
+                || UsageHistory.MONTHLY.equals(history.kind);
         TextView[] titles = new TextView[breakdown.size()];
         Runnable[] selections = new Runnable[breakdown.size()];
         for (int index = breakdown.size() - 1; index >= 0; index--) {
             UsageStats.WindowStats stats = breakdown.get(index);
             boolean current = !stats.complete;
-            String rowTitle = current ? "Current window" : windowRangeLabel(stats, weekly);
+            String rowTitle = current ? "Current window"
+                    : windowRangeLabel(stats, dayGranularity);
             StringBuilder subtitle = new StringBuilder();
             subtitle.append(stats.finalPercent).append("% used");
             if (stats.averageBurnPercentPerHour > 0d) {
@@ -386,9 +395,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         card.addView(row, rowParams);
     }
 
-    private String windowRangeLabel(UsageStats.WindowStats stats, boolean weekly) {
+    private String windowRangeLabel(UsageStats.WindowStats stats, boolean dayGranularity) {
         boolean is24Hour = DateFormat.is24HourFormat(this);
-        if (weekly) {
+        if (dayGranularity) {
             SimpleDateFormat day = new SimpleDateFormat("MMM d", Locale.getDefault());
             return day.format(new Date(stats.windowStartMillis)) + " – "
                     + day.format(new Date(stats.resetAtMillis));

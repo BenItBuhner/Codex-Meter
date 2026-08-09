@@ -61,6 +61,7 @@ public final class PlanPricing {
 
     /** Estimated allowance value for a usage-history window kind. */
     public double windowValueUsd(String historyKind) {
+        if (UsageHistory.MONTHLY.equals(historyKind)) return monthlyValueUsd;
         return UsageHistory.WEEKLY.equals(historyKind) ? weeklyValueUsd() : fiveHourValueUsd();
     }
 

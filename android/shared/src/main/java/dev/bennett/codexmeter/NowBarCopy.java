@@ -13,11 +13,14 @@ public final class NowBarCopy {
 
     /**
      * Compact critical / chip percentage for the focused window. Exhausted windows
-     * show a compact reset countdown instead of {@code 0%}.
+     * show a compact reset countdown instead of {@code 0%}. {@code prefix} is a short
+     * window marker such as {@code "W "} (weekly), {@code "M "} (monthly), or {@code ""}.
      */
-    public static String focusCriticalText(boolean weeklyFocus, UsageWindow window,
+    public static String focusCriticalText(String prefix, UsageWindow window,
             long observedAtMillis, long nowMillis) {
-        String prefix = weeklyFocus ? "W " : "";
+        if (prefix == null) {
+            prefix = "";
+        }
         if (window == null) {
             return prefix + "—";
         }
@@ -31,11 +34,13 @@ public final class NowBarCopy {
 
     /**
      * Samsung expanded-chip label: {@code Codex · 5-hour 12%} or, when exhausted,
-     * {@code Codex · Weekly 2d 4h}.
+     * {@code Codex · Weekly 2d 4h}. {@code windowLabel} names the focused window
+     * ({@code "5-hour"}, {@code "Weekly"}, or {@code "Monthly"}).
      */
-    public static String chipExpandedText(boolean weeklyFocus, UsageWindow window,
+    public static String chipExpandedText(String windowLabel, UsageWindow window,
             long observedAtMillis, long nowMillis) {
-        String focusLabel = weeklyFocus ? "Weekly " : "5-hour ";
+        String focusLabel = (windowLabel == null || windowLabel.isEmpty()
+                ? "5-hour" : windowLabel) + " ";
         if (window == null) {
             return "Codex · " + focusLabel + "unavailable";
         }
