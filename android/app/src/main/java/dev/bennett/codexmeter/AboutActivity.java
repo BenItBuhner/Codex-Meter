@@ -6,7 +6,6 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.Menu;
@@ -33,7 +32,6 @@ public final class AboutActivity extends AppCompatActivity {
     private static final int DIAGNOSTIC_TAPS = 7;
     private boolean dark;
     private int versionTaps;
-    private long lastVersionTap;
 
     @Override
     protected void onCreate(Bundle bundle) {
@@ -124,17 +122,12 @@ public final class AboutActivity extends AppCompatActivity {
     }
 
     private void onVersionTap(View ignored) {
-        long now = SystemClock.elapsedRealtime();
-        if (now - lastVersionTap > 10_000L) {
-            versionTaps = 0;
-        }
-        lastVersionTap = now;
         versionTaps++;
         int remaining = DIAGNOSTIC_TAPS - versionTaps;
         if (remaining <= 0) {
-            versionTaps = 0;
             Toast.makeText(this, "Diagnostics unlocked.", Toast.LENGTH_SHORT).show();
             startActivity(SettingsActivity.diagnosticsIntent(this));
+            versionTaps = 0;
         } else if (remaining <= 3) {
             Toast.makeText(this, remaining + " more tap" + (remaining == 1 ? "" : "s")
                     + " for diagnostics.", Toast.LENGTH_SHORT).show();
