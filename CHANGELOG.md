@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.7.0-alpha.1 — 2026-08-12
+## 2.8.0-alpha.1 — 2026-08-12
 
 ### Added
 
@@ -12,7 +12,7 @@
 
 - Monthly-window self-tests cover free-tier parsing, 28/31-day drift, long-window fallbacks, and the downgrade→resubscribe flow; diagnostic sanitizer coverage redacts credentials, emails, JWTs, and OAuth query params (#91, #92).
 
-**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.7.0...v2.7.0-alpha.1 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.7.0...v2.8.0-alpha.1 <!-- pragma: allowlist secret -->
 
 ## 2.7.0 — 2026-08-01
 

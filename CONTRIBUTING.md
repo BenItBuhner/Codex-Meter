@@ -48,17 +48,22 @@ pass when switching channels in either direction — no uninstall/reinstall.
 
 Versioning rules (enforced by CI on tags):
 
-- **Alpha releases** bump only `versionName` (append/increment the `-alpha.N`
-  suffix) and must keep `versionCode` **equal to** the newest stable release's
-  `versionCode`. Android permits equal-`versionCode` installs, which is what makes
-  the one-tap "Return to stable" flow an ordinary in-place install.
+- **Alpha releases** bump only `versionName` and must keep `versionCode` **equal
+  to** the newest stable release's `versionCode`. Android permits
+  equal-`versionCode` installs, which is what makes the one-tap "Return to
+  stable" flow an ordinary in-place install. The `versionName` must be the
+  **next** stable version plus `-alpha.N` (after stable `2.7.0`, the first alpha
+  is `2.8.0-alpha.1`, then `2.8.0-alpha.2`, ...). Never suffix the shipped
+  stable itself (`2.7.0-alpha.1` after `2.7.0`): SemVer orders `X.Y.Z-alpha.N`
+  *below* `X.Y.Z`, so the in-app updater would never offer it.
 - **Stable releases** drop the suffix and bump `versionCode` by one, so a stable
   promotion is a normal upgrade for both channels.
 
-Cutting an alpha: branch work off `alpha`, set `versionName` (for example,
-`2.7.0-alpha.1`) in `android/app/build.gradle.kts`, `android/wear/build.gradle.kts`,
+Cutting an alpha: branch work off `alpha`, set `versionName` to the next stable
+version plus the alpha suffix (for example, `2.8.0-alpha.1` while stable is
+`2.7.0`) in `android/app/build.gradle.kts`, `android/wear/build.gradle.kts`,
 `AppConstants.java`, `android/build.sh`, and the guards in `android/run-tests.sh`,
-add a `## 2.7.0-alpha.1` section to `CHANGELOG.md`, then tag `v2.7.0-alpha.1`.
+add a `## 2.8.0-alpha.1` section to `CHANGELOG.md`, then tag `v2.8.0-alpha.1`.
 
 Promoting to stable: merge `alpha` into `main`, drop the suffix, bump
 `versionCode`, consolidate the alpha changelog sections under the stable version,

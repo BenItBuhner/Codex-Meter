@@ -1709,6 +1709,21 @@ public final class ParserSelfTest {
                 promotedReleases, "2.7.0-alpha.2", UpdateChannel.ALPHA);
         check(promotedPick != null && "2.7.0".equals(promotedPick.version),
                 "alpha channel follows stable promotions");
+        // The first alpha cut after a shipped stable must be named for the NEXT stable
+        // (2.8.0-alpha.1 after 2.7.0, never 2.7.0-alpha.1): SemVer orders X.Y.Z-alpha.N
+        // below X.Y.Z, so an alpha suffixing the shipped stable is never offered.
+        String firstAlpha = "[" + releaseJson("v2.8.0-alpha.1", false, true, true, true)
+                + "," + releaseJson("v2.7.0", false, false, true, true) + "]";
+        java.util.List<GitHubRelease> firstAlphaReleases = GitHubReleaseParser.parse(firstAlpha);
+        GitHubRelease firstAlphaPick = UpdateChannel.selectUpdate(
+                firstAlphaReleases, "2.7.0", UpdateChannel.ALPHA);
+        check(firstAlphaPick != null && "2.8.0-alpha.1".equals(firstAlphaPick.version),
+                "alpha channel offers first alpha after installed stable");
+        String staleAlpha = "[" + releaseJson("v2.7.0-alpha.1", false, true, true, true)
+                + "," + releaseJson("v2.7.0", false, false, true, true) + "]";
+        check(UpdateChannel.selectUpdate(GitHubReleaseParser.parse(staleAlpha),
+                "2.7.0", UpdateChannel.ALPHA) == null,
+                "alpha suffixing the shipped stable is invisible to the updater");
     }
 
     private static String releaseJson(String tag, boolean draft, boolean prerelease,
