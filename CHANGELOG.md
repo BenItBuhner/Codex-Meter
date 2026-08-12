@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.7.0-alpha.1 — 2026-08-12
+
+### Added
+
+- Free-tier monthly Codex window support: when a paid plan expires to Free, OpenAI's ~30-day monthly limit is parsed and shown across the dashboard, usage history, widgets, Wear, Now Bar, alerts, and adaptive refresh instead of failing with "no recognizable Codex usage data" and leaving a stale Pro badge (#92).
+- Opt-in diagnostic log tracing and export (unlock via About header taps) with sanitized JSONL logs for process lifecycle, refresh, OAuth, updates, widgets, Now Bar, and Wear sync (#91).
+- Usage-history Customize checklist so chart guide, previous-window list, insight rows, and value estimates can be shown or hidden individually; defaults are decluttered (#89).
+
+### Development
+
+- Monthly-window self-tests cover free-tier parsing, 28/31-day drift, long-window fallbacks, and the downgrade→resubscribe flow; diagnostic sanitizer coverage redacts credentials, emails, JWTs, and OAuth query params (#91, #92).
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.7.0...v2.7.0-alpha.1 <!-- pragma: allowlist secret -->
+
 ## 2.7.0 — 2026-08-01
 
 ### Added

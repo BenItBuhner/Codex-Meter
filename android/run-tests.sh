@@ -76,14 +76,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.7.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME = "2.7.0-alpha.1"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 29' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.7.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.7.0-alpha.1"' "$ROOT/app/build.gradle.kts"
 grep -q 'versionCode = 29' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.7.0"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionName = "2.7.0-alpha.1"' "$ROOT/wear/build.gradle.kts"
 grep -q 'versionCode = 29' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.7.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.7.0"' "$ROOT/build.sh"
+grep -q 'codex-meter-android/2.7.0-alpha.1' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.7.0-alpha.1"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
