@@ -193,14 +193,19 @@ final class SamsungLockWidgetSupport {
         int iRemaining = binding.primaryRemaining;
         int iRemaining2 = binding.secondaryRemaining;
         if (metric != Metric.BOTH) {
+            boolean monthlyFallback = metric == Metric.WEEKLY
+                    && usageSnapshotLoadSnapshot != null
+                    && usageSnapshotLoadSnapshot.longWindowIsMonthly();
             int value = metric == Metric.FIVE_HOUR
                     ? remaining(usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.fiveHour)
-                    : remaining(usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.weekly);
+                    : remaining(usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.longWindow());
             int[] size = grantedSize(appWidgetManager, i, Shape.SQUARE);
             RemoteViews single = new RemoteViews(context.getPackageName(), R.layout.widget_lock_dial_single);
             single.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.renderSingle(context, metric, value, zIsSignedIn, size[0], size[1]));
-            String metricName = metric == Metric.FIVE_HOUR ? "five hour" : "weekly";
+                    SamsungLockGraphics.renderSingle(context, metric, value, zIsSignedIn,
+                            size[0], size[1]));
+            String metricName = metric == Metric.FIVE_HOUR ? "five hour"
+                    : monthlyFallback ? "monthly" : "weekly";
             single.setContentDescription(R.id.lock_graphic_root, zIsSignedIn
                     ? "Codex " + metricName + " " + value(value) + " remaining"
                     : "Codex Meter, sign in required");
@@ -257,9 +262,10 @@ final class SamsungLockWidgetSupport {
                     R.drawable.ic_oui_time);
         }
         if (WidgetMeters.WEEKLY.equals(key)) {
-            return new LockMeterSlot(key, "W",
-                    remaining(snapshot == null ? null : snapshot.weekly),
-                    snapshot == null ? null : snapshot.weekly,
+            UsageWindow longWindow = WidgetMeters.meterWindow(key, snapshot);
+            return new LockMeterSlot(key,
+                    WidgetMeters.weeklyMeterIsMonthly(snapshot) ? "MO" : "W",
+                    remaining(longWindow), longWindow,
                     R.drawable.ic_oui_calendar_week);
         }
         UsageLimit limit = WidgetMeters.findLimit(key, snapshot);

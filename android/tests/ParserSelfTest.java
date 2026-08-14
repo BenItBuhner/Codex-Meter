@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 public final class ParserSelfTest {
     public static void main(String[] args) throws Exception {
         testStandardUsage();
+        testMonthlyWindow();
         testWindowIdentification();
         testAdditionalLimits();
         testPrimaryLimitWinsOverAdditional();
@@ -57,8 +58,36 @@ public final class ParserSelfTest {
         testReleaseNotesMarkdown();
         testReleaseUpdatePolicy();
         testUpdateCheckFrequency();
+        testDiagnosticSanitizer();
         testSettingsTransfer();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
+    }
+
+    private static void testDiagnosticSanitizer() {
+        String jwt = "abcdefghijklmnop.qrstuvwxyzABCDE.FGHIJKLMNOP";
+        String input = "Authorization: Bearer top-secret "
+                + "access_token=\"access-secret\" refresh_token=refresh-secret "
+                + "Cookie: session=private-cookie email=user@example.com jwt=" + jwt + " "
+                + "https://example.com/callback?code=oauth-code&state=oauth-state";
+        String redacted = DiagnosticSanitizer.redact(input);
+        check(!redacted.contains("top-secret"), "bearer token redacted");
+        check(!redacted.contains("access-secret"), "access token redacted");
+        check(!redacted.contains("refresh-secret"), "refresh token redacted");
+        check(!redacted.contains("private-cookie"), "cookie redacted");
+        check(!redacted.contains("user@example.com"), "email redacted");
+        check(!redacted.contains(jwt), "JWT redacted");
+        check(!redacted.contains("oauth-code"), "OAuth code redacted");
+        check(!redacted.contains("oauth-state"), "OAuth state redacted");
+        check(redacted.contains("[REDACTED]"), "redaction marker present");
+        check("https://example.com:8443/path/to/resource".equals(
+                        DiagnosticSanitizer.safeUrl(
+                                "https://example.com:8443/path/to/resource?token=secret#fragment")),
+                "safe URL strips query and fragment");
+        check("The authorization server returned an error.".equals(
+                        DiagnosticSanitizer.redact(
+                                "The authorization server returned an error.")),
+                "ordinary authorization wording remains readable");
+        System.out.println("Diagnostic sanitizer strips credentials, identity, and URL queries.");
     }
 
     private static void testFullWindowHidesResetCountdown() {
@@ -173,6 +202,13 @@ public final class ParserSelfTest {
         check(UsagePace.mostAcceleratedWindow(both, now, UsagePace.OFF)
                         == UsagePace.WINDOW_NONE,
                 "off sensitivity never selects an accelerated window");
+        UsageWindow fastMonthly = new UsageWindow(15, TimeUnit.DAYS.toSeconds(30), 0L,
+                (now - 12L * hour + TimeUnit.DAYS.toMillis(30)) / 1000L);
+        UsageSnapshot monthlyOnly = new UsageSnapshot("free", true, false, null, null,
+                fastMonthly, java.util.Collections.emptyList(), null, -1, now);
+        check(UsagePace.mostAcceleratedWindow(monthlyOnly, now, UsagePace.BALANCED)
+                        == UsagePace.WINDOW_MONTHLY,
+                "accelerated window selection covers the monthly free-tier quota");
         check(UsagePace.BALANCED.equals(UsagePace.normalizeSensitivity("invalid")),
                 "invalid sensitivity falls back to balanced");
         check(UsagePace.OFF.equals(UsagePace.normalizeSensitivity(UsagePace.OFF)),
@@ -220,6 +256,16 @@ public final class ParserSelfTest {
         check(UsageHistory.WEEKLY.equals(
                         UsageHistory.empty(UsageHistory.WEEKLY).kind),
                 "weekly history kind is preserved");
+        check(UsageHistory.MONTHLY.equals(
+                        UsageHistory.empty(UsageHistory.MONTHLY).kind),
+                "monthly history kind is preserved");
+        UsageHistory monthly = UsageHistory.empty(UsageHistory.MONTHLY).append(
+                new UsageWindow(12, TimeUnit.DAYS.toSeconds(30), 0L,
+                        (start + TimeUnit.DAYS.toMillis(30)) / 1000L), start);
+        check(monthly.samples.size() == 1
+                        && UsageHistory.MONTHLY.equals(
+                        UsageHistory.fromJson(monthly.toJson(), UsageHistory.MONTHLY).kind),
+                "monthly history samples round-trip with their kind");
         System.out.println("Usage-history demo: local samples produce reset-aware burn trends.");
     }
 
@@ -563,23 +609,28 @@ public final class ParserSelfTest {
                 (now + TimeUnit.DAYS.toMillis(2) + TimeUnit.HOURS.toMillis(4)) / 1000L);
         UsageWindow exhaustedNoReset = new UsageWindow(100, 18_000L, 0L, 0L);
 
-        check("60%".equals(NowBarCopy.focusCriticalText(false, remaining, observed, now)),
+        check("60%".equals(NowBarCopy.focusCriticalText("", remaining, observed, now)),
                 "focus critical keeps percentage while allowance remains");
-        check("W 60%".equals(NowBarCopy.focusCriticalText(true, remaining, observed, now)),
+        check("W 60%".equals(NowBarCopy.focusCriticalText("W ", remaining, observed, now)),
                 "weekly focus critical keeps W prefix while allowance remains");
-        check("3h 20m".equals(NowBarCopy.focusCriticalText(false, exhaustedHours, observed, now)),
+        check("M 60%".equals(NowBarCopy.focusCriticalText("M ", remaining, observed, now)),
+                "monthly focus critical keeps M prefix while allowance remains");
+        check("3h 20m".equals(NowBarCopy.focusCriticalText("", exhaustedHours, observed, now)),
                 "exhausted five-hour focus shows hours until natural reset");
-        check("W 2d 4h".equals(NowBarCopy.focusCriticalText(true, exhaustedDays, observed, now)),
+        check("W 2d 4h".equals(NowBarCopy.focusCriticalText("W ", exhaustedDays, observed, now)),
                 "exhausted weekly focus shows days and hours until natural reset");
-        check("0%".equals(NowBarCopy.focusCriticalText(false, exhaustedNoReset, observed, now)),
+        check("0%".equals(NowBarCopy.focusCriticalText("", exhaustedNoReset, observed, now)),
                 "exhausted window without reset time falls back to 0%");
 
         check("Codex · 5-hour 60%".equals(
-                        NowBarCopy.chipExpandedText(false, remaining, observed, now)),
+                        NowBarCopy.chipExpandedText("5-hour", remaining, observed, now)),
                 "chip keeps percentage while allowance remains");
         check("Codex · Weekly 2d 4h".equals(
-                        NowBarCopy.chipExpandedText(true, exhaustedDays, observed, now)),
+                        NowBarCopy.chipExpandedText("Weekly", exhaustedDays, observed, now)),
                 "exhausted chip shows that window's reset duration");
+        check("Codex · Monthly 60%".equals(
+                        NowBarCopy.chipExpandedText("Monthly", remaining, observed, now)),
+                "monthly chip names the free-tier window");
 
         check("5-hour: 60% left".equals(
                         NowBarCopy.limitText("5-hour", remaining, observed, now)),
@@ -587,6 +638,9 @@ public final class ParserSelfTest {
         check("Weekly: resets in 2d 4h".equals(
                         NowBarCopy.limitText("Weekly", exhaustedDays, observed, now)),
                 "exhausted weekly limit text announces resets in days/hours");
+        check("Monthly: 60% left".equals(
+                        NowBarCopy.limitText("Monthly", remaining, observed, now)),
+                "monthly limit text keeps remaining percentage");
         check("5-hour: resets in 3h 20m".equals(
                         NowBarCopy.limitText("5-hour", exhaustedHours, observed, now)),
                 "exhausted five-hour limit text announces resets in hours/minutes");
@@ -624,6 +678,96 @@ public final class ParserSelfTest {
         check(snapshot.fiveHour != null && snapshot.fiveHour.remainingPercent() == 63, "five-hour remaining");
         check(snapshot.weekly != null && snapshot.weekly.remainingPercent() == 39, "weekly remaining");
         check(snapshot.fetchedAtMillis == 1234L, "fetch timestamp");
+    }
+
+    /**
+     * Free-tier accounts report a single ~30-day Codex window. It must parse into the monthly
+     * slot, stay displayable, and adapt every long-window surface (widgets, Wear, Now Bar).
+     */
+    private static void testMonthlyWindow() throws Exception {
+        long now = 2_000_000_000_000L;
+        String freeTier = "{\"plan_type\":\"free\",\"rate_limit\":{"
+                + "\"allowed\":true,\"limit_reached\":false,"
+                + "\"primary_window\":{\"used_percent\":28,\"limit_window_seconds\":2592000,"
+                + "\"reset_after_seconds\":1209600,\"reset_at\":"
+                + ((now + TimeUnit.DAYS.toMillis(14)) / 1000L) + "}}}";
+        UsageSnapshot snapshot = UsageParser.parse(freeTier, now);
+        check("free".equals(snapshot.planType), "free plan type preserved");
+        check(snapshot.fiveHour == null && snapshot.weekly == null,
+                "monthly-only response leaves 5-hour and weekly absent");
+        check(snapshot.monthly != null && snapshot.monthly.usedPercent == 28,
+                "monthly window classified by its ~30-day duration");
+        check(snapshot.hasDisplayableData(),
+                "monthly-only response is displayable instead of erroring");
+        check(snapshot.longWindow() == snapshot.monthly && snapshot.longWindowIsMonthly(),
+                "monthly window fills the long-window slot");
+        check(snapshot.nextResetMillis(now) == now + TimeUnit.DAYS.toMillis(14),
+                "monthly reset drives the next-reset selection");
+
+        UsageSnapshot restored = UsageSnapshot.fromJson(snapshot.toJson());
+        check(restored != null && restored.monthly != null
+                        && restored.monthly.usedPercent == 28
+                        && restored.monthly.windowSeconds == 2_592_000L,
+                "monthly window survives the cache round trip");
+
+        // Calendar months drift between 28 and 31 days; both bounds classify.
+        UsageSnapshot shortMonth = UsageParser.parse(
+                "{\"plan_type\":\"free\",\"rate_limit\":{\"primary_window\":"
+                        + "{\"used_percent\":5,\"limit_window_seconds\":2419200}}}", now);
+        check(shortMonth.monthly != null, "28-day window classifies as monthly");
+        UsageSnapshot longMonth = UsageParser.parse(
+                "{\"plan_type\":\"free\",\"rate_limit\":{\"primary_window\":"
+                        + "{\"used_percent\":5,\"limit_window_seconds\":2678400}}}", now);
+        check(longMonth.monthly != null, "31-day window classifies as monthly");
+
+        // A Pro-style response after resubscribing keeps its slots; monthly stays empty.
+        String proTier = "{\"plan_type\":\"pro\",\"rate_limit\":{"
+                + "\"primary_window\":{\"used_percent\":10,\"limit_window_seconds\":18000},"
+                + "\"secondary_window\":{\"used_percent\":72,\"limit_window_seconds\":604800}}}";
+        UsageSnapshot pro = UsageParser.parse(proTier, now);
+        check(pro.fiveHour != null && pro.weekly != null && pro.monthly == null,
+                "paid-tier responses keep the 5-hour and weekly slots without a monthly one");
+        check(pro.longWindow() == pro.weekly && !pro.longWindowIsMonthly(),
+                "weekly stays the long window whenever it is reported");
+
+        // Long-window consumers adapt: widgets and Wear surfaces label the monthly window.
+        check(WidgetMeters.meterWindow(WidgetMeters.WEEKLY, snapshot) == snapshot.monthly,
+                "weekly widget meter falls back to the monthly window");
+        check("Mo".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, snapshot)),
+                "weekly widget meter relabels to Mo on the free tier");
+        check("Codex · Monthly".equals(
+                        WidgetMeters.configLabel(WidgetMeters.WEEKLY, snapshot)),
+                "widget config row names the monthly window");
+        check("Wk".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, pro)),
+                "weekly widget meter keeps its label on paid tiers");
+        check("Monthly".equals(WearGlanceFormat.longWindowLabel(snapshot))
+                        && "Month".equals(WearGlanceFormat.longWindowShortLabel(snapshot)),
+                "Wear surfaces label the monthly long window");
+        check("Weekly".equals(WearGlanceFormat.longWindowLabel(pro)),
+                "Wear surfaces keep the weekly label on paid tiers");
+        check(WearGlanceFormat.dualLongText(snapshot).contains("Month 72%"),
+                "Wear dual text reports monthly remaining");
+        check(WearGlanceFormat.focusSummary(snapshot).contains("Month"),
+                "Wear focus summary includes the monthly window");
+        check("Month".equals(WearGlanceFormat.compactWindowLabel(snapshot.monthly, "5h")),
+                "compact window label recognizes month-length windows");
+        check("Month reset".equals(WearGlanceFormat.nextResetWindowLabel(snapshot, now)),
+                "next-reset label names the monthly window");
+
+        // Refresh cadence and low-usage automation follow the monthly window too.
+        check(AdaptiveRefreshPolicy.chooseMinutes(snapshot, 0.0d, 12, 0, now) == 30,
+                "72% remaining monthly quota refreshes at a balanced cadence");
+        UsageSnapshot lowMonthly = UsageParser.parse(
+                "{\"plan_type\":\"free\",\"rate_limit\":{\"primary_window\":"
+                        + "{\"used_percent\":92,\"limit_window_seconds\":2592000,"
+                        + "\"reset_at\":" + ((now + TimeUnit.DAYS.toMillis(3)) / 1000L)
+                        + "}}}", now);
+        check(AdaptiveRefreshPolicy.chooseMinutes(lowMonthly, 0.0d, 12, 0, now) == 5,
+                "critical monthly quota uses the fastest interval");
+        check(NowBarAutoStart.shouldStart(true, "both", 25, null, lowMonthly.longWindow()),
+                "monthly window triggers low-usage auto-start through the long slot");
+        System.out.println("Monthly-window demo: Pro 20x expiring to Free swaps weekly for "
+                + "a monthly card, widgets/Wear relabel, and nothing errors.");
     }
 
     private static void testWindowIdentification() throws Exception {
@@ -776,10 +920,12 @@ public final class ParserSelfTest {
                 "limit key falls back to the display name");
         List<String> defaults = DashboardSections.defaultOrder(Arrays.asList(spark));
         check(defaults.equals(Arrays.asList(
-                        DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY, sparkKey,
+                        DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
+                        DashboardSections.MONTHLY, sparkKey,
                         DashboardSections.USAGE_CREDITS, DashboardSections.USAGE_HISTORY,
                         DashboardSections.RESET_CREDITS)),
-                "default order is 5-hour, weekly, detected limits, credits, history, resets");
+                "default order is 5-hour, weekly, monthly, detected limits, credits, "
+                        + "history, resets");
 
         check(DashboardSections.resolveOrder("", defaults).equals(defaults),
                 "no saved order keeps the defaults");
@@ -787,14 +933,16 @@ public final class ParserSelfTest {
                 "usage_credits, limit:codex-spark ,five_hour,weekly", defaults);
         check(saved.equals(Arrays.asList(DashboardSections.USAGE_CREDITS, sparkKey,
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
+                        DashboardSections.MONTHLY,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
-                "saved order is applied with whitespace tolerated and the new history and "
-                        + "reset-credit sections slot in at their default positions");
+                "saved order is applied with whitespace tolerated and the new monthly, history, "
+                        + "and reset-credit sections slot in at their default positions");
         List<String> withoutSpark = DashboardSections.resolveOrder(
                 "weekly,five_hour,usage_credits",
                 DashboardSections.defaultOrder(Arrays.asList(spark)));
         check(withoutSpark.equals(Arrays.asList(DashboardSections.WEEKLY,
-                        DashboardSections.FIVE_HOUR, sparkKey, DashboardSections.USAGE_CREDITS,
+                        DashboardSections.FIVE_HOUR, DashboardSections.MONTHLY, sparkKey,
+                        DashboardSections.USAGE_CREDITS,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
                 "newly detected Spark limit slots in before credits, not at the end");
         List<String> staleKeys = DashboardSections.resolveOrder(
@@ -804,7 +952,7 @@ public final class ParserSelfTest {
                         DashboardSections.FIVE_HOUR)),
                 "keys for limits no longer reported are dropped");
         check(DashboardSections.serialize(saved)
-                        .equals("usage_credits,limit:codex-spark,five_hour,weekly,"
+                        .equals("usage_credits,limit:codex-spark,five_hour,weekly,monthly,"
                                 + "usage_history,reset_credits"),
                 "order round-trips through the stored CSV form");
         check(DashboardSections.resolveOrder(null,
@@ -920,6 +1068,15 @@ public final class ParserSelfTest {
         check(CelebrationDetector.withoutUserResetRefills(allRefills, firstFetch + 6000L,
                 firstFetch + 5000L, firstFetch + 5000L) == allRefills,
                 "expired manual reset suppression does not hide external refills");
+        check(CelebrationDetector.withoutUserResetRefills(CelebrationDetector.MONTHLY,
+                firstFetch + 1000L, 0L, 0L, firstFetch + 5000L) == 0,
+                "manual reset suppresses a monthly refill celebration");
+
+        UsageSnapshot monthlyUsed = monthlySnapshot(40, 3600L, firstFetch);
+        UsageSnapshot monthlyFull = monthlySnapshot(0, 7200L, firstFetch + 1000L);
+        check(CelebrationDetector.detectUnexpectedRefills(monthlyUsed, monthlyFull)
+                        == CelebrationDetector.MONTHLY,
+                "early monthly refill celebrates on the free tier");
 
         check(CelebrationDetector.resetCreditsAdded(-1, 2) == 0,
                 "first reset-credit count establishes a baseline");
@@ -1005,6 +1162,13 @@ public final class ParserSelfTest {
                 new UsageWindow(fiveHourUsed, 18_000L, resetAfterSeconds, 0L),
                 new UsageWindow(weeklyUsed, 604_800L, resetAfterSeconds, 0L),
                 fetchedAtMillis);
+    }
+
+    private static UsageSnapshot monthlySnapshot(int monthlyUsed, long resetAfterSeconds,
+            long fetchedAtMillis) {
+        return new UsageSnapshot("free", true, false, null, null,
+                new UsageWindow(monthlyUsed, 2_592_000L, resetAfterSeconds, 0L),
+                java.util.Collections.emptyList(), null, -1, fetchedAtMillis);
     }
 
     private static void testJwtMerge() {
@@ -1545,6 +1709,21 @@ public final class ParserSelfTest {
                 promotedReleases, "2.7.0-alpha.2", UpdateChannel.ALPHA);
         check(promotedPick != null && "2.7.0".equals(promotedPick.version),
                 "alpha channel follows stable promotions");
+        // The first alpha cut after a shipped stable must be named for the NEXT stable
+        // (2.8.0-alpha.1 after 2.7.0, never 2.7.0-alpha.1): SemVer orders X.Y.Z-alpha.N
+        // below X.Y.Z, so an alpha suffixing the shipped stable is never offered.
+        String firstAlpha = "[" + releaseJson("v2.8.0-alpha.1", false, true, true, true)
+                + "," + releaseJson("v2.7.0", false, false, true, true) + "]";
+        java.util.List<GitHubRelease> firstAlphaReleases = GitHubReleaseParser.parse(firstAlpha);
+        GitHubRelease firstAlphaPick = UpdateChannel.selectUpdate(
+                firstAlphaReleases, "2.7.0", UpdateChannel.ALPHA);
+        check(firstAlphaPick != null && "2.8.0-alpha.1".equals(firstAlphaPick.version),
+                "alpha channel offers first alpha after installed stable");
+        String staleAlpha = "[" + releaseJson("v2.7.0-alpha.1", false, true, true, true)
+                + "," + releaseJson("v2.7.0", false, false, true, true) + "]";
+        check(UpdateChannel.selectUpdate(GitHubReleaseParser.parse(staleAlpha),
+                "2.7.0", UpdateChannel.ALPHA) == null,
+                "alpha suffixing the shipped stable is invisible to the updater");
     }
 
     private static String releaseJson(String tag, boolean draft, boolean prerelease,

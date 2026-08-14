@@ -44,7 +44,7 @@ public final class WearOngoingMonitor {
         // Desire first; only mark posted-active after notify() succeeds inside post().
         // localChange=false: UI/settings callers already stamp desire when the user acts.
         WearPreferences.setMonitorDesired(context, true, false);
-        if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+        if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
             return false;
         }
         if (post(context, snapshot)) {
@@ -79,7 +79,7 @@ public final class WearOngoingMonitor {
         long now = System.currentTimeMillis();
         UsageWindow fiveHour = UsageSnapshot.currentWindow(snapshot.fiveHour,
                 snapshot.fetchedAtMillis, now);
-        UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.weekly,
+        UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.longWindow(),
                 snapshot.fetchedAtMillis, now);
         if (isActive(context)) {
             post(context, snapshot);
@@ -143,7 +143,8 @@ public final class WearOngoingMonitor {
         UsageWindow fiveHour = UsageSnapshot.currentWindow(
                 snapshot.fiveHour, snapshot.fetchedAtMillis, now);
         UsageWindow weekly = UsageSnapshot.currentWindow(
-                snapshot.weekly, snapshot.fetchedAtMillis, now);
+                snapshot.longWindow(), snapshot.fetchedAtMillis, now);
+        boolean longIsMonthly = snapshot.longWindowIsMonthly();
         WearSettingsState settings = WearPreferences.settingsState(context, 0L,
                 WearSettingsState.SOURCE_WEAR);
         String focus = NowBarPercentMode.resolveFocus(settings.percentMode, fiveHour, weekly,
@@ -153,9 +154,11 @@ public final class WearOngoingMonitor {
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
         long observedAt = snapshot.fetchedAtMillis;
         String criticalText = NowBarCopy.focusCriticalText(
-                weeklyFocus, progressWindow, observedAt, now);
+                weeklyFocus ? (longIsMonthly ? "M " : "W ") : "",
+                progressWindow, observedAt, now);
         String contentText = NowBarCopy.wearLimitText("5h", fiveHour, observedAt, now)
-                + " · " + NowBarCopy.wearLimitText("Week", weekly, observedAt, now);
+                + " · " + NowBarCopy.wearLimitText(longIsMonthly ? "Month" : "Week",
+                        weekly, observedAt, now);
         PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT,
                 new Intent(context, WearMainActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),

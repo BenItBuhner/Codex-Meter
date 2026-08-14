@@ -12,8 +12,10 @@ import org.json.JSONObject;
 public final class UsageHistory {
     public static final String FIVE_HOUR = "five_hour";
     public static final String WEEKLY = "weekly";
+    public static final String MONTHLY = "monthly";
     private static final int MAX_FIVE_HOUR_SAMPLES = 288;
     private static final int MAX_WEEKLY_SAMPLES = 336;
+    private static final int MAX_MONTHLY_SAMPLES = 372;
 
     public final String kind;
     public final List<UsageSample> samples;
@@ -39,7 +41,9 @@ public final class UsageHistory {
             UsageSample last = updated.get(updated.size() - 1);
             if (observedAtMillis <= last.observedAtMillis) return this;
             long minimumSpacing = FIVE_HOUR.equals(kind)
-                    ? TimeUnit.MINUTES.toMillis(5) : TimeUnit.MINUTES.toMillis(30);
+                    ? TimeUnit.MINUTES.toMillis(5)
+                    : MONTHLY.equals(kind)
+                            ? TimeUnit.HOURS.toMillis(2) : TimeUnit.MINUTES.toMillis(30);
             if (sameWindow(last, next) && last.usedPercent == next.usedPercent
                     && observedAtMillis - last.observedAtMillis < minimumSpacing) {
                 updated.set(updated.size() - 1, next);
@@ -47,7 +51,7 @@ public final class UsageHistory {
             }
         }
         updated.add(next);
-        int max = FIVE_HOUR.equals(kind) ? MAX_FIVE_HOUR_SAMPLES : MAX_WEEKLY_SAMPLES;
+        int max = maximumSamples(kind);
         while (updated.size() > max) updated.remove(0);
         return new UsageHistory(kind, updated);
     }
@@ -103,7 +107,8 @@ public final class UsageHistory {
         if (current.size() < 2) return 0d;
         UsageSample latest = current.get(current.size() - 1);
         long minimumSpan = FIVE_HOUR.equals(kind)
-                ? TimeUnit.MINUTES.toMillis(10) : TimeUnit.HOURS.toMillis(2);
+                ? TimeUnit.MINUTES.toMillis(10)
+                : MONTHLY.equals(kind) ? TimeUnit.HOURS.toMillis(6) : TimeUnit.HOURS.toMillis(2);
         UsageSample first = null;
         for (UsageSample candidate : current) {
             if (latest.observedAtMillis - candidate.observedAtMillis >= minimumSpan
@@ -134,11 +139,17 @@ public final class UsageHistory {
                 if (sample != null) samples.add(sample);
             }
         }
-        int max = FIVE_HOUR.equals(kind) ? MAX_FIVE_HOUR_SAMPLES : MAX_WEEKLY_SAMPLES;
+        int max = maximumSamples(kind);
         if (samples.size() > max) {
             samples = new ArrayList<>(samples.subList(samples.size() - max, samples.size()));
         }
         return new UsageHistory(kind, samples);
+    }
+
+    private static int maximumSamples(String kind) {
+        if (FIVE_HOUR.equals(kind)) return MAX_FIVE_HOUR_SAMPLES;
+        if (MONTHLY.equals(kind)) return MAX_MONTHLY_SAMPLES;
+        return MAX_WEEKLY_SAMPLES;
     }
 
     static boolean sameWindow(UsageSample left, UsageSample right) {
@@ -148,6 +159,8 @@ public final class UsageHistory {
     }
 
     private static String normalizeKind(String kind) {
-        return WEEKLY.equals(kind) ? WEEKLY : FIVE_HOUR;
+        if (WEEKLY.equals(kind)) return WEEKLY;
+        if (MONTHLY.equals(kind)) return MONTHLY;
+        return FIVE_HOUR;
     }
 }

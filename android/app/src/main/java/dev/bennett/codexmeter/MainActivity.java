@@ -124,10 +124,12 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == MENU_SETTINGS) {
+            DiagnosticLog.info(this, "user", "settings_opened");
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return true;
         }
         if (item.getItemId() == MENU_REORDER) {
+            DiagnosticLog.info(this, "user", "dashboard_editor_opened");
             Ui.startSecondaryActivity(this, DashboardReorderActivity.class);
             return true;
         }
@@ -365,6 +367,9 @@ public final class MainActivity extends AppCompatActivity {
             if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
                 available.add(DashboardSections.WEEKLY);
             }
+            if (AppPreferences.showDashboardMonthly(this) && snapshot.monthly != null) {
+                available.add(DashboardSections.MONTHLY);
+            }
             if (AppPreferences.showDashboardAdditionalLimits(this)) {
                 for (String key : limitsByKey.keySet()) {
                     if (!AppPreferences.isDashboardSectionHidden(this, key)) {
@@ -380,7 +385,8 @@ public final class MainActivity extends AppCompatActivity {
             // Usage history only appears once at least one window can feed a burn chart.
             if (AppPreferences.showDashboardUsageHistory(this)
                     && snapshot.fetchedAtMillis > 0L
-                    && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+                    && (snapshot.fiveHour != null || snapshot.weekly != null
+                            || snapshot.monthly != null)) {
                 available.add(DashboardSections.USAGE_HISTORY);
             }
         }
@@ -398,6 +404,10 @@ public final class MainActivity extends AppCompatActivity {
             } else if (DashboardSections.WEEKLY.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
                         "Weekly", snapshot, snapshot.weekly, inverted));
+                inverted = !inverted;
+            } else if (DashboardSections.MONTHLY.equals(key)) {
+                addDashboardCard(column, buildMetricCard(
+                        "Monthly", snapshot, snapshot.monthly, inverted));
                 inverted = !inverted;
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
@@ -497,9 +507,20 @@ public final class MainActivity extends AppCompatActivity {
             hasCharts = true;
         }
 
+        UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
+        if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
+            UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
+            monthlyChart.setData("Monthly", monthlyWindow,
+                    AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY),
+                    snapshot.fetchedAtMillis,
+                    UsagePacePreferences.assess(this, snapshot, monthlyWindow, now));
+            card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+            hasCharts = true;
+        }
+
         if (!hasCharts) {
             TextView waiting = Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour or weekly usage windows.",
+                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage windows.",
                     12, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams waitingParams = new LinearLayout.LayoutParams(-1, -2);
             waitingParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 8),
@@ -839,6 +860,8 @@ public final class MainActivity extends AppCompatActivity {
 
     public void startOrContinueSignIn() {
         String str;
+        DiagnosticLog.info(this, "user", "sign_in_requested",
+                "already_signed_in", SecureTokenStore.isSignedIn(this));
         if (SecureTokenStore.isSignedIn(this)) {
             AppPreferences.setOAuthPending(this, false, "");
             rebuild();
@@ -853,6 +876,7 @@ public final class MainActivity extends AppCompatActivity {
             }
             Toast.makeText(this, str, 0).show();
         } catch (RuntimeException e) {
+            DiagnosticLog.error(this, "auth", "sign_in_service_start_failed", e);
             AppPreferences.setOAuthPending(this, false, "");
             Toast.makeText(this, "Could not start sign-in: " + safeMessage(e), 1).show();
         }
@@ -870,6 +894,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void refreshNow(Button button) {
+        DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", "button");
         button.setEnabled(false);
         button.setText(R.string.refreshing);
         final Context applicationContext = getApplicationContext();
@@ -882,11 +907,15 @@ public final class MainActivity extends AppCompatActivity {
                     MainActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.9.1
                         @Override // java.lang.Runnable
                         public void run() {
+                            DiagnosticLog.info(applicationContext, "user",
+                                    "manual_refresh_finished", "source", "button");
                             Toast.makeText(MainActivity.this, "Usage updated.", 0).show();
                             MainActivity.this.rebuild();
                         }
                     });
                 } catch (Exception e) {
+                    DiagnosticLog.error(applicationContext, "user", "manual_refresh_failed", e,
+                            "source", "button");
                     AppPreferences.setLastError(applicationContext, MainActivity.safeMessage(e));
                     WidgetRenderer.updateAll(applicationContext);
                     MainActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.9.2
@@ -902,7 +931,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void refreshFromPull() {
+        DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", "pull");
         if (!SecureTokenStore.isSignedIn(this)) {
+            DiagnosticLog.warn(this, "user", "manual_refresh_rejected",
+                    "source", "pull", "reason", "signed_out");
             this.swipeRefresh.setRefreshing(false);
             Toast.makeText(this, "Sign in from Settings to refresh usage.", Toast.LENGTH_SHORT).show();
             Ui.startSecondaryActivity(this, SettingsActivity.class);
@@ -914,10 +946,14 @@ public final class MainActivity extends AppCompatActivity {
                 RefreshScheduler.scheduleAtNextReset(applicationContext, UsageApi.refreshAndCache(applicationContext));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
+                    DiagnosticLog.info(applicationContext, "user",
+                            "manual_refresh_finished", "source", "pull");
                     this.swipeRefresh.setRefreshing(false);
                     rebuild();
                 });
             } catch (Exception e) {
+                DiagnosticLog.error(applicationContext, "user", "manual_refresh_failed", e,
+                        "source", "pull");
                 AppPreferences.setLastError(applicationContext, safeMessage(e));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
@@ -940,6 +976,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void signOut() {
+        DiagnosticLog.info(this, "user", "sign_out_confirmed");
         final AuthTokens authTokensLoad = SecureTokenStore.load(this);
         SecureTokenStore.clear(this);
         AppPreferences.clearSnapshot(this);
@@ -951,7 +988,8 @@ public final class MainActivity extends AppCompatActivity {
         this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.11
             @Override // java.lang.Runnable
             public void run() {
-                OAuthClient.revokeBestEffort(authTokensLoad);
+                OAuthClient.revokeBestEffort(MainActivity.this.getApplicationContext(),
+                        authTokensLoad);
             }
         });
     }

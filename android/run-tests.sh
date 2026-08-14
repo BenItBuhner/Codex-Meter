@@ -69,20 +69,21 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.7.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME = "2.8.0-alpha.1"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 29' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.7.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/app/build.gradle.kts"
 grep -q 'versionCode = 29' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.7.0"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/wear/build.gradle.kts"
 grep -q 'versionCode = 29' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.7.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.7.0"' "$ROOT/build.sh"
+grep -q 'codex-meter-android/2.8.0-alpha.1' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.8.0-alpha.1"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -171,6 +172,34 @@ grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
 # The usage-history section itself also hides until a window can feed a chart.
 grep -q 'snapshot.fiveHour != null || snapshot.weekly != null' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+
+# Free-tier monthly Codex window: parsing, dashboard card, history, and the long-window
+# fallbacks that keep widgets, Wear, and the live monitor adapting to subscription changes.
+grep -q 'testMonthlyWindow' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'MONTHLY = "monthly"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'MONTHLY = "monthly"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java"
+grep -q 'public UsageWindow longWindow()' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java"
+grep -q 'monthlyWindow != null && snapshot.fetchedAtMillis > 0L' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'usage_history_monthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'dashboard_monthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'WINDOW_MONTHLY' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
+grep -q 'longWindowIsMonthly' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'currentLongWindow' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
+grep -q 'meterWindow' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
 grep -q 'Hidden automatically when no resets are available' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.
@@ -292,6 +321,15 @@ test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateNotificationManage
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java"
 test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'testSettingsTransfer' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'testDiagnosticSanitizer' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'android:name="dev.bennett.codexmeter.CodexMeterApplication"' \
+  "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'preferences_settings_diagnostics' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'application/x-ndjson' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'DiagnosticSanitizer.safeUrl' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
 grep -q 'export_settings_transfer' \
   "$ROOT/app/src/main/res/xml/preferences_settings_transfer.xml"
 grep -q 'import_settings_transfer' \

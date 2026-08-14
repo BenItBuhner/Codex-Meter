@@ -64,8 +64,11 @@ public final class NowBarManager {
 
     private static boolean startInternal(Context context, String reason, String triggerFocus,
             long requestedUntil) {
+        DiagnosticLog.info(context, "now_bar", "start_requested", "reason", reason);
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-        if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+        if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
+            DiagnosticLog.warn(context, "now_bar", "start_rejected",
+                    "reason", "missing_usage");
             return false;
         }
         long now = System.currentTimeMillis();
@@ -83,15 +86,20 @@ public final class NowBarManager {
                         NowBarPreferences.getThreshold(context),
                         UsageSnapshot.currentWindow(snapshot.fiveHour,
                                 snapshot.fetchedAtMillis, now),
-                        UsageSnapshot.currentWindow(snapshot.weekly,
+                        UsageSnapshot.currentWindow(snapshot.longWindow(),
                                 snapshot.fetchedAtMillis, now))
                 : null;
         saveState(context, false, until, focus, true, autoTrigger, reason);
         if (post(context, snapshot, until, false)) {
+            DiagnosticLog.info(context, "now_bar", "started",
+                    "reason", reason,
+                    "focus", focus,
+                    "until", until);
             PhoneWearSync.pushSettings(context);
             return true;
         }
         stop(context, false);
+        DiagnosticLog.warn(context, "now_bar", "start_failed", "reason", reason);
         return false;
     }
 
@@ -116,7 +124,7 @@ public final class NowBarManager {
     public static synchronized void onUsageUpdated(Context context, UsageSnapshot snapshot) {
         if (isPreview(context)) return;
         if (hasStoredActiveState(context)) {
-            if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+            if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
                 stop(context, false);
                 return;
             }
@@ -193,7 +201,7 @@ public final class NowBarManager {
                 else return;
             } else {
                 UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-                if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+                if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
                     stop(context, false);
                 } else if (START_ACCELERATED.equals(sessionStartReason(context))) {
                     onUsageUpdated(context, snapshot);
@@ -224,7 +232,7 @@ public final class NowBarManager {
                 onUsageUpdated(context, snapshot);
                 return isActive(context);
             }
-            posted = snapshot != null && (snapshot.fiveHour != null || snapshot.weekly != null)
+            posted = snapshot != null && (snapshot.fiveHour != null || snapshot.longWindow() != null)
                     && post(context, snapshot, until, false);
         }
         if (!posted) stop(context, false);
@@ -284,7 +292,7 @@ public final class NowBarManager {
                     new UsageWindow(18, TimeUnit.DAYS.toSeconds(7), 0L, 0L), now);
         } else {
             snapshot = AppPreferences.loadSnapshot(context);
-            if (snapshot == null || (snapshot.fiveHour == null && snapshot.weekly == null)) {
+            if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
                 stop(context, false);
                 return false;
             }
@@ -293,7 +301,7 @@ public final class NowBarManager {
                 snapshot == null ? null : snapshot.fiveHour,
                 snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
         UsageWindow weekly = UsageSnapshot.currentWindow(
-                snapshot == null ? null : snapshot.weekly,
+                snapshot == null ? null : snapshot.longWindow(),
                 snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
         String focus = NowBarPercentMode.focusForSettingsChange(
                 NowBarPreferences.getPercentMode(context), fiveHour, weekly,
@@ -312,6 +320,9 @@ public final class NowBarManager {
     public static synchronized void stop(Context context, boolean suppressAutoRestart) {
         long until = activeUntil(context);
         boolean wasActive = hasStoredActiveState(context);
+        DiagnosticLog.info(context, "now_bar", "stop_requested",
+                "was_active", wasActive,
+                "suppress_auto_restart", suppressAutoRestart);
         state(context).edit().clear().apply();
         if (suppressAutoRestart && wasActive && until > System.currentTimeMillis()) {
             // Respect an explicit stop/dismiss until the window would have ended anyway.
@@ -322,6 +333,8 @@ public final class NowBarManager {
             try {
                 manager.cancel(NOTIFICATION_ID);
             } catch (RuntimeException exception) {
+                DiagnosticLog.error(context, "now_bar", "notification_cancel_failed",
+                        exception);
                 Log.w(TAG, "Could not cancel live monitor notification", exception);
             }
         }
@@ -330,6 +343,7 @@ public final class NowBarManager {
             try {
                 alarms.cancel(endIntent(context));
             } catch (RuntimeException exception) {
+                DiagnosticLog.error(context, "now_bar", "expiry_cancel_failed", exception);
                 Log.w(TAG, "Could not cancel live monitor expiry", exception);
             }
         }
@@ -401,13 +415,17 @@ public final class NowBarManager {
         try {
             createChannel(manager);
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "channel_create_failed", exception);
             Log.w(TAG, "Could not create live monitor notification channel", exception);
             return false;
         }
 
         long now = System.currentTimeMillis();
         UsageWindow fiveHour = snapshot == null ? null : snapshot.fiveHour;
-        UsageWindow weekly = snapshot == null ? null : snapshot.weekly;
+        // Weekly slot carries the long-cadence window; on the Free tier that is monthly.
+        UsageWindow weekly = snapshot == null ? null : snapshot.longWindow();
+        boolean longIsMonthly = snapshot != null && snapshot.longWindowIsMonthly();
+        String longLabel = longIsMonthly ? "Monthly" : "Weekly";
         if (!preview) {
             fiveHour = UsageSnapshot.currentWindow(fiveHour,
                     snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
@@ -437,9 +455,10 @@ public final class NowBarManager {
         // live monitors must use fetchedAt so reset_after_seconds stays anchored.
         long observedAt = preview || snapshot == null ? now : snapshot.fetchedAtMillis;
         String fiveHourText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
-        String weeklyText = NowBarCopy.limitText("Weekly", weekly, observedAt, now);
+        String weeklyText = NowBarCopy.limitText(longLabel, weekly, observedAt, now);
         String focusCritical = NowBarCopy.focusCriticalText(
-                weeklyFocus, progressWindow, observedAt, now);
+                weeklyFocus ? (longIsMonthly ? "M " : "W ") : "",
+                progressWindow, observedAt, now);
         String title = "Codex usage";
         String estimate = UsageFormat.estimatedRemaining(pace);
         String text = fiveHourText + " · " + weeklyText
@@ -478,7 +497,7 @@ public final class NowBarManager {
                     refreshActionIcon, "Refresh", refreshIntent).build());
         }
         if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(displayMode)) {
-            applySamsungCompatibility(context, builder, fiveHour, weekly, used,
+            applySamsungCompatibility(context, builder, fiveHour, weekly, longLabel, used,
                     progressWindow, weeklyFocus, until, now, observedAt, preview,
                     accelerated, estimate);
         } else {
@@ -507,6 +526,7 @@ public final class NowBarManager {
                 }
             }
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "notification_build_failed", exception);
             Log.w(TAG, "Could not build live monitor notification", exception);
             return false;
         }
@@ -518,6 +538,14 @@ public final class NowBarManager {
                 + " legacyColorizedFallback=" + legacyColorizedFallback
                 + " preview=" + preview + " remaining=" + remaining
                 + " focusCritical=" + focusCritical);
+        DiagnosticLog.info(context, "now_bar", "notification_posting",
+                "display_mode", displayMode,
+                "promotable", promotable,
+                "promotion_allowed", canPostPromotedNotifications(context),
+                "legacy_colorized_fallback", legacyColorizedFallback,
+                "preview", preview,
+                "remaining_percent", remaining,
+                "focus", focus);
         try {
             manager.notify(NOTIFICATION_ID, notification);
             state(context).edit()
@@ -531,6 +559,8 @@ public final class NowBarManager {
                         () -> Api36.logPostedPromotionState(manager, NOTIFICATION_ID), 1000L);
             }
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "notification_post_failed", exception,
+                    "display_mode", displayMode);
             Log.w(TAG, "Could not post live monitor notification", exception);
             try {
                 manager.cancel(NOTIFICATION_ID);
@@ -541,6 +571,8 @@ public final class NowBarManager {
         try {
             scheduleEnd(context, until);
         } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar", "expiry_schedule_failed", exception,
+                    "until", until);
             Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
         PhoneWearSync.pushMonitorState(context);
@@ -548,15 +580,16 @@ public final class NowBarManager {
     }
 
     private static void applySamsungCompatibility(Context context, Notification.Builder builder,
-            UsageWindow fiveHour, UsageWindow weekly, int used, UsageWindow progressWindow,
+            UsageWindow fiveHour, UsageWindow weekly, String longLabel, int used,
+            UsageWindow progressWindow,
             boolean weeklyFocus, long until, long now, long observedAt, boolean preview,
             boolean accelerated, String estimate) {
         String fiveHourText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
-        String weeklyText = NowBarCopy.limitText("Weekly", weekly, observedAt, now);
+        String weeklyText = NowBarCopy.limitText(longLabel, weekly, observedAt, now);
         String availableWindows = fiveHour != null && weekly != null
                 ? "Both usage windows"
                 : fiveHour != null ? "5-hour window"
-                : weekly != null ? "Weekly window" : "Usage window unavailable";
+                : weekly != null ? longLabel + " window" : "Usage window unavailable";
         // Chip sits on the accent fill → always-light Codex mark.
         // Expanded Now Bar: pick an explicit light/dark resource at post time. Night-qualified
         // drawables can resolve wrong inside Samsung SystemUI (separate process / config).
@@ -569,7 +602,8 @@ public final class NowBarManager {
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
                 accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
-                NowBarCopy.chipExpandedText(weeklyFocus, progressWindow, observedAt, now));
+                NowBarCopy.chipExpandedText(weeklyFocus ? longLabel : "5-hour",
+                        progressWindow, observedAt, now));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
                 fiveHourText + " · " + weeklyText);
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
@@ -670,7 +704,8 @@ public final class NowBarManager {
     }
 
     private static String focusForPaceWindow(int window) {
-        return window == UsagePace.WINDOW_WEEKLY
+        // The monthly window occupies the long-window (weekly) slot of the monitor.
+        return window == UsagePace.WINDOW_WEEKLY || window == UsagePace.WINDOW_MONTHLY
                 ? NowBarPercentMode.WEEKLY : NowBarPercentMode.FIVE_HOUR;
     }
 
@@ -679,7 +714,8 @@ public final class NowBarManager {
         if (snapshot == null) return 0L;
         UsageWindow window = NowBarPercentMode.selectWindow(focus,
                 UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis, now),
-                UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis, now));
+                UsageSnapshot.currentWindow(snapshot.longWindow(), snapshot.fetchedAtMillis,
+                        now));
         UsagePace.Assessment assessment = UsagePacePreferences.assess(
                 context, snapshot, window, now);
         return assessment.accelerated ? assessment.resetAtMillis : 0L;
@@ -690,7 +726,8 @@ public final class NowBarManager {
         UsageWindow fiveHour = snapshot == null ? null
                 : UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis, now);
         UsageWindow weekly = snapshot == null ? null
-                : UsageSnapshot.currentWindow(snapshot.weekly, snapshot.fetchedAtMillis, now);
+                : UsageSnapshot.currentWindow(snapshot.longWindow(), snapshot.fetchedAtMillis,
+                        now);
         String mode = NowBarPreferences.getPercentMode(context);
         if (!NowBarPercentMode.AUTO.equals(NowBarPercentMode.normalize(mode))) {
             return NowBarPercentMode.resolveFocus(mode, fiveHour, weekly, null);

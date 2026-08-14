@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter;
 
 import android.content.Context;
+import android.os.SystemClock;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import java.net.CookieHandler;
 import java.net.CookieManager;
@@ -21,51 +22,72 @@ public final class UsageApi {
         Response responseRequestUsage;
         String str;
         UsageSnapshot usageSnapshot;
-        synchronized (NETWORK_LOCK) {
-            installCookieManager();
-            AuthTokens authTokensUsableTokens = usableTokens(context);
-            Response responseRequestUsage2 = requestUsage(authTokensUsableTokens);
-            if (responseRequestUsage2.status == 401) {
-                AuthTokens authTokensRefresh = OAuthClient.refresh(authTokensUsableTokens);
-                SecureTokenStore.save(context, authTokensRefresh);
-                authTokens = authTokensRefresh;
-                responseRequestUsage = requestUsage(authTokensRefresh);
-            } else {
-                authTokens = authTokensUsableTokens;
-                responseRequestUsage = responseRequestUsage2;
-            }
-            if (responseRequestUsage.status < 200 || responseRequestUsage.status >= 300) {
-                if (responseRequestUsage.status == 403) {
-                    str = "Codex usage access was denied for this account.";
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "refresh", "usage_refresh_started");
+        try {
+            synchronized (NETWORK_LOCK) {
+                installCookieManager();
+                AuthTokens authTokensUsableTokens = usableTokens(context);
+                Response responseRequestUsage2 = requestUsage(context, authTokensUsableTokens);
+                if (responseRequestUsage2.status == 401) {
+                    DiagnosticLog.warn(context, "auth", "usage_token_rejected_refreshing");
+                    AuthTokens authTokensRefresh = OAuthClient.refresh(context,
+                            authTokensUsableTokens);
+                    SecureTokenStore.save(context, authTokensRefresh);
+                    authTokens = authTokensRefresh;
+                    responseRequestUsage = requestUsage(context, authTokensRefresh);
                 } else {
-                    str = responseRequestUsage.status == 404 ? "The Codex usage endpoint is unavailable or has changed." : "Usage refresh failed (HTTP " + responseRequestUsage.status + ").";
+                    authTokens = authTokensUsableTokens;
+                    responseRequestUsage = responseRequestUsage2;
                 }
-                throw new Exception(OAuthClient.readError(responseRequestUsage.body, str));
+                if (responseRequestUsage.status < 200 || responseRequestUsage.status >= 300) {
+                    if (responseRequestUsage.status == 403) {
+                        str = "Codex usage access was denied for this account.";
+                    } else {
+                        str = responseRequestUsage.status == 404 ? "The Codex usage endpoint is unavailable or has changed." : "Usage refresh failed (HTTP " + responseRequestUsage.status + ").";
+                    }
+                    throw new Exception(OAuthClient.readError(responseRequestUsage.body, str));
+                }
+                usageSnapshot = UsageParser.parse(responseRequestUsage.body,
+                        System.currentTimeMillis());
+                if (!usageSnapshot.hasDisplayableData()) {
+                    throw new Exception("OpenAI returned no recognizable Codex usage data.");
+                }
+                UsageSnapshot previousSnapshot = AppPreferences.loadSnapshot(context);
+                if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
+                    throw new Exception("Usage was received, but it could not be saved on this device.");
+                }
+                UsageHistoryRecorder.record(context, usageSnapshot);
+                PhoneWearSync.pushUsage(context, usageSnapshot);
+                NowBarManager.onUsageUpdated(context, usageSnapshot);
+                ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
+                try {
+                    ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);
+                } catch (RuntimeException exception) {
+                    DiagnosticLog.error(context, "scheduler", "reset_alert_schedule_failed",
+                            exception);
+                }
+                try {
+                    ResetCreditApi.refreshAndCacheLocked(context, authTokens);
+                } catch (Exception exception) {
+                    DiagnosticLog.error(context, "refresh", "reset_credit_side_refresh_failed",
+                            exception);
+                    ResetNotificationManager.onResetCreditSummaryUpdated(context,
+                            usageSnapshot.resetCreditsAvailable);
+                    AppPreferences.setResetCreditsError(context, safeMessage(exception));
+                }
             }
-            usageSnapshot = UsageParser.parse(responseRequestUsage.body, System.currentTimeMillis());
-            if (!usageSnapshot.hasDisplayableData()) {
-                throw new Exception("OpenAI returned no recognizable Codex usage data.");
-            }
-            UsageSnapshot previousSnapshot = AppPreferences.loadSnapshot(context);
-            if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
-                throw new Exception("Usage was received, but it could not be saved on this device.");
-            }
-            UsageHistoryRecorder.record(context, usageSnapshot);
-            PhoneWearSync.pushUsage(context, usageSnapshot);
-            NowBarManager.onUsageUpdated(context, usageSnapshot);
-            ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
-            try {
-                ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);
-            } catch (RuntimeException e) {
-            }
-            try {
-                ResetCreditApi.refreshAndCacheLocked(context, authTokens);
-            } catch (Exception e2) {
-                ResetNotificationManager.onResetCreditSummaryUpdated(context,
-                        usageSnapshot.resetCreditsAvailable);
-                AppPreferences.setResetCreditsError(context, safeMessage(e2));
-            }
+        } catch (Exception exception) {
+            DiagnosticLog.error(context, "refresh", "usage_refresh_failed", exception,
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
+            throw exception;
         }
+        DiagnosticLog.info(context, "refresh", "usage_refresh_succeeded",
+                "duration_ms", SystemClock.elapsedRealtime() - started,
+                "five_hour", usageSnapshot.fiveHour != null,
+                "weekly", usageSnapshot.weekly != null,
+                "monthly", usageSnapshot.monthly != null,
+                "additional_limits", usageSnapshot.additionalLimits.size());
         return usageSnapshot;
     }
 
@@ -75,20 +97,37 @@ public final class UsageApi {
             throw new Exception("Sign in to ChatGPT first.");
         }
         if (authTokensLoad.shouldRefresh(System.currentTimeMillis())) {
-            AuthTokens authTokensRefresh = OAuthClient.refresh(authTokensLoad);
+            DiagnosticLog.info(context, "auth", "token_refresh_due");
+            AuthTokens authTokensRefresh = OAuthClient.refresh(context, authTokensLoad);
             SecureTokenStore.save(context, authTokensRefresh);
             return authTokensRefresh;
         }
         return authTokensLoad;
     }
 
-    private static Response requestUsage(AuthTokens authTokens) throws Exception {
+    private static Response requestUsage(Context context, AuthTokens authTokens) throws Exception {
         HttpsURLConnection httpsURLConnection = (HttpsURLConnection) URI.create(AppConstants.USAGE_URL).toURL().openConnection();
+        long started = SystemClock.elapsedRealtime();
+        DiagnosticLog.info(context, "network", "request_started",
+                "operation", "usage",
+                "method", "GET",
+                "url", DiagnosticSanitizer.safeUrl(AppConstants.USAGE_URL));
         try {
             applyHeaders(httpsURLConnection, authTokens);
             httpsURLConnection.setRequestMethod("GET");
             int responseCode = httpsURLConnection.getResponseCode();
-            return new Response(responseCode, OAuthClient.readBody(httpsURLConnection, responseCode));
+            String body = OAuthClient.readBody(httpsURLConnection, responseCode);
+            DiagnosticLog.info(context, "network", "request_finished",
+                    "operation", "usage",
+                    "status", responseCode,
+                    "duration_ms", SystemClock.elapsedRealtime() - started,
+                    "response_bytes", body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+            return new Response(responseCode, body);
+        } catch (Exception exception) {
+            DiagnosticLog.error(context, "network", "request_failed", exception,
+                    "operation", "usage",
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
+            throw exception;
         } finally {
             httpsURLConnection.disconnect();
         }

@@ -323,13 +323,36 @@ public final class WidgetMeters {
         return 2;
     }
 
+    /**
+     * The window backing a usage meter key. The weekly meter carries the long-cadence window,
+     * so a free-tier account's monthly window automatically fills widgets that were configured
+     * while a weekly window existed.
+     */
+    public static UsageWindow meterWindow(String key, UsageSnapshot snapshot) {
+        if (snapshot == null) {
+            return null;
+        }
+        if (FIVE_HOUR.equals(key)) {
+            return snapshot.fiveHour;
+        }
+        if (WEEKLY.equals(key)) {
+            return snapshot.longWindow();
+        }
+        return null;
+    }
+
+    /** Whether the weekly meter is currently showing the monthly free-tier window. */
+    public static boolean weeklyMeterIsMonthly(UsageSnapshot snapshot) {
+        return snapshot != null && snapshot.longWindowIsMonthly();
+    }
+
     /** Short label for dial/bar faces; config can use the fuller display name. */
     public static String shortLabel(String key, UsageSnapshot snapshot) {
         if (FIVE_HOUR.equals(key)) {
             return "5h";
         }
         if (WEEKLY.equals(key)) {
-            return "Wk";
+            return weeklyMeterIsMonthly(snapshot) ? "Mo" : "Wk";
         }
         if (NEXT_RESET.equals(key)) {
             return "Reset";
@@ -356,7 +379,7 @@ public final class WidgetMeters {
             return "Codex · 5 hours";
         }
         if (WEEKLY.equals(key)) {
-            return "Codex · Weekly";
+            return weeklyMeterIsMonthly(snapshot) ? "Codex · Monthly" : "Codex · Weekly";
         }
         if (NEXT_RESET.equals(key)) {
             return "Next reset";

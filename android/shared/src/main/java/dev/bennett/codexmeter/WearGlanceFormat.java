@@ -40,6 +40,29 @@ public final class WearGlanceFormat {
                         System.currentTimeMillis());
     }
 
+    public static UsageWindow currentMonthly(UsageSnapshot snapshot) {
+        return snapshot == null ? null
+                : UsageSnapshot.currentWindow(snapshot.monthly, snapshot.fetchedAtMillis,
+                        System.currentTimeMillis());
+    }
+
+    /** Weekly window when reported, otherwise the free-tier monthly window. */
+    public static UsageWindow currentLongWindow(UsageSnapshot snapshot) {
+        return snapshot == null ? null
+                : UsageSnapshot.currentWindow(snapshot.longWindow(), snapshot.fetchedAtMillis,
+                        System.currentTimeMillis());
+    }
+
+    /** Short label ("Week"/"Month") for the long-cadence window of {@code snapshot}. */
+    public static String longWindowShortLabel(UsageSnapshot snapshot) {
+        return snapshot != null && snapshot.longWindowIsMonthly() ? "Month" : "Week";
+    }
+
+    /** Full label ("Weekly"/"Monthly") for the long-cadence window of {@code snapshot}. */
+    public static String longWindowLabel(UsageSnapshot snapshot) {
+        return snapshot != null && snapshot.longWindowIsMonthly() ? "Monthly" : "Weekly";
+    }
+
     public static String remainingPercentText(UsageWindow window) {
         return window == null ? "--" : window.remainingPercent() + "%";
     }
@@ -58,17 +81,19 @@ public final class WearGlanceFormat {
 
     public static String compactWindowLabel(UsageWindow window, String fallback) {
         if (window == null || window.windowSeconds <= 0L) return fallback;
+        if (window.windowSeconds >= TimeUnit.DAYS.toSeconds(10)) return "Month";
         return window.windowSeconds >= TimeUnit.DAYS.toSeconds(1) ? "Week" : "5h";
     }
 
     public static String dualShortText(UsageSnapshot snapshot) {
         return remainingNumberText(currentFiveHour(snapshot)) + "\u00b7"
-                + remainingNumberText(currentWeekly(snapshot));
+                + remainingNumberText(currentLongWindow(snapshot));
     }
 
     public static String dualLongText(UsageSnapshot snapshot) {
-        return "5h " + remainingPercentText(currentFiveHour(snapshot)) + " \u00b7 Week "
-                + remainingPercentText(currentWeekly(snapshot));
+        return "5h " + remainingPercentText(currentFiveHour(snapshot)) + " \u00b7 "
+                + longWindowShortLabel(snapshot) + " "
+                + remainingPercentText(currentLongWindow(snapshot));
     }
 
     public static String nextResetWindowLabel(UsageSnapshot snapshot, long nowMillis) {
@@ -79,10 +104,14 @@ public final class WearGlanceFormat {
                 snapshot.fiveHour, snapshot.fetchedAtMillis, nowMillis);
         UsageWindow weekly = UsageSnapshot.currentWindow(
                 snapshot.weekly, snapshot.fetchedAtMillis, nowMillis);
+        UsageWindow monthly = UsageSnapshot.currentWindow(
+                snapshot.monthly, snapshot.fetchedAtMillis, nowMillis);
         long fiveReset = resetAt(fiveHour, snapshot.fetchedAtMillis);
         long weekReset = resetAt(weekly, snapshot.fetchedAtMillis);
+        long monthReset = resetAt(monthly, snapshot.fetchedAtMillis);
         if (fiveReset == next) return "5h reset";
         if (weekReset == next) return "Week reset";
+        if (monthReset == next) return "Month reset";
         return "Next reset";
     }
 
@@ -130,15 +159,17 @@ public final class WearGlanceFormat {
         int window = UsagePace.mostAcceleratedWindow(snapshot, nowMillis, sensitivity);
         if (window == UsagePace.WINDOW_FIVE_HOUR) return "Fast 5-hour usage";
         if (window == UsagePace.WINDOW_WEEKLY) return "Fast weekly usage";
+        if (window == UsagePace.WINDOW_MONTHLY) return "Fast monthly usage";
         return "";
     }
 
     public static String focusSummary(UsageSnapshot snapshot) {
         UsageWindow fiveHour = currentFiveHour(snapshot);
-        UsageWindow weekly = currentWeekly(snapshot);
-        if (fiveHour == null && weekly == null) return "No usage yet";
-        return "5h " + remainingPercentText(fiveHour) + " \u00b7 Week "
-                + remainingPercentText(weekly);
+        UsageWindow longWindow = currentLongWindow(snapshot);
+        if (fiveHour == null && longWindow == null) return "No usage yet";
+        return "5h " + remainingPercentText(fiveHour) + " \u00b7 "
+                + longWindowShortLabel(snapshot) + " "
+                + remainingPercentText(longWindow);
     }
 
     private static long resetAt(UsageWindow window, long observedAtMillis) {

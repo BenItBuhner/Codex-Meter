@@ -4,6 +4,7 @@ package dev.bennett.codexmeter;
 public final class CelebrationDetector {
     public static final int FIVE_HOUR = 1;
     public static final int WEEKLY = 1 << 1;
+    public static final int MONTHLY = 1 << 2;
 
     private CelebrationDetector() {
     }
@@ -24,6 +25,10 @@ public final class CelebrationDetector {
                 current.fetchedAtMillis)) {
             refills |= WEEKLY;
         }
+        if (isUnexpectedRefill(previous, previous.monthly, current.monthly,
+                current.fetchedAtMillis)) {
+            refills |= MONTHLY;
+        }
         return refills;
     }
 
@@ -34,11 +39,20 @@ public final class CelebrationDetector {
 
     public static int withoutUserResetRefills(int refills, long observedAtMillis,
             long fiveHourSuppressUntil, long weeklySuppressUntil) {
+        return withoutUserResetRefills(refills, observedAtMillis, fiveHourSuppressUntil,
+                weeklySuppressUntil, 0L);
+    }
+
+    public static int withoutUserResetRefills(int refills, long observedAtMillis,
+            long fiveHourSuppressUntil, long weeklySuppressUntil, long monthlySuppressUntil) {
         if (fiveHourSuppressUntil > observedAtMillis) {
             refills &= ~FIVE_HOUR;
         }
         if (weeklySuppressUntil > observedAtMillis) {
             refills &= ~WEEKLY;
+        }
+        if (monthlySuppressUntil > observedAtMillis) {
+            refills &= ~MONTHLY;
         }
         return refills;
     }

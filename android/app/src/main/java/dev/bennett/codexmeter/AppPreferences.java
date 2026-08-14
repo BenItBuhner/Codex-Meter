@@ -12,6 +12,7 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_ADDITIONAL_LIMITS = "dashboard_additional_limits";
     private static final String KEY_DASHBOARD_FIVE_HOUR = "dashboard_five_hour";
     private static final String KEY_DASHBOARD_HIDDEN_SECTIONS = "dashboard_hidden_sections";
+    private static final String KEY_DASHBOARD_MONTHLY = "dashboard_monthly";
     private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
     private static final String KEY_DASHBOARD_SECTION_ORDER = "dashboard_section_order";
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
@@ -37,6 +38,7 @@ public final class AppPreferences {
     private static final String KEY_SNAPSHOT = "last_snapshot";
     private static final String KEY_HISTORY_FIVE_HOUR = "usage_history_five_hour";
     private static final String KEY_HISTORY_WEEKLY = "usage_history_weekly";
+    private static final String KEY_HISTORY_MONTHLY = "usage_history_monthly";
     private static final long OAUTH_STALE_AFTER_MS = 720000;
     private static final String PREFS = "codex_meter_settings_v1";
 
@@ -75,6 +77,7 @@ public final class AppPreferences {
         prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
                 .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
                 .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
+                .remove(KEY_HISTORY_MONTHLY)
                 .remove(KEY_REFRESH_FAILURES).apply();
         NowBarManager.stop(context);
         NowBarPreferences.clearSuppression(context);
@@ -96,9 +99,7 @@ public final class AppPreferences {
     }
 
     public static UsageHistory loadUsageHistory(Context context, String kind) {
-        String key = UsageHistory.WEEKLY.equals(kind)
-                ? KEY_HISTORY_WEEKLY : KEY_HISTORY_FIVE_HOUR;
-        String stored = prefs(context).getString(key, null);
+        String stored = prefs(context).getString(historyKey(kind), null);
         if (stored == null || stored.isEmpty()) return UsageHistory.empty(kind);
         try {
             return UsageHistory.fromJson(new JSONObject(stored), kind);
@@ -109,17 +110,23 @@ public final class AppPreferences {
 
     public static boolean saveUsageHistory(Context context, UsageHistory history) {
         if (history == null) return false;
-        String key = UsageHistory.WEEKLY.equals(history.kind)
-                ? KEY_HISTORY_WEEKLY : KEY_HISTORY_FIVE_HOUR;
         try {
-            return prefs(context).edit().putString(key, history.toJson().toString()).commit();
+            return prefs(context).edit()
+                    .putString(historyKey(history.kind), history.toJson().toString()).commit();
         } catch (Exception ignored) {
             return false;
         }
     }
 
     public static void clearUsageHistory(Context context) {
-        prefs(context).edit().remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY).apply();
+        prefs(context).edit().remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
+                .remove(KEY_HISTORY_MONTHLY).apply();
+    }
+
+    private static String historyKey(String kind) {
+        if (UsageHistory.WEEKLY.equals(kind)) return KEY_HISTORY_WEEKLY;
+        if (UsageHistory.MONTHLY.equals(kind)) return KEY_HISTORY_MONTHLY;
+        return KEY_HISTORY_FIVE_HOUR;
     }
 
     public static String getLastError(Context context) {
@@ -283,6 +290,14 @@ public final class AppPreferences {
         prefs(context).edit().putBoolean(KEY_DASHBOARD_WEEKLY, show).apply();
     }
 
+    public static boolean showDashboardMonthly(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_MONTHLY, true);
+    }
+
+    public static void setShowDashboardMonthly(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_MONTHLY, show).apply();
+    }
+
     public static boolean showDashboardAdditionalLimits(Context context) {
         return prefs(context).getBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, true);
     }
@@ -356,11 +371,12 @@ public final class AppPreferences {
     }
 
     public static void setDashboardVisibility(Context context, boolean fiveHour,
-            boolean weekly, boolean additionalLimits, boolean usageCredits,
+            boolean weekly, boolean monthly, boolean additionalLimits, boolean usageCredits,
             boolean resetCredits, boolean usageHistory) {
         prefs(context).edit()
                 .putBoolean(KEY_DASHBOARD_FIVE_HOUR, fiveHour)
                 .putBoolean(KEY_DASHBOARD_WEEKLY, weekly)
+                .putBoolean(KEY_DASHBOARD_MONTHLY, monthly)
                 .putBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, additionalLimits)
                 .putBoolean(KEY_DASHBOARD_USAGE_CREDITS, usageCredits)
                 .putBoolean(KEY_DASHBOARD_RESET_CREDITS, resetCredits)

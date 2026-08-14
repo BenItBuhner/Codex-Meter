@@ -27,6 +27,8 @@ public final class RefreshScheduler {
             return false;
         }
         if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+            DiagnosticLog.info(contextAppContext, "scheduler",
+                    "refresh_schedule_skipped_signed_out");
             cancelAll(contextAppContext);
             return true;
         }
@@ -39,10 +41,18 @@ public final class RefreshScheduler {
                 jobSchedulerScheduler.cancel(SHORT_JOB_ID_A);
                 jobSchedulerScheduler.cancel(SHORT_JOB_ID_B);
                 if (AppPreferences.getAutomaticRefresh(contextAppContext)) {
+                    DiagnosticLog.info(contextAppContext, "scheduler",
+                            "refresh_schedule_requested",
+                            "mode", "adaptive",
+                            "minutes", effectiveRefreshMinutes(contextAppContext));
                     zSubmit = scheduleNextChained(contextAppContext, SHORT_JOB_ID_B,
                             REASON_ADAPTIVE);
                 } else {
                     int refreshMinutes = AppPreferences.getRefreshMinutes(contextAppContext);
+                    DiagnosticLog.info(contextAppContext, "scheduler",
+                            "refresh_schedule_requested",
+                            "mode", "fixed",
+                            "minutes", refreshMinutes);
                     if (refreshMinutes < 15) {
                         zSubmit = scheduleNextChained(contextAppContext, SHORT_JOB_ID_B,
                                 REASON_SHORT_PERIODIC);
@@ -128,6 +138,8 @@ public final class RefreshScheduler {
             return true;
         }
         try {
+            DiagnosticLog.info(contextAppContext, "scheduler",
+                    "immediate_refresh_requested");
             return submit(contextAppContext, base(contextAppContext, IMMEDIATE_JOB_ID, "immediate").setMinimumLatency(0L).setOverrideDeadline(5000L).build());
         } catch (RuntimeException e) {
             return failed(contextAppContext, e);
@@ -146,6 +158,9 @@ public final class RefreshScheduler {
         }
         try {
             long jMax = Math.max(1000L, (jNextResetMillis - jCurrentTimeMillis) + 5000);
+            DiagnosticLog.info(contextAppContext, "scheduler",
+                    "reset_refresh_requested",
+                    "delay_ms", jMax);
             return submit(contextAppContext, base(contextAppContext, RESET_JOB_ID, ResetConsumeResult.RESET).setMinimumLatency(jMax).setOverrideDeadline(jMax + 300000).build());
         } catch (RuntimeException e) {
             return failed(contextAppContext, e);
@@ -164,6 +179,8 @@ public final class RefreshScheduler {
                     jobSchedulerScheduler.cancel(SHORT_JOB_ID_A);
                     jobSchedulerScheduler.cancel(SHORT_JOB_ID_B);
                     AppPreferences.setSchedulerError(contextAppContext, "");
+                    DiagnosticLog.info(contextAppContext, "scheduler",
+                            "all_refresh_jobs_cancelled");
                 }
             } catch (RuntimeException e) {
                 failed(contextAppContext, e);
@@ -177,10 +194,20 @@ public final class RefreshScheduler {
             AppPreferences.setSchedulerError(context, "Android's background scheduler is unavailable.");
             return false;
         }
-        if (jobSchedulerScheduler.schedule(jobInfo) == 1) {
+        int result = jobSchedulerScheduler.schedule(jobInfo);
+        String reason = jobInfo.getExtras() == null
+                ? "" : jobInfo.getExtras().getString("reason", "");
+        if (result == 1) {
             AppPreferences.setSchedulerError(context, "");
+            DiagnosticLog.info(context, "scheduler", "job_scheduled",
+                    "job_id", jobInfo.getId(),
+                    "reason", reason);
             return true;
         }
+        DiagnosticLog.warn(context, "scheduler", "job_rejected",
+                "job_id", jobInfo.getId(),
+                "reason", reason,
+                "result", result);
         AppPreferences.setSchedulerError(context, "Android declined the background refresh request.");
         return false;
     }
@@ -209,6 +236,7 @@ public final class RefreshScheduler {
             message = runtimeException.getClass().getSimpleName();
         }
         AppPreferences.setSchedulerError(context, "Background refresh: " + message);
+        DiagnosticLog.error(context, "scheduler", "scheduler_failed", runtimeException);
         return false;
     }
 }

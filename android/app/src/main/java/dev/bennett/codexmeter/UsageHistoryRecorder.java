@@ -13,6 +13,8 @@ final class UsageHistoryRecorder {
                 snapshot.fetchedAtMillis);
         recordWindow(context, UsageHistory.WEEKLY, snapshot.weekly,
                 snapshot.fetchedAtMillis);
+        recordWindow(context, UsageHistory.MONTHLY, snapshot.monthly,
+                snapshot.fetchedAtMillis);
     }
 
     private static void recordWindow(Context context, String kind, UsageWindow window,

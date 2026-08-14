@@ -17,6 +17,7 @@ public final class UsagePace {
     public static final int WINDOW_NONE = 0;
     public static final int WINDOW_FIVE_HOUR = 1;
     public static final int WINDOW_WEEKLY = 2;
+    public static final int WINDOW_MONTHLY = 3;
 
     private UsagePace() {
     }
@@ -95,15 +96,23 @@ public final class UsagePace {
     public static int mostAcceleratedWindow(UsageSnapshot snapshot, long nowMillis,
             String sensitivity) {
         if (snapshot == null || !warningsEnabled(sensitivity)) return WINDOW_NONE;
-        Assessment fiveHour = assess(snapshot.fiveHour, snapshot.fetchedAtMillis, nowMillis,
-                sensitivity);
-        Assessment weekly = assess(snapshot.weekly, snapshot.fetchedAtMillis, nowMillis,
-                sensitivity);
-        if (!fiveHour.accelerated && !weekly.accelerated) return WINDOW_NONE;
-        if (!fiveHour.accelerated) return WINDOW_WEEKLY;
-        if (!weekly.accelerated) return WINDOW_FIVE_HOUR;
-        return fiveHour.coverageRatio() <= weekly.coverageRatio()
-                ? WINDOW_FIVE_HOUR : WINDOW_WEEKLY;
+        Assessment[] assessments = {
+                assess(snapshot.fiveHour, snapshot.fetchedAtMillis, nowMillis, sensitivity),
+                assess(snapshot.weekly, snapshot.fetchedAtMillis, nowMillis, sensitivity),
+                assess(snapshot.monthly, snapshot.fetchedAtMillis, nowMillis, sensitivity)
+        };
+        int[] windows = {WINDOW_FIVE_HOUR, WINDOW_WEEKLY, WINDOW_MONTHLY};
+        int selected = WINDOW_NONE;
+        double selectedRatio = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < assessments.length; i++) {
+            if (!assessments[i].accelerated) continue;
+            double ratio = assessments[i].coverageRatio();
+            if (selected == WINDOW_NONE || ratio < selectedRatio) {
+                selected = windows[i];
+                selectedRatio = ratio;
+            }
+        }
+        return selected;
     }
 
     public static String normalizeSensitivity(String sensitivity) {

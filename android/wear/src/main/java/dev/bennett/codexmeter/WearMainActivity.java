@@ -108,10 +108,11 @@ public final class WearMainActivity extends Activity implements DataClient.OnDat
     private void refreshUi() {
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(this);
         UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow weekly = WearGlanceFormat.currentWeekly(snapshot);
+        UsageWindow longWindow = WearGlanceFormat.currentLongWindow(snapshot);
         fiveHourValue.setText(WearGlanceFormat.remainingPercentText(fiveHour));
-        weeklyValue.setText(getString(R.string.wear_week_value,
-                WearGlanceFormat.remainingPercentText(weekly)));
+        weeklyValue.setText(getString(R.string.wear_long_window_value,
+                WearGlanceFormat.longWindowShortLabel(snapshot),
+                WearGlanceFormat.remainingPercentText(longWindow)));
         accountValue.setText(WearGlanceFormat.accountStatus(snapshot));
         String details = WearGlanceFormat.resetCreditsText(snapshot);
         WearSettingsState settings = WearPreferences.settingsState(this, 0L,

@@ -41,11 +41,16 @@ public final class WidgetRenderer {
                 AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
                 int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(context, (Class<?>) CodexUsageWidget.class));
                 int length = appWidgetIds.length;
+                DiagnosticLog.info(context, "widget", "update_all_started",
+                        "home_widget_count", length,
+                        "lock_widget_count", SamsungLockWidgetSupport.countAll(context));
                 for (int i = GRAPHIC_STANDARD; i < length; i += GRAPHIC_LARGE) {
                     update(context, appWidgetManager, appWidgetIds[i]);
                 }
                 SamsungLockWidgetSupport.updateAll(context);
+                DiagnosticLog.info(context, "widget", "update_all_finished");
             } catch (RuntimeException e) {
+                DiagnosticLog.error(context, "widget", "update_all_failed", e);
                 Log.w("CodexMeterWidget", "Widget update failed: " + safeMessage(e));
             }
         }
@@ -66,10 +71,14 @@ public final class WidgetRenderer {
                 }
                 appWidgetManager.updateAppWidget(i, remoteViewsBuildViews);
             } catch (RuntimeException e) {
+                DiagnosticLog.error(context, "widget", "render_failed", e,
+                        "widget_id", i);
                 Log.w("CodexMeterWidget", "Widget render failed: " + safeMessage(e));
                 try {
                     appWidgetManager.updateAppWidget(i, buildFallback(context, i));
                 } catch (RuntimeException e2) {
+                    DiagnosticLog.error(context, "widget", "fallback_render_failed", e2,
+                            "widget_id", i);
                 }
             }
         }
@@ -423,7 +432,8 @@ public final class WidgetRenderer {
         if ("five_hour".equals(widgetOptions.metricMode)) {
             str = widgetState.primaryShortReset.isEmpty() ? "" : "5h " + widgetState.primaryShortReset;
         } else if ("weekly".equals(widgetOptions.metricMode)) {
-            str = widgetState.secondaryShortReset.isEmpty() ? "" : "Week " + widgetState.secondaryShortReset;
+            str = widgetState.secondaryShortReset.isEmpty() ? ""
+                    : widgetState.secondaryName + " " + widgetState.secondaryShortReset;
         } else {
             str = widgetState.combinedReset;
         }
@@ -674,7 +684,8 @@ public final class WidgetRenderer {
                     state.primaryShort);
         }
         if (WidgetMeters.WEEKLY.equals(key)) {
-            return usageSlot(key, "Wk", R.drawable.ic_oui_calendar_week, state.secondaryValue,
+            return usageSlot(key, WidgetMeters.shortLabel(key, snapshot),
+                    R.drawable.ic_oui_calendar_week, state.secondaryValue,
                     dialValue(state.secondaryValue, options.showPercentSymbol),
                     state.secondaryShort);
         }
@@ -928,6 +939,8 @@ public final class WidgetRenderer {
         final String secondaryShortReset;
         final String secondaryText;
         final int secondaryValue;
+        /** "Week" or "Month" — the long-cadence window filling the secondary slot. */
+        final String secondaryName;
         final String updated;
         final String nextResetText;
         final int nextResetProgress;
@@ -935,6 +948,14 @@ public final class WidgetRenderer {
         WidgetState(String str, int i, int i2, String str2, String str3, String str4,
                 String str5, String str6, String str7, String str8, String str9,
                 String str10, String str11, String nextResetText, int nextResetProgress) {
+            this(str, i, i2, str2, str3, str4, str5, str6, str7, str8, str9, str10, str11,
+                    nextResetText, nextResetProgress, "Week");
+        }
+
+        WidgetState(String str, int i, int i2, String str2, String str3, String str4,
+                String str5, String str6, String str7, String str8, String str9,
+                String str10, String str11, String nextResetText, int nextResetProgress,
+                String secondaryName) {
             this.plan = str;
             this.primaryValue = i;
             this.secondaryValue = i2;
@@ -950,6 +971,7 @@ public final class WidgetRenderer {
             this.updated = str11;
             this.nextResetText = nextResetText;
             this.nextResetProgress = Math.max(0, Math.min(100, nextResetProgress));
+            this.secondaryName = secondaryName == null ? "Week" : secondaryName;
         }
 
         static WidgetState from(Context context, WidgetOptions widgetOptions) {
@@ -968,28 +990,34 @@ public final class WidgetRenderer {
                 return new WidgetState("", -1, -1, "Loading…", "—", "…", "—", lastError, "", lastError, "", lastError, "Waiting for the first update", "—", 0);
             }
             boolean zEquals = WidgetOptions.DISPLAY_USED.equals(widgetOptions.displayMode);
+            // The secondary slot follows the account's long-cadence window: weekly on paid
+            // plans, monthly on the free tier.
+            UsageWindow longWindow = usageSnapshotLoadSnapshot.longWindow();
+            String secondaryName = usageSnapshotLoadSnapshot.longWindowIsMonthly()
+                    ? "Month" : "Week";
             int iValue = value(usageSnapshotLoadSnapshot.fiveHour, zEquals);
-            int iValue2 = value(usageSnapshotLoadSnapshot.weekly, zEquals);
+            int iValue2 = value(longWindow, zEquals);
             String strPercent = UsageFormat.percent(usageSnapshotLoadSnapshot.fiveHour, widgetOptions.displayMode, false);
-            String strPercent2 = UsageFormat.percent(usageSnapshotLoadSnapshot.weekly, widgetOptions.displayMode, false);
+            String strPercent2 = UsageFormat.percent(longWindow, widgetOptions.displayMode, false);
             String strPercent3 = UsageFormat.percent(usageSnapshotLoadSnapshot.fiveHour, widgetOptions.displayMode, true);
-            String strPercent4 = UsageFormat.percent(usageSnapshotLoadSnapshot.weekly, widgetOptions.displayMode, true);
+            String strPercent4 = UsageFormat.percent(longWindow, widgetOptions.displayMode, true);
             String strReset = UsageFormat.reset(context, usageSnapshotLoadSnapshot.fiveHour,
                     widgetOptions.resetMode, usageSnapshotLoadSnapshot.fetchedAtMillis,
                     jCurrentTimeMillis);
-            String strReset2 = UsageFormat.reset(context, usageSnapshotLoadSnapshot.weekly,
+            String strReset2 = UsageFormat.reset(context, longWindow,
                     widgetOptions.resetMode, usageSnapshotLoadSnapshot.fetchedAtMillis,
                     jCurrentTimeMillis);
             String strShortReset = WidgetRenderer.shortReset(context,
                     usageSnapshotLoadSnapshot.fiveHour, widgetOptions.resetMode,
                     usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
             String strShortReset2 = WidgetRenderer.shortReset(context,
-                    usageSnapshotLoadSnapshot.weekly, widgetOptions.resetMode,
+                    longWindow, widgetOptions.resetMode,
                     usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
             if (strShortReset.isEmpty()) {
-                str = strShortReset2.isEmpty() ? "" : "Week " + strShortReset2;
+                str = strShortReset2.isEmpty() ? "" : secondaryName + " " + strShortReset2;
             } else {
-                str = strShortReset2.isEmpty() ? "5h " + strShortReset : "5h " + strShortReset + " · Week " + strShortReset2;
+                str = strShortReset2.isEmpty() ? "5h " + strShortReset
+                        : "5h " + strShortReset + " · " + secondaryName + " " + strShortReset2;
             }
             String strUpdated = UsageFormat.updated(usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
             String str2 = jCurrentTimeMillis - usageSnapshotLoadSnapshot.fetchedAtMillis > TimeUnit.HOURS.toMillis(6L) ? strUpdated + " · cached" : strUpdated;
@@ -1000,7 +1028,8 @@ public final class WidgetRenderer {
             ResetCountdown countdown = nextReset(usageSnapshotLoadSnapshot, jCurrentTimeMillis);
             return new WidgetState(strPlanLabel, iValue, iValue2, strPercent, strPercent2,
                     strPercent3, strPercent4, strReset, strReset2, strShortReset,
-                    strShortReset2, str, str2, countdown.text, countdown.progress);
+                    strShortReset2, str, str2, countdown.text, countdown.progress,
+                    secondaryName);
         }
 
         static WidgetState error(String str) {
@@ -1010,19 +1039,20 @@ public final class WidgetRenderer {
 
         private static ResetCountdown nextReset(UsageSnapshot snapshot, long now) {
             UsageWindow fiveHour = snapshot == null ? null : snapshot.fiveHour;
-            UsageWindow weekly = snapshot == null ? null : snapshot.weekly;
+            UsageWindow longWindow = snapshot == null ? null : snapshot.longWindow();
             long fiveHourReset = (fiveHour != null && fiveHour.showsResetCountdown())
                     ? resetAt(fiveHour, snapshot.fetchedAtMillis) : 0L;
-            long weeklyReset = (weekly != null && weekly.showsResetCountdown())
-                    ? resetAt(weekly, snapshot.fetchedAtMillis) : 0L;
+            long longReset = (longWindow != null && longWindow.showsResetCountdown())
+                    ? resetAt(longWindow, snapshot.fetchedAtMillis) : 0L;
             long resetAt;
             long windowDuration;
-            if (fiveHourReset > now && (weeklyReset <= now || fiveHourReset <= weeklyReset)) {
+            if (fiveHourReset > now && (longReset <= now || fiveHourReset <= longReset)) {
                 resetAt = fiveHourReset;
                 windowDuration = TimeUnit.HOURS.toMillis(5L);
-            } else if (weeklyReset > now) {
-                resetAt = weeklyReset;
-                windowDuration = TimeUnit.DAYS.toMillis(7L);
+            } else if (longReset > now) {
+                resetAt = longReset;
+                windowDuration = Math.max(TimeUnit.DAYS.toMillis(1L),
+                        longWindow.windowSeconds * 1000L);
             } else {
                 return new ResetCountdown("—", 0);
             }

@@ -10,6 +10,12 @@ import org.json.JSONObject;
 public final class UsageParser {
     private static final long FIVE_HOURS = 18000;
     private static final long WEEK = 604800;
+    private static final long MONTH = 2592000;
+    // Free-tier accounts report a single ~30-day Codex window; accept 10-45 days so calendar
+    // months and drifting billing periods still classify while staying clear of the weekly
+    // window's 9-day ceiling.
+    private static final long MONTH_MIN = 864000;
+    private static final long MONTH_MAX = 3888000;
 
     private UsageParser() {
     }
@@ -74,6 +80,8 @@ public final class UsageParser {
         }
         UsageWindow usageWindowNearest = nearest(arrayList, FIVE_HOURS, 10800L, 28800L);
         UsageWindow usageWindowNearestExcluding = nearestExcluding(arrayList, WEEK, 432000L, 777600L, usageWindowNearest);
+        UsageWindow usageWindowMonthly = nearestExcluding(arrayList, MONTH, MONTH_MIN, MONTH_MAX,
+                usageWindowNearest, usageWindowNearestExcluding);
         JSONObject jSONObjectNullableObject3 = nullableObject(jSONObject, "rate_limit_reset_credits");
         UsageCredits usageCredits = UsageCredits.fromJson(nullableObject(jSONObject, "credits"));
         return new UsageSnapshot(
@@ -82,6 +90,7 @@ public final class UsageParser {
                 z2,
                 usageWindowNearest,
                 usageWindowNearestExcluding,
+                usageWindowMonthly,
                 additionalLimits,
                 usageCredits,
                 jSONObjectNullableObject3 == null
@@ -132,31 +141,32 @@ public final class UsageParser {
         return usageWindow2;
     }
 
-    private static UsageWindow nearestExcluding(List<UsageWindow> list, long j, long j2, long j3, UsageWindow usageWindow) {
-        UsageWindow usageWindow2;
-        long j4;
-        UsageWindow usageWindow3 = null;
-        long j5 = Long.MAX_VALUE;
-        for (UsageWindow usageWindow4 : list) {
-            if (usageWindow4 == usageWindow || usageWindow4.windowSeconds < j2 || usageWindow4.windowSeconds > j3) {
-                long j6 = j5;
-                usageWindow2 = usageWindow3;
-                j4 = j6;
-            } else {
-                long jAbs = Math.abs(usageWindow4.windowSeconds - j);
-                if (jAbs < j5) {
-                    usageWindow2 = usageWindow4;
-                    j4 = jAbs;
-                } else {
-                    long j7 = j5;
-                    usageWindow2 = usageWindow3;
-                    j4 = j7;
-                }
+    private static UsageWindow nearestExcluding(List<UsageWindow> list, long target,
+            long minimumSeconds, long maximumSeconds, UsageWindow... excluded) {
+        UsageWindow best = null;
+        long bestDistance = Long.MAX_VALUE;
+        for (UsageWindow candidate : list) {
+            if (isExcluded(candidate, excluded)
+                    || candidate.windowSeconds < minimumSeconds
+                    || candidate.windowSeconds > maximumSeconds) {
+                continue;
             }
-            usageWindow3 = usageWindow2;
-            j5 = j4;
+            long distance = Math.abs(candidate.windowSeconds - target);
+            if (distance < bestDistance) {
+                best = candidate;
+                bestDistance = distance;
+            }
         }
-        return usageWindow3;
+        return best;
+    }
+
+    private static boolean isExcluded(UsageWindow candidate, UsageWindow[] excluded) {
+        for (UsageWindow window : excluded) {
+            if (candidate == window) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }
