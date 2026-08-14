@@ -10,8 +10,8 @@ android {
         applicationId = "dev.bennett.codexmeter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 29
-        versionName = "2.8.0-alpha.1"
+        versionCode = 30
+        versionName = "2.8.0"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }

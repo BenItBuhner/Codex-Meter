@@ -12,9 +12,9 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.8.0-alpha.1
+## Android — Version 2.8.0
 
-Version 2.8.0-alpha.1 adapts to Free-tier monthly Codex limits when a paid plan expires, adds opt-in diagnostic log tracing/export, and declutters usage-history analytics with customizable highlights. Stable 2.7.0 remains the default update channel; opt into alpha under Settings → Updates → Update channel.
+Version 2.8.0 adapts to Free-tier monthly Codex limits when a paid plan expires, adds opt-in diagnostic log tracing/export, and declutters usage-history analytics with customizable highlights. This stable release consolidates the 2.8.0-alpha.1 channel build; alpha remains opt-in under Settings → Updates → Update channel.
 
 On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
 
