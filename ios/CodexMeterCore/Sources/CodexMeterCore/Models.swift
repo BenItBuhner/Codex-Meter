@@ -39,6 +39,47 @@ public struct UsageWindow: Codable, Sendable, Equatable {
         remainingPercent <= min(100, max(0, threshold))
     }
 
+    /// OpenAI reset timestamps drift slightly across refreshes. Nearby reset times for the
+    /// same window length are treated as one window so alerts stay one-shot until the real reset.
+    public static func resetWindowTolerance(windowSeconds: Int64) -> TimeInterval {
+        guard windowSeconds > 0 else { return 60 }
+        return min(15 * 60, max(60, TimeInterval(windowSeconds) / 20))
+    }
+
+    public static func sameResetWindow(
+        leftReset: Date,
+        leftWindowSeconds: Int64,
+        rightReset: Date,
+        rightWindowSeconds: Int64
+    ) -> Bool {
+        guard leftReset.timeIntervalSince1970 > 0,
+              rightReset.timeIntervalSince1970 > 0,
+              leftWindowSeconds == rightWindowSeconds else {
+            return false
+        }
+        return abs(leftReset.timeIntervalSince(rightReset))
+            <= resetWindowTolerance(windowSeconds: leftWindowSeconds)
+    }
+
+    /// Whether a low-usage alert should fire for `currentReset`. Returns false when
+    /// `lastAnnouncedReset` already covers the same usage window.
+    public static func shouldAnnounceLowUsage(
+        lastAnnouncedReset: Date?,
+        currentReset: Date,
+        windowSeconds: Int64
+    ) -> Bool {
+        guard currentReset.timeIntervalSince1970 > 0 else { return false }
+        guard let lastAnnouncedReset, lastAnnouncedReset.timeIntervalSince1970 > 0 else {
+            return true
+        }
+        return !sameResetWindow(
+            leftReset: lastAnnouncedReset,
+            leftWindowSeconds: windowSeconds,
+            rightReset: currentReset,
+            rightWindowSeconds: windowSeconds
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case usedPercent
         case windowSeconds
@@ -122,8 +163,6 @@ public struct UsageLimit: Codable, Sendable, Equatable, Identifiable {
 }
 
 public struct UsageCredits: Codable, Sendable, Equatable {
-    /// Balances below this render as "0" with the two fraction digits used across the app,
-    /// so they are treated as exhausted and never displayed.
     private static let nearZeroBalance = Decimal(string: "0.005")!
 
     public let hasCredits: Bool
@@ -138,24 +177,34 @@ public struct UsageCredits: Codable, Sendable, Equatable {
             ? cleanBalance : nil
     }
 
-    /// Whether the balance is worth surfacing anywhere in the UI. Zero, effectively-zero,
-    /// and negative balances always hide the card, as does an account without purchased
-    /// credits. Unlimited plans and unparseable non-empty balances remain visible.
+    /// The parsed purchased-credit balance, or `nil` when it is absent or not numeric.
+    public var numericBalance: Decimal? {
+        guard let balance else { return nil }
+        return Decimal(
+            string: balance.replacingOccurrences(of: ",", with: ""),
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+    }
+
+    /// Whether the balance is useful enough to surface in the UI.
+    ///
+    /// Unlimited plans and unparseable non-empty balances remain visible. Accounts without
+    /// purchased credits and numeric balances below half of the smallest displayed hundredth
+    /// (including zero and negative values) stay hidden.
     public var shouldDisplay: Bool {
         if unlimited {
             return true
         }
-        if !hasCredits {
+        guard hasCredits else {
             return false
         }
-        guard let balance, !balance.isEmpty else {
+        guard balance != nil else {
             return true
         }
-        let normalized = balance.replacingOccurrences(of: ",", with: "")
-        guard let amount = Decimal(string: normalized) else {
+        guard let numericBalance else {
             return true
         }
-        return amount >= Self.nearZeroBalance
+        return numericBalance >= Self.nearZeroBalance
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -180,6 +229,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     public let limitReached: Bool
     public let fiveHour: UsageWindow?
     public let weekly: UsageWindow?
+    /// Monthly Codex window (~30 days); reported instead of 5-hour/weekly on the Free tier.
+    public let monthly: UsageWindow?
     public let resetCreditsAvailable: Int?
     public let additionalLimits: [UsageLimit]
     public let usageCredits: UsageCredits?
@@ -191,6 +242,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         limitReached: Bool,
         fiveHour: UsageWindow?,
         weekly: UsageWindow?,
+        monthly: UsageWindow? = nil,
         resetCreditsAvailable: Int? = nil,
         additionalLimits: [UsageLimit] = [],
         usageCredits: UsageCredits? = nil,
@@ -201,6 +253,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         self.limitReached = limitReached
         self.fiveHour = fiveHour
         self.weekly = weekly
+        self.monthly = monthly
         self.resetCreditsAvailable = resetCreditsAvailable.map { max(0, $0) }
         self.additionalLimits = additionalLimits.filter {
             $0.primary != nil || $0.secondary != nil
@@ -209,17 +262,28 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         self.fetchedAt = fetchedAt
     }
 
+    /// The longer-cadence Codex window: weekly when present, otherwise the monthly window that
+    /// free-tier accounts report. Surfaces that used to hardcode weekly adapt through this so a
+    /// subscription change swaps windows automatically.
+    public var longWindow: UsageWindow? {
+        weekly ?? monthly
+    }
+
+    /// Whether `longWindow` is the monthly window rather than the weekly one.
+    public var longWindowIsMonthly: Bool {
+        weekly == nil && monthly != nil
+    }
+
     public func nextReset(after date: Date) -> Date? {
-        ([fiveHour, weekly] + additionalLimits.flatMap { [$0.primary, $0.secondary] })
+        ([fiveHour, weekly, monthly] + additionalLimits.flatMap { [$0.primary, $0.secondary] })
             .compactMap { $0?.effectiveResetDate(relativeTo: fetchedAt) }
             .filter { $0 > date }
             .min()
     }
 
     public var hasDisplayableData: Bool {
-        fiveHour != nil || weekly != nil || !additionalLimits.isEmpty
-            || usageCredits?.shouldDisplay == true
-            || (resetCreditsAvailable ?? 0) > 0
+        fiveHour != nil || weekly != nil || monthly != nil || !additionalLimits.isEmpty
+            || usageCredits?.shouldDisplay == true || resetCreditsAvailable != nil
     }
 
     public func isStale(at date: Date = Date(), maxAge: TimeInterval) -> Bool {
@@ -232,6 +296,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         case limitReached
         case fiveHour
         case weekly
+        case monthly
         case resetCreditsAvailable
         case additionalLimits
         case usageCredits
@@ -246,6 +311,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
             limitReached: try container.decodeIfPresent(Bool.self, forKey: .limitReached) ?? false,
             fiveHour: try container.decodeIfPresent(UsageWindow.self, forKey: .fiveHour),
             weekly: try container.decodeIfPresent(UsageWindow.self, forKey: .weekly),
+            monthly: try container.decodeIfPresent(UsageWindow.self, forKey: .monthly),
             resetCreditsAvailable: try container.decodeIfPresent(Int.self, forKey: .resetCreditsAvailable),
             additionalLimits: try container.decodeIfPresent([UsageLimit].self, forKey: .additionalLimits) ?? [],
             usageCredits: try container.decodeIfPresent(UsageCredits.self, forKey: .usageCredits),
@@ -329,12 +395,6 @@ public struct ResetCreditsSnapshot: Codable, Sendable, Equatable {
         self.availableCount = max(0, availableCount)
         self.credits = credits
         self.fetchedAt = fetchedAt
-    }
-
-    /// Whether inventory is worth surfacing on the dashboard. Zero available resets always
-    /// hide the card, even when the Settings toggle is on.
-    public var shouldDisplay: Bool {
-        availableCount > 0
     }
 
     public static func summary(availableCount: Int, fetchedAt: Date) -> Self {
@@ -527,8 +587,17 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
     public let planType: String
     public let fiveHour: UsageWindow?
     public let weekly: UsageWindow?
+    public let monthly: UsageWindow?
     public let resetCreditsAvailable: Int?
     public let freshness: WidgetSnapshotFreshness
+
+    public var longWindow: UsageWindow? {
+        weekly ?? monthly
+    }
+
+    public var longWindowIsMonthly: Bool {
+        weekly == nil && monthly != nil
+    }
 
     public init(
         version: Int = Self.currentVersion,
@@ -537,6 +606,7 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
         planType: String,
         fiveHour: UsageWindow?,
         weekly: UsageWindow?,
+        monthly: UsageWindow? = nil,
         resetCreditsAvailable: Int?,
         freshness: WidgetSnapshotFreshness
     ) {
@@ -546,6 +616,7 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
         self.planType = planType
         self.fiveHour = fiveHour
         self.weekly = weekly
+        self.monthly = monthly
         self.resetCreditsAvailable = resetCreditsAvailable.map { max(0, $0) }
         self.freshness = freshness
     }
@@ -561,6 +632,7 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
             planType: usage?.planType ?? "",
             fiveHour: usage?.fiveHour,
             weekly: usage?.weekly,
+            monthly: usage?.monthly,
             resetCreditsAvailable: usage?.resetCreditsAvailable,
             freshness: freshness
         )
@@ -572,6 +644,7 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
         planType: "",
         fiveHour: nil,
         weekly: nil,
+        monthly: nil,
         resetCreditsAvailable: nil,
         freshness: .unavailable
     )
@@ -583,6 +656,7 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
         case planType
         case fiveHour
         case weekly
+        case monthly
         case resetCreditsAvailable
         case freshness
     }
@@ -596,6 +670,7 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
             planType: try container.decodeIfPresent(String.self, forKey: .planType) ?? "",
             fiveHour: try container.decodeIfPresent(UsageWindow.self, forKey: .fiveHour),
             weekly: try container.decodeIfPresent(UsageWindow.self, forKey: .weekly),
+            monthly: try container.decodeIfPresent(UsageWindow.self, forKey: .monthly),
             resetCreditsAvailable: try container.decodeIfPresent(Int.self, forKey: .resetCreditsAvailable),
             freshness: try container.decodeIfPresent(WidgetSnapshotFreshness.self, forKey: .freshness) ?? .unavailable
         )

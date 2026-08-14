@@ -3,6 +3,11 @@ import Foundation
 public enum UsageParser {
     private static let fiveHours: Int64 = 18_000
     private static let week: Int64 = 604_800
+    private static let month: Int64 = 2_592_000
+    /// Free-tier accounts report a single ~30-day Codex window; accept 10–45 days so calendar
+    /// months and drifting billing periods still classify while staying clear of the weekly
+    /// window's 9-day ceiling.
+    private static let monthRange: ClosedRange<Int64> = 864_000 ... 3_888_000
 
     public static func parse(_ string: String, fetchedAt: Date = Date()) throws -> UsageSnapshot {
         try parse(Data(string.utf8), fetchedAt: fetchedAt)
@@ -54,15 +59,15 @@ public enum UsageParser {
                 if additionalPrimary != nil || additionalSecondary != nil {
                     let name = JSONSupport.string(item["limit_name"])
                     let feature = JSONSupport.string(item["metered_feature"])
-                    let id = [
+                    let identity = [
                         JSONSupport.string(item["limit_id"]),
                         name,
                         feature,
-                        "additional-\(index)"
+                        "additional"
                     ].first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }!
                     additionalLimits.append(
                         UsageLimit(
-                            id: "\(id)-\(index)",
+                            id: "\(identity)-\(index)",
                             name: name,
                             meteredFeature: feature,
                             allowed: JSONSupport.bool(nested["allowed"], default: true),
@@ -79,20 +84,26 @@ public enum UsageParser {
             in: primaryCandidates,
             target: fiveHours,
             range: 10_800 ... 28_800,
-            excluding: nil
+            excluding: []
         )
         let weekly = nearest(
             in: primaryCandidates,
             target: week,
             range: 432_000 ... 777_600,
-            excluding: fiveHour?.id
+            excluding: fiveHour.map { [$0.id] } ?? []
+        )
+        let monthly = nearest(
+            in: primaryCandidates,
+            target: month,
+            range: monthRange,
+            excluding: [fiveHour?.id, weekly?.id].compactMap { $0 }
         )
 
         let resetCredits = JSONSupport.object(root["rate_limit_reset_credits"])
         let rawAvailableCount = resetCredits.map {
             JSONSupport.int($0["available_count"], default: -1)
         } ?? -1
-        let usageCredits = JSONSupport.object(root["credits"]).flatMap { credits in
+        let usageCredits: UsageCredits? = JSONSupport.object(root["credits"]).flatMap { credits in
             guard credits.keys.contains("has_credits")
                     || credits.keys.contains("unlimited")
                     || credits.keys.contains("balance") else {
@@ -117,6 +128,7 @@ public enum UsageParser {
             limitReached: limitReached,
             fiveHour: fiveHour?.window,
             weekly: weekly?.window,
+            monthly: monthly?.window,
             resetCreditsAvailable: rawAvailableCount >= 0 ? rawAvailableCount : nil,
             additionalLimits: additionalLimits,
             usageCredits: usageCredits,
@@ -172,13 +184,13 @@ public enum UsageParser {
         in candidates: [Candidate],
         target: Int64,
         range: ClosedRange<Int64>,
-        excluding excludedID: Int?
+        excluding excludedIDs: [Int]
     ) -> Candidate? {
         var best: Candidate?
         var bestDistance = Int64.max
 
         for candidate in candidates
-        where candidate.id != excludedID && range.contains(candidate.window.windowSeconds) {
+        where !excludedIDs.contains(candidate.id) && range.contains(candidate.window.windowSeconds) {
             let distance = absoluteDifference(candidate.window.windowSeconds, target)
             if distance < bestDistance {
                 best = candidate

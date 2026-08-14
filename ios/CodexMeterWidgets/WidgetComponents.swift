@@ -78,6 +78,8 @@ struct UsageRing: View {
     let window: WidgetUsageWindow
     let configuration: MeterWidgetConfigurationIntent
     var compact = false
+    var prominent = false
+    var showsReset = true
 
     private var displayPercent: Double? {
         switch configuration.usageDisplay {
@@ -94,20 +96,20 @@ struct UsageRing: View {
         VStack(spacing: compact ? 3 : 6) {
             ZStack {
                 Circle()
-                    .stroke(.primary.opacity(0.10), lineWidth: compact ? 6 : 8)
+                    .stroke(.primary.opacity(0.10), lineWidth: ringWidth)
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
                         configuration.accent.color,
                         style: StrokeStyle(
-                            lineWidth: compact ? 6 : 8,
+                            lineWidth: ringWidth,
                             lineCap: .round
                         )
                     )
                     .rotationEffect(.degrees(-90))
                     .widgetAccentable()
                 Text(percentText(displayPercent, symbol: configuration.showsPercentSymbol))
-                    .font(compact ? .caption2.bold() : .headline.bold())
+                    .font(valueFont)
                     .minimumScaleFactor(0.65)
                     .lineLimit(1)
             }
@@ -118,7 +120,7 @@ struct UsageRing: View {
                 .fontWeight(.semibold)
                 .lineLimit(1)
 
-            if !compact, let resetsAt = window.resetsAt, resetsAt > .now {
+            if !compact, showsReset, let resetsAt = window.resetsAt, resetsAt > .now {
                 Text(resetsAt, style: .timer)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -130,6 +132,20 @@ struct UsageRing: View {
         .accessibilityValue(
             Text(accessibilityPercent(displayPercent, display: configuration.usageDisplay))
         )
+    }
+
+    private var ringWidth: CGFloat {
+        if prominent {
+            return 10
+        }
+        return compact ? 6 : 8
+    }
+
+    private var valueFont: Font {
+        if prominent {
+            return .title2.bold()
+        }
+        return compact ? .caption2.bold() : .headline.bold()
     }
 }
 

@@ -7,7 +7,7 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 |------|----------|--------|
 | Repository root | Shared | Docs, license, changelog, CI, convenience script wrappers |
 | [`android/`](android/) | **Android** | Phone app + Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
-| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable behavior (meters, reset credits, notifications, demo mode) |
+| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable 2.8.0 behavior (meters, monthly Free-tier windows, history analytics, diagnostics, widgets) |
 
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
@@ -86,6 +86,9 @@ Or from `android/` directly. `build.sh` assembles the release APKs with Gradle a
 ### iOS
 
 See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 26+.
+The iOS client now carries portable Android 2.8.0 behavior: Free-tier monthly
+windows, scrubbable usage-history analytics with customize, and opt-in
+diagnostic log export.
 
 ```bash
 cd ios

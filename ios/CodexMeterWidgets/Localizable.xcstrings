@@ -13,6 +13,12 @@
     "5 hours" : {
 
     },
+    "5-hour %@ used, weekly %@ used" : {
+
+    },
+    "5-hour only" : {
+
+    },
     "5h" : {
 
     },
@@ -31,7 +37,13 @@
     "94%" : {
 
     },
+    "A configurable circular Codex allowance dial." : {
+
+    },
     "Accent" : {
+
+    },
+    "Allowance" : {
 
     },
     "Appearance" : {
@@ -40,7 +52,22 @@
     "Blue" : {
 
     },
+    "Both allowance windows" : {
+
+    },
+    "Both allowance windows or one focused metric with locally updating reset timers." : {
+
+    },
+    "Both windows" : {
+
+    },
     "Cached" : {
+
+    },
+    "Choose which Codex allowance this circular widget shows." : {
+
+    },
+    "Choose which allowance appears, how the widget looks, and what happens when you tap it." : {
 
     },
     "Choose how the widget looks and what happens when you tap it." : {
@@ -55,7 +82,16 @@
     "Codex Meter" : {
 
     },
+    "Configure Codex allowances" : {
+
+    },
     "Configure Codex Meter" : {
+
+    },
+    "Configure five-hour allowance" : {
+
+    },
+    "Configure weekly allowance" : {
 
     },
     "Confirm reset" : {
@@ -133,10 +169,16 @@
     "See your five-hour and weekly Codex allowances and reset credits." : {
 
     },
+    "See both Codex allowance windows or focus on one responsive usage dial." : {
+
+    },
     "Show" : {
 
     },
     "Show percent symbol" : {
+
+    },
+    "Show both allowance windows or focus this accessory widget on one." : {
 
     },
     "Sign in or explore demo" : {
@@ -173,6 +215,12 @@
 
     },
     "Weekly allowance" : {
+
+    },
+    "Weekly only" : {
+
+    },
+    "W %@" : {
 
     },
     "Your current five-hour Codex allowance." : {

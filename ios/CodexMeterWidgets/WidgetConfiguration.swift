@@ -86,6 +86,23 @@ enum WidgetUsageDisplay: String, AppEnum, Sendable {
     ]
 }
 
+enum WidgetAllowance: String, AppEnum, Sendable {
+    case both
+    case fiveHour
+    case weekly
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Allowance")
+    static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .both: "Both windows",
+        .fiveHour: "5-hour only",
+        .weekly: "Weekly / Monthly only"
+    ]
+
+    var isSingleMetric: Bool {
+        self != .both
+    }
+}
+
 enum WidgetTapAction: String, AppEnum, Sendable {
     case open
     case refresh
@@ -112,7 +129,10 @@ enum WidgetTapAction: String, AppEnum, Sendable {
 
 struct MeterWidgetConfigurationIntent: WidgetConfigurationIntent, Sendable {
     static let title: LocalizedStringResource = "Configure Codex Meter"
-    static let description = IntentDescription("Choose how the widget looks and what happens when you tap it.")
+    static let description = IntentDescription("Choose which allowance appears, how the widget looks, and what happens when you tap it.")
+
+    @Parameter(title: "Allowance", default: .both)
+    var allowance: WidgetAllowance
 
     @Parameter(title: "Appearance", default: .system)
     var appearance: WidgetAppearance
@@ -135,6 +155,7 @@ struct MeterWidgetConfigurationIntent: WidgetConfigurationIntent, Sendable {
     init() {}
 
     init(
+        allowance: WidgetAllowance = .both,
         appearance: WidgetAppearance = .system,
         accent: WidgetAccent = .blue,
         surfaceOpacity: WidgetSurfaceOpacity = .soft,
@@ -142,6 +163,7 @@ struct MeterWidgetConfigurationIntent: WidgetConfigurationIntent, Sendable {
         showsPercentSymbol: Bool = true,
         tapAction: WidgetTapAction = .open
     ) {
+        self.allowance = allowance
         self.appearance = appearance
         self.accent = accent
         self.surfaceOpacity = surfaceOpacity
@@ -155,3 +177,44 @@ extension MeterWidgetConfigurationIntent {
     static let preview = MeterWidgetConfigurationIntent()
 }
 
+struct FiveHourAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
+    static let title: LocalizedStringResource = "Configure five-hour allowance"
+    static let description = IntentDescription("Choose which Codex allowance this circular widget shows.")
+
+    @Parameter(title: "Allowance", default: .fiveHour)
+    var allowance: WidgetAllowance
+
+    init() {}
+
+    init(allowance: WidgetAllowance = .fiveHour) {
+        self.allowance = allowance
+    }
+}
+
+struct WeeklyAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
+    static let title: LocalizedStringResource = "Configure weekly allowance"
+    static let description = IntentDescription("Choose which Codex allowance this circular widget shows.")
+
+    @Parameter(title: "Allowance", default: .weekly)
+    var allowance: WidgetAllowance
+
+    init() {}
+
+    init(allowance: WidgetAllowance = .weekly) {
+        self.allowance = allowance
+    }
+}
+
+struct DualAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
+    static let title: LocalizedStringResource = "Configure Codex allowances"
+    static let description = IntentDescription("Show both allowance windows or focus this accessory widget on one.")
+
+    @Parameter(title: "Allowance", default: .both)
+    var allowance: WidgetAllowance
+
+    init() {}
+
+    init(allowance: WidgetAllowance = .both) {
+        self.allowance = allowance
+    }
+}

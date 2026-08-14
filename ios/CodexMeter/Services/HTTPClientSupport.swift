@@ -18,7 +18,7 @@ nonisolated enum HTTPClientSupport {
         configuration.httpShouldSetCookies = true
         configuration.httpAdditionalHeaders = [
             "Accept": "application/json",
-            "User-Agent": "codex-meter-ios/1.0"
+            "User-Agent": "codex-meter-ios/2.8.0"
         ]
         return URLSession(configuration: configuration)
     }

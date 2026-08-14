@@ -11,13 +11,14 @@ import WidgetKit
     )
 }
 
-#Preview("Medium · Stale", as: .systemMedium) {
+#Preview("Medium · Weekly focus", as: .systemMedium) {
     CodexMeterHomeWidget()
 } timeline: {
     MeterWidgetEntry(
         date: .now,
         snapshot: .stalePreview,
         configuration: MeterWidgetConfigurationIntent(
+            allowance: .weekly,
             appearance: .dark,
             accent: .purple,
             surfaceOpacity: .strong,
@@ -28,13 +29,14 @@ import WidgetKit
     )
 }
 
-#Preview("Large · Fresh", as: .systemLarge) {
+#Preview("Large · Five-hour focus", as: .systemLarge) {
     CodexMeterHomeWidget()
 } timeline: {
     MeterWidgetEntry(
         date: .now,
         snapshot: .preview,
         configuration: MeterWidgetConfigurationIntent(
+            allowance: .fiveHour,
             accent: .teal,
             surfaceOpacity: .solid
         )
@@ -79,24 +81,49 @@ import WidgetKit
 #Preview("Five-hour Lock Screen", as: .accessoryCircular) {
     FiveHourAccessoryWidget()
 } timeline: {
-    AccessoryWidgetEntry(date: .now, snapshot: .preview)
+    ConfiguredAccessoryWidgetEntry(
+        date: .now,
+        snapshot: .preview,
+        allowance: .fiveHour
+    )
 }
 
 #Preview("Weekly Lock Screen", as: .accessoryCircular) {
     WeeklyAccessoryWidget()
 } timeline: {
-    AccessoryWidgetEntry(date: .now, snapshot: .stalePreview)
+    ConfiguredAccessoryWidgetEntry(
+        date: .now,
+        snapshot: .stalePreview,
+        allowance: .weekly
+    )
+}
+
+#Preview("Both Circular", as: .accessoryCircular) {
+    DualAllowanceAccessoryWidget()
+} timeline: {
+    ConfiguredAccessoryWidgetEntry(
+        date: .now,
+        snapshot: .preview,
+        allowance: .both
+    )
 }
 
 #Preview("Dual Lock Screen", as: .accessoryRectangular) {
     DualAllowanceAccessoryWidget()
 } timeline: {
-    AccessoryWidgetEntry(date: .now, snapshot: .preview)
+    ConfiguredAccessoryWidgetEntry(
+        date: .now,
+        snapshot: .preview,
+        allowance: .both
+    )
 }
 
-#Preview("Dual Inline", as: .accessoryInline) {
+#Preview("Weekly Inline", as: .accessoryInline) {
     DualAllowanceAccessoryWidget()
 } timeline: {
-    AccessoryWidgetEntry(date: .now, snapshot: .preview)
+    ConfiguredAccessoryWidgetEntry(
+        date: .now,
+        snapshot: .preview,
+        allowance: .weekly
+    )
 }
-

@@ -354,42 +354,34 @@ final class LiveCodexServiceTests: XCTestCase {
 
     func testNotificationDedupeKeysAreStablePerMetricAndWindow() {
         let reset = Date(timeIntervalSince1970: 1_800_000_000)
-        let fiveHourSeconds: Int64 = 18_000
-        let first = NotificationDeduplication.lowUsageIdentifier(metric: .fiveHour)
-        let duplicate = NotificationDeduplication.lowUsageIdentifier(metric: .fiveHour)
-        let otherMetric = NotificationDeduplication.lowUsageIdentifier(metric: .weekly)
+        let first = NotificationDeduplication.lowUsageIdentifier(metric: .fiveHour, resetDate: reset)
+        let duplicate = NotificationDeduplication.lowUsageIdentifier(metric: .fiveHour, resetDate: reset)
+        let otherMetric = NotificationDeduplication.lowUsageIdentifier(metric: .weekly, resetDate: reset)
+        let otherWindow = NotificationDeduplication.lowUsageIdentifier(
+            metric: .fiveHour,
+            resetDate: reset.addingTimeInterval(1)
+        )
 
         XCTAssertEqual(first, duplicate)
         XCTAssertNotEqual(first, otherMetric)
+        XCTAssertNotEqual(first, otherWindow)
         let token = NotificationDeduplication.windowToken(for: reset)
         XCTAssertFalse(
             NotificationDeduplication.shouldDeliverLowUsage(
                 lastDeliveredWindowToken: token,
-                resetDate: reset,
-                windowSeconds: fiveHourSeconds
-            )
-        )
-        // Small API reset drift must not re-arm the one-shot low-usage alert.
-        XCTAssertFalse(
-            NotificationDeduplication.shouldDeliverLowUsage(
-                lastDeliveredWindowToken: token,
-                resetDate: reset.addingTimeInterval(1),
-                windowSeconds: fiveHourSeconds
+                resetDate: reset
             )
         )
         XCTAssertFalse(
             NotificationDeduplication.shouldDeliverLowUsage(
                 lastDeliveredWindowToken: token,
-                resetDate: reset.addingTimeInterval(60),
-                windowSeconds: fiveHourSeconds
+                resetDate: reset.addingTimeInterval(1)
             )
         )
-        // A real next window (hours later) should notify again.
         XCTAssertTrue(
             NotificationDeduplication.shouldDeliverLowUsage(
                 lastDeliveredWindowToken: token,
-                resetDate: reset.addingTimeInterval(TimeInterval(fiveHourSeconds)),
-                windowSeconds: fiveHourSeconds
+                resetDate: reset.addingTimeInterval(20 * 60)
             )
         )
         XCTAssertNotEqual(
@@ -400,8 +392,14 @@ final class LiveCodexServiceTests: XCTestCase {
 
     func testNotificationCleanupRemovesOnlyObsoleteWindowIdentifiers() {
         let reset = Date(timeIntervalSince1970: 1_800_000_000)
-        let keptLow = NotificationDeduplication.lowUsageIdentifier(metric: .fiveHour)
-        let obsoleteLow = NotificationDeduplication.lowUsageIdentifier(metric: .weekly)
+        let keptLow = NotificationDeduplication.lowUsageIdentifier(
+            metric: .fiveHour,
+            resetDate: reset
+        )
+        let obsoleteLow = NotificationDeduplication.lowUsageIdentifier(
+            metric: .weekly,
+            resetDate: reset
+        )
         let keptReset = NotificationDeduplication.resetIdentifier(
             metric: .fiveHour,
             resetDate: reset

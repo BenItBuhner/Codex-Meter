@@ -39,37 +39,72 @@ final class ModelsAndFormattingTests: XCTestCase {
             fetchedAt: now
         )
         XCTAssertEqual(snapshot.resetCreditsAvailable, 0)
-        // Relative-only five-hour reset (now+60) precedes weekly absolute reset (now+120).
         XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(60))
         XCTAssertTrue(snapshot.isStale(at: now.addingTimeInterval(61), maxAge: 60))
     }
 
-    func testNextResetUsesRelativeResetAfterSecondsWhenAbsoluteMissing() {
+    func testAdaptiveUsageModelsAndNextResetAcrossEveryLimit() {
         let now = Date(timeIntervalSince1970: 5_000)
+        let standard = UsageWindow(
+            usedPercent: 10,
+            windowSeconds: 18_000,
+            resetAfterSeconds: 600
+        )
+        let additional = UsageWindow(
+            usedPercent: 20,
+            windowSeconds: 3_600,
+            resetAfterSeconds: 120
+        )
+        let limit = UsageLimit(
+            id: " spark ",
+            meteredFeature: "codex_bengalfox",
+            primary: additional,
+            secondary: nil
+        )
         let snapshot = UsageSnapshot(
             planType: "plus",
             allowed: true,
             limitReached: false,
-            fiveHour: UsageWindow(
-                usedPercent: 10,
-                windowSeconds: 18_000,
-                resetAfterSeconds: 90,
-                resetAt: nil
-            ),
-            weekly: UsageWindow(
-                usedPercent: 20,
-                windowSeconds: 604_800,
-                resetAfterSeconds: 360,
-                resetAt: nil
-            ),
+            fiveHour: standard,
+            weekly: nil,
+            additionalLimits: [limit, UsageLimit(id: "empty", primary: nil, secondary: nil)],
+            usageCredits: UsageCredits(hasCredits: true, unlimited: false, balance: "10"),
             fetchedAt: now
         )
-        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(90))
-        XCTAssertEqual(
-            snapshot.nextReset(after: now.addingTimeInterval(120)),
-            now.addingTimeInterval(360)
+
+        XCTAssertEqual(limit.id, "spark")
+        XCTAssertEqual(limit.displayName, "Codex Bengalfox")
+        XCTAssertEqual(snapshot.additionalLimits.count, 1)
+        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(120))
+        XCTAssertTrue(snapshot.hasDisplayableData)
+    }
+
+    func testUsageCreditVisibilityThresholdAndNumericParsing() {
+        XCTAssertFalse(
+            UsageCredits(hasCredits: false, unlimited: false, balance: "100").shouldDisplay
         )
-        XCTAssertNil(snapshot.nextReset(after: now.addingTimeInterval(400)))
+        XCTAssertTrue(
+            UsageCredits(hasCredits: false, unlimited: true, balance: nil).shouldDisplay
+        )
+        XCTAssertTrue(
+            UsageCredits(hasCredits: true, unlimited: false, balance: nil).shouldDisplay
+        )
+        XCTAssertFalse(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "-1").shouldDisplay
+        )
+        XCTAssertFalse(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "0.0049").shouldDisplay
+        )
+        XCTAssertTrue(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "0.005").shouldDisplay
+        )
+        XCTAssertEqual(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "2,500.5").numericBalance,
+            Decimal(string: "2500.5")
+        )
+        XCTAssertTrue(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "pending").shouldDisplay
+        )
     }
 
     func testSharedSnapshotIsSanitizedAndCodable() throws {
@@ -146,44 +181,6 @@ final class ModelsAndFormattingTests: XCTestCase {
             ),
             .stale
         )
-    }
-
-    func testUsageAndResetCreditsAutoHide() {
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "2500").shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "0.01").shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: false, unlimited: true, balance: nil).shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: nil).shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "12k credits").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0.00").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0.004").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "-12.5").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: false, unlimited: false, balance: "500").shouldDisplay)
-
-        XCTAssertTrue(ResetCreditsSnapshot.summary(availableCount: 2, fetchedAt: .now).shouldDisplay)
-        XCTAssertFalse(ResetCreditsSnapshot.summary(availableCount: 0, fetchedAt: .now).shouldDisplay)
-
-        let zeroResetsOnly = UsageSnapshot(
-            planType: "plus",
-            allowed: true,
-            limitReached: false,
-            fiveHour: nil,
-            weekly: nil,
-            resetCreditsAvailable: 0,
-            fetchedAt: Date(timeIntervalSince1970: 1)
-        )
-        XCTAssertFalse(zeroResetsOnly.hasDisplayableData)
-
-        let positiveResetsOnly = UsageSnapshot(
-            planType: "plus",
-            allowed: true,
-            limitReached: false,
-            fiveHour: nil,
-            weekly: nil,
-            resetCreditsAvailable: 3,
-            fetchedAt: Date(timeIntervalSince1970: 1)
-        )
-        XCTAssertTrue(positiveResetsOnly.hasDisplayableData)
     }
 
     func testResetOutcomeMessagesAndRoundTrip() throws {

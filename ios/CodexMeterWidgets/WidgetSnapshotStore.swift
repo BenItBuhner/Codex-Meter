@@ -40,8 +40,17 @@ struct WidgetDisplaySnapshot: Sendable, Equatable {
     let plan: String?
     let fiveHour: WidgetUsageWindow
     let weekly: WidgetUsageWindow
+    let longWindowIsMonthly: Bool
     let creditCount: Int
     let freshness: WidgetSnapshotFreshness
+
+    var longWindowTitle: String {
+        longWindowIsMonthly ? "Monthly" : "Weekly"
+    }
+
+    var longWindowShortTitle: String {
+        longWindowIsMonthly ? "Mo" : "Wk"
+    }
 
     var nextReset: Date? {
         [fiveHour.resetsAt, weekly.resetsAt]
@@ -57,6 +66,7 @@ struct WidgetDisplaySnapshot: Sendable, Equatable {
         plan: nil,
         fiveHour: .init(usedPercent: nil, durationSeconds: 18_000, resetsAt: nil),
         weekly: .init(usedPercent: nil, durationSeconds: 604_800, resetsAt: nil),
+        longWindowIsMonthly: false,
         creditCount: 0,
         freshness: .empty
     )
@@ -68,6 +78,7 @@ struct WidgetDisplaySnapshot: Sendable, Equatable {
         plan: nil,
         fiveHour: .init(usedPercent: nil, durationSeconds: 18_000, resetsAt: nil),
         weekly: .init(usedPercent: nil, durationSeconds: 604_800, resetsAt: nil),
+        longWindowIsMonthly: false,
         creditCount: 0,
         freshness: .empty
     )
@@ -87,6 +98,7 @@ struct WidgetDisplaySnapshot: Sendable, Equatable {
             durationSeconds: 604_800,
             resetsAt: .now.addingTimeInterval(234_000)
         ),
+        longWindowIsMonthly: false,
         creditCount: 3,
         freshness: .fresh
     )
@@ -106,6 +118,7 @@ struct WidgetDisplaySnapshot: Sendable, Equatable {
             durationSeconds: 604_800,
             resetsAt: .now.addingTimeInterval(340_000)
         ),
+        longWindowIsMonthly: false,
         creditCount: 1,
         freshness: .stale
     )
@@ -181,10 +194,11 @@ private extension WidgetDisplaySnapshot {
                 defaultDuration: 18_000
             ),
             weekly: Self.window(
-                from: shared.weekly,
+                from: shared.longWindow,
                 fetchedAt: shared.fetchedAt,
-                defaultDuration: 604_800
+                defaultDuration: shared.longWindowIsMonthly ? 2_592_000 : 604_800
             ),
+            longWindowIsMonthly: shared.longWindowIsMonthly,
             creditCount: max(0, shared.resetCreditsAvailable ?? 0),
             freshness: mode == .signedOut ? .empty : freshness
         )

@@ -3,14 +3,14 @@ import XCTest
 @testable import CodexMeterCore
 
 final class AdaptiveRefreshPolicyTests: XCTestCase {
-    func testQuotaAttentionResetQuietHoursAndFailureBackoff() {
+    func testQuotaPaceAttentionResetQuietHoursAndFailureBackoff() {
         let now = Date(timeIntervalSince1970: 2_000_000_000)
         let healthy = UsageWindow(
             usedPercent: 5,
             windowSeconds: 18_000,
             resetAt: now.addingTimeInterval(4 * 60 * 60)
         )
-        let medium = UsageWindow(
+        let accelerated = UsageWindow(
             usedPercent: 60,
             windowSeconds: 18_000,
             resetAt: now.addingTimeInterval(3 * 60 * 60)
@@ -28,7 +28,7 @@ final class AdaptiveRefreshPolicyTests: XCTestCase {
 
         XCTAssertEqual(choose(nil), 30)
         XCTAssertEqual(choose(snapshot(healthy), hour: 12), 60)
-        XCTAssertEqual(choose(snapshot(medium), hour: 12), 15)
+        XCTAssertEqual(choose(snapshot(accelerated), hour: 12), 10)
         XCTAssertEqual(choose(snapshot(low), hour: 12), 5)
         XCTAssertEqual(choose(snapshot(healthy), attention: 3, hour: 12), 10)
         XCTAssertEqual(choose(snapshot(healthy), hour: 3), 120)
@@ -68,5 +68,33 @@ final class AdaptiveRefreshPolicyTests: XCTestCase {
                 fetchedAt: now
             )
         }
+    }
+
+    func testExpiredWindowsAndNonFiniteAttentionAreIgnored() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let expired = UsageWindow(
+            usedPercent: 99,
+            windowSeconds: 18_000,
+            resetAt: now.addingTimeInterval(-1)
+        )
+        let snapshot = UsageSnapshot(
+            planType: "plus",
+            allowed: true,
+            limitReached: false,
+            fiveHour: expired,
+            weekly: nil,
+            fetchedAt: now.addingTimeInterval(-60)
+        )
+
+        XCTAssertEqual(
+            AdaptiveRefreshPolicy.chooseMinutes(
+                snapshot: snapshot,
+                attentionScore: .nan,
+                localHour: 12,
+                consecutiveFailures: -10,
+                now: now
+            ),
+            30
+        )
     }
 }

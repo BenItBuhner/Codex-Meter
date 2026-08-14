@@ -18,9 +18,31 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Mode"].exists)
         XCTAssertTrue(app.buttons["Leave Demo"].exists)
-        app.swipeUp()
+        for _ in 0..<6 where !app.buttons["Send test notification"].exists {
+            app.swipeUp()
+        }
         XCTAssertTrue(app.staticTexts["System permission"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 3))
+    }
+
+    func testEditDashboardVisibilityControlsIncludeLaterReleaseSections() throws {
+        let app = launchDemo()
+
+        app.buttons["Edit dashboard"].tap()
+        XCTAssertTrue(app.navigationBars["Edit dashboard"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.switches["Show 5-hour limit"].exists)
+        XCTAssertTrue(app.switches["Show Weekly limit"].exists)
+        XCTAssertTrue(app.switches["Show Monthly limit"].exists)
+        XCTAssertTrue(app.switches["Show Usage history"].exists)
+        XCTAssertTrue(app.switches["Show Reset credits"].exists)
+
+        app.switches["Show Weekly limit"].tap()
+        app.switches["Show Usage history"].tap()
+        app.buttons["Done"].tap()
+
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["Weekly"].exists)
+        XCTAssertTrue(app.staticTexts["Reset credits"].exists)
     }
 
     func testSignedOutAndSignInPresentation() throws {
@@ -45,6 +67,9 @@ final class CodexMeterUITests: XCTestCase {
     func testResetRequiresIrreversibleConfirmation() throws {
         let app = launchDemo()
 
+        for _ in 0..<4 where !app.buttons["Use 1 reset"].exists {
+            app.swipeUp()
+        }
         XCTAssertTrue(app.buttons["Use 1 reset"].waitForExistence(timeout: 5))
         app.buttons["Use 1 reset"].tap()
         XCTAssertTrue(app.navigationBars["Codex reset"].waitForExistence(timeout: 3))

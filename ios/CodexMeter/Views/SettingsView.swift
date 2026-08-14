@@ -1,10 +1,14 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var confirmingSignOut = false
+    @State private var isExportingSettings = false
+    @State private var isImportingSettings = false
+    @State private var transferMessage: String?
 
     var body: some View {
         @Bindable var model = model
@@ -45,15 +49,22 @@ struct SettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    DashboardEditView()
+                } label: {
+                    Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                }
                 Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
                 Toggle("Weekly limit", isOn: $model.settings.showWeekly)
-                Toggle("Additional limits", isOn: $model.settings.showAdditionalLimits)
+                Toggle("Monthly limit", isOn: $model.settings.showMonthly)
+                Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
                 Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
+                Toggle("Usage history", isOn: $model.settings.showUsageHistory)
                 Toggle("Reset credits", isOn: $model.settings.showResetCredits)
             } header: {
                 Text("Dashboard")
             } footer: {
-                Text("Enabled items still appear only when OpenAI returns data for them. Usage-credit balance and reset credits also stay hidden when the inventory is zero. Additional limits include temporary model-specific allowances.")
+                Text("Enabled cards still appear only when data is available. Edit dashboard also controls order and individual model-specific limits.")
             }
 
             Section {
@@ -73,7 +84,7 @@ struct SettingsView: View {
                 Text("Refresh")
             } footer: {
                 Text(model.settings.refreshMode == .automatic
-                    ? "Automatic adapts on device to remaining usage, app attention, reset timing, quiet hours, and recent failures. iOS still decides when background work runs."
+                    ? "Automatic adapts on device to remaining usage, reset timing, recent attention, quiet hours, accelerated usage, and failures. iOS still decides when background work runs."
                     : "iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
             }
 
@@ -130,6 +141,38 @@ struct SettingsView: View {
             .disabled(model.mode == .signedOut)
 
             Section {
+                NavigationLink {
+                    UsageHistoryView()
+                } label: {
+                    Label("View usage history", systemImage: "chart.xyaxis.line")
+                }
+                Button {
+                    isExportingSettings = true
+                } label: {
+                    Label("Export settings", systemImage: "square.and.arrow.up")
+                }
+                Button {
+                    isImportingSettings = true
+                } label: {
+                    Label("Import settings", systemImage: "square.and.arrow.down")
+                }
+            } header: {
+                Text("Data")
+            } footer: {
+                Text("Usage samples stay on this device. Settings exports include dashboard order, visibility, and hidden model-specific sections, but never credentials or usage data.")
+            }
+
+            if model.diagnosticsUnlocked {
+                Section {
+                    NavigationLink("Diagnostics") {
+                        DiagnosticsView()
+                    }
+                } footer: {
+                    Text("Opt-in tracing writes sanitized JSONL logs on this device. Credentials, emails, JWTs, and OAuth query parameters are redacted.")
+                }
+            }
+
+            Section {
                 NavigationLink("About Codex Meter") {
                     AboutView()
                 }
@@ -165,6 +208,55 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Credentials and cached account data will be removed from this device and its widgets.")
+        }
+        .fileExporter(
+            isPresented: $isExportingSettings,
+            document: SettingsTransferDocument(settings: model.settings),
+            contentType: .json,
+            defaultFilename: "CodexMeter-Settings"
+        ) { result in
+            switch result {
+            case .success:
+                transferMessage = "Settings exported."
+            case let .failure(error):
+                transferMessage = "Settings could not be exported: \(error.localizedDescription)"
+            }
+        }
+        .fileImporter(
+            isPresented: $isImportingSettings,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            do {
+                let urls = try result.get()
+                guard let url = urls.first else {
+                    throw CocoaError(.fileReadNoSuchFile)
+                }
+                let isScoped = url.startAccessingSecurityScopedResource()
+                defer {
+                    if isScoped {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
+                let imported = try SettingsTransferDocument.decode(
+                    Data(contentsOf: url, options: [.mappedIfSafe, .uncached])
+                )
+                model.save(settings: imported)
+                transferMessage = "Settings imported."
+            } catch {
+                transferMessage = "Settings could not be imported: \(error.localizedDescription)"
+            }
+        }
+        .alert(
+            "Settings transfer",
+            isPresented: Binding(
+                get: { transferMessage != nil },
+                set: { if !$0 { transferMessage = nil } }
+            )
+        ) {
+            Button("OK") { transferMessage = nil }
+        } message: {
+            Text(transferMessage ?? "")
         }
     }
 
