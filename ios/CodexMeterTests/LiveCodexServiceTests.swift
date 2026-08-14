@@ -57,6 +57,42 @@ final class LiveCodexServiceTests: XCTestCase {
         XCTAssertEqual(counts.read()["/backend-api/wham/rate-limit-reset-credits"], 1)
     }
 
+    func testMonthlyOnlyGoResponseSurvivesRefreshAndIsDisplayable() async throws {
+        CodexMeterURLProtocol.reset()
+        defer { CodexMeterURLProtocol.reset() }
+        let session = makeStubbedSession()
+        defer { session.invalidateAndCancel() }
+        let paths = makeCachePaths()
+        defer { paths.remove() }
+
+        CodexMeterURLProtocol.configure { request in
+            switch request.url?.path {
+            case "/backend-api/wham/usage":
+                return try .json(goMonthlyUsageResponse(used: 33))
+            case "/backend-api/wham/rate-limit-reset-credits":
+                return try .json(creditsResponse(count: 0))
+            default:
+                return StubbedHTTPResponse(statusCode: 500)
+            }
+        }
+
+        let service = makeLiveService(
+            session: session,
+            store: MemoryTokenStore(validTokens()),
+            paths: paths
+        )
+        let result = try await service.refresh()
+
+        XCTAssertEqual(result.usage.planType, "go")
+        XCTAssertNil(result.usage.fiveHour)
+        XCTAssertNil(result.usage.weekly)
+        XCTAssertEqual(result.usage.monthly?.usedPercent, 33)
+        XCTAssertEqual(result.usage.monthly?.windowSeconds, 2_592_000)
+        XCTAssertTrue(result.usage.longWindowIsMonthly)
+        XCTAssertTrue(result.usage.hasDisplayableData)
+        XCTAssertNotNil(result.usage.monthly?.resetAt)
+    }
+
     func testSecondUnauthorizedResponseIsNotRetriedAgain() async throws {
         CodexMeterURLProtocol.reset()
         defer { CodexMeterURLProtocol.reset() }

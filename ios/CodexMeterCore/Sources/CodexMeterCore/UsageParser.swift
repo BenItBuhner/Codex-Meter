@@ -80,24 +80,37 @@ public enum UsageParser {
             }
         }
 
-        let fiveHour = nearest(
+        var fiveHour = nearest(
             in: primaryCandidates,
             target: fiveHours,
             range: 10_800 ... 28_800,
             excluding: []
         )
-        let weekly = nearest(
+        var weekly = nearest(
             in: primaryCandidates,
             target: week,
             range: 432_000 ... 777_600,
             excluding: fiveHour.map { [$0.id] } ?? []
         )
-        let monthly = nearest(
+        var monthly = nearest(
             in: primaryCandidates,
             target: month,
             range: monthRange,
             excluding: [fiveHour?.id, weekly?.id].compactMap { $0 }
         )
+
+        // Go and similar plans sometimes report a single window just outside the
+        // standard 5-hour / weekly / 10–45-day buckets. Keep that window visible.
+        if fiveHour == nil, weekly == nil, monthly == nil,
+           let leftover = longest(in: primaryCandidates, excluding: []) {
+            if leftover.window.windowSeconds >= monthRange.lowerBound {
+                monthly = leftover
+            } else if leftover.window.windowSeconds >= 86_400 {
+                weekly = leftover
+            } else {
+                fiveHour = leftover
+            }
+        }
 
         let resetCredits = JSONSupport.object(root["rate_limit_reset_credits"])
         let rawAvailableCount = resetCredits.map {
@@ -198,6 +211,15 @@ public enum UsageParser {
             }
         }
         return best
+    }
+
+    private static func longest(
+        in candidates: [Candidate],
+        excluding excludedIDs: [Int]
+    ) -> Candidate? {
+        candidates
+            .filter { !excludedIDs.contains($0.id) }
+            .max { $0.window.windowSeconds < $1.window.windowSeconds }
     }
 
     private static func absoluteDifference(_ lhs: Int64, _ rhs: Int64) -> Int64 {

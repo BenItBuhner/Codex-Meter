@@ -206,6 +206,30 @@ final class UsageParserTests: XCTestCase {
         )
     }
 
+    func testUnrecognizedSingleWindowStillDisplaysForGoStylePlans() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "plan_type": "go",
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 41,
+                  "limit_window_seconds": 5184000
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+        XCTAssertEqual(snapshot.monthly?.usedPercent, 41)
+        XCTAssertEqual(snapshot.monthly?.windowSeconds, 5_184_000)
+        XCTAssertTrue(snapshot.hasDisplayableData)
+        XCTAssertTrue(snapshot.longWindowIsMonthly)
+    }
+
     func testWeeklyAndCreditsCanExistWithoutFiveHourWindow() throws {
         let snapshot = try UsageParser.parse(
             """

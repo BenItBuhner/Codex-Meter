@@ -293,6 +293,7 @@ public actor LiveCodexService: CodexService {
             limitReached: parsed.limitReached,
             fiveHour: resolvingResetDate(in: parsed.fiveHour, relativeTo: fetchedAt),
             weekly: resolvingResetDate(in: parsed.weekly, relativeTo: fetchedAt),
+            monthly: resolvingResetDate(in: parsed.monthly, relativeTo: fetchedAt),
             resetCreditsAvailable: parsed.resetCreditsAvailable,
             additionalLimits: parsed.additionalLimits.map {
                 UsageLimit(
@@ -334,6 +335,7 @@ public actor LiveCodexService: CodexService {
             limitReached: usage.limitReached,
             fiveHour: usage.fiveHour,
             weekly: usage.weekly,
+            monthly: usage.monthly,
             resetCreditsAvailable: count,
             additionalLimits: usage.additionalLimits,
             usageCredits: usage.usageCredits,
