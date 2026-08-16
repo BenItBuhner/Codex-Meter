@@ -18,10 +18,16 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Mode"].exists)
         XCTAssertTrue(app.buttons["Leave Demo"].exists)
-        for _ in 0..<6 where !app.buttons["Send test notification"].exists {
+        // Assert in scroll order: "System permission" sits above "Send test
+        // notification" in the Notifications section, and scrolling straight to
+        // the button can cull the earlier row out of the lazy Form hierarchy.
+        for _ in 0..<6 where !app.staticTexts["System permission"].exists {
             app.swipeUp()
         }
         XCTAssertTrue(app.staticTexts["System permission"].waitForExistence(timeout: 3))
+        for _ in 0..<6 where !app.buttons["Send test notification"].exists {
+            app.swipeUp()
+        }
         XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 3))
     }
 
