@@ -1,0 +1,119 @@
+name: iOS CI
+
+on:
+  pull_request:
+    branches: [main, alpha]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  core-tests:
+    name: CodexMeterCore package tests
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show Swift toolchain
+        shell: bash
+        run: swift --version
+
+      - name: Run CodexMeterCore tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test --package-path CodexMeterCore
+
+  app-build-and-test:
+    name: App build and simulator tests
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show Xcode version
+        shell: bash
+        run: xcodebuild -version
+
+      - name: Select iPhone simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available
+          DEVICE="iPhone 17e"
+          if ! xcrun simctl list devices available | grep -Fq "$DEVICE ("; then
+            DEVICE="$(xcrun simctl list devices available \
+              | sed -nE 's/^[[:space:]]+(iPhone [A-Za-z0-9 ]*[A-Za-z0-9]) \(.*/\1/p' \
+              | head -n 1)"
+          fi
+          if [[ -z "$DEVICE" ]]; then
+            echo "::error::No available iPhone simulator on this runner image"
+            exit 1
+          fi
+          echo "Using simulator: $DEVICE"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      - name: Build app for generic iOS Simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v xcbeautify >/dev/null 2>&1; then
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath DerivedData \
+              CODE_SIGNING_ALLOWED=NO build \
+              | xcbeautify --renderer github-actions
+          else
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath DerivedData \
+              CODE_SIGNING_ALLOWED=NO build
+          fi
+
+      - name: Run unit and UI tests on simulator
+        shell: bash
+        env:
+          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
+        run: |
+          set -euo pipefail
+          if command -v xcbeautify >/dev/null 2>&1; then
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
+              -derivedDataPath DerivedData \
+              -resultBundlePath TestResults.xcresult \
+              -parallel-testing-enabled NO test \
+              | xcbeautify --renderer github-actions
+          else
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
+              -derivedDataPath DerivedData \
+              -resultBundlePath TestResults.xcresult \
+              -parallel-testing-enabled NO test
+          fi
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-test-results
+          path: ios/TestResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 3
