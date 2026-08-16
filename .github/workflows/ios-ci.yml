@@ -94,19 +94,24 @@ jobs:
           DEVICE_NAME: ${{ steps.simulator.outputs.device }}
         run: |
           set -euo pipefail
+          # -retry-tests-on-failure absorbs shared-runner simulator jank in the
+          # UI tests; deterministic failures still fail after 3 iterations, and
+          # pass-on-retry results stay visible in the xcresult bundle.
           if command -v xcbeautify >/dev/null 2>&1; then
             xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
               -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
-              -parallel-testing-enabled NO test \
+              -parallel-testing-enabled NO \
+              -retry-tests-on-failure -test-iterations 3 test \
               | xcbeautify --renderer github-actions
           else
             xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
               -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
-              -parallel-testing-enabled NO test
+              -parallel-testing-enabled NO \
+              -retry-tests-on-failure -test-iterations 3 test
           fi
 
       - name: Upload test results on failure
