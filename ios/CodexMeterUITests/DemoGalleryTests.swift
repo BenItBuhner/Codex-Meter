@@ -76,7 +76,7 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Usage history"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("11-usage-history")
-        tapBack(in: app, to: "Settings")
+        tapBack(in: app, from: "Usage history", to: "Settings")
 
         UITestSupport.scrollForm(untilExists: app.staticTexts["About Codex Meter"], in: app)
         if !UITestSupport.tap(app.buttons["About Codex Meter"]) {
@@ -85,7 +85,7 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["About"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("12-about")
-        tapBack(in: app, to: "Settings")
+        tapBack(in: app, from: "About", to: "Settings")
 
         scrollSettingsToTop(in: app)
         UITestSupport.settle(0.3)
@@ -118,12 +118,12 @@ final class DemoGalleryTests: XCTestCase {
         gallery.save(name, test: self)
     }
 
-    private func tapBack(in app: XCUIApplication, to title: String) {
-        let back = app.navigationBars.buttons[title]
-        if back.exists {
-            UITestSupport.tap(back)
+    private func tapBack(in app: XCUIApplication, from current: String, to title: String) {
+        let bar = app.navigationBars[current]
+        if bar.buttons["BackButton"].exists {
+            UITestSupport.tap(bar.buttons["BackButton"])
         } else {
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            UITestSupport.tap(bar.buttons[title])
         }
         _ = app.navigationBars[title].waitForExistence(timeout: 4)
         UITestSupport.settle(0.4)

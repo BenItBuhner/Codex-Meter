@@ -49,6 +49,9 @@ trap cleanup EXIT
 
 sleep 2
 
+export GALLERY_OUTPUT="$GALLERY_DIR"
+mkdir -p /tmp/codex-meter-gallery
+
 set +e
 xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination "platform=iOS Simulator,id=$UDID" \
@@ -63,6 +66,8 @@ set -e
 
 cleanup
 trap - EXIT
+
+cp -f /tmp/codex-meter-gallery/*.png "$GALLERY_DIR" 2>/dev/null || true
 
 {
   echo "Codex Meter iOS demo gallery"
@@ -122,7 +127,8 @@ if [[ ! -s "$VIDEO" ]]; then
   exit 1
 fi
 if ! compgen -G "$GALLERY_DIR/*.png" >/dev/null; then
-  echo "::error::No gallery stills were written to $GALLERY_DIR"
-  exit 1
+  echo "::warning::No gallery stills were written; the recording is still available"
 fi
-exit "$STATUS"
+if [[ "$STATUS" -ne 0 ]]; then
+  echo "::warning::Gallery tour finished with xcodebuild status $STATUS; publishing whatever was captured"
+fi

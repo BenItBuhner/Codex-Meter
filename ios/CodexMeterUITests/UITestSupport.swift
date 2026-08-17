@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 enum UITestSupport {
     static func launch(arguments: [String]) -> XCUIApplication {
         let app = XCUIApplication()
@@ -14,11 +15,12 @@ enum UITestSupport {
 
     @discardableResult
     static func tap(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
-        guard element.waitForExistence(timeout: timeout) else { return false }
-        if element.isHittable {
-            element.tap()
+        let target = element.firstMatch
+        guard target.waitForExistence(timeout: timeout) else { return false }
+        if target.isHittable {
+            target.tap()
         } else {
-            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
         return true
     }
@@ -33,8 +35,9 @@ enum UITestSupport {
         in app: XCUIApplication,
         maxAttempts: Int = 10
     ) {
+        let target = element.firstMatch
         let anchors: [CGFloat] = [0.85, 0.45]
-        for attempt in 0..<maxAttempts where !element.isHittable {
+        for attempt in 0..<maxAttempts where !target.isHittable {
             let dy = anchors[attempt % anchors.count]
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - 0.35))
@@ -47,28 +50,35 @@ enum UITestSupport {
         in app: XCUIApplication,
         maxAttempts: Int = 8
     ) {
-        for _ in 0..<maxAttempts where !element.exists {
+        let target = element.firstMatch
+        for _ in 0..<maxAttempts where !target.exists {
             app.swipeUp()
         }
     }
 }
 
 struct DemoGalleryCapture {
-    let directory: URL
+    static let fallbackPath = "/tmp/codex-meter-gallery"
+
+    let directories: [URL]
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
-        let path = environment["GALLERY_OUTPUT"]
-            ?? FileManager.default.temporaryDirectory
-                .appendingPathComponent("codex-meter-gallery", isDirectory: true)
-                .path
-        directory = URL(fileURLWithPath: path, isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var paths = [Self.fallbackPath]
+        if let configured = environment["GALLERY_OUTPUT"], !configured.isEmpty {
+            paths.insert(configured, at: 0)
+        }
+        directories = paths.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        for directory in directories {
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
     }
 
     func save(_ name: String, test: XCTestCase) {
         let screenshot = XCUIScreen.main.screenshot()
-        let file = directory.appendingPathComponent("\(name).png")
-        try? screenshot.pngRepresentation.write(to: file)
+        let data = screenshot.pngRepresentation
+        for directory in directories {
+            try? data.write(to: directory.appendingPathComponent("\(name).png"))
+        }
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
