@@ -40,7 +40,7 @@ jobs:
   app-build-and-test:
     name: App build and simulator tests
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 70
     defaults:
       run:
         working-directory: ios
@@ -103,6 +103,7 @@ jobs:
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
               -parallel-testing-enabled NO \
+              -skip-testing:CodexMeterUITests/DemoGalleryTests \
               -retry-tests-on-failure -test-iterations 3 test \
               | xcbeautify --renderer github-actions
           else
@@ -111,14 +112,60 @@ jobs:
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
               -parallel-testing-enabled NO \
+              -skip-testing:CodexMeterUITests/DemoGalleryTests \
               -retry-tests-on-failure -test-iterations 3 test
           fi
+
+      - name: Record demo gallery
+        if: (success() || failure()) && steps.simulator.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        env:
+          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
+        run: |
+          set -euo pipefail
+          chmod +x ci/record-demo-gallery.sh
+          ./ci/record-demo-gallery.sh "$DEVICE_NAME" "$PWD/ci-gallery" DerivedData
+
+      - name: Summarize demo gallery
+        if: success() || failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## iOS demo gallery"
+            echo
+            echo "Download the **ios-demo-gallery** artifact on this run to watch the screen recording and flip through stills."
+            echo
+            echo "- \`codex-meter-demo.mp4\` — full offline demo tour"
+            echo "- \`index.html\` — stills + video in visit order"
+            echo "- numbered PNGs — one capture per screen"
+            echo
+            if [[ -d ci-gallery ]]; then
+              echo "### Files"
+              echo
+              echo '```'
+              ls -1 ci-gallery
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload demo gallery
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-demo-gallery
+          path: ios/ci-gallery/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: ios-test-results
-          path: ios/TestResults.xcresult
+          path: |
+            ios/TestResults.xcresult
+            ios/GalleryResults.xcresult
           if-no-files-found: ignore
           retention-days: 3
