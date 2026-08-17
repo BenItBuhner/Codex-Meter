@@ -46,7 +46,8 @@ struct UsageMeterCard: View {
                         .contentTransition(.numericText())
                 }
 
-                if let window, let resetAt = window.effectiveResetDate(relativeTo: fetchedAt) {
+                if let window, window.showsResetCountdown,
+                   let resetAt = window.effectiveResetDate(relativeTo: fetchedAt) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Resets in")
                             .font(.caption)
@@ -58,8 +59,8 @@ struct UsageMeterCard: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                } else {
-                    Text(window == nil ? "Waiting for data" : "Reset time unavailable")
+                } else if window == nil {
+                    Text("Waiting for data")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

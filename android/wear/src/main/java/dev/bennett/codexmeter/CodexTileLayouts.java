@@ -367,7 +367,7 @@ final class CodexTileLayouts {
     }
 
     private static String resetCopy(UsageWindow window, long observedAtMillis, long nowMillis) {
-        if (window == null) return "Reset unavailable";
+        if (window == null || !window.showsResetCountdown()) return "Reset unavailable";
         long resetAt = window.effectiveResetAtMillis(observedAtMillis);
         if (resetAt <= nowMillis) return "Resets soon";
         long minutes = Math.max(1L,
