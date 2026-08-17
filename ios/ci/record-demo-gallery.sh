@@ -84,19 +84,18 @@ import pathlib, sys
 root = pathlib.Path(sys.argv[1])
 stills = sorted(root.glob("*.png"))
 video = root / "codex-meter-demo.mp4"
-rows = []
+figures = []
 for still in stills:
-    rows.append(
+    figures.append(
         f'<figure><img src="{still.name}" alt="{still.stem}">'
         f"<figcaption>{still.stem}</figcaption></figure>"
     )
-video_tag = (
+video_block = (
     f'<p><video src="{video.name}" controls playsinline></video></p>'
     if video.exists()
     else "<p>Video was not produced.</p>"
 )
-root.joinpath("index.html").write_text(
-    """<!doctype html>
+html = """<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -111,15 +110,12 @@ root.joinpath("index.html").write_text(
 <body>
   <h1>Codex Meter iOS demo gallery</h1>
   <p>Screen recording of the offline demo tour, then stills in visit order.</p>
-  %s
-  <h2>Stills</h2>
-  %s
-</body>
-</html>
 """
-    % (video_tag, "\n  ".join(rows)),
-    encoding="utf-8",
-)
+html += video_block
+html += "<h2>Stills</h2>\n"
+html += "\n".join(figures)
+html += "\n</body>\n</html>\n"
+root.joinpath("index.html").write_text(html, encoding="utf-8")
 PY
 
 if [[ ! -s "$VIDEO" ]]; then
