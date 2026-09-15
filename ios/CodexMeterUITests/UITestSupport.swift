@@ -30,19 +30,39 @@ enum UITestSupport {
     /// it swallows any scroll gesture that starts inside its plot area. The two
     /// anchors are farther apart than the plot is tall, so the chart can never
     /// capture two consecutive attempts and scrolling always makes progress.
+    ///
+    /// Visibility is judged from the element frame rather than `isHittable`:
+    /// resolving hit points for a card clipped at the scroll edge can stall
+    /// XCUITest for minutes before it throws, whereas a frame query is cheap.
     static func scrollDashboard(
-        untilHittable element: XCUIElement,
+        untilVisible element: XCUIElement,
         in app: XCUIApplication,
         maxAttempts: Int = 10
     ) {
         let target = element.firstMatch
         let anchors: [CGFloat] = [0.85, 0.45]
-        for attempt in 0..<maxAttempts where !target.isHittable {
+        for attempt in 0..<maxAttempts where !isFullyVisible(target, in: app) {
             let dy = anchors[attempt % anchors.count]
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - 0.35))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
+    }
+
+    /// True when the element exists and sits inside the window, clear of the
+    /// navigation bar at the top and of the bottom edge.
+    static func isFullyVisible(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard !frame.isEmpty else { return false }
+        let window = app.frame
+        let visibleArea = CGRect(
+            x: window.minX,
+            y: window.minY + 120,
+            width: window.width,
+            height: window.height - 120 - 60
+        )
+        return visibleArea.contains(frame)
     }
 
     static func scrollForm(

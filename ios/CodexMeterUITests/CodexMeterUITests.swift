@@ -73,7 +73,7 @@ final class CodexMeterUITests: XCTestCase {
     func testResetRequiresIrreversibleConfirmation() throws {
         let app = launchDemo()
 
-        UITestSupport.scrollDashboard(untilHittable: app.buttons["Use 1 reset"], in: app)
+        UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app)
         XCTAssertTrue(app.buttons["Use 1 reset"].waitForExistence(timeout: 5))
         app.buttons["Use 1 reset"].tap()
         XCTAssertTrue(app.navigationBars["Codex reset"].waitForExistence(timeout: 3))

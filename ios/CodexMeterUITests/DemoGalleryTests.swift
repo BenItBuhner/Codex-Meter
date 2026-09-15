@@ -37,11 +37,11 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.2)
         capture("03-demo-dashboard")
 
-        UITestSupport.scrollDashboard(untilHittable: app.staticTexts["Usage history"], in: app)
+        UITestSupport.scrollDashboard(untilVisible: app.staticTexts["Usage history"], in: app)
         UITestSupport.settle(0.6)
         capture("04-demo-usage-history")
 
-        UITestSupport.scrollDashboard(untilHittable: app.buttons["Use 1 reset"], in: app)
+        UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app)
         UITestSupport.settle(0.6)
         capture("05-demo-reset-credits")
 
