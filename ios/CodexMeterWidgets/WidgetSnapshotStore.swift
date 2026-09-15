@@ -224,7 +224,7 @@ private extension WidgetDisplaySnapshot {
         return WidgetUsageWindow(
             usedPercent: Double(window.usedPercent),
             durationSeconds: TimeInterval(window.windowSeconds),
-            resetsAt: window.resetAfterSeconds > 0 || window.resetAt != nil ? effectiveReset : nil
+            resetsAt: window.showsResetCountdown ? effectiveReset : nil
         )
     }
 }

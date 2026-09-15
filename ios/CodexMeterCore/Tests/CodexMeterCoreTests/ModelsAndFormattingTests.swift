@@ -20,6 +20,7 @@ final class ModelsAndFormattingTests: XCTestCase {
         XCTAssertEqual(fiveHour.remainingPercent, 0)
         XCTAssertEqual(fiveHour.windowSeconds, 0)
         XCTAssertEqual(fiveHour.effectiveResetDate(relativeTo: now), now.addingTimeInterval(60))
+        XCTAssertTrue(fiveHour.showsResetCountdown)
         XCTAssertTrue(fiveHour.hasRemainingAllowance(atOrBelow: 10))
         XCTAssertNil(
             UsageWindow(
@@ -208,6 +209,33 @@ final class ModelsAndFormattingTests: XCTestCase {
         XCTAssertEqual(ResetConsumeOutcome(code: "future_code"), .unknown("future_code"))
     }
 
+    func testResetCountdownFollowsApiTimeline() {
+        let unusedNoReset = UsageWindow(usedPercent: 0, windowSeconds: 18_000)
+        let unusedWithResetAt = UsageWindow(
+            usedPercent: 0,
+            windowSeconds: 18_000,
+            resetAt: Date(timeIntervalSince1970: 2_000_000_000)
+        )
+        let unusedWithResetAfter = UsageWindow(
+            usedPercent: 0,
+            windowSeconds: 18_000,
+            resetAfterSeconds: 600
+        )
+        let usedNoReset = UsageWindow(usedPercent: 37, windowSeconds: 18_000)
+        let usedWithReset = UsageWindow(
+            usedPercent: 37,
+            windowSeconds: 18_000,
+            resetAfterSeconds: 600,
+            resetAt: Date(timeIntervalSince1970: 2_000_000_000)
+        )
+        XCTAssertEqual(unusedNoReset.remainingPercent, 100)
+        XCTAssertFalse(unusedNoReset.showsResetCountdown)
+        XCTAssertTrue(unusedWithResetAt.showsResetCountdown)
+        XCTAssertTrue(unusedWithResetAfter.showsResetCountdown)
+        XCTAssertFalse(usedNoReset.showsResetCountdown)
+        XCTAssertTrue(usedWithReset.showsResetCountdown)
+    }
+
     func testUsageFormattingMatchesUpstreamLabelsAndDurations() {
         XCTAssertEqual(UsageFormat.planLabel(" pro-lite "), "Pro 5x")
         XCTAssertEqual(UsageFormat.planLabel("pro_20x"), "Pro 20x")
@@ -228,6 +256,28 @@ final class ModelsAndFormattingTests: XCTestCase {
             "in 1h 5m"
         )
         XCTAssertEqual(UsageFormat.relative(until: now.addingTimeInterval(59), from: now), "now")
+        XCTAssertEqual(
+            UsageFormat.reset(
+                UsageWindow(usedPercent: 0, windowSeconds: 18_000),
+                display: .relative,
+                fetchedAt: now,
+                now: now
+            ),
+            ""
+        )
+        XCTAssertEqual(
+            UsageFormat.reset(
+                UsageWindow(
+                    usedPercent: 0,
+                    windowSeconds: 18_000,
+                    resetAfterSeconds: 600
+                ),
+                display: .relative,
+                fetchedAt: now,
+                now: now
+            ),
+            "Resets in 10m"
+        )
         XCTAssertEqual(UsageFormat.updated(fetchedAt: now, now: now), "Updated just now")
         XCTAssertEqual(
             UsageFormat.updated(fetchedAt: now, now: now.addingTimeInterval(25 * 3_600)),

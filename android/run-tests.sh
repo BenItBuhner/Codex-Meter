@@ -642,6 +642,9 @@ grep -q 'resetPaint.setColor(foreground);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 grep -q 'showsResetCountdown' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
+grep -q 'testResetCountdownFollowsApiTimeline' "$ROOT/tests/ParserSelfTest.java"
+! grep -q 'remainingPercent() <= 99' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
 grep -q 'testUsagePace' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'UsagePace.mostAcceleratedWindow' "$ROOT/tests/ParserSelfTest.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"

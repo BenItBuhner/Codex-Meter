@@ -25,6 +25,13 @@ public struct UsageWindow: Codable, Sendable, Equatable {
         min(100, max(0, 100 - usedPercent))
     }
 
+    /// Whether OpenAI reported a reset timeline for this window.
+    /// Unused windows with no `reset_at` / `reset_after_seconds` stay blank.
+    /// A 100% remaining window that still includes a timeline is shown as-is.
+    public var showsResetCountdown: Bool {
+        resetAt != nil || resetAfterSeconds > 0
+    }
+
     public func effectiveResetDate(relativeTo referenceDate: Date) -> Date? {
         if let resetAt {
             return resetAt
