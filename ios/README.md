@@ -40,6 +40,12 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 The signed-out screen includes an offline demo mode. Automated tests never
 contact OpenAI.
 
+iOS CI (`.github/workflows/ios-ci.yml`) runs the same commands on a macOS
+runner for every iOS pull request and uploads an `ios-demo-gallery` artifact:
+a screen recording plus numbered stills of the offline demo tour
+(`CodexMeterUITests/DemoGalleryTests`, recorded by `ci/record-demo-gallery.sh`).
+The tour is skipped in the correctness run and never fails the build.
+
 ## Layout
 
 | Path | Role |
@@ -48,7 +54,8 @@ contact OpenAI.
 | `CodexMeterWidgets/` | WidgetKit extension |
 | `CodexMeterCore/` | Shared models/parsers (local Swift package) |
 | `CodexMeterTests/` | Unit tests |
-| `CodexMeterUITests/` | UI tests |
+| `CodexMeterUITests/` | UI tests and the demo gallery tour |
+| `ci/` | Demo gallery recording script used by iOS CI |
 
 ## Data and stability
 
