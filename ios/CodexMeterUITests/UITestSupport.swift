@@ -57,28 +57,21 @@ enum UITestSupport {
     }
 }
 
+/// Writes the gallery stills and start/finish markers to a fixed staging
+/// directory on the host that ci/record-demo-gallery.sh clears, polls, and
+/// copies from. The simulator shares the host file system, so a plain path is
+/// the one channel that works without relying on test-runner environment
+/// variables reaching the UI test process.
 struct DemoGalleryCapture {
-    static let fallbackPath = "/tmp/codex-meter-gallery"
+    static let stagingDirectory = URL(fileURLWithPath: "/tmp/codex-meter-gallery", isDirectory: true)
 
-    let directories: [URL]
-
-    init(environment: [String: String] = ProcessInfo.processInfo.environment) {
-        var paths = [Self.fallbackPath]
-        if let configured = environment["GALLERY_OUTPUT"], !configured.isEmpty {
-            paths.insert(configured, at: 0)
-        }
-        directories = paths.map { URL(fileURLWithPath: $0, isDirectory: true) }
-        for directory in directories {
-            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        }
+    init() {
+        try? FileManager.default.createDirectory(at: Self.stagingDirectory, withIntermediateDirectories: true)
     }
 
     func save(_ name: String, test: XCTestCase) {
         let screenshot = XCUIScreen.main.screenshot()
-        let data = screenshot.pngRepresentation
-        for directory in directories {
-            try? data.write(to: directory.appendingPathComponent("\(name).png"))
-        }
+        try? screenshot.pngRepresentation.write(to: Self.stagingDirectory.appendingPathComponent("\(name).png"))
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
@@ -87,11 +80,9 @@ struct DemoGalleryCapture {
 
     /// Drops an empty `.name` marker file that the recording script polls for.
     func mark(_ name: String) {
-        for directory in directories {
-            _ = FileManager.default.createFile(
-                atPath: directory.appendingPathComponent(".\(name)").path,
-                contents: nil
-            )
-        }
+        _ = FileManager.default.createFile(
+            atPath: Self.stagingDirectory.appendingPathComponent(".\(name)").path,
+            contents: nil
+        )
     }
 }

@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # Records the offline demo tour (CodexMeterUITests/DemoGalleryTests) on an
-# iPhone simulator. The test drops `.tour-started` / `.tour-finished` markers
-# in the gallery directory; recording runs only between them, so the video
-# shows the app rather than the simulator booting or xcodebuild tearing down.
+# iPhone simulator. The test writes its stills and `.tour-started` /
+# `.tour-finished` markers to /tmp/codex-meter-gallery on the host; recording
+# runs only between the markers, so the video shows the app rather than the
+# simulator booting or xcodebuild tearing down.
 set -euo pipefail
 
 DEVICE_NAME="${1:?device name required}"
 GALLERY_DIR="${2:?gallery directory required}"
 DERIVED_DATA="${3:-DerivedData}"
 
-mkdir -p "$GALLERY_DIR"
-START_MARKER="$GALLERY_DIR/.tour-started"
-END_MARKER="$GALLERY_DIR/.tour-finished"
-rm -f "$START_MARKER" "$END_MARKER"
+STAGING_DIR="/tmp/codex-meter-gallery"
+START_MARKER="$STAGING_DIR/.tour-started"
+END_MARKER="$STAGING_DIR/.tour-finished"
+rm -rf "$STAGING_DIR"
+mkdir -p "$STAGING_DIR" "$GALLERY_DIR"
 
 UDID="$(xcrun simctl list devices available -j | python3 -c '
 import json, sys
@@ -59,7 +61,6 @@ cleanup() {
     kill "$XCODEBUILD_PID" 2>/dev/null || true
   fi
   xcrun simctl status_bar "$UDID" clear >/dev/null 2>&1 || true
-  rm -f "$START_MARKER" "$END_MARKER"
 }
 trap cleanup EXIT
 
@@ -69,7 +70,6 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -resultBundlePath GalleryResults.xcresult \
   -parallel-testing-enabled NO \
   -only-testing:CodexMeterUITests/DemoGalleryTests \
-  TEST_RUNNER_GALLERY_OUTPUT="$GALLERY_DIR" \
   test &
 XCODEBUILD_PID=$!
 
@@ -95,7 +95,7 @@ STATUS=$?
 set -e
 XCODEBUILD_PID=""
 
-cp -f /tmp/codex-meter-gallery/*.png "$GALLERY_DIR" 2>/dev/null || true
+cp -f "$STAGING_DIR"/*.png "$GALLERY_DIR" 2>/dev/null || true
 
 if [[ ! -s "$VIDEO" ]]; then
   echo "::error::Demo recording was not written to $VIDEO"

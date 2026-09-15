@@ -1,9 +1,9 @@
 import XCTest
 
 /// Walks the offline demo for humans who have no iPhone or Mac.
-/// Writes numbered PNGs to $GALLERY_OUTPUT and is recorded by CI via simctl.
-/// `.tour-started` / `.tour-finished` markers in the same directory tell
-/// ci/record-demo-gallery.sh when to start and stop the screen recording.
+/// Writes numbered PNGs to /tmp/codex-meter-gallery and is recorded by CI via
+/// simctl; `.tour-started` / `.tour-finished` markers in the same directory
+/// tell ci/record-demo-gallery.sh when to start and stop the recording.
 @MainActor
 final class DemoGalleryTests: XCTestCase {
     private var gallery: DemoGalleryCapture!
