@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Records the offline demo tour (CodexMeterUITests/DemoGalleryTests) on an
+# iPhone simulator. The test drops `.tour-started` / `.tour-finished` markers
+# in the gallery directory; recording runs only between them, so the video
+# shows the app rather than the simulator booting or xcodebuild tearing down.
 set -euo pipefail
 
 DEVICE_NAME="${1:?device name required}"
@@ -6,6 +10,9 @@ GALLERY_DIR="${2:?gallery directory required}"
 DERIVED_DATA="${3:-DerivedData}"
 
 mkdir -p "$GALLERY_DIR"
+START_MARKER="$GALLERY_DIR/.tour-started"
+END_MARKER="$GALLERY_DIR/.tour-finished"
+rm -f "$START_MARKER" "$END_MARKER"
 
 UDID="$(xcrun simctl list devices available -j | python3 -c '
 import json, sys
@@ -35,24 +42,27 @@ xcrun simctl status_bar "$UDID" override \
   --batteryLevel 100
 
 VIDEO="$GALLERY_DIR/codex-meter-demo.mp4"
-xcrun simctl io "$UDID" recordVideo --codec=h264 --force --display=internal "$VIDEO" &
-RECORD_PID=$!
+RECORD_PID=""
+XCODEBUILD_PID=""
 
-cleanup() {
-  if kill -0 "$RECORD_PID" 2>/dev/null; then
+stop_recording() {
+  if [[ -n "$RECORD_PID" ]] && kill -0 "$RECORD_PID" 2>/dev/null; then
     kill -INT "$RECORD_PID" 2>/dev/null || true
     wait "$RECORD_PID" 2>/dev/null || true
   fi
+  RECORD_PID=""
+}
+
+cleanup() {
+  stop_recording
+  if [[ -n "$XCODEBUILD_PID" ]] && kill -0 "$XCODEBUILD_PID" 2>/dev/null; then
+    kill "$XCODEBUILD_PID" 2>/dev/null || true
+  fi
   xcrun simctl status_bar "$UDID" clear >/dev/null 2>&1 || true
+  rm -f "$START_MARKER" "$END_MARKER"
 }
 trap cleanup EXIT
 
-sleep 2
-
-export GALLERY_OUTPUT="$GALLERY_DIR"
-mkdir -p /tmp/codex-meter-gallery
-
-set +e
 xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination "platform=iOS Simulator,id=$UDID" \
   -derivedDataPath "$DERIVED_DATA" \
@@ -60,63 +70,32 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -parallel-testing-enabled NO \
   -only-testing:CodexMeterUITests/DemoGalleryTests \
   TEST_RUNNER_GALLERY_OUTPUT="$GALLERY_DIR" \
-  test
+  test &
+XCODEBUILD_PID=$!
+
+while [[ ! -f "$START_MARKER" ]] && kill -0 "$XCODEBUILD_PID" 2>/dev/null; do
+  sleep 1
+done
+
+if [[ -f "$START_MARKER" ]]; then
+  xcrun simctl io "$UDID" recordVideo --codec=h264 --force --display=internal "$VIDEO" &
+  RECORD_PID=$!
+  while [[ ! -f "$END_MARKER" ]] && kill -0 "$XCODEBUILD_PID" 2>/dev/null; do
+    sleep 1
+  done
+  sleep 1
+  stop_recording
+else
+  echo "::warning::The gallery tour never started; nothing was recorded"
+fi
+
+set +e
+wait "$XCODEBUILD_PID"
 STATUS=$?
 set -e
-
-cleanup
-trap - EXIT
+XCODEBUILD_PID=""
 
 cp -f /tmp/codex-meter-gallery/*.png "$GALLERY_DIR" 2>/dev/null || true
-
-{
-  echo "Codex Meter iOS demo gallery"
-  echo
-  echo "Open codex-meter-demo.mp4 for the full tour."
-  echo "Numbered PNGs are stills of each screen, in tour order."
-  echo
-  echo "Stills:"
-  ls -1 "$GALLERY_DIR"/*.png 2>/dev/null | xargs -n1 basename || true
-} > "$GALLERY_DIR/HOW_TO_VIEW.txt"
-
-python3 - "$GALLERY_DIR" <<'PY'
-import pathlib, sys
-root = pathlib.Path(sys.argv[1])
-stills = sorted(root.glob("*.png"))
-video = root / "codex-meter-demo.mp4"
-figures = []
-for still in stills:
-    figures.append(
-        f'<figure><img src="{still.name}" alt="{still.stem}">'
-        f"<figcaption>{still.stem}</figcaption></figure>"
-    )
-video_block = (
-    f'<p><video src="{video.name}" controls playsinline></video></p>'
-    if video.exists()
-    else "<p>Video was not produced.</p>"
-)
-html = """<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Codex Meter iOS demo gallery</title>
-  <style>
-    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; max-width: 920px; }
-    video, img { width: 100%; max-width: 390px; height: auto; border-radius: 12px; }
-    figure { display: inline-block; margin: 0 16px 24px 0; vertical-align: top; }
-    figcaption { font-size: 13px; color: #444; margin-top: 6px; }
-  </style>
-</head>
-<body>
-  <h1>Codex Meter iOS demo gallery</h1>
-  <p>Screen recording of the offline demo tour, then stills in visit order.</p>
-"""
-html += video_block
-html += "<h2>Stills</h2>\n"
-html += "\n".join(figures)
-html += "\n</body>\n</html>\n"
-root.joinpath("index.html").write_text(html, encoding="utf-8")
-PY
 
 if [[ ! -s "$VIDEO" ]]; then
   echo "::error::Demo recording was not written to $VIDEO"

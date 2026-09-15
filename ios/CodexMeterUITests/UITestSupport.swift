@@ -84,4 +84,14 @@ struct DemoGalleryCapture {
         attachment.lifetime = .keepAlways
         test.add(attachment)
     }
+
+    /// Drops an empty `.name` marker file that the recording script polls for.
+    func mark(_ name: String) {
+        for directory in directories {
+            _ = FileManager.default.createFile(
+                atPath: directory.appendingPathComponent(".\(name)").path,
+                contents: nil
+            )
+        }
+    }
 }

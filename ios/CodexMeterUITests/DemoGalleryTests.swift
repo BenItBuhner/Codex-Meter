@@ -2,6 +2,8 @@ import XCTest
 
 /// Walks the offline demo for humans who have no iPhone or Mac.
 /// Writes numbered PNGs to $GALLERY_OUTPUT and is recorded by CI via simctl.
+/// `.tour-started` / `.tour-finished` markers in the same directory tell
+/// ci/record-demo-gallery.sh when to start and stop the screen recording.
 @MainActor
 final class DemoGalleryTests: XCTestCase {
     private var gallery: DemoGalleryCapture!
@@ -12,6 +14,10 @@ final class DemoGalleryTests: XCTestCase {
     }
 
     func testRecordDemoGallery() throws {
+        gallery.mark("tour-started")
+        UITestSupport.settle(2.0)
+        defer { gallery.mark("tour-finished") }
+
         let app = UITestSupport.launch(arguments: ["-ui-testing-reset-settings"])
         XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.0)
@@ -94,7 +100,14 @@ final class DemoGalleryTests: XCTestCase {
         capture("13-settings-dark")
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
-        UITestSupport.settle(1.0)
+
+        // Relaunch so the dark dashboard is captured from the top, with the
+        // meters visible, instead of at whatever scroll offset the tour left.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.2)
         capture("14-demo-dashboard-dark")
 
         app.terminate()
