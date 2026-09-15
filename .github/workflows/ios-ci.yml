@@ -72,6 +72,7 @@ jobs:
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
       - name: Build app for generic iOS Simulator
+        id: build
         shell: bash
         run: |
           set -euo pipefail

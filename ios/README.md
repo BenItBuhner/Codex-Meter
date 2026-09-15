@@ -34,11 +34,14 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination 'platform=iOS Simulator,name=iPhone 17e' \
-  -parallel-testing-enabled NO test
+  -parallel-testing-enabled NO \
+  -skip-testing:CodexMeterUITests/DemoGalleryTests test
 ```
 
 The signed-out screen includes an offline demo mode. Automated tests never
-contact OpenAI.
+contact OpenAI. The `-skip-testing` flag leaves out the demo gallery tour,
+which takes several minutes and writes stills to `/tmp/codex-meter-gallery`;
+drop it (or run the test from Xcode) when you want the tour locally.
 
 iOS CI (`.github/workflows/ios-ci.yml`) runs the same commands on a macOS
 runner for every iOS pull request and uploads an `ios-demo-gallery` artifact:
