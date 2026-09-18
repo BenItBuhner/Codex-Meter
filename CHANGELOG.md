@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Added
-
-- Android demo mode: "Explore demo" on the signed-out dashboard loads deterministic sample usage, reset credits, and usage history entirely on-device, so every dashboard card, home widget, and Samsung lock widget can be explored or screenshotted without a ChatGPT account. The dashboard shows a "Demo data — no OpenAI requests" banner, no request leaves the device, no credentials are stored, and Settings offers "Sign in with ChatGPT" or "Leave demo". Demo values mirror the iOS demo so screenshots match across platforms.
-
 ## 2.8.0 — 2026-08-14
 
 ### Added
