@@ -41,7 +41,11 @@ enum UITestSupport {
     ) {
         let target = element.firstMatch
         let anchors: [CGFloat] = [0.85, 0.45]
-        for attempt in 0..<maxAttempts where !isFullyVisible(target, in: app) {
+        // Stop as soon as the target is in view: a `where` clause would keep
+        // re-querying the accessibility tree once per remaining attempt, and on a
+        // starved runner each of those snapshots is a chance to time out.
+        for attempt in 0..<maxAttempts {
+            if isFullyVisible(target, in: app) { return }
             let dy = anchors[attempt % anchors.count]
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - 0.35))
@@ -71,7 +75,8 @@ enum UITestSupport {
         maxAttempts: Int = 8
     ) {
         let target = element.firstMatch
-        for _ in 0..<maxAttempts where !target.exists {
+        for _ in 0..<maxAttempts {
+            if target.exists { return }
             app.swipeUp()
         }
     }
