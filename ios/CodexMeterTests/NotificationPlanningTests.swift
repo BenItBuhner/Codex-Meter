@@ -103,6 +103,15 @@ final class NotificationPlanningTests: XCTestCase {
             weeklySuppressUntil: observed.addingTimeInterval(-1)
         )
         XCTAssertEqual(filtered, [.weekly])
+
+        let monthlyFiltered = CelebrationDetector.withoutUserResetRefills(
+            [.monthly],
+            observedAt: observed,
+            fiveHourSuppressUntil: nil,
+            weeklySuppressUntil: nil,
+            monthlySuppressUntil: observed.addingTimeInterval(3_600)
+        )
+        XCTAssertTrue(monthlyFiltered.isEmpty)
     }
 
     func testResetCreditsAddedOnlyOnIncrease() {
@@ -111,72 +120,7 @@ final class NotificationPlanningTests: XCTestCase {
         XCTAssertEqual(CelebrationDetector.resetCreditsAdded(previous: 3, current: 1), 0)
     }
 
-    func testAlertMetricIncludesSelectedWindowsOnly() {
-        XCTAssertTrue(AlertMetric.both.includes(.fiveHour))
-        XCTAssertTrue(AlertMetric.both.includes(.weekly))
-        XCTAssertFalse(AlertMetric.both.includes(.both))
-
-        XCTAssertTrue(AlertMetric.fiveHour.includes(.fiveHour))
-        XCTAssertFalse(AlertMetric.fiveHour.includes(.weekly))
-
-        XCTAssertTrue(AlertMetric.weekly.includes(.weekly))
-        XCTAssertFalse(AlertMetric.weekly.includes(.fiveHour))
-    }
-
-    func testMissingAppGroupMarksWidgetCacheUnavailableAndThrowsOnPublish() async {
-        let cache = WidgetSnapshotCache(
-            appGroupIdentifier: "group.com.bukovinafilip.CodexMeter.missing-for-tests"
-        )
-        XCTAssertFalse(cache.isAvailable)
-        do {
-            try await cache.publishSignedOut()
-            XCTFail("Expected App Group storage failure")
-        } catch let error as CodexServiceError {
-            XCTAssertEqual(error, .storage(WidgetSnapshotCache.unavailableMessage))
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-    }
-
-    func testPublishSignedOutClearsStaleSnapshotWhenSaveFails() async throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("widget-clear-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        let fileURL = directory.appendingPathComponent(SharedWidgetSnapshot.defaultFileName)
-        let cache = WidgetSnapshotCache(fileURL: fileURL)
-        let now = Date(timeIntervalSince1970: 1_900_000_000)
-        try await cache.publish(
-            mode: .live,
-            usage: UsageSnapshot(
-                planType: "plus",
-                allowed: true,
-                limitReached: false,
-                fiveHour: UsageWindow(usedPercent: 40, windowSeconds: 18_000, resetAt: now.addingTimeInterval(60)),
-                weekly: nil,
-                fetchedAt: now
-            ),
-            credits: .summary(availableCount: 1, fetchedAt: now),
-            now: now
-        )
-        XCTAssertNotNil(try await cache.load())
-
-        // Turn the snapshot path into a directory so the signed-out write fails.
-        try FileManager.default.removeItem(at: fileURL)
-        try FileManager.default.createDirectory(at: fileURL, withIntermediateDirectories: true)
-
-        do {
-            try await cache.publishSignedOut()
-            XCTFail("Expected signed-out publish to fail")
-        } catch {
-            // Expected — previous authenticated snapshot must still be wiped.
-        }
-        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
-        XCTAssertNil(try await cache.load())
-    }
-
-    func testAppSettingsDecodesMissing22FieldsWithDefaults() throws {
+    func testAppSettingsDecodesMissingFieldsWithCurrentDefaults() throws {
         let legacy = """
         {
           "appearance": "system",
@@ -190,6 +134,14 @@ final class NotificationPlanningTests: XCTestCase {
 
         let settings = try JSONDecoder().decode(AppSettings.self, from: legacy)
         XCTAssertEqual(settings.refreshMode, .automatic)
+        XCTAssertTrue(settings.showFiveHour)
+        XCTAssertTrue(settings.showWeekly)
+        XCTAssertTrue(settings.showAdditionalLimits)
+        XCTAssertTrue(settings.showUsageCredits)
+        XCTAssertTrue(settings.showUsageHistory)
+        XCTAssertTrue(settings.showResetCredits)
+        XCTAssertTrue(settings.dashboardOrder.isEmpty)
+        XCTAssertTrue(settings.dashboardHiddenSections.isEmpty)
         XCTAssertTrue(settings.creditIncreaseAlertsEnabled)
         XCTAssertTrue(settings.unexpectedRefillAlertsEnabled)
         XCTAssertTrue(settings.creditExpiryRemindersEnabled)

@@ -1,4 +1,5 @@
 import Combine
+import CodexMeterCore
 import Foundation
 
 nonisolated public enum AppAppearance: String, Codable, Sendable, CaseIterable, Identifiable {
@@ -15,21 +16,6 @@ nonisolated public enum AlertMetric: String, Codable, Sendable, CaseIterable, Id
     case weekly
 
     public var id: String { rawValue }
-
-    /// Whether low-usage / reset alerts should run for `metric`.
-    ///
-    /// The picker chooses which windows to monitor (Both / 5-hour / Weekly),
-    /// not which window to exclude.
-    public func includes(_ metric: AlertMetric) -> Bool {
-        switch self {
-        case .both:
-            return metric == .fiveHour || metric == .weekly
-        case .fiveHour:
-            return metric == .fiveHour
-        case .weekly:
-            return metric == .weekly
-        }
-    }
 }
 
 nonisolated public enum RefreshMode: String, Codable, Sendable, CaseIterable, Identifiable {
@@ -53,9 +39,15 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var refreshMinutes: Int
     public var showFiveHour: Bool
     public var showWeekly: Bool
+    public var showMonthly: Bool
     public var showAdditionalLimits: Bool
     public var showUsageCredits: Bool
+    public var showUsageHistory: Bool
     public var showResetCredits: Bool
+    public var dashboardOrder: [String]
+    public var dashboardHiddenSections: [String]
+    /// CSV of usage-history highlight keys the user toggled away from their default.
+    public var historySectionOverrides: String
     public var notificationsEnabled: Bool
     public var alertMetric: AlertMetric
     /// Remaining allowance percentage. `100` corresponds to the “Always” UI option.
@@ -73,9 +65,14 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         refreshMinutes: Int = 30,
         showFiveHour: Bool = true,
         showWeekly: Bool = true,
+        showMonthly: Bool = true,
         showAdditionalLimits: Bool = true,
         showUsageCredits: Bool = true,
+        showUsageHistory: Bool = true,
         showResetCredits: Bool = true,
+        dashboardOrder: [String] = [],
+        dashboardHiddenSections: [String] = [],
+        historySectionOverrides: String = "",
         notificationsEnabled: Bool = false,
         alertMetric: AlertMetric = .both,
         alertThreshold: Int = 25,
@@ -90,9 +87,16 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.refreshMinutes = Self.allowedRefreshMinutes.contains(refreshMinutes) ? refreshMinutes : 30
         self.showFiveHour = showFiveHour
         self.showWeekly = showWeekly
+        self.showMonthly = showMonthly
         self.showAdditionalLimits = showAdditionalLimits
         self.showUsageCredits = showUsageCredits
+        self.showUsageHistory = showUsageHistory
         self.showResetCredits = showResetCredits
+        self.dashboardOrder = Self.sanitizedSectionKeys(dashboardOrder)
+        self.dashboardHiddenSections = Self.sanitizedSectionKeys(dashboardHiddenSections)
+        self.historySectionOverrides = HistorySections.serialize(
+            HistorySections.parseCSV(historySectionOverrides)
+        )
         self.notificationsEnabled = notificationsEnabled
         self.alertMetric = alertMetric
         self.alertThreshold = Self.allowedAlertThresholds.contains(alertThreshold) ? alertThreshold : 25
@@ -117,9 +121,79 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         creditExpiryLeadMinutes = Self.sanitizedLeadMinutes(Array(set))
     }
 
+    public func isDashboardSectionVisible(_ key: String) -> Bool {
+        switch key {
+        case DashboardSections.fiveHour:
+            showFiveHour
+        case DashboardSections.weekly:
+            showWeekly
+        case DashboardSections.monthly:
+            showMonthly
+        case DashboardSections.usageCredits:
+            showUsageCredits
+        case DashboardSections.usageHistory:
+            showUsageHistory
+        case DashboardSections.resetCredits:
+            showResetCredits
+        default:
+            showAdditionalLimits && !dashboardHiddenSections.contains(key)
+        }
+    }
+
+    public mutating func setDashboardSectionVisible(_ key: String, visible: Bool) {
+        switch key {
+        case DashboardSections.fiveHour:
+            showFiveHour = visible
+        case DashboardSections.weekly:
+            showWeekly = visible
+        case DashboardSections.monthly:
+            showMonthly = visible
+        case DashboardSections.usageCredits:
+            showUsageCredits = visible
+        case DashboardSections.usageHistory:
+            showUsageHistory = visible
+        case DashboardSections.resetCredits:
+            showResetCredits = visible
+        default:
+            if visible {
+                showAdditionalLimits = true
+                dashboardHiddenSections.removeAll { $0 == key }
+            } else if !dashboardHiddenSections.contains(key) {
+                dashboardHiddenSections.append(key)
+            }
+            dashboardHiddenSections = Self.sanitizedSectionKeys(dashboardHiddenSections)
+        }
+    }
+
+    public mutating func setDashboardOrder(_ keys: [String]) {
+        dashboardOrder = Self.sanitizedSectionKeys(keys)
+    }
+
+    public func isHistorySectionVisible(_ key: String) -> Bool {
+        HistorySections.isVisible(historySectionOverrides, key: key)
+    }
+
+    public mutating func setHistorySectionVisible(_ key: String, visible: Bool) {
+        historySectionOverrides = HistorySections.setVisible(
+            historySectionOverrides,
+            key: key,
+            visible: visible
+        )
+    }
+
     private static func sanitizedLeadMinutes(_ values: [Int]) -> [Int] {
         let filtered = Set(values).intersection(Set(allowedCreditExpiryLeadMinutes))
         return filtered.sorted()
+    }
+
+    private static func sanitizedSectionKeys(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.compactMap { raw in
+            let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: ",", with: "_")
+            guard !key.isEmpty, seen.insert(key).inserted else { return nil }
+            return key
+        }
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -129,9 +203,14 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case refreshMinutes
         case showFiveHour
         case showWeekly
+        case showMonthly
         case showAdditionalLimits
         case showUsageCredits
+        case showUsageHistory
         case showResetCredits
+        case dashboardOrder
+        case dashboardHiddenSections
+        case historySectionOverrides
         case notificationsEnabled
         case alertMetric
         case alertThreshold
@@ -150,9 +229,14 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             refreshMinutes: try container.decodeIfPresent(Int.self, forKey: .refreshMinutes) ?? 30,
             showFiveHour: try container.decodeIfPresent(Bool.self, forKey: .showFiveHour) ?? true,
             showWeekly: try container.decodeIfPresent(Bool.self, forKey: .showWeekly) ?? true,
+            showMonthly: try container.decodeIfPresent(Bool.self, forKey: .showMonthly) ?? true,
             showAdditionalLimits: try container.decodeIfPresent(Bool.self, forKey: .showAdditionalLimits) ?? true,
             showUsageCredits: try container.decodeIfPresent(Bool.self, forKey: .showUsageCredits) ?? true,
+            showUsageHistory: try container.decodeIfPresent(Bool.self, forKey: .showUsageHistory) ?? true,
             showResetCredits: try container.decodeIfPresent(Bool.self, forKey: .showResetCredits) ?? true,
+            dashboardOrder: try container.decodeIfPresent([String].self, forKey: .dashboardOrder) ?? [],
+            dashboardHiddenSections: try container.decodeIfPresent([String].self, forKey: .dashboardHiddenSections) ?? [],
+            historySectionOverrides: try container.decodeIfPresent(String.self, forKey: .historySectionOverrides) ?? "",
             notificationsEnabled: try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false,
             alertMetric: try container.decodeIfPresent(AlertMetric.self, forKey: .alertMetric) ?? .both,
             alertThreshold: try container.decodeIfPresent(Int.self, forKey: .alertThreshold) ?? 25,
