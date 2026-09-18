@@ -40,7 +40,7 @@ struct DashboardSectionsView: View {
                     title: "Monthly",
                     systemImage: "calendar.badge.clock",
                     window: window,
-                    accent: .orange,
+                    accent: .blue,
                     pace: model.usagePace(for: window, kind: .monthly)
                 )
             )

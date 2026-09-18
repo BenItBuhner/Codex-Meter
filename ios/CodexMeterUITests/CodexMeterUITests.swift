@@ -104,7 +104,7 @@ final class CodexMeterUITests: XCTestCase {
         let app = launchDemo()
 
         let estimate = app.staticTexts
-            .matching(NSPredicate(format: "label BEGINSWITH 'Est. runs out'"))
+            .matching(NSPredicate(format: "label BEGINSWITH 'Est. '"))
             .firstMatch
         XCTAssertTrue(estimate.waitForExistence(timeout: 5))
 

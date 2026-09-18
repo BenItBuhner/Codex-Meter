@@ -100,7 +100,7 @@ struct SettingsView: View {
             } header: {
                 Text("Usage estimates")
             } footer: {
-                Text("Project how long the current allowance may last from this window's usage and local history. Accelerated usage turns a meter orange; Off keeps the estimate without the warning.")
+                Text("Project how long the current allowance may last from each window's usage and local history. Accelerated usage turns a meter orange; Off keeps the estimate without the warning.")
             }
 
             Section {

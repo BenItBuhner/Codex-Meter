@@ -11,6 +11,8 @@ struct UsageMeterCard: View {
 
     private var remaining: Int { window?.remainingPercent ?? 0 }
     private var used: Int { window?.usedPercent ?? 0 }
+    // Orange is reserved for the accelerated warning, as on Android; card accents stay
+    // off it so the warning tint is visible on every card.
     private var ringAccent: Color { pace.isAccelerated ? .orange : accent }
 
     var body: some View {

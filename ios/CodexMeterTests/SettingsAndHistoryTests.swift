@@ -66,10 +66,14 @@ final class SettingsAndHistoryTests: XCTestCase {
         )
         XCTAssertTrue(onPace.isAvailable)
         XCTAssertFalse(onPace.isAccelerated)
-        XCTAssertEqual(onPace.estimateLabel(now: observedAt), "Est. runs out in 2h 30m")
+        XCTAssertEqual(onPace.estimateLabel(now: observedAt), "Est. 2h 30m")
         XCTAssertEqual(
             onPace.estimateAccessibilityValue(now: observedAt),
-            "estimated to run out in 2h 30m"
+            "estimated 2h 30m left"
+        )
+        XCTAssertEqual(
+            onPace.estimateLabel(now: observedAt.addingTimeInterval(8_970)),
+            "Est. 1m"
         )
 
         let later = observedAt.addingTimeInterval(1_800)

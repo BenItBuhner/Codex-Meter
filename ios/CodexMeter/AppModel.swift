@@ -49,19 +49,35 @@ extension UsagePaceSensitivity {
 }
 
 extension UsagePaceAssessment {
-    /// "Est. runs out in 1h 20m", or "Est. depleted" once the projection has passed; nil when
-    /// no estimate is available.
+    /// Android's meter-card phrasing: "Est. 1h 20m", or "Est. depleted" once the projection
+    /// has passed; nil when no estimate is available.
     func estimateLabel(now: Date = .now) -> String? {
         guard isAvailable, let estimatedExhaustionAt else { return nil }
-        guard estimatedExhaustionAt > now else { return "Est. depleted" }
-        return "Est. runs out \(UsageFormat.relative(until: estimatedExhaustionAt, from: now))"
+        let remaining = estimatedExhaustionAt.timeIntervalSince(now)
+        guard remaining > 0 else { return "Est. depleted" }
+        return "Est. \(Self.compactDuration(remaining))"
     }
 
     /// Spoken form of `estimateLabel(now:)` for VoiceOver.
     func estimateAccessibilityValue(now: Date = .now) -> String? {
         guard isAvailable, let estimatedExhaustionAt else { return nil }
-        guard estimatedExhaustionAt > now else { return "estimated depleted" }
-        return "estimated to run out \(UsageFormat.relative(until: estimatedExhaustionAt, from: now))"
+        let remaining = estimatedExhaustionAt.timeIntervalSince(now)
+        guard remaining > 0 else { return "estimated depleted" }
+        return "estimated \(Self.compactDuration(remaining)) left"
+    }
+
+    private static func compactDuration(_ interval: TimeInterval) -> String {
+        let minutes = max(1, Int(interval / 60))
+        let days = minutes / 1_440
+        let hours = (minutes % 1_440) / 60
+        let remainingMinutes = minutes % 60
+        if days > 0 {
+            return "\(days)d \(hours)h"
+        }
+        if hours > 0 {
+            return "\(hours)h \(remainingMinutes)m"
+        }
+        return "\(minutes)m"
     }
 }
 
