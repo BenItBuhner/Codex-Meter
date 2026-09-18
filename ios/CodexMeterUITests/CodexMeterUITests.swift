@@ -21,13 +21,9 @@ final class CodexMeterUITests: XCTestCase {
         // Assert in scroll order: "System permission" sits above "Send test
         // notification" in the Notifications section, and scrolling straight to
         // the button can cull the earlier row out of the lazy Form hierarchy.
-        for _ in 0..<6 where !app.staticTexts["System permission"].exists {
-            app.swipeUp()
-        }
+        UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app, maxAttempts: 6)
         XCTAssertTrue(app.staticTexts["System permission"].waitForExistence(timeout: 3))
-        for _ in 0..<6 where !app.buttons["Send test notification"].exists {
-            app.swipeUp()
-        }
+        UITestSupport.scrollForm(untilExists: app.buttons["Send test notification"], in: app, maxAttempts: 6)
         XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 3))
     }
 

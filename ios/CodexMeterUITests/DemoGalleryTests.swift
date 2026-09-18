@@ -187,7 +187,8 @@ final class DemoGalleryTests: XCTestCase {
     }
 
     private func scrollSettingsToTop(in app: XCUIApplication) {
-        for _ in 0..<6 where !app.staticTexts["Account"].exists {
+        for _ in 0..<6 {
+            if app.staticTexts["Account"].exists { return }
             app.swipeDown()
         }
     }
