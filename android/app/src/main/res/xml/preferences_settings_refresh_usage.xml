@@ -37,6 +37,11 @@
             android:title="Weekly limit" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
+            android:key="dashboard_monthly"
+            android:summary="Shown only when OpenAI returns this window (free tier)"
+            android:title="Monthly limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
             android:key="dashboard_additional_limits"
             android:summary="Model-specific limits such as GPT-5.3-Codex-Spark"
             android:title="Additional limits" />

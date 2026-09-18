@@ -80,11 +80,13 @@ public actor LiveCodexService: CodexService {
         do {
             let usage = try await fetchUsage()
             let cached = try await appCache.updateUsage(usage, at: now())
-            await publishWidgets(
+            try? await widgetCache.publish(
                 mode: .live,
                 usage: usage,
-                credits: cached.credits
+                credits: cached.credits,
+                now: now()
             )
+            WidgetCenter.shared.reloadAllTimelines()
             return usage
         } catch {
             await appCache.recordUsageError(error.localizedDescription, at: now())
@@ -99,11 +101,13 @@ public actor LiveCodexService: CodexService {
         do {
             let credits = try await fetchCredits()
             let cached = try await appCache.updateCredits(credits, at: now())
-            await publishWidgets(
+            try? await widgetCache.publish(
                 mode: .live,
                 usage: cached.usage,
-                credits: credits
+                credits: credits,
+                now: now()
             )
+            WidgetCenter.shared.reloadAllTimelines()
             return credits
         } catch {
             await appCache.recordCreditsError(error.localizedDescription, at: now())
@@ -127,11 +131,13 @@ public actor LiveCodexService: CodexService {
             do {
                 let refreshed = try await fetchCredits()
                 let updated = try await appCache.updateCredits(refreshed, at: now())
-                await publishWidgets(
+                try? await widgetCache.publish(
                     mode: .live,
                     usage: updated.usage,
-                    credits: refreshed
+                    credits: refreshed,
+                    now: now()
                 )
+                WidgetCenter.shared.reloadAllTimelines()
                 credits = refreshed
             } catch {
                 await appCache.recordCreditsError(error.localizedDescription, at: now())
@@ -184,10 +190,11 @@ public actor LiveCodexService: CodexService {
             let refreshed = try await fetchCredits()
             _ = try await appCache.updateCredits(refreshed, at: now())
             let cached = try? await appCache.load()
-            await publishWidgets(
+            try? await widgetCache.publish(
                 mode: .live,
                 usage: cached?.usage,
-                credits: refreshed
+                credits: refreshed,
+                now: now()
             )
         } catch {
             await appCache.recordCreditsError(error.localizedDescription, at: now())
@@ -209,22 +216,24 @@ public actor LiveCodexService: CodexService {
         activeRefresh = nil
         await authSession.signOut()
         try? await appCache.clear()
-        await publishSignedOutWidgets()
+        try? await widgetCache.publishSignedOut()
 
         let notificationCenter = UNUserNotificationCenter.current()
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: "com.bukovinafilip.CodexMeter.refresh")
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func performRefresh() async throws -> CodexRefreshSnapshot {
         do {
             let usage = try await fetchUsage()
             let cachedAfterUsage = try await appCache.updateUsage(usage, at: now())
-            await publishWidgets(
+            try? await widgetCache.publish(
                 mode: .live,
                 usage: usage,
-                credits: cachedAfterUsage.credits
+                credits: cachedAfterUsage.credits,
+                now: now()
             )
 
             do {
@@ -237,11 +246,13 @@ public actor LiveCodexService: CodexService {
                 combined.resetCreditsError = nil
                 combined.updatedAt = now()
                 try await appCache.save(combined)
-                await publishWidgets(
+                try? await widgetCache.publish(
                     mode: .live,
                     usage: enrichedUsage,
-                    credits: credits
+                    credits: credits,
+                    now: now()
                 )
+                WidgetCenter.shared.reloadAllTimelines()
                 return (enrichedUsage, credits)
             } catch {
                 await appCache.recordCreditsError(error.localizedDescription, at: now())
@@ -256,11 +267,13 @@ public actor LiveCodexService: CodexService {
                 retained.lastError = nil
                 retained.updatedAt = now()
                 try await appCache.save(retained)
-                await publishWidgets(
+                try? await widgetCache.publish(
                     mode: .live,
                     usage: enrichedUsage,
-                    credits: fallbackCredits
+                    credits: fallbackCredits,
+                    now: now()
                 )
+                WidgetCenter.shared.reloadAllTimelines()
                 return (enrichedUsage, fallbackCredits)
             }
         } catch {
@@ -280,6 +293,7 @@ public actor LiveCodexService: CodexService {
             limitReached: parsed.limitReached,
             fiveHour: resolvingResetDate(in: parsed.fiveHour, relativeTo: fetchedAt),
             weekly: resolvingResetDate(in: parsed.weekly, relativeTo: fetchedAt),
+            monthly: resolvingResetDate(in: parsed.monthly, relativeTo: fetchedAt),
             resetCreditsAvailable: parsed.resetCreditsAvailable,
             additionalLimits: parsed.additionalLimits.map {
                 UsageLimit(
@@ -321,6 +335,7 @@ public actor LiveCodexService: CodexService {
             limitReached: usage.limitReached,
             fiveHour: usage.fiveHour,
             weekly: usage.weekly,
+            monthly: usage.monthly,
             resetCreditsAvailable: count,
             additionalLimits: usage.additionalLimits,
             usageCredits: usage.usageCredits,
@@ -372,7 +387,7 @@ public actor LiveCodexService: CodexService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue(backend.originator, forHTTPHeaderField: "originator")
-        request.setValue("codex-meter-ios/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("codex-meter-ios/2.8.0", forHTTPHeaderField: "User-Agent")
         if !tokens.accountID.isEmpty {
             request.setValue(tokens.accountID, forHTTPHeaderField: "ChatGPT-Account-Id")
         }
@@ -393,36 +408,5 @@ public actor LiveCodexService: CodexService {
             fallback = "\(operation) (HTTP \(payload.statusCode))."
         }
         return try HTTPClientSupport.requireSuccess(payload, fallback: fallback)
-    }
-
-    private func publishWidgets(
-        mode: WidgetSnapshotMode,
-        usage: UsageSnapshot?,
-        credits: ResetCreditsSnapshot?
-    ) async {
-        do {
-            try await widgetCache.publish(
-                mode: mode,
-                usage: usage,
-                credits: credits,
-                now: now()
-            )
-            WidgetCenter.shared.reloadAllTimelines()
-            await appCache.clearWidgetError(at: now())
-        } catch {
-            await appCache.recordWidgetError(error.localizedDescription, at: now())
-        }
-    }
-
-    private func publishSignedOutWidgets() async {
-        do {
-            try await widgetCache.publishSignedOut()
-            WidgetCenter.shared.reloadAllTimelines()
-            await appCache.clearWidgetError(at: now())
-        } catch {
-            // publishSignedOut already best-effort clears any prior snapshot.
-            WidgetCenter.shared.reloadAllTimelines()
-            await appCache.recordWidgetError(error.localizedDescription, at: now())
-        }
     }
 }
