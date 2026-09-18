@@ -60,6 +60,14 @@ struct DashboardSectionsView: View {
                 kind: .usageCredits(credits)
             )
         }
+        if model.settings.showSpendControl,
+           let control = usage?.spendControl,
+           let limit = control.individualLimit {
+            available[DashboardSections.spendControl] = DashboardSectionItem(
+                key: DashboardSections.spendControl,
+                kind: .spendControl(limit, reached: control.reached)
+            )
+        }
         if model.settings.showUsageHistory,
            usage?.fiveHour != nil || usage?.weekly != nil || usage?.monthly != nil {
             available[DashboardSections.usageHistory] = DashboardSectionItem(
@@ -156,6 +164,12 @@ struct DashboardSectionsView: View {
             )
         case let .usageCredits(credits):
             UsageCreditsCard(credits: credits)
+        case let .spendControl(limit, reached):
+            SpendControlCard(
+                limit: limit,
+                reached: reached,
+                fetchedAt: model.usage?.fetchedAt ?? .now
+            )
         case .usageHistory:
             UsageHistoryDashboardCard()
         case .resetCredits:
@@ -177,6 +191,7 @@ private struct DashboardSectionItem: Identifiable {
         case meter(title: String, systemImage: String, window: UsageWindow, accent: Color)
         case additional(UsageLimit)
         case usageCredits(UsageCredits)
+        case spendControl(SpendControlLimit, reached: Bool)
         case usageHistory
         case resetCredits
     }
@@ -305,6 +320,117 @@ private struct UsageCreditsCard: View {
         .frame(maxWidth: .infinity, minHeight: 138, alignment: .leading)
         .cardSurface()
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct SpendControlCard: View {
+    let limit: SpendControlLimit
+    let reached: Bool
+    let fetchedAt: Date
+
+    private var accent: Color {
+        reached ? .orange : .accentColor
+    }
+
+    private var usageLine: String {
+        UsageFormat.spendControlUsage(limit) ?? "\(limit.remainingPercent)% of credits left"
+    }
+
+    private var resetAt: Date? {
+        guard limit.showsResetCountdown else { return nil }
+        return limit.effectiveResetDate(relativeTo: fetchedAt)
+    }
+
+    private var accessibilityValue: String {
+        var parts = ["\(limit.usedPercent) percent used"]
+        if let usage = UsageFormat.spendControlUsage(limit) {
+            parts.append(usage)
+        }
+        if reached {
+            parts.append("limit reached")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Label("Monthly credit limit", systemImage: "creditcard.and.123")
+                    .font(.headline.bold())
+                Spacer(minLength: 0)
+                Text("\(limit.usedPercent)% used")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+            }
+
+            SpendControlBar(fraction: Double(limit.usedPercent) / 100, accent: accent)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Monthly credit limit")
+                .accessibilityValue(accessibilityValue)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(usageLine)
+                    .font(.title3.bold())
+                    .contentTransition(.numericText())
+                if let remaining = UsageFormat.spendControlRemaining(limit) {
+                    Text(remaining)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+            }
+
+            if let resetAt {
+                HStack(spacing: 6) {
+                    Text("Resets in")
+                        .foregroundStyle(.secondary)
+                    Text(resetAt, style: .relative)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                    Text("·")
+                        .foregroundStyle(.secondary)
+                    Text(resetAt, format: .dateTime.month(.abbreviated).day().hour().minute())
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                .accessibilityElement(children: .combine)
+            }
+
+            if reached {
+                Label("Workspace credit limit reached", systemImage: "exclamationmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(AppChrome.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+}
+
+private struct SpendControlBar: View {
+    let fraction: Double
+    let accent: Color
+
+    private static let height: CGFloat = 10
+
+    var body: some View {
+        GeometryReader { proxy in
+            let clamped = min(1, max(0, fraction))
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(accent.opacity(0.16))
+                if clamped > 0 {
+                    Capsule()
+                        .fill(accent)
+                        .frame(width: max(Self.height, proxy.size.width * clamped))
+                }
+            }
+        }
+        .frame(height: Self.height)
+        .animation(.snappy, value: fraction)
     }
 }
 

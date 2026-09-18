@@ -37,22 +37,26 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.2)
         capture("03-demo-dashboard")
 
+        UITestSupport.scrollDashboard(untilVisible: app.staticTexts["17,000 credits remaining"], in: app)
+        UITestSupport.settle(0.6)
+        capture("04-demo-monthly-credit-limit")
+
         UITestSupport.scrollDashboard(untilVisible: app.staticTexts["Usage history"], in: app)
         UITestSupport.settle(0.6)
-        capture("04-demo-usage-history")
+        capture("05-demo-usage-history")
 
         UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app)
         UITestSupport.settle(0.6)
-        capture("05-demo-reset-credits")
+        capture("06-demo-reset-credits")
 
         UITestSupport.tap(app.buttons["Use 1 reset"])
         XCTAssertTrue(app.navigationBars["Codex reset"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("06-reset-sheet")
+        capture("07-reset-sheet")
         UITestSupport.tap(app.buttons["Use reset"])
         XCTAssertTrue(app.alerts["Use one Codex reset?"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.6)
-        capture("07-reset-confirm")
+        capture("08-reset-confirm")
         UITestSupport.tap(app.alerts["Use one Codex reset?"].buttons["Cancel"])
         UITestSupport.tap(app.buttons["Close"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
@@ -61,18 +65,18 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.tap(app.buttons["Edit dashboard"])
         XCTAssertTrue(app.navigationBars["Edit dashboard"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("08-edit-dashboard")
+        capture("09-edit-dashboard")
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
 
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("09-settings")
+        capture("10-settings")
 
         UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app)
         UITestSupport.settle(0.5)
-        capture("10-settings-notifications")
+        capture("11-settings-notifications")
 
         UITestSupport.scrollForm(untilExists: app.staticTexts["Data"], in: app)
         UITestSupport.settle(0.4)
@@ -81,7 +85,7 @@ final class DemoGalleryTests: XCTestCase {
         }
         XCTAssertTrue(app.navigationBars["Usage history"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("11-usage-history")
+        capture("12-usage-history")
         tapBack(in: app, from: "Usage history", to: "Settings")
 
         UITestSupport.scrollForm(untilExists: app.staticTexts["About Codex Meter"], in: app)
@@ -90,14 +94,14 @@ final class DemoGalleryTests: XCTestCase {
         }
         XCTAssertTrue(app.navigationBars["About"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("12-about")
+        capture("13-about")
         tapBack(in: app, from: "About", to: "Settings")
 
         scrollSettingsToTop(in: app)
         UITestSupport.settle(0.3)
         UITestSupport.tap(app.segmentedControls.buttons["Dark"])
         UITestSupport.settle(0.8)
-        capture("13-settings-dark")
+        capture("14-settings-dark")
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
 
@@ -108,7 +112,7 @@ final class DemoGalleryTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.2)
-        capture("14-demo-dashboard-dark")
+        capture("15-demo-dashboard-dark")
 
         app.terminate()
         app.launchArguments = [
@@ -123,7 +127,7 @@ final class DemoGalleryTests: XCTestCase {
         _ = app.staticTexts["Demo refresh failed. Showing the last cached snapshot."]
             .waitForExistence(timeout: 5)
         UITestSupport.settle(1.0)
-        capture("15-refresh-failure")
+        capture("16-refresh-failure")
         UITestSupport.settle(0.8)
     }
 

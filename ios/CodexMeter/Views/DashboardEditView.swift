@@ -40,7 +40,7 @@ struct DashboardEditView: View {
 
             Section {
                 Label(
-                    "Changes save immediately. Usage-credit and reset-credit cards still hide automatically when their inventory is empty or unknown. Usage history stays off the dashboard until OpenAI reports a usage window.",
+                    "Changes save immediately. Usage-credit and reset-credit cards still hide automatically when their inventory is empty or unknown, and the monthly credit limit appears only for accounts under workspace spend controls. Usage history stays off the dashboard until OpenAI reports a usage window.",
                     systemImage: "info.circle"
                 )
                 .font(.footnote)
@@ -100,6 +100,11 @@ struct DashboardEditView: View {
                 key: DashboardSections.usageCredits,
                 title: "Usage-credit balance",
                 summary: "Hidden automatically at a zero or negative balance"
+            ),
+            DashboardSections.spendControl: DashboardEditItem(
+                key: DashboardSections.spendControl,
+                title: "Monthly credit limit",
+                summary: "Workspace spend control · shown only when OpenAI reports one"
             ),
             DashboardSections.usageHistory: DashboardEditItem(
                 key: DashboardSections.usageHistory,

@@ -107,6 +107,17 @@ public actor DemoCodexService: CodexService {
                 unlimited: false,
                 balance: "2500"
             ),
+            spendControl: SpendControl(
+                reached: false,
+                individualLimit: SpendControlLimit(
+                    source: "workspace_spend_controls",
+                    limit: "25000",
+                    used: "8000",
+                    remaining: "17000",
+                    usedPercent: 32,
+                    resetAt: referenceDate.addingTimeInterval(12 * 24 * 60 * 60 + 5 * 60 * 60)
+                )
+            ),
             fetchedAt: fetchedAt
         )
         try await appCache.save(

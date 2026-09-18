@@ -2,8 +2,9 @@
 
 Native SwiftUI client for viewing the Codex allowance attached to a signed-in
 ChatGPT account. It shows adaptive standard and model-specific usage windows,
-Free-tier monthly limits, purchased usage credits, reset times, earned reset
-credits, local burn history, notifications, and WidgetKit widgets.
+Free-tier monthly limits, purchased usage credits, workspace monthly credit
+limits, reset times, earned reset credits, local burn history, notifications,
+and WidgetKit widgets.
 
 This directory is the **iOS** package of the Codex Meter monorepo. The Android
 application lives under [`../android/`](../android/). Behavior is aligned with

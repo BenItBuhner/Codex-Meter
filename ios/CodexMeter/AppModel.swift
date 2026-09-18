@@ -167,6 +167,17 @@ final class AppModel {
                     unlimited: false,
                     balance: "2500"
                 ),
+                spendControl: SpendControl(
+                    reached: false,
+                    individualLimit: SpendControlLimit(
+                        source: "workspace_spend_controls",
+                        limit: "25000",
+                        used: "8000",
+                        remaining: "17000",
+                        usedPercent: 32,
+                        resetAt: now.addingTimeInterval(1_050_000)
+                    )
+                ),
                 fetchedAt: now
             )
             credits = ResetCreditsSnapshot(

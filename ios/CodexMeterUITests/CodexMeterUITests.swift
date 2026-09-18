@@ -14,6 +14,11 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Weekly"].exists)
         XCTAssertTrue(app.staticTexts["Demo data — no OpenAI requests"].exists)
 
+        UITestSupport.scrollDashboard(untilVisible: app.staticTexts["17,000 credits remaining"], in: app)
+        XCTAssertTrue(app.staticTexts["Monthly credit limit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["8,000 of 25,000 credits used"].exists)
+        XCTAssertTrue(app.staticTexts["17,000 credits remaining"].exists)
+
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Mode"].exists)
@@ -39,6 +44,7 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(app.switches["Show 5-hour limit"].exists)
         XCTAssertTrue(app.switches["Show Weekly limit"].exists)
         XCTAssertTrue(app.switches["Show Monthly limit"].exists)
+        XCTAssertTrue(app.switches["Show Monthly credit limit"].exists)
         XCTAssertTrue(app.switches["Show Usage history"].exists)
         XCTAssertTrue(app.switches["Show Reset credits"].exists)
 

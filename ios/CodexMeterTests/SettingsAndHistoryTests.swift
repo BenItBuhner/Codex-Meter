@@ -23,9 +23,19 @@ final class SettingsAndHistoryTests: XCTestCase {
             [DashboardSections.usageHistory, spark, DashboardSections.fiveHour]
         )
 
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.spendControl))
+        settings.setDashboardSectionVisible(DashboardSections.spendControl, visible: false)
+        XCTAssertFalse(settings.showSpendControl)
+        XCTAssertFalse(settings.isDashboardSectionVisible(DashboardSections.spendControl))
+
         let data = try JSONEncoder().encode(settings)
         let decoded = try SettingsTransferDocument.decode(data)
         XCTAssertEqual(decoded, settings)
+        XCTAssertFalse(decoded.showSpendControl)
+        XCTAssertTrue(
+            try SettingsTransferDocument.decode(Data("{\"showWeekly\":false}".utf8)).showSpendControl,
+            "Exports written before the monthly credit limit card keep it enabled"
+        )
 
         var shown = decoded
         shown.setDashboardSectionVisible(spark, visible: true)

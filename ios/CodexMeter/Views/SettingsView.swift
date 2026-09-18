@@ -59,6 +59,7 @@ struct SettingsView: View {
                 Toggle("Monthly limit", isOn: $model.settings.showMonthly)
                 Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
                 Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
+                Toggle("Monthly credit limit", isOn: $model.settings.showSpendControl)
                 Toggle("Usage history", isOn: $model.settings.showUsageHistory)
                 Toggle("Reset credits", isOn: $model.settings.showResetCredits)
             } header: {

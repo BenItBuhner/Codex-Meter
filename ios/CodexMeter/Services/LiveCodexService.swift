@@ -307,6 +307,7 @@ public actor LiveCodexService: CodexService {
                 )
             },
             usageCredits: parsed.usageCredits,
+            spendControl: resolvingResetDate(in: parsed.spendControl, relativeTo: fetchedAt),
             fetchedAt: fetchedAt
         )
         guard usage.hasDisplayableData else {
@@ -328,6 +329,25 @@ public actor LiveCodexService: CodexService {
         )
     }
 
+    private func resolvingResetDate(
+        in control: SpendControl?,
+        relativeTo fetchedAt: Date
+    ) -> SpendControl? {
+        guard let control, let limit = control.individualLimit else { return control }
+        return SpendControl(
+            reached: control.reached,
+            individualLimit: SpendControlLimit(
+                source: limit.source,
+                limit: limit.limit,
+                used: limit.used,
+                remaining: limit.remaining,
+                usedPercent: limit.usedPercent,
+                resetAfterSeconds: limit.resetAfterSeconds,
+                resetAt: limit.effectiveResetDate(relativeTo: fetchedAt)
+            )
+        )
+    }
+
     private func usageWithCreditCount(_ usage: UsageSnapshot, _ count: Int) -> UsageSnapshot {
         UsageSnapshot(
             planType: usage.planType,
@@ -339,6 +359,7 @@ public actor LiveCodexService: CodexService {
             resetCreditsAvailable: count,
             additionalLimits: usage.additionalLimits,
             usageCredits: usage.usageCredits,
+            spendControl: usage.spendControl,
             fetchedAt: usage.fetchedAt
         )
     }
