@@ -9,12 +9,13 @@ enum AppChrome {
 }
 
 extension View {
+    /// Cards lift off the grouped page background through tone alone, the way iOS grouped
+    /// lists do: no stroke, and no shadow blur to composite while the dashboard scrolls.
     func cardSurface() -> some View {
-        background(.background, in: RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous)
-                    .stroke(.separator.opacity(0.18), lineWidth: 0.5)
-            }
+        background(
+            Color(.secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous)
+        )
     }
 
     func bannerSurface(tint: Color) -> some View {
@@ -49,5 +50,19 @@ struct PlanBadge: View {
             .padding(.vertical, 4)
             .background(.tint.opacity(0.14), in: Capsule())
             .accessibilityLabel("Plan \(title)")
+    }
+}
+
+extension DynamicTypeSize {
+    /// A row of glyph and text that stacks at accessibility sizes, so the text keeps the
+    /// card's full width instead of breaking mid-word beside a fixed-width glyph or ring.
+    func rowLayout<Content: View>(
+        spacing: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let layout = isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: spacing))
+            : AnyLayout(HStackLayout(spacing: spacing))
+        return layout { content() }
     }
 }

@@ -5,6 +5,7 @@ struct ResetCreditView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var confirming = false
+    @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 52
 
     private var count: Int {
         model.credits?.availableCount ?? model.usage?.resetCreditsAvailable ?? 0
@@ -23,7 +24,7 @@ struct ResetCreditView: View {
             VStack(spacing: 22) {
                 VStack(spacing: 16) {
                     Image(systemName: "arrow.counterclockwise.circle.fill")
-                        .font(.system(size: 52))
+                        .font(.system(size: symbolSize))
                         .foregroundStyle(.tint)
                         .symbolRenderingMode(.hierarchical)
                         .accessibilityHidden(true)
