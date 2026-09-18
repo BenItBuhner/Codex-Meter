@@ -59,7 +59,7 @@ public enum UsageFormat {
         locale: Locale = .current,
         uses24HourClock: Bool = false
     ) -> String {
-        guard let window, display != .hidden else {
+        guard let window, display != .hidden, window.showsResetCountdown else {
             return ""
         }
         guard let resetAt = window.effectiveResetDate(relativeTo: fetchedAt) else {
