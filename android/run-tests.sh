@@ -192,6 +192,8 @@ grep -q 'usage_history_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'dashboard_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'dashboard_monthly' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q 'WINDOW_MONTHLY' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 grep -q 'longWindowIsMonthly' \
