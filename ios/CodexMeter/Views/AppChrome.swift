@@ -9,32 +9,19 @@ enum AppChrome {
 }
 
 extension View {
+    /// Cards lift off the grouped page background through tone alone, the way iOS grouped
+    /// lists do: no stroke, and no shadow blur to composite while the dashboard scrolls.
     func cardSurface() -> some View {
-        modifier(CardSurface())
+        background(
+            Color(.secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous)
+        )
     }
 
     func bannerSurface(tint: Color) -> some View {
         padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: AppChrome.bannerRadius, style: .continuous))
-    }
-}
-
-/// Cards lift off the grouped page background with tone (secondary grouped fill) and, in
-/// light mode, a soft shadow; dark mode relies on the fill alone.
-private struct CardSurface: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
-
-    func body(content: Content) -> some View {
-        content.background {
-            RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .shadow(
-                    color: colorScheme == .dark ? .clear : .black.opacity(0.06),
-                    radius: 10,
-                    y: 3
-                )
-        }
     }
 }
 
