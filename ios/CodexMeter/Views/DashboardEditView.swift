@@ -104,7 +104,7 @@ struct DashboardEditView: View {
             DashboardSections.spendControl: DashboardEditItem(
                 key: DashboardSections.spendControl,
                 title: "Monthly credit limit",
-                summary: "Workspace spend control · shown only when OpenAI reports one"
+                summary: "Workspace spend limit · shown only when OpenAI reports one"
             ),
             DashboardSections.usageHistory: DashboardEditItem(
                 key: DashboardSections.usageHistory,

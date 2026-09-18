@@ -32,10 +32,10 @@ final class DashboardSectionsTests: XCTestCase {
                 DashboardSections.fiveHour,
                 DashboardSections.weekly,
                 DashboardSections.monthly,
+                DashboardSections.spendControl,
                 "limit:model_one",
                 "limit:codex_spark",
                 DashboardSections.usageCredits,
-                DashboardSections.spendControl,
                 DashboardSections.usageHistory,
                 DashboardSections.resetCredits
             ]
@@ -47,9 +47,9 @@ final class DashboardSectionsTests: XCTestCase {
             DashboardSections.fiveHour,
             DashboardSections.weekly,
             DashboardSections.monthly,
+            DashboardSections.spendControl,
             "limit:spark",
             DashboardSections.usageCredits,
-            DashboardSections.spendControl,
             DashboardSections.usageHistory,
             DashboardSections.resetCredits
         ]
@@ -68,9 +68,9 @@ final class DashboardSectionsTests: XCTestCase {
                 DashboardSections.fiveHour,
                 DashboardSections.weekly,
                 DashboardSections.monthly,
+                DashboardSections.spendControl,
                 "limit:spark",
                 DashboardSections.usageCredits,
-                DashboardSections.spendControl,
                 DashboardSections.resetCredits
             ]
         )

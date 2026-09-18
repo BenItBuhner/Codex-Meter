@@ -27,17 +27,17 @@ public enum DashboardSections {
         key.hasPrefix(limitPrefix)
     }
 
-    /// Default order: standard windows, monthly, detected additional limits, credits, the
-    /// monthly credit limit, history, resets.
+    /// Default order: standard windows, monthly, the monthly credit limit, detected additional
+    /// limits, credits, history, resets.
     public static func defaultOrder(additionalLimits: [UsageLimit]) -> [String] {
-        var result = [fiveHour, weekly, monthly]
+        var result = [fiveHour, weekly, monthly, spendControl]
         for limit in additionalLimits {
             let key = limitKey(limit)
             if !result.contains(key) {
                 result.append(key)
             }
         }
-        result.append(contentsOf: [usageCredits, spendControl, usageHistory, resetCredits])
+        result.append(contentsOf: [usageCredits, usageHistory, resetCredits])
         return result
     }
 
