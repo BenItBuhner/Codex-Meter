@@ -22,38 +22,22 @@ nonisolated public enum NotificationDeduplication {
         Int(resetDate.timeIntervalSince1970)
     }
 
-    /// OpenAI reset timestamps drift across refreshes; match Android's window tolerance.
-    public static func resetWindowToleranceSeconds(windowSeconds: Int64) -> Int {
-        if windowSeconds <= 0 { return 60 }
-        let proportional = Int(windowSeconds / 20)
-        return min(15 * 60, max(60, proportional))
-    }
-
-    public static func sameResetWindow(
-        leftToken: Int,
-        rightToken: Int,
-        windowSeconds: Int64
-    ) -> Bool {
-        abs(leftToken - rightToken) <= resetWindowToleranceSeconds(windowSeconds: windowSeconds)
-    }
-
     public static func shouldDeliverLowUsage(
         lastDeliveredWindowToken: Int?,
         resetDate: Date,
-        windowSeconds: Int64
+        windowSeconds: Int64 = 18_000
     ) -> Bool {
-        let current = windowToken(for: resetDate)
-        guard let lastDeliveredWindowToken else { return true }
-        return !sameResetWindow(
-            leftToken: lastDeliveredWindowToken,
-            rightToken: current,
+        UsageWindow.shouldAnnounceLowUsage(
+            lastAnnouncedReset: lastDeliveredWindowToken.map {
+                Date(timeIntervalSince1970: TimeInterval($0))
+            },
+            currentReset: resetDate,
             windowSeconds: windowSeconds
         )
     }
 
-    /// Stable per-metric id so refresh drift cannot create a second low-usage alert.
-    public static func lowUsageIdentifier(metric: AlertMetric) -> String {
-        "\(identifierPrefix)low.\(metric.rawValue)"
+    public static func lowUsageIdentifier(metric: AlertMetric, resetDate: Date) -> String {
+        "\(identifierPrefix)low.\(metric.rawValue).\(windowToken(for: resetDate))"
     }
 
     public static func resetIdentifier(metric: AlertMetric, resetDate: Date) -> String {
@@ -108,6 +92,7 @@ public actor NotificationCoordinator {
     private static let creditExpiryAnnouncedKey = "codex-meter.notification.credit-expiry-announced"
     private static let userResetFiveHourUntilKey = "codex-meter.notification.user-reset-five-hour-until"
     private static let userResetWeeklyUntilKey = "codex-meter.notification.user-reset-weekly-until"
+    private static let userResetMonthlyUntilKey = "codex-meter.notification.user-reset-monthly-until"
     private static let categoriesRegisteredKey = "codex-meter.notification.categories-registered"
 
     private let center: UNUserNotificationCenter
@@ -156,7 +141,7 @@ public actor NotificationCoordinator {
 
         var currentLowIdentifiers: Set<String> = []
         var currentResetIdentifiers: Set<String> = []
-        if settings.alertMetric.includes(.fiveHour), let window = usage.fiveHour {
+        if settings.alertMetric != .weekly, let window = usage.fiveHour {
             await processWindow(
                 window,
                 metric: .fiveHour,
@@ -168,11 +153,11 @@ public actor NotificationCoordinator {
                 currentResetIdentifiers: &currentResetIdentifiers
             )
         }
-        if settings.alertMetric.includes(.weekly), let window = usage.weekly {
+        if settings.alertMetric != .fiveHour, let window = usage.longWindow {
             await processWindow(
                 window,
                 metric: .weekly,
-                label: "Weekly",
+                label: usage.longWindowIsMonthly ? "Monthly" : "Weekly",
                 fetchedAt: usage.fetchedAt,
                 threshold: settings.alertThreshold,
                 now: now,
@@ -220,6 +205,15 @@ public actor NotificationCoordinator {
         } else {
             defaults.removeObject(forKey: Self.userResetWeeklyUntilKey)
         }
+        if let deadline = CelebrationDetector.userResetSuppressionDeadline(
+            snapshot: usage,
+            window: usage.monthly,
+            now: now
+        ) {
+            defaults.set(deadline.timeIntervalSince1970, forKey: Self.userResetMonthlyUntilKey)
+        } else {
+            defaults.removeObject(forKey: Self.userResetMonthlyUntilKey)
+        }
     }
 
     @discardableResult
@@ -250,6 +244,7 @@ public actor NotificationCoordinator {
         defaults.removeObject(forKey: Self.creditExpiryAnnouncedKey)
         defaults.removeObject(forKey: Self.userResetFiveHourUntilKey)
         defaults.removeObject(forKey: Self.userResetWeeklyUntilKey)
+        defaults.removeObject(forKey: Self.userResetMonthlyUntilKey)
     }
 
     private func processWindow(
@@ -287,21 +282,20 @@ public actor NotificationCoordinator {
             )
         )
         guard window.hasRemainingAllowance(atOrBelow: threshold) else { return }
-        let identifier = NotificationDeduplication.lowUsageIdentifier(metric: metric)
+        let identifier = NotificationDeduplication.lowUsageIdentifier(
+            metric: metric,
+            resetDate: resetDate
+        )
         currentLowIdentifiers.insert(identifier)
         let stateKey = Self.lowUsageStatePrefix + metric.rawValue
         let previousWindowToken = defaults.object(forKey: stateKey) == nil
             ? nil
             : defaults.integer(forKey: stateKey)
-        let currentToken = NotificationDeduplication.windowToken(for: resetDate)
         guard NotificationDeduplication.shouldDeliverLowUsage(
             lastDeliveredWindowToken: previousWindowToken,
             resetDate: resetDate,
             windowSeconds: window.windowSeconds
         ) else {
-            if previousWindowToken != currentToken {
-                defaults.set(currentToken, forKey: stateKey)
-            }
             return
         }
         let lowContent = UNMutableNotificationContent()
@@ -312,7 +306,7 @@ public actor NotificationCoordinator {
             try await center.add(
                 UNNotificationRequest(identifier: identifier, content: lowContent, trigger: nil)
             )
-            defaults.set(currentToken, forKey: stateKey)
+            defaults.set(NotificationDeduplication.windowToken(for: resetDate), forKey: stateKey)
         } catch {
             // Leave the state unset so a later refresh can retry delivery.
         }
@@ -327,14 +321,16 @@ public actor NotificationCoordinator {
 
         let fiveHourUntil = date(forKey: Self.userResetFiveHourUntilKey)
         let weeklyUntil = date(forKey: Self.userResetWeeklyUntilKey)
+        let monthlyUntil = date(forKey: Self.userResetMonthlyUntilKey)
         let filtered = CelebrationDetector.withoutUserResetRefills(
             raw,
             observedAt: current.fetchedAt,
             fiveHourSuppressUntil: fiveHourUntil,
-            weeklySuppressUntil: weeklyUntil
+            weeklySuppressUntil: weeklyUntil,
+            monthlySuppressUntil: monthlyUntil
         )
 
-        if fiveHourUntil != nil || weeklyUntil != nil {
+        if fiveHourUntil != nil || weeklyUntil != nil || monthlyUntil != nil {
             clearSuppressionIfNeeded(
                 window: .fiveHour,
                 before: raw,
@@ -351,18 +347,34 @@ public actor NotificationCoordinator {
                 suppressUntil: weeklyUntil,
                 key: Self.userResetWeeklyUntilKey
             )
+            clearSuppressionIfNeeded(
+                window: .monthly,
+                before: raw,
+                after: filtered,
+                observedAt: current.fetchedAt,
+                suppressUntil: monthlyUntil,
+                key: Self.userResetMonthlyUntilKey
+            )
         }
 
         guard !filtered.isEmpty else { return }
 
         let title: String
         let body: String
-        if filtered.contains(.fiveHour) && filtered.contains(.weekly) {
+        let windows = [
+            filtered.contains(.fiveHour) ? "five-hour" : nil,
+            filtered.contains(.weekly) ? "weekly" : nil,
+            filtered.contains(.monthly) ? "monthly" : nil
+        ].compactMap { $0 }
+        if windows.count > 1 {
             title = "Codex allowance refilled"
-            body = "Your five-hour and weekly windows refilled before their scheduled reset."
+            body = "Your \(windows.joined(separator: " and ")) windows refilled before their scheduled reset."
         } else if filtered.contains(.fiveHour) {
             title = "5-hour Codex allowance refilled"
             body = "Your five-hour window refilled before its scheduled reset."
+        } else if filtered.contains(.monthly) {
+            title = "Monthly Codex allowance refilled"
+            body = "Your monthly window refilled before its scheduled reset."
         } else {
             title = "Weekly Codex allowance refilled"
             body = "Your weekly window refilled before its scheduled reset."
