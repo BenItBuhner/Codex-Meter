@@ -293,7 +293,7 @@ private struct UsageCreditsCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(balance)
                         .font(.title3.bold())
-                        .contentTransition(.numericText())
+                        .numericTextTransition()
                     Text(summary)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -347,7 +347,7 @@ private struct ResetCreditsDashboardCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(count == 1 ? "1 reset available" : "\(count) resets available")
                         .font(.title3.bold())
-                        .contentTransition(.numericText())
+                        .numericTextTransition()
                     if let nextExpiry {
                         Text("Next expires \(nextExpiry, style: .relative)")
                             .font(.subheadline)

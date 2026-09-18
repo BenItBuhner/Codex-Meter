@@ -20,11 +20,11 @@ struct UsageMeterCard: View {
                     .trim(from: 0, to: Double(remaining) / 100)
                     .stroke(accent, style: StrokeStyle(lineWidth: 11, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .animation(.snappy, value: remaining)
+                    .motionAnimation(.snappy, value: remaining)
                 VStack(spacing: -2) {
                     Text("\(remaining)")
                         .font(.title2.bold())
-                        .contentTransition(.numericText())
+                        .numericTextTransition()
                     Text("%")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -43,7 +43,7 @@ struct UsageMeterCard: View {
                     Text("\(used)% used")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .contentTransition(.numericText())
+                        .numericTextTransition()
                 }
 
                 if let window, window.showsResetCountdown,
