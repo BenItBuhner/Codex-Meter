@@ -2,8 +2,6 @@ package dev.bennett.codexmeter;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
-import java.util.Locale;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -135,41 +133,21 @@ public final class SpendControl {
     }
 
     /**
-     * Headline copy matching the Codex clients: "8,000 of 25,000 credits used", falling back to
-     * a percentage when amounts are missing.
+     * Quantity that selects the plurals form for a credit amount: the integral value itself,
+     * or a plural-only sentinel for fractional and oversized amounts, because only an integral
+     * 1 is singular ("1 credit remaining").
      */
-    public String usageText(Locale locale) {
-        BigDecimal spent = numericUsed();
-        BigDecimal total = numericLimit();
-        if (spent != null && total != null) {
-            return formatAmount(spent, locale) + " of " + formatAmount(total, locale)
-                    + " credits used";
+    public static int pluralQuantity(BigDecimal amount) {
+        if (amount == null) {
+            return 0;
         }
-        int percent = effectiveUsedPercent();
-        if (percent >= 0) {
-            return percent + "% of monthly credits used";
+        BigDecimal normalized = amount.stripTrailingZeros();
+        if (normalized.scale() <= 0
+                && normalized.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) <= 0
+                && normalized.signum() >= 0) {
+            return normalized.intValue();
         }
-        return reached ? "Limit reached" : "Usage details unavailable";
-    }
-
-    /**
-     * Secondary copy: the remainder ("17,000 credits remaining"), prefixed with the reached
-     * state whenever OpenAI flags the limit as hit. Empty when nothing is known.
-     */
-    public String remainingText(Locale locale) {
-        BigDecimal left = numericRemaining();
-        String amount;
-        if (left != null) {
-            amount = formatAmount(left.max(BigDecimal.ZERO), locale) + " credits remaining";
-        } else {
-            int percent = effectiveRemainingPercent();
-            amount = percent >= 0 ? percent + "% remaining" : "";
-        }
-        if (!reached) {
-            return amount;
-        }
-        boolean exhausted = left != null ? left.signum() <= 0 : effectiveRemainingPercent() == 0;
-        return amount.isEmpty() || exhausted ? "Limit reached" : "Limit reached · " + amount;
+        return Integer.MAX_VALUE;
     }
 
     public JSONObject toJson() throws JSONException {
@@ -285,13 +263,6 @@ public final class SpendControl {
         } catch (NumberFormatException ignored) {
             return null;
         }
-    }
-
-    private static String formatAmount(BigDecimal amount, Locale locale) {
-        NumberFormat format = NumberFormat.getNumberInstance(
-                locale == null ? Locale.getDefault() : locale);
-        format.setMaximumFractionDigits(2);
-        return format.format(amount);
     }
 
     private static int clampPercent(int value) {

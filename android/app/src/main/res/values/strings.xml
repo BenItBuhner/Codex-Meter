@@ -72,4 +72,12 @@
     <string name="about_privacy_title">Privacy and security</string>
     <string name="about_privacy_summary">Tokens stay encrypted on this device. Codex Meter contains no analytics SDK and is not affiliated with OpenAI.</string>
     <string name="account_avatar">Account avatar</string>
+    <plurals name="spend_control_credits_used">
+        <item quantity="one">%1$s of %2$s credit used</item>
+        <item quantity="other">%1$s of %2$s credits used</item>
+    </plurals>
+    <plurals name="spend_control_credits_remaining">
+        <item quantity="one">%1$s credit remaining</item>
+        <item quantity="other">%1$s credits remaining</item>
+    </plurals>
 </resources>

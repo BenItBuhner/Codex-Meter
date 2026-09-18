@@ -559,14 +559,24 @@ public final class MainActivity extends AppCompatActivity {
      */
     private LinearLayout buildSpendControlCard(UsageSnapshot snapshot) {
         SpendControl control = snapshot.spendControl;
-        Locale locale = Locale.getDefault();
         long now = System.currentTimeMillis();
         LinearLayout card = Ui.card(this, this.dark);
+        LinearLayout header = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         TextView title = Ui.text(this, "Monthly credit limit", 18, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        String percentUsed = UsageFormat.spendControlPercentUsed(control);
+        if (!percentUsed.isEmpty()) {
+            TextView percent = Ui.text(this, percentUsed, 14.0f, Ui.secondaryText(this.dark));
+            percent.setTypeface(Ui.mediumTypeface(this));
+            LinearLayout.LayoutParams percentParams = new LinearLayout.LayoutParams(-2, -2);
+            percentParams.setMargins(Ui.dp(this, 12), 0, 0, 0);
+            header.addView(percent, percentParams);
+        }
+        card.addView(header, new LinearLayout.LayoutParams(-1, -2));
         card.addView(buildIconDetailRow(R.drawable.ic_oui_calendar_month,
-                control.usageText(locale), control.remainingText(locale),
+                UsageFormat.spendControlUsage(this, control),
+                UsageFormat.spendControlRemaining(this, control),
                 control.reached ? Ui.danger(this.dark) : Ui.secondaryText(this.dark)));
 
         int remaining = control.effectiveRemainingPercent();

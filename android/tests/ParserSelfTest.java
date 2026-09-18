@@ -11,7 +11,6 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
@@ -912,12 +911,20 @@ public final class ParserSelfTest {
                         && new BigDecimal("8000").compareTo(control.numericUsed()) == 0
                         && new BigDecimal("17000").compareTo(control.numericRemaining()) == 0,
                 "amounts parse as numbers");
-        check("8,000 of 25,000 credits used".equals(control.usageText(Locale.US)),
-                "headline copy matches the Codex clients");
-        check("17,000 credits remaining".equals(control.remainingText(Locale.US)),
-                "remaining copy formats the reported remainder");
         check("Workspace spend limit".equals(control.sourceLabel()),
                 "workspace source gets a human label");
+        check(SpendControl.pluralQuantity(new BigDecimal("17000")) == 17_000
+                        && SpendControl.pluralQuantity(new BigDecimal("25000")) == 25_000
+                        && SpendControl.pluralQuantity(BigDecimal.ZERO) == 0,
+                "integral amounts select their own plurals quantity");
+        check(SpendControl.pluralQuantity(BigDecimal.ONE) == 1
+                        && SpendControl.pluralQuantity(new BigDecimal("1.00")) == 1,
+                "exactly one credit is singular");
+        check(SpendControl.pluralQuantity(new BigDecimal("1.5")) != 1
+                        && SpendControl.pluralQuantity(new BigDecimal("2500.5")) != 1
+                        && SpendControl.pluralQuantity(new BigDecimal("99999999999")) != 1
+                        && SpendControl.pluralQuantity(null) != 1,
+                "fractional, oversized, and missing amounts never take the singular form");
 
         // Everything else in the response is untouched and stays a separate concept.
         check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 42
@@ -947,8 +954,9 @@ public final class ParserSelfTest {
         WearUsageState wear = WearUsageState.fromJson(
                 new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE).toJson());
         check(wear != null && wear.snapshot != null && wear.snapshot.spendControl != null
-                        && "8,000 of 25,000 credits used".equals(
-                        wear.snapshot.spendControl.usageText(Locale.US)),
+                        && "8000".equals(wear.snapshot.spendControl.used)
+                        && "25000".equals(wear.snapshot.spendControl.limit)
+                        && wear.snapshot.spendControl.usedPercent == 32,
                 "spend control rides along in the Wear Data Layer payload");
 
         // Absent, null, or empty spend controls leave the slot empty: no card, no change.
@@ -991,8 +999,9 @@ public final class ParserSelfTest {
                 "string percentages parse, with or without a percent sign");
         check(typed.resetAfterSeconds == 43_200L && typed.resetAtEpochSeconds == resetAt,
                 "string reset fields parse");
-        check("8,000 of 25,000 credits used".equals(typed.usageText(Locale.US)),
-                "typed variant renders the same headline");
+        check(new BigDecimal("8000").compareTo(typed.numericUsed()) == 0
+                        && new BigDecimal("25000").compareTo(typed.numericLimit()) == 0,
+                "typed variant yields the same amounts");
 
         // Missing fields are derived from whatever was reported.
         SpendControl amountsOnly = SpendControl.fromJson(new JSONObject(
@@ -1000,16 +1009,16 @@ public final class ParserSelfTest {
         check(amountsOnly != null
                         && new BigDecimal("17000").compareTo(amountsOnly.numericRemaining()) == 0
                         && amountsOnly.effectiveRemainingPercent() == 68
-                        && amountsOnly.effectiveUsedPercent() == 32
-                        && "17,000 credits remaining".equals(amountsOnly.remainingText(Locale.US)),
+                        && amountsOnly.effectiveUsedPercent() == 32,
                 "remainder and percentages derive from limit and used");
         SpendControl percentOnly = SpendControl.fromJson(new JSONObject(
                 "{\"individual_limit\":{\"used_percent\":32}}"));
         check(percentOnly != null && percentOnly.numericLimit() == null
-                        && percentOnly.effectiveRemainingPercent() == 68
-                        && "32% of monthly credits used".equals(percentOnly.usageText(Locale.US))
-                        && "68% remaining".equals(percentOnly.remainingText(Locale.US)),
-                "percent-only payloads fall back to percentage copy");
+                        && percentOnly.numericUsed() == null
+                        && percentOnly.numericRemaining() == null
+                        && percentOnly.effectiveUsedPercent() == 32
+                        && percentOnly.effectiveRemainingPercent() == 68,
+                "percent-only payloads keep the percentages and no amounts");
         SpendControl restoredPercentOnly = SpendControl.fromJson(percentOnly.toJson());
         check(restoredPercentOnly != null && restoredPercentOnly.limit.isEmpty()
                         && restoredPercentOnly.usedPercent == 32
@@ -1022,20 +1031,19 @@ public final class ParserSelfTest {
                 + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"25000\","
                 + "\"remaining\":\"0\",\"used_percent\":100,\"remaining_percent\":0}}"));
         check(reached != null && reached.reached && reached.effectiveRemainingPercent() == 0
-                        && "25,000 of 25,000 credits used".equals(reached.usageText(Locale.US))
-                        && "Limit reached".equals(reached.remainingText(Locale.US)),
+                        && reached.numericRemaining().signum() == 0,
                 "exhausted allocation reports the reached state");
         SpendControl reachedEarly = SpendControl.fromJson(new JSONObject("{\"reached\":true,"
                 + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"8000\","
                 + "\"remaining\":\"17000\"}}"));
-        check(reachedEarly != null && "Limit reached · 17,000 credits remaining".equals(
-                        reachedEarly.remainingText(Locale.US)),
-                "reached flag is surfaced even when a remainder is still reported");
+        check(reachedEarly != null && reachedEarly.reached
+                        && new BigDecimal("17000").compareTo(reachedEarly.numericRemaining()) == 0,
+                "workspace reached flag is preserved even when a remainder is still reported");
         SpendControl overspent = SpendControl.fromJson(new JSONObject(
                 "{\"individual_limit\":{\"limit\":\"100\",\"used\":\"120\",\"remaining\":\"-20\"}}"));
         check(overspent != null && overspent.effectiveRemainingPercent() == 0
-                        && "0 credits remaining".equals(overspent.remainingText(Locale.US)),
-                "negative remainders clamp to zero");
+                        && overspent.numericRemaining().signum() < 0,
+                "negative remainders report zero percent remaining");
         SpendControl clamped = SpendControl.fromJson(new JSONObject(
                 "{\"individual_limit\":{\"used_percent\":150,\"remaining_percent\":-5}}"));
         check(clamped != null && clamped.usedPercent == 100 && clamped.remainingPercent == -1

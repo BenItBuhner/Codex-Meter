@@ -216,14 +216,19 @@ grep -q 'SPEND_CONTROL = "spend_control"' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
 grep -q 'SpendControl.fromJson(nullableObject(jSONObject, "spend_control"))' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java"
-grep -q 'snapshot.spendControl != null' \
+# The card is an orderable section that is built only behind its switch and only when the
+# payload carries a limit; accounts without spend controls never get the section at all.
+grep -q 'AppPreferences.showDashboardSpendControl(this) && snapshot.spendControl != null' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -Fq 'Ui.text(this, "Monthly credit limit", 18' \
+grep -q 'buildSpendControlCard(snapshot)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'ic_oui_calendar_month' \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# Credit amounts are pluralized through resources, never by string concatenation.
+grep -q 'R.plurals.spend_control_credits_remaining' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageFormat.java"
+grep -q '<plurals name="spend_control_credits_used">' \
+  "$ROOT/app/src/main/res/values/strings.xml"
 grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
 grep -q 'dashboard_spend_control' \
