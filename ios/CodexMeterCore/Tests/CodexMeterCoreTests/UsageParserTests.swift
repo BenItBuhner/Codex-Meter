@@ -281,6 +281,134 @@ final class UsageParserTests: XCTestCase {
         XCTAssertNil(snapshot.weekly)
     }
 
+    func testSpendControlIndividualLimitParsesAlongsideWindowsAndCredits() throws {
+        let snapshot = try UsageParser.parse(
+            FixtureLoader.data(named: "usage-spend-control"),
+            fetchedAt: fetchedAt
+        )
+        let control = try XCTUnwrap(snapshot.spendControl)
+        XCTAssertFalse(control.reached)
+        let limit = try XCTUnwrap(control.individualLimit)
+        XCTAssertEqual(limit.source, "workspace_spend_controls")
+        XCTAssertEqual(limit.limit, "25000")
+        XCTAssertEqual(limit.used, "8000")
+        XCTAssertEqual(limit.remaining, "17000")
+        XCTAssertEqual(limit.usedPercent, 32)
+        XCTAssertEqual(limit.remainingPercent, 68)
+        XCTAssertEqual(limit.resetAfterSeconds, 43_200)
+        XCTAssertEqual(limit.resetAt, Date(timeIntervalSince1970: 2_000_043_200))
+        XCTAssertEqual(limit.numericLimit, 25_000)
+        XCTAssertEqual(limit.numericUsed, 8_000)
+        XCTAssertEqual(limit.numericRemaining, 17_000)
+        XCTAssertTrue(limit.showsResetCountdown)
+        XCTAssertEqual(snapshot.spendControlLimit, limit)
+
+        XCTAssertEqual(snapshot.planType, "team")
+        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 42)
+        XCTAssertEqual(snapshot.weekly?.usedPercent, 5)
+        XCTAssertEqual(snapshot.resetCreditsAvailable, 2)
+        XCTAssertNotNil(snapshot.usageCredits)
+        XCTAssertFalse(snapshot.usageCredits?.shouldDisplay == true)
+        XCTAssertEqual(snapshot.nextReset(after: fetchedAt), Date(timeIntervalSince1970: 2_000_003_600))
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        let restored = try JSONDecoder().decode(UsageSnapshot.self, from: encoded)
+        XCTAssertEqual(restored.spendControl, control)
+        XCTAssertEqual(restored, snapshot)
+    }
+
+    func testSpendControlAcceptsNumbersAndStringsInterchangeably() throws {
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "spend_control": {
+                "reached": "true",
+                "individual_limit": {
+                  "limit": 25000,
+                  "used": 8000.5,
+                  "used_percent": "32.4",
+                  "reset_after_seconds": "43200",
+                  "reset_at": "2000043200"
+                }
+              }
+            }
+            """,
+            fetchedAt: fetchedAt
+        )
+        let control = try XCTUnwrap(snapshot.spendControl)
+        XCTAssertTrue(control.reached)
+        let limit = try XCTUnwrap(control.individualLimit)
+        XCTAssertEqual(limit.source, "")
+        XCTAssertEqual(limit.limit, "25000")
+        XCTAssertEqual(limit.used, "8000.5")
+        XCTAssertNil(limit.remaining)
+        XCTAssertEqual(limit.numericRemaining, Decimal(string: "16999.5"))
+        XCTAssertEqual(limit.usedPercent, 32)
+        XCTAssertEqual(limit.resetAfterSeconds, 43_200)
+        XCTAssertEqual(limit.resetAt, Date(timeIntervalSince1970: 2_000_043_200))
+        XCTAssertTrue(snapshot.hasDisplayableData)
+        XCTAssertEqual(snapshot.nextReset(after: fetchedAt), limit.resetAt)
+    }
+
+    func testSpendControlPercentFallbacksAndClamping() throws {
+        let remainingOnly = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":false,"individual_limit":{"limit":"1000","used":"250","remaining_percent":75}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(remainingOnly.spendControlLimit?.usedPercent, 25)
+        XCTAssertEqual(remainingOnly.spendControlLimit?.numericRemaining, 750)
+        XCTAssertFalse(remainingOnly.spendControlLimit?.showsResetCountdown == true)
+
+        let derived = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":false,"individual_limit":{"limit":"1000","used":"333"}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(derived.spendControlLimit?.usedPercent, 33)
+
+        let overrun = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":true,"individual_limit":{"limit":"1000","used":"1200","remaining":"-200","used_percent":120,"remaining_percent":-20}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(overrun.spendControl?.reached, true)
+        XCTAssertEqual(overrun.spendControlLimit?.usedPercent, 100)
+        XCTAssertEqual(overrun.spendControlLimit?.remainingPercent, 0)
+        XCTAssertEqual(overrun.spendControlLimit?.numericRemaining, 0)
+    }
+
+    func testSpendControlWithoutUsableLimitStaysHidden() throws {
+        let nullLimit = try UsageParser.parse(
+            """
+            {"plan_type":"team","spend_control":{"reached":true,"individual_limit":null}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(nullLimit.spendControl?.reached, true)
+        XCTAssertNil(nullLimit.spendControlLimit)
+        XCTAssertFalse(nullLimit.hasDisplayableData)
+
+        let unusable = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":false,"individual_limit":{"source":"workspace_spend_controls","limit":true,"used":null,"used_percent":false}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNotNil(unusable.spendControl)
+        XCTAssertNil(unusable.spendControlLimit)
+
+        let absent = try UsageParser.parse(
+            FixtureLoader.data(named: "usage-standard"),
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNil(absent.spendControl)
+        XCTAssertNil(absent.spendControlLimit)
+    }
+
     func testInvalidRootThrows() {
         XCTAssertThrowsError(try UsageParser.parse("[]", fetchedAt: fetchedAt)) { error in
             XCTAssertEqual(error as? CodexMeterParsingError, .invalidRootObject)

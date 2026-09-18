@@ -230,6 +230,140 @@ public struct UsageCredits: Codable, Sendable, Equatable {
     }
 }
 
+/// The signed-in member's monthly credit allocation under workspace spend controls
+/// (`spend_control.individual_limit`). Distinct from purchased usage credits and from
+/// banked rate-limit reset credits.
+public struct SpendControlLimit: Codable, Sendable, Equatable {
+    public let source: String
+    /// Raw credit amounts as reported by OpenAI (usually integer strings such as `"25000"`).
+    public let limit: String?
+    public let used: String?
+    public let remaining: String?
+    public let usedPercent: Int
+    public let resetAfterSeconds: Int64
+    public let resetAt: Date?
+
+    public init(
+        source: String = "",
+        limit: String?,
+        used: String?,
+        remaining: String? = nil,
+        usedPercent: Int,
+        resetAfterSeconds: Int64 = 0,
+        resetAt: Date? = nil
+    ) {
+        self.source = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.limit = Self.cleanAmount(limit)
+        self.used = Self.cleanAmount(used)
+        self.remaining = Self.cleanAmount(remaining)
+        self.usedPercent = min(100, max(0, usedPercent))
+        self.resetAfterSeconds = max(0, resetAfterSeconds)
+        self.resetAt = resetAt.flatMap {
+            let seconds = $0.timeIntervalSince1970
+            return seconds.isFinite && seconds > 0 ? $0 : nil
+        }
+    }
+
+    public var remainingPercent: Int {
+        min(100, max(0, 100 - usedPercent))
+    }
+
+    public var numericLimit: Decimal? {
+        Self.numeric(limit)
+    }
+
+    public var numericUsed: Decimal? {
+        Self.numeric(used)
+    }
+
+    /// Reported remaining credits, or `limit - used` when OpenAI omits the field. Never negative.
+    public var numericRemaining: Decimal? {
+        if let remaining = Self.numeric(remaining) {
+            return max(0, remaining)
+        }
+        guard let numericLimit, let numericUsed else {
+            return nil
+        }
+        return max(0, numericLimit - numericUsed)
+    }
+
+    public var showsResetCountdown: Bool {
+        resetAt != nil || resetAfterSeconds > 0
+    }
+
+    public func effectiveResetDate(relativeTo referenceDate: Date) -> Date? {
+        if let resetAt {
+            return resetAt
+        }
+        guard resetAfterSeconds > 0 else {
+            return nil
+        }
+        return referenceDate.addingTimeInterval(TimeInterval(resetAfterSeconds))
+    }
+
+    private static func cleanAmount(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
+    private static func numeric(_ value: String?) -> Decimal? {
+        guard let value else { return nil }
+        return Decimal(
+            string: value.replacingOccurrences(of: ",", with: ""),
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case source
+        case limit
+        case used
+        case remaining
+        case usedPercent
+        case resetAfterSeconds
+        case resetAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            source: try container.decodeIfPresent(String.self, forKey: .source) ?? "",
+            limit: try container.decodeIfPresent(String.self, forKey: .limit),
+            used: try container.decodeIfPresent(String.self, forKey: .used),
+            remaining: try container.decodeIfPresent(String.self, forKey: .remaining),
+            usedPercent: try container.decodeIfPresent(Int.self, forKey: .usedPercent) ?? 0,
+            resetAfterSeconds: try container.decodeIfPresent(Int64.self, forKey: .resetAfterSeconds) ?? 0,
+            resetAt: try container.decodeIfPresent(Date.self, forKey: .resetAt)
+        )
+    }
+}
+
+/// Workspace spend-control status attached to the usage response (`spend_control`).
+public struct SpendControl: Codable, Sendable, Equatable {
+    /// Whether the workspace spend limit currently blocks this member.
+    public let reached: Bool
+    /// The member's monthly credit limit; `nil` when the workspace does not set one.
+    public let individualLimit: SpendControlLimit?
+
+    public init(reached: Bool, individualLimit: SpendControlLimit?) {
+        self.reached = reached
+        self.individualLimit = individualLimit
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reached
+        case individualLimit
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            reached: try container.decodeIfPresent(Bool.self, forKey: .reached) ?? false,
+            individualLimit: try container.decodeIfPresent(SpendControlLimit.self, forKey: .individualLimit)
+        )
+    }
+}
+
 public struct UsageSnapshot: Codable, Sendable, Equatable {
     public let planType: String
     public let allowed: Bool
@@ -241,6 +375,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     public let resetCreditsAvailable: Int?
     public let additionalLimits: [UsageLimit]
     public let usageCredits: UsageCredits?
+    public let spendControl: SpendControl?
     public let fetchedAt: Date
 
     public init(
@@ -253,6 +388,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         resetCreditsAvailable: Int? = nil,
         additionalLimits: [UsageLimit] = [],
         usageCredits: UsageCredits? = nil,
+        spendControl: SpendControl? = nil,
         fetchedAt: Date
     ) {
         self.planType = planType
@@ -266,7 +402,13 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
             $0.primary != nil || $0.secondary != nil
         }
         self.usageCredits = usageCredits
+        self.spendControl = spendControl
         self.fetchedAt = fetchedAt
+    }
+
+    /// The monthly credit limit from workspace spend controls, when OpenAI reports one.
+    public var spendControlLimit: SpendControlLimit? {
+        spendControl?.individualLimit
     }
 
     /// The longer-cadence Codex window: weekly when present, otherwise the monthly window that
@@ -282,8 +424,10 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     }
 
     public func nextReset(after date: Date) -> Date? {
-        ([fiveHour, weekly, monthly] + additionalLimits.flatMap { [$0.primary, $0.secondary] })
+        let windowResets = ([fiveHour, weekly, monthly] + additionalLimits.flatMap { [$0.primary, $0.secondary] })
             .compactMap { $0?.effectiveResetDate(relativeTo: fetchedAt) }
+        let spendControlReset = spendControlLimit?.effectiveResetDate(relativeTo: fetchedAt)
+        return (windowResets + [spendControlReset].compactMap { $0 })
             .filter { $0 > date }
             .min()
     }
@@ -291,6 +435,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     public var hasDisplayableData: Bool {
         fiveHour != nil || weekly != nil || monthly != nil || !additionalLimits.isEmpty
             || usageCredits?.shouldDisplay == true || resetCreditsAvailable != nil
+            || spendControlLimit != nil
     }
 
     public func isStale(at date: Date = Date(), maxAge: TimeInterval) -> Bool {
@@ -307,6 +452,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         case resetCreditsAvailable
         case additionalLimits
         case usageCredits
+        case spendControl
         case fetchedAt
     }
 
@@ -322,6 +468,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
             resetCreditsAvailable: try container.decodeIfPresent(Int.self, forKey: .resetCreditsAvailable),
             additionalLimits: try container.decodeIfPresent([UsageLimit].self, forKey: .additionalLimits) ?? [],
             usageCredits: try container.decodeIfPresent(UsageCredits.self, forKey: .usageCredits),
+            spendControl: try container.decodeIfPresent(SpendControl.self, forKey: .spendControl),
             fetchedAt: try container.decodeIfPresent(Date.self, forKey: .fetchedAt)
                 ?? Date(timeIntervalSince1970: 0)
         )
