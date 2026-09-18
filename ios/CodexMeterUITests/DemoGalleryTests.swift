@@ -157,24 +157,26 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.2)
         capture("17-demo-dashboard-ax5")
 
+        // One long drag brings the first meter card fully into view: ring on top,
+        // full-width title and details stacked beneath it.
+        UITestSupport.dragDashboard(in: app, from: 0.92)
+        UITestSupport.settle(0.8)
+        capture("18-demo-meter-ax5")
+
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("18-settings-ax5")
+        capture("19-settings-ax5")
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
 
-        // The AX5 dashboard runs to several thousand points; long drags reach the
-        // last card in a dozen or so strokes where the default ones took over 30.
-        UITestSupport.scrollDashboard(
-            untilVisible: app.buttons["Use 1 reset"],
-            in: app,
-            maxAttempts: 30,
-            dragFraction: 0.6
-        )
-        UITestSupport.settle(0.6)
-        if UITestSupport.isFullyVisible(app.buttons["Use 1 reset"], in: app) {
-            capture("19-demo-reset-credits-ax5")
+        // Reset credits is the last dashboard card, so the end of the page is the
+        // card; scroll there blind and ask the accessibility tree only once.
+        UITestSupport.scrollDashboardToBottom(in: app)
+        UITestSupport.settle(0.8)
+        if app.buttons["Use 1 reset"].waitForExistence(timeout: 5),
+           UITestSupport.isFullyVisible(app.buttons["Use 1 reset"], in: app) {
+            capture("20-demo-reset-credits-ax5")
         } else {
             XCTFail("Reset credits card was not reached at the AX5 text size")
         }

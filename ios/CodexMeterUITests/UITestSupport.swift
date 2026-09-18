@@ -34,20 +34,13 @@ enum UITestSupport {
     /// Visibility is judged from the element frame rather than `isHittable`:
     /// resolving hit points for a card clipped at the scroll edge can stall
     /// XCUITest for minutes before it throws, whereas a frame query is cheap.
-    ///
-    /// `dragFraction` is the share of the window height each drag covers. The
-    /// default keeps drags short enough that a target can never be skipped past
-    /// the visible band; at accessibility text sizes the dashboard is several
-    /// thousand points tall, so the AX5 tour leg asks for longer drags, which
-    /// start lower so the whole stroke stays inside the window.
     static func scrollDashboard(
         untilVisible element: XCUIElement,
         in app: XCUIApplication,
-        maxAttempts: Int = 10,
-        dragFraction: CGFloat = 0.35
+        maxAttempts: Int = 10
     ) {
         let target = element.firstMatch
-        let anchors: [CGFloat] = dragFraction > 0.35 ? [0.92, 0.76] : [0.85, 0.45]
+        let anchors: [CGFloat] = [0.85, 0.45]
         // Stop as soon as the target is in view: a `where` clause would keep
         // re-querying the accessibility tree once per remaining attempt, and on a
         // starved runner each of those snapshots is a chance to time out.
@@ -55,8 +48,28 @@ enum UITestSupport {
             if isFullyVisible(target, in: app) { return }
             let dy = anchors[attempt % anchors.count]
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - dragFraction))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - 0.35))
             start.press(forDuration: 0.05, thenDragTo: end)
+        }
+    }
+
+    /// One long drag down the dashboard from `anchor`, covering 60% of the window.
+    static func dragDashboard(in app: XCUIApplication, from anchor: CGFloat) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: anchor))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: anchor - 0.6))
+        start.press(forDuration: 0.05, thenDragTo: end)
+    }
+
+    /// Scrolls the dashboard to its end without asking where it is: at
+    /// accessibility text sizes the page runs to several thousand points, and on
+    /// a starved runner every hierarchy snapshot along the way is a chance to
+    /// time out, while the scroll simply clamps at the last card. A momentum
+    /// swipe alternates with a long drag from a different start point so a
+    /// stroke the history chart swallows is never repeated from the same spot.
+    static func scrollDashboardToBottom(in app: XCUIApplication, passes: Int = 8) {
+        for pass in 0..<passes {
+            app.swipeUp()
+            dragDashboard(in: app, from: pass.isMultiple(of: 2) ? 0.92 : 0.76)
         }
     }
 
