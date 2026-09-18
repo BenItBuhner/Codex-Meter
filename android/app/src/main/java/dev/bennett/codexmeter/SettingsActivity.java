@@ -469,6 +469,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 plan.setVisibility(View.GONE);
             }
             CardItemView leaveDemo = preference.findViewById(R.id.settings_account_secondary_action);
+            preference.findViewById(R.id.settings_account_secondary_divider)
+                    .setVisibility(demo ? View.VISIBLE : View.GONE);
             leaveDemo.setVisibility(demo ? View.VISIBLE : View.GONE);
             leaveDemo.getTitleView().setTextColor(dark ? 0xFFFF6B6B : 0xFFFF3B30);
             leaveDemo.setOnClickListener(view -> {
