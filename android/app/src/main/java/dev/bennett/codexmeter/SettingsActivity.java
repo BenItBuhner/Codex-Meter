@@ -453,7 +453,7 @@ public final class SettingsActivity extends AppCompatActivity {
             plan.setBackground(Ui.pillBackground(requireContext(), dark));
 
             AuthTokens tokens = SecureTokenStore.load(requireContext());
-            boolean demo = tokens == null && DemoMode.isActive(requireContext());
+            boolean demo = DemoMode.isActive(requireContext());
             UsageSnapshot snapshot = AppPreferences.loadSnapshot(requireContext());
             title.setText(tokens != null ? "ChatGPT account" : demo ? "Demo mode" : "Not connected");
             summary.setText(tokens != null

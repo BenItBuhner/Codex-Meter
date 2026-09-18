@@ -79,6 +79,7 @@ public final class AppPreferences {
                 .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
                 .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
                 .remove(KEY_HISTORY_MONTHLY)
+                .remove(KEY_DEMO_STATE)
                 .remove(KEY_REFRESH_FAILURES).apply();
         NowBarManager.stop(context);
         NowBarPreferences.clearSuppression(context);

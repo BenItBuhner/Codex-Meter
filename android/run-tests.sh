@@ -194,6 +194,30 @@ grep -q 'DemoMode.isActive(context) ? null : snapshot' \
 grep -q 'DemoMode.hasSession(context)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetRenderer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+# Real credentials always win over the demo: the flag is inert while signed in, cannot be set
+# while signed in, and is dropped by every path that clears cached usage (both sign-outs).
+python3 - <<PY
+from pathlib import Path
+root = Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter"
+demo = (root / "DemoMode.java").read_text()
+active = demo[demo.index("public static boolean isActive"):demo.index("public static boolean hasSession")]
+assert "!SecureTokenStore.isSignedIn(" in active, "DemoMode.isActive must yield to real credentials"
+enter = demo[demo.index("public static boolean enter"):demo.index("public static void leave")]
+assert enter.index("SecureTokenStore.isSignedIn(") < enter.index("publish("), \
+    "DemoMode.enter must refuse before seeding when signed in"
+prefs = (root / "AppPreferences.java").read_text()
+clear = prefs[prefs.index("public static void clearSnapshot"):prefs.index("public static void setLastError")]
+assert ".remove(KEY_DEMO_STATE)" in clear, "clearSnapshot must end the demo session"
+main = (root / "MainActivity.java").read_text()
+sign_out = main[main.index("public void signOut()"):main.index("public void requestPinWidget()")]
+assert sign_out.index("SecureTokenStore.clear(") < sign_out.index("AppPreferences.clearSnapshot("), \
+    "dashboard sign-out must clear cached usage (and the demo flag) after the tokens"
+settings = (root / "SettingsActivity.java").read_text()
+confirm = settings[settings.index("private void confirmSignOut()"):settings.index("private void bindAppearance()")]
+assert confirm.index("SecureTokenStore.clear(") < confirm.index("AppPreferences.clearSnapshot("), \
+    "settings sign-out must clear cached usage (and the demo flag) after the tokens"
+print("Demo mode yields to real credentials and ends on every sign-out path.")
+PY
 
 # Usage-history charts must be gated on real usage data instead of blank placeholders.
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \

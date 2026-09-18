@@ -369,10 +369,12 @@ public final class MainActivity extends AppCompatActivity {
         DiagnosticLog.info(this, "user", "demo_requested");
         final Context applicationContext = getApplicationContext();
         this.executor.execute(() -> {
-            DemoMode.enter(applicationContext);
+            boolean entered = DemoMode.enter(applicationContext);
             runOnUiThread(() -> {
-                Toast.makeText(this, "Demo data loaded. Nothing is sent to OpenAI.",
-                        Toast.LENGTH_SHORT).show();
+                if (entered) {
+                    Toast.makeText(this, "Demo data loaded. Nothing is sent to OpenAI.",
+                            Toast.LENGTH_SHORT).show();
+                }
                 rebuild();
             });
         });

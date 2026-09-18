@@ -13,8 +13,10 @@ public final class DemoMode {
     private DemoMode() {
     }
 
+    /** Real credentials always win: a stale demo flag never serves sample data to an account. */
     public static boolean isActive(Context context) {
-        return context != null && !AppPreferences.getDemoState(appContext(context)).isEmpty();
+        return context != null && hasDemoState(appContext(context))
+                && !SecureTokenStore.isSignedIn(context);
     }
 
     /** Whether real credentials or the demo session can populate the usage surfaces. */
@@ -22,8 +24,13 @@ public final class DemoMode {
         return isActive(context) || SecureTokenStore.isSignedIn(context);
     }
 
-    public static void enter(Context context) {
+    /** Seeds the demo session; refused while a ChatGPT account is signed in. */
+    public static boolean enter(Context context) {
         Context app = appContext(context);
+        if (SecureTokenStore.isSignedIn(app)) {
+            DiagnosticLog.warn(app, "user", "demo_enter_rejected", "reason", "signed_in");
+            return false;
+        }
         long now = System.currentTimeMillis();
         DemoData.State state = DemoData.State.initial(now).refreshed(now);
         AppPreferences.saveUsageHistory(app,
@@ -34,15 +41,18 @@ public final class DemoMode {
         publish(app, state, now);
         WidgetRenderer.updateAll(app);
         DiagnosticLog.info(app, "user", "demo_entered");
+        return true;
     }
 
-    /** Clears the demo flag and every cache it populated; a no-op outside the demo. */
+    /**
+     * Clears the demo flag and every cache it populated; a no-op outside the demo. Sign-out
+     * reaches the same state through {@link AppPreferences#clearSnapshot}.
+     */
     public static void leave(Context context) {
         Context app = appContext(context);
-        if (!isActive(app)) {
+        if (!hasDemoState(app)) {
             return;
         }
-        AppPreferences.setDemoState(app, "");
         AppPreferences.clearSnapshot(app);
         WidgetRenderer.updateAll(app);
         DiagnosticLog.info(app, "user", "demo_left");
@@ -105,6 +115,10 @@ public final class DemoMode {
             // A damaged state falls back to a fresh seed below.
         }
         return DemoData.State.initial(System.currentTimeMillis());
+    }
+
+    private static boolean hasDemoState(Context app) {
+        return !AppPreferences.getDemoState(app).isEmpty();
     }
 
     private static Context appContext(Context context) {

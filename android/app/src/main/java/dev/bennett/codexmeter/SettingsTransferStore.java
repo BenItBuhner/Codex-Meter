@@ -339,11 +339,7 @@ public final class SettingsTransferStore {
                     "Imported authentication is incomplete or invalid.");
         }
         SecureTokenStore.save(context, tokens);
-        if (DemoMode.isActive(context)) {
-            DemoMode.leave(context);
-        } else {
-            AppPreferences.clearSnapshot(context);
-        }
+        AppPreferences.clearSnapshot(context);
         AppPreferences.setOAuthPending(context, false, "");
         AppPreferences.completeOnboarding(context);
     }
