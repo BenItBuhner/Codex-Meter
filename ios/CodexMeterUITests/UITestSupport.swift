@@ -34,13 +34,20 @@ enum UITestSupport {
     /// Visibility is judged from the element frame rather than `isHittable`:
     /// resolving hit points for a card clipped at the scroll edge can stall
     /// XCUITest for minutes before it throws, whereas a frame query is cheap.
+    ///
+    /// `dragFraction` is the share of the window height each drag covers. The
+    /// default keeps drags short enough that a target can never be skipped past
+    /// the visible band; at accessibility text sizes the dashboard is several
+    /// thousand points tall, so the AX5 tour leg asks for longer drags, which
+    /// start lower so the whole stroke stays inside the window.
     static func scrollDashboard(
         untilVisible element: XCUIElement,
         in app: XCUIApplication,
-        maxAttempts: Int = 10
+        maxAttempts: Int = 10,
+        dragFraction: CGFloat = 0.35
     ) {
         let target = element.firstMatch
-        let anchors: [CGFloat] = [0.85, 0.45]
+        let anchors: [CGFloat] = dragFraction > 0.35 ? [0.92, 0.76] : [0.85, 0.45]
         // Stop as soon as the target is in view: a `where` clause would keep
         // re-querying the accessibility tree once per remaining attempt, and on a
         // starved runner each of those snapshots is a chance to time out.
@@ -48,7 +55,7 @@ enum UITestSupport {
             if isFullyVisible(target, in: app) { return }
             let dy = anchors[attempt % anchors.count]
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - 0.35))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - dragFraction))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
     }

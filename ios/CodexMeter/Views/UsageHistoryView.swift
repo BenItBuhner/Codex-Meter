@@ -525,6 +525,7 @@ private struct ValueEstimatesCard: View {
 }
 
 private struct UsageBurnChart: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let kind: UsageHistoryKind
     let window: UsageWindow
@@ -597,10 +598,12 @@ private struct UsageBurnChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack {
+            dynamicTypeSize.rowLayout(spacing: 8) {
                 Text(title)
                     .font(.subheadline.bold())
-                Spacer(minLength: 8)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
+                }
                 Text(currentPoints.count < 2 ? "Building history" : "\(currentPoints.count) samples")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -703,6 +706,7 @@ private struct UsageBurnChart: View {
                 }
                 .font(.caption)
                 .foregroundStyle(pace.isAccelerated ? .orange : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

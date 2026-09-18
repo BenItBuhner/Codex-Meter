@@ -255,6 +255,7 @@ private struct AdditionalLimitCards: View {
 
 private struct UsageCreditsCard: View {
     let credits: UsageCredits
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var balance: String {
@@ -285,7 +286,7 @@ private struct UsageCreditsCard: View {
             Text("Usage credits")
                 .font(.headline.bold())
 
-            HStack(spacing: 16) {
+            dynamicTypeSize.rowLayout(spacing: 16) {
                 Image(systemName: "creditcard.fill")
                     .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
@@ -299,7 +300,9 @@ private struct UsageCreditsCard: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
             }
         }
         .padding(AppChrome.cardPadding)
@@ -311,6 +314,7 @@ private struct UsageCreditsCard: View {
 
 private struct ResetCreditsDashboardCard: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var count: Int {
@@ -340,7 +344,7 @@ private struct ResetCreditsDashboardCard: View {
             Text("Reset credits")
                 .font(.headline.bold())
 
-            HStack(spacing: 16) {
+            dynamicTypeSize.rowLayout(spacing: 16) {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
                     .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
@@ -360,7 +364,9 @@ private struct ResetCreditsDashboardCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
             }
 
             Button(count > 0 ? "Use 1 reset" : "No resets available") {

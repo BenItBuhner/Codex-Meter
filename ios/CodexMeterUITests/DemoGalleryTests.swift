@@ -127,11 +127,8 @@ final class DemoGalleryTests: XCTestCase {
 
         // Largest accessibility text size: the signed-out hero, the meters, the
         // in-card glyphs, and the settings form all scale with Dynamic Type and
-        // must not clip. One launch covers every screen; launches are the
-        // slowest tour step. The signed-out card is taller than the screen here,
-        // so "Explore demo" has to be scrolled into view before it can be tapped,
-        // and every later still is gated on the dashboard actually appearing so
-        // a missed tap cannot pass off the signed-out screen as the dashboard.
+        // must not clip. Every dashboard still is gated on the dashboard actually
+        // appearing so a missed step cannot pass off another screen as it.
         app.terminate()
         app.launchArguments = [
             "-ui-testing-signed-out",
@@ -143,12 +140,18 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.0)
         capture("16-signed-out-ax5")
 
-        UITestSupport.scrollDashboard(untilVisible: app.buttons["Explore demo"], in: app)
-        XCTAssertTrue(UITestSupport.isFullyVisible(app.buttons["Explore demo"], in: app))
-        UITestSupport.tap(app.buttons["Explore demo"])
+        // Relaunch straight into demo: entering it from the signed-out card would
+        // keep that card's scroll offset, and the dashboard must be shot from the top.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing-demo",
+            "-ui-testing-reset-settings",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ]
+        app.launch()
         guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 8),
               app.staticTexts["5-hour"].waitForExistence(timeout: 8) else {
-            XCTFail("Explore demo did not open the demo dashboard at the AX5 text size")
+            XCTFail("The demo dashboard did not appear at the AX5 text size")
             return
         }
         UITestSupport.settle(1.2)
@@ -161,7 +164,14 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
 
-        UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app, maxAttempts: 30)
+        // The AX5 dashboard runs to several thousand points; long drags reach the
+        // last card in a dozen or so strokes where the default ones took over 30.
+        UITestSupport.scrollDashboard(
+            untilVisible: app.buttons["Use 1 reset"],
+            in: app,
+            maxAttempts: 30,
+            dragFraction: 0.6
+        )
         UITestSupport.settle(0.6)
         if UITestSupport.isFullyVisible(app.buttons["Use 1 reset"], in: app) {
             capture("19-demo-reset-credits-ax5")
