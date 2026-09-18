@@ -418,7 +418,7 @@ private struct SpendControlBar: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let clamped = min(1, max(0, fraction))
+            let clamped = CGFloat(min(1, max(0, fraction)))
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(accent.opacity(0.16))
