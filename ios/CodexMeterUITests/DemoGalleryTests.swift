@@ -74,7 +74,14 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.5)
         capture("10-settings-notifications")
 
-        UITestSupport.scrollForm(untilExists: app.staticTexts["Data"], in: app)
+        // Scroll to the row itself, not the "Data" header: the lazy Form can
+        // materialize the header while the row below it does not exist yet. The
+        // rows after it are shorter than a screen, so one more swipe cannot push
+        // it off the top.
+        UITestSupport.scrollForm(untilExists: app.buttons["View usage history"], in: app)
+        if !app.buttons["View usage history"].isHittable {
+            app.swipeUp()
+        }
         UITestSupport.settle(0.4)
         if !UITestSupport.tap(app.buttons["View usage history"]) {
             UITestSupport.tap(app.staticTexts["View usage history"])
