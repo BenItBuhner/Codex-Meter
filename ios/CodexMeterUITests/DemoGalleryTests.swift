@@ -125,23 +125,9 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.0)
         capture("15-refresh-failure")
 
-        // Largest accessibility text size: the meters, in-card glyphs, and the
-        // signed-out hero all scale with Dynamic Type and must not clip.
-        app.terminate()
-        app.launchArguments = [
-            "-ui-testing-demo",
-            "-ui-testing-reset-settings",
-            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
-        ]
-        app.launch()
-        XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
-        UITestSupport.settle(1.2)
-        capture("16-demo-dashboard-ax5")
-
-        UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app, maxAttempts: 30)
-        UITestSupport.settle(0.6)
-        capture("17-demo-reset-credits-ax5")
-
+        // Largest accessibility text size: the signed-out hero, the meters, and
+        // the in-card glyphs all scale with Dynamic Type and must not clip. One
+        // launch covers all three screens; launches are the slowest tour step.
         app.terminate()
         app.launchArguments = [
             "-ui-testing-signed-out",
@@ -151,7 +137,16 @@ final class DemoGalleryTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.0)
-        capture("18-signed-out-ax5")
+        capture("16-signed-out-ax5")
+
+        UITestSupport.tap(app.buttons["Explore demo"])
+        XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.2)
+        capture("17-demo-dashboard-ax5")
+
+        UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app, maxAttempts: 30)
+        UITestSupport.settle(0.6)
+        capture("18-demo-reset-credits-ax5")
         UITestSupport.settle(0.8)
     }
 
