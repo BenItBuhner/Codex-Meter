@@ -49,6 +49,7 @@ final class UsageParserTests: XCTestCase {
         XCTAssertEqual(limit.secondary?.usedPercent, 0)
         XCTAssertEqual(limit.secondary?.remainingPercent, 100)
         XCTAssertEqual(snapshot.usageCredits?.balance, "2500.5")
+        XCTAssertTrue(snapshot.usageCredits?.shouldDisplay == true)
     }
 
     func testMainRateLimitTakesPrecedenceOverCloserAdditionalWindow() throws {
@@ -93,7 +94,140 @@ final class UsageParserTests: XCTestCase {
         XCTAssertFalse(snapshot.limitReached)
         XCTAssertNil(snapshot.fiveHour)
         XCTAssertNil(snapshot.weekly)
+        XCTAssertNil(snapshot.monthly)
         XCTAssertFalse(snapshot.hasDisplayableData)
+    }
+
+    func testMonthlyWindowClassifiesFreeTierAndCalendarDrift() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let resetAt = Int(now.addingTimeInterval(14 * 86_400).timeIntervalSince1970)
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "plan_type": "free",
+              "rate_limit": {
+                "allowed": true,
+                "limit_reached": false,
+                "primary_window": {
+                  "used_percent": 28,
+                  "limit_window_seconds": 2592000,
+                  "reset_after_seconds": 1209600,
+                  "reset_at": \(resetAt)
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertEqual(snapshot.planType, "free")
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+        XCTAssertEqual(snapshot.monthly?.usedPercent, 28)
+        XCTAssertEqual(snapshot.monthly?.windowSeconds, 2_592_000)
+        XCTAssertTrue(snapshot.hasDisplayableData)
+        XCTAssertTrue(snapshot.longWindowIsMonthly)
+        XCTAssertEqual(snapshot.longWindow, snapshot.monthly)
+        XCTAssertEqual(snapshot.nextReset(after: now), Date(timeIntervalSince1970: TimeInterval(resetAt)))
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        let restored = try JSONDecoder().decode(UsageSnapshot.self, from: encoded)
+        XCTAssertEqual(restored.monthly?.usedPercent, 28)
+        XCTAssertEqual(restored.monthly?.windowSeconds, 2_592_000)
+
+        let shortMonth = try UsageParser.parse(
+            """
+            {"plan_type":"free","rate_limit":{"primary_window":{"used_percent":5,"limit_window_seconds":2419200}}}
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNotNil(shortMonth.monthly)
+
+        let longMonth = try UsageParser.parse(
+            """
+            {"plan_type":"free","rate_limit":{"primary_window":{"used_percent":5,"limit_window_seconds":2678400}}}
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNotNil(longMonth.monthly)
+
+        let pro = try UsageParser.parse(
+            """
+            {
+              "plan_type": "pro",
+              "rate_limit": {
+                "primary_window": {"used_percent": 10, "limit_window_seconds": 18000},
+                "secondary_window": {"used_percent": 72, "limit_window_seconds": 604800}
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNotNil(pro.fiveHour)
+        XCTAssertNotNil(pro.weekly)
+        XCTAssertNil(pro.monthly)
+        XCTAssertFalse(pro.longWindowIsMonthly)
+        XCTAssertEqual(pro.longWindow, pro.weekly)
+
+        XCTAssertEqual(
+            AdaptiveRefreshPolicy.chooseMinutes(
+                snapshot: snapshot,
+                attentionScore: 0,
+                localHour: 12,
+                consecutiveFailures: 0,
+                now: now
+            ),
+            30
+        )
+
+        let lowMonthly = try UsageParser.parse(
+            """
+            {
+              "plan_type": "free",
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 92,
+                  "limit_window_seconds": 2592000,
+                  "reset_at": \(Int(now.addingTimeInterval(3 * 86_400).timeIntervalSince1970))
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertEqual(
+            AdaptiveRefreshPolicy.chooseMinutes(
+                snapshot: lowMonthly,
+                attentionScore: 0,
+                localHour: 12,
+                consecutiveFailures: 0,
+                now: now
+            ),
+            5
+        )
+    }
+
+    func testUnrecognizedSingleWindowStillDisplaysForGoStylePlans() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "plan_type": "go",
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 41,
+                  "limit_window_seconds": 5184000
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+        XCTAssertEqual(snapshot.monthly?.usedPercent, 41)
+        XCTAssertEqual(snapshot.monthly?.windowSeconds, 5_184_000)
+        XCTAssertTrue(snapshot.hasDisplayableData)
+        XCTAssertTrue(snapshot.longWindowIsMonthly)
     }
 
     func testWeeklyAndCreditsCanExistWithoutFiveHourWindow() throws {
@@ -121,7 +255,7 @@ final class UsageParserTests: XCTestCase {
         XCTAssertTrue(snapshot.hasDisplayableData)
     }
 
-    func testNoCreditsBalanceIsNotStandaloneUsageData() throws {
+    func testEmptyPurchasedCreditsAreNotStandaloneUsageData() throws {
         let snapshot = try UsageParser.parse(
             """
             {"credits":{"has_credits":false,"unlimited":false,"balance":"0"}}
@@ -129,7 +263,7 @@ final class UsageParserTests: XCTestCase {
             fetchedAt: fetchedAt
         )
         XCTAssertNotNil(snapshot.usageCredits)
-        XCTAssertNil(snapshot.usageCredits?.balance)
+        XCTAssertFalse(snapshot.usageCredits?.shouldDisplay == true)
         XCTAssertFalse(snapshot.hasDisplayableData)
     }
 
@@ -145,6 +279,166 @@ final class UsageParserTests: XCTestCase {
         let snapshot = try UsageParser.parse(json, fetchedAt: fetchedAt)
         XCTAssertEqual(snapshot.fiveHour?.usedPercent, 11)
         XCTAssertNil(snapshot.weekly)
+    }
+
+    func testSpendControlIndividualLimitParsesAlongsideWindowsAndCredits() throws {
+        let snapshot = try UsageParser.parse(
+            FixtureLoader.data(named: "usage-spend-control"),
+            fetchedAt: fetchedAt
+        )
+        let control = try XCTUnwrap(snapshot.spendControl)
+        XCTAssertFalse(control.reached)
+        let limit = try XCTUnwrap(control.individualLimit)
+        XCTAssertEqual(limit.source, "workspace_spend_controls")
+        XCTAssertEqual(limit.limit, "25000")
+        XCTAssertEqual(limit.used, "8000")
+        XCTAssertEqual(limit.remaining, "17000")
+        XCTAssertEqual(limit.usedPercent, 32)
+        XCTAssertEqual(limit.remainingPercent, 68)
+        XCTAssertEqual(limit.resetAfterSeconds, 43_200)
+        XCTAssertEqual(limit.resetAt, Date(timeIntervalSince1970: 2_000_043_200))
+        XCTAssertEqual(limit.numericLimit, 25_000)
+        XCTAssertEqual(limit.numericUsed, 8_000)
+        XCTAssertEqual(limit.numericRemaining, 17_000)
+        XCTAssertTrue(limit.showsResetCountdown)
+        XCTAssertEqual(snapshot.spendControlLimit, limit)
+
+        XCTAssertEqual(snapshot.planType, "team")
+        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 42)
+        XCTAssertEqual(snapshot.weekly?.usedPercent, 5)
+        XCTAssertEqual(snapshot.resetCreditsAvailable, 2)
+        XCTAssertNotNil(snapshot.usageCredits)
+        XCTAssertFalse(snapshot.usageCredits?.shouldDisplay == true)
+        XCTAssertEqual(snapshot.nextReset(after: fetchedAt), Date(timeIntervalSince1970: 2_000_003_600))
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        let restored = try JSONDecoder().decode(UsageSnapshot.self, from: encoded)
+        XCTAssertEqual(restored.spendControl, control)
+        XCTAssertEqual(restored, snapshot)
+    }
+
+    func testSpendControlAcceptsNumbersAndStringsInterchangeably() throws {
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "spend_control": {
+                "reached": "true",
+                "individual_limit": {
+                  "limit": 25000,
+                  "used": 8000.5,
+                  "used_percent": "32.4",
+                  "reset_after_seconds": "43200",
+                  "reset_at": "2000043200"
+                }
+              }
+            }
+            """,
+            fetchedAt: fetchedAt
+        )
+        let control = try XCTUnwrap(snapshot.spendControl)
+        XCTAssertTrue(control.reached)
+        let limit = try XCTUnwrap(control.individualLimit)
+        XCTAssertEqual(limit.source, "")
+        XCTAssertEqual(limit.limit, "25000")
+        XCTAssertEqual(limit.used, "8000.5")
+        XCTAssertNil(limit.remaining)
+        XCTAssertEqual(limit.numericRemaining, Decimal(string: "16999.5"))
+        XCTAssertEqual(limit.usedPercent, 32)
+        XCTAssertEqual(limit.resetAfterSeconds, 43_200)
+        XCTAssertEqual(limit.resetAt, Date(timeIntervalSince1970: 2_000_043_200))
+        XCTAssertTrue(snapshot.hasDisplayableData)
+        XCTAssertNil(
+            snapshot.nextReset(after: fetchedAt),
+            "The monthly credit limit reset is a billing boundary, not a usage window reset"
+        )
+    }
+
+    func testSpendControlResetDoesNotPullNextResetEarlier() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 10,
+                  "limit_window_seconds": 18000,
+                  "reset_at": \(Int(now.addingTimeInterval(7_200).timeIntervalSince1970))
+                }
+              },
+              "spend_control": {
+                "reached": false,
+                "individual_limit": {
+                  "limit": "1000",
+                  "used": "100",
+                  "used_percent": 10,
+                  "reset_at": \(Int(now.addingTimeInterval(600).timeIntervalSince1970))
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertEqual(snapshot.spendControlLimit?.resetAt, now.addingTimeInterval(600))
+        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(7_200))
+    }
+
+    func testSpendControlPercentFallbacksAndClamping() throws {
+        let remainingOnly = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":false,"individual_limit":{"limit":"1000","used":"250","remaining_percent":75}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(remainingOnly.spendControlLimit?.usedPercent, 25)
+        XCTAssertEqual(remainingOnly.spendControlLimit?.numericRemaining, 750)
+        XCTAssertFalse(remainingOnly.spendControlLimit?.showsResetCountdown == true)
+
+        let derived = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":false,"individual_limit":{"limit":"1000","used":"333"}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(derived.spendControlLimit?.usedPercent, 33)
+
+        let overrun = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":true,"individual_limit":{"limit":"1000","used":"1200","remaining":"-200","used_percent":120,"remaining_percent":-20}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(overrun.spendControl?.reached, true)
+        XCTAssertEqual(overrun.spendControlLimit?.usedPercent, 100)
+        XCTAssertEqual(overrun.spendControlLimit?.remainingPercent, 0)
+        XCTAssertEqual(overrun.spendControlLimit?.numericRemaining, 0)
+    }
+
+    func testSpendControlWithoutUsableLimitStaysHidden() throws {
+        let nullLimit = try UsageParser.parse(
+            """
+            {"plan_type":"team","spend_control":{"reached":true,"individual_limit":null}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(nullLimit.spendControl?.reached, true)
+        XCTAssertNil(nullLimit.spendControlLimit)
+        XCTAssertFalse(nullLimit.hasDisplayableData)
+
+        let unusable = try UsageParser.parse(
+            """
+            {"spend_control":{"reached":false,"individual_limit":{"source":"workspace_spend_controls","limit":true,"used":null,"used_percent":false}}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNotNil(unusable.spendControl)
+        XCTAssertNil(unusable.spendControlLimit)
+
+        let absent = try UsageParser.parse(
+            FixtureLoader.data(named: "usage-standard"),
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNil(absent.spendControl)
+        XCTAssertNil(absent.spendControlLimit)
     }
 
     func testInvalidRootThrows() {

@@ -20,6 +20,7 @@ final class ModelsAndFormattingTests: XCTestCase {
         XCTAssertEqual(fiveHour.remainingPercent, 0)
         XCTAssertEqual(fiveHour.windowSeconds, 0)
         XCTAssertEqual(fiveHour.effectiveResetDate(relativeTo: now), now.addingTimeInterval(60))
+        XCTAssertTrue(fiveHour.showsResetCountdown)
         XCTAssertTrue(fiveHour.hasRemainingAllowance(atOrBelow: 10))
         XCTAssertNil(
             UsageWindow(
@@ -39,37 +40,146 @@ final class ModelsAndFormattingTests: XCTestCase {
             fetchedAt: now
         )
         XCTAssertEqual(snapshot.resetCreditsAvailable, 0)
-        // Relative-only five-hour reset (now+60) precedes weekly absolute reset (now+120).
         XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(60))
         XCTAssertTrue(snapshot.isStale(at: now.addingTimeInterval(61), maxAge: 60))
     }
 
-    func testNextResetUsesRelativeResetAfterSecondsWhenAbsoluteMissing() {
+    func testAdaptiveUsageModelsAndNextResetAcrossEveryLimit() {
         let now = Date(timeIntervalSince1970: 5_000)
+        let standard = UsageWindow(
+            usedPercent: 10,
+            windowSeconds: 18_000,
+            resetAfterSeconds: 600
+        )
+        let additional = UsageWindow(
+            usedPercent: 20,
+            windowSeconds: 3_600,
+            resetAfterSeconds: 120
+        )
+        let limit = UsageLimit(
+            id: " spark ",
+            meteredFeature: "codex_bengalfox",
+            primary: additional,
+            secondary: nil
+        )
         let snapshot = UsageSnapshot(
             planType: "plus",
             allowed: true,
             limitReached: false,
-            fiveHour: UsageWindow(
-                usedPercent: 10,
-                windowSeconds: 18_000,
-                resetAfterSeconds: 90,
-                resetAt: nil
-            ),
-            weekly: UsageWindow(
-                usedPercent: 20,
-                windowSeconds: 604_800,
-                resetAfterSeconds: 360,
-                resetAt: nil
-            ),
+            fiveHour: standard,
+            weekly: nil,
+            additionalLimits: [limit, UsageLimit(id: "empty", primary: nil, secondary: nil)],
+            usageCredits: UsageCredits(hasCredits: true, unlimited: false, balance: "10"),
             fetchedAt: now
         )
-        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(90))
-        XCTAssertEqual(
-            snapshot.nextReset(after: now.addingTimeInterval(120)),
-            now.addingTimeInterval(360)
+
+        XCTAssertEqual(limit.id, "spark")
+        XCTAssertEqual(limit.displayName, "Codex Bengalfox")
+        XCTAssertEqual(snapshot.additionalLimits.count, 1)
+        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(120))
+        XCTAssertTrue(snapshot.hasDisplayableData)
+    }
+
+    func testUsageCreditVisibilityThresholdAndNumericParsing() {
+        XCTAssertFalse(
+            UsageCredits(hasCredits: false, unlimited: false, balance: "100").shouldDisplay
         )
-        XCTAssertNil(snapshot.nextReset(after: now.addingTimeInterval(400)))
+        XCTAssertTrue(
+            UsageCredits(hasCredits: false, unlimited: true, balance: nil).shouldDisplay
+        )
+        XCTAssertTrue(
+            UsageCredits(hasCredits: true, unlimited: false, balance: nil).shouldDisplay
+        )
+        XCTAssertFalse(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "-1").shouldDisplay
+        )
+        XCTAssertFalse(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "0.0049").shouldDisplay
+        )
+        XCTAssertTrue(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "0.005").shouldDisplay
+        )
+        XCTAssertEqual(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "2,500.5").numericBalance,
+            Decimal(string: "2500.5")
+        )
+        XCTAssertTrue(
+            UsageCredits(hasCredits: true, unlimited: false, balance: "pending").shouldDisplay
+        )
+    }
+
+    func testSpendControlLimitSanitizesAmountsAndFormatsCopy() throws {
+        let english = Locale(identifier: "en_US")
+        let limit = SpendControlLimit(
+            source: " workspace_spend_controls ",
+            limit: " 25000 ",
+            used: "8000",
+            remaining: "",
+            usedPercent: 132,
+            resetAfterSeconds: -5,
+            resetAt: Date(timeIntervalSince1970: 0)
+        )
+        XCTAssertEqual(limit.source, "workspace_spend_controls")
+        XCTAssertEqual(limit.limit, "25000")
+        XCTAssertNil(limit.remaining)
+        XCTAssertEqual(limit.numericRemaining, 17_000)
+        XCTAssertEqual(limit.usedPercent, 100)
+        XCTAssertEqual(limit.remainingPercent, 0)
+        XCTAssertEqual(limit.resetAfterSeconds, 0)
+        XCTAssertNil(limit.resetAt)
+        XCTAssertFalse(limit.showsResetCountdown)
+        XCTAssertNil(limit.effectiveResetDate(relativeTo: Date(timeIntervalSince1970: 1_000)))
+        XCTAssertEqual(
+            UsageFormat.spendControlUsage(limit, locale: english),
+            "8,000 of 25,000 credits used"
+        )
+        XCTAssertEqual(
+            UsageFormat.spendControlRemaining(limit, locale: english),
+            "17,000 credits remaining"
+        )
+
+        let fractional = SpendControlLimit(
+            limit: "2,500.5",
+            used: "1",
+            remaining: "1",
+            usedPercent: 0,
+            resetAfterSeconds: 600
+        )
+        XCTAssertEqual(
+            UsageFormat.spendControlUsage(fractional, locale: english),
+            "1 of 2,500.5 credits used"
+        )
+        XCTAssertEqual(
+            UsageFormat.spendControlRemaining(fractional, locale: english),
+            "1 credit remaining"
+        )
+        XCTAssertEqual(
+            fractional.effectiveResetDate(relativeTo: Date(timeIntervalSince1970: 1_000)),
+            Date(timeIntervalSince1970: 1_600)
+        )
+
+        let opaque = SpendControlLimit(limit: "pending", used: nil, usedPercent: 40)
+        XCTAssertNil(opaque.numericLimit)
+        XCTAssertNil(opaque.numericRemaining)
+        XCTAssertNil(UsageFormat.spendControlUsage(opaque, locale: english))
+        XCTAssertNil(UsageFormat.spendControlRemaining(opaque, locale: english))
+
+        let control = SpendControl(reached: true, individualLimit: limit)
+        XCTAssertEqual(
+            try JSONDecoder().decode(SpendControl.self, from: JSONEncoder().encode(control)),
+            control
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(SpendControl.self, from: Data("{}".utf8)),
+            SpendControl(reached: false, individualLimit: nil)
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                SpendControlLimit.self,
+                from: Data("{\"limit\":\"10\",\"usedPercent\":-3}".utf8)
+            ),
+            SpendControlLimit(limit: "10", used: nil, usedPercent: 0)
+        )
     }
 
     func testSharedSnapshotIsSanitizedAndCodable() throws {
@@ -148,44 +258,6 @@ final class ModelsAndFormattingTests: XCTestCase {
         )
     }
 
-    func testUsageAndResetCreditsAutoHide() {
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "2500").shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "0.01").shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: false, unlimited: true, balance: nil).shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: nil).shouldDisplay)
-        XCTAssertTrue(UsageCredits(hasCredits: true, unlimited: false, balance: "12k credits").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0.00").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "0.004").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: true, unlimited: false, balance: "-12.5").shouldDisplay)
-        XCTAssertFalse(UsageCredits(hasCredits: false, unlimited: false, balance: "500").shouldDisplay)
-
-        XCTAssertTrue(ResetCreditsSnapshot.summary(availableCount: 2, fetchedAt: .now).shouldDisplay)
-        XCTAssertFalse(ResetCreditsSnapshot.summary(availableCount: 0, fetchedAt: .now).shouldDisplay)
-
-        let zeroResetsOnly = UsageSnapshot(
-            planType: "plus",
-            allowed: true,
-            limitReached: false,
-            fiveHour: nil,
-            weekly: nil,
-            resetCreditsAvailable: 0,
-            fetchedAt: Date(timeIntervalSince1970: 1)
-        )
-        XCTAssertFalse(zeroResetsOnly.hasDisplayableData)
-
-        let positiveResetsOnly = UsageSnapshot(
-            planType: "plus",
-            allowed: true,
-            limitReached: false,
-            fiveHour: nil,
-            weekly: nil,
-            resetCreditsAvailable: 3,
-            fetchedAt: Date(timeIntervalSince1970: 1)
-        )
-        XCTAssertTrue(positiveResetsOnly.hasDisplayableData)
-    }
-
     func testResetOutcomeMessagesAndRoundTrip() throws {
         let success = ResetConsumeResult(
             outcome: .reset,
@@ -211,6 +283,33 @@ final class ModelsAndFormattingTests: XCTestCase {
         XCTAssertEqual(ResetConsumeOutcome(code: "future_code"), .unknown("future_code"))
     }
 
+    func testResetCountdownFollowsApiTimeline() {
+        let unusedNoReset = UsageWindow(usedPercent: 0, windowSeconds: 18_000)
+        let unusedWithResetAt = UsageWindow(
+            usedPercent: 0,
+            windowSeconds: 18_000,
+            resetAt: Date(timeIntervalSince1970: 2_000_000_000)
+        )
+        let unusedWithResetAfter = UsageWindow(
+            usedPercent: 0,
+            windowSeconds: 18_000,
+            resetAfterSeconds: 600
+        )
+        let usedNoReset = UsageWindow(usedPercent: 37, windowSeconds: 18_000)
+        let usedWithReset = UsageWindow(
+            usedPercent: 37,
+            windowSeconds: 18_000,
+            resetAfterSeconds: 600,
+            resetAt: Date(timeIntervalSince1970: 2_000_000_000)
+        )
+        XCTAssertEqual(unusedNoReset.remainingPercent, 100)
+        XCTAssertFalse(unusedNoReset.showsResetCountdown)
+        XCTAssertTrue(unusedWithResetAt.showsResetCountdown)
+        XCTAssertTrue(unusedWithResetAfter.showsResetCountdown)
+        XCTAssertFalse(usedNoReset.showsResetCountdown)
+        XCTAssertTrue(usedWithReset.showsResetCountdown)
+    }
+
     func testUsageFormattingMatchesUpstreamLabelsAndDurations() {
         XCTAssertEqual(UsageFormat.planLabel(" pro-lite "), "Pro 5x")
         XCTAssertEqual(UsageFormat.planLabel("pro_20x"), "Pro 20x")
@@ -231,6 +330,28 @@ final class ModelsAndFormattingTests: XCTestCase {
             "in 1h 5m"
         )
         XCTAssertEqual(UsageFormat.relative(until: now.addingTimeInterval(59), from: now), "now")
+        XCTAssertEqual(
+            UsageFormat.reset(
+                UsageWindow(usedPercent: 0, windowSeconds: 18_000),
+                display: .relative,
+                fetchedAt: now,
+                now: now
+            ),
+            ""
+        )
+        XCTAssertEqual(
+            UsageFormat.reset(
+                UsageWindow(
+                    usedPercent: 0,
+                    windowSeconds: 18_000,
+                    resetAfterSeconds: 600
+                ),
+                display: .relative,
+                fetchedAt: now,
+                now: now
+            ),
+            "Resets in 10m"
+        )
         XCTAssertEqual(UsageFormat.updated(fetchedAt: now, now: now), "Updated just now")
         XCTAssertEqual(
             UsageFormat.updated(fetchedAt: now, now: now.addingTimeInterval(25 * 3_600)),

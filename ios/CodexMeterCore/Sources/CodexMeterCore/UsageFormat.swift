@@ -59,7 +59,7 @@ public enum UsageFormat {
         locale: Locale = .current,
         uses24HourClock: Bool = false
     ) -> String {
-        guard let window, display != .hidden else {
+        guard let window, display != .hidden, window.showsResetCountdown else {
             return ""
         }
         guard let resetAt = window.effectiveResetDate(relativeTo: fetchedAt) else {
@@ -126,6 +126,39 @@ public enum UsageFormat {
             return "in \(hours)h \(minutes)m"
         }
         return totalMinutes > 0 ? "in \(totalMinutes)m" : "now"
+    }
+
+    /// `8,000 of 25,000 credits used`, or `nil` when either amount is missing or not numeric.
+    public static func spendControlUsage(
+        _ limit: SpendControlLimit,
+        locale: Locale = .current
+    ) -> String? {
+        guard let used = limit.numericUsed, let total = limit.numericLimit else {
+            return nil
+        }
+        return "\(creditAmount(used, locale: locale)) of \(creditAmount(total, locale: locale)) credits used"
+    }
+
+    /// `17,000 credits remaining`, or `nil` when the remaining amount cannot be determined.
+    public static func spendControlRemaining(
+        _ limit: SpendControlLimit,
+        locale: Locale = .current
+    ) -> String? {
+        guard let remaining = limit.numericRemaining else {
+            return nil
+        }
+        let noun = remaining == 1 ? "credit" : "credits"
+        return "\(creditAmount(remaining, locale: locale)) \(noun) remaining"
+    }
+
+    /// Grouped credit amount with up to two fraction digits (`25,000`, `2,500.5`).
+    public static func creditAmount(_ value: Decimal, locale: Locale = .current) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSDecimalNumber(decimal: value)) ?? "\(value)"
     }
 
     public static func updated(fetchedAt: Date?, now: Date = Date()) -> String {
