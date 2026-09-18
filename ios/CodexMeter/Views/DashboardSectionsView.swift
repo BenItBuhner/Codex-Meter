@@ -342,7 +342,10 @@ private struct SpendControlCard: View {
     }
 
     private var accessibilityValue: String {
-        var parts = ["\(limit.usedPercent) percent used"]
+        var parts = [
+            "\(limit.remainingPercent) percent remaining",
+            "\(limit.usedPercent) percent used"
+        ]
         if let usage = UsageFormat.spendControlUsage(limit) {
             parts.append(usage)
         }
@@ -358,14 +361,14 @@ private struct SpendControlCard: View {
                 Label("Monthly credit limit", systemImage: "creditcard.and.123")
                     .font(.headline.bold())
                 Spacer(minLength: 0)
-                Text("\(limit.usedPercent)% used")
+                Text("\(limit.remainingPercent)% left")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                     .contentTransition(.numericText())
             }
 
-            SpendControlBar(fraction: Double(limit.usedPercent) / 100, accent: accent)
+            SpendControlBar(fraction: Double(limit.remainingPercent) / 100, accent: accent)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Monthly credit limit")
                 .accessibilityValue(accessibilityValue)
@@ -410,6 +413,7 @@ private struct SpendControlCard: View {
     }
 }
 
+/// Fills the remaining share, like the meter rings, so every gauge in the app reads the same way.
 private struct SpendControlBar: View {
     let fraction: Double
     let accent: Color
