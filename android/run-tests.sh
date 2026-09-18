@@ -76,14 +76,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.8.0-alpha.1"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 29' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 29' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 29' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.8.0-alpha.1' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.8.0-alpha.1"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.8.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.8.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.8.0"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.8.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.8.0"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -642,6 +642,9 @@ grep -q 'resetPaint.setColor(foreground);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 grep -q 'showsResetCountdown' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
+grep -q 'testResetCountdownFollowsApiTimeline' "$ROOT/tests/ParserSelfTest.java"
+! grep -q 'remainingPercent() <= 99' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
 grep -q 'testUsagePace' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'UsagePace.mostAcceleratedWindow' "$ROOT/tests/ParserSelfTest.java"
 test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
@@ -679,6 +682,19 @@ grep -q '!usageWindow.showsResetCountdown()' \
 ! grep -q 'resetPaint.setColor(Ui.secondaryText(dark));' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 ! grep -q 'titlePaint.setColor(0xFF000000)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+
+# Reduced motion: the dashboard wave skips its infinite animator and draws a flat fill.
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'ValueAnimator.areAnimatorsEnabled()' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'Settings.Global.ANIMATOR_DURATION_SCALE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'reduceMotion = ReducedMotion.isRequested(getContext());' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'if (reduceMotion) return;' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'fillPath.lineTo(edge, getHeight());' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 
 # Wear OS companion module and phone↔watch sync contract.
