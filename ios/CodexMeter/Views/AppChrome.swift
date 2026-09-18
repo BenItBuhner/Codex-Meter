@@ -56,9 +56,13 @@ struct PlanBadge: View {
 extension DynamicTypeSize {
     /// A row of glyph and text that stacks at accessibility sizes, so the text keeps the
     /// card's full width instead of breaking mid-word beside a fixed-width glyph or ring.
-    func rowLayout(spacing: CGFloat) -> AnyLayout {
-        isAccessibilitySize
+    func rowLayout<Content: View>(
+        spacing: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let layout = isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: spacing))
             : AnyLayout(HStackLayout(spacing: spacing))
+        return layout { content() }
     }
 }
