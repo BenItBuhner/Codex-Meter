@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: main
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gradle
+    directory: /android
+    target-branch: alpha
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      gradle:
+        patterns:
+          - "*"
+    ignore:
+      # Served from GitHub Packages (unreadable without credentials) and paired with the
+      # vendored SESL cache in android/vendor/m2, so it is bumped by hand with the cache.
+      - dependency-name: "io.github.tribalfs:*"
