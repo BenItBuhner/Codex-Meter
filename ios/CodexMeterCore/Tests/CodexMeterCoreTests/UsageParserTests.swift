@@ -347,7 +347,39 @@ final class UsageParserTests: XCTestCase {
         XCTAssertEqual(limit.resetAfterSeconds, 43_200)
         XCTAssertEqual(limit.resetAt, Date(timeIntervalSince1970: 2_000_043_200))
         XCTAssertTrue(snapshot.hasDisplayableData)
-        XCTAssertEqual(snapshot.nextReset(after: fetchedAt), limit.resetAt)
+        XCTAssertNil(
+            snapshot.nextReset(after: fetchedAt),
+            "The monthly credit limit reset is a billing boundary, not a usage window reset"
+        )
+    }
+
+    func testSpendControlResetDoesNotPullNextResetEarlier() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 10,
+                  "limit_window_seconds": 18000,
+                  "reset_at": \(Int(now.addingTimeInterval(7_200).timeIntervalSince1970))
+                }
+              },
+              "spend_control": {
+                "reached": false,
+                "individual_limit": {
+                  "limit": "1000",
+                  "used": "100",
+                  "used_percent": 10,
+                  "reset_at": \(Int(now.addingTimeInterval(600).timeIntervalSince1970))
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertEqual(snapshot.spendControlLimit?.resetAt, now.addingTimeInterval(600))
+        XCTAssertEqual(snapshot.nextReset(after: now), now.addingTimeInterval(7_200))
     }
 
     func testSpendControlPercentFallbacksAndClamping() throws {

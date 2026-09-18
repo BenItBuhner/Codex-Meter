@@ -423,11 +423,12 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         weekly == nil && monthly != nil
     }
 
+    /// The next rate-limit window reset. The monthly credit limit's reset is deliberately
+    /// excluded: it is a workspace billing boundary, not a usage window, and the Android client
+    /// excludes it too.
     public func nextReset(after date: Date) -> Date? {
-        let windowResets = ([fiveHour, weekly, monthly] + additionalLimits.flatMap { [$0.primary, $0.secondary] })
+        ([fiveHour, weekly, monthly] + additionalLimits.flatMap { [$0.primary, $0.secondary] })
             .compactMap { $0?.effectiveResetDate(relativeTo: fetchedAt) }
-        let spendControlReset = spendControlLimit?.effectiveResetDate(relativeTo: fetchedAt)
-        return (windowResets + [spendControlReset].compactMap { $0 })
             .filter { $0 > date }
             .min()
     }
