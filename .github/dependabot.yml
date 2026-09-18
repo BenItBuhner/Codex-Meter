@@ -10,6 +10,13 @@ updates:
       github-actions:
         patterns:
           - "*"
+    ignore:
+      # The artifact this pair hands between jobs is only downloaded by the tag-gated
+      # release job, so PR CI cannot prove a new major works; bump both by hand.
+      - dependency-name: actions/upload-artifact
+        update-types: ["version-update:semver-major"]
+      - dependency-name: actions/download-artifact
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: gradle
     directory: /android
