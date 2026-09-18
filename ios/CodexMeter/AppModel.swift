@@ -37,6 +37,34 @@ extension AlertMetric {
     }
 }
 
+extension UsagePaceSensitivity {
+    var title: String {
+        switch self {
+        case .off: "Off"
+        case .sensitive: "Sensitive"
+        case .balanced: "Balanced"
+        case .relaxed: "Relaxed"
+        }
+    }
+}
+
+extension UsagePaceAssessment {
+    /// "Est. runs out in 1h 20m", or "Est. depleted" once the projection has passed; nil when
+    /// no estimate is available.
+    func estimateLabel(now: Date = .now) -> String? {
+        guard isAvailable, let estimatedExhaustionAt else { return nil }
+        guard estimatedExhaustionAt > now else { return "Est. depleted" }
+        return "Est. runs out \(UsageFormat.relative(until: estimatedExhaustionAt, from: now))"
+    }
+
+    /// Spoken form of `estimateLabel(now:)` for VoiceOver.
+    func estimateAccessibilityValue(now: Date = .now) -> String? {
+        guard isAvailable, let estimatedExhaustionAt else { return nil }
+        guard estimatedExhaustionAt > now else { return "estimated depleted" }
+        return "estimated to run out \(UsageFormat.relative(until: estimatedExhaustionAt, from: now))"
+    }
+}
+
 extension NotificationPermissionState {
     var title: String {
         switch self {
@@ -569,6 +597,32 @@ final class AppModel {
         } catch {
             visibleError = "Local usage history could not be cleared."
         }
+    }
+
+    func history(for kind: UsageHistoryKind) -> UsageHistory {
+        switch kind {
+        case .fiveHour: fiveHourHistory
+        case .weekly: weeklyHistory
+        case .monthly: monthlyHistory
+        }
+    }
+
+    /// Pace for a window of the current snapshot under the usage-estimate settings. Pass the
+    /// window's history `kind` for the 5-hour, weekly, and monthly meters so local samples
+    /// refine the projection; additional model limits have no history and use the window alone.
+    func usagePace(
+        for window: UsageWindow?,
+        kind: UsageHistoryKind? = nil,
+        now: Date = .now
+    ) -> UsagePaceAssessment {
+        guard settings.usagePaceEnabled, let usage, let window else { return .unavailable }
+        return UsagePace.assess(
+            window: window,
+            history: kind.map(history(for:)),
+            observedAt: usage.fetchedAt,
+            now: now,
+            sensitivity: settings.usagePaceSensitivity
+        )
     }
 
     private var activeService: any CodexService {

@@ -7,18 +7,20 @@ struct UsageMeterCard: View {
     let window: UsageWindow?
     let accent: Color
     var fetchedAt: Date = .now
+    var pace: UsagePaceAssessment = .unavailable
 
     private var remaining: Int { window?.remainingPercent ?? 0 }
     private var used: Int { window?.usedPercent ?? 0 }
+    private var ringAccent: Color { pace.isAccelerated ? .orange : accent }
 
     var body: some View {
         HStack(spacing: 18) {
             ZStack {
                 Circle()
-                    .stroke(accent.opacity(0.16), lineWidth: 11)
+                    .stroke(ringAccent.opacity(0.16), lineWidth: 11)
                 Circle()
                     .trim(from: 0, to: Double(remaining) / 100)
-                    .stroke(accent, style: StrokeStyle(lineWidth: 11, lineCap: .round))
+                    .stroke(ringAccent, style: StrokeStyle(lineWidth: 11, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .animation(.snappy, value: remaining)
                 VStack(spacing: -2) {
@@ -64,6 +66,15 @@ struct UsageMeterCard: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+
+                if let estimate = pace.estimateLabel() {
+                    Label(
+                        estimate,
+                        systemImage: pace.isAccelerated ? "exclamationmark.triangle.fill" : "speedometer"
+                    )
+                    .font(.caption.weight(pace.isAccelerated ? .semibold : .regular))
+                    .foregroundStyle(pace.isAccelerated ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                }
             }
             Spacer(minLength: 0)
         }
@@ -76,6 +87,13 @@ struct UsageMeterCard: View {
         guard window != nil else {
             return "Unavailable"
         }
-        return "\(remaining) percent remaining, \(used) percent used"
+        var value = "\(remaining) percent remaining, \(used) percent used"
+        if let estimate = pace.estimateAccessibilityValue() {
+            value += ", \(estimate)"
+        }
+        if pace.isAccelerated {
+            value += ", accelerated usage"
+        }
+        return value
     }
 }

@@ -34,6 +34,62 @@ final class SettingsAndHistoryTests: XCTestCase {
         XCTAssertFalse(shown.dashboardHiddenSections.contains(spark))
     }
 
+    func testUsagePaceSettingsDefaultRoundTripAndLegacyDecode() throws {
+        XCTAssertTrue(AppSettings.defaults.usagePaceEnabled)
+        XCTAssertEqual(AppSettings.defaults.usagePaceSensitivity, .balanced)
+
+        var settings = AppSettings()
+        settings.usagePaceEnabled = false
+        settings.usagePaceSensitivity = .relaxed
+        let decoded = try SettingsTransferDocument.decode(JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded, settings)
+        XCTAssertFalse(decoded.usagePaceEnabled)
+        XCTAssertEqual(decoded.usagePaceSensitivity, .relaxed)
+
+        let legacy = try SettingsTransferDocument.decode(Data(#"{"refreshMinutes": 15}"#.utf8))
+        XCTAssertEqual(legacy.refreshMinutes, 15)
+        XCTAssertTrue(legacy.usagePaceEnabled)
+        XCTAssertEqual(legacy.usagePaceSensitivity, .balanced)
+    }
+
+    func testPaceEstimateLabelsFollowTheProjection() {
+        let observedAt = Date(timeIntervalSince1970: 2_000_000_000)
+
+        let onPace = UsagePace.assess(
+            window: UsageWindow(
+                usedPercent: 50,
+                windowSeconds: 18_000,
+                resetAt: observedAt.addingTimeInterval(9_000)
+            ),
+            observedAt: observedAt,
+            now: observedAt
+        )
+        XCTAssertTrue(onPace.isAvailable)
+        XCTAssertFalse(onPace.isAccelerated)
+        XCTAssertEqual(onPace.estimateLabel(now: observedAt), "Est. runs out in 2h 30m")
+        XCTAssertEqual(
+            onPace.estimateAccessibilityValue(now: observedAt),
+            "estimated to run out in 2h 30m"
+        )
+
+        let later = observedAt.addingTimeInterval(1_800)
+        let exhausted = UsagePace.assess(
+            window: UsageWindow(
+                usedPercent: 90,
+                windowSeconds: 18_000,
+                resetAt: observedAt.addingTimeInterval(10_800)
+            ),
+            observedAt: observedAt,
+            now: later
+        )
+        XCTAssertTrue(exhausted.isAccelerated)
+        XCTAssertEqual(exhausted.estimateLabel(now: later), "Est. depleted")
+        XCTAssertEqual(exhausted.estimateAccessibilityValue(now: later), "estimated depleted")
+
+        XCTAssertNil(UsagePaceAssessment.unavailable.estimateLabel())
+        XCTAssertNil(UsagePaceAssessment.unavailable.estimateAccessibilityValue())
+    }
+
     func testUsageHistoryStoreRecordsPersistsAndClearsBoundedSamples() async throws {
         let fileURL = temporaryFileURL("usage-history.json")
         defer { try? FileManager.default.removeItem(at: fileURL) }

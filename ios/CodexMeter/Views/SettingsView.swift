@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -86,6 +87,20 @@ struct SettingsView: View {
                 Text(model.settings.refreshMode == .automatic
                     ? "Automatic adapts on device to remaining usage, reset timing, recent attention, quiet hours, accelerated usage, and failures. iOS still decides when background work runs."
                     : "iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
+            }
+
+            Section {
+                Toggle("Estimated usage time", isOn: $model.settings.usagePaceEnabled)
+                Picker("Warning sensitivity", selection: $model.settings.usagePaceSensitivity) {
+                    ForEach(UsagePaceSensitivity.allCases, id: \.self) { sensitivity in
+                        Text(sensitivity.title).tag(sensitivity)
+                    }
+                }
+                .disabled(!model.settings.usagePaceEnabled)
+            } header: {
+                Text("Usage estimates")
+            } footer: {
+                Text("Project how long the current allowance may last from this window's usage and local history. Accelerated usage turns a meter orange; Off keeps the estimate without the warning.")
             }
 
             Section {

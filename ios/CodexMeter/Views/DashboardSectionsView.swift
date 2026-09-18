@@ -16,7 +16,8 @@ struct DashboardSectionsView: View {
                     title: "5-hour",
                     systemImage: "clock",
                     window: window,
-                    accent: .mint
+                    accent: .mint,
+                    pace: model.usagePace(for: window, kind: .fiveHour)
                 )
             )
         }
@@ -27,7 +28,8 @@ struct DashboardSectionsView: View {
                     title: "Weekly",
                     systemImage: "calendar",
                     window: window,
-                    accent: .indigo
+                    accent: .indigo,
+                    pace: model.usagePace(for: window, kind: .weekly)
                 )
             )
         }
@@ -38,7 +40,8 @@ struct DashboardSectionsView: View {
                     title: "Monthly",
                     systemImage: "calendar.badge.clock",
                     window: window,
-                    accent: .orange
+                    accent: .orange,
+                    pace: model.usagePace(for: window, kind: .monthly)
                 )
             )
         }
@@ -141,13 +144,14 @@ struct DashboardSectionsView: View {
     @ViewBuilder
     private func sectionView(_ section: DashboardSectionItem) -> some View {
         switch section.kind {
-        case let .meter(title, systemImage, window, accent):
+        case let .meter(title, systemImage, window, accent, pace):
             UsageMeterCard(
                 title: LocalizedStringKey(title),
                 systemImage: systemImage,
                 window: window,
                 accent: accent,
-                fetchedAt: model.usage?.fetchedAt ?? .now
+                fetchedAt: model.usage?.fetchedAt ?? .now,
+                pace: pace
             )
         case let .additional(limit):
             AdditionalLimitCards(
@@ -174,7 +178,13 @@ private struct DashboardSectionRow: Identifiable {
 
 private struct DashboardSectionItem: Identifiable {
     enum Kind {
-        case meter(title: String, systemImage: String, window: UsageWindow, accent: Color)
+        case meter(
+            title: String,
+            systemImage: String,
+            window: UsageWindow,
+            accent: Color,
+            pace: UsagePaceAssessment
+        )
         case additional(UsageLimit)
         case usageCredits(UsageCredits)
         case usageHistory
@@ -195,6 +205,7 @@ private struct DashboardSectionItem: Identifiable {
 }
 
 private struct AdditionalLimitCards: View {
+    @Environment(AppModel.self) private var model
     let limit: UsageLimit
     let fetchedAt: Date
 
@@ -218,7 +229,8 @@ private struct AdditionalLimitCards: View {
                 ? "calendar.badge.clock" : "clock.badge",
             window: window,
             accent: accent,
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            pace: model.usagePace(for: window)
         )
     }
 
