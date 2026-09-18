@@ -36,6 +36,7 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
+import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -189,12 +190,20 @@ public final class MainActivity extends AppCompatActivity {
             this.launchSignInRequested = false;
             startOrContinueSignIn();
         }
-        if (SecureTokenStore.isSignedIn(this)) {
+        boolean liveSession = SecureTokenStore.isSignedIn(this);
+        if (liveSession) {
             AppPreferences.setOAuthPending(this, false, "");
+        }
+        if (liveSession || DemoMode.isActive(this)) {
             UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(this);
             if (AppPreferences.getRefreshOnLaunch(this)
                     && (usageSnapshotLoadSnapshot == null || System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis > 300000)) {
-                RefreshScheduler.scheduleImmediate(this);
+                if (liveSession) {
+                    RefreshScheduler.scheduleImmediate(this);
+                } else {
+                    // Demo refreshes are local, so they run in-process instead of via JobScheduler.
+                    refreshInBackground("launch", null);
+                }
             }
         }
     }
@@ -280,17 +289,30 @@ public final class MainActivity extends AppCompatActivity {
                 this.content.addView(buildUpdateCard(update));
                 Ui.addSpacer(this.content, 20);
             }
+            if (DemoMode.isActive(this)) {
+                this.content.addView(buildDemoBanner());
+                Ui.addSpacer(this.content, 20);
+            }
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
                 this.content.addView(dashboard);
                 Ui.addSpacer(this.content, 20);
             }
-            boolean signedIn = SecureTokenStore.isSignedIn(this);
+            boolean signedIn = DemoMode.hasSession(this);
             if (!signedIn) {
                 Button signIn = Ui.nativePrimaryButton(this,
                         AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+                Ui.addSpacer(this.content, 12);
+                Button exploreDemo = Ui.button(this, "Explore demo", false, this.dark);
+                exploreDemo.setOnClickListener(view -> enterDemo());
+                this.content.addView(exploreDemo, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
+                Ui.addSpacer(this.content, 14);
+                TextView demoNote = Ui.text(this, "Demo mode is local and never contacts OpenAI.",
+                        13.0f, Ui.secondaryText(this.dark));
+                demoNote.setGravity(Gravity.CENTER);
+                this.content.addView(demoNote, new LinearLayout.LayoutParams(-1, -2));
                 Ui.addSpacer(this.content, 20);
             }
             if (signedIn && dashboard.getChildCount() == 0) {
@@ -334,6 +356,28 @@ public final class MainActivity extends AppCompatActivity {
         return card;
     }
 
+    private View buildDemoBanner() {
+        RoundedLinearLayout banner = Ui.seslRowCard(this, this.dark);
+        banner.addView(Ui.actionRow(this, "Demo data — no OpenAI requests",
+                "Sample usage for exploring the app. Sign in or leave demo from Settings.",
+                R.drawable.ic_oui_info_outline,
+                view -> Ui.startSecondaryActivity(this, SettingsActivity.class)));
+        return banner;
+    }
+
+    private void enterDemo() {
+        DiagnosticLog.info(this, "user", "demo_requested");
+        final Context applicationContext = getApplicationContext();
+        this.executor.execute(() -> {
+            DemoMode.enter(applicationContext);
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Demo data loaded. Nothing is sent to OpenAI.",
+                        Toast.LENGTH_SHORT).show();
+                rebuild();
+            });
+        });
+    }
+
     private void addHeader() {
         TextView textViewText = Ui.text(this, "Your Codex allowance at a glance.", 15.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
@@ -343,7 +387,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private LinearLayout buildUsageDashboard() {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
+        boolean signedIn = DemoMode.hasSession(this);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         if (!signedIn) {
@@ -727,7 +771,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildResetCreditsCard() {
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
+        boolean signedIn = DemoMode.hasSession(this);
         ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
         int available = credits == null ? 0 : credits.availableCount;
         long now = System.currentTimeMillis();
@@ -932,7 +976,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private void refreshFromPull() {
         DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", "pull");
-        if (!SecureTokenStore.isSignedIn(this)) {
+        if (!DemoMode.hasSession(this)) {
             DiagnosticLog.warn(this, "user", "manual_refresh_rejected",
                     "source", "pull", "reason", "signed_out");
             this.swipeRefresh.setRefreshing(false);
@@ -940,6 +984,10 @@ public final class MainActivity extends AppCompatActivity {
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return;
         }
+        refreshInBackground("pull", () -> this.swipeRefresh.setRefreshing(false));
+    }
+
+    private void refreshInBackground(String source, Runnable onFinished) {
         final Context applicationContext = getApplicationContext();
         this.executor.execute(() -> {
             try {
@@ -947,17 +995,21 @@ public final class MainActivity extends AppCompatActivity {
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
                     DiagnosticLog.info(applicationContext, "user",
-                            "manual_refresh_finished", "source", "pull");
-                    this.swipeRefresh.setRefreshing(false);
+                            "manual_refresh_finished", "source", source);
+                    if (onFinished != null) {
+                        onFinished.run();
+                    }
                     rebuild();
                 });
             } catch (Exception e) {
                 DiagnosticLog.error(applicationContext, "user", "manual_refresh_failed", e,
-                        "source", "pull");
+                        "source", source);
                 AppPreferences.setLastError(applicationContext, safeMessage(e));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
-                    this.swipeRefresh.setRefreshing(false);
+                    if (onFinished != null) {
+                        onFinished.run();
+                    }
                     Toast.makeText(this, safeMessage(e), Toast.LENGTH_LONG).show();
                     rebuild();
                 });

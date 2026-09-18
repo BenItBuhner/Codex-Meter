@@ -18,6 +18,9 @@ public final class UsageApi {
     }
 
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
+        if (DemoMode.isActive(context)) {
+            return DemoMode.refreshAndCache(context);
+        }
         AuthTokens authTokens;
         Response responseRequestUsage;
         String str;

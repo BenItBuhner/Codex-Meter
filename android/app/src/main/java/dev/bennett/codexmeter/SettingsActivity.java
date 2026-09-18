@@ -453,17 +453,29 @@ public final class SettingsActivity extends AppCompatActivity {
             plan.setBackground(Ui.pillBackground(requireContext(), dark));
 
             AuthTokens tokens = SecureTokenStore.load(requireContext());
+            boolean demo = tokens == null && DemoMode.isActive(requireContext());
             UsageSnapshot snapshot = AppPreferences.loadSnapshot(requireContext());
-            title.setText(tokens == null ? "Not connected" : "ChatGPT account");
-            summary.setText(tokens == null ? "Sign in from the dashboard"
-                    : (tokens.email.isEmpty() ? "Connected" : tokens.email));
-            if (tokens != null && snapshot != null) {
+            title.setText(tokens != null ? "ChatGPT account" : demo ? "Demo mode" : "Not connected");
+            summary.setText(tokens != null
+                    ? (tokens.email.isEmpty() ? "Connected" : tokens.email)
+                    : demo ? "Sample data · nothing is sent to OpenAI"
+                    : "Sign in from the dashboard");
+            if ((tokens != null || demo) && snapshot != null) {
                 String label = UsageFormat.planLabel(snapshot.planType);
-                plan.setText(label.isEmpty() ? "Codex" : label);
+                plan.setText(demo ? (label.isEmpty() ? "Demo" : label + " (Demo)")
+                        : (label.isEmpty() ? "Codex" : label));
                 plan.setVisibility(View.VISIBLE);
             } else {
                 plan.setVisibility(View.GONE);
             }
+            CardItemView leaveDemo = preference.findViewById(R.id.settings_account_secondary_action);
+            leaveDemo.setVisibility(demo ? View.VISIBLE : View.GONE);
+            leaveDemo.getTitleView().setTextColor(dark ? 0xFFFF6B6B : 0xFFFF3B30);
+            leaveDemo.setOnClickListener(view -> {
+                DemoMode.leave(requireContext());
+                Toast.makeText(requireContext(), "Left demo mode.", Toast.LENGTH_SHORT).show();
+                requireActivity().recreate();
+            });
             action.getTitleView().setText(tokens == null ? "Sign in with ChatGPT" : "Sign out");
             action.getTitleView().setTextColor(tokens == null
                     ? Ui.accent(requireContext(), dark)

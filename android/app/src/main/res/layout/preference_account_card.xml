@@ -83,4 +83,14 @@
         app:showTopDivider="false"
         app:title="Sign out" />
 
+    <dev.oneuiproject.oneui.widget.CardItemView
+        android:id="@+id/settings_account_secondary_action"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:showTopDivider="true"
+        app:title="Leave demo" />
+
 </dev.oneuiproject.oneui.widget.RoundedLinearLayout>

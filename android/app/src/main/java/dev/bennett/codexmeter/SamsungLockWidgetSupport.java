@@ -184,7 +184,7 @@ final class SamsungLockWidgetSupport {
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
         RemoteViews remoteViewsBuildArcViews;
         int i2;
-        boolean zIsSignedIn = SecureTokenStore.isSignedIn(context);
+        boolean zIsSignedIn = DemoMode.hasSession(context);
         UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context);
         LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions = AppPreferences.loadLockWidgetOptions(context, i);
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(context);

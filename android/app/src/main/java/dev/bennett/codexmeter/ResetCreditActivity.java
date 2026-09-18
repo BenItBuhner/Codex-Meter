@@ -89,7 +89,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
         this.useButton = Ui.nativePrimaryButton(
                 this, available > 0 ? "Use 1 reset" : "No resets available");
-        this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this));
+        this.useButton.setEnabled(available > 0 && DemoMode.hasSession(this));
         LinearLayout.LayoutParams useButtonParams =
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
         useButtonParams.setMargins(0, Ui.dp(this, 22.0f), 0, Ui.dp(this, 8.0f));
@@ -149,7 +149,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
                 && resetCreditsSnapshotLoadResetCredits.availableCount > 0
                 && resetCreditsSnapshotLoadResetCredits.availableCreditsByExpiry(now).size()
                         < resetCreditsSnapshotLoadResetCredits.availableCount;
-        if (SecureTokenStore.isSignedIn(this) && (jMax >= 300000 || missingDetails)) {
+        if (DemoMode.hasSession(this) && (jMax >= 300000 || missingDetails)) {
             final Context applicationContext = getApplicationContext();
             this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.ResetCreditActivity.4
                 @Override // java.lang.Runnable
@@ -191,7 +191,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
         intent.removeExtra(AppConstants.EXTRA_NOTIFICATION_ID);
         ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
         if (snapshot != null && snapshot.availableCount > 0
-                && SecureTokenStore.isSignedIn(this)) {
+                && DemoMode.hasSession(this)) {
             confirmUse();
         }
     }

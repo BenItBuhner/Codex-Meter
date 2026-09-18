@@ -55,6 +55,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
@@ -161,6 +162,38 @@ grep -q 'history_section_overrides' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 ! grep -q 'completed window count' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+
+# Explore demo: a local deterministic data source stands in for the network fetch and never
+# writes credentials; the dashboard banner and the Settings exit mirror the iOS demo path.
+grep -q 'testDemoData' "$ROOT/tests/ParserSelfTest.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoMode.java"
+grep -q 'return DemoMode.refreshAndCache(context);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
+grep -q 'return DemoMode.consumeReset(app);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditApi.java"
+grep -q 'return DemoMode.refreshResetCredits(context);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditApi.java"
+! grep -qE 'SecureTokenStore\.(save|clear)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoMode.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java"
+! grep -qE 'HttpsURLConnection|openConnection|AppConstants\.USAGE_URL' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoMode.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java"
+! grep -q '^import android' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java"
+grep -Fq '"Explore demo"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -Fq 'Demo data — no OpenAI requests' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -Fq 'app:title="Leave demo"' "$ROOT/app/src/main/res/layout/preference_account_card.xml"
+grep -q 'settings_account_secondary_action' \
+  "$ROOT/app/src/main/res/layout/preference_account_card.xml" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'DemoMode.leave(this);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
+grep -q 'DemoMode.isActive(context) ? null : snapshot' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearSync.java"
+grep -q 'DemoMode.hasSession(context)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetRenderer.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
 
 # Usage-history charts must be gated on real usage data instead of blank placeholders.
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
