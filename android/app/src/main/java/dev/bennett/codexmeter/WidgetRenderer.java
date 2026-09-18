@@ -268,12 +268,12 @@ public final class WidgetRenderer {
                     backgroundResource(context, z, widgetOptions.opacity, widgetOptions.surfaceStyle));
         }
         remoteViews.setTextColor(R.id.widget_title, WidgetGraphics.mainTextColor(z));
-        remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? GRAPHIC_STANDARD : 8);
+        remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? View.VISIBLE : View.GONE);
         remoteViews.setTextColor(R.id.plan_label, mutedColor(z));
         remoteViews.setTextViewText(R.id.plan_label, widgetState.plan);
-        remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? 8 : GRAPHIC_STANDARD);
+        remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? View.GONE : View.VISIBLE);
         remoteViews.setImageViewResource(R.id.refresh_button, z ? R.drawable.ic_oui_refresh_widget_light : R.drawable.ic_oui_refresh_widget_dark);
-        remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? GRAPHIC_STANDARD : 8);
+        remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? View.VISIBLE : View.GONE);
         applyIntents(context, remoteViews, i);
     }
 
@@ -357,8 +357,8 @@ public final class WidgetRenderer {
         remoteViews.setTextViewText(R.id.secondary_percent, secondary == null ? "—" : secondary.valueText);
         remoteViews.setTextViewText(R.id.primary_reset, widgetState.primaryReset);
         remoteViews.setTextViewText(R.id.secondary_reset, widgetState.secondaryReset);
-        remoteViews.setViewVisibility(R.id.primary_reset, widgetState.primaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);
-        remoteViews.setViewVisibility(R.id.secondary_reset, widgetState.secondaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);
+        remoteViews.setViewVisibility(R.id.primary_reset, widgetState.primaryReset.isEmpty() ? View.GONE : View.VISIBLE);
+        remoteViews.setViewVisibility(R.id.secondary_reset, widgetState.secondaryReset.isEmpty() ? View.GONE : View.VISIBLE);
         applyUpdated(remoteViews, widgetOptions, widgetState, iFaintColor);
         int iCurrentHeight = currentHeight(context, bundle);
         if ("compact".equals(widgetOptions.density) || ("auto".equals(widgetOptions.density) && iCurrentHeight > 0 && iCurrentHeight < 145)) {
@@ -391,9 +391,9 @@ public final class WidgetRenderer {
         remoteViews.setTextViewText(R.id.secondary_label, secondary == null ? "" : secondary.label);
         remoteViews.setTextViewText(R.id.primary_percent, primary == null ? "—" : primary.shortText);
         remoteViews.setTextViewText(R.id.secondary_percent, secondary == null ? "—" : secondary.shortText);
-        remoteViews.setViewVisibility(R.id.primary_reset, 8);
-        remoteViews.setViewVisibility(R.id.secondary_reset, 8);
-        remoteViews.setViewVisibility(R.id.updated_label, 8);
+        remoteViews.setViewVisibility(R.id.primary_reset, View.GONE);
+        remoteViews.setViewVisibility(R.id.secondary_reset, View.GONE);
+        remoteViews.setViewVisibility(R.id.updated_label, View.GONE);
     }
 
     private static void renderMinimal(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z, WidgetState widgetState, List<MeterSlot> slots) {
@@ -438,8 +438,8 @@ public final class WidgetRenderer {
             str = widgetState.combinedReset;
         }
         remoteViews.setTextViewText(R.id.primary_reset, str);
-        remoteViews.setViewVisibility(R.id.primary_reset, str.isEmpty() ? 8 : GRAPHIC_STANDARD);
-        remoteViews.setViewVisibility(R.id.secondary_reset, 8);
+        remoteViews.setViewVisibility(R.id.primary_reset, str.isEmpty() ? View.GONE : View.VISIBLE);
+        remoteViews.setViewVisibility(R.id.secondary_reset, View.GONE);
         applyUpdated(remoteViews, widgetOptions, widgetState, iFaintColor);
     }
 
@@ -502,12 +502,12 @@ public final class WidgetRenderer {
         remoteViews.setTextColor(R.id.updated_label, iFaintColor);
         remoteViews.setTextViewText(R.id.primary_label, primary == null ? "" : primary.label);
         remoteViews.setTextViewText(R.id.secondary_label, secondary == null ? "" : secondary.label);
-        remoteViews.setViewVisibility(R.id.primary_label, 8);
-        remoteViews.setViewVisibility(R.id.secondary_label, 8);
+        remoteViews.setViewVisibility(R.id.primary_label, View.GONE);
+        remoteViews.setViewVisibility(R.id.secondary_label, View.GONE);
         remoteViews.setTextViewText(R.id.primary_reset, widgetState.primaryShortReset);
         remoteViews.setTextViewText(R.id.secondary_reset, widgetState.secondaryShortReset);
-        remoteViews.setViewVisibility(R.id.primary_reset, 8);
-        remoteViews.setViewVisibility(R.id.secondary_reset, 8);
+        remoteViews.setViewVisibility(R.id.primary_reset, View.GONE);
+        remoteViews.setViewVisibility(R.id.secondary_reset, View.GONE);
         applyUpdated(remoteViews, widgetOptions, widgetState, iFaintColor);
     }
 
@@ -618,7 +618,7 @@ public final class WidgetRenderer {
     private static void applyUpdated(RemoteViews remoteViews, WidgetOptions widgetOptions, WidgetState widgetState, int i) {
         remoteViews.setTextColor(R.id.updated_label, i);
         remoteViews.setTextViewText(R.id.updated_label, widgetState.updated);
-        remoteViews.setViewVisibility(R.id.updated_label, (!widgetOptions.showUpdated || widgetState.updated.isEmpty()) ? 8 : GRAPHIC_STANDARD);
+        remoteViews.setViewVisibility(R.id.updated_label, (!widgetOptions.showUpdated || widgetState.updated.isEmpty()) ? View.GONE : View.VISIBLE);
     }
 
     private static void applySlotVisibility(RemoteViews remoteViews, String style, List<MeterSlot> slots) {
@@ -746,7 +746,7 @@ public final class WidgetRenderer {
         boolean zEquals = STYLE_MICRO.equals(str) || STYLE_BATTERY_LIST.equals(str);
         boolean z2 = widgetOptions.showResetCredits || widgetOptions.showResetAction;
         if (zEquals || !z2) {
-            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);
+            remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
             return;
         }
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(context);
@@ -756,12 +756,12 @@ public final class WidgetRenderer {
         boolean z3 = widgetOptions.showResetCredits;
         boolean z4 = widgetOptions.showResetAction && i2 > 0 && SecureTokenStore.isSignedIn(context);
         if (!z3 && !z4) {
-            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);
+            remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
             return;
         }
-        remoteViews.setViewVisibility(R.id.reset_credit_row, GRAPHIC_STANDARD);
-        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? GRAPHIC_STANDARD : 8);
-        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? GRAPHIC_STANDARD : 8);
+        remoteViews.setViewVisibility(R.id.reset_credit_row, View.VISIBLE);
+        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? View.VISIBLE : View.GONE);
         if (i2 <= 0) {
             str2 = "No reset credits";
         } else if (jNextExpiryMillis > 0) {

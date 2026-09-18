@@ -69,7 +69,7 @@ public final class MainActivity extends AppCompatActivity {
                 if (stringExtra2 == null) {
                     stringExtra2 = booleanExtra ? "Signed in." : "Sign-in failed.";
                 }
-                Toast.makeText(mainActivity, stringExtra2, 1).show();
+                Toast.makeText(mainActivity, stringExtra2, Toast.LENGTH_LONG).show();
                 PhoneWearSync.pushAll(MainActivity.this);
                 MainActivity.this.rebuild();
                 return;
@@ -175,7 +175,7 @@ public final class MainActivity extends AppCompatActivity {
         intentFilter.addAction(AppConstants.ACTION_RELEASES_UPDATED);
         try {
             if (Build.VERSION.SDK_INT >= 33) {
-                registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null, 4);
+                registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null, Context.RECEIVER_NOT_EXPORTED);
             } else {
                 registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null);
             }
@@ -874,11 +874,11 @@ public final class MainActivity extends AppCompatActivity {
             } else {
                 str = "Opening secure OpenAI sign-in…";
             }
-            Toast.makeText(this, str, 0).show();
+            Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
         } catch (RuntimeException e) {
             DiagnosticLog.error(this, "auth", "sign_in_service_start_failed", e);
             AppPreferences.setOAuthPending(this, false, "");
-            Toast.makeText(this, "Could not start sign-in: " + safeMessage(e), 1).show();
+            Toast.makeText(this, "Could not start sign-in: " + safeMessage(e), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -888,7 +888,7 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 startActivity(new Intent("android.intent.action.VIEW", Uri.parse(str)));
             } catch (RuntimeException e) {
-                Toast.makeText(this, "No browser is available to complete sign-in.", 1).show();
+                Toast.makeText(this, "No browser is available to complete sign-in.", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -909,7 +909,7 @@ public final class MainActivity extends AppCompatActivity {
                         public void run() {
                             DiagnosticLog.info(applicationContext, "user",
                                     "manual_refresh_finished", "source", "button");
-                            Toast.makeText(MainActivity.this, "Usage updated.", 0).show();
+                            Toast.makeText(MainActivity.this, "Usage updated.", Toast.LENGTH_SHORT).show();
                             MainActivity.this.rebuild();
                         }
                     });
@@ -921,7 +921,7 @@ public final class MainActivity extends AppCompatActivity {
                     MainActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.9.2
                         @Override // java.lang.Runnable
                         public void run() {
-                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), 1).show();
+                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), Toast.LENGTH_LONG).show();
                             MainActivity.this.rebuild();
                         }
                     });
@@ -999,7 +999,7 @@ public final class MainActivity extends AppCompatActivity {
         ComponentName componentName = new ComponentName(this, (Class<?>) CodexUsageWidget.class);
         if (appWidgetManager.isRequestPinAppWidgetSupported()) {
             appWidgetManager.requestPinAppWidget(componentName, null, null);
-            Toast.makeText(this, "Choose a size and place the widget on your home screen.", 1).show();
+            Toast.makeText(this, "Choose a size and place the widget on your home screen.", Toast.LENGTH_LONG).show();
         } else {
             AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
             dialog.show();

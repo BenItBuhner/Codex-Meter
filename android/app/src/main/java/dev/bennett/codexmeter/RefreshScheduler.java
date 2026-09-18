@@ -197,7 +197,7 @@ public final class RefreshScheduler {
         int result = jobSchedulerScheduler.schedule(jobInfo);
         String reason = jobInfo.getExtras() == null
                 ? "" : jobInfo.getExtras().getString("reason", "");
-        if (result == 1) {
+        if (result == JobScheduler.RESULT_SUCCESS) {
             AppPreferences.setSchedulerError(context, "");
             DiagnosticLog.info(context, "scheduler", "job_scheduled",
                     "job_id", jobInfo.getId(),
@@ -215,11 +215,11 @@ public final class RefreshScheduler {
     private static JobInfo.Builder base(Context context, int i, String str) {
         PersistableBundle persistableBundle = new PersistableBundle();
         persistableBundle.putString("reason", str);
-        return new JobInfo.Builder(i, new ComponentName(context, (Class<?>) UsageRefreshJobService.class)).setRequiredNetworkType(1).setExtras(persistableBundle);
+        return new JobInfo.Builder(i, new ComponentName(context, (Class<?>) UsageRefreshJobService.class)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setExtras(persistableBundle);
     }
 
     private static JobScheduler scheduler(Context context) {
-        return (JobScheduler) context.getSystemService("jobscheduler");
+        return (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
     }
 
     private static Context appContext(Context context) {

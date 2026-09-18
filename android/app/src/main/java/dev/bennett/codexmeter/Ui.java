@@ -272,11 +272,11 @@ public final class Ui {
     }
 
     public static Typeface regularTypeface(Context context) {
-        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif", 0);
+        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif", Typeface.NORMAL);
     }
 
     public static Typeface mediumTypeface(Context context) {
-        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif-medium", 1);
+        return Typeface.create(isOneUi(context) ? "sec" : "sans-serif-medium", Typeface.BOLD);
     }
 
     public static TextView text(Context context, String str, float f, int i) {
@@ -312,7 +312,7 @@ public final class Ui {
 
     public static LinearLayout card(Context context, boolean z) {
         RoundedLinearLayout linearLayout = new RoundedLinearLayout(context);
-        linearLayout.setOrientation(1);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
         boolean zIsOneUi = isOneUi(context);
         int i = zIsOneUi ? 22 : 20;
         int i2 = zIsOneUi ? 20 : 19;
@@ -598,7 +598,9 @@ public final class Ui {
             window.setDecorFitsSystemWindows(false);
             WindowInsetsController insetsController = window.getInsetsController();
             if (insetsController != null) {
-                insetsController.setSystemBarsAppearance(z ? 0 : 24, 24);
+                int lightBars = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                insetsController.setSystemBarsAppearance(z ? 0 : lightBars, lightBars);
             }
             final int paddingLeft = view.getPaddingLeft();
             final int paddingTop = view.getPaddingTop();
@@ -623,7 +625,7 @@ public final class Ui {
 
     public static LinearLayout horizontal(Context context, int i) {
         LinearLayout linearLayout = new LinearLayout(context);
-        linearLayout.setOrientation(0);
+        linearLayout.setOrientation(LinearLayout.HORIZONTAL);
         linearLayout.setGravity(i);
         return linearLayout;
     }

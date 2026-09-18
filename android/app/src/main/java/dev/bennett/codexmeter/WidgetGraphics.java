@@ -72,7 +72,7 @@ public final class WidgetGraphics {
         }
 
         paint.setStyle(Paint.Style.FILL);
-        paint.setTypeface(Typeface.create("sec", 1));
+        paint.setTypeface(Typeface.create("sec", Typeface.BOLD));
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setColor(textColor);
         paint.setTextSize((valueText != null && valueText.length() > 5 ? 24.0f : 33.0f)
@@ -119,7 +119,7 @@ public final class WidgetGraphics {
         }
         paint.setStyle(Paint.Style.FILL);
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTypeface(Typeface.create("sans-serif", 1));
+        paint.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
         paint.setColor(i4);
         String center = centerText == null || centerText.isEmpty() ? "—" : centerText;
         // Percent values fit at full size; longer countdown strings scale down to stay inside.
@@ -127,7 +127,7 @@ public final class WidgetGraphics {
                 ? 48.0f : Math.max(24.0f, 48.0f * (4.5f / center.length()));
         paint.setTextSize(centerSize * fClampScale);
         canvas.drawText(center, iRound / 2.0f, 130.0f * fClampScale, paint);
-        paint.setTypeface(Typeface.create("sans-serif-medium", 0));
+        paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         paint.setTextSize(19.0f * fClampScale);
         paint.setColor(withAlpha(i4, 0.68f));
         if (str == null) {
