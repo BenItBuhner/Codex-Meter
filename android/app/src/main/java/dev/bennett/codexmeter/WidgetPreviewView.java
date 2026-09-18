@@ -21,7 +21,7 @@ public final class WidgetPreviewView extends View {
         this.cardRect = new RectF();
         this.options = WidgetOptions.defaults();
         setMinimumHeight(Ui.dp(context, 250.0f));
-        setLayerType(1, null);
+        setLayerType(View.LAYER_TYPE_SOFTWARE, null);
     }
 
     public void setOptions(WidgetOptions widgetOptions) {
@@ -309,7 +309,7 @@ public final class WidgetPreviewView extends View {
         this.paint.setTextAlign(align);
         this.paint.setTextSize(f3);
         this.paint.setColor(i);
-        this.paint.setTypeface(Typeface.create(WidgetOptions.SURFACE_ONE_UI.equals(this.options.surfaceStyle) ? "sec" : "sans-serif", z ? 1 : 0));
+        this.paint.setTypeface(Typeface.create(WidgetOptions.SURFACE_ONE_UI.equals(this.options.surfaceStyle) ? "sec" : "sans-serif", z ? Typeface.BOLD : Typeface.NORMAL));
         canvas.drawText(str, f, f2, this.paint);
     }
 }

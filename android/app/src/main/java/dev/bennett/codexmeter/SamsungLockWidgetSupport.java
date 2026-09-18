@@ -555,11 +555,11 @@ final class SamsungLockWidgetSupport {
                         + shape.name().toLowerCase(Locale.US) + "/"
                         + style.name().toLowerCase(Locale.US)
                         + "/" + target))
-                .addFlags(335544320);
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         if (i2 == 0) {
             i2 = 0;
         }
-        remoteViews.setOnClickPendingIntent(i, PendingIntent.getActivity(context, 82000 + i2 + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (z2 ? 50000 : 0), intentAddFlags, 201326592));
+        remoteViews.setOnClickPendingIntent(i, PendingIntent.getActivity(context, 82000 + i2 + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (z2 ? 50000 : 0), intentAddFlags, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 
     private static int graphicLayout(Shape shape, Style style) {
