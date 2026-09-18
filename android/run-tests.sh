@@ -684,6 +684,19 @@ grep -q '!usageWindow.showsResetCountdown()' \
 ! grep -q 'titlePaint.setColor(0xFF000000)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 
+# Reduced motion: the dashboard wave skips its infinite animator and draws a flat fill.
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'ValueAnimator.areAnimatorsEnabled()' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'Settings.Global.ANIMATOR_DURATION_SCALE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'reduceMotion = ReducedMotion.isRequested(getContext());' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'if (reduceMotion) return;' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'fillPath.lineTo(edge, getHeight());' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+
 # Wear OS companion module and phone↔watch sync contract.
 test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearMainActivity.java"
 test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSettingsActivity.java"
