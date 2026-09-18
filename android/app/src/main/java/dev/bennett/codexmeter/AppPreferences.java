@@ -18,6 +18,7 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
     private static final String KEY_DASHBOARD_USAGE_HISTORY = "dashboard_usage_history";
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
+    private static final String KEY_DEMO_STATE = "demo_state";
     private static final String KEY_HISTORY_SECTION_OVERRIDES = "history_section_overrides";
     private static final String KEY_MATERIAL_YOU = "material_you";
     private static final String KEY_ERROR = "last_error";
@@ -78,6 +79,7 @@ public final class AppPreferences {
                 .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
                 .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
                 .remove(KEY_HISTORY_MONTHLY)
+                .remove(KEY_DEMO_STATE)
                 .remove(KEY_REFRESH_FAILURES).apply();
         NowBarManager.stop(context);
         NowBarPreferences.clearSuppression(context);
@@ -121,6 +123,19 @@ public final class AppPreferences {
     public static void clearUsageHistory(Context context) {
         prefs(context).edit().remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
                 .remove(KEY_HISTORY_MONTHLY).apply();
+    }
+
+    /** Serialized {@link DemoData.State}; empty while the demo session is inactive. */
+    public static String getDemoState(Context context) {
+        return prefs(context).getString(KEY_DEMO_STATE, "");
+    }
+
+    public static void setDemoState(Context context, String stateJson) {
+        if (stateJson == null || stateJson.trim().isEmpty()) {
+            prefs(context).edit().remove(KEY_DEMO_STATE).apply();
+        } else {
+            prefs(context).edit().putString(KEY_DEMO_STATE, stateJson).apply();
+        }
     }
 
     private static String historyKey(String kind) {

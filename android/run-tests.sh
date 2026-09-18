@@ -55,6 +55,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
@@ -76,14 +77,14 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.8.0-alpha.1"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 29' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 29' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 29' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.8.0-alpha.1' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.8.0-alpha.1"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.8.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.8.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.8.0"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.8.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.8.0"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -161,6 +162,62 @@ grep -q 'history_section_overrides' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 ! grep -q 'completed window count' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
+
+# Explore demo: a local deterministic data source stands in for the network fetch and never
+# writes credentials; the dashboard banner and the Settings exit mirror the iOS demo path.
+grep -q 'testDemoData' "$ROOT/tests/ParserSelfTest.java"
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoMode.java"
+grep -q 'return DemoMode.refreshAndCache(context);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
+grep -q 'return DemoMode.consumeReset(app);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditApi.java"
+grep -q 'return DemoMode.refreshResetCredits(context);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditApi.java"
+! grep -qE 'SecureTokenStore\.(save|clear)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoMode.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java"
+! grep -qE 'HttpsURLConnection|openConnection|AppConstants\.USAGE_URL' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoMode.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java"
+! grep -q '^import android' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DemoData.java"
+grep -Fq '"Explore demo"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -Fq 'Demo data — no OpenAI requests' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -Fq 'app:title="Leave demo"' "$ROOT/app/src/main/res/layout/preference_account_card.xml"
+grep -q 'settings_account_secondary_action' \
+  "$ROOT/app/src/main/res/layout/preference_account_card.xml" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'DemoMode.leave(this);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
+grep -q 'DemoMode.isActive(context) ? null : snapshot' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/wear/PhoneWearSync.java"
+grep -q 'DemoMode.hasSession(context)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetRenderer.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+# Real credentials always win over the demo: the flag is inert while signed in, cannot be set
+# while signed in, and is dropped by every path that clears cached usage (both sign-outs).
+python3 - <<PY
+from pathlib import Path
+root = Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter"
+demo = (root / "DemoMode.java").read_text()
+active = demo[demo.index("public static boolean isActive"):demo.index("public static boolean hasSession")]
+assert "!SecureTokenStore.isSignedIn(" in active, "DemoMode.isActive must yield to real credentials"
+enter = demo[demo.index("public static boolean enter"):demo.index("public static void leave")]
+assert enter.index("SecureTokenStore.isSignedIn(") < enter.index("publish("), \
+    "DemoMode.enter must refuse before seeding when signed in"
+prefs = (root / "AppPreferences.java").read_text()
+clear = prefs[prefs.index("public static void clearSnapshot"):prefs.index("public static void setLastError")]
+assert ".remove(KEY_DEMO_STATE)" in clear, "clearSnapshot must end the demo session"
+main = (root / "MainActivity.java").read_text()
+sign_out = main[main.index("public void signOut()"):main.index("public void requestPinWidget()")]
+assert sign_out.index("SecureTokenStore.clear(") < sign_out.index("AppPreferences.clearSnapshot("), \
+    "dashboard sign-out must clear cached usage (and the demo flag) after the tokens"
+settings = (root / "SettingsActivity.java").read_text()
+confirm = settings[settings.index("private void confirmSignOut()"):settings.index("private void bindAppearance()")]
+assert confirm.index("SecureTokenStore.clear(") < confirm.index("AppPreferences.clearSnapshot("), \
+    "settings sign-out must clear cached usage (and the demo flag) after the tokens"
+print("Demo mode yields to real credentials and ends on every sign-out path.")
+PY
 
 # Usage-history charts must be gated on real usage data instead of blank placeholders.
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
@@ -641,6 +698,9 @@ grep -q 'titlePaint.setColor(foreground);' \
 grep -q 'resetPaint.setColor(foreground);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 grep -q 'showsResetCountdown' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
+grep -q 'testResetCountdownFollowsApiTimeline' "$ROOT/tests/ParserSelfTest.java"
+! grep -q 'remainingPercent() <= 99' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
 grep -q 'testUsagePace' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'UsagePace.mostAcceleratedWindow' "$ROOT/tests/ParserSelfTest.java"

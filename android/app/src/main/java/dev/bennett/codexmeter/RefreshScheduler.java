@@ -148,7 +148,8 @@ public final class RefreshScheduler {
 
     public static boolean scheduleAtNextReset(Context context, UsageSnapshot usageSnapshot) {
         Context contextAppContext = appContext(context);
-        if (contextAppContext == null || usageSnapshot == null) {
+        if (contextAppContext == null || usageSnapshot == null
+                || !SecureTokenStore.isSignedIn(contextAppContext)) {
             return false;
         }
         long jCurrentTimeMillis = System.currentTimeMillis();

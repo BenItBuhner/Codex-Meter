@@ -23,13 +23,14 @@ public final class ParserSelfTest {
         testUsageCreditsAutoHide();
         testResetCreditsAutoHide();
         testDashboardSectionOrder();
+        testDemoData();
         testMalformedWindowIgnored();
         testZeroDurationWindowIgnored();
         testNextResetSelection();
         testCelebrationDetection();
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
-        testFullWindowHidesResetCountdown();
+        testResetCountdownFollowsApiTimeline();
         testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
@@ -90,16 +91,24 @@ public final class ParserSelfTest {
         System.out.println("Diagnostic sanitizer strips credentials, identity, and URL queries.");
     }
 
-    private static void testFullWindowHidesResetCountdown() {
-        UsageWindow full = new UsageWindow(0, 18000L, 600L, 2000000000L);
-        UsageWindow almostFull = new UsageWindow(1, 18000L, 600L, 2000000000L);
-        UsageWindow used = new UsageWindow(37, 18000L, 600L, 2000000000L);
-        check(full.remainingPercent() == 100, "full window remaining");
-        check(!full.showsResetCountdown(), "100% remaining hides drifting reset countdown");
-        check(almostFull.remainingPercent() == 99, "1% used is 99% remaining");
-        check(almostFull.showsResetCountdown(), "99% remaining still shows reset countdown");
-        check(used.showsResetCountdown(), "partial usage shows reset countdown");
-        System.out.println("Reset-countdown demo: hide at 100% remaining, show again at 99% or less.");
+    private static void testResetCountdownFollowsApiTimeline() {
+        UsageWindow unusedNoReset = new UsageWindow(0, 18000L, 0L, 0L);
+        UsageWindow unusedWithResetAt = new UsageWindow(0, 18000L, 0L, 2000000000L);
+        UsageWindow unusedWithResetAfter = new UsageWindow(0, 18000L, 600L, 0L);
+        UsageWindow usedNoReset = new UsageWindow(37, 18000L, 0L, 0L);
+        UsageWindow usedWithReset = new UsageWindow(37, 18000L, 600L, 2000000000L);
+        check(unusedNoReset.remainingPercent() == 100, "unused window remaining");
+        check(!unusedNoReset.showsResetCountdown(),
+                "unused window without API reset stays blank");
+        check(unusedWithResetAt.showsResetCountdown(),
+                "100% remaining still shows API reset_at");
+        check(unusedWithResetAfter.showsResetCountdown(),
+                "100% remaining still shows API reset_after");
+        check(!usedNoReset.showsResetCountdown(),
+                "used window without API reset stays blank");
+        check(usedWithReset.showsResetCountdown(),
+                "used window with API reset shows countdown");
+        System.out.println("Reset countdown follows the API timeline, including at 100% remaining.");
     }
 
     private static void testLowUsageAlertDedup() {
@@ -515,6 +524,19 @@ public final class ParserSelfTest {
                 "Wear reset label uses observation-based reset-after fallback");
         check(WearGlanceFormat.nextResetRelativeText(fallbackTimed, now).contains("h"),
                 "Wear fallback reset countdown remains finite");
+        UsageSnapshot unused = new UsageSnapshot("demo", true, false,
+                new UsageWindow(0, 18000L, 0L, 0L),
+                new UsageWindow(0, 604800L, 0L, 0L), now);
+        check("--".equals(WearGlanceFormat.nextResetWindowLabel(unused, now)),
+                "unused windows without API reset have no next-reset label");
+        check("No reset yet".equals(WearGlanceFormat.nextResetLongText(unused, now)),
+                "unused windows without API reset show no reset timeframe");
+        UsageSnapshot unusedWithReset = new UsageSnapshot("demo", true, false,
+                new UsageWindow(0, 18000L, 0L,
+                        (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
+                null, now);
+        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(unusedWithReset, now)),
+                "100% remaining still surfaces an API reset timeline");
         UsageSnapshot account = new UsageSnapshot("plus", true, true, five, weekly, 2, now);
         check("Limit reached".equals(WearGlanceFormat.accountStatus(account)),
                 "Wear account status surfaces a reached limit");
@@ -906,6 +928,122 @@ public final class ParserSelfTest {
         check(positiveResetsOnly.hasDisplayableData(),
                 "snapshot with available resets remains displayable");
         System.out.println("Reset-credit shouldDisplay: zero inventory is treated as empty.");
+    }
+
+    private static void testDemoData() throws Exception {
+        long reference = 1_800_000_000_000L;
+        DemoData.State seed = DemoData.State.initial(reference).refreshed(reference);
+        check(seed.refreshCount == 1 && seed.fiveHourUsed == 38 && seed.weeklyUsed == 64
+                && seed.availableCredits == 2, "demo seed mirrors the iOS demo values");
+
+        UsageSnapshot snapshot = DemoData.snapshot(seed, reference);
+        check(snapshot.hasDisplayableData(), "demo snapshot is displayable");
+        check("plus".equals(snapshot.planType) && PlanPricing.forPlan(snapshot.planType) != null,
+                "demo plan resolves to a priced plan for history value estimates");
+        check(snapshot.fiveHour.usedPercent == 38 && snapshot.fiveHour.windowSeconds == 18_000L,
+                "demo 5-hour window matches iOS");
+        check(snapshot.weekly.usedPercent == 64 && snapshot.weekly.windowSeconds == 604_800L,
+                "demo weekly window matches iOS");
+        check(snapshot.monthly == null, "paid demo plan reports no monthly window");
+        check(snapshot.fiveHour.resetAtMillis() == reference + TimeUnit.HOURS.toMillis(2)
+                + TimeUnit.MINUTES.toMillis(17), "demo 5-hour reset lands 2h17m out");
+        check(snapshot.weekly.resetAtMillis() == reference + TimeUnit.DAYS.toMillis(3)
+                + TimeUnit.HOURS.toMillis(8), "demo weekly reset lands 3d8h out");
+        check(snapshot.nextResetMillis(reference) == snapshot.fiveHour.resetAtMillis(),
+                "next demo reset is the 5-hour window");
+        check(snapshot.additionalLimits.size() == 1, "demo carries one additional model limit");
+        UsageLimit spark = snapshot.additionalLimits.get(0);
+        check("GPT-5.3-Codex-Spark".equals(spark.displayName())
+                && spark.primary.usedPercent == 24 && spark.secondary.usedPercent == 42,
+                "demo Spark limit matches iOS");
+        check(!DashboardSections.limitKey(spark).isEmpty(),
+                "demo Spark limit resolves to a dashboard section");
+        check(snapshot.usageCredits.shouldDisplay()
+                && "2500".equals(snapshot.usageCredits.balance),
+                "demo usage credits show a 2,500 balance");
+        check(snapshot.resetCreditsAvailable == 2, "demo usage snapshot reports two resets");
+        check(snapshot.fetchedAtMillis > 0L && snapshot.fiveHour != null
+                && snapshot.weekly != null, "usage history card has windows to chart");
+
+        ResetCreditsSnapshot credits = DemoData.resetCredits(seed, reference);
+        check(credits.shouldDisplay() && credits.availableCount == 2
+                && credits.credits.size() == 2, "demo reset credits populate the inventory card");
+        check(credits.nextExpiryMillis(reference) == reference + TimeUnit.DAYS.toMillis(6),
+                "soonest demo credit expires in six days");
+        check(credits.availableCreditsByExpiry(reference).get(1).expiresAtMillis
+                == reference + TimeUnit.DAYS.toMillis(9), "second demo credit expires in nine days");
+
+        UsageHistory five = DemoData.seededHistory(seed, UsageHistory.FIVE_HOUR);
+        UsageHistory weekly = DemoData.seededHistory(seed, UsageHistory.WEEKLY);
+        check(five.completedWindowCount() == 4 && weekly.completedWindowCount() == 4,
+                "demo history seeds four completed windows per cadence");
+        check(five.currentWindowSamples().size() == 6
+                && five.currentWindowSamples().get(5).usedPercent == 38,
+                "5-hour climb ends at the seeded percentage");
+        check(weekly.currentWindowSamples().size() == 8
+                && weekly.currentWindowSamples().get(7).usedPercent == 64,
+                "weekly climb ends at the seeded percentage");
+        check(five.append(snapshot.fiveHour, reference).samples.size() == five.samples.size(),
+                "recording the seed snapshot does not duplicate the final climb sample");
+        check(five.observedBurnRate() > 0d && weekly.observedBurnRate() > 0d,
+                "demo history yields observed burn rates");
+        check(DemoData.seededHistory(seed, UsageHistory.MONTHLY).samples.isEmpty(),
+                "no monthly history on the demo plan");
+
+        UsagePace.Assessment fivePace = UsagePace.assess(snapshot.fiveHour, five, reference,
+                reference, UsagePace.BALANCED);
+        check(fivePace.available && !fivePace.accelerated,
+                "5-hour demo pace estimate is available and calm");
+        UsagePace.Assessment weeklyPace = UsagePace.assess(snapshot.weekly, weekly, reference,
+                reference, UsagePace.BALANCED);
+        check(weeklyPace.available && weeklyPace.accelerated,
+                "weekly demo pace showcases the accelerated warning");
+
+        check(DemoData.snapshot(seed, reference).toJson().toString()
+                .equals(snapshot.toJson().toString()), "demo snapshot is deterministic");
+        DemoData.State restored = DemoData.State.fromJson(seed.toJson());
+        check(restored.referenceMillis == reference && restored.refreshCount == 1
+                && restored.fiveHourUsed == 38 && restored.weeklyUsed == 64
+                && restored.availableCredits == 2, "demo state round-trips through JSON");
+        check(DemoData.State.fromJson(new org.json.JSONObject()) == null,
+                "missing demo state decodes to null");
+        UsageSnapshot cached = UsageSnapshot.fromJson(snapshot.toJson());
+        check(cached.additionalLimits.size() == 1 && cached.usageCredits.shouldDisplay()
+                && cached.resetCreditsAvailable == 2,
+                "demo snapshot survives the cache round trip");
+
+        DemoData.State second = seed.refreshed(reference + TimeUnit.MINUTES.toMillis(1));
+        check(second.refreshCount == 2 && second.fiveHourUsed == 39 && second.weeklyUsed == 65,
+                "second demo refresh nudges both windows");
+        DemoData.State third = second.refreshed(reference + TimeUnit.MINUTES.toMillis(2));
+        check(third.refreshCount == 3 && third.fiveHourUsed == 40 && third.weeklyUsed == 65,
+                "third demo refresh nudges only the 5-hour window");
+        check(third.referenceMillis == reference,
+                "refreshing before the reset keeps the timeline anchored");
+        long afterFiveHourReset = reference + TimeUnit.HOURS.toMillis(3);
+        DemoData.State reanchored = third.refreshed(afterFiveHourReset);
+        check(reanchored.referenceMillis == afterFiveHourReset && reanchored.refreshCount == 1
+                && reanchored.fiveHourUsed == 38 && reanchored.weeklyUsed == 65,
+                "an elapsed 5-hour reset re-anchors the timeline and keeps weekly progress");
+        check(third.refreshed(reference + TimeUnit.DAYS.toMillis(4)).weeklyUsed == 64,
+                "an elapsed weekly reset restores the weekly seed");
+
+        DemoData.State consumed = third.resetConsumed(reference + TimeUnit.MINUTES.toMillis(3));
+        check(consumed.availableCredits == 1 && consumed.fiveHourUsed == 0
+                && consumed.weeklyUsed == 0,
+                "using a demo reset spends a credit and clears both windows");
+        check(DemoData.snapshot(consumed, reference).fiveHour.remainingPercent() == 100,
+                "post-reset demo snapshot shows a full 5-hour allowance");
+        ResetCreditsSnapshot remaining = DemoData.resetCredits(consumed, reference);
+        check(remaining.availableCount == 1
+                && remaining.nextExpiryMillis(reference) == reference + TimeUnit.DAYS.toMillis(9),
+                "spending a demo reset removes the soonest-expiring credit");
+        DemoData.State exhausted = consumed.resetConsumed(reference).resetConsumed(reference);
+        check(exhausted.availableCredits == 0
+                && DemoData.resetCredits(exhausted, reference).credits.isEmpty(),
+                "demo credits bottom out at zero");
+        System.out.println("Demo data: iOS-matching seed populates every dashboard card; "
+                + "refresh progression, re-anchoring, and reset consumption verified.");
     }
 
     private static void testDashboardSectionOrder() {

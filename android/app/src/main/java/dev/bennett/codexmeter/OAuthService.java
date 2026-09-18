@@ -151,6 +151,7 @@ public final class OAuthService extends Service {
                         pkce.verifier);
                 SecureTokenStore.save(this, tokens);
                 credentialsCommitted = true;
+                DemoMode.leave(this);
                 AppPreferences.setOAuthPending(this, false, "");
 
                 // The browser callback is complete as soon as credentials are safely stored.

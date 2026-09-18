@@ -14,6 +14,11 @@
             android:title="Direct network access"
             app:iconSpaceReserved="false"
             app:selectable="false" />
+        <Preference
+            android:summary="Explore demo generates sample usage on this device and never contacts OpenAI or stores credentials. Leave demo from the account card in Settings."
+            android:title="Demo mode"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>
