@@ -125,9 +125,13 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.0)
         capture("15-refresh-failure")
 
-        // Largest accessibility text size: the signed-out hero, the meters, and
-        // the in-card glyphs all scale with Dynamic Type and must not clip. One
-        // launch covers all three screens; launches are the slowest tour step.
+        // Largest accessibility text size: the signed-out hero, the meters, the
+        // in-card glyphs, and the settings form all scale with Dynamic Type and
+        // must not clip. One launch covers every screen; launches are the
+        // slowest tour step. The signed-out card is taller than the screen here,
+        // so "Explore demo" has to be scrolled into view before it can be tapped,
+        // and every later still is gated on the dashboard actually appearing so
+        // a missed tap cannot pass off the signed-out screen as the dashboard.
         app.terminate()
         app.launchArguments = [
             "-ui-testing-signed-out",
@@ -139,14 +143,31 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.0)
         capture("16-signed-out-ax5")
 
+        UITestSupport.scrollDashboard(untilVisible: app.buttons["Explore demo"], in: app)
+        XCTAssertTrue(UITestSupport.isFullyVisible(app.buttons["Explore demo"], in: app))
         UITestSupport.tap(app.buttons["Explore demo"])
-        XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
+        guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 8),
+              app.staticTexts["5-hour"].waitForExistence(timeout: 8) else {
+            XCTFail("Explore demo did not open the demo dashboard at the AX5 text size")
+            return
+        }
         UITestSupport.settle(1.2)
         capture("17-demo-dashboard-ax5")
 
+        UITestSupport.tap(app.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("18-settings-ax5")
+        UITestSupport.tap(app.buttons["Done"])
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+
         UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app, maxAttempts: 30)
         UITestSupport.settle(0.6)
-        capture("18-demo-reset-credits-ax5")
+        if UITestSupport.isFullyVisible(app.buttons["Use 1 reset"], in: app) {
+            capture("19-demo-reset-credits-ax5")
+        } else {
+            XCTFail("Reset credits card was not reached at the AX5 text size")
+        }
         UITestSupport.settle(0.8)
     }
 
