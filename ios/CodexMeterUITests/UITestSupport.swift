@@ -75,6 +75,29 @@ enum UITestSupport {
             app.swipeUp()
         }
     }
+
+    /// Flips a SwiftUI `Toggle` that shows its label and waits for its value to change.
+    /// The switch element covers the whole form row, so a plain `tap()` lands on the label
+    /// text, which does not toggle; the 51pt control sits about 14pt in from the row's
+    /// trailing edge, so tap its centre from there regardless of the row width.
+    @discardableResult
+    static func flipToggle(
+        labeled label: String,
+        in app: XCUIApplication,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let toggle = app.switches[label].firstMatch
+        guard toggle.waitForExistence(timeout: timeout) else { return false }
+        let expected = (toggle.value as? String) == "1" ? "0" : "1"
+        toggle
+            .coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+            .withOffset(CGVector(dx: -40, dy: 0))
+            .tap()
+        return app.switches
+            .matching(NSPredicate(format: "label == %@ AND value == %@", label, expected))
+            .firstMatch
+            .waitForExistence(timeout: timeout)
+    }
 }
 
 /// Writes the gallery stills and start/finish markers to a fixed staging
