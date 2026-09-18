@@ -42,6 +42,11 @@
             android:title="Monthly limit" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
+            android:key="dashboard_spend_control"
+            android:summary="Workspace spend limit · shown only when OpenAI reports one"
+            android:title="Monthly credit limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
             android:key="dashboard_additional_limits"
             android:summary="Model-specific limits such as GPT-5.3-Codex-Spark"
             android:title="Additional limits" />

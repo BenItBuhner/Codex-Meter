@@ -109,6 +109,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             } else if (DashboardSections.MONTHLY.equals(key)) {
                 items.add(new SectionItem(key, "Monthly limit",
                         "Rolling ~30-day Codex window (free tier)"));
+            } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+                items.add(new SectionItem(key, "Monthly credit limit",
+                        "Workspace spend limit · shown only when OpenAI reports one"));
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 items.add(new SectionItem(key, "Usage-credit balance",
                         "Hidden automatically at a zero or negative balance"));
@@ -161,6 +164,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         if (DashboardSections.MONTHLY.equals(key)) {
             return AppPreferences.showDashboardMonthly(this);
         }
+        if (DashboardSections.SPEND_CONTROL.equals(key)) {
+            return AppPreferences.showDashboardSpendControl(this);
+        }
         if (DashboardSections.USAGE_CREDITS.equals(key)) {
             return AppPreferences.showDashboardUsageCredits(this);
         }
@@ -180,6 +186,8 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             AppPreferences.setShowDashboardWeekly(this, visible);
         } else if (DashboardSections.MONTHLY.equals(key)) {
             AppPreferences.setShowDashboardMonthly(this, visible);
+        } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+            AppPreferences.setShowDashboardSpendControl(this, visible);
         } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
             AppPreferences.setShowDashboardUsageCredits(this, visible);
         } else if (DashboardSections.USAGE_HISTORY.equals(key)) {

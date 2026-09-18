@@ -4,12 +4,17 @@ import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
 import dev.bennett.codexmeter.wear.WearUsageState;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 
 public final class ParserSelfTest {
     public static void main(String[] args) throws Exception {
@@ -20,6 +25,7 @@ public final class ParserSelfTest {
         testPrimaryLimitWinsOverAdditional();
         testOptionalUsageSections();
         testUsageCredits();
+        testSpendControl();
         testUsageCreditsAutoHide();
         testResetCreditsAutoHide();
         testDashboardSectionOrder();
@@ -876,6 +882,188 @@ public final class ParserSelfTest {
                 "zero balance for an account without purchased credits is not standalone data");
     }
 
+    /**
+     * Workspace spend controls (#98): {@code spend_control.individual_limit} parses into its own
+     * slot beside the windows and credits, survives the cache and Wear round trips, accepts
+     * string-or-number field types, and stays null for accounts without one so their dashboards
+     * do not change.
+     */
+    private static void testSpendControl() throws Exception {
+        long resetAt = 1_735_689_720L;
+        long now = resetAt * 1000L - TimeUnit.HOURS.toMillis(12);
+        UsageSnapshot snapshot = UsageParser.parse(fixture("usage-spend-control.json"), now);
+        SpendControl control = snapshot.spendControl;
+        check(control != null, "spend control parsed from the usage response");
+        check(!control.reached, "reached flag preserved");
+        check(SpendControl.SOURCE_WORKSPACE.equals(control.source), "source preserved");
+        check("25000".equals(control.limit) && "8000".equals(control.used)
+                        && "17000".equals(control.remaining),
+                "amount strings preserved verbatim");
+        check(control.usedPercent == 32 && control.remainingPercent == 68,
+                "percentages preserved");
+        check(control.effectiveRemainingPercent() == 68 && control.effectiveUsedPercent() == 32,
+                "explicit percentages win over derived ones");
+        check(control.resetAfterSeconds == 43_200L && control.resetAtEpochSeconds == resetAt,
+                "reset timeline preserved");
+        check(control.showsResetCountdown()
+                        && control.effectiveResetAtMillis(now) == resetAt * 1000L,
+                "explicit reset_at drives the reset instant");
+        check(new BigDecimal("25000").compareTo(control.numericLimit()) == 0
+                        && new BigDecimal("8000").compareTo(control.numericUsed()) == 0
+                        && new BigDecimal("17000").compareTo(control.numericRemaining()) == 0,
+                "amounts parse as numbers");
+        check("8,000 of 25,000 credits used".equals(control.usageText(Locale.US)),
+                "headline copy matches the Codex clients");
+        check("17,000 credits remaining".equals(control.remainingText(Locale.US)),
+                "remaining copy formats the reported remainder");
+        check("Workspace spend limit".equals(control.sourceLabel()),
+                "workspace source gets a human label");
+
+        // Everything else in the response is untouched and stays a separate concept.
+        check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 42
+                        && snapshot.weekly != null && snapshot.weekly.usedPercent == 5,
+                "rate-limit windows still parse beside the spend control");
+        check(snapshot.usageCredits != null && "2500.5".equals(snapshot.usageCredits.balance),
+                "purchased usage credits stay separate from the spend control");
+        check(snapshot.resetCreditsAvailable == 3,
+                "banked reset credits stay separate from the spend control");
+        check(snapshot.additionalLimits.size() == 1, "additional limits still parse");
+        check(snapshot.nextResetMillis(now) == 1_735_647_120_000L,
+                "the earliest rate-limit reset, not the spend-control reset, drives the "
+                        + "next-reset selection");
+        check(snapshot.hasDisplayableData(), "response remains displayable");
+
+        UsageSnapshot restored = UsageSnapshot.fromJson(snapshot.toJson());
+        check(restored != null && restored.spendControl != null
+                        && !restored.spendControl.reached
+                        && "8000".equals(restored.spendControl.used)
+                        && "25000".equals(restored.spendControl.limit)
+                        && restored.spendControl.usedPercent == 32
+                        && restored.spendControl.remainingPercent == 68
+                        && restored.spendControl.resetAtEpochSeconds == resetAt
+                        && restored.spendControl.resetAfterSeconds == 43_200L
+                        && SpendControl.SOURCE_WORKSPACE.equals(restored.spendControl.source),
+                "spend control survives the cache round trip");
+        WearUsageState wear = WearUsageState.fromJson(
+                new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE).toJson());
+        check(wear != null && wear.snapshot != null && wear.snapshot.spendControl != null
+                        && "8,000 of 25,000 credits used".equals(
+                        wear.snapshot.spendControl.usageText(Locale.US)),
+                "spend control rides along in the Wear Data Layer payload");
+
+        // Absent, null, or empty spend controls leave the slot empty: no card, no change.
+        String windowsOnly = "\"rate_limit\":{\"primary_window\":{\"used_percent\":10,"
+                + "\"limit_window_seconds\":18000}}";
+        check(UsageParser.parse("{" + windowsOnly + "}", now).spendControl == null,
+                "responses without spend_control leave the slot empty");
+        check(UsageParser.parse("{\"spend_control\":null," + windowsOnly + "}", now)
+                        .spendControl == null,
+                "null spend_control is tolerated");
+        check(UsageParser.parse("{\"spend_control\":{\"reached\":true}," + windowsOnly + "}",
+                        now).spendControl == null,
+                "reached without an individual_limit has nothing to show");
+        check(UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                        + "\"individual_limit\":null}," + windowsOnly + "}", now)
+                        .spendControl == null,
+                "null individual_limit is tolerated");
+        check(UsageParser.parse("{\"spend_control\":{\"individual_limit\":{}}," + windowsOnly
+                        + "}", now).spendControl == null,
+                "empty individual_limit is not displayable");
+        UsageSnapshot sourceOnly = UsageParser.parse(
+                "{\"spend_control\":{\"individual_limit\":{\"source\":\"x\"}}}", now);
+        check(sourceOnly.spendControl == null && !sourceOnly.hasDisplayableData(),
+                "individual_limit without amounts or percentages is ignored");
+        UsageSnapshot spendOnly = UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                + "\"individual_limit\":{\"limit\":\"100\",\"used\":\"1\"}}}", now);
+        check(spendOnly.spendControl != null && spendOnly.hasDisplayableData(),
+                "a spend-control-only response is still recognizable usage data");
+
+        // Field types are not trusted: numbers where strings are documented and vice versa.
+        SpendControl typed = UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                + "\"individual_limit\":{\"limit\":25000,\"used\":8000.0,\"remaining\":17000,"
+                + "\"used_percent\":\"32\",\"remaining_percent\":\"68%\","
+                + "\"reset_after_seconds\":\"43200\",\"reset_at\":\"" + resetAt + "\"}}}", now)
+                .spendControl;
+        check(typed != null && "25000".equals(typed.limit) && "8000".equals(typed.used)
+                        && "17000".equals(typed.remaining),
+                "numeric amounts normalize to plain strings");
+        check(typed.usedPercent == 32 && typed.remainingPercent == 68,
+                "string percentages parse, with or without a percent sign");
+        check(typed.resetAfterSeconds == 43_200L && typed.resetAtEpochSeconds == resetAt,
+                "string reset fields parse");
+        check("8,000 of 25,000 credits used".equals(typed.usageText(Locale.US)),
+                "typed variant renders the same headline");
+
+        // Missing fields are derived from whatever was reported.
+        SpendControl amountsOnly = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"25000\",\"used\":\"8000\"}}"));
+        check(amountsOnly != null
+                        && new BigDecimal("17000").compareTo(amountsOnly.numericRemaining()) == 0
+                        && amountsOnly.effectiveRemainingPercent() == 68
+                        && amountsOnly.effectiveUsedPercent() == 32
+                        && "17,000 credits remaining".equals(amountsOnly.remainingText(Locale.US)),
+                "remainder and percentages derive from limit and used");
+        SpendControl percentOnly = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"used_percent\":32}}"));
+        check(percentOnly != null && percentOnly.numericLimit() == null
+                        && percentOnly.effectiveRemainingPercent() == 68
+                        && "32% of monthly credits used".equals(percentOnly.usageText(Locale.US))
+                        && "68% remaining".equals(percentOnly.remainingText(Locale.US)),
+                "percent-only payloads fall back to percentage copy");
+        SpendControl restoredPercentOnly = SpendControl.fromJson(percentOnly.toJson());
+        check(restoredPercentOnly != null && restoredPercentOnly.limit.isEmpty()
+                        && restoredPercentOnly.usedPercent == 32
+                        && restoredPercentOnly.remainingPercent == -1
+                        && !restoredPercentOnly.showsResetCountdown(),
+                "unknown fields stay unknown through the round trip");
+
+        // Reached, overspent, clamped, and garbage payloads.
+        SpendControl reached = SpendControl.fromJson(new JSONObject("{\"reached\":true,"
+                + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"25000\","
+                + "\"remaining\":\"0\",\"used_percent\":100,\"remaining_percent\":0}}"));
+        check(reached != null && reached.reached && reached.effectiveRemainingPercent() == 0
+                        && "25,000 of 25,000 credits used".equals(reached.usageText(Locale.US))
+                        && "Limit reached".equals(reached.remainingText(Locale.US)),
+                "exhausted allocation reports the reached state");
+        SpendControl reachedEarly = SpendControl.fromJson(new JSONObject("{\"reached\":true,"
+                + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"8000\","
+                + "\"remaining\":\"17000\"}}"));
+        check(reachedEarly != null && "Limit reached · 17,000 credits remaining".equals(
+                        reachedEarly.remainingText(Locale.US)),
+                "reached flag is surfaced even when a remainder is still reported");
+        SpendControl overspent = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"100\",\"used\":\"120\",\"remaining\":\"-20\"}}"));
+        check(overspent != null && overspent.effectiveRemainingPercent() == 0
+                        && "0 credits remaining".equals(overspent.remainingText(Locale.US)),
+                "negative remainders clamp to zero");
+        SpendControl clamped = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"used_percent\":150,\"remaining_percent\":-5}}"));
+        check(clamped != null && clamped.usedPercent == 100 && clamped.remainingPercent == -1
+                        && clamped.effectiveRemainingPercent() == 0,
+                "out-of-range percentages clamp or become unknown");
+        check(SpendControl.fromJson(new JSONObject("{\"individual_limit\":{\"limit\":\"lots\","
+                        + "\"used\":\"some\",\"used_percent\":\"forty\"}}")) == null,
+                "non-numeric payloads are ignored rather than rendered");
+        SpendControl relative = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"1\",\"used\":\"0\","
+                        + "\"reset_after_seconds\":3600}}"));
+        check(relative != null && relative.showsResetCountdown() && relative.resetAtMillis() == 0L
+                        && relative.effectiveResetAtMillis(now) == now + TimeUnit.HOURS.toMillis(1),
+                "reset_after_seconds falls back to a fetch-relative reset instant");
+        check(!SpendControl.fromJson(new JSONObject(
+                        "{\"individual_limit\":{\"limit\":\"1\",\"used\":\"0\"}}"))
+                        .showsResetCountdown(),
+                "no reset fields means no countdown");
+        System.out.println("Spend control: monthly credit limit parses beside the windows and "
+                + "credits, round-trips, tolerates field types, and hides when absent.");
+    }
+
+    private static String fixture(String name) throws Exception {
+        return new String(Files.readAllBytes(Paths.get(
+                System.getProperty("codex.fixtures", "tests/fixtures")).resolve(name)),
+                StandardCharsets.UTF_8);
+    }
+
     private static void testUsageCreditsAutoHide() {
         check(new UsageCredits(true, false, "2500").shouldDisplay(),
                 "positive usage-credit balance stays visible");
@@ -942,11 +1130,11 @@ public final class ParserSelfTest {
         List<String> defaults = DashboardSections.defaultOrder(Arrays.asList(spark));
         check(defaults.equals(Arrays.asList(
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
-                        DashboardSections.MONTHLY, sparkKey,
+                        DashboardSections.MONTHLY, DashboardSections.SPEND_CONTROL, sparkKey,
                         DashboardSections.USAGE_CREDITS, DashboardSections.USAGE_HISTORY,
                         DashboardSections.RESET_CREDITS)),
-                "default order is 5-hour, weekly, monthly, detected limits, credits, "
-                        + "history, resets");
+                "default order is 5-hour, weekly, monthly, monthly credit limit, detected "
+                        + "limits, credits, history, resets");
 
         check(DashboardSections.resolveOrder("", defaults).equals(defaults),
                 "no saved order keeps the defaults");
@@ -954,15 +1142,17 @@ public final class ParserSelfTest {
                 "usage_credits, limit:codex-spark ,five_hour,weekly", defaults);
         check(saved.equals(Arrays.asList(DashboardSections.USAGE_CREDITS, sparkKey,
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
-                        DashboardSections.MONTHLY,
+                        DashboardSections.MONTHLY, DashboardSections.SPEND_CONTROL,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
-                "saved order is applied with whitespace tolerated and the new monthly, history, "
-                        + "and reset-credit sections slot in at their default positions");
+                "saved order is applied with whitespace tolerated and the new monthly, spend "
+                        + "control, history, and reset-credit sections slot in at their default "
+                        + "positions");
         List<String> withoutSpark = DashboardSections.resolveOrder(
                 "weekly,five_hour,usage_credits",
                 DashboardSections.defaultOrder(Arrays.asList(spark)));
         check(withoutSpark.equals(Arrays.asList(DashboardSections.WEEKLY,
-                        DashboardSections.FIVE_HOUR, DashboardSections.MONTHLY, sparkKey,
+                        DashboardSections.FIVE_HOUR, DashboardSections.MONTHLY,
+                        DashboardSections.SPEND_CONTROL, sparkKey,
                         DashboardSections.USAGE_CREDITS,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
                 "newly detected Spark limit slots in before credits, not at the end");
@@ -974,7 +1164,7 @@ public final class ParserSelfTest {
                 "keys for limits no longer reported are dropped");
         check(DashboardSections.serialize(saved)
                         .equals("usage_credits,limit:codex-spark,five_hour,weekly,monthly,"
-                                + "usage_history,reset_credits"),
+                                + "spend_control,usage_history,reset_credits"),
                 "order round-trips through the stored CSV form");
         check(DashboardSections.resolveOrder(null,
                         Arrays.asList(DashboardSections.FIVE_HOUR))

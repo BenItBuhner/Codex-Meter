@@ -15,6 +15,7 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_MONTHLY = "dashboard_monthly";
     private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
     private static final String KEY_DASHBOARD_SECTION_ORDER = "dashboard_section_order";
+    private static final String KEY_DASHBOARD_SPEND_CONTROL = "dashboard_spend_control";
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
     private static final String KEY_DASHBOARD_USAGE_HISTORY = "dashboard_usage_history";
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
@@ -296,6 +297,14 @@ public final class AppPreferences {
 
     public static void setShowDashboardMonthly(Context context, boolean show) {
         prefs(context).edit().putBoolean(KEY_DASHBOARD_MONTHLY, show).apply();
+    }
+
+    public static boolean showDashboardSpendControl(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_SPEND_CONTROL, true);
+    }
+
+    public static void setShowDashboardSpendControl(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_SPEND_CONTROL, show).apply();
     }
 
     public static boolean showDashboardAdditionalLimits(Context context) {

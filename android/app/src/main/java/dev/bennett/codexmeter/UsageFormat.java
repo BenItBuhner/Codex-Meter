@@ -52,12 +52,18 @@ public final class UsageFormat {
                 || !usageWindow.showsResetCountdown()) {
             return "";
         }
-        long jResetAtMillis = usageWindow.effectiveResetAtMillis(observedAtMillis);
-        if (jResetAtMillis <= 0) {
+        return resetAt(context, usageWindow.effectiveResetAtMillis(observedAtMillis), str,
+                nowMillis);
+    }
+
+    /** Reset copy for an absolute instant that has already been resolved by the caller. */
+    public static String resetAt(Context context, long resetAtMillis, String str,
+            long nowMillis) {
+        if (resetAtMillis <= 0) {
             return "Reset time unavailable";
         }
-        String strAbsolute = absolute(context, jResetAtMillis, nowMillis);
-        String strRelative = relative(jResetAtMillis, nowMillis);
+        String strAbsolute = absolute(context, resetAtMillis, nowMillis);
+        String strRelative = relative(resetAtMillis, nowMillis);
         if (WidgetOptions.RESET_RELATIVE.equals(str)) {
             return "Resets " + strRelative;
         }

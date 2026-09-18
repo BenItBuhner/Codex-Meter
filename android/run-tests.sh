@@ -28,6 +28,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/SpendControl.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java" \
@@ -73,7 +74,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
-java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
+java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
+  dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.8.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
@@ -204,6 +206,32 @@ grep -q 'meterWindow' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
 grep -q 'Hidden automatically when no resets are available' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+
+# Workspace spend controls (#98): spend_control.individual_limit parses into its own slot and
+# renders as an orderable, hideable "Monthly credit limit" card that is absent for everyone else.
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/SpendControl.java"
+test -f "$ROOT/tests/fixtures/usage-spend-control.json"
+grep -q 'testSpendControl' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'SPEND_CONTROL = "spend_control"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'SpendControl.fromJson(nullableObject(jSONObject, "spend_control"))' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java"
+grep -q 'snapshot.spendControl != null' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -Fq 'Ui.text(this, "Monthly credit limit", 18' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'ic_oui_calendar_month' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.
 grep -q 'snapshot.usageCredits.shouldDisplay()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
