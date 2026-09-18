@@ -122,6 +122,7 @@ private struct AccessoryCircularUsageView: View {
                     if let reset = window.resetsAt, reset > .now {
                         Text(reset, style: .timer)
                             .font(.system(size: 7, weight: .medium, design: .monospaced))
+                            .minimumScaleFactor(0.8)
                             .lineLimit(1)
                     }
                 }

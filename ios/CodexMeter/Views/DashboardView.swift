@@ -130,11 +130,12 @@ private struct DashboardStatusStrip: View {
 
 private struct SignedOutView: View {
     @Environment(AppModel.self) private var model
+    @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 58
 
     var body: some View {
         VStack(spacing: 22) {
             Image(systemName: "gauge.with.dots.needle.67percent")
-                .font(.system(size: 58, weight: .medium))
+                .font(.system(size: symbolSize, weight: .medium))
                 .foregroundStyle(.tint)
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityHidden(true)

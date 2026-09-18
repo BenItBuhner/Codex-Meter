@@ -255,6 +255,7 @@ private struct AdditionalLimitCards: View {
 
 private struct UsageCreditsCard: View {
     let credits: UsageCredits
+    @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var balance: String {
         if credits.unlimited {
@@ -286,7 +287,7 @@ private struct UsageCreditsCard: View {
 
             HStack(spacing: 16) {
                 Image(systemName: "creditcard.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)
@@ -310,6 +311,7 @@ private struct UsageCreditsCard: View {
 
 private struct ResetCreditsDashboardCard: View {
     @Environment(AppModel.self) private var model
+    @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var count: Int {
         model.credits?.availableCount ?? model.usage?.resetCreditsAvailable ?? 0
@@ -340,7 +342,7 @@ private struct ResetCreditsDashboardCard: View {
 
             HStack(spacing: 16) {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)

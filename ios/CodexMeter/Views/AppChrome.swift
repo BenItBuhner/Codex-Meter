@@ -10,17 +10,31 @@ enum AppChrome {
 
 extension View {
     func cardSurface() -> some View {
-        background(.background, in: RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous)
-                    .stroke(.separator.opacity(0.18), lineWidth: 0.5)
-            }
+        modifier(CardSurface())
     }
 
     func bannerSurface(tint: Color) -> some View {
         padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: AppChrome.bannerRadius, style: .continuous))
+    }
+}
+
+/// Cards lift off the grouped page background with tone (secondary grouped fill) and, in
+/// light mode, a soft shadow; dark mode relies on the fill alone.
+private struct CardSurface: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.background {
+            RoundedRectangle(cornerRadius: AppChrome.cardRadius, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .shadow(
+                    color: colorScheme == .dark ? .clear : .black.opacity(0.06),
+                    radius: 10,
+                    y: 3
+                )
+        }
     }
 }
 

@@ -306,26 +306,28 @@ private struct HistoryDetailCard: View {
             .foregroundStyle(.secondary)
 
             if showWindowList, breakdown.count > 1 {
-                Divider()
-                ForEach(Array(breakdown.enumerated().reversed()), id: \.offset) { index, stats in
-                    Button {
-                        selectedWindowIndex = stats.complete ? index : nil
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(stats.complete ? windowRangeLabel(stats) : "Current window")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(
-                                    selectedWindowIndex == index || (!stats.complete && selectedWindowIndex == nil)
-                                        ? Color.accentColor : .primary
-                                )
-                            Text(windowSubtitle(stats))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(breakdown.enumerated().reversed()), id: \.offset) { index, stats in
+                        Button {
+                            selectedWindowIndex = stats.complete ? index : nil
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(stats.complete ? windowRangeLabel(stats) : "Current window")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(
+                                        selectedWindowIndex == index || (!stats.complete && selectedWindowIndex == nil)
+                                            ? Color.accentColor : .primary
+                                    )
+                                Text(windowSubtitle(stats))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.top, 6)
             }
         }
         .padding(AppChrome.cardPadding)
