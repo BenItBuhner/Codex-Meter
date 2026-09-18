@@ -10,8 +10,8 @@ android {
         applicationId = "dev.bennett.codexmeter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 29
-        versionName = "2.8.0-alpha.1"
+        versionCode = 30
+        versionName = "2.8.0"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -81,7 +81,7 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":shared"))
-    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("io.github.tribalfs:oneui-design:0.9.14+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
 }

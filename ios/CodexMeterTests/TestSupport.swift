@@ -232,6 +232,24 @@ func usageResponse(used: Int = 40) -> [String: Any] {
     ]
 }
 
+func goMonthlyUsageResponse(used: Int = 28) -> [String: Any] {
+    [
+        "plan_type": "go",
+        "rate_limit": [
+            "allowed": true,
+            "limit_reached": false,
+            "primary_window": [
+                "used_percent": used,
+                "limit_window_seconds": 2_592_000,
+                "reset_after_seconds": 1_209_600
+            ]
+        ],
+        "rate_limit_reset_credits": [
+            "available_count": 0
+        ]
+    ]
+}
+
 func creditsResponse(count: Int = 1) -> [String: Any] {
     [
         "available_count": count,

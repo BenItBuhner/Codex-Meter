@@ -6,11 +6,6 @@ import Foundation
 public actor WidgetSnapshotCache {
     public nonisolated static let appGroupIdentifier = "group.com.bukovinafilip.CodexMeter"
     public nonisolated static let shared = WidgetSnapshotCache()
-    public nonisolated static let unavailableMessage =
-        "Home Screen widgets need an App Group. Configure signing and the group.com.bukovinafilip.CodexMeter entitlement in Xcode."
-
-    /// `false` when the App Group container is missing (unsigned / misconfigured builds).
-    public nonisolated let isAvailable: Bool
 
     private let fileURL: URL?
     private let fileManager: FileManager
@@ -20,22 +15,19 @@ public actor WidgetSnapshotCache {
         fileManager: FileManager = .default
     ) {
         self.fileManager = fileManager
-        let resolved = fileManager
+        self.fileURL = fileManager
             .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
             .appendingPathComponent(SharedWidgetSnapshot.defaultFileName)
-        self.fileURL = resolved
-        self.isAvailable = resolved != nil
     }
 
     public init(fileURL: URL, fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.fileURL = fileURL
-        self.isAvailable = true
     }
 
     public func save(_ snapshot: SharedWidgetSnapshot) async throws {
         guard let fileURL else {
-            throw CodexServiceError.storage(Self.unavailableMessage)
+            throw CodexServiceError.storage("The App Group container is unavailable.")
         }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -62,21 +54,20 @@ public actor WidgetSnapshotCache {
             planType: usage?.planType ?? "",
             fiveHour: usage?.fiveHour,
             weekly: usage?.weekly,
+            monthly: usage?.monthly,
             resetCreditsAvailable: credits?.availableCount ?? usage?.resetCreditsAvailable,
             freshness: freshness
         )
         try await save(snapshot)
+        DiagnosticLog.info("widgets", "snapshot_published", details: [
+            "mode": mode.rawValue,
+            "freshness": freshness.rawValue,
+            "monthly": usage?.monthly != nil ? "true" : "false"
+        ])
     }
 
     public func publishSignedOut() async throws {
-        do {
-            try await save(.signedOut)
-        } catch {
-            // Never leave an authenticated-looking snapshot behind if the
-            // signed-out write fails (disk/App Group issues, etc.).
-            try? await clear()
-            throw error
-        }
+        try await save(.signedOut)
     }
 
     public func load() async throws -> SharedWidgetSnapshot? {
