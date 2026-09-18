@@ -28,6 +28,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/SpendControl.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java" \
@@ -73,17 +74,18 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
-java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
+java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
+  dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.8.0-alpha.1"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_CODE = 29' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/app/build.gradle.kts"
-grep -q 'versionCode = 29' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.8.0-alpha.1"' "$ROOT/wear/build.gradle.kts"
-grep -q 'versionCode = 29' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.8.0-alpha.1' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.8.0-alpha.1"' "$ROOT/build.sh"
+grep -q 'VERSION_NAME = "2.8.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'versionName = "2.8.0"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.8.0"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
+grep -q 'codex-meter-android/2.8.0' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.8.0"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -192,6 +194,8 @@ grep -q 'usage_history_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'dashboard_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'dashboard_monthly' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q 'WINDOW_MONTHLY' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 grep -q 'longWindowIsMonthly' \
@@ -202,6 +206,37 @@ grep -q 'meterWindow' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
 grep -q 'Hidden automatically when no resets are available' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+
+# Workspace spend controls (#98): spend_control.individual_limit parses into its own slot and
+# renders as an orderable, hideable "Monthly credit limit" card that is absent for everyone else.
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/SpendControl.java"
+test -f "$ROOT/tests/fixtures/usage-spend-control.json"
+grep -q 'testSpendControl' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'SPEND_CONTROL = "spend_control"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'SpendControl.fromJson(nullableObject(jSONObject, "spend_control"))' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java"
+# The card is an orderable section that is built only behind its switch and only when the
+# payload carries a limit; accounts without spend controls never get the section at all.
+grep -q 'AppPreferences.showDashboardSpendControl(this) && snapshot.spendControl != null' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'buildSpendControlCard(snapshot)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# Credit amounts are pluralized through resources, never by string concatenation.
+grep -q 'R.plurals.spend_control_credits_remaining' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageFormat.java"
+grep -q '<plurals name="spend_control_credits_used">' \
+  "$ROOT/app/src/main/res/values/strings.xml"
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.
 grep -q 'snapshot.usageCredits.shouldDisplay()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
@@ -641,6 +676,9 @@ grep -q 'titlePaint.setColor(foreground);' \
 grep -q 'resetPaint.setColor(foreground);' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 grep -q 'showsResetCountdown' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
+grep -q 'testResetCountdownFollowsApiTimeline' "$ROOT/tests/ParserSelfTest.java"
+! grep -q 'remainingPercent() <= 99' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java"
 grep -q 'testUsagePace' "$ROOT/tests/ParserSelfTest.java"
 grep -q 'UsagePace.mostAcceleratedWindow' "$ROOT/tests/ParserSelfTest.java"

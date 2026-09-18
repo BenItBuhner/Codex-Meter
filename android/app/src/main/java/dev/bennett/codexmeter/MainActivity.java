@@ -370,6 +370,10 @@ public final class MainActivity extends AppCompatActivity {
             if (AppPreferences.showDashboardMonthly(this) && snapshot.monthly != null) {
                 available.add(DashboardSections.MONTHLY);
             }
+            // Accounts without workspace spend controls never see this card.
+            if (AppPreferences.showDashboardSpendControl(this) && snapshot.spendControl != null) {
+                available.add(DashboardSections.SPEND_CONTROL);
+            }
             if (AppPreferences.showDashboardAdditionalLimits(this)) {
                 for (String key : limitsByKey.keySet()) {
                     if (!AppPreferences.isDashboardSectionHidden(this, key)) {
@@ -409,6 +413,8 @@ public final class MainActivity extends AppCompatActivity {
                 addDashboardCard(column, buildMetricCard(
                         "Monthly", snapshot, snapshot.monthly, inverted));
                 inverted = !inverted;
+            } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+                addDashboardCard(column, buildSpendControlCard(snapshot));
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
@@ -546,8 +552,66 @@ public final class MainActivity extends AppCompatActivity {
         return card;
     }
 
+    /**
+     * Workspace spend-control card: the per-member monthly credit allocation OpenAI reports under
+     * {@code spend_control.individual_limit}. Distinct from purchased usage credits and banked
+     * reset credits, and only built when the snapshot carries one.
+     */
+    private LinearLayout buildSpendControlCard(UsageSnapshot snapshot) {
+        SpendControl control = snapshot.spendControl;
+        long now = System.currentTimeMillis();
+        LinearLayout card = Ui.card(this, this.dark);
+        LinearLayout header = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        TextView title = Ui.text(this, "Monthly credit limit", 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        String percentUsed = UsageFormat.spendControlPercentUsed(control);
+        if (!percentUsed.isEmpty()) {
+            TextView percent = Ui.text(this, percentUsed, 14.0f, Ui.secondaryText(this.dark));
+            percent.setTypeface(Ui.mediumTypeface(this));
+            LinearLayout.LayoutParams percentParams = new LinearLayout.LayoutParams(-2, -2);
+            percentParams.setMargins(Ui.dp(this, 12), 0, 0, 0);
+            header.addView(percent, percentParams);
+        }
+        card.addView(header, new LinearLayout.LayoutParams(-1, -2));
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_calendar_month,
+                UsageFormat.spendControlUsage(this, control),
+                UsageFormat.spendControlRemaining(this, control),
+                control.reached ? Ui.danger(this.dark) : Ui.secondaryText(this.dark)));
+
+        int remaining = control.effectiveRemainingPercent();
+        if (remaining >= 0) {
+            ProgressBar bar = Ui.progress(this, this.dark);
+            bar.setProgress(remaining);
+            if (control.reached) {
+                bar.setProgressTintList(ColorStateList.valueOf(Ui.danger(this.dark)));
+            }
+            LinearLayout.LayoutParams barParams =
+                    (LinearLayout.LayoutParams) bar.getLayoutParams();
+            barParams.setMargins(0, Ui.dp(this, 14), 0, 0);
+            card.addView(bar, barParams);
+        }
+
+        String footer = control.sourceLabel();
+        if (control.showsResetCountdown()) {
+            footer += " · " + UsageFormat.resetAt(this,
+                    control.effectiveResetAtMillis(snapshot.fetchedAtMillis),
+                    WidgetOptions.RESET_BOTH, now);
+        }
+        TextView note = Ui.text(this, footer, 12, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
+        noteParams.setMargins(0, Ui.dp(this, 10), 0, 0);
+        card.addView(note, noteParams);
+        return card;
+    }
+
     /** Left-aligned icon + value + summary row used inside the credit dashboard cards. */
     private LinearLayout buildIconDetailRow(int icon, String value, String summary) {
+        return buildIconDetailRow(icon, value, summary, Ui.secondaryText(this.dark));
+    }
+
+    private LinearLayout buildIconDetailRow(int icon, String value, String summary,
+            int summaryColor) {
         LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         ImageView image = new ImageView(this);
         image.setImageResource(icon);
@@ -559,10 +623,12 @@ public final class MainActivity extends AppCompatActivity {
         TextView valueText = Ui.text(this, value, 17.0f, Ui.mainText(this.dark));
         valueText.setTypeface(Ui.mediumTypeface(this));
         labels.addView(valueText);
-        TextView summaryText = Ui.text(this, summary, 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-2, -2);
-        summaryParams.setMargins(0, Ui.dp(this, 2), 0, 0);
-        labels.addView(summaryText, summaryParams);
+        if (summary != null && !summary.isEmpty()) {
+            TextView summaryText = Ui.text(this, summary, 13.0f, summaryColor);
+            LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-2, -2);
+            summaryParams.setMargins(0, Ui.dp(this, 2), 0, 0);
+            labels.addView(summaryText, summaryParams);
+        }
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
         labelParams.setMargins(Ui.dp(this, 16), 0, 0, 0);
         row.addView(labels, labelParams);

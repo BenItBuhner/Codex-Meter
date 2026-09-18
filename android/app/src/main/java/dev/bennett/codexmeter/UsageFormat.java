@@ -2,6 +2,8 @@ package dev.bennett.codexmeter;
 
 import android.content.Context;
 import android.text.format.DateFormat;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -52,16 +54,74 @@ public final class UsageFormat {
                 || !usageWindow.showsResetCountdown()) {
             return "";
         }
-        long jResetAtMillis = usageWindow.effectiveResetAtMillis(observedAtMillis);
-        if (jResetAtMillis <= 0) {
+        return resetAt(context, usageWindow.effectiveResetAtMillis(observedAtMillis), str,
+                nowMillis);
+    }
+
+    /** Reset copy for an absolute instant that has already been resolved by the caller. */
+    public static String resetAt(Context context, long resetAtMillis, String str,
+            long nowMillis) {
+        if (resetAtMillis <= 0) {
             return "Reset time unavailable";
         }
-        String strAbsolute = absolute(context, jResetAtMillis, nowMillis);
-        String strRelative = relative(jResetAtMillis, nowMillis);
+        String strAbsolute = absolute(context, resetAtMillis, nowMillis);
+        String strRelative = relative(resetAtMillis, nowMillis);
         if (WidgetOptions.RESET_RELATIVE.equals(str)) {
             return "Resets " + strRelative;
         }
         return "both".equals(str) ? "Resets " + strAbsolute + " (" + strRelative + ")" : "Resets " + strAbsolute;
+    }
+
+    /**
+     * Monthly credit limit headline matching the Codex clients: "8,000 of 25,000 credits used",
+     * falling back to a percentage when the amounts are missing.
+     */
+    public static String spendControlUsage(Context context, SpendControl control) {
+        BigDecimal used = control.numericUsed();
+        BigDecimal limit = control.numericLimit();
+        if (used != null && limit != null) {
+            return context.getResources().getQuantityString(
+                    R.plurals.spend_control_credits_used, SpendControl.pluralQuantity(limit),
+                    credits(used), credits(limit));
+        }
+        int percent = control.effectiveUsedPercent();
+        return percent >= 0 ? percent + "% of monthly credits used" : "Usage details unavailable";
+    }
+
+    /**
+     * Trailing "32% used" for the card header. Empty when the headline already states the
+     * percentage because no amounts were reported.
+     */
+    public static String spendControlPercentUsed(SpendControl control) {
+        int percent = control.effectiveUsedPercent();
+        boolean hasAmounts = control.numericUsed() != null && control.numericLimit() != null;
+        return hasAmounts && percent >= 0 ? percent + "% used" : "";
+    }
+
+    /**
+     * Secondary line: the workspace reached state when OpenAI flags it (that flag lives beside
+     * the per-member limit, so it replaces the remainder rather than contradicting it), else
+     * "17,000 credits remaining", else a percentage.
+     */
+    public static String spendControlRemaining(Context context, SpendControl control) {
+        if (control.reached) {
+            return "Workspace credit limit reached";
+        }
+        BigDecimal remaining = control.numericRemaining();
+        if (remaining != null) {
+            BigDecimal shown = remaining.max(BigDecimal.ZERO);
+            return context.getResources().getQuantityString(
+                    R.plurals.spend_control_credits_remaining,
+                    SpendControl.pluralQuantity(shown), credits(shown));
+        }
+        int percent = control.effectiveRemainingPercent();
+        return percent >= 0 ? percent + "% remaining" : "";
+    }
+
+    private static String credits(BigDecimal amount) {
+        NumberFormat format = NumberFormat.getNumberInstance(Locale.getDefault());
+        format.setMaximumFractionDigits(2);
+        return format.format(amount);
     }
 
     public static String estimatedRemaining(UsagePace.Assessment assessment) {
