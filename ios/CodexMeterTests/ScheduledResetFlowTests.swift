@@ -211,11 +211,14 @@ final class ScheduledResetFlowTests: XCTestCase {
         )
         await demo.setFiveHourStep(fiveHourStep)
         let store = ScheduledResetStore(defaults: defaults)
+        // The coordinator is an actor: a UserDefaults that has passed through main-actor
+        // code cannot be sent into it, and nothing here asserts on notification state, so
+        // it takes the same default the app does.
         let model = AppModel(
             demoService: demo,
             cache: appCache,
             settingsStore: AppSettingsStore(defaults: defaults),
-            notificationCoordinator: Self.makeNotificationCoordinator(suiteName: suiteName),
+            notificationCoordinator: NotificationCoordinator(),
             usageHistoryStore: UsageHistoryStore(fileURL: historyURL),
             defaults: defaults,
             scheduledResetStore: store,
@@ -227,5 +230,11 @@ final class ScheduledResetFlowTests: XCTestCase {
             suiteName: suiteName,
             temporaryURLs: [cacheURL, widgetURL, historyURL]
         )
+    }
+
+    /// The coordinator is an actor, so it gets its own handle on the suite, created off the
+    /// main actor: a value that has passed through main-actor code cannot be sent into it.
+    private nonisolated static func makeNotificationCoordinator(suiteName: String) -> NotificationCoordinator {
+        NotificationCoordinator(defaults: UserDefaults(suiteName: suiteName) ?? .standard)
     }
 }
