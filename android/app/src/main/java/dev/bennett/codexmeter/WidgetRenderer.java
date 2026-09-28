@@ -638,7 +638,7 @@ public final class WidgetRenderer {
 
     private static List<MeterSlot> resolveSlots(Context context, WidgetOptions options,
             WidgetState state, String visualStyle, Bundle bundle) {
-        UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context)
+        UsageSnapshot snapshot = DemoMode.hasSession(context)
                 ? AppPreferences.loadSnapshot(context) : null;
         int height = currentHeight(context, bundle);
         int capacity = WidgetMeters.slotCapacity(visualStyle, height);
@@ -754,7 +754,7 @@ public final class WidgetRenderer {
         long jCurrentTimeMillis = System.currentTimeMillis();
         long jNextExpiryMillis = resetCreditsSnapshotLoadResetCredits == null ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(jCurrentTimeMillis);
         boolean z3 = widgetOptions.showResetCredits;
-        boolean z4 = widgetOptions.showResetAction && i2 > 0 && SecureTokenStore.isSignedIn(context);
+        boolean z4 = widgetOptions.showResetAction && i2 > 0 && DemoMode.hasSession(context);
         if (!z3 && !z4) {
             remoteViews.setViewVisibility(R.id.reset_credit_row, 8);
             return;
@@ -976,7 +976,7 @@ public final class WidgetRenderer {
 
         static WidgetState from(Context context, WidgetOptions widgetOptions) {
             String str;
-            boolean zIsSignedIn = SecureTokenStore.isSignedIn(context);
+            boolean zIsSignedIn = DemoMode.hasSession(context);
             UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context);
             long jCurrentTimeMillis = System.currentTimeMillis();
             if (!zIsSignedIn) {

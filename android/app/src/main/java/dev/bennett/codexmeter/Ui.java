@@ -411,6 +411,23 @@ public final class Ui {
         return button;
     }
 
+    /** The same One UI contained button in the neutral tone, for an action beside a primary one. */
+    public static Button nativeSecondaryButton(Context context, String text) {
+        Button button = nativePrimaryButton(context, text);
+        boolean dark = isDark(context);
+        int surface = controlSurface(context, dark);
+        int label = mainText(dark);
+        int disabledSurface = Color.argb(dark ? 120 : 150, Color.red(surface), Color.green(surface), Color.blue(surface));
+        int disabledLabel = Color.argb(110, Color.red(label), Color.green(label), Color.blue(label));
+        button.setBackgroundTintList(new ColorStateList(
+                new int[][]{new int[]{-android.R.attr.state_enabled}, new int[0]},
+                new int[]{disabledSurface, surface}));
+        button.setTextColor(new ColorStateList(
+                new int[][]{new int[]{-android.R.attr.state_enabled}, new int[0]},
+                new int[]{disabledLabel, label}));
+        return button;
+    }
+
     public static Button topAction(Context context, String str, boolean z) {
         boolean zIsOneUi = isOneUi(context);
         Button button = new AppCompatButton(context);

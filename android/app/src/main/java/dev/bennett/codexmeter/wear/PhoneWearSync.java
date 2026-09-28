@@ -8,6 +8,7 @@ import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 import dev.bennett.codexmeter.AppPreferences;
+import dev.bennett.codexmeter.DemoMode;
 import dev.bennett.codexmeter.DiagnosticLog;
 import dev.bennett.codexmeter.NowBarManager;
 import dev.bennett.codexmeter.NowBarPreferences;
@@ -32,9 +33,10 @@ public final class PhoneWearSync {
     public static void pushUsage(Context context, UsageSnapshot snapshot) {
         if (context == null) return;
         long now = System.currentTimeMillis();
+        // The watch has no demo banner, so it keeps its signed-out state instead of sample data.
         pushJson(context, WearSyncPaths.PATH_USAGE,
-                new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE,
-                        SecureTokenStore.isSignedIn(context)));
+                new WearUsageState(DemoMode.isActive(context) ? null : snapshot, now,
+                        WearSettingsState.SOURCE_PHONE, SecureTokenStore.isSignedIn(context)));
         pushStatus(context, false, "");
     }
 

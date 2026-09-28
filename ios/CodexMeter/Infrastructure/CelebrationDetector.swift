@@ -13,6 +13,7 @@ nonisolated public enum CelebrationDetector {
 
         public static let fiveHour = RefillMask(rawValue: 1 << 0)
         public static let weekly = RefillMask(rawValue: 1 << 1)
+        public static let monthly = RefillMask(rawValue: 1 << 2)
     }
 
     public static let unknownUserResetSuppression: TimeInterval = 15 * 60
@@ -40,6 +41,14 @@ nonisolated public enum CelebrationDetector {
         ) {
             mask.insert(.weekly)
         }
+        if isUnexpectedRefill(
+            previous: previous,
+            oldWindow: previous.monthly,
+            newWindow: current.monthly,
+            observedAt: current.fetchedAt
+        ) {
+            mask.insert(.monthly)
+        }
         return mask
     }
 
@@ -52,7 +61,8 @@ nonisolated public enum CelebrationDetector {
         _ refills: RefillMask,
         observedAt: Date,
         fiveHourSuppressUntil: Date?,
-        weeklySuppressUntil: Date?
+        weeklySuppressUntil: Date?,
+        monthlySuppressUntil: Date? = nil
     ) -> RefillMask {
         var result = refills
         if let fiveHourSuppressUntil, fiveHourSuppressUntil > observedAt {
@@ -60,6 +70,9 @@ nonisolated public enum CelebrationDetector {
         }
         if let weeklySuppressUntil, weeklySuppressUntil > observedAt {
             result.remove(.weekly)
+        }
+        if let monthlySuppressUntil, monthlySuppressUntil > observedAt {
+            result.remove(.monthly)
         }
         return result
     }

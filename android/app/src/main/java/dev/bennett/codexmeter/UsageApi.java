@@ -18,6 +18,16 @@ public final class UsageApi {
     }
 
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
+        UsageSnapshot snapshot = fetchAndCache(context);
+        // Outside NETWORK_LOCK: a firing schedule re-enters the network path to spend the credit.
+        ScheduledResetManager.onUsageRefreshed(context, snapshot);
+        return snapshot;
+    }
+
+    private static UsageSnapshot fetchAndCache(Context context) throws Exception {
+        if (DemoMode.isActive(context)) {
+            return DemoMode.refreshAndCache(context);
+        }
         AuthTokens authTokens;
         Response responseRequestUsage;
         String str;

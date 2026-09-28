@@ -114,6 +114,8 @@ public final class UsageRefreshJobService extends JobService {
                     AppPreferences.setLastError(UsageRefreshJobService.this.getApplicationContext(), UsageRefreshJobService.safeMessage(e));
                     AppPreferences.recordRefreshFailure(
                             UsageRefreshJobService.this.getApplicationContext());
+                    ScheduledResetManager.onRefreshFailed(
+                            UsageRefreshJobService.this.getApplicationContext(), e);
                     WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
                     UsageRefreshJobService.this.active.remove(Integer.valueOf(this.params.getJobId()), this);
                     if (!this.stopped) {

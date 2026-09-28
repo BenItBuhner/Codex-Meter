@@ -19,6 +19,9 @@ public final class ResetCreditApi {
 
     public static ResetCreditsSnapshot refreshAndCache(Context context) throws Exception {
         ResetCreditsSnapshot resetCreditsSnapshotRefreshAndCacheLocked;
+        if (DemoMode.isActive(context)) {
+            return DemoMode.refreshResetCredits(context);
+        }
         synchronized (UsageApi.NETWORK_LOCK) {
             UsageApi.installCookieManager();
             resetCreditsSnapshotRefreshAndCacheLocked = refreshAndCacheLocked(context, UsageApi.usableTokens(context));
@@ -58,6 +61,9 @@ public final class ResetCreditApi {
         Context app = context.getApplicationContext() == null ? context : context.getApplicationContext();
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(app, "user", "reset_credit_use_requested");
+        if (DemoMode.isActive(app)) {
+            return DemoMode.consumeReset(app);
+        }
         synchronized (UsageApi.NETWORK_LOCK) {
             UsageApi.installCookieManager();
             AuthTokens tokens = UsageApi.usableTokens(app);

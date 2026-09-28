@@ -1,10 +1,16 @@
 package dev.bennett.codexmeter;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -23,6 +29,16 @@ public final class ResetCreditActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private int expiryNotificationId = -1;
     private Button useButton;
+    private boolean receiverRegistered;
+    private final BroadcastReceiver updateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent != null
+                    && AppConstants.ACTION_RESET_CREDITS_UPDATED.equals(intent.getAction())) {
+                rebuild();
+            }
+        }
+    };
 
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
@@ -43,6 +59,39 @@ public final class ResetCreditActivity extends AppCompatActivity {
         setIntent(intent);
         rebuild();
         maybePromptUseReset(intent);
+    }
+
+    @Override
+    @SuppressLint({"UnspecifiedRegisterReceiverFlag"})
+    protected void onStart() {
+        super.onStart();
+        IntentFilter filter = new IntentFilter(AppConstants.ACTION_RESET_CREDITS_UPDATED);
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(this.updateReceiver, filter, AppConstants.INTERNAL_PERMISSION,
+                        null, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(this.updateReceiver, filter, AppConstants.INTERNAL_PERMISSION,
+                        null);
+            }
+            this.receiverRegistered = true;
+        } catch (RuntimeException exception) {
+            this.receiverRegistered = false;
+        }
+        rebuild();
+    }
+
+    @Override
+    protected void onStop() {
+        if (this.receiverRegistered) {
+            try {
+                unregisterReceiver(this.updateReceiver);
+            } catch (RuntimeException ignored) {
+                // Already gone; nothing to release.
+            }
+            this.receiverRegistered = false;
+        }
+        super.onStop();
     }
 
     @Override // android.app.Activity
@@ -89,12 +138,88 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
         this.useButton = Ui.nativePrimaryButton(
                 this, available > 0 ? "Use 1 reset" : "No resets available");
-        this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this));
+        this.useButton.setEnabled(available > 0 && DemoMode.hasSession(this));
         LinearLayout.LayoutParams useButtonParams =
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
         useButtonParams.setMargins(0, Ui.dp(this, 22.0f), 0, Ui.dp(this, 8.0f));
         this.useButton.setOnClickListener(view -> confirmUse());
         this.content.addView(this.useButton, useButtonParams);
+
+        addScheduledResetSection(available, now);
+    }
+
+    private void addScheduledResetSection(int available, long now) {
+        this.content.addView(Ui.separator(this, "Scheduled reset"));
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        ScheduledReset schedule = ScheduledResetManager.load(this);
+        boolean session = DemoMode.hasSession(this);
+        if (schedule != null) {
+            UsageSnapshot usage = AppPreferences.loadSnapshot(this);
+            String label = schedule.armedLabel(usage, ScheduledResetManager.dateTimeText(
+                    this, schedule.fireAtMillis, now, false));
+            String summary = ScheduledResetManager.timingSummary(this, schedule);
+            if (schedule.hasCondition()) {
+                summary = "Only if remaining is at or below " + schedule.conditionPercent
+                        + "%. " + summary;
+            }
+            card.addView(Ui.actionRow(this, label, summary, R.drawable.ic_oui_alarm,
+                    view -> openScheduler()));
+            if (schedule.isDateTime() && !ScheduledResetManager.canScheduleExact(this)
+                    && Build.VERSION.SDK_INT >= 31) {
+                CardItemView allow = Ui.actionRow(this, "Allow exact timing",
+                        "Opens Alarms & reminders for Codex Meter", R.drawable.ic_oui_time,
+                        view -> openExactAlarmSettings());
+                allow.setShowTopDivider(true);
+                card.addView(allow);
+            }
+            Button cancel = Ui.button(this, "Cancel", false, this.dark);
+            cancel.setOnClickListener(view -> cancelSchedule());
+            LinearLayout.LayoutParams cancelParams =
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 52.0f));
+            int inset = Ui.dp(this, 18.0f);
+            cancelParams.setMargins(inset, Ui.dp(this, 4.0f), inset, inset);
+            card.addView(cancel, cancelParams);
+        } else {
+            boolean ready = session && available > 0;
+            card.addView(Ui.actionRow(this, "Scheduled reset",
+                    ready ? "Use a credit automatically at a time or usage level"
+                            : session ? "Needs an available reset credit"
+                            : "Sign in to schedule a reset",
+                    R.drawable.ic_oui_alarm, ready ? view -> openScheduler() : null));
+            ScheduledResetManager.Outcome last = ScheduledResetManager.lastOutcome(this);
+            if (last != null && session) {
+                CardItemView row = Ui.actionRow(this, "Last run · " + last.title,
+                        last.text + (last.atMillis > 0L ? " (" + UsageFormat.absolute(
+                                this, last.atMillis, now) + ")" : ""), 0, null);
+                row.setShowTopDivider(true);
+                card.addView(row);
+            }
+        }
+        this.content.addView(card);
+        Ui.addSpacer(this.content, 24);
+    }
+
+    private void openScheduler() {
+        DiagnosticLog.info(this, "user", "scheduled_reset_flow_opened", "source", "reset_screen");
+        ScheduledResetFlow.start(this, this::rebuild);
+    }
+
+    private void cancelSchedule() {
+        ScheduledResetManager.cancel(this);
+        DiagnosticLog.info(this, "user", "scheduled_reset_cancelled");
+        Toast.makeText(this, "Scheduled reset cancelled.", Toast.LENGTH_SHORT).show();
+        rebuild();
+    }
+
+    private void openExactAlarmSettings() {
+        if (Build.VERSION.SDK_INT < 31) return;
+        try {
+            startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    .setData(Uri.parse("package:" + getPackageName())));
+        } catch (RuntimeException exception) {
+            Toast.makeText(this, "Open Alarms & reminders in system settings for Codex Meter.",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private String summaryText(int available, long nextExpiry, long now) {
@@ -149,7 +274,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
                 && resetCreditsSnapshotLoadResetCredits.availableCount > 0
                 && resetCreditsSnapshotLoadResetCredits.availableCreditsByExpiry(now).size()
                         < resetCreditsSnapshotLoadResetCredits.availableCount;
-        if (SecureTokenStore.isSignedIn(this) && (jMax >= 300000 || missingDetails)) {
+        if (DemoMode.hasSession(this) && (jMax >= 300000 || missingDetails)) {
             final Context applicationContext = getApplicationContext();
             this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.ResetCreditActivity.4
                 @Override // java.lang.Runnable
@@ -191,7 +316,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
         intent.removeExtra(AppConstants.EXTRA_NOTIFICATION_ID);
         ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
         if (snapshot != null && snapshot.availableCount > 0
-                && SecureTokenStore.isSignedIn(this)) {
+                && DemoMode.hasSession(this)) {
             confirmUse();
         }
     }

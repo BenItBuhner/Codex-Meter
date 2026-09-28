@@ -1,6 +1,8 @@
 # Xcode
 DerivedData/
 build/
+ci-gallery/
+GalleryResults.xcresult
 *.xcuserstate
 **/xcuserdata/
 *.moved-aside
