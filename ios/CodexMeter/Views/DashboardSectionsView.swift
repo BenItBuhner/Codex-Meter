@@ -381,6 +381,8 @@ private struct ResetCreditsDashboardCard: View {
         .cardSurface()
     }
 
+    /// Equal-width siblings. Labels stay on one line and give up a little size before the
+    /// row gives up and stacks, so the pair never wraps mid-label at the in-between sizes.
     @ViewBuilder
     private var actions: some View {
         Button(count > 0 ? "Use 1 reset" : "No resets available") {
@@ -388,6 +390,8 @@ private struct ResetCreditsDashboardCard: View {
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
         .frame(maxWidth: .infinity)
         .disabled(count == 0)
 
@@ -397,6 +401,8 @@ private struct ResetCreditsDashboardCard: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity)
             .accessibilityLabel("Cancel scheduled reset")
             .accessibilityIdentifier("resetCredits.cancelSchedule")
@@ -406,6 +412,8 @@ private struct ResetCreditsDashboardCard: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity)
             .disabled(count == 0)
             .accessibilityIdentifier("resetCredits.schedule")
