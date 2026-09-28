@@ -1,0 +1,350 @@
+{
+  "description": "Shared scheduled-reset trigger cases. Android mirrors this file in its shared-module self-tests; both platforms must reach the same decision for each case. Offsets are seconds relative to `now`. Expected values: wait, fire, skip:noCreditAvailable, skip:naturalResetImminent, skip:conditionNotMet.",
+  "nowEpochSeconds": 2000000000,
+  "imminentResetLeewaySeconds": 900,
+  "cases": [
+    {
+      "name": "threshold-fivehour-waits-above-threshold",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 38, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 64, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 2,
+      "expected": "wait"
+    },
+    {
+      "name": "threshold-fivehour-fires-at-threshold",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 64, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "threshold-fivehour-fires-below-threshold",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 97, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "threshold-skips-without-credit",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 }
+      },
+      "availableCredits": 0,
+      "expected": "skip:noCreditAvailable"
+    },
+    {
+      "name": "threshold-skips-when-natural-reset-imminent",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000, "resetAtOffsetSeconds": 600 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:naturalResetImminent",
+      "expectedWindow": "fiveHour"
+    },
+    {
+      "name": "threshold-imminent-leeway-is-inclusive",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000, "resetAtOffsetSeconds": 900 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:naturalResetImminent",
+      "expectedWindow": "fiveHour"
+    },
+    {
+      "name": "threshold-fires-just-outside-leeway",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000, "resetAtOffsetSeconds": 901 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "threshold-reset-after-seconds-counts-from-fetch-time",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": -120,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000, "resetAfterSeconds": 700 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:naturalResetImminent",
+      "expectedWindow": "fiveHour"
+    },
+    {
+      "name": "threshold-without-reset-timeline-fires",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "threshold-weekly-watches-the-weekly-window",
+      "trigger": { "kind": "threshold", "window": "weekly", "remainingPercent": 10 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 10, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 90, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "threshold-weekly-waits-when-weekly-window-missing",
+      "trigger": { "kind": "threshold", "window": "weekly", "remainingPercent": 10 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "monthly": { "usedPercent": 95, "windowSeconds": 2592000, "resetAtOffsetSeconds": 1209600 }
+      },
+      "availableCredits": 1,
+      "expected": "wait"
+    },
+    {
+      "name": "threshold-zero-percent-waits-at-one-percent",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 0 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 99, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 }
+      },
+      "availableCredits": 1,
+      "expected": "wait"
+    },
+    {
+      "name": "threshold-zero-percent-fires-at-zero",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 0 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 100, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "threshold-missing-credit-is-reported-before-imminent-reset",
+      "trigger": { "kind": "threshold", "window": "fiveHour", "remainingPercent": 5 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 95, "windowSeconds": 18000, "resetAtOffsetSeconds": 300 }
+      },
+      "availableCredits": 0,
+      "expected": "skip:noCreditAvailable"
+    },
+    {
+      "name": "datetime-waits-before-fire-time",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": 60, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 64, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "wait"
+    },
+    {
+      "name": "datetime-fires-at-fire-time",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": 0, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 64, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "datetime-fires-when-checked-late",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -3600, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 64, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "datetime-condition-not-met-skips",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": 10 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 64, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:conditionNotMet",
+      "expectedRemainingPercent": 36
+    },
+    {
+      "name": "datetime-condition-met-by-lowest-window",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": 10 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 92, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 50, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "datetime-condition-met-by-weekly-window",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": 40 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 10, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 64, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "datetime-skips-without-credit",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 }
+      },
+      "availableCredits": 0,
+      "expected": "skip:noCreditAvailable"
+    },
+    {
+      "name": "datetime-skips-when-the-only-used-window-resets-soon",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": 600 },
+        "weekly": { "usedPercent": 0, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:naturalResetImminent",
+      "expectedWindow": "fiveHour"
+    },
+    {
+      "name": "datetime-fires-when-another-used-window-still-has-time",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": 600 },
+        "weekly": { "usedPercent": 60, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "datetime-nothing-used-fires-and-lets-openai-decide",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 0, "windowSeconds": 18000, "resetAtOffsetSeconds": 7200 },
+        "weekly": { "usedPercent": 0, "windowSeconds": 604800, "resetAtOffsetSeconds": 280000 }
+      },
+      "availableCredits": 1,
+      "expected": "fire"
+    },
+    {
+      "name": "datetime-nothing-used-and-everything-resets-soon-skips",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "fiveHour": { "usedPercent": 0, "windowSeconds": 18000, "resetAtOffsetSeconds": 300 },
+        "weekly": { "usedPercent": 0, "windowSeconds": 604800, "resetAtOffsetSeconds": 600 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:naturalResetImminent",
+      "expectedWindow": "weekly"
+    },
+    {
+      "name": "datetime-condition-without-windows-skips",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": 10 },
+      "usage": {
+        "fetchedAtOffsetSeconds": 0,
+        "monthly": { "usedPercent": 95, "windowSeconds": 2592000, "resetAtOffsetSeconds": 1209600 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:conditionNotMet",
+      "expectedRemainingPercent": null
+    },
+    {
+      "name": "datetime-reset-time-already-passed-counts-as-imminent",
+      "trigger": { "kind": "dateTime", "fireAtOffsetSeconds": -60, "onlyIfRemainingAtMost": null },
+      "usage": {
+        "fetchedAtOffsetSeconds": -30,
+        "fiveHour": { "usedPercent": 40, "windowSeconds": 18000, "resetAtOffsetSeconds": -5 }
+      },
+      "availableCredits": 1,
+      "expected": "skip:naturalResetImminent",
+      "expectedWindow": "fiveHour"
+    }
+  ],
+  "creditExpiryCases": [
+    {
+      "name": "all-credits-expire-before-fire-time-warns",
+      "fireAtOffsetSeconds": 10800,
+      "credits": [
+        { "id": "a", "status": "available", "expiresAtOffsetSeconds": 3600 },
+        { "id": "b", "status": "available", "expiresAtOffsetSeconds": 7200 }
+      ],
+      "expected": true
+    },
+    {
+      "name": "one-credit-outlives-fire-time",
+      "fireAtOffsetSeconds": 10800,
+      "credits": [
+        { "id": "a", "status": "available", "expiresAtOffsetSeconds": 3600 },
+        { "id": "b", "status": "available", "expiresAtOffsetSeconds": 18000 }
+      ],
+      "expected": false
+    },
+    {
+      "name": "unknown-expiry-is-assumed-to-outlive",
+      "fireAtOffsetSeconds": 10800,
+      "credits": [
+        { "id": "a", "status": "available", "expiresAtOffsetSeconds": 3600 },
+        { "id": "b", "status": "available", "expiresAtOffsetSeconds": null }
+      ],
+      "expected": false
+    },
+    {
+      "name": "no-credits-does-not-warn",
+      "fireAtOffsetSeconds": 10800,
+      "credits": [],
+      "expected": false
+    },
+    {
+      "name": "redeemed-credits-are-ignored",
+      "fireAtOffsetSeconds": 10800,
+      "credits": [
+        { "id": "a", "status": "available", "expiresAtOffsetSeconds": 3600 },
+        { "id": "b", "status": "redeemed", "expiresAtOffsetSeconds": 32400 }
+      ],
+      "expected": true
+    },
+    {
+      "name": "expiry-at-fire-time-warns",
+      "fireAtOffsetSeconds": 10800,
+      "credits": [
+        { "id": "a", "status": "available", "expiresAtOffsetSeconds": 10800 }
+      ],
+      "expected": true
+    }
+  ]
+}
