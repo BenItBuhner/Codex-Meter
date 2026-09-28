@@ -38,7 +38,7 @@ public final class ResetAlertScheduler {
     public static void cancelAll(Context context) {
         AlarmManager alarmManager;
         Context contextAppContext = appContext(context);
-        if (contextAppContext != null && (alarmManager = (AlarmManager) contextAppContext.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {
+        if (contextAppContext != null && (alarmManager = (AlarmManager) contextAppContext.getSystemService(Context.ALARM_SERVICE)) != null) {
             alarmManager.cancel(pending(contextAppContext, "five_hour", 0L, REQUEST_FIVE_HOUR));
             alarmManager.cancel(pending(contextAppContext, "weekly", 0L, REQUEST_WEEKLY));
             alarmManager.cancel(pending(contextAppContext, "monthly", 0L, REQUEST_MONTHLY));
@@ -49,7 +49,7 @@ public final class ResetAlertScheduler {
         if (Build.VERSION.SDK_INT < 31) {
             return true;
         }
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(ResetAlertPreferences.STYLE_ALARM);
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         return alarmManager != null && alarmManager.canScheduleExactAlarms();
     }
 

@@ -219,7 +219,7 @@ public final class RefreshScheduler {
     }
 
     private static JobScheduler scheduler(Context context) {
-        return (JobScheduler) context.getSystemService("jobscheduler");
+        return (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
     }
 
     private static Context appContext(Context context) {
