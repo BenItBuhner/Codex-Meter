@@ -247,13 +247,36 @@ grep -q 'ScheduledResetManager.load(app)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -Fq 'Ui.separator(this, "Scheduled reset")' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+# One arming flow (trigger, threshold or date/time, condition, irreversible confirmation) is shared
+# by the dashboard tile's "Schedule reset" button and the reset screen.
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ScheduledResetFlow.java"
 grep -Fq '"Schedule a Codex reset?"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ScheduledResetFlow.java"
+grep -q 'ScheduledResetFlow.start(this, this::rebuild)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+# The dashboard tile carries "Schedule reset" beside "Use 1 reset" as an equal-weight sibling,
+# and that slot turns into Cancel while a schedule is armed.
+grep -Fq 'schedule != null ? "Cancel" : "Schedule reset"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'public static Button nativeSecondaryButton' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'ScheduledResetManager.load(this)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 # An armed schedule keeps the dashboard card visible even at zero credits, so it can be cancelled.
 grep -q 'ScheduledResetManager.isArmed(this)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+python3 - <<PY
+from pathlib import Path
+main = (Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter/MainActivity.java").read_text()
+card = main[main.index("private LinearLayout buildResetCreditsCard()"):main.index("private void cancelScheduledReset()")]
+use = card.index('Ui.nativePrimaryButton(this,')
+secondary = card.index('Ui.nativeSecondaryButton(this,')
+assert use < secondary, "Use 1 reset comes first in the row"
+assert card.count("new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f)") == 2, \
+    "both tile actions share one row with equal weight and height"
+print("Dashboard tile pairs Use 1 reset with Schedule reset (Cancel while armed) in one row.")
+PY
 python3 - <<PY
 from pathlib import Path
 root = Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter"

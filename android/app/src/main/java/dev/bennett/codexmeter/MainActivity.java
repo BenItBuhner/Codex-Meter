@@ -790,40 +790,51 @@ public final class MainActivity extends AppCompatActivity {
 
         ScheduledReset schedule = signedIn ? ScheduledResetManager.load(this) : null;
         if (schedule != null) {
-            LinearLayout scheduled = buildIconDetailRow(R.drawable.ic_oui_alarm,
+            card.addView(buildIconDetailRow(R.drawable.ic_oui_alarm,
                     schedule.armedLabel(AppPreferences.loadSnapshot(this),
                             ScheduledResetManager.dateTimeText(this, schedule.fireAtMillis, now,
                                     false)),
-                    ScheduledResetManager.timingShort(this, schedule));
-            Button cancel = Ui.button(this, "Cancel", false, this.dark);
-            cancel.setTextSize(15.0f);
-            cancel.setMinHeight(Ui.dp(this, 40.0f));
-            cancel.setPadding(Ui.dp(this, 14.0f), 0, Ui.dp(this, 14.0f), 0);
-            cancel.setOnClickListener(view -> {
-                ScheduledResetManager.cancel(this);
-                DiagnosticLog.info(this, "user", "scheduled_reset_cancelled", "source", "dashboard");
-                Toast.makeText(this, "Scheduled reset cancelled.", Toast.LENGTH_SHORT).show();
-                rebuild();
-            });
-            LinearLayout.LayoutParams cancelParams =
-                    new LinearLayout.LayoutParams(-2, Ui.dp(this, 40.0f));
-            cancelParams.setMargins(Ui.dp(this, 12.0f), 0, 0, 0);
-            scheduled.addView(cancel, cancelParams);
-            card.addView(scheduled);
+                    ScheduledResetManager.timingShort(this, schedule)));
         }
 
         if (signedIn) {
             card.setOnClickListener(view -> openResetCredits());
-            Button button = Ui.nativePrimaryButton(this,
+            // Two sibling actions of equal weight: use a credit now, or schedule one. While a
+            // schedule is armed, its slot holds Cancel instead.
+            LinearLayout actions = Ui.horizontal(this, Gravity.CENTER);
+            Button use = Ui.nativePrimaryButton(this,
                     available > 0 ? "Use 1 reset" : "No resets available");
-            button.setEnabled(available > 0);
-            button.setOnClickListener(view -> openResetCredits());
-            LinearLayout.LayoutParams buttonParams =
-                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
-            buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
-            card.addView(button, buttonParams);
+            use.setEnabled(available > 0);
+            use.setOnClickListener(view -> openResetCredits());
+            actions.addView(use, new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f));
+            Button secondary = Ui.nativeSecondaryButton(this,
+                    schedule != null ? "Cancel" : "Schedule reset");
+            if (schedule != null) {
+                secondary.setOnClickListener(view -> cancelScheduledReset());
+            } else {
+                secondary.setEnabled(available > 0);
+                secondary.setOnClickListener(view -> {
+                    DiagnosticLog.info(this, "user", "scheduled_reset_flow_opened",
+                            "source", "dashboard");
+                    ScheduledResetFlow.start(this, this::rebuild);
+                });
+            }
+            LinearLayout.LayoutParams secondaryParams =
+                    new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f);
+            secondaryParams.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
+            actions.addView(secondary, secondaryParams);
+            LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, -2);
+            actionsParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
+            card.addView(actions, actionsParams);
         }
         return card;
+    }
+
+    private void cancelScheduledReset() {
+        ScheduledResetManager.cancel(this);
+        DiagnosticLog.info(this, "user", "scheduled_reset_cancelled", "source", "dashboard");
+        Toast.makeText(this, "Scheduled reset cancelled.", Toast.LENGTH_SHORT).show();
+        rebuild();
     }
 
     private static String resetCreditsTitle(boolean signedIn, int available) {
