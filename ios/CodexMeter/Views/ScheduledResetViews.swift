@@ -230,7 +230,6 @@ struct ScheduledResetStatusView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(ScheduledResetCopy.armedLine(schedule.trigger, now: context.date))
                                 .font(.subheadline.weight(.semibold))
-                                .accessibilityIdentifier("scheduledReset.armedLine")
                             Text(armedHint(for: schedule))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)

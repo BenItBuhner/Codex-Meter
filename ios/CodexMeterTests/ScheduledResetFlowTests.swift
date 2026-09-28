@@ -4,28 +4,13 @@ import XCTest
 @testable import CodexMeter
 
 /// Drives `AppModel` in demo mode with isolated stores: no network, no Keychain, and no
-/// background-task registration.
+/// background-task registration. Every test owns one fixture and removes it on the way out.
 @MainActor
 final class ScheduledResetFlowTests: XCTestCase {
-    private var suiteName = ""
-    private var defaults: UserDefaults!
-    private var temporaryURLs: [URL] = []
-
-    override func setUp() {
-        super.setUp()
-        suiteName = "ScheduledResetFlowTests-\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: suiteName)
-    }
-
-    override func tearDown() {
-        defaults.removePersistentDomain(forName: suiteName)
-        for url in temporaryURLs {
-            try? FileManager.default.removeItem(at: url)
-        }
-        super.tearDown()
-    }
-
     func testStoreRoundTripsScheduleAndOutcomeAndStaysOutOfSettingsTransfer() throws {
+        let suiteName = "ScheduledResetFlowTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         let store = ScheduledResetStore(defaults: defaults)
         XCTAssertNil(store.schedule)
         XCTAssertNil(store.outcome)
@@ -52,7 +37,7 @@ final class ScheduledResetFlowTests: XCTestCase {
         // The settings document carries AppSettings only; an armed schedule never leaves the device.
         let transfer = try JSONEncoder().encode(AppSettingsStore(defaults: defaults).settings)
         let json = try XCTUnwrap(String(data: transfer, encoding: .utf8))
-        XCTAssertFalse(json.contains("scheduled"))
+        XCTAssertFalse(json.lowercased().contains("scheduled"))
 
         store.clear()
         XCTAssertNil(store.schedule)
@@ -60,30 +45,36 @@ final class ScheduledResetFlowTests: XCTestCase {
     }
 
     func testThresholdScheduleWaitsThenFiresOnRefreshAndConsumesOneCredit() async throws {
-        let (model, store) = try await makeDemoModel()
+        let fixture = try await makeDemoFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
         await model.startIfNeeded()
         XCTAssertEqual(model.mode, .demo)
         XCTAssertEqual(model.availableResetCredits, 2)
         XCTAssertEqual(model.usage?.fiveHour?.remainingPercent, 62)
 
-        await model.armScheduledReset(.threshold(window: .fiveHour, remainingPercent: 60))
-        XCTAssertNotNil(model.scheduledReset)
-        XCTAssertEqual(store.schedule, model.scheduledReset)
+        let trigger = ScheduledResetTrigger.threshold(window: .fiveHour, remainingPercent: 60)
+        await model.armScheduledReset(trigger)
+        let armed = try XCTUnwrap(model.scheduledReset)
+        XCTAssertEqual(armed.trigger, trigger)
+        XCTAssertEqual(fixture.store.schedule?.id, armed.id)
+        XCTAssertEqual(fixture.store.schedule?.trigger, trigger)
         XCTAssertEqual(model.availableResetCredits, 2, "62% remaining is above the 60% threshold")
 
         await model.refresh()
         XCTAssertEqual(model.usage?.fiveHour?.remainingPercent, 61)
-        XCTAssertNotNil(model.scheduledReset)
+        XCTAssertEqual(model.scheduledReset?.id, armed.id)
         XCTAssertNotNil(model.scheduledReset?.lastCheckedAt)
         XCTAssertNil(model.scheduledResetOutcome)
 
         await model.refresh()
         XCTAssertNil(model.scheduledReset, "one-shot: the schedule disarms after firing")
-        XCTAssertNil(store.schedule)
+        XCTAssertNil(fixture.store.schedule)
         let outcome = try XCTUnwrap(model.scheduledResetOutcome)
+        XCTAssertEqual(outcome.trigger, trigger)
         XCTAssertEqual(outcome.kind, .fired(creditsRemaining: 1, windowsReset: 2))
         XCTAssertEqual(outcome.observedRemainingPercent, 60)
-        XCTAssertEqual(store.outcome, outcome)
+        XCTAssertEqual(fixture.store.outcome?.kind, outcome.kind)
         XCTAssertEqual(model.availableResetCredits, 1)
         XCTAssertEqual(model.credits?.availableCount, 1)
         XCTAssertEqual(model.usage?.fiveHour?.usedPercent, 0, "the demo reset clears the window")
@@ -95,11 +86,13 @@ final class ScheduledResetFlowTests: XCTestCase {
 
         model.dismissScheduledResetOutcome()
         XCTAssertNil(model.scheduledResetOutcome)
-        XCTAssertNil(store.outcome)
+        XCTAssertNil(fixture.store.outcome)
     }
 
     func testDueScheduleSkipsWhenTheLastCreditWasSpentManually() async throws {
-        let (model, store) = try await makeDemoModel(fiveHourStep: 30)
+        let fixture = try await makeDemoFixture(fiveHourStep: 30)
+        defer { fixture.cleanUp() }
+        let model = fixture.model
         await model.startIfNeeded()
 
         await model.armScheduledReset(.threshold(window: .fiveHour, remainingPercent: 5))
@@ -119,8 +112,9 @@ final class ScheduledResetFlowTests: XCTestCase {
         await model.refresh()
         XCTAssertEqual(model.usage?.fiveHour?.remainingPercent, 0)
         XCTAssertNil(model.scheduledReset)
-        XCTAssertNil(store.schedule)
+        XCTAssertNil(fixture.store.schedule)
         XCTAssertEqual(model.scheduledResetOutcome?.kind, .skipped(.noCreditAvailable))
+        XCTAssertEqual(fixture.store.outcome?.kind, .skipped(.noCreditAvailable))
         XCTAssertEqual(model.availableResetCredits, 0)
     }
 
@@ -129,7 +123,9 @@ final class ScheduledResetFlowTests: XCTestCase {
         // a fresh fetch. On the stale data the lowest remaining allowance is the weekly
         // window at 36%, which fails a 35% condition and would end the schedule as
         // skipped; the fresh fetch lands the weekly window at 35% and the reset fires.
-        let (model, _) = try await makeDemoModel(referenceDate: Date().addingTimeInterval(-600))
+        let fixture = try await makeDemoFixture(referenceDate: Date().addingTimeInterval(-600))
+        defer { fixture.cleanUp() }
+        let model = fixture.model
         await model.startIfNeeded()
         XCTAssertEqual(model.usage?.fiveHour?.remainingPercent, 62)
         XCTAssertEqual(model.usage?.weekly?.remainingPercent, 36)
@@ -144,7 +140,9 @@ final class ScheduledResetFlowTests: XCTestCase {
     }
 
     func testDateTimeConditionNotMetSkipsAndCancelClearsAnArmedSchedule() async throws {
-        let (model, store) = try await makeDemoModel()
+        let fixture = try await makeDemoFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
         await model.startIfNeeded()
 
         await model.armScheduledReset(
@@ -158,12 +156,13 @@ final class ScheduledResetFlowTests: XCTestCase {
         XCTAssertEqual(model.availableResetCredits, 2, "a skip spends nothing")
 
         let fireAt = Date().addingTimeInterval(3_600)
-        await model.armScheduledReset(.dateTime(fireAt: fireAt, onlyIfRemainingAtMost: nil))
-        XCTAssertEqual(model.scheduledReset?.trigger, .dateTime(fireAt: fireAt, onlyIfRemainingAtMost: nil))
+        let trigger = ScheduledResetTrigger.dateTime(fireAt: fireAt, onlyIfRemainingAtMost: nil)
+        await model.armScheduledReset(trigger)
+        XCTAssertEqual(model.scheduledReset?.trigger, trigger)
         XCTAssertNil(model.scheduledResetOutcome, "arming clears the previous outcome")
         XCTAssertEqual(model.previewScheduledResetDecision(.threshold(window: .fiveHour, remainingPercent: 5)), .wait)
         XCTAssertEqual(model.previewScheduledResetDecision(.threshold(window: .fiveHour, remainingPercent: 70)), .fire)
-        XCTAssertFalse(model.scheduledResetCreditsExpireBefore(try XCTUnwrap(model.scheduledReset).trigger))
+        XCTAssertFalse(model.scheduledResetCreditsExpireBefore(trigger))
         XCTAssertTrue(
             model.scheduledResetCreditsExpireBefore(
                 .dateTime(fireAt: Date().addingTimeInterval(400 * 86_400), onlyIfRemainingAtMost: nil)
@@ -172,19 +171,37 @@ final class ScheduledResetFlowTests: XCTestCase {
 
         await model.cancelScheduledReset()
         XCTAssertNil(model.scheduledReset)
-        XCTAssertNil(store.schedule)
+        XCTAssertNil(fixture.store.schedule)
         XCTAssertEqual(model.availableResetCredits, 2)
     }
 
-    private func makeDemoModel(
+    private struct Fixture {
+        let model: AppModel
+        let store: ScheduledResetStore
+        let suiteName: String
+        let temporaryURLs: [URL]
+
+        @MainActor
+        func cleanUp() {
+            UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+            for url in temporaryURLs {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
+    private func makeDemoFixture(
         referenceDate: Date = Date(),
         fiveHourStep: Int = 1
-    ) async throws -> (AppModel, ScheduledResetStore) {
+    ) async throws -> Fixture {
+        let suiteName = "ScheduledResetFlowTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.set(AppMode.demo.rawValue, forKey: "codex-meter.session-mode-v1")
-        let cacheURL = temporaryFileURL("scheduled-reset-cache-\(UUID().uuidString).json")
-        let widgetURL = temporaryFileURL("scheduled-reset-widget-\(UUID().uuidString).json")
-        let historyURL = temporaryFileURL("scheduled-reset-history-\(UUID().uuidString).json")
-        temporaryURLs += [cacheURL, widgetURL, historyURL]
+
+        let token = UUID().uuidString
+        let cacheURL = temporaryFileURL("scheduled-reset-cache-\(token).json")
+        let widgetURL = temporaryFileURL("scheduled-reset-widget-\(token).json")
+        let historyURL = temporaryFileURL("scheduled-reset-history-\(token).json")
 
         let appCache = AppCacheStore(fileURL: cacheURL)
         let demo = DemoCodexService(
@@ -193,17 +210,25 @@ final class ScheduledResetFlowTests: XCTestCase {
             widgetCache: WidgetSnapshotCache(fileURL: widgetURL)
         )
         await demo.setFiveHourStep(fiveHourStep)
+        // The coordinator is an actor, so it gets its own handle on the same suite instead
+        // of the main-actor instance the model and stores share.
+        let coordinatorDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         let store = ScheduledResetStore(defaults: defaults)
         let model = AppModel(
             demoService: demo,
             cache: appCache,
             settingsStore: AppSettingsStore(defaults: defaults),
-            notificationCoordinator: NotificationCoordinator(defaults: defaults),
+            notificationCoordinator: NotificationCoordinator(defaults: coordinatorDefaults),
             usageHistoryStore: UsageHistoryStore(fileURL: historyURL),
             defaults: defaults,
             scheduledResetStore: store,
             registersBackgroundRefresh: false
         )
-        return (model, store)
+        return Fixture(
+            model: model,
+            store: store,
+            suiteName: suiteName,
+            temporaryURLs: [cacheURL, widgetURL, historyURL]
+        )
     }
 }
