@@ -366,36 +366,49 @@ private struct ResetCreditsDashboardCard: View {
                 ScheduledResetStatusView()
             }
 
-            HStack(spacing: 12) {
-                Button(count > 0 ? "Use 1 reset" : "No resets available") {
-                    model.isShowingReset = true
+            // The two actions share one row as equal-width siblings; once the labels no
+            // longer fit beside each other (accessibility text sizes) they stack instead.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    actions
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
-                .disabled(count == 0)
-
-                if model.scheduledReset != nil {
-                    Button("Cancel") {
-                        Task { await model.cancelScheduledReset() }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .accessibilityLabel("Cancel scheduled reset")
-                    .accessibilityIdentifier("resetCredits.cancelSchedule")
-                } else {
-                    Button("Schedule") {
-                        model.isShowingScheduledReset = true
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(count == 0)
-                    .accessibilityLabel("Schedule a reset")
-                    .accessibilityIdentifier("resetCredits.schedule")
+                VStack(spacing: 12) {
+                    actions
                 }
             }
         }
         .padding(AppChrome.cardPadding)
         .cardSurface()
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        Button(count > 0 ? "Use 1 reset" : "No resets available") {
+            model.isShowingReset = true
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .frame(maxWidth: .infinity)
+        .disabled(count == 0)
+
+        if model.scheduledReset != nil {
+            Button("Cancel") {
+                Task { await model.cancelScheduledReset() }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Cancel scheduled reset")
+            .accessibilityIdentifier("resetCredits.cancelSchedule")
+        } else {
+            Button("Schedule reset") {
+                model.isShowingScheduledReset = true
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .frame(maxWidth: .infinity)
+            .disabled(count == 0)
+            .accessibilityIdentifier("resetCredits.schedule")
+        }
     }
 }

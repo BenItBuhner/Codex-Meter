@@ -3,7 +3,8 @@ import Foundation
 
 /// Persists the single armed schedule and its last outcome. A schedule is ephemeral
 /// device state: it never enters the settings export.
-nonisolated struct ScheduledResetStore: Sendable {
+@MainActor
+struct ScheduledResetStore {
     static let scheduleKey = "codex-meter.scheduled-reset-v1"
     static let outcomeKey = "codex-meter.scheduled-reset-outcome-v1"
 
