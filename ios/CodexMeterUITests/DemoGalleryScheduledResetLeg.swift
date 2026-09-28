@@ -47,7 +47,8 @@ extension DemoGalleryTests {
         capture("32-scheduled-reset-options")
 
         guard confirmSchedule(in: app, capturing: "33-scheduled-reset-confirm") else { return }
-        guard showResetCard(in: app, expecting: app.staticTexts["Scheduled · when 5-hour reaches 5%"]) else {
+        guard app.staticTexts["Scheduled · when 5-hour reaches 5%"].waitForExistence(timeout: 5),
+              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]) else {
             XCTFail("The dashboard card did not show the armed threshold schedule")
             return
         }
@@ -58,7 +59,8 @@ extension DemoGalleryTests {
         UITestSupport.settle(0.6)
         refreshDemo(app)
         guard app.staticTexts["1 reset available"].waitForExistence(timeout: 5),
-              showResetCard(in: app, expecting: app.staticTexts["scheduledReset.outcome"]) else {
+              app.staticTexts["scheduledReset.outcome"].waitForExistence(timeout: 5),
+              showResetCard(in: app, expecting: app.buttons["resetCredits.schedule"]) else {
             XCTFail("The threshold schedule did not fire after two demo refreshes")
             return
         }
@@ -92,7 +94,8 @@ extension DemoGalleryTests {
         let armedDateLine = app.staticTexts.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Scheduled · ")
         ).firstMatch
-        guard showResetCard(in: app, expecting: armedDateLine) else {
+        guard armedDateLine.waitForExistence(timeout: 5),
+              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]) else {
             XCTFail("The dashboard card did not show the armed date and time schedule")
             return
         }
@@ -131,7 +134,8 @@ extension DemoGalleryTests {
         UITestSupport.settle(0.6)
         UITestSupport.tap(app.buttons["Close"])
         guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 5),
-              showResetCard(in: app, expecting: app.buttons["No resets available"]) else {
+              app.buttons["No resets available"].waitForExistence(timeout: 5),
+              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]) else {
             XCTFail("The dashboard card did not show the armed schedule without a credit")
             return
         }
@@ -144,7 +148,7 @@ extension DemoGalleryTests {
         let outcome = app.staticTexts["scheduledReset.outcome"]
         guard outcome.waitForExistence(timeout: 5),
               outcome.label.hasPrefix("Scheduled reset skipped"),
-              showResetCard(in: app, expecting: outcome) else {
+              showResetCard(in: app, expecting: app.buttons["resetCredits.schedule"]) else {
             XCTFail("The due schedule did not report a skipped outcome")
             return
         }
