@@ -413,8 +413,7 @@ public final class Ui {
 
     /** The same One UI contained button in the neutral tone, for an action beside a primary one. */
     public static Button nativeSecondaryButton(Context context, String text) {
-        Button button = (Button) LayoutInflater.from(context).inflate(R.layout.view_oneui_primary_button, null, false);
-        button.setText(text);
+        Button button = nativePrimaryButton(context, text);
         boolean dark = isDark(context);
         int surface = controlSurface(context, dark);
         int label = mainText(dark);
