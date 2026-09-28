@@ -85,6 +85,7 @@ public final class AppPreferences {
         NowBarPreferences.clearSuppression(context);
         ResetNotificationManager.clearState(context);
         ResetCreditExpiryScheduler.cancelAll(context);
+        ScheduledResetManager.clear(context);
         PhoneWearSync.pushUsage(context, null);
     }
 

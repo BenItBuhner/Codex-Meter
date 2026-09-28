@@ -39,6 +39,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/PlanPricing.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageStats.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/AdaptiveRefreshPolicy.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/ScheduledReset.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
@@ -74,7 +75,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
-java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
+java -ea -Dcodexmeter.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
+  dev.bennett.codexmeter.ParserSelfTest
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.8.0"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
@@ -217,6 +219,51 @@ confirm = settings[settings.index("private void confirmSignOut()"):settings.inde
 assert confirm.index("SecureTokenStore.clear(") < confirm.index("AppPreferences.clearSnapshot("), \
     "settings sign-out must clear cached usage (and the demo flag) after the tokens"
 print("Demo mode yields to real credentials and ends on every sign-out path.")
+PY
+
+# Scheduled reset: trigger and guard logic is pure shared code exercised by the fixture cases
+# both platforms share; the app only spends the credit through the existing consume path, right
+# after a fresh refresh, and the schedule is session state (dropped on sign-out, never exported).
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/ScheduledReset.java"
+test -f "$ROOT/tests/fixtures/scheduled-reset-cases.json"
+grep -q 'testScheduledReset' "$ROOT/tests/ParserSelfTest.java"
+! grep -q '^import android' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/ScheduledReset.java"
+grep -q 'ScheduledResetManager.onUsageRefreshed(context, snapshot);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageApi.java"
+grep -q 'ResetCreditApi.consumeBestAvailable(app)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ScheduledResetManager.java"
+! grep -qE 'HttpsURLConnection|openConnection|SecureTokenStore\.(save|clear)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ScheduledResetManager.java"
+grep -q 'ScheduledResetManager.clear(context);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'ScheduledResetManager.rearm(context);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/BootReceiver.java"
+grep -q 'ScheduledResetManager.onRefreshFailed' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageRefreshJobService.java"
+grep -q 'ScheduledResetReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'ScheduledResetManager.load(app)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/RefreshScheduler.java"
+! grep -qi 'scheduled_reset\|ScheduledReset' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -Fq 'Ui.separator(this, "Scheduled reset")' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+grep -Fq '"Schedule a Codex reset?"' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+grep -q 'ScheduledResetManager.load(this)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+python3 - <<PY
+from pathlib import Path
+root = Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter"
+manager = (root / "ScheduledResetManager.java").read_text()
+hook = manager[manager.index("public static void onUsageRefreshed"):manager.index("public static void onRefreshFailed")]
+assert hook.index("disarm(app);") < hook.index("fire(app, schedule, decision);"), \
+    "a schedule must disarm before it spends the credit so it can never fire twice"
+assert "schedule.evaluate(snapshot" in hook, "the shared evaluation decides whether to fire"
+api = (root / "UsageApi.java").read_text()
+refresh = api[api.index("public static UsageSnapshot refreshAndCache"):api.index("private static UsageSnapshot fetchAndCache")]
+assert "ScheduledResetManager.onUsageRefreshed" in refresh and "synchronized" not in refresh, \
+    "the schedule hook runs on the freshly fetched snapshot, outside NETWORK_LOCK"
+print("Scheduled reset disarms before consuming and evaluates only fresh refresh data.")
 PY
 
 # Usage-history charts must be gated on real usage data instead of blank placeholders.

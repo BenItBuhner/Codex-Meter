@@ -787,6 +787,30 @@ public final class MainActivity extends AppCompatActivity {
                 resetCreditsTitle(signedIn, available),
                 resetCreditsSummary(signedIn, available, nextExpiry, now)));
 
+        ScheduledReset schedule = signedIn ? ScheduledResetManager.load(this) : null;
+        if (schedule != null) {
+            LinearLayout scheduled = buildIconDetailRow(R.drawable.ic_oui_alarm,
+                    schedule.armedLabel(AppPreferences.loadSnapshot(this),
+                            ScheduledResetManager.dateTimeText(this, schedule.fireAtMillis, now,
+                                    false)),
+                    ScheduledResetManager.timingShort(this, schedule));
+            Button cancel = Ui.button(this, "Cancel", false, this.dark);
+            cancel.setTextSize(15.0f);
+            cancel.setMinHeight(Ui.dp(this, 40.0f));
+            cancel.setPadding(Ui.dp(this, 14.0f), 0, Ui.dp(this, 14.0f), 0);
+            cancel.setOnClickListener(view -> {
+                ScheduledResetManager.cancel(this);
+                DiagnosticLog.info(this, "user", "scheduled_reset_cancelled", "source", "dashboard");
+                Toast.makeText(this, "Scheduled reset cancelled.", Toast.LENGTH_SHORT).show();
+                rebuild();
+            });
+            LinearLayout.LayoutParams cancelParams =
+                    new LinearLayout.LayoutParams(-2, Ui.dp(this, 40.0f));
+            cancelParams.setMargins(Ui.dp(this, 12.0f), 0, 0, 0);
+            scheduled.addView(cancel, cancelParams);
+            card.addView(scheduled);
+        }
+
         if (signedIn) {
             card.setOnClickListener(view -> openResetCredits());
             Button button = Ui.nativePrimaryButton(this,

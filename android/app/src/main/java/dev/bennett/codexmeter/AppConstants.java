@@ -13,6 +13,8 @@ public final class AppConstants {
     public static final String ACTION_RESET_CREDIT_EXPIRY_ALERT =
             "dev.bennett.codexmeter.action.RESET_CREDIT_EXPIRY_ALERT";
     public static final String ACTION_RESET_CREDITS_UPDATED = "dev.bennett.codexmeter.action.RESET_CREDITS_UPDATED";
+    public static final String ACTION_SCHEDULED_RESET_DUE =
+            "dev.bennett.codexmeter.action.SCHEDULED_RESET_DUE";
     public static final String ACTION_USAGE_UPDATED = "dev.bennett.codexmeter.action.USAGE_UPDATED";
     public static final String APP_LINK = "codexmeter://auth/complete";
     public static final String AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";

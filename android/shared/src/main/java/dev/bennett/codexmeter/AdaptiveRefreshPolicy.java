@@ -11,6 +11,17 @@ public final class AdaptiveRefreshPolicy {
 
     public static int chooseMinutes(UsageSnapshot snapshot, double attentionScore,
             int localHour, int consecutiveFailures, long nowMillis) {
+        return chooseMinutes(snapshot, attentionScore, localHour, consecutiveFailures, nowMillis,
+                null);
+    }
+
+    /**
+     * Same policy, tightened while a {@link ScheduledReset} is armed: any schedule keeps polling
+     * at least every 30 minutes, and a threshold trigger polls every 10 then 5 minutes as the
+     * targeted window closes in on it.
+     */
+    public static int chooseMinutes(UsageSnapshot snapshot, double attentionScore,
+            int localHour, int consecutiveFailures, long nowMillis, ScheduledReset schedule) {
         UsageWindow fiveHour = snapshot == null ? null
                 : UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis,
                         nowMillis);
@@ -70,6 +81,17 @@ public final class AdaptiveRefreshPolicy {
         int hour = Math.max(0, Math.min(23, localHour));
         if (!urgent && attention < 0.5d && hour >= 1 && hour < 6) {
             minutes = Math.max(minutes, 120);
+        }
+
+        if (schedule != null) {
+            int gap = schedule.thresholdGap(snapshot, nowMillis);
+            if (gap <= 10) {
+                minutes = Math.min(minutes, 5);
+            } else if (gap <= 25) {
+                minutes = Math.min(minutes, 10);
+            } else {
+                minutes = Math.min(minutes, 30);
+            }
         }
 
         int failures = Math.max(0, Math.min(3, consecutiveFailures));

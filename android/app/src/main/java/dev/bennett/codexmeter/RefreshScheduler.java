@@ -125,7 +125,8 @@ public final class RefreshScheduler {
                 RefreshEngagement.score(app, now),
                 hour,
                 AppPreferences.getRefreshFailures(app),
-                now);
+                now,
+                ScheduledResetManager.load(app));
     }
 
     public static boolean scheduleImmediate(Context context) {

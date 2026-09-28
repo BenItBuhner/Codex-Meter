@@ -38,6 +38,7 @@ public final class ParserSelfTest {
         testUsageStats();
         testHistorySections();
         testAdaptiveRefreshPolicy();
+        testScheduledReset();
         testNowBarAutoStart();
         testNowBarDisplayModes();
         testWearSurfaceModes();
@@ -2164,6 +2165,190 @@ public final class ParserSelfTest {
                     "minimal mode hides every optional highlight");
         }
         System.out.println("History highlights: minimal defaults + per-insight overrides verified.");
+    }
+
+    private static void testScheduledReset() throws Exception {
+        java.nio.file.Path fixture = java.nio.file.Paths.get(
+                System.getProperty("codexmeter.fixtures", "tests/fixtures"),
+                "scheduled-reset-cases.json");
+        org.json.JSONObject document = new org.json.JSONObject(
+                new String(java.nio.file.Files.readAllBytes(fixture), StandardCharsets.UTF_8));
+        long now = document.getLong("now");
+        org.json.JSONArray cases = document.getJSONArray("cases");
+        check(cases.length() >= 30, "shared fixture carries the full case set");
+        for (int index = 0; index < cases.length(); index++) {
+            org.json.JSONObject item = cases.getJSONObject(index);
+            String name = item.getString("name");
+            ScheduledReset schedule = fixtureSchedule(item.getJSONObject("schedule"), now);
+            UsageSnapshot snapshot = item.isNull("snapshot") ? null
+                    : fixtureSnapshot(item.getJSONObject("snapshot"), now);
+            ScheduledReset.Decision decision = schedule.evaluate(snapshot,
+                    item.getInt("credits"), now);
+            check(item.getString("expect").equals(decision.outcome),
+                    "fixture '" + name + "' expected " + item.getString("expect")
+                            + " but got " + decision.outcome);
+            if (item.has("window")) {
+                check(item.getString("window").equals(decision.windowLabel),
+                        "fixture '" + name + "' names window " + item.getString("window")
+                                + " but got '" + decision.windowLabel + "'");
+            }
+            if (item.has("remaining")) {
+                check(item.getInt("remaining") == decision.remainingPercent,
+                        "fixture '" + name + "' remaining " + decision.remainingPercent);
+            }
+            if (item.has("natural_reset_in_minutes")) {
+                check(decision.naturalResetMillis == now
+                                + TimeUnit.MINUTES.toMillis(item.getInt("natural_reset_in_minutes")),
+                        "fixture '" + name + "' natural reset time");
+            }
+            check(decision.fires() == "fire".equals(decision.outcome)
+                    && decision.waits() == "wait".equals(decision.outcome)
+                    && decision.skipped() == decision.outcome.startsWith("skip_"),
+                    "fixture '" + name + "' outcome predicates agree");
+        }
+
+        // Copy shared with iOS.
+        UsageSnapshot plus = new UsageSnapshot("plus", true, false,
+                new UsageWindow(38, 18_000L, 0L, (now + TimeUnit.MINUTES.toMillis(137)) / 1000L),
+                new UsageWindow(64, 604_800L, 0L, (now + TimeUnit.DAYS.toMillis(3)) / 1000L), now);
+        ScheduledReset fiveHour = ScheduledReset.atThreshold(ScheduledReset.TRIGGER_FIVE_HOUR, 5, now);
+        check("Codex Meter will use 1 reset credit when your 5-hour limit reaches 5% remaining."
+                        .equals(fiveHour.confirmationText(plus, "")),
+                "threshold confirmation copy matches the spec");
+        check("Scheduled · when 5-hour reaches 5%".equals(fiveHour.armedLabel(plus, "")),
+                "threshold armed label matches the spec");
+        ScheduledReset weekly = ScheduledReset.atThreshold(ScheduledReset.TRIGGER_WEEKLY, 10, now);
+        check("Scheduled · when weekly reaches 10%".equals(weekly.armedLabel(plus, "")),
+                "weekly armed label names the window");
+        UsageSnapshot free = new UsageSnapshot("free", true, false, null, null,
+                new UsageWindow(30, 2_592_000L, 0L, (now + TimeUnit.DAYS.toMillis(20)) / 1000L),
+                java.util.Collections.emptyList(), null, -1, now);
+        check("monthly".equals(weekly.windowLabel(free)),
+                "weekly trigger labels the monthly window on the free tier");
+        ScheduledReset timed = ScheduledReset.atDateTime(now + TimeUnit.HOURS.toMillis(2),
+                ScheduledReset.CONDITION_OFF, now);
+        check("Codex Meter will use 1 reset credit today at 4:00 PM."
+                        .equals(timed.confirmationText(plus, "today at 4:00 PM")),
+                "date/time confirmation copy embeds the formatted time");
+        check("Scheduled · today at 4:00 PM".equals(timed.armedLabel(plus, "today at 4:00 PM")),
+                "date/time armed label embeds the formatted time");
+        ScheduledReset conditional = ScheduledReset.atDateTime(now + TimeUnit.HOURS.toMillis(2),
+                10, now);
+        check(conditional.hasCondition() && !timed.hasCondition() && !fiveHour.hasCondition(),
+                "only a date/time trigger carries a condition");
+        check(conditional.confirmationText(plus, "today at 4:00 PM").endsWith(
+                        "It only runs if your remaining usage is at or below 10% at that time."),
+                "conditional confirmation states the condition");
+        ScheduledReset.Decision fired = fiveHour.evaluate(new UsageSnapshot("plus", true, false,
+                new UsageWindow(96, 18_000L, 0L, (now + TimeUnit.HOURS.toMillis(2)) / 1000L),
+                null, now), 2, now);
+        check("Your 5-hour limit reached 4% remaining, so 1 reset credit was used."
+                        .equals(fired.firedReason(fiveHour)),
+                "fired copy names the window and level");
+        ScheduledReset.Decision imminent = fiveHour.evaluate(new UsageSnapshot("plus", true, false,
+                new UsageWindow(96, 18_000L, 0L, (now + TimeUnit.MINUTES.toMillis(12)) / 1000L),
+                null, now), 2, now);
+        check("Your 5-hour limit resets on its own in 12 minutes, so the credit was kept."
+                        .equals(imminent.skipReason(fiveHour, now)),
+                "imminent skip copy states the natural reset");
+        check("No reset credit was available, so nothing was used.".equals(
+                        fiveHour.evaluate(new UsageSnapshot("plus", true, false,
+                                new UsageWindow(96, 18_000L, 0L,
+                                        (now + TimeUnit.HOURS.toMillis(2)) / 1000L), null, now),
+                                0, now).skipReason(fiveHour, now)),
+                "no-credit skip copy");
+
+        // Persistence and creation-time warnings.
+        ScheduledReset restored = ScheduledReset.fromJson(conditional.toJson());
+        check(restored.isDateTime() && restored.fireAtMillis == conditional.fireAtMillis
+                && restored.conditionPercent == 10 && restored.createdAtMillis == now,
+                "date/time schedule round-trips through JSON");
+        ScheduledReset restoredThreshold = ScheduledReset.fromJson(weekly.toJson());
+        check(ScheduledReset.TRIGGER_WEEKLY.equals(restoredThreshold.trigger)
+                && restoredThreshold.thresholdPercent == 10
+                && restoredThreshold.conditionPercent == ScheduledReset.CONDITION_OFF,
+                "threshold schedule round-trips through JSON");
+        check(ScheduledReset.fromJson(new org.json.JSONObject()) == null,
+                "missing schedule decodes to null");
+        check(ScheduledReset.atThreshold("bogus", 250, now).thresholdPercent == 100
+                && ScheduledReset.TRIGGER_FIVE_HOUR.equals(
+                        ScheduledReset.atThreshold("bogus", 5, now).trigger),
+                "unknown triggers and out-of-range thresholds are clamped");
+        long soon = now + TimeUnit.HOURS.toMillis(1);
+        check(timed.creditsExpireBefore(new long[]{soon, now + TimeUnit.MINUTES.toMillis(30)}),
+                "every credit expiring before the time warns");
+        check(!timed.creditsExpireBefore(new long[]{soon, now + TimeUnit.DAYS.toMillis(6)}),
+                "one credit outliving the time does not warn");
+        check(!timed.creditsExpireBefore(new long[]{soon, 0L}),
+                "a credit without an expiry does not warn");
+        check(!fiveHour.creditsExpireBefore(new long[]{soon}),
+                "threshold schedules never warn about expiry");
+
+        // Refresh tightening as a threshold nears.
+        check(fiveHour.thresholdGap(plus, now) == 57, "gap counts points above the threshold");
+        check(timed.thresholdGap(plus, now) == Integer.MAX_VALUE,
+                "date/time schedules report no gap");
+        check(fiveHour.thresholdGap(free, now) == Integer.MAX_VALUE,
+                "a missing target window reports no gap");
+        UsageWindow healthy = new UsageWindow(5, 18_000L, 0L,
+                (now + TimeUnit.HOURS.toMillis(4)) / 1000L);
+        UsageWindow near = new UsageWindow(88, 18_000L, 0L,
+                (now + TimeUnit.HOURS.toMillis(2)) / 1000L);
+        UsageWindow closer = new UsageWindow(56, 18_000L, 0L,
+                (now + TimeUnit.HOURS.toMillis(2)) / 1000L);
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        0.0d, 3, 0, now, fiveHour) == 30,
+                "an armed schedule caps quiet-hour polling at 30 minutes");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        0.0d, 12, 0, now, fiveHour) == 30,
+                "a far-off threshold keeps a half-hour cadence");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, closer, null, now),
+                        0.0d, 12, 0, now, ScheduledReset.atThreshold(
+                                ScheduledReset.TRIGGER_FIVE_HOUR, 25, now)) == 10,
+                "a threshold within 25 points polls every 10 minutes");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, near, null, now),
+                        0.0d, 12, 0, now, fiveHour) == 5,
+                "a threshold within 10 points polls every 5 minutes");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, healthy, null, now),
+                        0.0d, 3, 0, now, null) == 120,
+                "no schedule leaves the quiet-hour cadence alone");
+        check(AdaptiveRefreshPolicy.chooseMinutes(
+                        new UsageSnapshot("plus", true, false, near, null, now),
+                        0.0d, 12, 2, now, fiveHour) == 15,
+                "failure backoff still applies while a schedule is armed");
+        System.out.println("Scheduled reset: " + cases.length()
+                + " shared fixture cases, copy, persistence, and refresh tightening verified.");
+    }
+
+    private static ScheduledReset fixtureSchedule(org.json.JSONObject json, long now) {
+        String trigger = json.getString("trigger");
+        if (ScheduledReset.TRIGGER_DATE_TIME.equals(trigger)) {
+            return ScheduledReset.atDateTime(
+                    now + TimeUnit.MINUTES.toMillis(json.getInt("fire_in_minutes")),
+                    json.optInt("condition_percent", ScheduledReset.CONDITION_OFF), now);
+        }
+        return ScheduledReset.atThreshold(trigger, json.getInt("threshold_percent"), now);
+    }
+
+    private static UsageSnapshot fixtureSnapshot(org.json.JSONObject json, long now) {
+        long fetchedAt = now - TimeUnit.SECONDS.toMillis(json.optInt("fetched_ago_seconds", 0));
+        return new UsageSnapshot("plus", true, false,
+                fixtureWindow(json.optJSONObject("five_hour"), 18_000L, now),
+                fixtureWindow(json.optJSONObject("weekly"), 604_800L, now),
+                fixtureWindow(json.optJSONObject("monthly"), 2_592_000L, now),
+                java.util.Collections.emptyList(), null, -1, fetchedAt);
+    }
+
+    private static UsageWindow fixtureWindow(org.json.JSONObject json, long windowSeconds,
+            long now) {
+        if (json == null) return null;
+        long resetAt = now + TimeUnit.MINUTES.toMillis(json.getInt("reset_in_minutes"));
+        return new UsageWindow(json.getInt("used"), windowSeconds, 0L, resetAt / 1000L);
     }
 
     private static void check(boolean condition, String name) {
