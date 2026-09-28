@@ -1,0 +1,175 @@
+name: Android Scheduled reset demo captures (scratch branch only)
+
+# GitHub only registers dispatchable workflows from the default branch and this token cannot
+# dispatch anyway, so the trigger is a push to this one throwaway branch.
+on:
+  push:
+    branches: [scratch/android-scheduled-reset-demo]
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: scheduled-reset-demo
+  cancel-in-progress: true
+
+jobs:
+  captures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    env:
+      GH_USERNAME: ${{ github.actor }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      OUT: ${{ github.workspace }}/out
+    steps:
+      - name: Check out scratch branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+
+      - name: Enable KVM for the runner user
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          grep -c -E 'vmx|svm' /proc/cpuinfo
+
+      - name: Install SDK platforms, build tools, emulator and the API 35 system image
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "platforms;android-37.0" \
+            "build-tools;36.0.0" \
+            "emulator" \
+            "system-images;android-35;google_apis;x86_64" > "$RUNNER_TEMP/sdkmanager.log" 2>&1 \
+            || { tail -40 "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
+          grep -v -E '^\[=*\s*\]' "$RUNNER_TEMP/sdkmanager.log" | tail -20 || true
+          ls "$ANDROID_SDK_ROOT/emulator/emulator" "$ANDROID_SDK_ROOT/system-images/android-35/google_apis/x86_64/"
+          "$ANDROID_SDK_ROOT/emulator/emulator" -version 2>&1 | sed -n '1p' || true
+          "$ANDROID_SDK_ROOT/emulator/emulator" -accel-check || true
+
+      - name: Create the Pixel 7 API 35 AVD and boot it headless in the background
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$OUT/logs"
+          echo no | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager" create avd \
+            -n demo -k "system-images;android-35;google_apis;x86_64" -d pixel_7 --force
+          AVD_DIR="$("$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager" list avd 2>/dev/null \
+            | sed -n 's/^ *Path: //p' | tail -1)"
+          echo "AVD dir: $AVD_DIR (ANDROID_AVD_HOME=${ANDROID_AVD_HOME:-unset})"
+          CFG="$AVD_DIR/config.ini"
+          test -f "$CFG"
+          sed -i '/^hw.ramSize=/d;/^hw.gpu.enabled=/d;/^hw.gpu.mode=/d;/^hw.keyboard=/d;/^disk.dataPartition.size=/d;/^vm.heapSize=/d' "$CFG"
+          printf '%s\n' 'hw.ramSize=3072' 'hw.gpu.enabled=yes' 'hw.gpu.mode=swiftshader_indirect' \
+            'hw.keyboard=yes' 'disk.dataPartition.size=4G' 'vm.heapSize=256' >> "$CFG"
+          # avdmanager writes under $ANDROID_USER_HOME (~/.config/.android) while the emulator
+          # searches $ANDROID_AVD_HOME / ~/.android/avd, so point the emulator at the real place.
+          export ANDROID_AVD_HOME="$(dirname "$AVD_DIR")"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          "$ANDROID_SDK_ROOT/emulator/emulator" -list-avds
+          nohup "$ANDROID_SDK_ROOT/emulator/emulator" -avd demo -no-window -gpu swiftshader_indirect \
+            -no-audio -no-boot-anim -no-snapshot -no-metrics -memory 3072 -cores 2 \
+            > "$OUT/logs/emulator.log" 2>&1 &
+          echo "emulator pid $!"
+
+      - name: Build the debug APK of this branch
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$OUT/apks" "$OUT/logs"
+          {
+            echo "scratch_head=$(git rev-parse HEAD) ($(git rev-parse --short HEAD))"
+            echo "app_head=$(git rev-parse HEAD~1) ($(git rev-parse --short HEAD~1))  # PR head; the scratch commit adds only .github files"
+            git diff --stat HEAD~1 HEAD
+          } | tee "$OUT/logs/build-info.txt"
+          (cd android && ./gradlew :app:assembleDebug --console=plain -q)
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$OUT/apks/scheduled-reset-debug-$(git rev-parse --short HEAD~1).apk"
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt2" dump badging "$OUT"/apks/*.apk | grep -E '^package:' | tee -a "$OUT/logs/build-info.txt"
+          ls -la "$OUT/apks"
+
+      - name: Wait for the emulator to finish booting
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export PATH="$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          timeout 600 adb wait-for-device || { tail -60 "$OUT/logs/emulator.log"; exit 1; }
+          BOOTED=0
+          for i in $(seq 1 120); do
+            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              echo "booted after ~$((i * 5))s"; BOOTED=1; break
+            fi
+            sleep 5
+          done
+          if [[ "$BOOTED" != "1" ]]; then tail -60 "$OUT/logs/emulator.log"; exit 1; fi
+          adb shell getprop ro.build.version.release
+          adb shell wm size
+          adb shell wm density
+          adb shell date
+
+      - name: Drive the app and capture stills and screenrecords
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(ls "$OUT"/apks/*.apk | head -1)"
+          export APK
+          bash .github/demo-captures/drive.sh
+
+      - name: Summarize
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "== failures"; cat "$OUT/logs/failures.txt" 2>/dev/null || echo "(none)"
+          echo "== threshold"; cat "$OUT/logs/threshold-choice.txt" "$OUT/logs/threshold-notification.txt" 2>/dev/null
+          echo "== date/time"; cat "$OUT/logs/datetime-timing.txt" 2>/dev/null
+          echo "== no credit"; cat "$OUT/logs/skip-nocredit-timing.txt" 2>/dev/null
+          echo "== imminent"; cat "$OUT/logs/skip-imminent-notification.txt" 2>/dev/null
+          echo "== drive log"; cat "$OUT/logs/drive.log" 2>/dev/null
+          true
+
+      - name: Collect logs
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          export PATH="$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          mkdir -p "$OUT/logs"
+          if timeout 20 adb get-state >/dev/null 2>&1; then
+            timeout 60 adb logcat -d -v time > "$OUT/logs/logcat.txt" 2>&1
+            timeout 60 adb logcat -d -v time -s DiagnosticLog:* > "$OUT/logs/logcat-diagnostic.txt" 2>&1
+          else
+            echo "no device attached; skipping logcat" | tee "$OUT/logs/logcat.txt"
+          fi
+          ls -laR "$OUT" > "$OUT/logs/listing.txt" 2>&1
+          true
+
+      - name: Upload captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-reset-captures
+          path: out/
+          if-no-files-found: warn
+          retention-days: 7
