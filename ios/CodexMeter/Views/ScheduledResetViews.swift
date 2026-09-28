@@ -62,7 +62,9 @@ struct ScheduledResetView: View {
         Form {
             Section {
                 Picker("Run the reset", selection: $mode) {
-                    Text("5-hour limit").tag(Mode.fiveHour)
+                    if model.usage?.fiveHour != nil {
+                        Text("5-hour limit").tag(Mode.fiveHour)
+                    }
                     if model.usage?.weekly != nil {
                         Text("Weekly limit").tag(Mode.weekly)
                     }
@@ -137,6 +139,9 @@ struct ScheduledResetView: View {
             Text(confirmationMessage)
         }
         .task {
+            if model.usage?.fiveHour == nil {
+                mode = model.usage?.weekly != nil ? .weekly : .dateTime
+            }
             await model.refreshNotificationPermissionState()
         }
     }
