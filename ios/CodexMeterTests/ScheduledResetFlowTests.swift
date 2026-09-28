@@ -210,15 +210,12 @@ final class ScheduledResetFlowTests: XCTestCase {
             widgetCache: WidgetSnapshotCache(fileURL: widgetURL)
         )
         await demo.setFiveHourStep(fiveHourStep)
-        // The coordinator is an actor, so it gets its own handle on the same suite instead
-        // of the main-actor instance the model and stores share.
-        let coordinatorDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         let store = ScheduledResetStore(defaults: defaults)
         let model = AppModel(
             demoService: demo,
             cache: appCache,
             settingsStore: AppSettingsStore(defaults: defaults),
-            notificationCoordinator: NotificationCoordinator(defaults: coordinatorDefaults),
+            notificationCoordinator: Self.makeNotificationCoordinator(suiteName: suiteName),
             usageHistoryStore: UsageHistoryStore(fileURL: historyURL),
             defaults: defaults,
             scheduledResetStore: store,
