@@ -14,8 +14,8 @@ generated build artifacts.
 
 ## Android local setup
 
-Install JDK 17 or newer and Android SDK Platform 36 with Build Tools 36.x. Set
-`ANDROID_SDK_ROOT` or `ANDROID_HOME` to the SDK directory.
+Install JDK 17 or newer and Android SDK Platforms 37.1 (phone) and 37.0 (Wear) with
+Build Tools 36.x. Set `ANDROID_SDK_ROOT` or `ANDROID_HOME` to the SDK directory.
 
 The OneUI-Design dependencies are hosted on GitHub Packages. Export `GH_USERNAME`
 and a `GH_ACCESS_TOKEN` with `read:packages` access before running a full build or

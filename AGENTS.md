@@ -41,7 +41,7 @@ iOS build instructions are in `ios/README.md`.
 
 ### Toolchain (pre-installed in the VM snapshot)
 - JDK 21 at `/usr/lib/jvm/java-21-openjdk-amd64` (project targets Java 17; JDK 21 builds fine with Gradle 9.6.1).
-- Android SDK at `~/android-sdk` with `platforms;android-36` + `build-tools;36.0.0` + `platform-tools`.
+- Android SDK at `~/android-sdk` with `platforms;android-37.1` (phone) + `platforms;android-37.0` (Wear) + `build-tools;36.0.0` + `platform-tools`.
 - Gradle 9.6.1 via the committed wrapper (`android/gradlew`); no system Gradle needed.
 - `JAVA_HOME`, `ANDROID_SDK_ROOT`, `ANDROID_HOME`, and `PATH` are exported from `~/.bashrc`. `android/build.sh` / `android/lint.sh` only auto-detect these on macOS paths, so on this Linux VM they rely on those env vars being present. In a non-login/non-interactive shell that did not source `~/.bashrc`, export them first:
   `export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ANDROID_SDK_ROOT=$HOME/android-sdk ANDROID_HOME=$HOME/android-sdk`.

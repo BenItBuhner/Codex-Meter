@@ -87,6 +87,7 @@ grep -q 'VERSION_NAME="2.8.0"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
+grep -Fq '"platforms;android-37.1"' "$WORKFLOW"
 grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
 ! grep -R -q 'thatjoshguy67/Codex-Meter' \
   "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
@@ -741,7 +742,9 @@ grep -q 'KEY_MONITOR_DESIRED' \
 ! grep -q 'setMonitorActive(context, true);' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 # Vendored SESL transitive deps keep phone Android CI working without GitHub Packages auth.
-test -f "$ROOT/vendor/m2/sesl/androidx/appcompat/appcompat/1.7.1+1.0.21-sesl8+rev8/appcompat-1.7.1+1.0.21-sesl8+rev8.aar"
+test -f "$ROOT/vendor/m2/io/github/tribalfs/oneui-design/0.9.20+oneui8/oneui-design-0.9.20+oneui8.aar"
+grep -q 'io.github.tribalfs:oneui-design:0.9.20+oneui8' "$ROOT/app/build.gradle.kts"
+test -f "$ROOT/vendor/m2/sesl/androidx/appcompat/appcompat/1.8.0+1.0.21-sesl8+rev2/appcompat-1.8.0+1.0.21-sesl8+rev2.aar"
 test -f "$ROOT/vendor/m2/sesl/com/google/android/material/material/1.12.0+1.0.32-sesl8+rev3/material-1.12.0+1.0.32-sesl8+rev3.aar"
 grep -q ':wear:assembleRelease' "$ROOT/build.sh"
 grep -q ':wear:lintRelease' "$ROOT/lint.sh"
