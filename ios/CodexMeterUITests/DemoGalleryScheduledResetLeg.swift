@@ -47,8 +47,8 @@ extension DemoGalleryTests {
         capture("32-scheduled-reset-options")
 
         guard confirmSchedule(in: app, capturing: "33-scheduled-reset-confirm") else { return }
-        guard app.staticTexts["Scheduled · when 5-hour reaches 5%"].waitForExistence(timeout: 5),
-              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]) else {
+        guard showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]),
+              app.staticTexts["Scheduled · when 5-hour reaches 5%"].waitForExistence(timeout: 5) else {
             XCTFail("The dashboard card did not show the armed threshold schedule")
             return
         }
@@ -58,9 +58,9 @@ extension DemoGalleryTests {
         refreshDemo(app)
         UITestSupport.settle(0.6)
         refreshDemo(app)
-        guard app.staticTexts["1 reset available"].waitForExistence(timeout: 5),
-              app.staticTexts["scheduledReset.outcome"].waitForExistence(timeout: 5),
-              showResetCard(in: app, expecting: app.buttons["resetCredits.schedule"]) else {
+        guard showResetCard(in: app, expecting: app.buttons["resetCredits.schedule"]),
+              app.staticTexts["1 reset available"].waitForExistence(timeout: 5),
+              app.staticTexts["scheduledReset.outcome"].waitForExistence(timeout: 5) else {
             XCTFail("The threshold schedule did not fire after two demo refreshes")
             return
         }
@@ -94,8 +94,8 @@ extension DemoGalleryTests {
         let armedDateLine = app.staticTexts.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Scheduled · ")
         ).firstMatch
-        guard armedDateLine.waitForExistence(timeout: 5),
-              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]) else {
+        guard showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]),
+              armedDateLine.waitForExistence(timeout: 5) else {
             XCTFail("The dashboard card did not show the armed date and time schedule")
             return
         }
@@ -110,6 +110,7 @@ extension DemoGalleryTests {
         // Skipped outcome: arm again, spend the last credit by hand, then refresh until due.
         guard openScheduleSheet(in: app),
               confirmSchedule(in: app, capturing: nil),
+              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]),
               app.staticTexts["Scheduled · when 5-hour reaches 5%"].waitForExistence(timeout: 5) else {
             XCTFail("The second threshold schedule was not armed")
             return
@@ -134,8 +135,8 @@ extension DemoGalleryTests {
         UITestSupport.settle(0.6)
         UITestSupport.tap(app.buttons["Close"])
         guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 5),
-              app.buttons["No resets available"].waitForExistence(timeout: 5),
-              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]) else {
+              showResetCard(in: app, expecting: app.buttons["resetCredits.cancelSchedule"]),
+              app.buttons["No resets available"].waitForExistence(timeout: 5) else {
             XCTFail("The dashboard card did not show the armed schedule without a credit")
             return
         }
@@ -146,9 +147,9 @@ extension DemoGalleryTests {
             refreshDemo(app)
         }
         let outcome = app.staticTexts["scheduledReset.outcome"]
-        guard outcome.waitForExistence(timeout: 5),
-              outcome.label.hasPrefix("Scheduled reset skipped"),
-              showResetCard(in: app, expecting: app.buttons["resetCredits.schedule"]) else {
+        guard showResetCard(in: app, expecting: app.buttons["resetCredits.schedule"]),
+              outcome.waitForExistence(timeout: 5),
+              outcome.label.hasPrefix("Scheduled reset skipped") else {
             XCTFail("The due schedule did not report a skipped outcome")
             return
         }
@@ -207,10 +208,12 @@ extension DemoGalleryTests {
         return app.navigationBars["Codex Meter"].waitForExistence(timeout: 5)
     }
 
-    /// Waits for `element`, scrolls the reset-credits card into view, and settles.
+    /// Scrolls the reset-credits card into view and settles. The dashboard is a LazyVStack,
+    /// so an offscreen card is absent from the accessibility tree until the scroll realizes
+    /// it; the scroll therefore comes first and treats "does not exist" as "not yet visible".
     private func showResetCard(in app: XCUIApplication, expecting element: XCUIElement) -> Bool {
-        guard element.waitForExistence(timeout: 5) else { return false }
         UITestSupport.scrollDashboard(untilVisible: element, in: app)
+        guard element.waitForExistence(timeout: 5) else { return false }
         UITestSupport.settle(0.8)
         return true
     }

@@ -65,8 +65,8 @@ cleanup() {
 trap cleanup EXIT
 
 # The time allowance caps a stuck tour (the whole tour, including the
-# scheduled-reset leg, normally takes about five minutes) so the job budget is
-# never spent on a hung accessibility query.
+# scheduled-reset leg, normally takes six to eight minutes on a shared runner)
+# so the job budget is never spent on a hung accessibility query.
 xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -destination "platform=iOS Simulator,id=$UDID" \
   -derivedDataPath "$DERIVED_DATA" \
@@ -74,8 +74,8 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
   -parallel-testing-enabled NO \
   -only-testing:CodexMeterUITests/DemoGalleryTests \
   -test-timeouts-enabled YES \
-  -default-test-execution-time-allowance 720 \
-  -maximum-test-execution-time-allowance 720 \
+  -default-test-execution-time-allowance 900 \
+  -maximum-test-execution-time-allowance 900 \
   test &
 XCODEBUILD_PID=$!
 
