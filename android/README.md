@@ -25,7 +25,7 @@ From this `android/` directory (or via the repo-root wrappers):
 ./build.sh
 ```
 
-Requirements: JDK 17+, Android SDK Platform 36, Build Tools 36.x, and
+Requirements: JDK 17+, Android SDK Platforms 37.1 and 37.0, Build Tools 36.x, and
 `ANDROID_SDK_ROOT` / `ANDROID_HOME`. `vendor/m2` covers SESL deps offline;
 optional `GH_USERNAME` / `GH_ACCESS_TOKEN` refresh GitHub Packages.
 

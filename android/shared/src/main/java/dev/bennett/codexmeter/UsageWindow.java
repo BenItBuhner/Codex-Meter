@@ -23,11 +23,12 @@ public final class UsageWindow {
     }
 
     /**
-     * Full windows keep drifting the reset clock without real consumption.
-     * Hide countdown/reset labels until remaining drops to 99% or less.
+     * Whether OpenAI reported a reset timeline for this window.
+     * Unused windows with no {@code reset_at} / {@code reset_after_seconds} stay blank.
+     * A 100% remaining window that still includes a timeline is shown as-is.
      */
     public boolean showsResetCountdown() {
-        return remainingPercent() <= 99;
+        return resetAtEpochSeconds > 0L || resetAfterSeconds > 0L;
     }
 
     public long resetAtMillis() {

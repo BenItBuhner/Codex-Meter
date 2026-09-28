@@ -3,14 +3,14 @@
   "component": {
     "group": "io.github.tribalfs",
     "module": "oneui-design",
-    "version": "0.9.14+oneui8",
+    "version": "0.9.20+oneui8",
     "attributes": {
       "org.gradle.status": "release"
     }
   },
   "createdBy": {
     "gradle": {
-      "version": "8.14.3"
+      "version": "9.7.1"
     }
   },
   "variants": [
@@ -27,7 +27,7 @@
           "group": "sesl.androidx.appcompat",
           "module": "appcompat",
           "version": {
-            "requires": "1.7.1+1.0.21-sesl8+rev8"
+            "requires": "1.8.0+1.0.21-sesl8+rev2"
           },
           "excludes": [
             {
@@ -37,6 +37,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -104,6 +108,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -167,6 +175,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -234,6 +246,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -297,6 +313,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -364,6 +384,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -427,6 +451,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -494,6 +522,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -557,6 +589,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -624,6 +660,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -689,6 +729,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -742,7 +786,7 @@
           "group": "sesl.androidx.core",
           "module": "core",
           "version": {
-            "requires": "1.17.0+1.0.7-sesl8+rev1"
+            "requires": "1.19.0+1.0.7-sesl8+rev1"
           },
           "excludes": [
             {
@@ -752,6 +796,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -807,7 +855,7 @@
           "group": "sesl.androidx.core",
           "module": "core-ktx",
           "version": {
-            "requires": "1.17.0+1.0.0-sesl8+rev0"
+            "requires": "1.19.0+1.0.0-sesl8+rev0"
           },
           "excludes": [
             {
@@ -817,6 +865,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -872,7 +924,7 @@
           "group": "sesl.androidx.fragment",
           "module": "fragment",
           "version": {
-            "requires": "1.8.9+1.0.5-sesl8+rev1"
+            "requires": "1.9.0+1.0.5-sesl8+rev1"
           },
           "excludes": [
             {
@@ -882,6 +934,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -949,6 +1005,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -1012,6 +1072,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1079,6 +1143,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -1132,7 +1200,7 @@
           "group": "androidx.annotation",
           "module": "annotation",
           "version": {
-            "requires": "1.9.1"
+            "requires": "1.10.0"
           },
           "excludes": [
             {
@@ -1142,6 +1210,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1197,7 +1269,7 @@
           "group": "androidx.navigation",
           "module": "navigation-runtime-ktx",
           "version": {
-            "requires": "2.9.5"
+            "requires": "2.10.0"
           },
           "excludes": [
             {
@@ -1207,6 +1279,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1262,7 +1338,7 @@
           "group": "androidx.navigation",
           "module": "navigation-fragment-ktx",
           "version": {
-            "requires": "2.9.5"
+            "requires": "2.10.0"
           },
           "excludes": [
             {
@@ -1272,6 +1348,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1327,7 +1407,7 @@
           "group": "androidx.navigation",
           "module": "navigation-ui-ktx",
           "version": {
-            "requires": "2.9.5"
+            "requires": "2.10.0"
           },
           "excludes": [
             {
@@ -1337,6 +1417,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1404,6 +1488,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -1469,6 +1557,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -1522,7 +1614,7 @@
           "group": "androidx.camera",
           "module": "camera-camera2",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -1532,6 +1624,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1587,7 +1683,7 @@
           "group": "androidx.camera",
           "module": "camera-core",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -1597,6 +1693,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1652,7 +1752,7 @@
           "group": "androidx.camera",
           "module": "camera-lifecycle",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -1662,6 +1762,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1717,7 +1821,7 @@
           "group": "androidx.camera",
           "module": "camera-view",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -1727,6 +1831,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1782,7 +1890,7 @@
           "group": "org.jetbrains.kotlin",
           "module": "kotlin-stdlib",
           "version": {
-            "requires": "2.2.20"
+            "requires": "2.4.10"
           },
           "excludes": [
             {
@@ -1792,6 +1900,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1846,13 +1958,13 @@
       ],
       "files": [
         {
-          "name": "oneui-design-0.9.14+oneui8.aar",
-          "url": "oneui-design-0.9.14+oneui8.aar",
-          "size": 1764998,
-          "sha512": "e2f58bcb9a925833a037c0727a865c0ef210064e78ae7050fa73035b2bc9c6b8aac462bdede8454826bf40aa9f48d26b8d80995a3336c8555577340ce6f7ff1f",
-          "sha256": "c8937f1aede8c8ccf1b9652db3f42e61a65d5aebeaf6ca6001d238e01f8c697a",
-          "sha1": "7231cfaedc18ec399e0da2ff0dc0f75de5df5bac",
-          "md5": "d1b45504a133ff5096da7274d9df55c4"
+          "name": "oneui-design-0.9.20+oneui8.aar",
+          "url": "oneui-design-0.9.20+oneui8.aar",
+          "size": 1783019,
+          "sha512": "7d7f4f799e20e6837ce37f5df55e1be5d5a80425671182d830147194b8f09fa30b8b91e2c11a812f4ccf5515f09e6ed4095977cb3a49adae147f7549e0f14495",
+          "sha256": "1f8a6d312875324512fcccb0d1de976f414861d3cf918b0d2c68e0949d9397f2",
+          "sha1": "796357270a1921a6d0743c6d0b917d54067841e8",
+          "md5": "33b265253064f3e9023ec11d034b796a"
         }
       ]
     },
@@ -1869,7 +1981,7 @@
           "group": "org.jetbrains.kotlin",
           "module": "kotlin-parcelize-runtime",
           "version": {
-            "requires": "2.2.20"
+            "requires": "2.4.10"
           },
           "excludes": [
             {
@@ -1879,6 +1991,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1934,7 +2050,7 @@
           "group": "com.google.zxing",
           "module": "core",
           "version": {
-            "requires": "3.5.3"
+            "requires": "3.5.4"
           },
           "excludes": [
             {
@@ -1944,6 +2060,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -1999,7 +2119,7 @@
           "group": "com.airbnb.android",
           "module": "lottie",
           "version": {
-            "requires": "6.6.2"
+            "requires": "6.7.1"
           },
           "excludes": [
             {
@@ -2009,6 +2129,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2076,6 +2200,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -2129,7 +2257,7 @@
           "group": "androidx.datastore",
           "module": "datastore-preferences-core",
           "version": {
-            "requires": "1.1.7"
+            "requires": "1.2.1"
           },
           "excludes": [
             {
@@ -2139,6 +2267,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2206,6 +2338,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -2259,7 +2395,7 @@
           "group": "androidx.activity",
           "module": "activity-ktx",
           "version": {
-            "requires": "1.11.0"
+            "requires": "1.13.0"
           },
           "excludes": [
             {
@@ -2269,6 +2405,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2324,7 +2464,7 @@
           "group": "sesl.androidx.appcompat",
           "module": "appcompat",
           "version": {
-            "requires": "1.7.1+1.0.21-sesl8+rev8"
+            "requires": "1.8.0+1.0.21-sesl8+rev2"
           },
           "excludes": [
             {
@@ -2334,6 +2474,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2401,6 +2545,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -2464,6 +2612,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2531,6 +2683,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -2594,6 +2750,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2661,6 +2821,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -2724,6 +2888,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2791,6 +2959,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -2854,6 +3026,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -2921,6 +3097,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -2986,6 +3166,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -3039,7 +3223,7 @@
           "group": "sesl.androidx.core",
           "module": "core",
           "version": {
-            "requires": "1.17.0+1.0.7-sesl8+rev1"
+            "requires": "1.19.0+1.0.7-sesl8+rev1"
           },
           "excludes": [
             {
@@ -3049,6 +3233,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3104,7 +3292,7 @@
           "group": "sesl.androidx.core",
           "module": "core-ktx",
           "version": {
-            "requires": "1.17.0+1.0.0-sesl8+rev0"
+            "requires": "1.19.0+1.0.0-sesl8+rev0"
           },
           "excludes": [
             {
@@ -3114,6 +3302,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3169,7 +3361,7 @@
           "group": "sesl.androidx.fragment",
           "module": "fragment",
           "version": {
-            "requires": "1.8.9+1.0.5-sesl8+rev1"
+            "requires": "1.9.0+1.0.5-sesl8+rev1"
           },
           "excludes": [
             {
@@ -3179,6 +3371,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3246,6 +3442,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -3309,6 +3509,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3376,6 +3580,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -3429,7 +3637,7 @@
           "group": "androidx.annotation",
           "module": "annotation",
           "version": {
-            "requires": "1.9.1"
+            "requires": "1.10.0"
           },
           "excludes": [
             {
@@ -3439,6 +3647,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3494,7 +3706,7 @@
           "group": "androidx.navigation",
           "module": "navigation-runtime-ktx",
           "version": {
-            "requires": "2.9.5"
+            "requires": "2.10.0"
           },
           "excludes": [
             {
@@ -3504,6 +3716,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3559,7 +3775,7 @@
           "group": "androidx.navigation",
           "module": "navigation-fragment-ktx",
           "version": {
-            "requires": "2.9.5"
+            "requires": "2.10.0"
           },
           "excludes": [
             {
@@ -3569,6 +3785,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3624,7 +3844,7 @@
           "group": "androidx.navigation",
           "module": "navigation-ui-ktx",
           "version": {
-            "requires": "2.9.5"
+            "requires": "2.10.0"
           },
           "excludes": [
             {
@@ -3634,6 +3854,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3701,6 +3925,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -3766,6 +3994,10 @@
               "module": "core-ktx"
             },
             {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
+            },
+            {
               "group": "androidx.customview",
               "module": "customview"
             },
@@ -3819,7 +4051,7 @@
           "group": "androidx.camera",
           "module": "camera-camera2",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -3829,6 +4061,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3884,7 +4120,7 @@
           "group": "androidx.camera",
           "module": "camera-core",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -3894,6 +4130,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -3949,7 +4189,7 @@
           "group": "androidx.camera",
           "module": "camera-lifecycle",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -3959,6 +4199,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -4014,7 +4258,7 @@
           "group": "androidx.camera",
           "module": "camera-view",
           "version": {
-            "requires": "1.5.3"
+            "requires": "1.6.2"
           },
           "excludes": [
             {
@@ -4024,6 +4268,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -4079,7 +4327,7 @@
           "group": "org.jetbrains.kotlin",
           "module": "kotlin-stdlib",
           "version": {
-            "requires": "2.2.20"
+            "requires": "2.4.10"
           },
           "excludes": [
             {
@@ -4089,6 +4337,10 @@
             {
               "group": "androidx.core",
               "module": "core-ktx"
+            },
+            {
+              "group": "androidx.fragment",
+              "module": "fragment-ktx"
             },
             {
               "group": "androidx.customview",
@@ -4143,13 +4395,13 @@
       ],
       "files": [
         {
-          "name": "oneui-design-0.9.14+oneui8.aar",
-          "url": "oneui-design-0.9.14+oneui8.aar",
-          "size": 1764998,
-          "sha512": "e2f58bcb9a925833a037c0727a865c0ef210064e78ae7050fa73035b2bc9c6b8aac462bdede8454826bf40aa9f48d26b8d80995a3336c8555577340ce6f7ff1f",
-          "sha256": "c8937f1aede8c8ccf1b9652db3f42e61a65d5aebeaf6ca6001d238e01f8c697a",
-          "sha1": "7231cfaedc18ec399e0da2ff0dc0f75de5df5bac",
-          "md5": "d1b45504a133ff5096da7274d9df55c4"
+          "name": "oneui-design-0.9.20+oneui8.aar",
+          "url": "oneui-design-0.9.20+oneui8.aar",
+          "size": 1783019,
+          "sha512": "7d7f4f799e20e6837ce37f5df55e1be5d5a80425671182d830147194b8f09fa30b8b91e2c11a812f4ccf5515f09e6ed4095977cb3a49adae147f7549e0f14495",
+          "sha256": "1f8a6d312875324512fcccb0d1de976f414861d3cf918b0d2c68e0949d9397f2",
+          "sha1": "796357270a1921a6d0743c6d0b917d54067841e8",
+          "md5": "33b265253064f3e9023ec11d034b796a"
         }
       ]
     },
@@ -4163,13 +4415,13 @@
       },
       "files": [
         {
-          "name": "oneui-design-0.9.14+oneui8-sources.jar",
-          "url": "oneui-design-0.9.14+oneui8-sources.jar",
-          "size": 333487,
-          "sha512": "15c8c355ef8cfdfc8aafac2e3c346e0f330bdb70105579b253895331b33eb4447004bfa2e669473d65bbe7e5e6290a05b4cbe0bf776e14d13443e51ce152551c",
-          "sha256": "5d31834f8dabe84c9f480f6fd7077a22b4f4e92dbb79cf2e4f96c86aad9ac383",
-          "sha1": "1c444eb8d24236d50036772f00903009dff572d6",
-          "md5": "5f780f7ae4b5d5a3e86fd7d4a1c3cbd1"
+          "name": "oneui-design-0.9.20+oneui8-sources.jar",
+          "url": "oneui-design-0.9.20+oneui8-sources.jar",
+          "size": 334807,
+          "sha512": "acb121f65ae797905460058cf54b21c5ad1c58e1f858a37b2f0b192ebae6ccafc223040561aa9d3b1253e9c56fd9c31149b0cddea67e3ddccfa288ec6d37ec96",
+          "sha256": "0a8961c9e654e396bcec23d2107aa6b2a14044cfec7ab8bfdd72c3bd53c0aecb",
+          "sha1": "d51018f39b52b8963009498c464724b7b5d07eb2",
+          "md5": "e175a56c721972b29c5397c7fe027d82"
         }
       ]
     },
@@ -4183,13 +4435,13 @@
       },
       "files": [
         {
-          "name": "oneui-design-0.9.14+oneui8-javadoc.jar",
-          "url": "oneui-design-0.9.14+oneui8-javadoc.jar",
-          "size": 1875787,
-          "sha512": "0db95aa93fe711112af9b05000d21c9156e61404ea289af198619901b2607c0c8dd5add0370a9dd3ff21b024aac7b070b9a3765cc6e5dccc375c04aa192441d4",
-          "sha256": "c212ea2c370ccce9249b9949379512fab5398ae96f9ba30a03927efa2f105828",
-          "sha1": "ff487f0538fa4707023ed048b183ff4aa33f450b",
-          "md5": "5dff7255297859371ac3e88aa9861aed"
+          "name": "oneui-design-0.9.20+oneui8-javadoc.jar",
+          "url": "oneui-design-0.9.20+oneui8-javadoc.jar",
+          "size": 1669872,
+          "sha512": "c0e99a7c7a7329ab63b5a4ade07c52448e54e76618329a0ed1b8a1bc2aa0055e3f5a946085d8772011e3ee8d52cf939cb21691fe70db2d1f7eb82b3e80ee70f4",
+          "sha256": "7055ffa20e9e6358148cd3380e82493c1194c55d979351070ecfcd1264daa50d",
+          "sha1": "02a2a427790d66edd43e47b01390e52033cc7d51",
+          "md5": "91576646702a51f4185e4245f4558cc7"
         }
       ]
     }
