@@ -1,5 +1,6 @@
 import Foundation
 
+/// Pure, low-cost policy for selecting the next automatic usage refresh.
 public enum AdaptiveRefreshPolicy {
     private static let intervals = [5, 10, 15, 30, 60, 120]
 
@@ -8,9 +9,10 @@ public enum AdaptiveRefreshPolicy {
         attentionScore: Double,
         localHour: Int,
         consecutiveFailures: Int,
+        scheduledReset: ScheduledResetTrigger? = nil,
         now: Date = Date()
     ) -> Int {
-        let windows = [snapshot?.fiveHour, snapshot?.weekly]
+        let windows = [snapshot?.fiveHour, snapshot?.weekly, snapshot?.monthly]
             .compactMap { $0 }
             .filter {
                 guard let reset = $0.effectiveResetDate(relativeTo: snapshot?.fetchedAt ?? now) else {
@@ -52,6 +54,17 @@ public enum AdaptiveRefreshPolicy {
             minutes = min(minutes, 10)
         }
 
+        if UsagePace.mostAcceleratedWindow(in: snapshot, now: now) != nil {
+            minutes = min(minutes, 10)
+        }
+
+        let scheduledCap = scheduledReset.flatMap {
+            ScheduledResetPolicy.refreshMinutesCap(for: $0, usage: snapshot, now: now)
+        }
+        if let scheduledCap {
+            minutes = min(minutes, scheduledCap)
+        }
+
         let attention = max(0, attentionScore.isFinite ? attentionScore : 0)
         switch attention {
         case 6...:
@@ -67,6 +80,7 @@ public enum AdaptiveRefreshPolicy {
         }
 
         let urgent = limited || (remaining ?? 101) <= 25 || untilReset <= 60 * 60
+            || scheduledCap != nil
         let hour = min(23, max(0, localHour))
         if !urgent, attention < 0.5, (1..<6).contains(hour) {
             minutes = max(minutes, 120)

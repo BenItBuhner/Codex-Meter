@@ -18,7 +18,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        let content = notification.request.content
+        if content.categoryIdentifier == NotificationDeduplication.scheduledResetCategoryIdentifier {
+            // The app is in front when the schedule comes due: run it now and let the
+            // in-app state carry the result instead of asking the user to tap a banner.
+            Task { @MainActor in
+                await ScheduledResetDispatcher.runIfDue(source: "due-foreground")
+            }
+            return []
+        }
+        return [.banner, .list, .sound]
     }
 
     func userNotificationCenter(
@@ -28,6 +37,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let content = response.notification.request.content
         if let token = content.userInfo["token"] as? String {
             await NotificationCoordinator().markCreditExpiryAnnounced(token: token)
+        }
+
+        if response.actionIdentifier == NotificationDeduplication.runScheduledResetActionIdentifier {
+            // A background action: no scene opens, so the reset runs to completion here.
+            await ScheduledResetDispatcher.runIfDue(source: "notification-action")
+            return
         }
 
         let route: String?

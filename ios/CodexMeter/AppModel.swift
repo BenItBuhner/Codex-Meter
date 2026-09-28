@@ -32,7 +32,7 @@ extension AlertMetric {
         switch self {
         case .both: "Both"
         case .fiveHour: "5-hour"
-        case .weekly: "Weekly"
+        case .weekly: "Weekly / Monthly"
         }
     }
 }
@@ -57,6 +57,9 @@ final class AppModel {
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
     var credits: ResetCreditsSnapshot?
+    var fiveHourHistory: UsageHistory = .empty(.fiveHour)
+    var weeklyHistory: UsageHistory = .empty(.weekly)
+    var monthlyHistory: UsageHistory = .empty(.monthly)
     var settings: AppSettings
     var accountEmail = ""
     var accountPlan = ""
@@ -72,15 +75,22 @@ final class AppModel {
     var isRedeemingReset = false
     var isShowingSettings = false
     var isShowingReset = false
+    var isShowingScheduledReset = false
     var isShowingSignIn = false
+    var diagnosticsUnlocked = false
+    var scheduledReset: ScheduledReset?
+    var scheduledResetOutcome: ScheduledResetOutcome?
 
     private let liveService: LiveCodexService
     private var demoService: DemoCodexService
     private let cache: AppCacheStore
     private let settingsStore: AppSettingsStore
     private let notificationCoordinator: NotificationCoordinator
+    private let usageHistoryStore: UsageHistoryStore
     private let refreshEngagementStore: RefreshEngagementStore
+    private let scheduledResetStore: ScheduledResetStore
     private let defaults: UserDefaults
+    private var isRunningScheduledReset = false
     private var hasStarted = false
     private var hasFinishedStartup = false
     private var pendingRoute: String?
@@ -104,8 +114,11 @@ final class AppModel {
         cache: AppCacheStore = .shared,
         settingsStore: AppSettingsStore = AppSettingsStore(),
         notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
+        usageHistoryStore: UsageHistoryStore = .shared,
         defaults: UserDefaults = .standard,
         refreshEngagementStore: RefreshEngagementStore? = nil,
+        scheduledResetStore: ScheduledResetStore? = nil,
+        registersBackgroundRefresh: Bool = true,
         preview: Bool = false
     ) {
         self.liveService = liveService
@@ -113,11 +126,19 @@ final class AppModel {
         self.cache = cache
         self.settingsStore = settingsStore
         self.notificationCoordinator = notificationCoordinator
+        self.usageHistoryStore = usageHistoryStore
         self.defaults = defaults
         self.refreshEngagementStore = refreshEngagementStore
             ?? RefreshEngagementStore(defaults: defaults)
+        self.scheduledResetStore = scheduledResetStore ?? ScheduledResetStore(defaults: defaults)
         self.settings = settingsStore.settings
         self.isPreview = preview
+        self.diagnosticsUnlocked = DiagnosticLog.isUnlocked(defaults: defaults)
+        if !preview {
+            self.scheduledReset = self.scheduledResetStore.schedule
+            self.scheduledResetOutcome = self.scheduledResetStore.outcome
+            ScheduledResetDispatcher.model = self
+        }
 
         if preview {
             let now = Date()
@@ -174,7 +195,7 @@ final class AppModel {
                 ],
                 fetchedAt: now
             )
-        } else {
+        } else if registersBackgroundRefresh {
             _ = backgroundRefreshCoordinator.register()
         }
     }
@@ -184,6 +205,11 @@ final class AppModel {
     func startIfNeeded() async {
         guard !hasStarted, !isPreview else { return }
         hasStarted = true
+        apply(history: await usageHistoryStore.load())
+        DiagnosticLog.info("process", "started", details: [
+            "mode": mode.rawValue,
+            "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        ])
         defer {
             hasFinishedStartup = true
             applyPendingRouteIfNeeded()
@@ -193,6 +219,21 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") {
             settingsStore.reset()
             settings = settingsStore.settings
+            try? await usageHistoryStore.clear()
+            apply(history: .empty)
+            scheduledResetStore.clear()
+            scheduledReset = nil
+            scheduledResetOutcome = nil
+            await notificationCoordinator.clearScheduledReset()
+        }
+
+        // "-ui-testing-demo-burn-step N" makes each demo refresh add N% of 5-hour usage
+        // instead of 1%, so the gallery tour can cross an armed threshold in a few taps.
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-ui-testing-demo-burn-step"),
+           arguments.indices.contains(index + 1),
+           let step = Int(arguments[index + 1]) {
+            await demoService.setFiveHourStep(step)
         }
 
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-signed-out") {
@@ -235,6 +276,8 @@ final class AppModel {
             }
         } else {
             await liveService.signOut()
+            try? await usageHistoryStore.clear()
+            apply(history: .empty)
             mode = .signedOut
             defaults.set(AppMode.signedOut.rawValue, forKey: Self.modeDefaultsKey)
         }
@@ -255,15 +298,22 @@ final class AppModel {
         isRefreshing = true
         visibleError = nil
         defer { isRefreshing = false }
+        DiagnosticLog.info("refresh", "started", details: ["mode": mode.rawValue])
 
         do {
             let snapshot = try await activeService.refresh()
             refreshEngagementStore.recordRefreshSuccess()
+            DiagnosticLog.info("refresh", "finished", details: [
+                "plan": snapshot.usage.planType,
+                "has_monthly": snapshot.usage.monthly != nil ? "true" : "false",
+                "has_weekly": snapshot.usage.weekly != nil ? "true" : "false"
+            ])
             await apply(refresh: snapshot)
         } catch is CancellationError {
             return
         } catch {
             refreshEngagementStore.recordRefreshFailure()
+            DiagnosticLog.error("refresh", "failed", error: error)
             visibleError = error.localizedDescription
             if let cached = try? await cache.load() {
                 apply(cache: cached, preservingVisibleError: true)
@@ -275,6 +325,7 @@ final class AppModel {
     func enterDemo() async {
         mode = .demo
         defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
+        DiagnosticLog.info("process", "enter_demo")
         visibleError = nil
         accountEmail = "demo@local"
         accountPlan = "Plus (Demo)"
@@ -284,16 +335,23 @@ final class AppModel {
     func leaveDemo() async {
         await demoService.signOut()
         await notificationCoordinator.clearAll()
+        await notificationCoordinator.clearScheduledReset()
         backgroundRefreshCoordinator.cancel()
+        try? await usageHistoryStore.clear()
+        apply(history: .empty)
         clearSessionState()
     }
 
     func signOut() async {
         signInTask?.cancel()
         signInTask = nil
+        DiagnosticLog.info("process", "sign_out")
         await activeService.signOut()
         await notificationCoordinator.clearAll()
+        await notificationCoordinator.clearScheduledReset()
         backgroundRefreshCoordinator.cancel()
+        try? await usageHistoryStore.clear()
+        apply(history: .empty)
         clearSessionState()
     }
 
@@ -305,7 +363,9 @@ final class AppModel {
 
         do {
             authChallenge = try await liveService.deviceCodeAuth.requestChallenge()
+            DiagnosticLog.info("oauth", "challenge_started")
         } catch {
+            DiagnosticLog.error("oauth", "challenge_failed", error: error)
             authenticationError = error.localizedDescription
         }
     }
@@ -325,11 +385,13 @@ final class AppModel {
                 authChallenge = nil
                 isAuthenticating = false
                 signInTask = nil
+                DiagnosticLog.info("oauth", "signed_in")
                 await refresh()
             } catch is CancellationError {
                 isAuthenticating = false
                 signInTask = nil
             } catch {
+                DiagnosticLog.error("oauth", "sign_in_failed", error: error)
                 authenticationError = error.localizedDescription
                 authChallenge = nil
                 isAuthenticating = false
@@ -351,50 +413,60 @@ final class AppModel {
 
     func consumeResetCredit() async {
         guard mode != .signedOut, !isRedeemingReset else { return }
-        let priorUsage = usage
-        let priorFetchedAt = usage?.fetchedAt
-        let wasUsingCachedData = isUsingCachedData
         isRedeemingReset = true
         resetResultMessage = nil
         defer { isRedeemingReset = false }
 
         do {
-            let result = try await activeService.consumeReset()
+            let result = try await performResetConsume()
             resetResultMessage = result.userMessage
             resetResultIsSuccess = result.applied
-            if result.applied, let priorUsage {
-                await notificationCoordinator.markUserReset(usage: priorUsage)
-            }
-            if let cached = try? await cache.load() {
-                apply(cache: cached)
-                if result.applied {
-                    let advanced: Bool
-                    if let refreshedAt = cached.usage?.fetchedAt {
-                        advanced = priorFetchedAt.map { refreshedAt > $0 } ?? true
-                    } else {
-                        advanced = false
-                    }
-                    isUsingCachedData = result.refreshWarning != nil || !advanced
-                } else {
-                    isUsingCachedData = wasUsingCachedData
-                }
-                if let refreshWarning = result.refreshWarning {
-                    visibleError = refreshWarning
-                }
-                if let usage, let credits {
-                    await notificationCoordinator.process(
-                        usage: usage,
-                        previousUsage: priorUsage,
-                        credits: credits,
-                        settings: settings
-                    )
-                }
-            }
         } catch {
             visibleError = error.localizedDescription
             resetResultMessage = error.localizedDescription
             resetResultIsSuccess = false
         }
+    }
+
+    /// The one consume path, shared by the manual button and a scheduled reset: asks the
+    /// service, then reloads the snapshot it wrote alongside the redemption.
+    private func performResetConsume() async throws -> ResetConsumeResult {
+        let priorUsage = usage
+        let priorFetchedAt = usage?.fetchedAt
+        let wasUsingCachedData = isUsingCachedData
+        let result = try await activeService.consumeReset()
+        if result.applied, let priorUsage {
+            await notificationCoordinator.markUserReset(usage: priorUsage)
+        }
+        if let cached = try? await cache.load() {
+            apply(cache: cached)
+            if result.applied, let refreshedUsage = cached.usage {
+                await recordUsageHistory(refreshedUsage)
+            }
+            if result.applied {
+                let advanced: Bool
+                if let refreshedAt = cached.usage?.fetchedAt {
+                    advanced = priorFetchedAt.map { refreshedAt > $0 } ?? true
+                } else {
+                    advanced = false
+                }
+                isUsingCachedData = result.refreshWarning != nil || !advanced
+            } else {
+                isUsingCachedData = wasUsingCachedData
+            }
+            if let refreshWarning = result.refreshWarning {
+                visibleError = refreshWarning
+            }
+            if let usage, let credits {
+                await notificationCoordinator.process(
+                    usage: usage,
+                    previousUsage: priorUsage,
+                    credits: credits,
+                    settings: settings
+                )
+            }
+        }
+        return result
     }
 
     func notificationsChanged(enabled: Bool) async {
@@ -479,6 +551,7 @@ final class AppModel {
         case "dashboard":
             isShowingSettings = false
             isShowingReset = false
+            isShowingScheduledReset = false
             isShowingSignIn = false
         case "refresh":
             isShowingSettings = false
@@ -496,6 +569,12 @@ final class AppModel {
             isShowingReset = false
             isShowingSignIn = false
             isShowingSettings = true
+        case NotificationDeduplication.scheduledResetRoute:
+            isShowingSettings = false
+            isShowingSignIn = false
+            isShowingScheduledReset = false
+            isShowingReset = mode != .signedOut
+            Task { await runScheduledResetIfDue(source: "notification") }
         default:
             break
         }
@@ -514,15 +593,26 @@ final class AppModel {
             await startIfNeeded()
             return
         }
-        guard mode != .signedOut, settings.refreshOnLaunch else { return }
-        if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
+        guard mode != .signedOut else { return }
+        if settings.refreshOnLaunch,
+           usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
             await refresh()
         }
+        await runScheduledResetIfDue(source: "foreground")
     }
 
     func sceneBecameInactive() {
         refreshEngagementStore.recordBackground()
         scheduleBackgroundRefresh()
+    }
+
+    func clearUsageHistory() async {
+        do {
+            try await usageHistoryStore.clear()
+            apply(history: .empty)
+        } catch {
+            visibleError = "Local usage history could not be cleared."
+        }
     }
 
     private var activeService: any CodexService {
@@ -536,12 +626,13 @@ final class AppModel {
         accountPlan = UsageFormat.planLabel(refresh.usage.planType)
         visibleError = nil
         isUsingCachedData = false
+        await recordUsageHistory(refresh.usage)
 
         if mode == .live, let tokens = try? await liveService.currentTokens() {
             apply(tokens: tokens)
         }
         if let cached = try? await cache.load() {
-            visibleError = cached.resetCreditsError ?? cached.widgetError
+            visibleError = cached.resetCreditsError
         }
         await notificationCoordinator.process(
             usage: refresh.usage,
@@ -550,6 +641,7 @@ final class AppModel {
             settings: settings
         )
         scheduleBackgroundRefresh()
+        await runScheduledResetIfDue(source: "refresh")
     }
 
     private func apply(
@@ -567,7 +659,7 @@ final class AppModel {
                   snapshot.usage?.isStale(at: .now, maxAge: 15 * 60) == true {
             visibleError = error
         } else {
-            visibleError = snapshot.resetCreditsError ?? snapshot.widgetError
+            visibleError = snapshot.resetCreditsError
         }
     }
 
@@ -592,6 +684,10 @@ final class AppModel {
         resetResultIsSuccess = nil
         isUsingCachedData = false
         isShowingReset = false
+        isShowingScheduledReset = false
+        scheduledReset = nil
+        scheduledResetOutcome = nil
+        scheduledResetStore.clear()
     }
 
     private func scheduleBackgroundRefresh() {
@@ -602,8 +698,18 @@ final class AppModel {
         let now = Date()
         try? backgroundRefreshCoordinator.schedule(
             preferredMinutes: effectiveRefreshMinutes(at: now),
-            nextReset: usage?.nextReset(after: .now)
+            nextReset: earliestWakeDate(after: now)
         )
+    }
+
+    /// The next moment worth a background wake: a window reset or an armed date/time
+    /// schedule, whichever comes first.
+    private func earliestWakeDate(after date: Date, usage: UsageSnapshot? = nil) -> Date? {
+        let candidates = [
+            (usage ?? self.usage)?.nextReset(after: date),
+            scheduledReset.flatMap { ScheduledResetPolicy.earliestCheck(for: $0.trigger, now: date) }
+        ]
+        return candidates.compactMap { $0 }.min()
     }
 
     private func effectiveRefreshMinutes(at date: Date) -> Int {
@@ -615,8 +721,25 @@ final class AppModel {
             attentionScore: refreshEngagementStore.attentionScore(at: date),
             localHour: Calendar.current.component(.hour, from: date),
             consecutiveFailures: refreshEngagementStore.consecutiveFailures,
+            scheduledReset: scheduledReset?.trigger,
             now: date
         )
+    }
+
+    private func recordUsageHistory(_ usage: UsageSnapshot) async {
+        guard let snapshot = try? await usageHistoryStore.record(usage) else { return }
+        apply(history: snapshot)
+    }
+
+    private func apply(history: LocalUsageHistorySnapshot) {
+        fiveHourHistory = history.fiveHour
+        weeklyHistory = history.weekly
+        monthlyHistory = history.monthly
+    }
+
+    func unlockDiagnostics() {
+        diagnosticsUnlocked = true
+        DiagnosticLog.unlock(defaults: defaults)
     }
 
     private func applyNotificationSettings() async {
@@ -652,16 +775,227 @@ final class AppModel {
             let now = Date()
             return BackgroundRefreshOutcome(
                 preferredMinutes: effectiveRefreshMinutes(at: now),
-                nextReset: refreshed.usage.nextReset(after: now)
+                nextReset: earliestWakeDate(after: now, usage: refreshed.usage)
             )
         } catch {
             refreshEngagementStore.recordRefreshFailure()
             let now = Date()
             return BackgroundRefreshOutcome(
                 preferredMinutes: effectiveRefreshMinutes(at: now),
-                nextReset: usage?.nextReset(after: now),
+                nextReset: earliestWakeDate(after: now),
                 succeeded: false
             )
+        }
+    }
+}
+
+// MARK: - Scheduled reset
+
+/// Hands notification actions to the live model. A background action can wake the process
+/// before any scene connects, so the route cannot rely on the SwiftUI scene being alive.
+@MainActor
+enum ScheduledResetDispatcher {
+    static weak var model: AppModel?
+
+    static func runIfDue(source: String) async {
+        await model?.runScheduledResetIfDue(source: source)
+    }
+}
+
+extension AppModel {
+    var availableResetCredits: Int {
+        credits?.availableCount ?? usage?.resetCreditsAvailable ?? 0
+    }
+
+    /// What the current snapshot would decide right now; the arming sheet uses it to warn
+    /// that a schedule is already due and will run straight away.
+    func previewScheduledResetDecision(
+        _ trigger: ScheduledResetTrigger,
+        now: Date = .now
+    ) -> ScheduledResetDecision? {
+        guard let usage else { return nil }
+        return ScheduledResetPolicy.evaluate(
+            trigger,
+            usage: usage,
+            availableCredits: availableResetCredits,
+            now: now
+        )
+    }
+
+    func scheduledResetCreditsExpireBefore(_ trigger: ScheduledResetTrigger) -> Bool {
+        guard let fireAt = trigger.fireAt, let credits else { return false }
+        return ScheduledResetPolicy.creditsExpireBefore(fireAt: fireAt, credits: credits)
+    }
+
+    /// Replaces any existing schedule. Callers confirm with the user first.
+    func armScheduledReset(_ trigger: ScheduledResetTrigger) async {
+        guard mode != .signedOut else { return }
+        let schedule = ScheduledReset(trigger: trigger, createdAt: .now)
+        scheduledReset = schedule
+        scheduledResetOutcome = nil
+        scheduledResetStore.schedule = schedule
+        scheduledResetStore.outcome = nil
+        DiagnosticLog.info("scheduled_reset", "armed", details: [
+            "trigger": Self.diagnosticLabel(for: trigger)
+        ])
+        await notificationCoordinator.scheduleDueNotification(for: schedule)
+        scheduleBackgroundRefresh()
+        await runScheduledResetIfDue(source: "armed")
+    }
+
+    func cancelScheduledReset() async {
+        guard scheduledReset != nil else { return }
+        scheduledReset = nil
+        scheduledResetStore.schedule = nil
+        DiagnosticLog.info("scheduled_reset", "cancelled")
+        await notificationCoordinator.removeScheduledResetDueRequests()
+        scheduleBackgroundRefresh()
+    }
+
+    func dismissScheduledResetOutcome() {
+        scheduledResetOutcome = nil
+        scheduledResetStore.outcome = nil
+    }
+
+    /// Evaluates the armed schedule against the newest snapshot. Firing and skipping both
+    /// end the schedule, so neither is decided on a stale or cached snapshot: usage is
+    /// fetched again first and the fresh data is judged. The refresh this performs
+    /// re-enters here and returns at the running guard.
+    func runScheduledResetIfDue(source: String) async {
+        if !hasStarted {
+            await startIfNeeded()
+        }
+        guard scheduledReset != nil, mode != .signedOut, !isRunningScheduledReset else { return }
+        guard usage != nil else {
+            await refresh()
+            return
+        }
+        guard let schedule = scheduledReset, let snapshot = usage else { return }
+        isRunningScheduledReset = true
+        defer { isRunningScheduledReset = false }
+
+        let now = Date()
+        var decision = ScheduledResetPolicy.evaluate(
+            schedule.trigger,
+            usage: snapshot,
+            availableCredits: availableResetCredits,
+            now: now
+        )
+        if decision != .wait,
+           isUsingCachedData
+            || ScheduledResetPolicy.requiresFreshSnapshot(fetchedAt: snapshot.fetchedAt, now: now) {
+            do {
+                let fresh = try await activeService.refresh()
+                refreshEngagementStore.recordRefreshSuccess()
+                await apply(refresh: fresh)
+                decision = ScheduledResetPolicy.evaluate(
+                    schedule.trigger,
+                    usage: fresh.usage,
+                    availableCredits: fresh.credits.availableCount,
+                    now: Date()
+                )
+            } catch {
+                refreshEngagementStore.recordRefreshFailure()
+                await recordScheduledResetFailure(schedule, message: error.localizedDescription)
+                return
+            }
+        }
+
+        switch decision {
+        case .wait:
+            var checked = schedule
+            checked.lastCheckedAt = now
+            scheduledReset = checked
+            scheduledResetStore.schedule = checked
+        case let .skip(reason):
+            DiagnosticLog.info("scheduled_reset", "skipped", details: ["source": source])
+            await finishScheduledReset(schedule, kind: .skipped(reason))
+        case .fire:
+            let observed = observedRemainingPercent(for: schedule.trigger)
+            do {
+                let result = try await performResetConsume()
+                if result.applied {
+                    DiagnosticLog.info("scheduled_reset", "fired", details: [
+                        "source": source,
+                        "windows_reset": "\(result.windowsReset)"
+                    ])
+                    await finishScheduledReset(
+                        schedule,
+                        kind: .fired(creditsRemaining: availableResetCredits, windowsReset: result.windowsReset),
+                        observedRemainingPercent: observed
+                    )
+                } else {
+                    DiagnosticLog.info("scheduled_reset", "declined", details: [
+                        "source": source,
+                        "outcome": result.outcome.code
+                    ])
+                    await finishScheduledReset(
+                        schedule,
+                        kind: .skipped(.declined(message: result.userMessage)),
+                        observedRemainingPercent: observed
+                    )
+                }
+            } catch {
+                await recordScheduledResetFailure(schedule, message: error.localizedDescription)
+            }
+        }
+    }
+
+    private func observedRemainingPercent(for trigger: ScheduledResetTrigger) -> Int? {
+        guard case let .threshold(window, _) = trigger, let usage else { return nil }
+        return window.window(in: usage)?.remainingPercent
+    }
+
+    private func finishScheduledReset(
+        _ schedule: ScheduledReset,
+        kind: ScheduledResetOutcome.Kind,
+        observedRemainingPercent: Int? = nil
+    ) async {
+        let outcome = ScheduledResetOutcome(
+            trigger: schedule.trigger,
+            kind: kind,
+            observedRemainingPercent: observedRemainingPercent,
+            at: .now
+        )
+        scheduledReset = nil
+        scheduledResetOutcome = outcome
+        scheduledResetStore.schedule = nil
+        scheduledResetStore.outcome = outcome
+        await notificationCoordinator.removeScheduledResetDueRequests()
+        await notificationCoordinator.deliverScheduledResetOutcome(outcome)
+        scheduleBackgroundRefresh()
+    }
+
+    /// The request itself failed, so nothing was spent: keep the schedule armed for the
+    /// next refresh and tell the user once per failure streak.
+    private func recordScheduledResetFailure(_ schedule: ScheduledReset, message: String) async {
+        var failed = schedule
+        failed.failureCount += 1
+        failed.lastCheckedAt = .now
+        scheduledReset = failed
+        scheduledResetStore.schedule = failed
+        let outcome = ScheduledResetOutcome(
+            trigger: schedule.trigger,
+            kind: .failed(message: message),
+            at: .now
+        )
+        scheduledResetOutcome = outcome
+        scheduledResetStore.outcome = outcome
+        DiagnosticLog.error("scheduled_reset", "failed", details: [
+            "attempt": "\(failed.failureCount)"
+        ])
+        if failed.failureCount == 1 {
+            await notificationCoordinator.deliverScheduledResetOutcome(outcome)
+        }
+        scheduleBackgroundRefresh()
+    }
+
+    private static func diagnosticLabel(for trigger: ScheduledResetTrigger) -> String {
+        switch trigger {
+        case let .threshold(window, remainingPercent):
+            "threshold:\(window.rawValue):\(remainingPercent)"
+        case let .dateTime(fireAt, onlyIfRemainingAtMost):
+            "dateTime:\(Int(fireAt.timeIntervalSince1970)):\(onlyIfRemainingAtMost.map { "\($0)" } ?? "-")"
         }
     }
 }

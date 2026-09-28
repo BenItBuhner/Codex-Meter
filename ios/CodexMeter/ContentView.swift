@@ -20,6 +20,11 @@ struct ContentView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $model.isShowingScheduledReset) {
+            NavigationStack {
+                ScheduledResetView(presentation: .sheet)
+            }
+        }
         .sheet(isPresented: $model.isShowingSignIn) {
             NavigationStack {
                 SignInView()

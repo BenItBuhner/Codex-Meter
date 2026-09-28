@@ -10,6 +10,7 @@ public actor DemoCodexService: CodexService {
     private let widgetCache: WidgetSnapshotCache
     private var refreshCount = 0
     private var fiveHourUsed = 38
+    private var fiveHourStep = 1
     private var weeklyUsed = 64
     private var availableCredits = 2
 
@@ -26,10 +27,16 @@ public actor DemoCodexService: CodexService {
     public func refresh() async throws -> CodexRefreshSnapshot {
         refreshCount += 1
         if refreshCount > 1 {
-            fiveHourUsed = min(100, fiveHourUsed + 1)
+            fiveHourUsed = min(100, fiveHourUsed + fiveHourStep)
             weeklyUsed = min(100, weeklyUsed + (refreshCount.isMultiple(of: 2) ? 1 : 0))
         }
         return try await persistCurrentState()
+    }
+
+    /// How much 5-hour usage each refresh after the first adds. The UI-test tour raises
+    /// this so an armed threshold is crossed within a few taps.
+    public func setFiveHourStep(_ step: Int) {
+        fiveHourStep = min(100, max(1, step))
     }
 
     public func refreshUsage() async throws -> UsageSnapshot {
@@ -63,15 +70,8 @@ public actor DemoCodexService: CodexService {
         weeklyUsed = 64
         availableCredits = 2
         try? await appCache.clear()
-        do {
-            try await widgetCache.publishSignedOut()
-            WidgetCenter.shared.reloadAllTimelines()
-            await appCache.clearWidgetError(at: referenceDate)
-        } catch {
-            // publishSignedOut already best-effort clears any prior snapshot.
-            WidgetCenter.shared.reloadAllTimelines()
-            await appCache.recordWidgetError(error.localizedDescription, at: referenceDate)
-        }
+        try? await widgetCache.publishSignedOut()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func persistCurrentState() async throws -> CodexRefreshSnapshot {
@@ -119,18 +119,13 @@ public actor DemoCodexService: CodexService {
         try await appCache.save(
             AppCacheSnapshot(usage: usage, credits: credits, updatedAt: fetchedAt)
         )
-        do {
-            try await widgetCache.publish(
-                mode: .demo,
-                usage: usage,
-                credits: credits,
-                now: fetchedAt
-            )
-            WidgetCenter.shared.reloadAllTimelines()
-            await appCache.clearWidgetError(at: fetchedAt)
-        } catch {
-            await appCache.recordWidgetError(error.localizedDescription, at: fetchedAt)
-        }
+        try? await widgetCache.publish(
+            mode: .demo,
+            usage: usage,
+            credits: credits,
+            now: fetchedAt
+        )
+        WidgetCenter.shared.reloadAllTimelines()
         return (usage, credits)
     }
 
