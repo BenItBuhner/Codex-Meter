@@ -231,10 +231,4 @@ final class ScheduledResetFlowTests: XCTestCase {
             temporaryURLs: [cacheURL, widgetURL, historyURL]
         )
     }
-
-    /// The coordinator is an actor, so it gets its own handle on the suite, created off the
-    /// main actor: a value that has passed through main-actor code cannot be sent into it.
-    private nonisolated static func makeNotificationCoordinator(suiteName: String) -> NotificationCoordinator {
-        NotificationCoordinator(defaults: UserDefaults(suiteName: suiteName) ?? .standard)
-    }
 }
