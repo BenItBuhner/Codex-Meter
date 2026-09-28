@@ -54,7 +54,7 @@ The app includes:
 ## Compatibility
 
 - Phone minimum Android 8.0 (API 26); Wear companion minimum API 30
-- Phone compile SDK Android 16 (API 36); Wear compile SDK Android 17 (API 37.0)
+- Phone compile SDK Android 17 (API 37.1); Wear compile SDK Android 17 (API 37.0)
 - Phone and Wear target Android 16 (API 36)
 - Universal DEX APK with no native ABI libraries
 - Standard Android home-screen widgets
