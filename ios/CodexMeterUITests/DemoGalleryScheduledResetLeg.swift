@@ -90,7 +90,7 @@ extension DemoGalleryTests {
         capture("37-scheduled-reset-date-options")
         guard confirmSchedule(in: app, capturing: "38-scheduled-reset-date-confirm") else { return }
         let armedDateLine = app.staticTexts.matching(
-            NSPredicate(format: "label BEGINSWITH 'Scheduled · '")
+            NSPredicate(format: "label BEGINSWITH %@", "Scheduled · ")
         ).firstMatch
         guard showResetCard(in: app, expecting: armedDateLine) else {
             XCTFail("The dashboard card did not show the armed date and time schedule")
