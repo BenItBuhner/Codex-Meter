@@ -92,6 +92,8 @@ struct ResetCreditView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.large)
                 }
+
+                ScheduledResetCard(count: count)
             }
             .frame(maxWidth: 560)
             .padding(28)
@@ -113,5 +115,45 @@ struct ResetCreditView: View {
         } message: {
             Text("This action consumes one available reset credit and cannot be undone.")
         }
+    }
+}
+
+private struct ScheduledResetCard: View {
+    @Environment(AppModel.self) private var model
+    let count: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(ScheduledResetCopy.featureName)
+                .font(.headline.bold())
+
+            if model.scheduledReset != nil || model.scheduledResetOutcome != nil {
+                ScheduledResetStatusView()
+            } else {
+                Text("Use a credit automatically while you are away: when a limit gets low, or at a chosen date and time.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if model.scheduledReset != nil {
+                Button("Cancel schedule") {
+                    Task { await model.cancelScheduledReset() }
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("resetSheet.cancelSchedule")
+            } else {
+                NavigationLink {
+                    ScheduledResetView(presentation: .pushed)
+                } label: {
+                    Text(model.scheduledResetOutcome == nil ? "Schedule a reset" : "Schedule another reset")
+                }
+                .buttonStyle(.bordered)
+                .disabled(count == 0)
+                .accessibilityIdentifier("resetSheet.schedule")
+            }
+        }
+        .padding(AppChrome.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
     }
 }

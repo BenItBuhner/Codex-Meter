@@ -159,7 +159,7 @@ struct SettingsView: View {
             } header: {
                 Text("Data")
             } footer: {
-                Text("Usage samples stay on this device. Settings exports include dashboard order, visibility, and hidden model-specific sections, but never credentials or usage data.")
+                Text("Usage samples stay on this device. Settings exports include dashboard order, visibility, and hidden model-specific sections, but never credentials, usage data, or a scheduled reset.")
             }
 
             if model.diagnosticsUnlocked {

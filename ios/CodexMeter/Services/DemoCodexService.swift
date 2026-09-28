@@ -10,6 +10,7 @@ public actor DemoCodexService: CodexService {
     private let widgetCache: WidgetSnapshotCache
     private var refreshCount = 0
     private var fiveHourUsed = 38
+    private var fiveHourStep = 1
     private var weeklyUsed = 64
     private var availableCredits = 2
 
@@ -26,10 +27,16 @@ public actor DemoCodexService: CodexService {
     public func refresh() async throws -> CodexRefreshSnapshot {
         refreshCount += 1
         if refreshCount > 1 {
-            fiveHourUsed = min(100, fiveHourUsed + 1)
+            fiveHourUsed = min(100, fiveHourUsed + fiveHourStep)
             weeklyUsed = min(100, weeklyUsed + (refreshCount.isMultiple(of: 2) ? 1 : 0))
         }
         return try await persistCurrentState()
+    }
+
+    /// How much 5-hour usage each refresh after the first adds. The UI-test tour raises
+    /// this so an armed threshold is crossed within a few taps.
+    public func setFiveHourStep(_ step: Int) {
+        fiveHourStep = min(100, max(1, step))
     }
 
     public func refreshUsage() async throws -> UsageSnapshot {

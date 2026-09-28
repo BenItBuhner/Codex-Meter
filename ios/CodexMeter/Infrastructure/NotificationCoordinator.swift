@@ -17,6 +17,10 @@ nonisolated public enum NotificationDeduplication {
     public static let routeUserInfoKey = "codexmeter.route"
     public static let useResetActionIdentifier = "USE_RESET"
     public static let expiryCategoryIdentifier = "CODEX_CREDIT_EXPIRY"
+    public static let scheduledResetIdentifierPrefix = "codex-meter.scheduled-reset."
+    public static let scheduledResetCategoryIdentifier = "CODEX_SCHEDULED_RESET"
+    public static let runScheduledResetActionIdentifier = "RUN_SCHEDULED_RESET"
+    public static let scheduledResetRoute = "scheduled-reset"
 
     public static func windowToken(for resetDate: Date) -> Int {
         Int(resetDate.timeIntervalSince1970)
@@ -54,6 +58,19 @@ nonisolated public enum NotificationDeduplication {
 
     public static func refillIdentifier(mask: CelebrationDetector.RefillMask, fetchedAt: Date) -> String {
         "\(refillIdentifierPrefix)\(mask.rawValue).\(Int(fetchedAt.timeIntervalSince1970))"
+    }
+
+    public static func scheduledResetDueIdentifier(id: UUID) -> String {
+        "\(scheduledResetIdentifierPrefix)due.\(id.uuidString)"
+    }
+
+    public static func scheduledResetOutcomeIdentifier(at date: Date) -> String {
+        "\(scheduledResetIdentifierPrefix)outcome.\(Int(date.timeIntervalSince1970))"
+    }
+
+    /// Alert-setting changes must not disturb an armed schedule's wake-up notification.
+    public static func isScheduledResetIdentifier(_ identifier: String) -> Bool {
+        identifier.hasPrefix(scheduledResetIdentifierPrefix)
     }
 
     public static func obsoleteWindowIdentifiers(
@@ -595,6 +612,7 @@ public actor NotificationCoordinator {
         let pending = await center.pendingNotificationRequests()
         let identifiers = pending.map(\.identifier).filter {
             $0.hasPrefix(NotificationDeduplication.identifierPrefix)
+                && !NotificationDeduplication.isScheduledResetIdentifier($0)
         }
         center.removePendingNotificationRequests(withIdentifiers: identifiers)
 
@@ -602,8 +620,79 @@ public actor NotificationCoordinator {
             let delivered = await center.deliveredNotifications()
             center.removeDeliveredNotifications(withIdentifiers: delivered.map(\.request.identifier).filter {
                 $0.hasPrefix(NotificationDeduplication.identifierPrefix)
+                    && !NotificationDeduplication.isScheduledResetIdentifier($0)
             })
         }
+    }
+
+    // MARK: - Scheduled reset
+
+    /// A date/time schedule wakes the user (and, through its action, the app) at the fire
+    /// time. Threshold schedules need no notification: refreshes evaluate them.
+    public func scheduleDueNotification(for schedule: ScheduledReset, now: Date = Date()) async {
+        await removeScheduledResetDueRequests()
+        guard case let .dateTime(fireAt, _) = schedule.trigger, fireAt > now else { return }
+        await registerCategoriesIfNeeded()
+
+        let content = UNMutableNotificationContent()
+        content.title = "Scheduled Codex reset"
+        content.body = "It is time for your scheduled reset. Codex Meter will use 1 reset credit now."
+        content.sound = .default
+        content.categoryIdentifier = NotificationDeduplication.scheduledResetCategoryIdentifier
+        content.userInfo = [
+            NotificationDeduplication.routeUserInfoKey: NotificationDeduplication.scheduledResetRoute,
+            "scheduleId": schedule.id.uuidString
+        ]
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: fireAt
+        )
+        try? await center.add(
+            UNNotificationRequest(
+                identifier: NotificationDeduplication.scheduledResetDueIdentifier(id: schedule.id),
+                content: content,
+                trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            )
+        )
+    }
+
+    public func removeScheduledResetDueRequests() async {
+        let pending = await center.pendingNotificationRequests()
+        let due = pending.map(\.identifier).filter {
+            $0.hasPrefix("\(NotificationDeduplication.scheduledResetIdentifierPrefix)due.")
+        }
+        if !due.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: due)
+        }
+    }
+
+    /// One notification per terminal outcome, and one per failure streak, so an armed
+    /// schedule never produces a stream of alerts.
+    public func deliverScheduledResetOutcome(_ outcome: ScheduledResetOutcome) async {
+        await registerCategoriesIfNeeded()
+        let content = UNMutableNotificationContent()
+        content.title = ScheduledResetCopy.outcomeTitle(outcome)
+        content.body = ScheduledResetCopy.outcomeDetail(outcome)
+        content.sound = .default
+        content.userInfo = [NotificationDeduplication.routeUserInfoKey: "reset"]
+        try? await center.add(
+            UNNotificationRequest(
+                identifier: NotificationDeduplication.scheduledResetOutcomeIdentifier(at: outcome.at),
+                content: content,
+                trigger: nil
+            )
+        )
+    }
+
+    public func clearScheduledReset() async {
+        let pending = await center.pendingNotificationRequests()
+        center.removePendingNotificationRequests(
+            withIdentifiers: pending.map(\.identifier).filter(NotificationDeduplication.isScheduledResetIdentifier)
+        )
+        let delivered = await center.deliveredNotifications()
+        center.removeDeliveredNotifications(
+            withIdentifiers: delivered.map(\.request.identifier).filter(NotificationDeduplication.isScheduledResetIdentifier)
+        )
     }
 
     private func registerCategoriesIfNeeded() async {
@@ -612,13 +701,26 @@ public actor NotificationCoordinator {
             title: "Use reset",
             options: [.foreground]
         )
-        let category = UNNotificationCategory(
+        let expiryCategory = UNNotificationCategory(
             identifier: NotificationDeduplication.expiryCategoryIdentifier,
             actions: [useReset],
             intentIdentifiers: [],
             options: []
         )
-        center.setNotificationCategories([category])
+        // No `.foreground`: iOS runs the action handler in the background, so the reset
+        // can be applied from the notification without opening the app.
+        let runScheduledReset = UNNotificationAction(
+            identifier: NotificationDeduplication.runScheduledResetActionIdentifier,
+            title: "Use reset now",
+            options: []
+        )
+        let scheduledResetCategory = UNNotificationCategory(
+            identifier: NotificationDeduplication.scheduledResetCategoryIdentifier,
+            actions: [runScheduledReset],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([expiryCategory, scheduledResetCategory])
         defaults.set(true, forKey: Self.categoriesRegisteredKey)
     }
 }

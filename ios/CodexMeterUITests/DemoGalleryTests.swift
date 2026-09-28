@@ -125,9 +125,11 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.0)
         capture("15-refresh-failure")
         UITestSupport.settle(0.8)
+
+        recordScheduledResetLeg(app: app)
     }
 
-    private func capture(_ name: String) {
+    func capture(_ name: String) {
         gallery.save(name, test: self)
     }
 

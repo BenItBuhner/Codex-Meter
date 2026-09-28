@@ -68,7 +68,8 @@ struct DashboardSectionsView: View {
             )
         }
         let resetCount = model.credits?.availableCount ?? usage?.resetCreditsAvailable ?? 0
-        if model.settings.showResetCredits, resetCount > 0 {
+        let hasScheduledReset = model.scheduledReset != nil || model.scheduledResetOutcome != nil
+        if model.settings.showResetCredits, resetCount > 0 || hasScheduledReset {
             available[DashboardSections.resetCredits] = DashboardSectionItem(
                 key: DashboardSections.resetCredits,
                 kind: .resetCredits
@@ -361,13 +362,38 @@ private struct ResetCreditsDashboardCard: View {
                 Spacer(minLength: 0)
             }
 
-            Button(count > 0 ? "Use 1 reset" : "No resets available") {
-                model.isShowingReset = true
+            if model.scheduledReset != nil || model.scheduledResetOutcome != nil {
+                ScheduledResetStatusView()
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
-            .disabled(count == 0)
+
+            HStack(spacing: 12) {
+                Button(count > 0 ? "Use 1 reset" : "No resets available") {
+                    model.isShowingReset = true
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .disabled(count == 0)
+
+                if model.scheduledReset != nil {
+                    Button("Cancel") {
+                        Task { await model.cancelScheduledReset() }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .accessibilityLabel("Cancel scheduled reset")
+                    .accessibilityIdentifier("resetCredits.cancelSchedule")
+                } else {
+                    Button("Schedule") {
+                        model.isShowingScheduledReset = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(count == 0)
+                    .accessibilityLabel("Schedule a reset")
+                    .accessibilityIdentifier("resetCredits.schedule")
+                }
+            }
         }
         .padding(AppChrome.cardPadding)
         .cardSurface()
