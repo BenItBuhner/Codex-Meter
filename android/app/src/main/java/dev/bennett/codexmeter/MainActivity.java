@@ -436,7 +436,8 @@ public final class MainActivity extends AppCompatActivity {
                 available.add(DashboardSections.USAGE_HISTORY);
             }
         }
-        // Zero available resets always hide the card, even when the Edit dashboard switch is on.
+        // Zero available resets hide the card, even when the Edit dashboard switch is on, unless
+        // a Scheduled reset is armed and needs somewhere to be seen and cancelled.
         if (AppPreferences.showDashboardResetCredits(this) && shouldShowResetCreditsCard(snapshot)) {
             available.add(DashboardSections.RESET_CREDITS);
         }
@@ -859,9 +860,13 @@ public final class MainActivity extends AppCompatActivity {
 
     /**
      * Prefer the detailed reset-credits cache; fall back to the usage-endpoint summary count.
-     * Unknown inventory never surfaces an empty card.
+     * Unknown inventory never surfaces an empty card. An armed Scheduled reset is the one
+     * exception to the zero-credit auto-hide: it has to stay visible and cancellable.
      */
     private boolean shouldShowResetCreditsCard(UsageSnapshot snapshot) {
+        if (DemoMode.hasSession(this) && ScheduledResetManager.isArmed(this)) {
+            return true;
+        }
         ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
         if (credits != null) {
             return credits.shouldDisplay();

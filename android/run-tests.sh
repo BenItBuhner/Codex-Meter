@@ -251,6 +251,9 @@ grep -Fq '"Schedule a Codex reset?"' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
 grep -q 'ScheduledResetManager.load(this)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# An armed schedule keeps the dashboard card visible even at zero credits, so it can be cancelled.
+grep -q 'ScheduledResetManager.isArmed(this)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 python3 - <<PY
 from pathlib import Path
 root = Path(r"""$ROOT""") / "app/src/main/java/dev/bennett/codexmeter"
