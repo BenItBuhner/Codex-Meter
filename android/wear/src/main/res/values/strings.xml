@@ -47,4 +47,6 @@
     <string name="complication_weekly">Codex weekly</string>
     <string name="complication_dual_usage">Codex dual usage</string>
     <string name="complication_next_reset">Codex next reset</string>
+    <string name="wear_choose_account">Choose account</string>
+    <string name="wear_account_label">%1$s · %2$s</string>
 </resources>

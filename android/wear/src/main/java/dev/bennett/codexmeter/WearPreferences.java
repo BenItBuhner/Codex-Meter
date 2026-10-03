@@ -42,7 +42,52 @@ public final class WearPreferences {
     private WearPreferences() {
     }
 
+    private static dev.bennett.codexmeter.wear.WearAccountStore accountStore(Context context) {
+        return new dev.bennett.codexmeter.wear.WearAccountStore(
+                new dev.bennett.codexmeter.wear.WearAccountStore.Preferences() {
+                    @Override public String get(String key) { return prefs(context).getString(key, null); }
+                    @Override public boolean put(String key, String value) {
+                        return prefs(context).edit().putString(key, value).commit();
+                    }
+                });
+    }
+
+    public static dev.bennett.codexmeter.wear.WearUsageState accountState(Context context) {
+        return accountStore(context).state();
+    }
+
+    public static boolean saveAccountState(Context context, dev.bennett.codexmeter.wear.WearUsageState state) {
+        boolean applied = accountStore(context).apply(state);
+        if (applied) WearSurfaceUpdater.requestAll(context);
+        return applied;
+    }
+
+    public static String selectedAccountId(Context context) { return accountStore(context).selection(); }
+
+    public static void selectAccount(Context context, String id) {
+        if (!accountStore(context).select(id)) return;
+        WearSurfaceUpdater.requestAll(context);
+        UsageSnapshot snapshot = loadSnapshot(context);
+        if (snapshot == null) WearOngoingMonitor.stop(context, false);
+        else WearOngoingMonitor.updateFromSnapshot(context, snapshot);
+    }
+
+    public static String accountLabel(Context context) {
+        dev.bennett.codexmeter.wear.WearUsageState state = accountState(context);
+        if (state == null || state.accounts.size() < 2) return "";
+        dev.bennett.codexmeter.wear.WearAccount account = state.selectedAccount(selectedAccountId(context));
+        return account == null ? "" : account.displayName;
+    }
+
+    public static String shortAccountLabel(Context context, int length) {
+        dev.bennett.codexmeter.wear.WearUsageState state = accountState(context);
+        return state == null || state.accounts.size() < 2 ? ""
+                : state.shortLabel(selectedAccountId(context), length);
+    }
+
     public static UsageSnapshot loadSnapshot(Context context) {
+        dev.bennett.codexmeter.wear.WearUsageState state = accountState(context);
+        if (state != null) return state.signedIn ? state.selectedSnapshot(selectedAccountId(context)) : null;
         String json = prefs(context).getString(KEY_SNAPSHOT_JSON, null);
         if (json == null || json.isEmpty()) return null;
         try {
@@ -139,6 +184,8 @@ public final class WearPreferences {
                 .putBoolean(KEY_CONNECTED, true)
                 .apply();
         if (!status.signedIn) {
+            saveAccountState(context, new dev.bennett.codexmeter.wear.WearUsageState(null,
+                    status.updatedAtMillis, WearSettingsState.SOURCE_PHONE, false));
             clearSnapshot(context, status.updatedAtMillis);
         } else {
             WearSurfaceUpdater.requestAll(context);
@@ -148,6 +195,15 @@ public final class WearPreferences {
 
     public static WearSyncStatus syncStatus(Context context) {
         SharedPreferences prefs = prefs(context);
+        dev.bennett.codexmeter.wear.WearUsageState state = accountState(context);
+        dev.bennett.codexmeter.wear.WearAccount account = state == null ? null
+                : state.selectedAccount(selectedAccountId(context));
+        if (account != null) return new WearSyncStatus(account.signedIn,
+                prefs.getBoolean(KEY_REFRESH_IN_PROGRESS, false),
+                account.snapshot == null ? 0L : account.snapshot.fetchedAtMillis,
+                account.refreshFailed ? "Refresh failed for this account." : "",
+                prefs.getString(KEY_PHONE_VERSION, ""),
+                Math.max(state.updatedAtMillis, prefs.getLong(KEY_LAST_APPLIED_STATUS_AT, 0L)));
         return new WearSyncStatus(
                 prefs.getBoolean(KEY_SIGNED_IN, false),
                 prefs.getBoolean(KEY_REFRESH_IN_PROGRESS, false),
@@ -270,7 +326,8 @@ public final class WearPreferences {
     }
 
     public static long lastUsageAt(Context context) {
-        return prefs(context).getLong(KEY_LAST_APPLIED_USAGE_AT, 0L);
+        UsageSnapshot snapshot = loadSnapshot(context);
+        return snapshot == null ? 0L : snapshot.fetchedAtMillis;
     }
 
     public static WearSurfaceMode surfaceMode(Context context) {

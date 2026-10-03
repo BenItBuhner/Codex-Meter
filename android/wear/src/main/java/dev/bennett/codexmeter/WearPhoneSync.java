@@ -38,13 +38,15 @@ public final class WearPhoneSync {
         try {
             WearUsageState state = WearUsageState.fromJson(new JSONObject(payload));
             if (state == null) return false;
-            if (state.snapshot == null) {
+            if (!WearPreferences.saveAccountState(context, state)) return false;
+            UsageSnapshot selected = WearPreferences.loadSnapshot(context);
+            if (selected == null) {
                 WearPreferences.clearSnapshot(context, state.updatedAtMillis,
                         !state.signedIn);
                 return true;
             }
-            WearPreferences.saveSnapshot(context, state.snapshot, state.updatedAtMillis);
-            WearOngoingMonitor.updateFromSnapshot(context, state.snapshot);
+            WearPreferences.saveSnapshot(context, selected, state.updatedAtMillis);
+            WearOngoingMonitor.updateFromSnapshot(context, selected);
             return true;
         } catch (Exception exception) {
             Log.w(TAG, "Could not apply phone usage payload", exception);

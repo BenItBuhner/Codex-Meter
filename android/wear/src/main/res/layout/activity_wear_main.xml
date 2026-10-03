@@ -18,6 +18,14 @@
             android:paddingEnd="@dimen/wear_screen_padding_horizontal"
             android:paddingBottom="@dimen/wear_screen_padding_bottom">
 
+            <Button
+                android:id="@+id/account_selector_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/wear_choose_account"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/title"
                 android:layout_width="match_parent"

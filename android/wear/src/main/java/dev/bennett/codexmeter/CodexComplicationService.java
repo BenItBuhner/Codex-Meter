@@ -55,13 +55,15 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
                 .setMonochromaticImage(monochromaticImage())
                 .setTapAction(tapAction(this));
         if (title != null && !title.isEmpty()) {
-            builder.setTitle(plain(title));
+            builder.setTitle(plain(WearPreferences.accountLabel(this).isEmpty()
+                    ? title : WearPreferences.shortAccountLabel(this, 7)));
         }
         return builder.build();
     }
 
     protected LongTextComplicationData longText(String text, String description) {
-        return new LongTextComplicationData.Builder(plain(text), plain(description))
+        return new LongTextComplicationData.Builder(plain(WearPreferences.accountLabel(this).isEmpty()
+                ? text : text + " · " + WearPreferences.shortAccountLabel(this, 12)), plain(description))
                 .setMonochromaticImage(monochromaticImage())
                 .setTapAction(tapAction(this))
                 .build();
@@ -76,7 +78,8 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
                 .setMonochromaticImage(monochromaticImage())
                 .setTapAction(tapAction(this));
         if (title != null && !title.isEmpty()) {
-            builder.setTitle(plain(title));
+            builder.setTitle(plain(WearPreferences.accountLabel(this).isEmpty()
+                    ? title : WearPreferences.shortAccountLabel(this, 7)));
         }
         return builder.build();
     }
@@ -91,7 +94,8 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
                 .setMonochromaticImage(monochromaticImage())
                 .setTapAction(tapAction(this));
         if (title != null && !title.isEmpty()) {
-            builder.setTitle(plain(title));
+            builder.setTitle(plain(WearPreferences.accountLabel(this).isEmpty()
+                    ? title : WearPreferences.shortAccountLabel(this, 7)));
         }
         return builder.build();
     }

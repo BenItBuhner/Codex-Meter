@@ -33,6 +33,22 @@ public final class WearMainActivity extends Activity implements DataClient.OnDat
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_wear_main);
         accountValue = findViewById(R.id.account_value);
+        findViewById(R.id.account_selector_button).setOnClickListener(view -> {
+            dev.bennett.codexmeter.wear.WearUsageState state = WearPreferences.accountState(this);
+            if (state == null || state.accounts.isEmpty()) return;
+            String[] labels = new String[state.accounts.size() + 1];
+            labels[0] = "Follow phone";
+            for (int i = 0; i < state.accounts.size(); i++) labels[i + 1] = state.accounts.get(i).displayName;
+            int selected = 0;
+            for (int i = 0; i < state.accounts.size(); i++) {
+                if (state.accounts.get(i).accountId.equals(WearPreferences.selectedAccountId(this))) selected = i + 1;
+            }
+            new android.app.AlertDialog.Builder(this).setTitle("Account").setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                WearPreferences.selectAccount(this, which == 0 ? "" : state.accounts.get(which - 1).accountId);
+                dialog.dismiss();
+                refreshUi();
+            }).show();
+        });
         creditsValue = findViewById(R.id.credits_value);
         fiveHourValue = findViewById(R.id.five_hour_value);
         weeklyValue = findViewById(R.id.weekly_value);
@@ -114,6 +130,12 @@ public final class WearMainActivity extends Activity implements DataClient.OnDat
                 WearGlanceFormat.longWindowShortLabel(snapshot),
                 WearGlanceFormat.remainingPercentText(longWindow)));
         accountValue.setText(WearGlanceFormat.accountStatus(snapshot));
+        String accountLabel = WearPreferences.accountLabel(this);
+        if (!accountLabel.isEmpty()) accountValue.setText(getString(R.string.wear_account_label, accountLabel, accountValue.getText()));
+        dev.bennett.codexmeter.wear.WearUsageState accounts = WearPreferences.accountState(this);
+        findViewById(R.id.account_selector_button).setVisibility(accounts != null && accounts.accounts.size() > 1
+                ? View.VISIBLE : View.GONE);
+
         String details = WearGlanceFormat.resetCreditsText(snapshot);
         WearSettingsState settings = WearPreferences.settingsState(this, 0L,
                 WearSettingsState.SOURCE_WEAR);

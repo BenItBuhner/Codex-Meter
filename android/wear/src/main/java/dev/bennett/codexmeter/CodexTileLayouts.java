@@ -108,7 +108,8 @@ final class CodexTileLayouts {
                 .addContent(verticalSpacer(2f))
                 .addContent(text.element(relative, 14f, RESET_ACCENT,
                         LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .addContent(text.element(windowLabel, 9f, TEXT_TERTIARY,
+                .addContent(text.element(WearPreferences.accountLabel(context).isEmpty() ? windowLabel
+                        : WearPreferences.shortAccountLabel(context, 12) + " · " + windowLabel, 9f, TEXT_TERTIARY,
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL));
         if (!credits.isEmpty()) {
             copy.addContent(text.element(credits, 9f, TEXT_SECONDARY,
@@ -141,7 +142,9 @@ final class CodexTileLayouts {
                 .addContent(verticalSpacer(2f))
                 .addContent(text.element(active ? "Active" : "Off", 14f, accent,
                         LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .addContent(text.element(WearGlanceFormat.focusSummary(snapshot), 9f, TEXT_TERTIARY,
+                .addContent(text.element(WearPreferences.accountLabel(context).isEmpty()
+                        ? WearGlanceFormat.focusSummary(snapshot)
+                        : WearPreferences.shortAccountLabel(context, 12), 9f, TEXT_TERTIARY,
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
         String description = "Live monitor " + (active ? "active" : "off") + ". "
@@ -198,7 +201,8 @@ final class CodexTileLayouts {
                 .setBackground(background)
                 .setClickable(openClickable(context, idSuffix))
                 .setSemantics(new ModifiersBuilders.Semantics.Builder()
-                        .setContentDescription(contentDescription)
+                        .setContentDescription(WearPreferences.accountLabel(context).isEmpty()
+                                ? contentDescription : WearPreferences.accountLabel(context) + ". " + contentDescription)
                         .setRole(ModifiersBuilders.SEMANTICS_ROLE_BUTTON)
                         .build())
                 .build();
@@ -253,15 +257,18 @@ final class CodexTileLayouts {
                 .addContent(text.element(label, 20f, TEXT_SECONDARY,
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
-        LayoutElement copy = new LayoutElementBuilders.Column.Builder()
+        LayoutElementBuilders.Column.Builder copyBuilder = new LayoutElementBuilders.Column.Builder()
                 .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
                 .addContent(headline)
                 .addContent(verticalSpacer(4f))
                 .addContent(text.element(reset, 13f, TEXT_SECONDARY,
-                        LayoutElementBuilders.FONT_WEIGHT_NORMAL))
-                .build();
+                        LayoutElementBuilders.FONT_WEIGHT_NORMAL));
+        String accountLabel = WearPreferences.shortAccountLabel(context, 12);
+        if (!accountLabel.isEmpty()) copyBuilder.addContent(text.element(accountLabel, 10f,
+                TEXT_TERTIARY, LayoutElementBuilders.FONT_WEIGHT_NORMAL));
+        LayoutElement copy = copyBuilder.build();
         return new LayoutElementBuilders.Row.Builder()
                 .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
