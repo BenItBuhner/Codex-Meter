@@ -47,6 +47,7 @@
             android:name="dev.bennett.codexmeter.OnboardingActivity"
             android:exported="false"
             android:launchMode="singleTop"/>
+        <activity android:name="dev.bennett.codexmeter.AccountsActivity" android:exported="false"/>
         <activity
             android:name="dev.bennett.codexmeter.SettingsActivity"
             android:exported="false"/>

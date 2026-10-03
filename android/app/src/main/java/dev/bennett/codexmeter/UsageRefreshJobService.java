@@ -87,7 +87,7 @@ public final class UsageRefreshJobService extends JobService {
                     "reason", this.reason);
             try {
                 try {
-                    RefreshScheduler.scheduleAtNextReset(UsageRefreshJobService.this.getApplicationContext(), UsageApi.refreshAndCache(UsageRefreshJobService.this.getApplicationContext()));
+                    RefreshScheduler.scheduleAtNextReset(UsageRefreshJobService.this.getApplicationContext(), UsageApi.refreshAllAndCache(UsageRefreshJobService.this.getApplicationContext()));
                     AppPreferences.recordRefreshSuccess(
                             UsageRefreshJobService.this.getApplicationContext());
                     WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());

@@ -249,6 +249,10 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindRoot() {
             bindAccount();
+            findPreference("settings_accounts").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), AccountsActivity.class);
+                return true;
+            });
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
@@ -454,7 +458,11 @@ public final class SettingsActivity extends AppCompatActivity {
 
             AuthTokens tokens = SecureTokenStore.load(requireContext());
             UsageSnapshot snapshot = AppPreferences.loadSnapshot(requireContext());
-            title.setText(tokens == null ? "Not connected" : "ChatGPT account");
+            java.util.List<AccountProfile> accounts = AccountRepository.accounts(requireContext());
+            String selectedId = AccountRepository.selectedId(requireContext());
+            String accountLabel = "ChatGPT account";
+            for (AccountProfile account : accounts) if (account.id.equals(selectedId)) accountLabel = account.label;
+            title.setText(tokens == null ? "Not connected" : accounts.size() > 1 ? accountLabel : "ChatGPT account");
             summary.setText(tokens == null ? "Sign in from the dashboard"
                     : (tokens.email.isEmpty() ? "Connected" : tokens.email));
             if (tokens != null && snapshot != null) {
@@ -485,20 +493,25 @@ public final class SettingsActivity extends AppCompatActivity {
                     .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Sign out", (dialogInterface, which) -> {
-                        AuthTokens tokens = SecureTokenStore.load(requireContext());
-                        SecureTokenStore.clear(requireContext());
-                        AppPreferences.clearSnapshot(requireContext());
-                        AppPreferences.setOAuthPending(requireContext(), false, "");
-                        RefreshScheduler.cancelAll(requireContext());
-                        ResetAlertScheduler.cancelAll(requireContext());
-                        WidgetRenderer.updateAll(requireContext());
-                        Toast.makeText(requireContext(), "Signed out.", Toast.LENGTH_SHORT).show();
-                        requireActivity().recreate();
-                        if (tokens != null) {
-                            Context app = requireContext().getApplicationContext();
-                            new Thread(() -> OAuthClient.revokeBestEffort(app, tokens),
-                                    "codex-sign-out").start();
-                        }
+                        Context app = requireContext().getApplicationContext();
+                        android.app.Activity activity = requireActivity();
+                        String id = AccountRepository.selectedId(app);
+                        new Thread(() -> {
+                            try {
+                                AuthTokens tokens = AccountRepository.remove(app, id);
+                                AppPreferences.setOAuthPending(app, false, "");
+                                OAuthClient.revokeBestEffort(app, tokens);
+                                activity.runOnUiThread(() -> {
+                                    if (!activity.isFinishing() && !activity.isDestroyed()) {
+                                        Toast.makeText(app, "Signed out.", Toast.LENGTH_SHORT).show();
+                                        activity.recreate();
+                                    }
+                                });
+                            } catch (Exception exception) {
+                                activity.runOnUiThread(() -> Toast.makeText(app,
+                                        "Could not sign out. Please try again.", Toast.LENGTH_LONG).show());
+                            }
+                        }, "codex-sign-out").start();
                     })
                     .create();
             dialog.show();

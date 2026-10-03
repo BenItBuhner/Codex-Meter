@@ -46,6 +46,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncStatus.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSettingsState.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearAccountStore.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearAccount.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearUsageState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java" \
@@ -71,9 +73,18 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AccountProfile.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AccountState.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AccountIdentity.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AccountStorage.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AccountRefresh.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/EncryptedAccountCodec.java" \
+  "$ROOT/tests/AccountSelfTest.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.AccountSelfTest
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.8.0-alpha.1"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"

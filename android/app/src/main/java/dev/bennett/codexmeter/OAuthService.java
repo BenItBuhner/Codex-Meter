@@ -42,6 +42,7 @@ public final class OAuthService extends Service {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ServerSocket serverSocket;
     private volatile boolean cancelled;
+    private volatile boolean addingAccount;
 
     @Override
     public void onCreate() {
@@ -58,7 +59,13 @@ public final class OAuthService extends Service {
             cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
             return START_NOT_STICKY;
         }
-        if (SecureTokenStore.isSignedIn(this)) {
+        if (running.get()) {
+            String url = AppPreferences.getOAuthUrl(this);
+            if (!url.isEmpty()) broadcastReady(url);
+            return START_NOT_STICKY;
+        }
+        addingAccount = intent != null && intent.getBooleanExtra("add_account", false);
+        if (!addingAccount && SecureTokenStore.isSignedIn(this)) {
             AppPreferences.setOAuthPending(this, false, "");
             broadcastResult(true, "Already signed in.");
             finishService();
@@ -101,7 +108,7 @@ public final class OAuthService extends Service {
             Pkce pkce = Pkce.generate();
             int port = bindServer();
             String redirectUri = "http://localhost:" + port + "/auth/callback";
-            String authUrl = buildAuthorizeUrl(redirectUri, pkce);
+            String authUrl = buildAuthorizeUrl(redirectUri, pkce, addingAccount);
             AppPreferences.setOAuthPending(this, true, authUrl);
             updateNotification("Complete sign-in in your browser", authUrl);
             broadcastReady(authUrl);
@@ -149,7 +156,7 @@ public final class OAuthService extends Service {
                 updateNotification("Securing your ChatGPT session…", null);
                 AuthTokens tokens = OAuthClient.exchangeCode(this, code, redirectUri,
                         pkce.verifier);
-                SecureTokenStore.save(this, tokens);
+                String addedId = AccountRepository.add(this, tokens);
                 credentialsCommitted = true;
                 AppPreferences.setOAuthPending(this, false, "");
 
@@ -168,7 +175,7 @@ public final class OAuthService extends Service {
                 broadcastResult(true, "Signed in successfully.");
 
                 updateNotification("Loading Codex usage…", null);
-                performPostAuthenticationSetup();
+                performPostAuthenticationSetup(addedId);
                 DiagnosticLog.info(this, "auth", "oauth_flow_succeeded",
                         "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
                 finishService();
@@ -207,12 +214,13 @@ public final class OAuthService extends Service {
         }
     }
 
-    private void performPostAuthenticationSetup() {
+    private void performPostAuthenticationSetup(String accountId) {
         try {
-            UsageSnapshot snapshot = UsageApi.refreshAndCache(this);
-            RefreshScheduler.scheduleAtNextReset(this, snapshot);
+            UsageApi.refreshAndCache(this, accountId);
+            RefreshScheduler.scheduleAtNextReset(this, AppPreferences.loadSnapshot(this));
         } catch (Exception refreshError) {
-            AppPreferences.setLastError(this, cleanMessage(refreshError));
+            if (accountId.equals(AccountRepository.selectedId(this)))
+                AppPreferences.setLastError(this, cleanMessage(refreshError));
         }
         RefreshScheduler.schedulePeriodic(this);
         safeWidgetUpdate();
@@ -236,9 +244,10 @@ public final class OAuthService extends Service {
         throw new Exception("Could not open the local OAuth callback port (1455 or 1457).", last);
     }
 
-    private static String buildAuthorizeUrl(String redirectUri, Pkce pkce) throws Exception {
+    private static String buildAuthorizeUrl(String redirectUri, Pkce pkce, boolean addingAccount) throws Exception {
         Map<String, String> params = new java.util.LinkedHashMap<>();
         params.put("response_type", "code");
+        if (addingAccount) params.put("prompt", "login");
         params.put("client_id", AppConstants.OAUTH_CLIENT_ID);
         params.put("redirect_uri", redirectUri);
         params.put("scope", AppConstants.OAUTH_SCOPE);

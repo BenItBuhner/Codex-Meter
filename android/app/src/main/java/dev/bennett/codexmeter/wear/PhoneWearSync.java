@@ -31,11 +31,19 @@ public final class PhoneWearSync {
 
     public static void pushUsage(Context context, UsageSnapshot snapshot) {
         if (context == null) return;
-        long now = System.currentTimeMillis();
+        long now = nextUsageRevision(context);
         pushJson(context, WearSyncPaths.PATH_USAGE,
                 new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE,
-                        SecureTokenStore.isSignedIn(context)));
+                        dev.bennett.codexmeter.AccountRepository.hasAuthenticatedAccounts(context),
+                        dev.bennett.codexmeter.AccountRepository.wearAccounts(context),
+                        dev.bennett.codexmeter.AccountRepository.selectedId(context)));
         pushStatus(context, false, "");
+    }
+
+    private static synchronized long nextUsageRevision(Context context) {
+        long now = Math.max(System.currentTimeMillis(), prefs(context).getLong("usage_revision", 0L) + 1L);
+        prefs(context).edit().putLong("usage_revision", now).commit();
+        return now;
     }
 
     public static void pushSettings(Context context) {
@@ -65,9 +73,12 @@ public final class PhoneWearSync {
         if (context == null) return;
         Context app = context.getApplicationContext();
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(app);
-        String visibleError = error == null ? AppPreferences.getLastError(app) : error;
+        String phoneError = error == null ? AppPreferences.getLastError(app) : error;
+        // Backend/exception text is not a Wear contract. Do not forward arbitrary server text.
+        String visibleError = phoneError == null || phoneError.isEmpty() ? ""
+                : "Refresh failed. Open Codex Meter on your phone.";
         pushJson(app, WearSyncPaths.PATH_STATUS, new WearSyncStatus(
-                SecureTokenStore.isSignedIn(app),
+                dev.bennett.codexmeter.AccountRepository.hasAuthenticatedAccounts(app),
                 refreshInProgress,
                 snapshot == null ? 0L : snapshot.fetchedAtMillis,
                 visibleError,

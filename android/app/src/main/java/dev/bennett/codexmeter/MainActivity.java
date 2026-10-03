@@ -118,11 +118,16 @@ public final class MainActivity extends AppCompatActivity {
         menu.add(Menu.NONE, MENU_SETTINGS, 1, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        menu.add(Menu.NONE, 7801, 2, "Accounts").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == 7801) {
+            Ui.startSecondaryActivity(this, AccountsActivity.class);
+            return true;
+        }
         if (item.getItemId() == MENU_SETTINGS) {
             DiagnosticLog.info(this, "user", "settings_opened");
             Ui.startSecondaryActivity(this, SettingsActivity.class);
@@ -977,20 +982,17 @@ public final class MainActivity extends AppCompatActivity {
 
     public void signOut() {
         DiagnosticLog.info(this, "user", "sign_out_confirmed");
-        final AuthTokens authTokensLoad = SecureTokenStore.load(this);
-        SecureTokenStore.clear(this);
-        AppPreferences.clearSnapshot(this);
-        AppPreferences.setOAuthPending(this, false, "");
-        RefreshScheduler.cancelAll(this);
-        ResetAlertScheduler.cancelAll(this);
-        WidgetRenderer.updateAll(this);
-        rebuild();
-        this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.11
-            @Override // java.lang.Runnable
-            public void run() {
-                OAuthClient.revokeBestEffort(MainActivity.this.getApplicationContext(),
-                        authTokensLoad);
+        final String accountId = AccountRepository.selectedId(this);
+        this.executor.execute(() -> {
+            try {
+                AuthTokens tokens = AccountRepository.remove(getApplicationContext(), accountId);
+                AppPreferences.setOAuthPending(getApplicationContext(), false, "");
+                OAuthClient.revokeBestEffort(getApplicationContext(), tokens);
+            } catch (Exception exception) {
+                runOnUiThread(() -> Toast.makeText(this, "Could not sign out. Please try again.",
+                        Toast.LENGTH_LONG).show());
             }
+            runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) rebuild(); });
         });
     }
 

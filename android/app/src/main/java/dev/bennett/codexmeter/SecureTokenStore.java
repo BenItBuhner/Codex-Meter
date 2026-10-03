@@ -2,16 +2,11 @@ package dev.bennett.codexmeter;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.security.keystore.KeyGenParameterSpec;
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.security.KeyStore;
-import java.util.Base64;
-import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
 import org.json.JSONObject;
 
 /* JADX INFO: loaded from: classes.dex */
@@ -21,66 +16,39 @@ public final class SecureTokenStore {
     private static final String KEY_BLOB = "blob";
     private static final Object LOCK = new Object();
     private static final String PREFS = "secure_auth_v1";
-    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
 
     private SecureTokenStore() {
     }
 
-    public static void save(Context context, AuthTokens authTokens) throws Exception {
+    static void saveDocument(Context context, JSONObject document) throws Exception {
         synchronized (LOCK) {
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(1, getOrCreateKey());
-            byte[] bArrDoFinal = cipher.doFinal(authTokens.toJson().toString().getBytes(StandardCharsets.UTF_8));
-            JSONObject jSONObject = new JSONObject();
-            jSONObject.put("iv", Base64.getEncoder().encodeToString(cipher.getIV()));
-            jSONObject.put("ct", Base64.getEncoder().encodeToString(bArrDoFinal));
-            if (!context.getSharedPreferences(PREFS, 0).edit().putString(KEY_BLOB, jSONObject.toString()).commit()) {
+            JSONObject jSONObject = EncryptedAccountCodec.encrypt(document, getOrCreateKey());
+            if (!context.getSharedPreferences(PREFS, 0).edit().putString("accounts_v2", jSONObject.toString()).remove(KEY_BLOB).remove("migration_id").commit()) {
                 throw new Exception("Could not persist encrypted credentials.");
             }
         }
     }
 
-    public static AuthTokens load(Context context) {
-        AuthTokens authTokens = null;
-        synchronized (LOCK) {
-            SharedPreferences sharedPreferences = context.getSharedPreferences(PREFS, 0);
-            String string = sharedPreferences.getString(KEY_BLOB, null);
-            if (string != null && !string.isEmpty()) {
-                try {
-                    JSONObject jSONObject = new JSONObject(string);
-                    byte[] bArrDecode = Base64.getDecoder().decode(jSONObject.getString("iv"));
-                    byte[] bArrDecode2 = Base64.getDecoder().decode(jSONObject.getString("ct"));
-                    Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-                    cipher.init(2, getOrCreateKey(), new GCMParameterSpec(128, bArrDecode));
-                    AuthTokens authTokensFromJson = AuthTokens.fromJson(new JSONObject(new String(cipher.doFinal(bArrDecode2), StandardCharsets.UTF_8)));
-                    if (!authTokensFromJson.isUsable()) {
-                        authTokensFromJson = null;
-                    }
-                    authTokens = authTokensFromJson;
-                } catch (Exception e) {
-                    sharedPreferences.edit().remove(KEY_BLOB).commit();
-                }
-            }
-        }
-        return authTokens;
+    static JSONObject loadDocument(Context context, String key) throws Exception {
+        String value = context.getSharedPreferences(PREFS, 0).getString(key, null);
+        if (value == null || value.isEmpty()) return null;
+        return EncryptedAccountCodec.decrypt(new JSONObject(value), getOrCreateKey());
     }
 
-    public static boolean isSignedIn(Context context) {
-        return load(context) != null;
+    public static void save(Context context, AuthTokens tokens) throws Exception {
+        AccountRepository.updateTokens(context, AccountRepository.selectedId(context), tokens);
     }
+
+    public static AuthTokens load(Context context) {
+        try { return AccountRepository.tokens(context, AccountRepository.selectedId(context)); }
+        catch (Exception ignored) { return null; }
+    }
+
+    public static boolean isSignedIn(Context context) { return load(context) != null; }
 
     public static void clear(Context context) {
-        synchronized (LOCK) {
-            context.getSharedPreferences(PREFS, 0).edit().clear().commit();
-            try {
-                KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
-                keyStore.load(null);
-                if (keyStore.containsAlias(KEY_ALIAS)) {
-                    keyStore.deleteEntry(KEY_ALIAS);
-                }
-            } catch (Exception e) {
-            }
-        }
+        try { AccountRepository.remove(context, AccountRepository.selectedId(context)); }
+        catch (Exception exception) { throw new IllegalStateException("Could not remove account.", exception); }
     }
 
     private static SecretKey getOrCreateKey() throws Exception {

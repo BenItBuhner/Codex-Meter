@@ -338,7 +338,8 @@ public final class SettingsTransferStore {
             throw new IllegalArgumentException(
                     "Imported authentication is incomplete or invalid.");
         }
-        SecureTokenStore.save(context, tokens);
+        String importedId = AccountRepository.add(context, tokens);
+        AccountRepository.select(context, importedId);
         AppPreferences.clearSnapshot(context);
         AppPreferences.setOAuthPending(context, false, "");
         AppPreferences.completeOnboarding(context);

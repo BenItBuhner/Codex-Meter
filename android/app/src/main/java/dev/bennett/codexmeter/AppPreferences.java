@@ -49,12 +49,16 @@ public final class AppPreferences {
         return context.getSharedPreferences(PREFS, 0);
     }
 
+    private static SharedPreferences accountPrefs(Context context) {
+        return AccountRepository.usagePreferences(context, AccountRepository.selectedId(context));
+    }
+
     public static boolean saveSnapshot(Context context, UsageSnapshot usageSnapshot) {
         if (usageSnapshot == null) {
             return false;
         }
         try {
-            return prefs(context).edit().putString(KEY_SNAPSHOT, usageSnapshot.toJson().toString()).remove(KEY_ERROR).remove(KEY_ERROR_AT).commit();
+            return accountPrefs(context).edit().putString(KEY_SNAPSHOT, usageSnapshot.toJson().toString()).remove(KEY_ERROR).remove(KEY_ERROR_AT).commit();
         } catch (Exception e) {
             setLastError(context, "Could not cache the latest usage response.");
             return false;
@@ -62,7 +66,7 @@ public final class AppPreferences {
     }
 
     public static UsageSnapshot loadSnapshot(Context context) {
-        String string = prefs(context).getString(KEY_SNAPSHOT, null);
+        String string = accountPrefs(context).getString(KEY_SNAPSHOT, null);
         if (string == null || string.isEmpty()) {
             return null;
         }
@@ -74,7 +78,7 @@ public final class AppPreferences {
     }
 
     public static void clearSnapshot(Context context) {
-        prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
+        accountPrefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
                 .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
                 .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
                 .remove(KEY_HISTORY_MONTHLY)
@@ -90,16 +94,16 @@ public final class AppPreferences {
         if (str == null || str.trim().isEmpty()) {
             clearLastError(context);
         } else {
-            prefs(context).edit().putString(KEY_ERROR, trim(str, "Refresh failed.")).putLong(KEY_ERROR_AT, System.currentTimeMillis()).apply();
+            accountPrefs(context).edit().putString(KEY_ERROR, trim(str, "Refresh failed.")).putLong(KEY_ERROR_AT, System.currentTimeMillis()).apply();
         }
     }
 
     public static void clearLastError(Context context) {
-        prefs(context).edit().remove(KEY_ERROR).remove(KEY_ERROR_AT).apply();
+        accountPrefs(context).edit().remove(KEY_ERROR).remove(KEY_ERROR_AT).apply();
     }
 
     public static UsageHistory loadUsageHistory(Context context, String kind) {
-        String stored = prefs(context).getString(historyKey(kind), null);
+        String stored = accountPrefs(context).getString(historyKey(kind), null);
         if (stored == null || stored.isEmpty()) return UsageHistory.empty(kind);
         try {
             return UsageHistory.fromJson(new JSONObject(stored), kind);
@@ -111,7 +115,7 @@ public final class AppPreferences {
     public static boolean saveUsageHistory(Context context, UsageHistory history) {
         if (history == null) return false;
         try {
-            return prefs(context).edit()
+            return accountPrefs(context).edit()
                     .putString(historyKey(history.kind), history.toJson().toString()).commit();
         } catch (Exception ignored) {
             return false;
@@ -119,7 +123,7 @@ public final class AppPreferences {
     }
 
     public static void clearUsageHistory(Context context) {
-        prefs(context).edit().remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
+        accountPrefs(context).edit().remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
                 .remove(KEY_HISTORY_MONTHLY).apply();
     }
 
@@ -130,7 +134,7 @@ public final class AppPreferences {
     }
 
     public static String getLastError(Context context) {
-        return prefs(context).getString(KEY_ERROR, "");
+        return accountPrefs(context).getString(KEY_ERROR, "");
     }
 
     public static String getVisibleRefreshError(Context context) {
@@ -140,7 +144,7 @@ public final class AppPreferences {
         }
         UsageSnapshot usageSnapshotLoadSnapshot = loadSnapshot(context);
         if (usageSnapshotLoadSnapshot != null) {
-            long j = prefs(context).getLong(KEY_ERROR_AT, 0L);
+            long j = accountPrefs(context).getLong(KEY_ERROR_AT, 0L);
             if (j <= 0 || j > usageSnapshotLoadSnapshot.fetchedAtMillis) {
                 return Math.max(0L, System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis) < 900000 ? "" : lastError;
             }
@@ -155,7 +159,7 @@ public final class AppPreferences {
             return false;
         }
         try {
-            return prefs(context).edit().putString(KEY_RESET_CREDITS, resetCreditsSnapshot.toJson().toString()).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).commit();
+            return accountPrefs(context).edit().putString(KEY_RESET_CREDITS, resetCreditsSnapshot.toJson().toString()).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).commit();
         } catch (Exception e) {
             setResetCreditsError(context, "Could not cache Codex reset credits.");
             return false;
@@ -164,7 +168,7 @@ public final class AppPreferences {
 
     public static ResetCreditsSnapshot loadResetCredits(Context context) {
         ResetCreditsSnapshot resetCreditsSnapshotFromJson = null;
-        String string = prefs(context).getString(KEY_RESET_CREDITS, null);
+        String string = accountPrefs(context).getString(KEY_RESET_CREDITS, null);
         if (string != null && !string.isEmpty()) {
             try {
                 resetCreditsSnapshotFromJson = ResetCreditsSnapshot.fromJson(new JSONObject(string));
@@ -188,16 +192,16 @@ public final class AppPreferences {
         if (str == null || str.trim().isEmpty()) {
             clearResetCreditsError(context);
         } else {
-            prefs(context).edit().putString(KEY_RESET_ERROR, trim(str, "Reset-credit refresh failed.")).putLong(KEY_RESET_ERROR_AT, System.currentTimeMillis()).apply();
+            accountPrefs(context).edit().putString(KEY_RESET_ERROR, trim(str, "Reset-credit refresh failed.")).putLong(KEY_RESET_ERROR_AT, System.currentTimeMillis()).apply();
         }
     }
 
     public static void clearResetCreditsError(Context context) {
-        prefs(context).edit().remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).apply();
+        accountPrefs(context).edit().remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).apply();
     }
 
     public static String getResetCreditsError(Context context) {
-        return prefs(context).getString(KEY_RESET_ERROR, "");
+        return accountPrefs(context).getString(KEY_RESET_ERROR, "");
     }
 
     public static String getVisibleResetCreditsError(Context context) {
@@ -207,7 +211,7 @@ public final class AppPreferences {
         }
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = loadResetCredits(context);
         if (resetCreditsSnapshotLoadResetCredits != null) {
-            long j = prefs(context).getLong(KEY_RESET_ERROR_AT, 0L);
+            long j = accountPrefs(context).getLong(KEY_RESET_ERROR_AT, 0L);
             if (j <= 0 || j > resetCreditsSnapshotLoadResetCredits.fetchedAtMillis) {
                 return Math.max(0L, System.currentTimeMillis() - resetCreditsSnapshotLoadResetCredits.fetchedAtMillis) < 1800000 ? "" : resetCreditsError;
             }

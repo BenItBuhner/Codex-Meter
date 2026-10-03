@@ -18,6 +18,22 @@ public final class UsageApi {
     }
 
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
+        synchronized (NETWORK_LOCK) {
+            return refreshAndCache(context, AccountRepository.selectedId(context));
+        }
+    }
+
+    public static UsageSnapshot refreshAllAndCache(Context context) throws Exception {
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (AccountProfile account : AccountRepository.accounts(context)) ids.add(account.id);
+        java.util.Map<String, Exception> failures = AccountRefresh.run(ids,
+                id -> refreshAndCache(context, id));
+        PhoneWearSync.pushUsage(context, AppPreferences.loadSnapshot(context));
+        if (ids.size() == failures.size()) throw new Exception("No accounts could be refreshed.");
+        return AppPreferences.loadSnapshot(context);
+    }
+
+    public static UsageSnapshot refreshAndCache(Context context, String accountId) throws Exception {
         AuthTokens authTokens;
         Response responseRequestUsage;
         String str;
@@ -27,13 +43,13 @@ public final class UsageApi {
         try {
             synchronized (NETWORK_LOCK) {
                 installCookieManager();
-                AuthTokens authTokensUsableTokens = usableTokens(context);
+                AuthTokens authTokensUsableTokens = usableTokens(context, accountId);
                 Response responseRequestUsage2 = requestUsage(context, authTokensUsableTokens);
                 if (responseRequestUsage2.status == 401) {
                     DiagnosticLog.warn(context, "auth", "usage_token_rejected_refreshing");
                     AuthTokens authTokensRefresh = OAuthClient.refresh(context,
                             authTokensUsableTokens);
-                    SecureTokenStore.save(context, authTokensRefresh);
+                    AccountRepository.updateTokens(context, accountId, authTokensRefresh);
                     authTokens = authTokensRefresh;
                     responseRequestUsage = requestUsage(context, authTokensRefresh);
                 } else {
@@ -53,9 +69,15 @@ public final class UsageApi {
                 if (!usageSnapshot.hasDisplayableData()) {
                     throw new Exception("OpenAI returned no recognizable Codex usage data.");
                 }
-                UsageSnapshot previousSnapshot = AppPreferences.loadSnapshot(context);
-                if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
-                    throw new Exception("Usage was received, but it could not be saved on this device.");
+                UsageSnapshot previousSnapshot = AccountRepository.snapshot(context, accountId);
+                if (!AccountRepository.usagePreferences(context, accountId).edit()
+                        .putString("last_snapshot", usageSnapshot.toJson().toString())
+                        .remove("last_error").remove("last_error_at").commit()) {
+                    throw new Exception("Could not save account usage.");
+                }
+                if (!accountId.equals(AccountRepository.selectedId(context))) {
+                    PhoneWearSync.pushUsage(context, AppPreferences.loadSnapshot(context));
+                    return usageSnapshot;
                 }
                 UsageHistoryRecorder.record(context, usageSnapshot);
                 PhoneWearSync.pushUsage(context, usageSnapshot);
@@ -78,6 +100,13 @@ public final class UsageApi {
                 }
             }
         } catch (Exception exception) {
+            synchronized (NETWORK_LOCK) {
+                if (AccountRepository.tokens(context, accountId) != null) {
+                    AccountRepository.usagePreferences(context, accountId).edit()
+                            .putString("last_error", "Refresh failed. Try refreshing this account again.")
+                            .putLong("last_error_at", System.currentTimeMillis()).commit();
+                }
+            }
             DiagnosticLog.error(context, "refresh", "usage_refresh_failed", exception,
                     "duration_ms", SystemClock.elapsedRealtime() - started);
             throw exception;
@@ -92,14 +121,18 @@ public final class UsageApi {
     }
 
     static AuthTokens usableTokens(Context context) throws Exception {
-        AuthTokens authTokensLoad = SecureTokenStore.load(context);
+        return usableTokens(context, AccountRepository.selectedId(context));
+    }
+
+    static AuthTokens usableTokens(Context context, String accountId) throws Exception {
+        AuthTokens authTokensLoad = AccountRepository.tokens(context, accountId);
         if (authTokensLoad == null) {
             throw new Exception("Sign in to ChatGPT first.");
         }
         if (authTokensLoad.shouldRefresh(System.currentTimeMillis())) {
             DiagnosticLog.info(context, "auth", "token_refresh_due");
             AuthTokens authTokensRefresh = OAuthClient.refresh(context, authTokensLoad);
-            SecureTokenStore.save(context, authTokensRefresh);
+            AccountRepository.updateTokens(context, accountId, authTokensRefresh);
             return authTokensRefresh;
         }
         return authTokensLoad;
@@ -150,7 +183,7 @@ public final class UsageApi {
         if (!cookiesInstalled) {
             try {
                 if (CookieHandler.getDefault() == null) {
-                    CookieHandler.setDefault(new CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER));
+                    CookieHandler.setDefault(new CookieManager(null, CookiePolicy.ACCEPT_NONE));
                 }
             } catch (Exception e) {
             }

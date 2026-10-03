@@ -10,6 +10,11 @@
 
     <PreferenceCategory android:title="General">
         <Preference
+            android:key="settings_accounts"
+            android:title="Accounts"
+            android:summary="Manage accounts and choose the default"
+            app:iconSpaceReserved="false" />
+        <Preference
             android:key="settings_appearance"
             android:title="Appearance"
             app:iconSpaceReserved="false" />
