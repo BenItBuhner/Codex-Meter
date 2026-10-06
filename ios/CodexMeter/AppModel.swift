@@ -568,7 +568,8 @@ final class AppModel {
             || previous.creditIncreaseAlertsEnabled != settings.creditIncreaseAlertsEnabled
             || previous.unexpectedRefillAlertsEnabled != settings.unexpectedRefillAlertsEnabled
             || previous.creditExpiryRemindersEnabled != settings.creditExpiryRemindersEnabled
-            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes {
+            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes
+            || previous.creditExpiryAutoApplyEnabled != settings.creditExpiryAutoApplyEnabled {
             Task { await applyNotificationSettings() }
         }
     }
@@ -845,6 +846,43 @@ final class AppModel {
             settings: settings
         )
         scheduleBackgroundRefresh()
+        await autoApplyExpiringCreditsIfNeeded()
+    }
+
+    private func autoApplyExpiringCreditsIfNeeded() async {
+        guard settings.creditExpiryAutoApplyEnabled, !isRedeemingReset else { return }
+        isRedeemingReset = true
+        defer { isRedeemingReset = false }
+        for _ in 0..<5 {
+            guard let credits else { return }
+            let due = CreditExpiryAutoApply.due(credits: credits.credits, now: .now)
+            guard let credit = due.first else { return }
+            do {
+                let result = try await activeService.consumeReset(creditID: credit.id)
+                if result.applied, let priorUsage = usage {
+                    await notificationCoordinator.markUserReset(usage: priorUsage)
+                }
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyExpiryAutoApply(result: result)
+                }
+                if let cached = try? await cache.load() {
+                    apply(cache: cached)
+                }
+                switch result.outcome {
+                case .reset, .nothingToReset:
+                    continue
+                case .noCredit, .alreadyRedeemed, .unknown:
+                    return
+                }
+            } catch {
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyExpiryAutoApplyFailure(
+                        message: error.localizedDescription
+                    )
+                }
+                return
+            }
+        }
     }
 
     private func apply(

@@ -40,6 +40,7 @@ public final class ResetNotificationManager {
     private static final int NOTIFICATION_LOW_MONTHLY = 74508;
     private static final int NOTIFICATION_NEW_CREDIT = 74509;
     private static final int NOTIFICATION_CREDIT_EXPIRY_BASE = 74600;
+    private static final int NOTIFICATION_CREDIT_AUTO_APPLY = 74516;
     private static final int NOTIFICATION_REFILL_FIVE_HOUR = 74511;
     private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
     private static final int NOTIFICATION_REFILL_BOTH = 74513;
@@ -85,6 +86,11 @@ public final class ResetNotificationManager {
             ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
         } catch (RuntimeException ignored) {
         }
+        try {
+            ResetCreditExpiryApplyScheduler.scheduleFromSnapshot(context, snapshot);
+        } catch (RuntimeException ignored) {
+        }
+        ResetCreditExpiryApplyReceiver.evaluateAsync(context);
     }
 
     static void onResetCreditSummaryUpdated(Context context, int availableCount) {
@@ -197,6 +203,50 @@ public final class ResetNotificationManager {
             pruneResetCreditExpiryHistory(context, snapshot);
         }
         ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
+        if (!ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context)) {
+            ResetCreditExpiryApplyScheduler.cancelAll(context);
+        } else {
+            ResetCreditExpiryApplyScheduler.scheduleFromSnapshot(context, snapshot);
+            ResetCreditExpiryApplyReceiver.evaluateAsync(context);
+        }
+    }
+
+    public static void onResetCreditExpiryAutoApplySettingsChanged(Context context,
+            ResetCreditsSnapshot snapshot) {
+        if (context == null) return;
+        if (!ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context)) {
+            ResetCreditExpiryApplyScheduler.cancelAll(context);
+            return;
+        }
+        ResetCreditExpiryApplyScheduler.scheduleFromSnapshot(context, snapshot);
+        ResetCreditExpiryApplyReceiver.evaluateAsync(context);
+    }
+
+    public static boolean showResetCreditExpiryApplyNotification(Context context,
+            String creditId, ResetConsumeResult result) {
+        if (context == null || !ResetAlertPreferences.enabled(context)) return false;
+        String title;
+        String text;
+        if (result != null && result.applied()) {
+            title = "Codex reset applied before expiry";
+            text = result.userMessage();
+        } else if (result != null && ResetConsumeResult.NOTHING_TO_RESET.equals(result.outcome)) {
+            title = "Expiring reset had nothing to reset";
+            text = result.userMessage();
+        } else if (result != null && ResetConsumeResult.NO_CREDIT.equals(result.outcome)) {
+            title = "Expiring reset was already gone";
+            text = result.userMessage();
+        } else {
+            title = "Could not apply expiring reset";
+            text = result == null || result.userMessage().isEmpty()
+                    ? "Codex Meter tried to apply a reset credit before it expired."
+                    : result.userMessage();
+        }
+        if (creditId != null && !creditId.isEmpty()) {
+            text = text + " Credit " + creditId + ".";
+        }
+        return post(context, NOTIFICATION_CREDIT_AUTO_APPLY, title, text,
+                NOTIFICATION_CREDIT_AUTO_APPLY);
     }
 
     public static void dismissResetCreditExpiryNotification(Context context,

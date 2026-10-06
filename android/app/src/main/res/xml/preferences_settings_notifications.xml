@@ -47,6 +47,10 @@
             android:key="reset_credit_expiry_ui"
             android:summary="Remind me before an available reset credit expires"
             android:title="Expiring reset credits" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_expiry_auto_apply_ui"
+            android:summary="If you do not use a banked reset, Codex Meter applies it in the last minute instead of letting it vanish"
+            android:title="Apply unused resets before they expire" />
         <Preference
             android:key="reset_credit_expiry_times_ui"
             android:title="Reminder times"

@@ -107,6 +107,7 @@ struct SettingsView: View {
                 Toggle("New reset-credit alerts", isOn: $model.settings.creditIncreaseAlertsEnabled)
                 Toggle("Unexpected refill alerts", isOn: $model.settings.unexpectedRefillAlertsEnabled)
                 Toggle("Reset-credit expiry reminders", isOn: $model.settings.creditExpiryRemindersEnabled)
+                Toggle("Apply unused resets before they expire", isOn: $model.settings.creditExpiryAutoApplyEnabled)
 
                 if model.settings.creditExpiryRemindersEnabled {
                     ForEach(AppSettings.allowedCreditExpiryLeadMinutes, id: \.self) { minutes in
@@ -131,6 +132,8 @@ struct SettingsView: View {
                     Text("Sign in or open demo mode to configure usage alerts.")
                 } else if model.settings.creditExpiryRemindersEnabled {
                     Text("Expiry reminders fire at each selected lead time before an available credit expires. Choose at least one lead time.")
+                } else if model.settings.creditExpiryAutoApplyEnabled {
+                    Text("Unused banked resets apply automatically in the last minute before they expire. iOS may delay this until the next refresh.")
                 } else {
                     Text("Includes low usage, scheduled resets, optional surprise refills, and reset-credit inventory changes.")
                 }

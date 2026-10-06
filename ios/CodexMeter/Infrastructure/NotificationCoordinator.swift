@@ -183,6 +183,52 @@ public actor NotificationCoordinator {
             settings: settings,
             now: now
         )
+        await processExpiryAutoApplyNotifications(
+            credits: credits,
+            settings: settings,
+            now: now
+        )
+    }
+
+    public func notifyExpiryAutoApply(result: ResetConsumeResult) async {
+        let content = UNMutableNotificationContent()
+        if result.applied {
+            content.title = "Codex reset applied before expiry"
+            content.body = result.userMessage
+        } else if result.outcome == .nothingToReset {
+            content.title = "Expiring reset had nothing to reset"
+            content.body = result.userMessage
+        } else if result.outcome == .noCredit {
+            content.title = "Expiring reset was already gone"
+            content.body = result.userMessage
+        } else {
+            content.title = "Could not apply expiring reset"
+            content.body = result.userMessage
+        }
+        content.sound = .default
+        content.userInfo = [NotificationDeduplication.routeUserInfoKey: "reset"]
+        try? await center.add(
+            UNNotificationRequest(
+                identifier: "codex-meter.credit-expiry-apply.result",
+                content: content,
+                trigger: nil
+            )
+        )
+    }
+
+    public func notifyExpiryAutoApplyFailure(message: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = "Could not apply expiring reset"
+        content.body = message
+        content.sound = .default
+        content.userInfo = [NotificationDeduplication.routeUserInfoKey: "reset"]
+        try? await center.add(
+            UNNotificationRequest(
+                identifier: "codex-meter.credit-expiry-apply.failure",
+                content: content,
+                trigger: nil
+            )
+        )
     }
 
     /// Suppresses false “surprise refill” alerts after the user redeems a reset credit.
@@ -563,6 +609,57 @@ public actor NotificationCoordinator {
         )
         if !obsoleteDelivered.isEmpty {
             center.removeDeliveredNotifications(withIdentifiers: obsoleteDelivered)
+        }
+    }
+
+    private func processExpiryAutoApplyNotifications(
+        credits: ResetCreditsSnapshot,
+        settings: AppSettings,
+        now: Date
+    ) async {
+        let prefix = "codex-meter.credit-expiry-apply."
+        let planned = CreditExpiryAutoApply.plan(credits: credits.credits, now: now)
+        guard settings.creditExpiryAutoApplyEnabled else {
+            let pending = await center.pendingNotificationRequests()
+            let identifiers = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
+            if !identifiers.isEmpty {
+                center.removePendingNotificationRequests(withIdentifiers: identifiers)
+            }
+            return
+        }
+        var keeping: Set<String> = []
+        for apply in planned {
+            let identifier = prefix + apply.token
+            keeping.insert(identifier)
+            let fireDate = max(now.addingTimeInterval(1), apply.triggerAt)
+            guard fireDate < apply.expiresAt else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = "Codex reset expires now"
+            content.body = "An unused banked reset is being applied so it does not vanish. iOS may delay this until the next refresh."
+            content.sound = .default
+            content.userInfo = [
+                NotificationDeduplication.routeUserInfoKey: "refresh",
+                "creditId": apply.creditId,
+                "token": apply.token
+            ]
+            let components = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute, .second],
+                from: fireDate
+            )
+            try? await center.add(
+                UNNotificationRequest(
+                    identifier: identifier,
+                    content: content,
+                    trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                )
+            )
+        }
+        let pending = await center.pendingNotificationRequests()
+        let obsolete = pending.map(\.identifier).filter {
+            $0.hasPrefix(prefix) && !keeping.contains($0)
+        }
+        if !obsolete.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: obsolete)
         }
     }
 

@@ -12,6 +12,8 @@ import java.util.Set;
 public final class ResetAlertPreferences {
     private static final String KEY_METRIC = "metric";
     private static final String KEY_RESET_CREDIT_EXPIRY = "reset_credit_expiry";
+    private static final String KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY =
+            "reset_credit_expiry_auto_apply";
     private static final String KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES =
             "reset_credit_expiry_lead_times";
     private static final String KEY_RESET_CREDIT_INCREASES = "reset_credit_increases";
@@ -93,6 +95,14 @@ public final class ResetAlertPreferences {
 
     public static void setResetCreditExpiryEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_RESET_CREDIT_EXPIRY, enabled).apply();
+    }
+
+    public static boolean resetCreditExpiryAutoApplyEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY, true);
+    }
+
+    public static void setResetCreditExpiryAutoApplyEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY, enabled).apply();
     }
 
     public static List<Long> getResetCreditExpiryLeadTimes(Context context) {
