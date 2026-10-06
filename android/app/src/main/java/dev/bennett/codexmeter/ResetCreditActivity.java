@@ -87,6 +87,14 @@ public final class ResetCreditActivity extends AppCompatActivity {
             this.content.addView(errorCard);
         }
 
+        if (ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(this)
+                && nextExpiry > 0L) {
+            Ui.addSpacer(this.content, 8);
+            this.content.addView(Ui.text(this,
+                    "Unused credits apply automatically in the last minute before they expire.",
+                    13.0f, Ui.secondaryText(this.dark)));
+        }
+
         this.useButton = Ui.nativePrimaryButton(
                 this, available > 0 ? "Use 1 reset" : "No resets available");
         this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this));

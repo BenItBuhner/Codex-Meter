@@ -29,6 +29,7 @@ public final class ParserSelfTest {
         testCelebrationDetection();
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
+        testResetCreditExpiryAutoApply();
         testFullWindowHidesResetCountdown();
         testLowUsageAlertDedup();
         testUsageHistory();
@@ -1156,6 +1157,49 @@ public final class ParserSelfTest {
         System.out.println("Reset-credit inventory demo: available credits sort by expiry.");
     }
 
+    private static void testResetCreditExpiryAutoApply() {
+        long now = 3_000_000L;
+        RateLimitResetCredit due = new RateLimitResetCredit("due", "both", "available",
+                now - 1, now + TimeUnit.SECONDS.toMillis(45), "", "");
+        RateLimitResetCredit later = new RateLimitResetCredit("later", "both", "available",
+                now - 1, now + TimeUnit.MINUTES.toMillis(10), "", "");
+        RateLimitResetCredit redeemed = new RateLimitResetCredit("used", "both", "redeemed",
+                now - 1, now + TimeUnit.SECONDS.toMillis(20), "", "");
+        RateLimitResetCredit expired = new RateLimitResetCredit("expired", "both", "available",
+                now - 1, now - 1, "", "");
+        RateLimitResetCredit noExpiry = new RateLimitResetCredit("none", "both", "available",
+                now - 1, 0L, "", "");
+        List<ResetCreditExpiryApply> planned = ResetCreditExpiryApply.plan(
+                Arrays.asList(later, redeemed, expired, noExpiry, due), now);
+        check(planned.size() == 2, "only unexpired available credits are scheduled to auto-apply");
+        check("due".equals(planned.get(0).creditId), "soonest expiry is scheduled first");
+        check(planned.get(0).triggerAtMillis == due.expiresAtMillis
+                        - ResetCreditExpiryApply.APPLY_LEAD_MS,
+                "auto-apply triggers one minute before expiry");
+        List<ResetCreditExpiryApply> dueNow = ResetCreditExpiryApply.due(
+                Arrays.asList(due, later, expired), now);
+        check(dueNow.size() == 1 && "due".equals(dueNow.get(0).creditId),
+                "only the last-minute credit is due now");
+        check(ResetCreditExpiryApply.isDue(due.expiresAtMillis, now),
+                "45 seconds remaining is inside the apply window");
+        check(ResetCreditExpiryApply.isDue(now + ResetCreditExpiryApply.APPLY_LEAD_MS, now),
+                "exactly 60 seconds remaining is inside the apply window");
+        check(!ResetCreditExpiryApply.isDue(later.expiresAtMillis, now),
+                "ten minutes remaining is not auto-applied yet");
+        check(!ResetCreditExpiryApply.isDue(expired.expiresAtMillis, now),
+                "already-expired credits are not applied");
+        RateLimitResetCredit alsoDue = new RateLimitResetCredit("also-due", "both", "available",
+                now - 1, now + TimeUnit.SECONDS.toMillis(10), "", "");
+        List<ResetCreditExpiryApply> twoDue = ResetCreditExpiryApply.due(
+                Arrays.asList(alsoDue, due, later), now);
+        check(twoDue.size() == 2
+                        && "also-due".equals(twoDue.get(0).creditId)
+                        && "due".equals(twoDue.get(1).creditId),
+                "several last-minute credits apply soonest first");
+        System.out.println("Reset-credit auto-apply demo: last-minute unused credits apply, "
+                + "later and expired credits do not.");
+    }
+
     private static UsageSnapshot snapshot(int fiveHourUsed, int weeklyUsed,
             long resetAfterSeconds, long fetchedAtMillis) {
         return new UsageSnapshot("pro", true, false,
@@ -1215,6 +1259,7 @@ public final class ParserSelfTest {
                 .put("unexpected_refills", false)
                 .put("reset_credit_increases", true)
                 .put("reset_credit_expiry", true)
+                .put("reset_credit_expiry_auto_apply", true)
                 .put("reset_credit_expiry_lead_times",
                         SettingsTransfer.leadTimesToJson(Arrays.asList(
                                 TimeUnit.HOURS.toMillis(1),
@@ -1257,6 +1302,8 @@ public final class ParserSelfTest {
                 "usage pace sensitivity preserved");
         check(!restored.showPercentSymbol, "percent symbol flag restored");
         check(parsed.notifications.getInt("threshold") == 50, "notification threshold restored");
+        check(parsed.notifications.getBoolean("reset_credit_expiry_auto_apply"),
+                "expiry auto-apply preference restored");
         check(SettingsTransfer.leadTimesFromJson(
                 parsed.notifications.getJSONArray("reset_credit_expiry_lead_times")).size() == 2,
                 "lead times restored");

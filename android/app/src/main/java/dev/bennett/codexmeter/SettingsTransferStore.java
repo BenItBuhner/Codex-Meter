@@ -206,6 +206,8 @@ public final class SettingsTransferStore {
         json.put("reset_credit_increases",
                 ResetAlertPreferences.resetCreditIncreasesEnabled(context));
         json.put("reset_credit_expiry", ResetAlertPreferences.resetCreditExpiryEnabled(context));
+        json.put("reset_credit_expiry_auto_apply",
+                ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context));
         json.put("reset_credit_expiry_lead_times", SettingsTransfer.leadTimesToJson(
                 ResetAlertPreferences.getResetCreditExpiryLeadTimes(context)));
         return json;
@@ -300,6 +302,9 @@ public final class SettingsTransferStore {
         ResetAlertPreferences.setResetCreditExpiryEnabled(context,
                 json.optBoolean("reset_credit_expiry",
                         ResetAlertPreferences.resetCreditExpiryEnabled(context)));
+        ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(context,
+                json.optBoolean("reset_credit_expiry_auto_apply",
+                        ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context)));
         if (leadTimes != null) {
             ResetAlertPreferences.setResetCreditExpiryLeadTimes(context, leadTimes);
         }
@@ -311,6 +316,8 @@ public final class SettingsTransferStore {
         } else {
             ResetNotificationManager.clearNotificationHistory(context);
         }
+        ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(context,
+                AppPreferences.loadResetCredits(context));
     }
 
     private static void applyNowBar(Context context, JSONObject json) {

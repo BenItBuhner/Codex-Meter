@@ -42,6 +42,12 @@ struct ResetCreditView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
+                        if model.settings.creditExpiryAutoApplyEnabled, nextExpiry != nil {
+                            Text("Unused credits apply automatically in the last minute before they expire. iOS may delay this until the next refresh.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
 
                     Text("Using a credit asks OpenAI to reset the currently used Codex rate-limit windows. The app reloads usage and the remaining credit inventory afterward.")

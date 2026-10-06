@@ -41,7 +41,7 @@ public actor DemoCodexService: CodexService {
         return state.credits
     }
 
-    public func consumeReset() async throws -> ResetConsumeResult {
+    public func consumeReset(creditID: String?) async throws -> ResetConsumeResult {
         guard availableCredits > 0 else {
             return ResetConsumeResult(outcome: .noCredit, windowsReset: 0)
         }

@@ -111,7 +111,7 @@ public actor LiveCodexService: CodexService {
         }
     }
 
-    public func consumeReset() async throws -> ResetConsumeResult {
+    public func consumeReset(creditID: String? = nil) async throws -> ResetConsumeResult {
         if let activeRefresh {
             _ = try? await activeRefresh.value
             self.activeRefresh = nil
@@ -148,8 +148,12 @@ public actor LiveCodexService: CodexService {
         }
 
         var object: [String: Any] = ["redeem_request_id": UUID().uuidString]
-        if let creditID = credits.preferredCreditID(at: now()), !creditID.isEmpty {
-            object["credit_id"] = creditID
+        let preferred = preferredCreditID(requested: creditID, credits: credits, now: now())
+        if let requested = creditID, !requested.isEmpty, preferred == nil {
+            return ResetConsumeResult(outcome: .noCredit, windowsReset: 0)
+        }
+        if let preferred, !preferred.isEmpty {
+            object["credit_id"] = preferred
         }
         let body = try JSONSerialization.data(withJSONObject: object)
         let payload = try await authenticatedRequest(
@@ -198,6 +202,24 @@ public actor LiveCodexService: CodexService {
             windowsReset: windowsReset,
             refreshWarning: refreshWarning
         )
+    }
+
+    private func preferredCreditID(
+        requested: String?,
+        credits: ResetCreditsSnapshot,
+        now: Date
+    ) -> String? {
+        if let requested, !requested.isEmpty {
+            if credits.credits.contains(where: { credit in
+                credit.id == requested
+                    && credit.isAvailable
+                    && (credit.expiresAt == nil || credit.expiresAt! > now)
+            }) {
+                return requested
+            }
+            return nil
+        }
+        return credits.preferredCreditID(at: now)
     }
 
     public func currentTokens() async throws -> AuthTokens? {

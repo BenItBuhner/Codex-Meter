@@ -851,6 +851,19 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            SwitchPreferenceCompat resetCreditExpiryAutoApply =
+                    findPreference("reset_credit_expiry_auto_apply_ui");
+            resetCreditExpiryAutoApply.setPersistent(false);
+            resetCreditExpiryAutoApply.setChecked(
+                    ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(requireContext()));
+            resetCreditExpiryAutoApply.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(
+                        requireContext(), (Boolean) value);
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
+                return true;
+            });
+
             expiryTimesPreference = findPreference("reset_credit_expiry_times_ui");
             expiryTimesPreference.setEnabled(
                     ResetAlertPreferences.resetCreditExpiryEnabled(requireContext()));
