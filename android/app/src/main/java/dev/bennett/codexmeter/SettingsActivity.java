@@ -249,6 +249,10 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindRoot() {
             bindAccount();
+            findPreference("settings_providers").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), ProvidersActivity.class);
+                return true;
+            });
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
@@ -367,6 +371,12 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
+            StringBuilder providers = new StringBuilder();
+            for (UsageProvider provider : ProviderPreferences.getEnabled(requireContext())) {
+                if (providers.length() > 0) providers.append(", ");
+                providers.append(provider.displayName);
+            }
+            findPreference("settings_providers").setSummary(providers.toString());
             String theme = AppPreferences.getAppTheme(requireContext());
             String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
                     ? "System default"

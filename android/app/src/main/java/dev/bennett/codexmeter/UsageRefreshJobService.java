@@ -91,6 +91,7 @@ public final class UsageRefreshJobService extends JobService {
                     Context app = UsageRefreshJobService.this.getApplicationContext();
                     // Claude never throws here; it paces itself to avoid its rate limit.
                     ClaudeUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
+                    CursorUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
                     if (SecureTokenStore.isSignedIn(app)) {
                         RefreshScheduler.scheduleAtNextReset(app, UsageApi.refreshAndCache(app));
                         AppPreferences.recordRefreshSuccess(app);

@@ -63,6 +63,8 @@ public final class ParserSelfTest {
         testUsageProviders();
         testClaudeUsageParsing();
         testClaudeOAuthRequests();
+        testCursorUsageParsing();
+        testCursorAuth();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
@@ -2065,7 +2067,39 @@ public final class ParserSelfTest {
         }
         check("Sign in with Claude".equals(UsageProvider.CLAUDE_CODE.signInLabel()),
                 "Claude sign-in label");
-        System.out.println("Usage providers: Codex default + stable ids verified.");
+
+        List<UsageProvider> all = Arrays.asList(UsageProvider.values());
+        check(UsageProvider.enabledFromIds(null).equals(all), "no saved choice -> every tab on");
+        check(UsageProvider.enabledFromIds(Arrays.asList("", "bogus")).equals(all),
+                "unreadable choice -> every tab on");
+        check(UsageProvider.enabledFromIds(Arrays.asList("cursor", " CODEX "))
+                .equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
+                "enabled tabs keep enum order");
+        List<UsageProvider> two = UsageProvider.withEnabled(all, UsageProvider.CLAUDE_CODE, false);
+        check(two.equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
+                "turning a provider off removes only its tab");
+        List<UsageProvider> one = UsageProvider.withEnabled(
+                UsageProvider.withEnabled(two, UsageProvider.CODEX, false),
+                UsageProvider.CURSOR, false);
+        check(one.equals(Arrays.asList(UsageProvider.CURSOR)),
+                "the last provider can't be turned off");
+        check(UsageProvider.withEnabled(one, UsageProvider.CLAUDE_CODE, true)
+                .equals(Arrays.asList(UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR)),
+                "turning a provider back on restores its place");
+        check(UsageProvider.visibleSelection(UsageProvider.CLAUDE_CODE, two)
+                == UsageProvider.CODEX, "a hidden selected tab falls back to the first one on");
+        check(UsageProvider.visibleSelection(UsageProvider.CURSOR, two) == UsageProvider.CURSOR,
+                "a visible selected tab stays selected");
+        check(UsageProvider.orderFromIds(null).equals(all), "default tab order is enum order");
+        List<UsageProvider> custom = UsageProvider.orderFromIds(
+                Arrays.asList("cursor", "bogus", "CURSOR", " codex "));
+        check(custom.equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE)),
+                "saved order first, duplicates and unknown ids skipped, the rest appended");
+        check(UsageProvider.inOrder(two, custom)
+                .equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "enabled tabs follow the chosen order");
+        System.out.println("Usage providers: Codex default, stable ids, and enabled tabs verified.");
     }
 
     private static void testClaudeUsageParsing() throws Exception {
@@ -2228,6 +2262,135 @@ public final class ParserSelfTest {
         check(ClaudeCodeApi.isRefreshDue(100 * minute, 200 * minute, 0L, interval),
                 "a cache from the future (clock change) does not block refresh");
         System.out.println("Claude Code OAuth: authorize URL, code exchange, refresh verified.");
+    }
+
+    private static void testCursorUsageParsing() throws Exception {
+        check(UsageProvider.fromId("cursor") == UsageProvider.CURSOR, "Cursor provider id");
+        check("Sign in with Cursor".equals(UsageProvider.CURSOR.signInLabel()),
+                "Cursor sign-in label");
+        String body = "{\"billingCycleStart\":\"1791676800000\","
+                + "\"billingCycleEnd\":\"2026-11-11T00:00:00Z\","
+                + "\"planUsage\":{\"totalSpend\":500,\"includedSpend\":400,\"bonusSpend\":100,"
+                + "\"remaining\":1500,\"limit\":2000,\"totalPercentUsed\":25,"
+                + "\"autoPercentUsed\":10,\"apiPercentUsed\":15},"
+                + "\"spendLimitUsage\":{\"totalSpend\":300,\"individualLimit\":1000,"
+                + "\"individualUsed\":300,\"individualRemaining\":700,"
+                + "\"pooledLimit\":\"20000\",\"pooledUsed\":5000,\"limitType\":\"team\"},"
+                + "\"enabled\":true,\"serverTimeOffsetMs\":123}";
+        UsageSnapshot snapshot = CursorUsageParser.parse(body, "Pro", 1_000L);
+        long end = java.time.OffsetDateTime.parse("2026-11-11T00:00:00Z").toEpochSecond();
+        check(snapshot.monthly != null && snapshot.monthly.usedPercent == 25,
+                "Cursor totalPercentUsed is the included-usage window");
+        check(snapshot.monthly.resetAtEpochSeconds == end,
+                "Cursor ISO billingCycleEnd is the reset");
+        check(snapshot.monthly.windowSeconds == end - 1_791_676_800L,
+                "Cursor window spans the billing cycle");
+        check(snapshot.fiveHour == null && snapshot.weekly == null,
+                "Cursor has no 5-hour or weekly window");
+        check(snapshot.longWindowIsMonthly(), "Cursor widgets fall back to the monthly window");
+        check(snapshot.additionalLimits.size() == 3, "Cursor auto, API, and on-demand limits");
+        check("Auto + Composer".equals(snapshot.additionalLimits.get(0).name)
+                        && snapshot.additionalLimits.get(0).primary.usedPercent == 10,
+                "Cursor auto pool percent");
+        check("API models".equals(snapshot.additionalLimits.get(1).name)
+                        && snapshot.additionalLimits.get(1).primary.usedPercent == 15,
+                "Cursor API pool percent");
+        UsageLimit onDemand = snapshot.additionalLimits.get(2);
+        check("On-demand ($3 of $10)".equals(onDemand.name)
+                        && onDemand.primary.usedPercent == 30 && !onDemand.limitReached,
+                "Cursor individual on-demand cap wins over the team pool, in dollars");
+        check(!snapshot.limitReached && snapshot.allowed, "Cursor snapshot not limited");
+        check(UsageSnapshot.fromJson(snapshot.toJson()).monthly.usedPercent == 25,
+                "Cursor snapshot survives the cache round-trip");
+
+        UsageSnapshot computed = CursorUsageParser.parse(
+                "{\"billingCycleStart\":1791676800000,\"billingCycleEnd\":\"1794355200000\","
+                        + "\"planUsage\":{\"includedSpend\":2000,\"limit\":2000},"
+                        + "\"spendLimitUsage\":{\"pooledLimit\":\"5000\",\"pooledUsed\":\"5000\"}}",
+                "", 1L);
+        check(computed.monthly.usedPercent == 100 && computed.monthly.resetAtEpochSeconds
+                        == 1_794_355_200L,
+                "Cursor percent from includedSpend/limit with epoch-ms strings");
+        check(computed.additionalLimits.size() == 1
+                        && "Team on-demand ($50 of $50)".equals(computed.additionalLimits.get(0).name)
+                        && computed.additionalLimits.get(0).limitReached,
+                "Cursor team pool on-demand fallback");
+        check(computed.limitReached, "Cursor plan and on-demand both spent -> limited");
+        UsageSnapshot light = CursorUsageParser.parse(
+                "{\"planUsage\":{\"totalPercentUsed\":0.36}}", "", 1L);
+        check(light.monthly.usedPercent == 1
+                        && light.monthly.windowSeconds == CursorUsageParser.DEFAULT_CYCLE_SECONDS,
+                "Cursor fractional usage shows at least 1% and defaults to a 30-day cycle");
+        check(light.additionalLimits.isEmpty(), "Cursor plans without pools show no pool cards");
+        UsageSnapshot oneSided = CursorUsageParser.parse(
+                "{\"planUsage\":{\"limit\":2000,\"autoPercentUsed\":40}}", "", 1L);
+        check(oneSided.monthly.usedPercent == 0 && oneSided.additionalLimits.size() == 2
+                        && oneSided.additionalLimits.get(1).primary.usedPercent == 0,
+                "Cursor omitted zero pool and zero spend still show as 0%");
+        UsageSnapshot empty = CursorUsageParser.parse("{\"enabled\":false}", "", 1L);
+        check(empty.monthly == null && empty.additionalLimits.isEmpty(),
+                "Cursor response without usage yields no windows");
+        check("$12.50".equals(CursorUsageParser.dollars(1250)), "Cursor cents to dollars");
+
+        check("Pro+".equals(CursorUsageParser.planLabel("{\"membershipType\":\"pro_plus\"}")),
+                "Cursor Pro+ plan");
+        check("Ultra".equals(CursorUsageParser.planLabel("{\"membershipType\":\"ultra\"}")),
+                "Cursor Ultra plan");
+        check("Hobby".equals(CursorUsageParser.planLabel("{\"membershipType\":\"free\"}")),
+                "Cursor free plan is Hobby");
+        check("Teams".equals(CursorUsageParser.planLabel("{\"membership_type\":\"team\"}")),
+                "Cursor team plan");
+        check("".equals(CursorUsageParser.planLabel("nope")), "bad Cursor profile -> no badge");
+        check("me@example.com".equals(CursorUsageParser.email("{\"email\":\"me@example.com\"}")),
+                "Cursor profile email");
+        System.out.println("Cursor usage: billing cycle, model pools, on-demand, plans verified.");
+    }
+
+    private static void testCursorAuth() throws Exception {
+        CursorApi.LoginRequest login = CursorApi.newLoginRequest();
+        check(login.verifier.length() == 43, "Cursor verifier is 32 bytes base64url");
+        check(login.challenge.equals(CursorApi.challengeFor(login.verifier)),
+                "Cursor challenge is SHA-256 of the verifier");
+        // RFC 7636 appendix B test vector.
+        check("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM".equals(
+                        CursorApi.challengeFor("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")),
+                "Cursor S256 challenge matches RFC 7636");
+        check(login.loginUrl().equals("https://cursor.com/loginDeepControl?challenge="
+                        + login.challenge + "&uuid=" + login.uuid + "&mode=login"),
+                "Cursor login URL");
+        check(login.pollUrl().equals("https://api2.cursor.sh/auth/poll?uuid=" + login.uuid
+                + "&verifier=" + login.verifier), "Cursor poll URL");
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "{\"sub\":\"auth0|user_01ABC\",\"exp\":1800000000,\"email\":\"a@b.co\"}"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String jwt = "eyJhbGciOiJIUzI1NiJ9." + payload + ".sig";
+        check(CursorApi.expiresAtMillis(jwt) == 1_800_000_000_000L, "Cursor JWT exp");
+        check("a@b.co".equals(CursorApi.email(jwt)), "Cursor JWT email");
+        check(CursorApi.expiresAtMillis("not-a-jwt") == 0L, "bad Cursor JWT -> no expiry");
+        CursorApi.Tokens polled = CursorApi.parseTokens(
+                "{\"authId\":\"auth0|user_01ABC\",\"accessToken\":\"a\",\"refreshToken\":\"r\"}");
+        check("a".equals(polled.accessToken) && "r".equals(polled.refreshToken)
+                && "auth0|user_01ABC".equals(polled.authId), "Cursor poll tokens");
+        CursorApi.Tokens refreshed = CursorApi.parseTokens("{\"access_token\":\"new\"}");
+        check("new".equals(refreshed.accessToken) && "new".equals(refreshed.refreshToken),
+                "Cursor refresh reuses the access token as refresh token, like the editor");
+        check(CursorApi.parseTokens("{\"shouldLogout\":true}").shouldLogout,
+                "Cursor shouldLogout is read");
+        check(CursorApi.refreshBody("r").contains("\"client_id\":\"" + CursorApi.CLIENT_ID + "\""),
+                "Cursor refresh body carries the client id");
+        check(CursorApi.isUnauthenticated(401, ""), "Cursor 401 is unauthenticated");
+        check(CursorApi.isUnauthenticated(200, "{\"error\":\"not_authenticated\"}"),
+                "Cursor 200 with auth error body is unauthenticated");
+        check(!CursorApi.isUnauthenticated(200, "{\"planUsage\":{}}"), "Cursor usage is not an auth error");
+        check(CursorApi.isBotCheckpoint(403, "<html>Vercel Security Checkpoint</html>")
+                        && !CursorApi.isUnauthenticated(403, "<html>Vercel Security Checkpoint</html>"),
+                "Cursor bot checkpoint is not a sign-in failure");
+        long minute = 60_000L;
+        check(!CursorApi.isRefreshDue(100 * minute, 90 * minute,
+                CursorApi.BACKGROUND_INTERVAL_MILLIS), "Cursor background refresh waits");
+        check(CursorApi.isRefreshDue(100 * minute, 80 * minute,
+                CursorApi.BACKGROUND_INTERVAL_MILLIS), "Cursor background refresh runs");
+        System.out.println("Cursor auth: PKCE poll login, JWT expiry, refresh verified.");
     }
 
     private static void check(boolean condition, String name) {

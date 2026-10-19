@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -46,6 +47,21 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+            }
+
+            Section {
+                NavigationLink {
+                    ProvidersSettingsView()
+                } label: {
+                    LabeledContent {
+                        Text(model.enabledProviders.map(\.displayName).joined(separator: ", "))
+                    } label: {
+                        Label("Providers", systemImage: "square.grid.2x2")
+                    }
+                }
+                .accessibilityIdentifier("settings-providers")
+            } footer: {
+                Text("Choose which providers get a tab at the bottom of the dashboard, and their order.")
             }
 
             Section {

@@ -8,6 +8,7 @@ import Foundation
 public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable {
     case codex = "codex"
     case claudeCode = "claude_code"
+    case cursor = "cursor"
 
     public static let defaultProvider: UsageProvider = .codex
 
@@ -18,6 +19,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         switch self {
         case .codex: "Codex"
         case .claudeCode: "Claude Code"
+        case .cursor: "Cursor"
         }
     }
 
@@ -26,6 +28,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         switch self {
         case .codex: "ChatGPT"
         case .claudeCode: "Claude"
+        case .cursor: "Cursor"
         }
     }
 
@@ -34,11 +37,61 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         switch self {
         case .codex: "OpenAI"
         case .claudeCode: "Anthropic"
+        case .cursor: "Cursor"
         }
     }
 
     public var signInLabel: String {
         "Sign in with \(accountName)"
+    }
+
+    /// Providers whose tabs are on, in tab order. Unknown ids are skipped; a missing or empty
+    /// list turns every provider on, so new installs and upgrades see all tabs.
+    public static func enabled(from ids: [String]?) -> [UsageProvider] {
+        let normalized = Set((ids ?? []).map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(with: Locale(identifier: "en_US_POSIX"))
+        })
+        let enabled = allCases.filter { normalized.contains($0.rawValue) }
+        return enabled.isEmpty ? allCases : enabled
+    }
+
+    /// Every provider in the user's tab order: saved ids first (duplicates and unknown ids
+    /// skipped), then any provider the saved order doesn't mention, in declaration order.
+    public static func order(from ids: [String]?) -> [UsageProvider] {
+        var order: [UsageProvider] = []
+        for id in ids ?? [] {
+            let normalized = id.trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(with: Locale(identifier: "en_US_POSIX"))
+            if let provider = UsageProvider(rawValue: normalized), !order.contains(provider) {
+                order.append(provider)
+            }
+        }
+        return order + allCases.filter { !order.contains($0) }
+    }
+
+    /// The providers in `enabled`, arranged in `order`.
+    public static func inOrder(_ enabled: [UsageProvider], order: [UsageProvider]) -> [UsageProvider] {
+        order.filter { enabled.contains($0) }
+    }
+
+    /// `enabled` with one provider switched on or off; the last one can't be turned off.
+    public static func enabled(
+        _ enabled: [UsageProvider],
+        setting provider: UsageProvider,
+        on: Bool
+    ) -> [UsageProvider] {
+        let result = allCases.filter { $0 == provider ? on : enabled.contains($0) }
+        return result.isEmpty ? enabled : result
+    }
+
+    /// The selected tab if it is still on, otherwise the first provider that is.
+    public static func visibleSelection(
+        _ selected: UsageProvider,
+        enabled: [UsageProvider]
+    ) -> UsageProvider {
+        guard let first = enabled.first, !enabled.contains(selected) else { return selected }
+        return first
     }
 
     /// Resolves a saved id, falling back to `defaultProvider` for unknown or missing values.

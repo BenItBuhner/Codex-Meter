@@ -1,20 +1,26 @@
 package dev.bennett.codexmeter;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 
 /**
  * Coding-agent services whose subscription limits Codex Meter can show.
  *
  * <p>Codex stays the default and keeps every legacy storage key, so existing installs see no
- * change until they open another provider tab. To add a provider: add an entry here and a tab
- * in {@code res/menu/provider_tabs.xml} (wired in {@code MainActivity.tabId}), add
+ * change until they open another provider tab. To add a provider: add an entry here, its mark
+ * as {@code ic_provider_<id>} (mapped in {@code ProvidersActivity.iconRes}), one more tab slot in
+ * {@code res/menu/provider_tabs.xml} if needed, add
  * its sign-in branch to {@link OAuthService}, and give it a usage client like
  * {@link ClaudeUsageApi} that returns a {@link UsageSnapshot}. Everything else (dashboard
  * cards, pace labels, account card, token storage) is shared.
  */
 public enum UsageProvider {
     CODEX("codex", "Codex", "ChatGPT", "OpenAI"),
-    CLAUDE_CODE("claude_code", "Claude Code", "Claude", "Anthropic");
+    CLAUDE_CODE("claude_code", "Claude Code", "Claude", "Anthropic"),
+    CURSOR("cursor", "Cursor", "Cursor", "Cursor");
 
     public static final UsageProvider DEFAULT = CODEX;
 
@@ -45,6 +51,80 @@ public enum UsageProvider {
             }
         }
         return DEFAULT;
+    }
+
+    /**
+     * Providers whose tabs are on, in tab order. Unknown ids are skipped; a missing or empty
+     * list turns every provider on, so new installs and upgrades see all tabs.
+     */
+    public static List<UsageProvider> enabledFromIds(Collection<String> ids) {
+        List<UsageProvider> enabled = new ArrayList<>();
+        if (ids != null) {
+            for (UsageProvider provider : values()) {
+                for (String id : ids) {
+                    if (id != null && provider.id.equals(id.trim().toLowerCase(Locale.ROOT))) {
+                        enabled.add(provider);
+                        break;
+                    }
+                }
+            }
+        }
+        return enabled.isEmpty() ? new ArrayList<>(Arrays.asList(values())) : enabled;
+    }
+
+    /**
+     * Every provider in the user's tab order: saved ids first (duplicates and unknown ids
+     * skipped), then any provider the saved order doesn't mention, in enum order.
+     */
+    public static List<UsageProvider> orderFromIds(Collection<String> ids) {
+        List<UsageProvider> order = new ArrayList<>();
+        if (ids != null) {
+            for (String id : ids) {
+                if (id == null) continue;
+                String normalized = id.trim().toLowerCase(Locale.ROOT);
+                for (UsageProvider provider : values()) {
+                    if (provider.id.equals(normalized) && !order.contains(provider)) {
+                        order.add(provider);
+                    }
+                }
+            }
+        }
+        for (UsageProvider provider : values()) {
+            if (!order.contains(provider)) order.add(provider);
+        }
+        return order;
+    }
+
+    /** The providers in {@code enabled}, arranged in {@code order}. */
+    public static List<UsageProvider> inOrder(List<UsageProvider> enabled,
+            List<UsageProvider> order) {
+        List<UsageProvider> result = new ArrayList<>();
+        for (UsageProvider provider : order) {
+            if (enabled.contains(provider)) result.add(provider);
+        }
+        return result;
+    }
+
+    /** {@code enabled} with one provider switched on or off; the last one can't be turned off. */
+    public static List<UsageProvider> withEnabled(List<UsageProvider> enabled,
+            UsageProvider provider, boolean on) {
+        List<UsageProvider> result = new ArrayList<>();
+        for (UsageProvider candidate : values()) {
+            boolean wasOn = enabled != null && enabled.contains(candidate);
+            if (candidate == provider ? on : wasOn) {
+                result.add(candidate);
+            }
+        }
+        return result.isEmpty() ? new ArrayList<>(enabled) : result;
+    }
+
+    /** The selected tab if it is still on, otherwise the first provider that is. */
+    public static UsageProvider visibleSelection(UsageProvider selected,
+            List<UsageProvider> enabled) {
+        if (enabled == null || enabled.isEmpty() || enabled.contains(selected)) {
+            return selected;
+        }
+        return enabled.get(0);
     }
 
     public String signInLabel() {

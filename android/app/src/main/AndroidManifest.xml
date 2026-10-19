@@ -64,6 +64,9 @@
             android:name="dev.bennett.codexmeter.DashboardReorderActivity"
             android:exported="false"/>
         <activity
+            android:name="dev.bennett.codexmeter.ProvidersActivity"
+            android:exported="false"/>
+        <activity
             android:name="dev.bennett.codexmeter.AboutActivity"
             android:exported="false"/>
         <activity

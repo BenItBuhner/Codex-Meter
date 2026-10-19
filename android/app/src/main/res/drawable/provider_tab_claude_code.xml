@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Filled star on the selected tab, outline otherwise, like One UI's bottom tab icons. -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/ic_oui_star" android:state_selected="true" />
-    <item android:drawable="@drawable/ic_oui_star_outline" />
-</selector>

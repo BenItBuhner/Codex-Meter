@@ -57,6 +57,11 @@ public final class MainActivity extends AppCompatActivity {
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
     private BottomTabLayout providerTabs;
+    /** Menu slots in {@code res/menu/provider_tabs.xml}, filled in tab order. */
+    private static final int[] TAB_SLOTS = {
+            R.id.provider_tab_0, R.id.provider_tab_1, R.id.provider_tab_2};
+    /** Providers currently shown in the tab slots, in order. */
+    private List<UsageProvider> tabProviders = new ArrayList<>();
     private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
@@ -169,6 +174,7 @@ public final class MainActivity extends AppCompatActivity {
                 || materialYou != this.appliedMaterialYou) {
             recreate();
         } else {
+            applyEnabledProviders();
             handleLaunchIntent(getIntent());
             rebuild();
         }
@@ -242,7 +248,8 @@ public final class MainActivity extends AppCompatActivity {
         if (requestedProvider != null) {
             intent.removeExtra(EXTRA_PROVIDER);
             UsageProvider requested = UsageProvider.fromId(requestedProvider);
-            if (requested != this.provider) {
+            if (requested != this.provider
+                    && ProviderPreferences.getEnabled(this).contains(requested)) {
                 this.provider = requested;
                 ProviderPreferences.setSelected(this, requested);
                 if (this.providerTabs != null) {
@@ -305,7 +312,7 @@ public final class MainActivity extends AppCompatActivity {
         if (this.providerTabs == null) {
             return;
         }
-        this.providerTabs.setSelectedItem(tabId(this.provider));
+        applyEnabledProviders();
         this.providerTabs.setOnMenuItemClickListener(item -> {
             UsageProvider selected = providerForTab(item.getItemId());
             if (selected != null) {
@@ -315,21 +322,48 @@ public final class MainActivity extends AppCompatActivity {
         });
     }
 
-    /** Menu item for each provider's tab in {@code res/menu/provider_tabs.xml}. */
-    private static int tabId(UsageProvider provider) {
-        switch (provider) {
-            case CLAUDE_CODE:
-                return R.id.provider_tab_claude_code;
-            case CODEX:
-            default:
-                return R.id.provider_tab_codex;
+    /**
+     * Fills the tab slots with the providers turned on in Settings → Providers, in the order
+     * chosen there, and hides the tabs entirely when only one is on. A tab turned off while
+     * selected falls back to the first provider still on.
+     */
+    private void applyEnabledProviders() {
+        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
+        UsageProvider visible = UsageProvider.visibleSelection(this.provider, enabled);
+        if (visible != this.provider) {
+            this.provider = visible;
+            ProviderPreferences.setSelected(this, visible);
         }
+        if (this.providerTabs == null) {
+            return;
+        }
+        if (!enabled.equals(this.tabProviders)) {
+            this.tabProviders = new ArrayList<>(enabled);
+            for (int slot = 0; slot < TAB_SLOTS.length; slot++) {
+                boolean used = slot < enabled.size();
+                if (used) {
+                    MenuItem item = this.providerTabs.findMenuItem(TAB_SLOTS[slot]);
+                    UsageProvider tabProvider = enabled.get(slot);
+                    item.setTitle(tabProvider.displayName);
+                    item.setIcon(ProvidersActivity.iconRes(tabProvider));
+                }
+                this.providerTabs.setItemVisible(TAB_SLOTS[slot], used);
+            }
+        }
+        this.providerTabs.setSelectedItem(tabId(this.provider));
+        this.providerTabs.setVisibility(enabled.size() > 1 ? View.VISIBLE : View.GONE);
     }
 
-    private static UsageProvider providerForTab(int itemId) {
-        for (UsageProvider candidate : UsageProvider.values()) {
-            if (tabId(candidate) == itemId) {
-                return candidate;
+    /** Tab slot showing {@code provider}; slots follow the order from Settings → Providers. */
+    private int tabId(UsageProvider provider) {
+        int index = this.tabProviders.indexOf(provider);
+        return TAB_SLOTS[Math.max(0, Math.min(index, TAB_SLOTS.length - 1))];
+    }
+
+    private UsageProvider providerForTab(int itemId) {
+        for (int slot = 0; slot < TAB_SLOTS.length && slot < this.tabProviders.size(); slot++) {
+            if (TAB_SLOTS[slot] == itemId) {
+                return this.tabProviders.get(slot);
             }
         }
         return null;
@@ -362,6 +396,14 @@ public final class MainActivity extends AppCompatActivity {
                 this.swipeRefresh.setRefreshing(true);
             }
             refreshProvider(UsageProvider.CLAUDE_CODE, "tab");
+        } else if (this.provider == UsageProvider.CURSOR
+                && SecureTokenStore.isSignedIn(this, UsageProvider.CURSOR)
+                && AppPreferences.getRefreshOnLaunch(this)
+                && CursorUsageApi.isStale(this)) {
+            if (this.swipeRefresh != null) {
+                this.swipeRefresh.setRefreshing(true);
+            }
+            refreshProvider(UsageProvider.CURSOR, "tab");
         }
     }
 
@@ -1176,6 +1218,12 @@ public final class MainActivity extends AppCompatActivity {
                         inverted));
                 inverted = !inverted;
             }
+            if (snapshot.monthly != null) {
+                addDashboardCard(column, buildMetricCard(
+                        target == UsageProvider.CURSOR ? "Included usage" : "Monthly",
+                        snapshot, snapshot.monthly, inverted));
+                inverted = !inverted;
+            }
             for (UsageLimit limit : snapshot.additionalLimits) {
                 if (limit.primary != null) {
                     addDashboardCard(column, buildMetricCard(
@@ -1201,7 +1249,8 @@ public final class MainActivity extends AppCompatActivity {
         }
         if (snapshot != null && snapshot.fetchedAtMillis > 0L
                 && AppPreferences.showDashboardUsageHistory(this)
-                && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+                && (snapshot.fiveHour != null || snapshot.weekly != null
+                        || snapshot.monthly != null)) {
             addDashboardCard(column, buildUsageHistoryCard(target));
         }
         this.content.addView(column);
@@ -1214,8 +1263,12 @@ public final class MainActivity extends AppCompatActivity {
         TextView title = Ui.text(this, target.displayName, 18, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
+        String limits = target == UsageProvider.CURSOR
+                ? " included usage for this billing cycle, Auto and API model pools, and "
+                        + "on-demand spend."
+                : " 5-hour and weekly limits, plus any model-only allocation your plan has.";
         TextView summary = Ui.text(this, "See your " + target.displayName
-                        + " 5-hour and weekly limits, plus any model-only allocation your plan has. Sign in with the "
+                        + limits + " Sign in with the "
                         + target.accountName + " account you use in " + target.displayName
                         + ". Your tokens stay encrypted on this device.",
                 13, Ui.secondaryText(this.dark));
@@ -1276,6 +1329,8 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 if (target == UsageProvider.CLAUDE_CODE) {
                     ClaudeUsageApi.refreshAndCache(applicationContext);
+                } else if (target == UsageProvider.CURSOR) {
+                    CursorUsageApi.refreshAndCache(applicationContext);
                 }
                 WidgetRenderer.updateAll(applicationContext);
             } catch (Exception e) {
