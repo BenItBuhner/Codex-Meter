@@ -10,13 +10,13 @@
 - iOS: a bottom provider switcher with a Claude Code tab (Claude sign-in by pasting the code Claude shows, usage cards driven by the same `limits` list, plan badge, demo data).
 - Background refresh covers Claude Code at most every 30 minutes with a one-hour back-off after HTTP 429, and keeps running when only one provider is signed in.
 - Cursor tab on Android and iOS: sign in with Cursor through the same browser login the Cursor editor uses (no code to paste), then see included usage for the billing cycle, Auto + Composer and API model pools, on-demand spend in dollars, the plan badge, and the reset date. Background refresh checks Cursor at most every 15 minutes.
-- Settings → Providers chooses which providers appear on the dashboard (all by default; at least one stays on). With two or more on, only their tabs show; with one on, the bottom tabs are hidden. Tabs and settings rows use each service's own mark (OpenAI, Claude, Cursor) from Simple Icons. On iOS the switcher is now the native tab bar.
+- Settings → Providers chooses which providers appear on the dashboard and in what order (drag to reorder, like Edit dashboard; all on by default, at least one stays on). With two or more on, only their tabs show; with one on, the bottom tabs are hidden. Tabs and settings rows use each service's own mark (OpenAI, Claude, Cursor) from Simple Icons. On iOS the switcher is now the native tab bar.
 
 ### Development
 
 - Self-tests cover provider ids/defaults, Claude usage parsing (fractional-second ISO resets, null windows, the `limits` list with Fable-only and unknown scoped meters, extra usage, plan badges), the Claude authorize/token request shapes, and Claude refresh pacing.
 - Self-tests (Android and `CodexMeterCore`) cover Cursor usage parsing (epoch-ms and ISO billing cycles, string-encoded numbers, computed plan percent, personal vs team on-demand caps, plan badges), the PKCE login/poll URLs, JWT expiry, token parsing, and auth-error detection.
-- Self-tests cover the enabled-provider list (defaults, unknown ids, tab order, keeping the last provider on, and selection fallback); the iOS demo gallery captures the two-tab, single-provider, and Providers settings screens.
+- Self-tests cover the enabled-provider list (defaults, unknown ids, saved tab order, keeping the last provider on, and selection fallback); the iOS demo gallery captures the two-tab, single-provider, and Providers settings screens.
 
 ## 2.8.0 — 2026-08-14
 

@@ -165,9 +165,10 @@ final class DemoGalleryTests: XCTestCase {
         capture("15-refresh-failure")
         UITestSupport.settle(0.8)
 
-        // Settings → Providers narrows the tabs: two providers keep the bar, one hides it.
+        // Settings → Providers narrows and orders the tabs: two providers keep the bar (in the
+        // chosen order, Cursor first here), and one hides it.
         app.terminate()
-        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "codex,cursor"]
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "cursor,codex"]
         app.launch()
         XCTAssertTrue(app.buttons["Cursor"].waitForExistence(timeout: 8))
         XCTAssertFalse(app.buttons["Claude Code"].exists)
@@ -187,7 +188,9 @@ final class DemoGalleryTests: XCTestCase {
 
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        UITestSupport.scrollForm(untilExists: app.switches["Cursor"], in: app)
+        UITestSupport.scrollForm(untilExists: app.buttons["settings-providers"], in: app)
+        UITestSupport.tap(app.buttons["settings-providers"])
+        XCTAssertTrue(app.navigationBars["Providers"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("18-providers-settings")
     }

@@ -49,8 +49,9 @@ The dashboard uses the native tab bar, one tab per provider, each with its
 service's mark (`ProviderCodex`, `ProviderClaude`, `ProviderCursor` template
 images from Simple Icons, CC0; the marks are their owners' trademarks).
 Settings → Providers turns tabs on or off (all on by default, at least one
-stays on); with only one on, the tab bar is hidden. UI tests can narrow the
-tabs in memory with `-ui-testing-providers codex,cursor`.
+stays on) and reorders them by dragging; with only one on, the tab bar is
+hidden. UI tests can narrow and order the tabs in memory with
+`-ui-testing-providers cursor,codex`.
 
 ## Cursor tab
 

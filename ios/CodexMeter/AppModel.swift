@@ -55,6 +55,7 @@ final class AppModel {
     private static let modeDefaultsKey = "codex-meter.session-mode-v1"
     private static let providerDefaultsKey = "codex-meter.selected-provider-v1"
     private static let enabledProvidersDefaultsKey = "codex-meter.enabled-providers-v1"
+    private static let providerOrderDefaultsKey = "codex-meter.provider-order-v1"
 
     /// Claude Code tab state. Independent of the Codex session below.
     let claude: ClaudeUsageModel
@@ -65,6 +66,8 @@ final class AppModel {
     /// Providers shown as dashboard tabs (Settings → Providers), in tab order. All by default;
     /// with only one on, the tab bar is hidden.
     private(set) var enabledProviders: [UsageProvider] = UsageProvider.allCases
+    /// Every provider in the tab order chosen in Settings → Providers.
+    private(set) var providerOrder: [UsageProvider] = UsageProvider.allCases
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
     var credits: ResetCreditsSnapshot?
@@ -132,19 +135,27 @@ final class AppModel {
         var enabledProviders = UsageProvider.enabled(
             from: defaults.stringArray(forKey: Self.enabledProvidersDefaultsKey)
         )
+        var providerOrder = UsageProvider.order(
+            from: defaults.stringArray(forKey: Self.providerOrderDefaultsKey)
+        )
 #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-ui-testing-reset-settings") {
             defaults.removeObject(forKey: Self.enabledProvidersDefaultsKey)
+            defaults.removeObject(forKey: Self.providerOrderDefaultsKey)
             enabledProviders = UsageProvider.allCases
+            providerOrder = UsageProvider.allCases
         }
-        // In memory only, so a test that narrows the tabs never leaks into the next one.
+        // In memory only, so a test that narrows or reorders the tabs never leaks into the next
+        // one. The listed providers are turned on, in the listed order.
         if let index = arguments.firstIndex(of: "-ui-testing-providers"), index + 1 < arguments.count {
-            enabledProviders = UsageProvider.enabled(
-                from: arguments[index + 1].split(separator: ",").map(String.init)
-            )
+            let ids = arguments[index + 1].split(separator: ",").map(String.init)
+            enabledProviders = UsageProvider.enabled(from: ids)
+            providerOrder = UsageProvider.order(from: ids)
         }
 #endif
+        enabledProviders = UsageProvider.inOrder(enabledProviders, order: providerOrder)
+        self.providerOrder = providerOrder
         self.enabledProviders = enabledProviders
         self.selectedProvider = UsageProvider.visibleSelection(
             UsageProvider.resolve(defaults.string(forKey: Self.providerDefaultsKey)),
@@ -627,7 +638,10 @@ final class AppModel {
     /// Turns a provider's tab on or off. The last provider can't be turned off, and turning off
     /// the selected tab moves to the first provider still on.
     func setProvider(_ provider: UsageProvider, enabled on: Bool) {
-        let updated = UsageProvider.enabled(enabledProviders, setting: provider, on: on)
+        let updated = UsageProvider.inOrder(
+            UsageProvider.enabled(enabledProviders, setting: provider, on: on),
+            order: providerOrder
+        )
         guard updated != enabledProviders else { return }
         enabledProviders = updated
         defaults.set(updated.map(\.rawValue), forKey: Self.enabledProvidersDefaultsKey)
@@ -636,6 +650,19 @@ final class AppModel {
             "enabled": on ? "true" : "false"
         ])
         select(provider: UsageProvider.visibleSelection(selectedProvider, enabled: updated))
+    }
+
+    /// Moves providers in Settings → Providers; the dashboard tabs follow the new order.
+    func moveProviders(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var order = providerOrder
+        order.move(fromOffsets: source, toOffset: destination)
+        guard order != providerOrder else { return }
+        providerOrder = order
+        enabledProviders = UsageProvider.inOrder(enabledProviders, order: order)
+        defaults.set(order.map(\.rawValue), forKey: Self.providerOrderDefaultsKey)
+        DiagnosticLog.info("process", "provider_order_changed", details: [
+            "order": order.map(\.rawValue).joined(separator: ",")
+        ])
     }
 
     /// Selects and remembers a dashboard tab. Safe to call again for the current tab.

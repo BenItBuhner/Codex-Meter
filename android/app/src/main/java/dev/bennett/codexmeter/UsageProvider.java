@@ -10,9 +10,9 @@ import java.util.Locale;
  * Coding-agent services whose subscription limits Codex Meter can show.
  *
  * <p>Codex stays the default and keeps every legacy storage key, so existing installs see no
- * change until they open another provider tab. To add a provider: add an entry here, a tab
- * in {@code res/menu/provider_tabs.xml} (wired in {@code MainActivity.tabId}) with its mark as
- * {@code ic_provider_<id>}, a switch in {@code preferences_settings_providers.xml}, add
+ * change until they open another provider tab. To add a provider: add an entry here, its mark
+ * as {@code ic_provider_<id>} (mapped in {@code ProvidersActivity.iconRes}), one more tab slot in
+ * {@code res/menu/provider_tabs.xml} if needed, add
  * its sign-in branch to {@link OAuthService}, and give it a usage client like
  * {@link ClaudeUsageApi} that returns a {@link UsageSnapshot}. Everything else (dashboard
  * cards, pace labels, account card, token storage) is shared.
@@ -70,6 +70,39 @@ public enum UsageProvider {
             }
         }
         return enabled.isEmpty() ? new ArrayList<>(Arrays.asList(values())) : enabled;
+    }
+
+    /**
+     * Every provider in the user's tab order: saved ids first (duplicates and unknown ids
+     * skipped), then any provider the saved order doesn't mention, in enum order.
+     */
+    public static List<UsageProvider> orderFromIds(Collection<String> ids) {
+        List<UsageProvider> order = new ArrayList<>();
+        if (ids != null) {
+            for (String id : ids) {
+                if (id == null) continue;
+                String normalized = id.trim().toLowerCase(Locale.ROOT);
+                for (UsageProvider provider : values()) {
+                    if (provider.id.equals(normalized) && !order.contains(provider)) {
+                        order.add(provider);
+                    }
+                }
+            }
+        }
+        for (UsageProvider provider : values()) {
+            if (!order.contains(provider)) order.add(provider);
+        }
+        return order;
+    }
+
+    /** The providers in {@code enabled}, arranged in {@code order}. */
+    public static List<UsageProvider> inOrder(List<UsageProvider> enabled,
+            List<UsageProvider> order) {
+        List<UsageProvider> result = new ArrayList<>();
+        for (UsageProvider provider : order) {
+            if (enabled.contains(provider)) result.add(provider);
+        }
+        return result;
     }
 
     /** {@code enabled} with one provider switched on or off; the last one can't be turned off. */

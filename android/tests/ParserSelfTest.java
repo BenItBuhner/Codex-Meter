@@ -2090,6 +2090,15 @@ public final class ParserSelfTest {
                 == UsageProvider.CODEX, "a hidden selected tab falls back to the first one on");
         check(UsageProvider.visibleSelection(UsageProvider.CURSOR, two) == UsageProvider.CURSOR,
                 "a visible selected tab stays selected");
+        check(UsageProvider.orderFromIds(null).equals(all), "default tab order is enum order");
+        List<UsageProvider> custom = UsageProvider.orderFromIds(
+                Arrays.asList("cursor", "bogus", "CURSOR", " codex "));
+        check(custom.equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE)),
+                "saved order first, duplicates and unknown ids skipped, the rest appended");
+        check(UsageProvider.inOrder(two, custom)
+                .equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "enabled tabs follow the chosen order");
         System.out.println("Usage providers: Codex default, stable ids, and enabled tabs verified.");
     }
 

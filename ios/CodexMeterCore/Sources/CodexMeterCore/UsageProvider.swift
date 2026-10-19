@@ -56,6 +56,25 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         return enabled.isEmpty ? allCases : enabled
     }
 
+    /// Every provider in the user's tab order: saved ids first (duplicates and unknown ids
+    /// skipped), then any provider the saved order doesn't mention, in declaration order.
+    public static func order(from ids: [String]?) -> [UsageProvider] {
+        var order: [UsageProvider] = []
+        for id in ids ?? [] {
+            let normalized = id.trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(with: Locale(identifier: "en_US_POSIX"))
+            if let provider = UsageProvider(rawValue: normalized), !order.contains(provider) {
+                order.append(provider)
+            }
+        }
+        return order + allCases.filter { !order.contains($0) }
+    }
+
+    /// The providers in `enabled`, arranged in `order`.
+    public static func inOrder(_ enabled: [UsageProvider], order: [UsageProvider]) -> [UsageProvider] {
+        order.filter { enabled.contains($0) }
+    }
+
     /// `enabled` with one provider switched on or off; the last one can't be turned off.
     public static func enabled(
         _ enabled: [UsageProvider],

@@ -57,6 +57,11 @@ public final class MainActivity extends AppCompatActivity {
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
     private BottomTabLayout providerTabs;
+    /** Menu slots in {@code res/menu/provider_tabs.xml}, filled in tab order. */
+    private static final int[] TAB_SLOTS = {
+            R.id.provider_tab_0, R.id.provider_tab_1, R.id.provider_tab_2};
+    /** Providers currently shown in the tab slots, in order. */
+    private List<UsageProvider> tabProviders = new ArrayList<>();
     private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
@@ -318,9 +323,9 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Shows a tab for each provider turned on in Settings → Providers, and hides the tabs
-     * entirely when only one is on. A tab turned off while selected falls back to the first
-     * provider still on.
+     * Fills the tab slots with the providers turned on in Settings → Providers, in the order
+     * chosen there, and hides the tabs entirely when only one is on. A tab turned off while
+     * selected falls back to the first provider still on.
      */
     private void applyEnabledProviders() {
         List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
@@ -332,30 +337,33 @@ public final class MainActivity extends AppCompatActivity {
         if (this.providerTabs == null) {
             return;
         }
-        for (UsageProvider candidate : UsageProvider.values()) {
-            this.providerTabs.setItemVisible(tabId(candidate), enabled.contains(candidate));
+        if (!enabled.equals(this.tabProviders)) {
+            this.tabProviders = new ArrayList<>(enabled);
+            for (int slot = 0; slot < TAB_SLOTS.length; slot++) {
+                boolean used = slot < enabled.size();
+                if (used) {
+                    MenuItem item = this.providerTabs.findMenuItem(TAB_SLOTS[slot]);
+                    UsageProvider tabProvider = enabled.get(slot);
+                    item.setTitle(tabProvider.displayName);
+                    item.setIcon(ProvidersActivity.iconRes(tabProvider));
+                }
+                this.providerTabs.setItemVisible(TAB_SLOTS[slot], used);
+            }
         }
         this.providerTabs.setSelectedItem(tabId(this.provider));
         this.providerTabs.setVisibility(enabled.size() > 1 ? View.VISIBLE : View.GONE);
     }
 
-    /** Menu item for each provider's tab in {@code res/menu/provider_tabs.xml}. */
-    private static int tabId(UsageProvider provider) {
-        switch (provider) {
-            case CLAUDE_CODE:
-                return R.id.provider_tab_claude_code;
-            case CURSOR:
-                return R.id.provider_tab_cursor;
-            case CODEX:
-            default:
-                return R.id.provider_tab_codex;
-        }
+    /** Tab slot showing {@code provider}; slots follow the order from Settings → Providers. */
+    private int tabId(UsageProvider provider) {
+        int index = this.tabProviders.indexOf(provider);
+        return TAB_SLOTS[Math.max(0, Math.min(index, TAB_SLOTS.length - 1))];
     }
 
-    private static UsageProvider providerForTab(int itemId) {
-        for (UsageProvider candidate : UsageProvider.values()) {
-            if (tabId(candidate) == itemId) {
-                return candidate;
+    private UsageProvider providerForTab(int itemId) {
+        for (int slot = 0; slot < TAB_SLOTS.length && slot < this.tabProviders.size(); slot++) {
+            if (TAB_SLOTS[slot] == itemId) {
+                return this.tabProviders.get(slot);
             }
         }
         return null;

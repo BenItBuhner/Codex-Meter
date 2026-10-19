@@ -161,5 +161,10 @@ final class CursorUsageParserTests: XCTestCase {
 
         XCTAssertEqual(UsageProvider.visibleSelection(.claudeCode, enabled: two), .codex)
         XCTAssertEqual(UsageProvider.visibleSelection(.cursor, enabled: two), .cursor)
+
+        XCTAssertEqual(UsageProvider.order(from: nil), UsageProvider.allCases)
+        let custom = UsageProvider.order(from: ["cursor", "bogus", "CURSOR", " codex "])
+        XCTAssertEqual(custom, [.cursor, .codex, .claudeCode])
+        XCTAssertEqual(UsageProvider.inOrder(two, order: custom), [.cursor, .codex])
     }
 }

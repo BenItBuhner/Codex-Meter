@@ -20,6 +20,7 @@ public final class ProviderPreferences {
     private static final String PREFS = "codex_meter_providers_v1";
     private static final String KEY_SELECTED = "selected_provider";
     private static final String KEY_ENABLED = "enabled_providers";
+    private static final String KEY_ORDER = "provider_order";
     private static final String KEY_PENDING_SIGN_IN = "pending_sign_in_provider";
     private static final String SUFFIX_SNAPSHOT = "_snapshot";
     private static final String SUFFIX_ERROR = "_error";
@@ -46,8 +47,28 @@ public final class ProviderPreferences {
     /** Providers shown as dashboard tabs (Settings → Providers), in tab order. All by default. */
     public static List<UsageProvider> getEnabled(Context context) {
         String saved = prefs(context).getString(KEY_ENABLED, null);
-        return UsageProvider.enabledFromIds(saved == null ? null
+        return UsageProvider.inOrder(UsageProvider.enabledFromIds(saved == null ? null
+                : new ArrayList<>(Arrays.asList(saved.split(",")))), getOrder(context));
+    }
+
+    /** Every provider in the user's tab order (Settings → Providers). Enum order by default. */
+    public static List<UsageProvider> getOrder(Context context) {
+        String saved = prefs(context).getString(KEY_ORDER, null);
+        return UsageProvider.orderFromIds(saved == null ? null
                 : new ArrayList<>(Arrays.asList(saved.split(","))));
+    }
+
+    public static void setOrder(Context context, List<UsageProvider> order) {
+        prefs(context).edit().putString(KEY_ORDER, ids(order)).apply();
+    }
+
+    private static String ids(List<UsageProvider> providers) {
+        StringBuilder ids = new StringBuilder();
+        for (UsageProvider provider : providers) {
+            if (ids.length() > 0) ids.append(',');
+            ids.append(provider.id);
+        }
+        return ids.toString();
     }
 
     /**
@@ -60,12 +81,7 @@ public final class ProviderPreferences {
         if (updated.contains(provider) != on) {
             return false;
         }
-        StringBuilder ids = new StringBuilder();
-        for (UsageProvider enabled : updated) {
-            if (ids.length() > 0) ids.append(',');
-            ids.append(enabled.id);
-        }
-        prefs(context).edit().putString(KEY_ENABLED, ids.toString()).apply();
+        prefs(context).edit().putString(KEY_ENABLED, ids(updated)).apply();
         return true;
     }
 
