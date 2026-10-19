@@ -1,6 +1,6 @@
 name: Cursor tab screenshots (temporary)
 
-# One-off: renders the Cursor tab on an Android emulator with sample data, collects the iOS
+# One-off (bottom tabs): renders the Cursor tab on an Android emulator with sample data, collects the iOS
 # demo-gallery stills, and publishes both to refs/ci-screenshots/pr119 for review.
 on:
   push:

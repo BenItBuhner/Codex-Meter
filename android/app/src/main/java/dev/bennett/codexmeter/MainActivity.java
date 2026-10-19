@@ -37,6 +37,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
+import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -55,7 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean launchSignInRequested;
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
-    private ProviderSwitcherView providerTabs;
+    private BottomTabLayout providerTabs;
     private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
@@ -245,7 +246,7 @@ public final class MainActivity extends AppCompatActivity {
                 this.provider = requested;
                 ProviderPreferences.setSelected(this, requested);
                 if (this.providerTabs != null) {
-                    this.providerTabs.setSelectedProvider(requested);
+                    this.providerTabs.setSelectedItem(tabId(requested));
                 }
             }
         }
@@ -300,12 +301,40 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void setUpProviderTabs() {
-        this.providerTabs = findViewById(R.id.provider_switcher);
+        this.providerTabs = findViewById(R.id.provider_tabs);
         if (this.providerTabs == null) {
             return;
         }
-        this.providerTabs.setSelectedProvider(this.provider);
-        this.providerTabs.setListener(this::selectProvider);
+        this.providerTabs.setSelectedItem(tabId(this.provider));
+        this.providerTabs.setOnMenuItemClickListener(item -> {
+            UsageProvider selected = providerForTab(item.getItemId());
+            if (selected != null) {
+                selectProvider(selected);
+            }
+            return true;
+        });
+    }
+
+    /** Menu item for each provider's tab in {@code res/menu/provider_tabs.xml}. */
+    private static int tabId(UsageProvider provider) {
+        switch (provider) {
+            case CLAUDE_CODE:
+                return R.id.provider_tab_claude_code;
+            case CURSOR:
+                return R.id.provider_tab_cursor;
+            case CODEX:
+            default:
+                return R.id.provider_tab_codex;
+        }
+    }
+
+    private static UsageProvider providerForTab(int itemId) {
+        for (UsageProvider candidate : UsageProvider.values()) {
+            if (tabId(candidate) == itemId) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private void selectProvider(UsageProvider selected) {
