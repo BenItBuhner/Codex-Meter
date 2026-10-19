@@ -7,7 +7,7 @@ import java.util.Locale;
  *
  * <p>Codex stays the default and keeps every legacy storage key, so existing installs see no
  * change until they open another provider tab. To add a provider: add an entry here (the bottom
- * switcher builds one item per entry), give it an icon in {@code ProviderSwitcherView.icon}, add
+ * tabs build one tab per entry), add
  * its sign-in branch to {@link OAuthService}, and give it a usage client like
  * {@link ClaudeUsageApi} that returns a {@link UsageSnapshot}. Everything else (dashboard
  * cards, pace labels, account card, token storage) is shared.

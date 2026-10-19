@@ -36,6 +36,7 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
+import com.google.android.material.tabs.TabLayout;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 
 /* JADX INFO: loaded from: classes.dex */
@@ -55,7 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean launchSignInRequested;
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
-    private ProviderSwitcherView providerTabs;
+    private TabLayout providerTabs;
     private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
@@ -244,9 +245,7 @@ public final class MainActivity extends AppCompatActivity {
             if (requested != this.provider) {
                 this.provider = requested;
                 ProviderPreferences.setSelected(this, requested);
-                if (this.providerTabs != null) {
-                    this.providerTabs.setSelectedProvider(requested);
-                }
+                selectProviderTab(requested);
             }
         }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
@@ -304,8 +303,42 @@ public final class MainActivity extends AppCompatActivity {
         if (this.providerTabs == null) {
             return;
         }
-        this.providerTabs.setSelectedProvider(this.provider);
-        this.providerTabs.setListener(this::selectProvider);
+        // Stock One UI tabs from oneui-design, one per provider in enum order.
+        for (UsageProvider entry : UsageProvider.values()) {
+            this.providerTabs.addTab(this.providerTabs.newTab()
+                    .setText(entry.displayName)
+                    .setTag(entry), entry == this.provider);
+        }
+        this.providerTabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                if (tab.getTag() instanceof UsageProvider) {
+                    selectProvider((UsageProvider) tab.getTag());
+                }
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+            }
+        });
+    }
+
+    /** Moves the tab highlight without re-running the selection listener's work twice. */
+    private void selectProviderTab(UsageProvider target) {
+        if (this.providerTabs == null) {
+            return;
+        }
+        for (int i = 0; i < this.providerTabs.getTabCount(); i++) {
+            TabLayout.Tab tab = this.providerTabs.getTabAt(i);
+            if (tab != null && tab.getTag() == target && !tab.isSelected()) {
+                tab.select();
+                return;
+            }
+        }
     }
 
     private void selectProvider(UsageProvider selected) {
