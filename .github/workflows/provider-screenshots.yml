@@ -161,7 +161,6 @@ jobs:
           import android.widget.LinearLayout;
           import android.widget.TextView;
           import androidx.appcompat.app.AppCompatActivity;
-          import com.google.android.material.bottomnavigation.BottomNavigationView;
           import dev.oneuiproject.oneui.widget.BottomTabLayout;
           import dev.oneuiproject.oneui.widget.RoundedTabLayout;
 
@@ -181,7 +180,7 @@ jobs:
                       BottomTabLayout tabs = new BottomTabLayout(this, null);
                       add(tabs);
                       tabs.inflateMenu(R.menu.gallery_tabs, item -> true);
-                      tabs.setSelectedItem(1);
+                      tabs.setSelectedItem(R.id.gallery_claude);
                   } catch (Throwable t) {
                       fail(t);
                   }
@@ -191,17 +190,6 @@ jobs:
                       tabs.addTab(tabs.newTab().setText("Codex"), false);
                       tabs.addTab(tabs.newTab().setText("Claude Code"), true);
                       add(tabs);
-                  } catch (Throwable t) {
-                      fail(t);
-                  }
-                  caption("C. BottomNavigationView (SESL material, icons + labels)");
-                  try {
-                      BottomNavigationView nav = new BottomNavigationView(this);
-                      nav.inflateMenu(R.menu.gallery_tabs);
-                      nav.setLabelVisibilityMode(
-                              com.google.android.material.navigation.NavigationBarView.LABEL_VISIBILITY_LABELED);
-                      nav.setSelectedItemId(R.id.gallery_claude);
-                      add(nav);
                   } catch (Throwable t) {
                       fail(t);
                   }
