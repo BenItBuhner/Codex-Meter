@@ -123,7 +123,12 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: |
+          for i in 1 2 3 4; do
+            ./gradlew --no-daemon :app:assembleDebug && exit 0
+            sleep $((i * 15))
+          done
+          exit 1
 
       - name: Enable KVM
         run: |
