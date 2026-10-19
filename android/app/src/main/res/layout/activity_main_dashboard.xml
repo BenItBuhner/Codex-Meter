@@ -32,14 +32,12 @@
         </androidx.core.widget.NestedScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- Stock One UI rounded tabs (oneui-design) that switch the dashboard between providers. -->
-    <dev.oneuiproject.oneui.widget.RoundedTabLayout
-        android:id="@+id/provider_switcher"
+    <!-- Stock One UI bottom tabs (oneui-design) that switch the dashboard between providers. -->
+    <dev.oneuiproject.oneui.widget.BottomTabLayout
+        android:id="@+id/provider_tabs"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="12dp"
-        app:layout_location="footer" />
+        app:layout_location="footer"
+        app:menu="@menu/provider_tabs" />
 
 </dev.oneuiproject.oneui.layout.ToolbarLayout>

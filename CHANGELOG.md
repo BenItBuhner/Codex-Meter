@@ -4,7 +4,7 @@
 
 ### Added
 
-- Provider switcher: stock One UI rounded tabs (oneui-design `RoundedTabLayout`) on the dashboard switch between Codex (default, unchanged) and Claude Code, and the large title follows the selected provider. Claude Code signs in with a Claude account through the same OAuth + PKCE loopback flow as the Claude Code CLI. Its cards follow the `limits` list from the route behind Claude Code's `/usage`: usually just 5-hour and weekly, plus a model-only allocation such as Fable when the account has one, and extra usage when enabled. Providers are pluggable through `UsageProvider`.
+- Provider switcher: stock One UI bottom tabs (oneui-design `BottomTabLayout`, icon over label) on the dashboard switch between Codex (default, unchanged) and Claude Code, and the large title follows the selected provider. Claude Code signs in with a Claude account through the same OAuth + PKCE loopback flow as the Claude Code CLI. Its cards follow the `limits` list from the route behind Claude Code's `/usage`: usually just 5-hour and weekly, plus a model-only allocation such as Fable when the account has one, and extra usage when enabled. Providers are pluggable through `UsageProvider`.
 - Claude Code usage history, burn charts, and pace estimates are kept separately from Codex.
 - Home-screen widgets can show Claude Code (widget settings → Provider); tapping one opens the Claude Code tab.
 - iOS: a bottom provider switcher with a Claude Code tab (Claude sign-in by pasting the code Claude shows, usage cards driven by the same `limits` list, plan badge, demo data).

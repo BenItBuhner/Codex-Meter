@@ -36,8 +36,8 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
-import com.google.android.material.tabs.TabLayout;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
+import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -56,7 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean launchSignInRequested;
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
-    private TabLayout providerTabs;
+    private BottomTabLayout providerTabs;
     private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
@@ -245,7 +245,9 @@ public final class MainActivity extends AppCompatActivity {
             if (requested != this.provider) {
                 this.provider = requested;
                 ProviderPreferences.setSelected(this, requested);
-                selectProviderTab(requested);
+                if (this.providerTabs != null) {
+                    this.providerTabs.setSelectedItem(tabId(requested));
+                }
             }
         }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
@@ -303,42 +305,34 @@ public final class MainActivity extends AppCompatActivity {
         if (this.providerTabs == null) {
             return;
         }
-        // Stock One UI tabs from oneui-design, one per provider in enum order.
-        for (UsageProvider entry : UsageProvider.values()) {
-            this.providerTabs.addTab(this.providerTabs.newTab()
-                    .setText(entry.displayName)
-                    .setTag(entry), entry == this.provider);
-        }
-        this.providerTabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override
-            public void onTabSelected(TabLayout.Tab tab) {
-                if (tab.getTag() instanceof UsageProvider) {
-                    selectProvider((UsageProvider) tab.getTag());
-                }
+        this.providerTabs.setSelectedItem(tabId(this.provider));
+        this.providerTabs.setOnMenuItemClickListener(item -> {
+            UsageProvider selected = providerForTab(item.getItemId());
+            if (selected != null) {
+                selectProvider(selected);
             }
-
-            @Override
-            public void onTabUnselected(TabLayout.Tab tab) {
-            }
-
-            @Override
-            public void onTabReselected(TabLayout.Tab tab) {
-            }
+            return true;
         });
     }
 
-    /** Moves the tab highlight without re-running the selection listener's work twice. */
-    private void selectProviderTab(UsageProvider target) {
-        if (this.providerTabs == null) {
-            return;
+    /** Menu item for each provider's tab in {@code res/menu/provider_tabs.xml}. */
+    private static int tabId(UsageProvider provider) {
+        switch (provider) {
+            case CLAUDE_CODE:
+                return R.id.provider_tab_claude_code;
+            case CODEX:
+            default:
+                return R.id.provider_tab_codex;
         }
-        for (int i = 0; i < this.providerTabs.getTabCount(); i++) {
-            TabLayout.Tab tab = this.providerTabs.getTabAt(i);
-            if (tab != null && tab.getTag() == target && !tab.isSelected()) {
-                tab.select();
-                return;
+    }
+
+    private static UsageProvider providerForTab(int itemId) {
+        for (UsageProvider candidate : UsageProvider.values()) {
+            if (tabId(candidate) == itemId) {
+                return candidate;
             }
         }
+        return null;
     }
 
     private void selectProvider(UsageProvider selected) {
