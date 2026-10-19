@@ -164,6 +164,32 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.0)
         capture("15-refresh-failure")
         UITestSupport.settle(0.8)
+
+        // Settings → Providers narrows the tabs: two providers keep the bar, one hides it.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "codex,cursor"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Cursor"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["Claude Code"].exists)
+        UITestSupport.tap(app.buttons["Cursor"])
+        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("16-providers-two-tabs")
+
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "cursor"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Codex"].exists)
+        UITestSupport.settle(1.0)
+        capture("17-providers-cursor-only")
+
+        UITestSupport.tap(app.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.scrollForm(untilExists: app.switches["Cursor"], in: app)
+        UITestSupport.settle(0.8)
+        capture("18-providers-settings")
     }
 
     private func capture(_ name: String) {

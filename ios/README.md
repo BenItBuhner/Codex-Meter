@@ -43,6 +43,15 @@ default, unchanged) and **Claude Code**. The selection is remembered.
 These Anthropic routes are undocumented implementation details of Claude Code
 and may change without notice; Codex Meter is not affiliated with Anthropic.
 
+## Provider tabs
+
+The dashboard uses the native tab bar, one tab per provider, each with its
+service's mark (`ProviderCodex`, `ProviderClaude`, `ProviderCursor` template
+images from Simple Icons, CC0; the marks are their owners' trademarks).
+Settings → Providers turns tabs on or off (all on by default, at least one
+stays on); with only one on, the tab bar is hidden. UI tests can narrow the
+tabs in memory with `-ui-testing-providers codex,cursor`.
+
 ## Cursor tab
 
 The third tab shows **Cursor** usage.

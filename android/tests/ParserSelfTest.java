@@ -2067,7 +2067,30 @@ public final class ParserSelfTest {
         }
         check("Sign in with Claude".equals(UsageProvider.CLAUDE_CODE.signInLabel()),
                 "Claude sign-in label");
-        System.out.println("Usage providers: Codex default + stable ids verified.");
+
+        List<UsageProvider> all = Arrays.asList(UsageProvider.values());
+        check(UsageProvider.enabledFromIds(null).equals(all), "no saved choice -> every tab on");
+        check(UsageProvider.enabledFromIds(Arrays.asList("", "bogus")).equals(all),
+                "unreadable choice -> every tab on");
+        check(UsageProvider.enabledFromIds(Arrays.asList("cursor", " CODEX "))
+                .equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
+                "enabled tabs keep enum order");
+        List<UsageProvider> two = UsageProvider.withEnabled(all, UsageProvider.CLAUDE_CODE, false);
+        check(two.equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
+                "turning a provider off removes only its tab");
+        List<UsageProvider> one = UsageProvider.withEnabled(
+                UsageProvider.withEnabled(two, UsageProvider.CODEX, false),
+                UsageProvider.CURSOR, false);
+        check(one.equals(Arrays.asList(UsageProvider.CURSOR)),
+                "the last provider can't be turned off");
+        check(UsageProvider.withEnabled(one, UsageProvider.CLAUDE_CODE, true)
+                .equals(Arrays.asList(UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR)),
+                "turning a provider back on restores its place");
+        check(UsageProvider.visibleSelection(UsageProvider.CLAUDE_CODE, two)
+                == UsageProvider.CODEX, "a hidden selected tab falls back to the first one on");
+        check(UsageProvider.visibleSelection(UsageProvider.CURSOR, two) == UsageProvider.CURSOR,
+                "a visible selected tab stays selected");
+        System.out.println("Usage providers: Codex default, stable ids, and enabled tabs verified.");
     }
 
     private static void testClaudeUsageParsing() throws Exception {

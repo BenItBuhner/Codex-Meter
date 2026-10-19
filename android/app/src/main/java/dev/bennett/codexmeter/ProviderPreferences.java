@@ -3,6 +3,9 @@ package dev.bennett.codexmeter;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.json.JSONObject;
 
 /**
@@ -16,6 +19,7 @@ import org.json.JSONObject;
 public final class ProviderPreferences {
     private static final String PREFS = "codex_meter_providers_v1";
     private static final String KEY_SELECTED = "selected_provider";
+    private static final String KEY_ENABLED = "enabled_providers";
     private static final String KEY_PENDING_SIGN_IN = "pending_sign_in_provider";
     private static final String SUFFIX_SNAPSHOT = "_snapshot";
     private static final String SUFFIX_ERROR = "_error";
@@ -32,8 +36,37 @@ public final class ProviderPreferences {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    /** The selected tab, moved to the first enabled provider if its own tab was turned off. */
     public static UsageProvider getSelected(Context context) {
-        return UsageProvider.fromId(prefs(context).getString(KEY_SELECTED, null));
+        return UsageProvider.visibleSelection(
+                UsageProvider.fromId(prefs(context).getString(KEY_SELECTED, null)),
+                getEnabled(context));
+    }
+
+    /** Providers shown as dashboard tabs (Settings → Providers), in tab order. All by default. */
+    public static List<UsageProvider> getEnabled(Context context) {
+        String saved = prefs(context).getString(KEY_ENABLED, null);
+        return UsageProvider.enabledFromIds(saved == null ? null
+                : new ArrayList<>(Arrays.asList(saved.split(","))));
+    }
+
+    /**
+     * Turns a provider's tab on or off. Returns false, changing nothing, when that would turn
+     * off the last provider.
+     */
+    public static boolean setEnabled(Context context, UsageProvider provider, boolean on) {
+        List<UsageProvider> current = getEnabled(context);
+        List<UsageProvider> updated = UsageProvider.withEnabled(current, provider, on);
+        if (updated.contains(provider) != on) {
+            return false;
+        }
+        StringBuilder ids = new StringBuilder();
+        for (UsageProvider enabled : updated) {
+            if (ids.length() > 0) ids.append(',');
+            ids.append(enabled.id);
+        }
+        prefs(context).edit().putString(KEY_ENABLED, ids.toString()).apply();
+        return true;
     }
 
     public static void setSelected(Context context, UsageProvider provider) {

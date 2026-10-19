@@ -1,13 +1,15 @@
 import CodexMeterCore
 import SwiftUI
 
+/// One provider's dashboard; `ContentView` puts each enabled provider in its own tab.
 struct DashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    var provider: UsageProvider = .codex
 
     var body: some View {
         Group {
-            switch model.selectedProvider {
+            switch provider {
             case .codex:
                 codexDashboard
             case .claudeCode:
@@ -15,9 +17,6 @@ struct DashboardView: View {
             case .cursor:
                 CursorDashboardView()
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            ProviderSwitcher()
         }
         .task {
             await model.startIfNeeded()
@@ -100,29 +99,27 @@ struct DashboardView: View {
     }
 }
 
-/// Bottom-anchored provider tabs: Codex (default), Claude Code, and Cursor.
-private struct ProviderSwitcher: View {
-    @Environment(AppModel.self) private var model
+/// A provider's mark (OpenAI, Claude, Cursor) from the asset catalog, drawn as a template so
+/// it tints like an SF Symbol in tab bars and settings rows.
+struct ProviderMark: View {
+    let provider: UsageProvider
 
     var body: some View {
-        @Bindable var model = model
+        Image(provider.markImageName)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
+    }
+}
 
-        Picker("Usage provider", selection: $model.selectedProvider) {
-            ForEach(UsageProvider.allCases) { provider in
-                Text(provider.displayName)
-                    .tag(provider)
-            }
-        }
-        .pickerStyle(.segmented)
-        .controlSize(.large)
-        .frame(maxWidth: 420)
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
-        .frame(maxWidth: .infinity)
-        .background(.bar)
-        .onChange(of: model.selectedProvider) { _, provider in
-            model.select(provider: provider)
+extension UsageProvider {
+    /// Asset catalog image for this provider's tab and settings row.
+    var markImageName: String {
+        switch self {
+        case .codex: "ProviderCodex"
+        case .claudeCode: "ProviderClaude"
+        case .cursor: "ProviderCursor"
         }
     }
 }

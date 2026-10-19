@@ -169,6 +169,7 @@ public final class MainActivity extends AppCompatActivity {
                 || materialYou != this.appliedMaterialYou) {
             recreate();
         } else {
+            applyEnabledProviders();
             handleLaunchIntent(getIntent());
             rebuild();
         }
@@ -242,7 +243,8 @@ public final class MainActivity extends AppCompatActivity {
         if (requestedProvider != null) {
             intent.removeExtra(EXTRA_PROVIDER);
             UsageProvider requested = UsageProvider.fromId(requestedProvider);
-            if (requested != this.provider) {
+            if (requested != this.provider
+                    && ProviderPreferences.getEnabled(this).contains(requested)) {
                 this.provider = requested;
                 ProviderPreferences.setSelected(this, requested);
                 if (this.providerTabs != null) {
@@ -305,7 +307,7 @@ public final class MainActivity extends AppCompatActivity {
         if (this.providerTabs == null) {
             return;
         }
-        this.providerTabs.setSelectedItem(tabId(this.provider));
+        applyEnabledProviders();
         this.providerTabs.setOnMenuItemClickListener(item -> {
             UsageProvider selected = providerForTab(item.getItemId());
             if (selected != null) {
@@ -313,6 +315,28 @@ public final class MainActivity extends AppCompatActivity {
             }
             return true;
         });
+    }
+
+    /**
+     * Shows a tab for each provider turned on in Settings → Providers, and hides the tabs
+     * entirely when only one is on. A tab turned off while selected falls back to the first
+     * provider still on.
+     */
+    private void applyEnabledProviders() {
+        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
+        UsageProvider visible = UsageProvider.visibleSelection(this.provider, enabled);
+        if (visible != this.provider) {
+            this.provider = visible;
+            ProviderPreferences.setSelected(this, visible);
+        }
+        if (this.providerTabs == null) {
+            return;
+        }
+        for (UsageProvider candidate : UsageProvider.values()) {
+            this.providerTabs.setItemVisible(tabId(candidate), enabled.contains(candidate));
+        }
+        this.providerTabs.setSelectedItem(tabId(this.provider));
+        this.providerTabs.setVisibility(enabled.size() > 1 ? View.VISIBLE : View.GONE);
     }
 
     /** Menu item for each provider's tab in {@code res/menu/provider_tabs.xml}. */

@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -46,6 +47,24 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+            }
+
+            Section {
+                ForEach(UsageProvider.allCases) { provider in
+                    Toggle(isOn: providerBinding(provider, model: model)) {
+                        Label {
+                            Text(provider.displayName)
+                        } icon: {
+                            ProviderMark(provider: provider)
+                                .frame(width: 22, height: 22)
+                        }
+                    }
+                    .disabled(model.enabledProviders == [provider])
+                }
+            } header: {
+                Text("Providers")
+            } footer: {
+                Text("With two or more providers on, tabs at the bottom of the dashboard switch between them. With one on, the tabs are hidden. At least one provider stays on.")
             }
 
             Section {
@@ -258,6 +277,13 @@ struct SettingsView: View {
         } message: {
             Text(transferMessage ?? "")
         }
+    }
+
+    private func providerBinding(_ provider: UsageProvider, model: AppModel) -> Binding<Bool> {
+        Binding(
+            get: { model.enabledProviders.contains(provider) },
+            set: { model.setProvider(provider, enabled: $0) }
+        )
     }
 
     private func leadTimeBinding(_ minutes: Int, model: AppModel) -> Binding<Bool> {

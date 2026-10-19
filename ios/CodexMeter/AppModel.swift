@@ -54,6 +54,7 @@ extension NotificationPermissionState {
 final class AppModel {
     private static let modeDefaultsKey = "codex-meter.session-mode-v1"
     private static let providerDefaultsKey = "codex-meter.selected-provider-v1"
+    private static let enabledProvidersDefaultsKey = "codex-meter.enabled-providers-v1"
 
     /// Claude Code tab state. Independent of the Codex session below.
     let claude: ClaudeUsageModel
@@ -61,6 +62,9 @@ final class AppModel {
     let cursor: CursorUsageModel
     /// The dashboard tab. Codex stays the default; the choice is remembered.
     var selectedProvider: UsageProvider = .defaultProvider
+    /// Providers shown as dashboard tabs (Settings → Providers), in tab order. All by default;
+    /// with only one on, the tab bar is hidden.
+    private(set) var enabledProviders: [UsageProvider] = UsageProvider.allCases
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
     var credits: ResetCreditsSnapshot?
@@ -125,7 +129,27 @@ final class AppModel {
     ) {
         self.claude = claude ?? ClaudeUsageModel(preview: preview)
         self.cursor = cursor ?? CursorUsageModel(preview: preview)
-        self.selectedProvider = UsageProvider.resolve(defaults.string(forKey: Self.providerDefaultsKey))
+        var enabledProviders = UsageProvider.enabled(
+            from: defaults.stringArray(forKey: Self.enabledProvidersDefaultsKey)
+        )
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-testing-reset-settings") {
+            defaults.removeObject(forKey: Self.enabledProvidersDefaultsKey)
+            enabledProviders = UsageProvider.allCases
+        }
+        // In memory only, so a test that narrows the tabs never leaks into the next one.
+        if let index = arguments.firstIndex(of: "-ui-testing-providers"), index + 1 < arguments.count {
+            enabledProviders = UsageProvider.enabled(
+                from: arguments[index + 1].split(separator: ",").map(String.init)
+            )
+        }
+#endif
+        self.enabledProviders = enabledProviders
+        self.selectedProvider = UsageProvider.visibleSelection(
+            UsageProvider.resolve(defaults.string(forKey: Self.providerDefaultsKey)),
+            enabled: enabledProviders
+        )
         self.liveService = liveService
         self.demoService = demoService
         self.cache = cache
@@ -218,7 +242,7 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") {
             settingsStore.reset()
             settings = settingsStore.settings
-            select(provider: .defaultProvider)
+            select(provider: UsageProvider.visibleSelection(.defaultProvider, enabled: enabledProviders))
             try? await usageHistoryStore.clear()
             apply(history: .empty)
         }
@@ -598,6 +622,20 @@ final class AppModel {
         } catch {
             visibleError = "Local usage history could not be cleared."
         }
+    }
+
+    /// Turns a provider's tab on or off. The last provider can't be turned off, and turning off
+    /// the selected tab moves to the first provider still on.
+    func setProvider(_ provider: UsageProvider, enabled on: Bool) {
+        let updated = UsageProvider.enabled(enabledProviders, setting: provider, on: on)
+        guard updated != enabledProviders else { return }
+        enabledProviders = updated
+        defaults.set(updated.map(\.rawValue), forKey: Self.enabledProvidersDefaultsKey)
+        DiagnosticLog.info("process", "provider_enabled_changed", details: [
+            "provider": provider.rawValue,
+            "enabled": on ? "true" : "false"
+        ])
+        select(provider: UsageProvider.visibleSelection(selectedProvider, enabled: updated))
     }
 
     /// Selects and remembers a dashboard tab. Safe to call again for the current tab.

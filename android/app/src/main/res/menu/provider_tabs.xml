@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One tab per UsageProvider, in the same order as the enum. Codex is first and default. -->
+<!-- One tab per UsageProvider, in enum order, with each service's own mark. Codex is first and
+     default. Tabs for providers turned off in Settings → Providers are hidden. -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/provider_tab_codex"
-        android:icon="@drawable/ic_oui_bracket"
+        android:icon="@drawable/ic_provider_codex"
         android:title="@string/provider_codex" />
     <item
         android:id="@+id/provider_tab_claude_code"
-        android:icon="@drawable/provider_tab_claude_code"
+        android:icon="@drawable/ic_provider_claude_code"
         android:title="@string/provider_claude_code" />
     <item
         android:id="@+id/provider_tab_cursor"
-        android:icon="@drawable/provider_tab_cursor"
+        android:icon="@drawable/ic_provider_cursor"
         android:title="@string/provider_cursor" />
 </menu>

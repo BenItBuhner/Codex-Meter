@@ -45,6 +45,36 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         "Sign in with \(accountName)"
     }
 
+    /// Providers whose tabs are on, in tab order. Unknown ids are skipped; a missing or empty
+    /// list turns every provider on, so new installs and upgrades see all tabs.
+    public static func enabled(from ids: [String]?) -> [UsageProvider] {
+        let normalized = Set((ids ?? []).map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(with: Locale(identifier: "en_US_POSIX"))
+        })
+        let enabled = allCases.filter { normalized.contains($0.rawValue) }
+        return enabled.isEmpty ? allCases : enabled
+    }
+
+    /// `enabled` with one provider switched on or off; the last one can't be turned off.
+    public static func enabled(
+        _ enabled: [UsageProvider],
+        setting provider: UsageProvider,
+        on: Bool
+    ) -> [UsageProvider] {
+        let result = allCases.filter { $0 == provider ? on : enabled.contains($0) }
+        return result.isEmpty ? enabled : result
+    }
+
+    /// The selected tab if it is still on, otherwise the first provider that is.
+    public static func visibleSelection(
+        _ selected: UsageProvider,
+        enabled: [UsageProvider]
+    ) -> UsageProvider {
+        guard let first = enabled.first, !enabled.contains(selected) else { return selected }
+        return first
+    }
+
     /// Resolves a saved id, falling back to `defaultProvider` for unknown or missing values.
     public static func resolve(_ id: String?) -> UsageProvider {
         guard let id else { return defaultProvider }

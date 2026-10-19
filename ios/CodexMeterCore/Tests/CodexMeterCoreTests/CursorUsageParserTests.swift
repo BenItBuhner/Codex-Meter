@@ -143,4 +143,23 @@ final class CursorUsageParserTests: XCTestCase {
         XCTAssertEqual(UsageProvider.cursor.signInLabel, "Sign in with Cursor")
         XCTAssertEqual(UsageProvider.allCases, [.codex, .claudeCode, .cursor])
     }
+
+    func testEnabledProviderTabs() {
+        XCTAssertEqual(UsageProvider.enabled(from: nil), UsageProvider.allCases)
+        XCTAssertEqual(UsageProvider.enabled(from: ["", "bogus"]), UsageProvider.allCases)
+        XCTAssertEqual(UsageProvider.enabled(from: ["cursor", " CODEX "]), [.codex, .cursor])
+
+        let two = UsageProvider.enabled(UsageProvider.allCases, setting: .claudeCode, on: false)
+        XCTAssertEqual(two, [.codex, .cursor])
+        let one = UsageProvider.enabled(
+            UsageProvider.enabled(two, setting: .codex, on: false),
+            setting: .cursor,
+            on: false
+        )
+        XCTAssertEqual(one, [.cursor], "the last provider stays on")
+        XCTAssertEqual(UsageProvider.enabled(one, setting: .claudeCode, on: true), [.claudeCode, .cursor])
+
+        XCTAssertEqual(UsageProvider.visibleSelection(.claudeCode, enabled: two), .codex)
+        XCTAssertEqual(UsageProvider.visibleSelection(.cursor, enabled: two), .cursor)
+    }
 }

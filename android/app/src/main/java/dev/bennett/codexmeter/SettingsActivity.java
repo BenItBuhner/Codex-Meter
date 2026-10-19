@@ -47,6 +47,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
     private static final String PAGE_APPEARANCE = "appearance";
+    static final String PAGE_PROVIDERS = "providers";
     private static final String PAGE_REFRESH_USAGE = "refresh_usage";
     private static final String PAGE_NOTIFICATIONS = "notifications";
     private static final String PAGE_NOW_BAR = "now_bar";
@@ -54,6 +55,10 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String PAGE_TRANSFER = "transfer";
     private static final String PAGE_PRIVACY = "privacy";
     private static final String PAGE_DIAGNOSTICS = "diagnostics";
+
+    static Intent pageIntent(Context context, String page) {
+        return new Intent(context, SettingsActivity.class).putExtra(EXTRA_PAGE, page);
+    }
 
     static Intent diagnosticsIntent(Context context) {
         return new Intent(context, SettingsActivity.class)
@@ -78,6 +83,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private static String normalizePage(String page) {
         if (PAGE_APPEARANCE.equals(page)
+                || PAGE_PROVIDERS.equals(page)
                 || PAGE_REFRESH_USAGE.equals(page)
                 || PAGE_NOTIFICATIONS.equals(page)
                 || PAGE_NOW_BAR.equals(page)
@@ -94,6 +100,8 @@ public final class SettingsActivity extends AppCompatActivity {
         switch (page) {
             case PAGE_APPEARANCE:
                 return "Appearance";
+            case PAGE_PROVIDERS:
+                return "Providers";
             case PAGE_REFRESH_USAGE:
                 return "Refresh & usage";
             case PAGE_NOTIFICATIONS:
@@ -168,6 +176,10 @@ public final class SettingsActivity extends AppCompatActivity {
                     addPreferencesFromResource(R.xml.preferences_settings_appearance);
                     bindAppearance();
                     break;
+                case PAGE_PROVIDERS:
+                    addPreferencesFromResource(R.xml.preferences_settings_providers);
+                    bindProviders();
+                    break;
                 case PAGE_REFRESH_USAGE:
                     addPreferencesFromResource(R.xml.preferences_settings_refresh_usage);
                     bindRefresh();
@@ -231,6 +243,8 @@ public final class SettingsActivity extends AppCompatActivity {
             super.onResume();
             if (PAGE_ROOT.equals(page)) {
                 updateRootSummaries();
+            } else if (PAGE_PROVIDERS.equals(page)) {
+                updateProviderSwitches();
             } else if (PAGE_NOTIFICATIONS.equals(page)) {
                 updatePermissionSummary();
             } else if (PAGE_NOW_BAR.equals(page)) {
@@ -249,6 +263,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindRoot() {
             bindAccount();
+            bindPageLink("settings_providers", PAGE_PROVIDERS);
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
@@ -261,6 +276,35 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             updateRootSummaries();
+        }
+
+        /** One switch per provider; turning off the last one is refused so a tab always remains. */
+        private void bindProviders() {
+            for (UsageProvider provider : UsageProvider.values()) {
+                SwitchPreferenceCompat toggle = findPreference("provider_enabled_" + provider.id);
+                if (toggle == null) continue;
+                toggle.setSummary("Signs in with " + provider.accountName);
+                toggle.setOnPreferenceChangeListener((preference, value) -> {
+                    boolean on = Boolean.TRUE.equals(value);
+                    if (!ProviderPreferences.setEnabled(requireContext(), provider, on)) {
+                        Toast.makeText(requireContext(), "Keep at least one provider on.",
+                                Toast.LENGTH_SHORT).show();
+                        return false;
+                    }
+                    DiagnosticLog.info(requireContext(), "user", "provider_enabled_changed",
+                            "provider", provider.id);
+                    return true;
+                });
+            }
+            updateProviderSwitches();
+        }
+
+        private void updateProviderSwitches() {
+            List<UsageProvider> enabled = ProviderPreferences.getEnabled(requireContext());
+            for (UsageProvider provider : UsageProvider.values()) {
+                SwitchPreferenceCompat toggle = findPreference("provider_enabled_" + provider.id);
+                if (toggle != null) toggle.setChecked(enabled.contains(provider));
+            }
         }
 
         private void bindPageLink(String key, String targetPage) {
@@ -367,6 +411,12 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
+            StringBuilder providers = new StringBuilder();
+            for (UsageProvider provider : ProviderPreferences.getEnabled(requireContext())) {
+                if (providers.length() > 0) providers.append(", ");
+                providers.append(provider.displayName);
+            }
+            findPreference("settings_providers").setSummary(providers.toString());
             String theme = AppPreferences.getAppTheme(requireContext());
             String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
                     ? "System default"

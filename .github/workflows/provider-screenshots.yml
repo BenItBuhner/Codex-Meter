@@ -1,0 +1,396 @@
+name: Cursor tab screenshots (temporary)
+
+# One-off (provider settings + brand icons): renders the Cursor tab on an Android emulator with sample data, collects the iOS
+# demo-gallery stills, and publishes both to refs/ci-screenshots/pr119 for review.
+on:
+  push:
+    branches: [claude/cursor-provider-2peg2n]
+    paths: ['.github/workflows/provider-screenshots.yml']
+
+permissions:
+  contents: write
+  actions: read
+  packages: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_USERNAME: ${{ github.actor }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+
+      - name: Add a debug-only sample-data seeder
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android/app/src/debug/java/dev/bennett/codexmeter
+          # The existing debug-only pace demo no longer compiles against AppPreferences; not needed here.
+          rm -f android/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java
+          cat > android/app/src/debug/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application>
+                  <activity android:name=".DebugSeedActivity" android:exported="true"
+                      android:theme="@android:style/Theme.NoDisplay"/>
+              </application>
+          </manifest>
+          EOF
+          cat > android/app/src/debug/java/dev/bennett/codexmeter/DebugSeedActivity.java <<'EOF'
+          package dev.bennett.codexmeter;
+
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.os.Bundle;
+          import android.util.Log;
+          import java.time.Instant;
+          import java.time.ZoneOffset;
+
+          public class DebugSeedActivity extends Activity {
+              private static String iso(long epochSeconds) {
+                  return Instant.ofEpochSecond(epochSeconds).atOffset(ZoneOffset.UTC).toString();
+              }
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  String provider = getIntent().getStringExtra("provider");
+                  String mode = getIntent().getStringExtra("mode");
+                  try {
+                      long now = System.currentTimeMillis();
+                      long s = now / 1000L;
+                      AppPreferences.completeOnboarding(this);
+                      AppPreferences.setRefreshOnLaunch(this, false);
+                      SecureTokenStore.save(this, UsageProvider.CODEX, new AuthTokens("demo",
+                              "demo", "", now + 30L * 86400000L, "acct", "demo@example.com"));
+                      String codex = "{\"plan_type\":\"plus\",\"rate_limit\":{\"allowed\":true,"
+                              + "\"limit_reached\":false,\"primary_window\":{\"used_percent\":37,"
+                              + "\"limit_window_seconds\":18000,\"reset_after_seconds\":5400,"
+                              + "\"reset_at\":" + (s + 5400) + "},\"secondary_window\":"
+                              + "{\"used_percent\":61,\"limit_window_seconds\":604800,"
+                              + "\"reset_after_seconds\":200000,\"reset_at\":" + (s + 200000)
+                              + "}}}";
+                      UsageSnapshot codexSnapshot = UsageParser.parse(codex, now);
+                      AppPreferences.saveSnapshot(this, codexSnapshot);
+                      UsageHistoryRecorder.record(this, UsageProvider.CODEX, codexSnapshot);
+                      if ("cursor_signed_out".equals(mode)) {
+                          SecureTokenStore.clear(this, UsageProvider.CURSOR);
+                          ProviderPreferences.clearProvider(this, UsageProvider.CURSOR);
+                      } else {
+                          SecureTokenStore.save(this, UsageProvider.CURSOR, new AuthTokens(
+                                  "demo", "demo", "", now + 50L * 86400000L, "",
+                                  "demo@example.com"));
+                          long start = (s - 18L * 86400L) * 1000L;
+                          long end = (s + 12L * 86400L + 4L * 3600L) * 1000L;
+                          // Same shape as GetCurrentPeriodUsage: epoch-ms strings, cents.
+                          String pools = "pools".equals(mode)
+                                  ? ",\"autoPercentUsed\":34,\"apiPercentUsed\":71" : "";
+                          String cursor = "{\"billingCycleStart\":\"" + start + "\","
+                                  + "\"billingCycleEnd\":\"" + end + "\","
+                                  + "\"planUsage\":{\"totalSpend\":1160,\"includedSpend\":1160,"
+                                  + "\"remaining\":840,\"limit\":2000,\"totalPercentUsed\":58"
+                                  + pools + "},"
+                                  + "\"spendLimitUsage\":{\"individualLimit\":2000,"
+                                  + "\"individualUsed\":420,\"individualRemaining\":1580,"
+                                  + "\"limitType\":\"user\"},\"enabled\":true}";
+                          UsageSnapshot cursorSnapshot = CursorUsageParser.parse(cursor, "Pro",
+                                  now);
+                          ProviderPreferences.saveSnapshot(this, UsageProvider.CURSOR,
+                                  cursorSnapshot);
+                          ProviderPreferences.setEmail(this, UsageProvider.CURSOR,
+                                  "demo@example.com");
+                          UsageHistoryRecorder.record(this, UsageProvider.CURSOR, cursorSnapshot);
+                      }
+                      String enabled = getIntent().getStringExtra("enabled");
+                      java.util.List<UsageProvider> on = UsageProvider.enabledFromIds(
+                              enabled == null ? null : java.util.Arrays.asList(enabled.split(",")));
+                      for (UsageProvider p : UsageProvider.values()) {
+                          ProviderPreferences.setEnabled(this, p, true);
+                      }
+                      for (UsageProvider p : UsageProvider.values()) {
+                          if (!on.contains(p)) ProviderPreferences.setEnabled(this, p, false);
+                      }
+                      ProviderPreferences.setSelected(this, UsageProvider.fromId(provider));
+                  } catch (Exception e) {
+                      Log.e("DebugSeed", "seed failed", e);
+                  }
+                  if ("settings_providers".equals(mode)) {
+                      startActivity(SettingsActivity.pageIntent(this,
+                              SettingsActivity.PAGE_PROVIDERS)
+                              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                      | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                      finish();
+                      return;
+                  }
+                  startActivity(new Intent(this, MainActivity.class)
+                          .putExtra(MainActivity.EXTRA_PROVIDER, provider)
+                          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                  | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                  finish();
+              }
+          }
+          EOF
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          for i in 1 2 3 4; do
+            ./gradlew --no-daemon :app:assembleDebug && exit 0
+            sleep $((i * 15))
+          done
+          exit 1
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Write capture script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/capture.sh" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PKG=dev.bennett.codexmeter
+          OUT="$GITHUB_WORKSPACE/shots/android"
+          mkdir -p "$OUT"
+          adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+          adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
+          adb shell cmd connectivity airplane-mode enable || true
+          shot() { sleep 6; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
+          seed() { adb shell am force-stop $PKG; sleep 1; adb shell am start -W -n $PKG/.DebugSeedActivity --es provider "$1" --es mode "$2" --es enabled "${3:-codex,claude_code,cursor}"; }
+          tap_text() {
+            adb shell uiautomator dump /sdcard/ui.xml >/dev/null
+            adb pull /sdcard/ui.xml "$RUNNER_TEMP/ui.xml" >/dev/null
+            python3 - "$RUNNER_TEMP/ui.xml" "$1" <<'PY' | { read -r x y; adb shell input tap "$x" "$y"; }
+          import re, sys, xml.etree.ElementTree as ET
+          best = None
+          for n in ET.parse(sys.argv[1]).iter('node'):
+              if n.get('text') == sys.argv[2] or n.get('content-desc') == sys.argv[2]:
+                  a, b, c, d = map(int, re.findall(r'\d+', n.get('bounds')))
+                  if best is None or b > best[1]:
+                      best = ((a + c) // 2, (b + d) // 2)
+          if best is None:
+              sys.exit("no node named " + sys.argv[2])
+          print(best[0], best[1])
+          PY
+          }
+          seed cursor pools;                                   shot 01-three-tabs-cursor
+          seed cursor pools codex,cursor;                      shot 02-two-tabs
+          seed cursor pools cursor;                            shot 03-cursor-only-no-tabs
+          adb shell cmd uimode night yes
+          seed cursor pools;                                   shot 04-three-tabs-dark
+          adb shell cmd uimode night no
+          seed cursor settings_providers codex,cursor;         shot 05-settings-providers
+          seed cursor cursor_signed_out;                       shot 06-cursor-signed-out
+          EOF
+          chmod +x "$RUNNER_TEMP/capture.sh"
+
+      - name: Capture screenshots on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash ${{ runner.temp }}/capture.sh
+
+      - name: Dump app log on failure
+        if: failure()
+        run: ls -la shots/android || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-shots
+          path: shots/android/
+          if-no-files-found: error
+          retention-days: 3
+
+  core-tests:
+    name: CodexMeterCore package tests
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show Swift toolchain
+        shell: bash
+        run: swift --version
+
+      - name: Run CodexMeterCore tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test --package-path CodexMeterCore
+
+  app-build-and-test:
+    name: App build and simulator tests
+    runs-on: macos-26
+    timeout-minutes: 70
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show Xcode version
+        shell: bash
+        run: xcodebuild -version
+
+      - name: Select iPhone simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available
+          DEVICE="iPhone 17e"
+          if ! xcrun simctl list devices available | grep -Fq "$DEVICE ("; then
+            DEVICE="$(xcrun simctl list devices available \
+              | sed -nE 's/^[[:space:]]+(iPhone [A-Za-z0-9 ]*[A-Za-z0-9]) \(.*/\1/p' \
+              | head -n 1)"
+          fi
+          if [[ -z "$DEVICE" ]]; then
+            echo "::error::No available iPhone simulator on this runner image"
+            exit 1
+          fi
+          echo "Using simulator: $DEVICE"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      - name: Build app for generic iOS Simulator
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v xcbeautify >/dev/null 2>&1; then
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath DerivedData \
+              CODE_SIGNING_ALLOWED=NO build \
+              | xcbeautify --renderer github-actions
+          else
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath DerivedData \
+              CODE_SIGNING_ALLOWED=NO build
+          fi
+
+      - name: Run unit and UI tests on simulator
+        shell: bash
+        env:
+          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
+        run: |
+          set -euo pipefail
+          # -retry-tests-on-failure absorbs shared-runner simulator jank in the
+          # UI tests; deterministic failures still fail after 3 iterations, and
+          # pass-on-retry results stay visible in the xcresult bundle.
+          if command -v xcbeautify >/dev/null 2>&1; then
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
+              -derivedDataPath DerivedData \
+              -resultBundlePath TestResults.xcresult \
+              -parallel-testing-enabled NO \
+              -skip-testing:CodexMeterUITests/DemoGalleryTests \
+              -retry-tests-on-failure -test-iterations 3 test \
+              | xcbeautify --renderer github-actions
+          else
+            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+              -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
+              -derivedDataPath DerivedData \
+              -resultBundlePath TestResults.xcresult \
+              -parallel-testing-enabled NO \
+              -skip-testing:CodexMeterUITests/DemoGalleryTests \
+              -retry-tests-on-failure -test-iterations 3 test
+          fi
+
+      - name: Record demo gallery
+        id: gallery
+        if: (success() || failure()) && steps.simulator.outcome == 'success' && steps.build.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        env:
+          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
+        run: |
+          set -euo pipefail
+          ./ci/record-demo-gallery.sh "$DEVICE_NAME" "$PWD/ci-gallery" DerivedData
+
+      - name: Summarize demo gallery
+        if: steps.gallery.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## iOS demo gallery"
+            echo
+            echo "Download the **ios-demo-gallery** artifact on this run: \`codex-meter-demo.mp4\` is the screen recording of the offline demo tour and the numbered PNGs are one still per screen, in visit order."
+            echo
+            if [[ -d ci-gallery ]]; then
+              echo '```'
+              ls -1 ci-gallery
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Collect Cursor stills
+        if: steps.gallery.outcome == 'success'
+        shell: bash
+        run: |
+          mkdir -p ../shots/ios
+          find ci-gallery \( -name '*cursor*.png' -o -name '*providers*.png' \) -exec cp {} ../shots/ios/ \;
+          ls -1 ../shots/ios
+
+      - uses: actions/upload-artifact@v7
+        if: steps.gallery.outcome == 'success'
+        with:
+          name: ios-shots
+          path: shots/ios/
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload test results on failure
+        if: failure() || steps.gallery.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-test-results
+          path: |
+            ios/TestResults.xcresult
+            ios/GalleryResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 3
+
+  publish:
+    needs: [android, app-build-and-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '*-shots'
+          path: shots
+      - name: Publish to refs/ci-screenshots/pr119
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd shots
+          find . -type f | sort
+          git init -q
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Cursor tab screenshots"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/pr119
