@@ -53,7 +53,12 @@ extension NotificationPermissionState {
 @Observable
 final class AppModel {
     private static let modeDefaultsKey = "codex-meter.session-mode-v1"
+    private static let providerDefaultsKey = "codex-meter.selected-provider-v1"
 
+    /// Claude Code tab state. Independent of the Codex session below.
+    let claude: ClaudeUsageModel
+    /// The dashboard tab. Codex stays the default; the choice is remembered.
+    var selectedProvider: UsageProvider = .defaultProvider
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
     var credits: ResetCreditsSnapshot?
@@ -112,8 +117,11 @@ final class AppModel {
         usageHistoryStore: UsageHistoryStore = .shared,
         defaults: UserDefaults = .standard,
         refreshEngagementStore: RefreshEngagementStore? = nil,
+        claude: ClaudeUsageModel? = nil,
         preview: Bool = false
     ) {
+        self.claude = claude ?? ClaudeUsageModel(preview: preview)
+        self.selectedProvider = UsageProvider.resolve(defaults.string(forKey: Self.providerDefaultsKey))
         self.liveService = liveService
         self.demoService = demoService
         self.cache = cache
@@ -206,6 +214,7 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") {
             settingsStore.reset()
             settings = settingsStore.settings
+            select(provider: .defaultProvider)
             try? await usageHistoryStore.clear()
             apply(history: .empty)
         }
@@ -218,6 +227,7 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-demo") {
             mode = .demo
             defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
+            await enterClaudeDemoIfSignedOut()
             await refresh()
             return
         }
@@ -229,6 +239,7 @@ final class AppModel {
 
         if defaults.string(forKey: Self.modeDefaultsKey) == AppMode.demo.rawValue {
             mode = .demo
+            await enterClaudeDemoIfSignedOut()
             if usage == nil {
                 await refresh()
             }
@@ -303,10 +314,12 @@ final class AppModel {
         visibleError = nil
         accountEmail = "demo@local"
         accountPlan = "Plus (Demo)"
+        await enterClaudeDemoIfSignedOut()
         await refresh()
     }
 
     func leaveDemo() async {
+        await claude.leaveDemo()
         await demoService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
@@ -319,6 +332,9 @@ final class AppModel {
         signInTask?.cancel()
         signInTask = nil
         DiagnosticLog.info("process", "sign_out")
+        if mode == .demo {
+            await claude.leaveDemo()
+        }
         await activeService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
@@ -551,6 +567,11 @@ final class AppModel {
             await startIfNeeded()
             return
         }
+        if selectedProvider == .claudeCode {
+            // Claude is never refreshed in the background; foregrounding the visible tab
+            // re-checks only when its data is older than five minutes.
+            await claude.tabOpened()
+        }
         guard mode != .signedOut, settings.refreshOnLaunch else { return }
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
             await refresh()
@@ -568,6 +589,24 @@ final class AppModel {
             apply(history: .empty)
         } catch {
             visibleError = "Local usage history could not be cleared."
+        }
+    }
+
+    /// Selects and remembers a dashboard tab. Safe to call again for the current tab.
+    func select(provider: UsageProvider) {
+        if selectedProvider != provider {
+            selectedProvider = provider
+        }
+        guard defaults.string(forKey: Self.providerDefaultsKey) != provider.rawValue else { return }
+        defaults.set(provider.rawValue, forKey: Self.providerDefaultsKey)
+        DiagnosticLog.info("process", "provider_selected", details: ["provider": provider.rawValue])
+    }
+
+    /// The Codex demo also shows demo Claude data, unless a real Claude session exists.
+    private func enterClaudeDemoIfSignedOut() async {
+        await claude.loadIfNeeded()
+        if claude.phase == .signedOut {
+            claude.enterDemo()
         }
     }
 

@@ -6,6 +6,23 @@ struct DashboardView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
+        Group {
+            switch model.selectedProvider {
+            case .codex:
+                codexDashboard
+            case .claudeCode:
+                ClaudeDashboardView()
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            ProviderSwitcher()
+        }
+        .task {
+            await model.startIfNeeded()
+        }
+    }
+
+    private var codexDashboard: some View {
         ScrollView {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if model.mode == .signedOut {
@@ -78,8 +95,32 @@ struct DashboardView: View {
             guard model.mode != .signedOut else { return }
             await model.refresh()
         }
-        .task {
-            await model.startIfNeeded()
+    }
+}
+
+/// Bottom-anchored provider tabs: Codex (default) and Claude Code.
+private struct ProviderSwitcher: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+
+        Picker("Usage provider", selection: $model.selectedProvider) {
+            ForEach(UsageProvider.allCases) { provider in
+                Text(provider.displayName)
+                    .tag(provider)
+            }
+        }
+        .pickerStyle(.segmented)
+        .controlSize(.large)
+        .frame(maxWidth: 420)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
+        .onChange(of: model.selectedProvider) { _, provider in
+            model.select(provider: provider)
         }
     }
 }
