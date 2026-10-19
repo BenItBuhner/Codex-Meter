@@ -374,6 +374,25 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  publish-android:
+    needs: [android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-shots
+          path: shots
+      - name: Publish to refs/ci-screenshots/pr119-android
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd shots
+          git init -q
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Android screenshots"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/pr119-android
+
   publish:
     needs: [android, app-build-and-test]
     if: always()
