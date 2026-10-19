@@ -29,7 +29,7 @@ public final class ParserSelfTest {
         testCelebrationDetection();
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
-        testFullWindowHidesResetCountdown();
+        testResetCountdownFollowsApiTimeline();
         testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
@@ -90,16 +90,24 @@ public final class ParserSelfTest {
         System.out.println("Diagnostic sanitizer strips credentials, identity, and URL queries.");
     }
 
-    private static void testFullWindowHidesResetCountdown() {
-        UsageWindow full = new UsageWindow(0, 18000L, 600L, 2000000000L);
-        UsageWindow almostFull = new UsageWindow(1, 18000L, 600L, 2000000000L);
-        UsageWindow used = new UsageWindow(37, 18000L, 600L, 2000000000L);
-        check(full.remainingPercent() == 100, "full window remaining");
-        check(!full.showsResetCountdown(), "100% remaining hides drifting reset countdown");
-        check(almostFull.remainingPercent() == 99, "1% used is 99% remaining");
-        check(almostFull.showsResetCountdown(), "99% remaining still shows reset countdown");
-        check(used.showsResetCountdown(), "partial usage shows reset countdown");
-        System.out.println("Reset-countdown demo: hide at 100% remaining, show again at 99% or less.");
+    private static void testResetCountdownFollowsApiTimeline() {
+        UsageWindow unusedNoReset = new UsageWindow(0, 18000L, 0L, 0L);
+        UsageWindow unusedWithResetAt = new UsageWindow(0, 18000L, 0L, 2000000000L);
+        UsageWindow unusedWithResetAfter = new UsageWindow(0, 18000L, 600L, 0L);
+        UsageWindow usedNoReset = new UsageWindow(37, 18000L, 0L, 0L);
+        UsageWindow usedWithReset = new UsageWindow(37, 18000L, 600L, 2000000000L);
+        check(unusedNoReset.remainingPercent() == 100, "unused window remaining");
+        check(!unusedNoReset.showsResetCountdown(),
+                "unused window without API reset stays blank");
+        check(unusedWithResetAt.showsResetCountdown(),
+                "100% remaining still shows API reset_at");
+        check(unusedWithResetAfter.showsResetCountdown(),
+                "100% remaining still shows API reset_after");
+        check(!usedNoReset.showsResetCountdown(),
+                "used window without API reset stays blank");
+        check(usedWithReset.showsResetCountdown(),
+                "used window with API reset shows countdown");
+        System.out.println("Reset countdown follows the API timeline, including at 100% remaining.");
     }
 
     private static void testLowUsageAlertDedup() {
@@ -515,6 +523,19 @@ public final class ParserSelfTest {
                 "Wear reset label uses observation-based reset-after fallback");
         check(WearGlanceFormat.nextResetRelativeText(fallbackTimed, now).contains("h"),
                 "Wear fallback reset countdown remains finite");
+        UsageSnapshot unused = new UsageSnapshot("demo", true, false,
+                new UsageWindow(0, 18000L, 0L, 0L),
+                new UsageWindow(0, 604800L, 0L, 0L), now);
+        check("--".equals(WearGlanceFormat.nextResetWindowLabel(unused, now)),
+                "unused windows without API reset have no next-reset label");
+        check("No reset yet".equals(WearGlanceFormat.nextResetLongText(unused, now)),
+                "unused windows without API reset show no reset timeframe");
+        UsageSnapshot unusedWithReset = new UsageSnapshot("demo", true, false,
+                new UsageWindow(0, 18000L, 0L,
+                        (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
+                null, now);
+        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(unusedWithReset, now)),
+                "100% remaining still surfaces an API reset timeline");
         UsageSnapshot account = new UsageSnapshot("plus", true, true, five, weekly, 2, now);
         check("Limit reached".equals(WearGlanceFormat.accountStatus(account)),
                 "Wear account status surfaces a reached limit");

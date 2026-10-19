@@ -1,6 +1,13 @@
 import SwiftUI
 
 struct AboutView: View {
+    @Environment(AppModel.self) private var model
+    @State private var versionTaps = 0
+    @State private var unlockHint: String?
+    @State private var showingDiagnostics = false
+
+    private static let diagnosticTaps = 7
+
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
@@ -18,18 +25,28 @@ struct AboutView: View {
                         .font(.title2.bold())
                     Text("Version \(version)")
                         .foregroundStyle(.secondary)
-                    Text("An unofficial native client for viewing Codex allowance and earned reset credits.")
+                    Text("An unofficial native iPhone and iPad client for checking and monitoring Codex usage.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
+                    if let unlockHint {
+                        Text(unlockHint)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: handleVersionTap)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Tap repeatedly to unlock diagnostics.")
             }
 
             Section("Source and credits") {
                 Link("BenItBuhner/Codex-Meter", destination: URL(string: "https://github.com/BenItBuhner/Codex-Meter")!)
                 LabeledContent("Original project", value: "Bennett")
+                Link("iOS development — Filip Bukovina", destination: URL(string: "https://github.com/FBukovina")!)
                 LabeledContent("License", value: "MIT")
                 NavigationLink("Open-source notices") {
                     OpenSourceNoticesView()
@@ -44,6 +61,24 @@ struct AboutView: View {
             }
         }
         .navigationTitle("About")
+        .navigationDestination(isPresented: $showingDiagnostics) {
+            DiagnosticsView()
+        }
+    }
+
+    private func handleVersionTap() {
+        versionTaps += 1
+        let remaining = Self.diagnosticTaps - versionTaps
+        if remaining <= 0 {
+            unlockHint = "Diagnostics unlocked."
+            model.unlockDiagnostics()
+            showingDiagnostics = true
+            versionTaps = 0
+        } else if remaining <= 3 {
+            unlockHint = remaining == 1
+                ? "1 more tap for diagnostics."
+                : "\(remaining) more taps for diagnostics."
+        }
     }
 }
 
@@ -85,11 +120,12 @@ struct PrivacyPolicyView: View {
                 Text("OAuth tokens are stored in Apple Keychain on this device. Widgets never receive tokens or account identifiers.")
                 Text("Local storage")
                     .font(.title3.bold())
-                Text("The last successful usage response is cached for offline display. Signing out removes credentials, cached account data, background requests, and scheduled notifications.")
+                Text("The last successful usage response and bounded allowance samples are stored locally for offline display, burn charts, and pace estimates. You can clear history separately; signing out removes credentials, cached account data, history, background requests, and scheduled notifications.")
+                Text("Settings exports contain preferences and dashboard choices, never credentials or usage samples.")
                 Text("Demo mode")
                     .font(.title3.bold())
                 Text("Demo mode is entirely local and does not contact OpenAI.")
-                Text("Last updated July 12, 2026")
+                Text("Last updated August 14, 2026")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

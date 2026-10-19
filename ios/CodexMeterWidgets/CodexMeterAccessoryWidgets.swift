@@ -5,10 +5,10 @@ private enum AccessoryMetric {
     case fiveHour
     case weekly
 
-    var title: LocalizedStringKey {
+    func title(in snapshot: WidgetDisplaySnapshot) -> LocalizedStringKey {
         switch self {
         case .fiveHour: "5h"
-        case .weekly: "Week"
+        case .weekly: LocalizedStringKey(snapshot.longWindowIsMonthly ? "Month" : "Week")
         }
     }
 
@@ -24,12 +24,16 @@ struct FiveHourAccessoryWidget: Widget {
     static let kind = "CodexMeter.Accessory.FiveHour"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: AccessoryWidgetTimelineProvider()) { entry in
-            AccessoryCircularUsageView(entry: entry, metric: .fiveHour)
+        AppIntentConfiguration(
+            kind: Self.kind,
+            intent: FiveHourAccessoryConfigurationIntent.self,
+            provider: FiveHourAccessoryTimelineProvider()
+        ) { entry in
+            ConfiguredAccessoryUsageView(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Five-hour allowance")
-        .description("Your current five-hour Codex allowance.")
+        .description("A configurable circular Codex allowance dial.")
         .supportedFamilies([.accessoryCircular])
     }
 }
@@ -38,12 +42,16 @@ struct WeeklyAccessoryWidget: Widget {
     static let kind = "CodexMeter.Accessory.Weekly"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: AccessoryWidgetTimelineProvider()) { entry in
-            AccessoryCircularUsageView(entry: entry, metric: .weekly)
+        AppIntentConfiguration(
+            kind: Self.kind,
+            intent: WeeklyAccessoryConfigurationIntent.self,
+            provider: WeeklyAccessoryTimelineProvider()
+        ) { entry in
+            ConfiguredAccessoryUsageView(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Weekly allowance")
-        .description("Your current weekly Codex allowance.")
+        .description("A configurable circular Codex allowance dial.")
         .supportedFamilies([.accessoryCircular])
     }
 }
@@ -52,33 +60,61 @@ struct DualAllowanceAccessoryWidget: Widget {
     static let kind = "CodexMeter.Accessory.Dual"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: AccessoryWidgetTimelineProvider()) { entry in
-            DualAccessoryUsageView(entry: entry)
+        AppIntentConfiguration(
+            kind: Self.kind,
+            intent: DualAccessoryConfigurationIntent.self,
+            provider: DualAccessoryTimelineProvider()
+        ) { entry in
+            ConfiguredAccessoryUsageView(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Codex allowances")
-        .description("Five-hour and weekly usage with locally updating reset timers.")
-        .supportedFamilies([.accessoryRectangular, .accessoryInline])
+        .description("Both allowance windows or one focused metric with locally updating reset timers.")
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+private struct ConfiguredAccessoryUsageView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: ConfiguredAccessoryWidgetEntry
+
+    @ViewBuilder
+    var body: some View {
+        if family == .accessoryCircular {
+            switch entry.allowance {
+            case .both:
+                DualAccessoryCircularUsageView(snapshot: entry.snapshot)
+            case .fiveHour:
+                AccessoryCircularUsageView(snapshot: entry.snapshot, metric: .fiveHour)
+            case .weekly:
+                AccessoryCircularUsageView(snapshot: entry.snapshot, metric: .weekly)
+            }
+        } else {
+            DualAccessoryUsageView(
+                snapshot: entry.snapshot,
+                allowance: entry.allowance
+            )
+        }
     }
 }
 
 private struct AccessoryCircularUsageView: View {
-    let entry: AccessoryWidgetEntry
+    let snapshot: WidgetDisplaySnapshot
     let metric: AccessoryMetric
 
     private var window: WidgetUsageWindow {
-        metric.window(in: entry.snapshot)
+        metric.window(in: snapshot)
     }
 
     var body: some View {
-        if entry.snapshot.mode == .signedOut {
+        if snapshot.mode == .signedOut {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
                 .font(.title2)
                 .widgetURL(URL(string: "codexmeter://dashboard"))
                 .accessibilityLabel("Sign in to Codex Meter")
         } else {
             Gauge(value: window.usedPercent ?? 0, in: 0...100) {
-                Text(metric.title)
+                Text(metric.title(in: snapshot))
             } currentValueLabel: {
                 VStack(spacing: 0) {
                     Text(percentText(window.usedPercent, symbol: true))
@@ -93,18 +129,77 @@ private struct AccessoryCircularUsageView: View {
             .gaugeStyle(.accessoryCircularCapacity)
             .widgetAccentable()
             .widgetURL(URL(string: "codexmeter://dashboard"))
-            .accessibilityLabel(Text(metric.title))
+            .accessibilityLabel(Text(metric.title(in: snapshot)))
             .accessibilityValue(percentText(window.usedPercent, symbol: true))
         }
     }
 }
 
-private struct DualAccessoryUsageView: View {
-    @Environment(\.widgetFamily) private var family
-    let entry: AccessoryWidgetEntry
+private struct DualAccessoryCircularUsageView: View {
+    let snapshot: WidgetDisplaySnapshot
 
     var body: some View {
-        if entry.snapshot.mode == .signedOut {
+        if snapshot.mode == .signedOut {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .font(.title2)
+                .widgetURL(URL(string: "codexmeter://dashboard"))
+                .accessibilityLabel("Sign in to Codex Meter")
+        } else {
+            ZStack {
+                Circle()
+                    .stroke(.primary.opacity(0.18), lineWidth: 4)
+                Circle()
+                    .trim(from: 0, to: progress(snapshot.fiveHour))
+                    .stroke(
+                        .primary,
+                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .widgetAccentable()
+
+                Circle()
+                    .stroke(.primary.opacity(0.10), lineWidth: 3)
+                    .padding(8)
+                Circle()
+                    .trim(from: 0, to: progress(snapshot.weekly))
+                    .stroke(
+                        .secondary,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .padding(8)
+                    .widgetAccentable()
+
+                VStack(spacing: -1) {
+                    Text("5h \(percentText(snapshot.fiveHour.usedPercent, symbol: false))")
+                    Text("\(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(snapshot.weekly.usedPercent, symbol: false))")
+                }
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            }
+            .padding(2)
+            .widgetURL(URL(string: "codexmeter://dashboard"))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Both allowance windows")
+            .accessibilityValue(
+                "5-hour \(percentText(snapshot.fiveHour.usedPercent, symbol: true)) used, \(snapshot.longWindowTitle.lowercased()) \(percentText(snapshot.weekly.usedPercent, symbol: true)) used"
+            )
+        }
+    }
+
+    private func progress(_ window: WidgetUsageWindow) -> CGFloat {
+        CGFloat(min(max((window.usedPercent ?? 0) / 100, 0), 1))
+    }
+}
+
+private struct DualAccessoryUsageView: View {
+    @Environment(\.widgetFamily) private var family
+    let snapshot: WidgetDisplaySnapshot
+    let allowance: WidgetAllowance
+
+    var body: some View {
+        if snapshot.mode == .signedOut {
             Label("Open Codex Meter to sign in", systemImage: "person.crop.circle")
                 .widgetURL(URL(string: "codexmeter://dashboard"))
         } else if family == .accessoryInline {
@@ -114,16 +209,26 @@ private struct DualAccessoryUsageView: View {
         }
     }
 
+    @ViewBuilder
     private var inlineContent: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "gauge.with.dots.needle.33percent")
-            Text("5h \(percentText(entry.snapshot.fiveHour.usedPercent, symbol: true))")
-            if let reset = entry.snapshot.fiveHour.resetsAt, reset > .now {
-                Text(reset, style: .timer).monospacedDigit()
-            }
-            Text("· W \(percentText(entry.snapshot.weekly.usedPercent, symbol: true))")
-            if let reset = entry.snapshot.weekly.resetsAt, reset > .now {
-                Text(reset, style: .timer).monospacedDigit()
+        Group {
+            switch allowance {
+            case .both:
+                HStack(spacing: 4) {
+                    Image(systemName: "gauge.with.dots.needle.33percent")
+                    Text("5h \(percentText(snapshot.fiveHour.usedPercent, symbol: true))")
+                    if let reset = snapshot.fiveHour.resetsAt, reset > .now {
+                        Text(reset, style: .timer).monospacedDigit()
+                    }
+                    Text("· \(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(snapshot.weekly.usedPercent, symbol: true))")
+                    if let reset = snapshot.weekly.resetsAt, reset > .now {
+                        Text(reset, style: .timer).monospacedDigit()
+                    }
+                }
+            case .fiveHour:
+                inlineMetric(.fiveHour)
+            case .weekly:
+                inlineMetric(.weekly)
             }
         }
         .widgetAccentable()
@@ -131,12 +236,40 @@ private struct DualAccessoryUsageView: View {
         .accessibilityElement(children: .combine)
     }
 
+    @ViewBuilder
     private var rectangularContent: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            accessoryRow(title: "5 hours", window: entry.snapshot.fiveHour)
-            accessoryRow(title: "Weekly", window: entry.snapshot.weekly)
+        Group {
+            switch allowance {
+            case .both:
+                VStack(alignment: .leading, spacing: 5) {
+                    accessoryRow(title: "5 hours", window: snapshot.fiveHour)
+                    accessoryRow(title: LocalizedStringKey(snapshot.longWindowTitle), window: snapshot.weekly)
+                }
+            case .fiveHour:
+                accessoryRow(title: "5 hours", window: snapshot.fiveHour)
+                    .frame(maxHeight: .infinity, alignment: .center)
+            case .weekly:
+                accessoryRow(title: LocalizedStringKey(snapshot.longWindowTitle), window: snapshot.weekly)
+                    .frame(maxHeight: .infinity, alignment: .center)
+            }
         }
         .widgetURL(URL(string: "codexmeter://dashboard"))
+    }
+
+    private func inlineMetric(_ metric: AccessoryMetric) -> some View {
+        let window = metric.window(in: snapshot)
+        return HStack(spacing: 4) {
+            Image(systemName: "gauge.with.dots.needle.33percent")
+            switch metric {
+            case .fiveHour:
+                Text("5h \(percentText(window.usedPercent, symbol: true))")
+            case .weekly:
+                Text("\(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(window.usedPercent, symbol: true))")
+            }
+            if let reset = window.resetsAt, reset > .now {
+                Text(reset, style: .timer).monospacedDigit()
+            }
+        }
     }
 
     private func accessoryRow(

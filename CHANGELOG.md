@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.8.0-alpha.1 — 2026-08-12
+## 2.8.0 — 2026-08-14
 
 ### Added
 
@@ -11,8 +11,10 @@
 ### Development
 
 - Monthly-window self-tests cover free-tier parsing, 28/31-day drift, long-window fallbacks, and the downgrade→resubscribe flow; diagnostic sanitizer coverage redacts credentials, emails, JWTs, and OAuth query params (#91, #92).
+- Removed the one-time alpha bootstrap workflow now that the `alpha` branch exists, and documented release-channel etiquette for agents (#90).
+- Previously shipped to the alpha channel as 2.8.0-alpha.1.
 
-**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.7.0...v2.8.0-alpha.1 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.7.0...v2.8.0 <!-- pragma: allowlist secret -->
 
 ## 2.7.0 — 2026-08-01
 
