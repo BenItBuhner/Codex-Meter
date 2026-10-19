@@ -1,0 +1,37 @@
+name: Provider auth probe (temporary)
+on:
+  push:
+    branches: [claude/cursor-provider-2peg2n]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe sign-in and usage routes with dummy credentials
+        run: |
+          UA="CodexMeter-probe"
+          p() { # label, curl args...
+            local label="$1"; shift
+            local out; out=$(curl -sS -m 25 -A "$UA" -o /tmp/body -w '%{http_code}' "$@" 2>&1) || true
+            echo "### $label -> HTTP $out"
+            head -c 400 /tmp/body | tr -d '\r' | sed 's/^/    /'; echo
+          }
+          V=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'); C=$(printf %s "$V" | openssl dgst -sha256 -binary | base64 | tr '+/' '-_' | tr -d '=\n'); U=$(cat /proc/sys/kernel/random/uuid)
+          echo "## Codex (OpenAI)"
+          p "codex authorize" -G "https://auth.openai.com/oauth/authorize" --data-urlencode "response_type=code" --data-urlencode "client_id=app_EMoamEEZ73f0CkXaXp7hrann" --data-urlencode "redirect_uri=http://localhost:1455/auth/callback" --data-urlencode "scope=openid profile email offline_access" --data-urlencode "code_challenge=$C" --data-urlencode "code_challenge_method=S256" --data-urlencode "state=s"
+          p "codex token bad code" -X POST https://auth.openai.com/oauth/token -H 'Content-Type: application/x-www-form-urlencoded' --data "grant_type=authorization_code&code=bad&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&client_id=app_EMoamEEZ73f0CkXaXp7hrann&code_verifier=$V"
+          p "codex usage no auth" https://chatgpt.com/backend-api/wham/usage
+          echo "## Claude Code"
+          p "claude authorize" -G "https://claude.ai/oauth/authorize" --data-urlencode "code=true" --data-urlencode "client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e" --data-urlencode "response_type=code" --data-urlencode "redirect_uri=http://localhost:54545/callback" --data-urlencode "scope=user:profile user:inference" --data-urlencode "code_challenge=$C" --data-urlencode "code_challenge_method=S256" --data-urlencode "state=s"
+          p "claude token bad code (form)" -X POST https://platform.claude.com/v1/oauth/token -H 'Content-Type: application/x-www-form-urlencoded' --data "grant_type=authorization_code&code=bad&redirect_uri=http%3A%2F%2Flocalhost%3A54545%2Fcallback&client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e&code_verifier=$V&state=s"
+          p "claude token bad code (json)" -X POST https://platform.claude.com/v1/oauth/token -H 'Content-Type: application/json' --data "{\"grant_type\":\"authorization_code\",\"code\":\"bad\",\"redirect_uri\":\"http://localhost:54545/callback\",\"client_id\":\"9d1c250a-e61b-44d9-88ed-5944d1962f5e\",\"code_verifier\":\"$V\",\"state\":\"s\"}"
+          p "claude refresh bad (form)" -X POST https://platform.claude.com/v1/oauth/token -H 'Content-Type: application/x-www-form-urlencoded' --data "grant_type=refresh_token&refresh_token=bad&client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+          p "claude usage bad token" https://api.anthropic.com/api/oauth/usage -H 'Authorization: Bearer bad' -H 'anthropic-beta: oauth-2025-04-20'
+          p "claude profile bad token" https://api.anthropic.com/api/oauth/profile -H 'Authorization: Bearer bad' -H 'anthropic-beta: oauth-2025-04-20'
+          echo "## Cursor"
+          p "cursor login page" "https://cursor.com/loginDeepControl?challenge=$C&uuid=$U&mode=login"
+          p "cursor poll (not approved)" "https://api2.cursor.sh/auth/poll?uuid=$U&verifier=$V"
+          p "cursor refresh bad" -X POST https://api2.cursor.sh/oauth/token -H 'Content-Type: application/json' --data '{"grant_type":"refresh_token","client_id":"KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB","refresh_token":"bad"}'
+          p "cursor usage bad token" -X POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage -H 'Authorization: Bearer bad' -H 'Content-Type: application/json' -H 'Connect-Protocol-Version: 1' --data '{}'
+          p "cursor profile bad token" https://api2.cursor.sh/auth/full_stripe_profile -H 'Authorization: Bearer bad'
