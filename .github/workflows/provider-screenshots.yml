@@ -225,19 +225,23 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Wait for the iOS CI run on this commit
+        id: ioswait
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for i in $(seq 1 70); do
-            st=$(gh api repos/${{ github.repository }}/actions/runs/39309065880 --jq .status)
-            echo "iOS CI: $st"; [ "$st" = completed ] && exit 0; sleep 30
+          for i in $(seq 1 80); do
+            line=$(gh api "repos/${{ github.repository }}/actions/runs?head_sha=${{ github.sha }}" \
+              --jq '.workflow_runs[] | select(.name=="iOS CI") | "\(.id) \(.status)"' | head -1)
+            echo "iOS CI: $line"
+            if [ "${line#* }" = completed ]; then echo "id=${line%% *}" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 30
           done
           exit 1
       - uses: actions/download-artifact@v8
         with:
           name: ios-demo-gallery
           path: gallery
-          run-id: 39309065880
+          run-id: ${{ steps.ioswait.outputs.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           mkdir -p shots/ios
