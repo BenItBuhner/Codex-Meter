@@ -36,6 +36,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p android/app/src/debug/java/dev/bennett/codexmeter
+          # The existing debug-only pace demo no longer compiles against AppPreferences; not needed here.
+          rm -f android/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java
           cat > android/app/src/debug/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application>
