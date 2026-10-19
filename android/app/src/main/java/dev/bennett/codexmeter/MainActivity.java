@@ -1188,7 +1188,7 @@ public final class MainActivity extends AppCompatActivity {
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         TextView summary = Ui.text(this, "See your " + target.displayName
-                        + " 5-hour and weekly limits, including per-model caps. Sign in with the "
+                        + " 5-hour and weekly limits, plus any model-only allocation your plan has. Sign in with the "
                         + target.accountName + " account you use in " + target.displayName
                         + ". Your tokens stay encrypted on this device.",
                 13, Ui.secondaryText(this.dark));

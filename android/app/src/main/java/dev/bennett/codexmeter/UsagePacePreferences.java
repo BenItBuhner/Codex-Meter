@@ -60,7 +60,7 @@ public final class UsagePacePreferences {
                 : window == snapshot.monthly ? UsageHistory.MONTHLY : UsageHistory.FIVE_HOUR;
         if (provider != UsageProvider.CODEX && window != snapshot.fiveHour
                 && window != snapshot.weekly && window != snapshot.monthly) {
-            // Named caps (Opus, Sonnet, extra usage) have no history of their own yet.
+            // Extra meters (a Fable-only allocation, extra usage) have no history of their own yet.
             return UsagePace.assess(window, snapshot.fetchedAtMillis, nowMillis,
                     getSensitivity(context));
         }
