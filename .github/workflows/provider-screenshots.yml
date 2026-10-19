@@ -1,4 +1,5 @@
 name: Provider switcher screenshots (temporary)
+# rerun: provider tabs id fix
 
 # One-off: renders the provider switcher on an Android emulator with sample data, collects
 # the iOS demo-gallery stills, and publishes both to refs/ci-screenshots/pr118 for review.
