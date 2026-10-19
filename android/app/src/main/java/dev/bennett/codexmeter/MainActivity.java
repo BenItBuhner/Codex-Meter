@@ -36,7 +36,7 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
-import dev.oneuiproject.oneui.widget.BottomTabLayout;
+import dev.oneuiproject.oneui.layout.ToolbarLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
@@ -55,7 +55,8 @@ public final class MainActivity extends AppCompatActivity {
     private boolean launchSignInRequested;
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
-    private BottomTabLayout providerTabs;
+    private ProviderSwitcherView providerTabs;
+    private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -104,6 +105,7 @@ public final class MainActivity extends AppCompatActivity {
         Ui.Page page = Ui.installPage(this, "Codex Meter", false,
                 R.layout.activity_main_dashboard);
         this.content = page.content;
+        this.toolbarLayout = page.toolbar;
         this.provider = ProviderPreferences.getSelected(this);
         setUpProviderTabs();
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
@@ -243,7 +245,7 @@ public final class MainActivity extends AppCompatActivity {
                 this.provider = requested;
                 ProviderPreferences.setSelected(this, requested);
                 if (this.providerTabs != null) {
-                    this.providerTabs.setSelectedItem(tabId(requested));
+                    this.providerTabs.setSelectedProvider(requested);
                 }
             }
         }
@@ -298,39 +300,12 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void setUpProviderTabs() {
-        this.providerTabs = findViewById(R.id.provider_tabs);
+        this.providerTabs = findViewById(R.id.provider_switcher);
         if (this.providerTabs == null) {
             return;
         }
-        this.providerTabs.setSelectedItem(tabId(this.provider));
-        this.providerTabs.setOnMenuItemClickListener(item -> {
-            UsageProvider selected = providerForTab(item.getItemId());
-            if (selected != null) {
-                selectProvider(selected);
-            }
-            return true;
-        });
-    }
-
-    private static int tabId(UsageProvider provider) {
-        switch (provider) {
-            case CLAUDE_CODE:
-                return R.id.provider_tab_claude_code;
-            case CURSOR:
-                return R.id.provider_tab_cursor;
-            case CODEX:
-            default:
-                return R.id.provider_tab_codex;
-        }
-    }
-
-    private static UsageProvider providerForTab(int itemId) {
-        for (UsageProvider candidate : UsageProvider.values()) {
-            if (tabId(candidate) == itemId) {
-                return candidate;
-            }
-        }
-        return null;
+        this.providerTabs.setSelectedProvider(this.provider);
+        this.providerTabs.setListener(this::selectProvider);
     }
 
     private void selectProvider(UsageProvider selected) {
@@ -371,7 +346,21 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
+    /** The large title follows the selected tab, matching the iOS dashboard. */
+    private void applyProviderTitle() {
+        if (this.toolbarLayout == null) {
+            return;
+        }
+        String title = this.provider == UsageProvider.CODEX ? "Codex Meter"
+                : this.provider.displayName;
+        CharSequence current = this.toolbarLayout.getExpandedTitle();
+        if (current == null || !title.contentEquals(current)) {
+            this.toolbarLayout.setTitle(title);
+        }
+    }
+
     public void rebuild() {
+        applyProviderTitle();
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
             buildProviderDashboard(this.provider);
@@ -1216,7 +1205,7 @@ public final class MainActivity extends AppCompatActivity {
         String limits = target == UsageProvider.CURSOR
                 ? " included usage for this billing cycle, Auto and API model pools, and "
                         + "on-demand spend."
-                : " 5-hour and weekly limits, including per-model caps.";
+                : " 5-hour and weekly limits, plus any model-only allocation your plan has.";
         TextView summary = Ui.text(this, "See your " + target.displayName
                         + limits + " Sign in with the "
                         + target.accountName + " account you use in " + target.displayName

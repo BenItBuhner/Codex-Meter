@@ -55,10 +55,15 @@ public final class CursorUsageParser {
             if (!Double.isNaN(percent)) {
                 plan = new UsageWindow(roundPercent(percent), cycleSeconds, 0L, resetSeconds);
             }
-            addPool(limits, planUsage, "autoPercentUsed", "auto", "Auto + Composer",
-                    cycleSeconds, resetSeconds);
-            addPool(limits, planUsage, "apiPercentUsed", "api", "API models",
-                    cycleSeconds, resetSeconds);
+            // Plans that split Auto and API pools report at least one of them. Connect JSON
+            // drops zero values, so the other pool is shown at 0% instead of disappearing.
+            if (!Double.isNaN(number(planUsage, "autoPercentUsed"))
+                    || !Double.isNaN(number(planUsage, "apiPercentUsed"))) {
+                addPool(limits, planUsage, "autoPercentUsed", "auto", "Auto + Composer",
+                        cycleSeconds, resetSeconds);
+                addPool(limits, planUsage, "apiPercentUsed", "api", "API models",
+                        cycleSeconds, resetSeconds);
+            }
         }
 
         UsageLimit onDemand = onDemand(root.optJSONObject("spendLimitUsage"), cycleSeconds,
@@ -74,7 +79,7 @@ public final class CursorUsageParser {
     private static void addPool(List<UsageLimit> limits, JSONObject planUsage, String key,
             String id, String name, long cycleSeconds, long resetSeconds) {
         double percent = number(planUsage, key);
-        if (Double.isNaN(percent)) return;
+        if (Double.isNaN(percent)) percent = 0;
         UsageWindow window = new UsageWindow(roundPercent(percent), cycleSeconds, 0L,
                 resetSeconds);
         limits.add(new UsageLimit(LIMIT_ID_PREFIX + id, name, "", true,

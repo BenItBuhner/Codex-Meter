@@ -6,60 +6,100 @@ import XCTest
 final class ClaudeUsageParserTests: XCTestCase {
     private let fetchedAt = Date(timeIntervalSince1970: 1_000)
 
+    /// Current shape: a server-built `limits` list plus the legacy windows.
     private let fullBody = """
     {
       "five_hour": {"utilization": 6.0, "resets_at": "2026-10-19T18:59:59.943648+00:00"},
       "seven_day": {"utilization": 35.4, "resets_at": "2026-10-23T03:00:00Z"},
-      "seven_day_oauth_apps": null,
       "seven_day_opus": {"utilization": 0.0, "resets_at": null},
-      "seven_day_sonnet": {"utilization": 100, "resets_at": "2026-10-23T03:00:00+00:00"},
+      "seven_day_sonnet": {"utilization": 100, "resets_at": null},
       "iguana_necktie": null,
+      "limits": [
+        {"kind": "session", "group": "session", "percent": 41, "severity": "normal",
+         "resets_at": "2026-10-19T18:59:59.943648+00:00", "scope": null, "is_active": true},
+        {"kind": "weekly_all", "group": "weekly", "percent": 20, "severity": "normal",
+         "resets_at": "2026-10-23T03:00:00Z", "scope": null, "is_active": false},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 100, "severity": "critical",
+         "resets_at": "2026-10-23T03:00:00Z",
+         "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null}},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 20,
+         "scope": {"model": {"id": null, "display_name": "All models"}, "surface": null}},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": null,
+         "scope": {"model": {"id": null, "display_name": "Other"}, "surface": null}}
+      ],
       "extra_usage": {"is_enabled": true, "monthly_limit": 5000, "used_credits": 1200, "utilization": 24.0}
     }
     """
 
-    func testMapsWindowsModelCapsAndExtraUsage() throws {
+    func testLimitsListDrivesTheCards() throws {
         let snapshot = try ClaudeUsageParser.parse(fullBody, planLabel: "Max 20x", fetchedAt: fetchedAt)
 
         let fiveHour = try XCTUnwrap(snapshot.fiveHour)
-        XCTAssertEqual(fiveHour.usedPercent, 6)
+        XCTAssertEqual(fiveHour.usedPercent, 41)
         XCTAssertEqual(fiveHour.windowSeconds, 18_000)
         XCTAssertEqual(fiveHour.resetAt, date("2026-10-19T18:59:59Z"))
 
         let weekly = try XCTUnwrap(snapshot.weekly)
-        XCTAssertEqual(weekly.usedPercent, 35)
+        XCTAssertEqual(weekly.usedPercent, 20)
         XCTAssertEqual(weekly.windowSeconds, 604_800)
-        XCTAssertEqual(weekly.remainingPercent, 65)
         XCTAssertEqual(weekly.resetAt, date("2026-10-23T03:00:00Z"))
 
         XCTAssertNil(snapshot.monthly)
         XCTAssertNil(snapshot.usageCredits)
-        XCTAssertNil(snapshot.resetCreditsAvailable)
         XCTAssertEqual(snapshot.planType, "Max 20x")
         XCTAssertEqual(snapshot.fetchedAt, fetchedAt)
 
-        XCTAssertEqual(snapshot.additionalLimits.count, 3)
-        let opus = snapshot.additionalLimits[0]
-        XCTAssertEqual(opus.id, "claude_seven_day_opus")
-        XCTAssertEqual(opus.displayName, "Opus")
-        XCTAssertEqual(opus.primary?.usedPercent, 0)
-        XCTAssertEqual(opus.primary?.windowSeconds, 604_800)
-        XCTAssertNil(opus.primary?.resetAt)
-        XCTAssertNil(opus.secondary)
+        // Only Fable and extra usage: no Opus/Sonnet, "All models" and null rows skipped.
+        XCTAssertEqual(snapshot.additionalLimits.map(\.displayName), ["Fable only", "Extra usage"])
+        let fable = snapshot.additionalLimits[0]
+        XCTAssertEqual(fable.id, "claude_weekly_scoped_fable")
+        XCTAssertEqual(fable.primary?.usedPercent, 100)
+        XCTAssertEqual(fable.primary?.windowSeconds, 604_800)
+        XCTAssertTrue(fable.limitReached)
+        XCTAssertNil(fable.secondary)
+        XCTAssertEqual(DashboardSections.limitKey(fable), "limit:claude_weekly_scoped_fable")
 
-        let sonnet = snapshot.additionalLimits[1]
-        XCTAssertEqual(sonnet.displayName, "Sonnet")
-        XCTAssertTrue(sonnet.limitReached)
-
-        let extra = snapshot.additionalLimits[2]
+        let extra = snapshot.additionalLimits[1]
         XCTAssertEqual(extra.id, "claude_extra_usage")
-        XCTAssertEqual(extra.displayName, "Extra usage")
         XCTAssertEqual(extra.primary?.usedPercent, 24)
         XCTAssertEqual(extra.primary?.windowSeconds, 2_592_000)
 
         XCTAssertTrue(snapshot.limitReached)
         XCTAssertFalse(snapshot.allowed)
-        XCTAssertEqual(DashboardSections.limitKey(opus), "limit:claude_seven_day_opus")
+    }
+
+    func testUnifiedPlanShowsOnlyFiveHourAndWeekly() throws {
+        let snapshot = try ClaudeUsageParser.parse(
+            """
+            {"limits": [
+              {"kind": "session", "group": "session", "percent": 12, "resets_at": null, "scope": null},
+              {"kind": "weekly_all", "group": "weekly", "percent": 3, "resets_at": null, "scope": null}
+            ], "extra_usage": {"is_enabled": false, "utilization": null}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 12)
+        XCTAssertEqual(snapshot.weekly?.usedPercent, 3)
+        XCTAssertTrue(snapshot.additionalLimits.isEmpty)
+        XCTAssertFalse(snapshot.limitReached)
+    }
+
+    func testLegacyBodyIgnoresPerModelKeys() throws {
+        let snapshot = try ClaudeUsageParser.parse(
+            """
+            {"five_hour": {"utilization": 6.0, "resets_at": null},
+             "seven_day": {"utilization": 35.4, "resets_at": null},
+             "seven_day_opus": {"utilization": 0.0, "resets_at": null},
+             "seven_day_sonnet": {"utilization": 100, "resets_at": null},
+             "seven_day_fable": {"utilization": 51, "resets_at": null}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 6)
+        XCTAssertEqual(snapshot.weekly?.usedPercent, 35)
+        XCTAssertEqual(snapshot.additionalLimits.map(\.displayName), ["Fable only"])
+        XCTAssertEqual(snapshot.additionalLimits.first?.id, "claude_weekly_scoped_fable")
+        XCTAssertFalse(snapshot.limitReached)
     }
 
     func testSnapshotSurvivesCodableRoundTrip() throws {
@@ -69,8 +109,8 @@ final class ClaudeUsageParserTests: XCTestCase {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let decoded = try decoder.decode(UsageSnapshot.self, from: encoder.encode(snapshot))
-        XCTAssertEqual(decoded.weekly?.usedPercent, 35)
-        XCTAssertEqual(decoded.additionalLimits.count, 3)
+        XCTAssertEqual(decoded.weekly?.usedPercent, 20)
+        XCTAssertEqual(decoded.additionalLimits.count, 2)
         XCTAssertEqual(decoded.planType, "Max 20x")
     }
 
@@ -91,26 +131,24 @@ final class ClaudeUsageParserTests: XCTestCase {
         XCTAssertEqual(snapshot.planType, "")
     }
 
-    func testEnabledExtraUsageWithoutUtilizationIsSkipped() throws {
+    func testUnknownScopedMetersGetGenericCards() throws {
         let snapshot = try ClaudeUsageParser.parse(
-            #"{"extra_usage": {"is_enabled": true, "utilization": null}, "five_hour_new_thing": {"utilization": 99.6}}"#,
+            """
+            {"limits": [
+              {"kind": "weekly_scoped", "group": "weekly", "percent": 7,
+               "scope": {"model": null, "surface": {"id": "claude_design", "display_name": "Claude Design"}}},
+              {"kind": "monthly_new_thing", "group": "monthly", "percent": 99.6, "scope": null}
+            ], "extra_usage": {"is_enabled": true, "utilization": null}}
+            """,
             fetchedAt: fetchedAt
         )
-        XCTAssertEqual(snapshot.additionalLimits.count, 1)
-        let limit = try XCTUnwrap(snapshot.additionalLimits.first)
-        XCTAssertEqual(limit.id, "claude_five_hour_new_thing")
-        XCTAssertEqual(limit.displayName, "New thing")
-        XCTAssertEqual(limit.primary?.windowSeconds, 18_000)
-        XCTAssertEqual(limit.primary?.usedPercent, 100)
+        XCTAssertEqual(snapshot.additionalLimits.map(\.id),
+                       ["claude_weekly_scoped_claude_design", "claude_monthly_new_thing"])
+        XCTAssertEqual(snapshot.additionalLimits.map(\.displayName),
+                       ["Claude Design only", "Monthly new thing"])
+        XCTAssertEqual(snapshot.additionalLimits[1].primary?.windowSeconds, 2_592_000)
+        XCTAssertEqual(snapshot.additionalLimits[1].primary?.usedPercent, 100)
         XCTAssertTrue(snapshot.limitReached)
-    }
-
-    func testLimitNames() {
-        XCTAssertEqual(ClaudeUsageParser.limitName("opus"), "Opus")
-        XCTAssertEqual(ClaudeUsageParser.limitName("haiku"), "Haiku")
-        XCTAssertEqual(ClaudeUsageParser.limitName("oauth_apps"), "Connected apps")
-        XCTAssertEqual(ClaudeUsageParser.limitName("claude_design"), "Claude design")
-        XCTAssertEqual(ClaudeUsageParser.limitName(""), "Additional usage")
     }
 
     func testResetTimestamps() {

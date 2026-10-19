@@ -260,7 +260,7 @@ private struct ClaudeSignedOutView: View {
                 Text("Your Claude Code limits at a glance")
                     .font(.title2.bold())
                     .multilineTextAlignment(.center)
-                Text("Connect your Claude Pro, Max, Team, or Enterprise account to see the 5-hour and weekly limits Claude Code reports, model-specific caps, and reset times.")
+                Text("Connect your Claude Pro, Max, Team, or Enterprise account to see the 5-hour and weekly limits Claude Code reports, any model-only allocation such as Fable, and reset times.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }

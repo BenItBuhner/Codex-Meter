@@ -3,25 +3,31 @@ import Foundation
 /// Maps Claude Code's `GET /api/oauth/usage` response onto the shared `UsageSnapshot` so every
 /// dashboard card works unchanged.
 ///
-/// Observed response shape (fields may be null or missing per plan):
+/// The response carries a server-built `limits` list, the meters Claude Code itself renders.
+/// Usually that is just the session (5-hour) and weekly meters; some plans add a model-scoped
+/// weekly allocation such as Fable. Cards follow that list, so new meters appear without an app
+/// update:
 ///
 /// ```json
-/// {
-///   "five_hour":        {"utilization": 6.0,  "resets_at": "2026-10-19T18:59:59.9+00:00"},
-///   "seven_day":        {"utilization": 35.0, "resets_at": "2026-10-23T03:00:00+00:00"},
-///   "seven_day_opus":   {"utilization": 0.0,  "resets_at": null},
-///   "seven_day_sonnet": {"utilization": 12.0, "resets_at": "..."},
-///   "extra_usage": {"is_enabled": true, "monthly_limit": 5000, "used_credits": 120,
-///                   "utilization": 2.4}
-/// }
+/// "limits": [
+///   {"kind": "session", "group": "session", "percent": 41, "resets_at": "...", "scope": null},
+///   {"kind": "weekly_all", "group": "weekly", "percent": 20, "resets_at": "...", "scope": null},
+///   {"kind": "weekly_scoped", "group": "weekly", "percent": 38, "resets_at": "...",
+///    "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null}}
+/// ]
 /// ```
 ///
-/// `utilization` is percent used (0–100), matching the "% used" Claude Code prints.
+/// Older responses only have `five_hour` / `seven_day` objects of the form
+/// `{"utilization": 6.0, "resets_at": "..."}`; those are the fallback. The legacy per-model keys
+/// (`seven_day_opus`, `seven_day_sonnet`) and internal codename keys are ignored because Claude
+/// Code no longer shows them. Percentages are percent used (0–100).
 public enum ClaudeUsageParser {
     public static let fiveHourSeconds: Int64 = 5 * 60 * 60
     public static let sevenDaySeconds: Int64 = 7 * 24 * 60 * 60
     public static let monthSeconds: Int64 = 30 * 24 * 60 * 60
     public static let limitIDPrefix = "claude_"
+    /// Older top-level spellings of a Fable-only weekly allocation.
+    static let legacyFableKeys = ["seven_day_fable", "fable_seven_day", "fable_weekly"]
 
     public static func parse(
         _ string: String,
@@ -37,42 +43,71 @@ public enum ClaudeUsageParser {
         fetchedAt: Date = Date()
     ) throws -> UsageSnapshot {
         let root = try JSONSupport.object(from: data)
-        let fiveHour = parseWindow(root["five_hour"], seconds: fiveHourSeconds)
-        let weekly = parseWindow(root["seven_day"], seconds: sevenDaySeconds)
-        var limitReached = reached(fiveHour) || reached(weekly)
+        var fiveHour: UsageWindow?
+        var weekly: UsageWindow?
         var additionalLimits: [UsageLimit] = []
+        var seen = Set<String>()
 
-        // Model- and surface-specific caps (seven_day_opus, seven_day_sonnet, ...). New keys
-        // Anthropic adds later appear automatically as long as they follow the prefix.
-        for key in root.keys.sorted() {
-            let seconds: Int64
-            let suffix: String
-            if key.hasPrefix("seven_day_") {
-                seconds = sevenDaySeconds
-                suffix = String(key.dropFirst("seven_day_".count))
-            } else if key.hasPrefix("five_hour_") {
-                seconds = fiveHourSeconds
-                suffix = String(key.dropFirst("five_hour_".count))
+        for item in JSONSupport.array(root["limits"]) ?? [] {
+            guard let row = JSONSupport.object(item) else { continue }
+            let kind = JSONSupport.string(row["kind"]).trimmingCharacters(in: .whitespaces).lowercased()
+            let group = JSONSupport.string(row["group"]).trimmingCharacters(in: .whitespaces).lowercased()
+            let scopeObject = JSONSupport.object(row["scope"])
+            // An "All models" scope repeats the weekly meter; Claude Code skips it too.
+            if isAllModels(scopeObject) { continue }
+            let scope = scopeName(scopeObject)
+            guard let window = meter(row, seconds: windowSeconds(kind: kind, group: group)) else {
+                continue
+            }
+            if scope.isEmpty, kind == "session", fiveHour == nil {
+                fiveHour = window
+            } else if scope.isEmpty, kind == "weekly_all", weekly == nil {
+                weekly = window
             } else {
-                continue
-            }
-            guard let window = parseWindow(root[key], seconds: seconds) else {
-                continue
-            }
-            if reached(window) {
-                limitReached = true
-            }
-            additionalLimits.append(
-                UsageLimit(
-                    id: limitIDPrefix + key,
-                    name: limitName(suffix),
-                    allowed: true,
-                    limitReached: reached(window),
-                    primary: window,
-                    secondary: nil
+                let suffix = scope.isEmpty ? kind
+                    : group.isEmpty ? "scoped_" + slug(scope) : group + "_scoped_" + slug(scope)
+                let id = limitIDPrefix + suffix
+                guard seen.insert(id).inserted else { continue }
+                additionalLimits.append(
+                    UsageLimit(
+                        id: id,
+                        name: scope.isEmpty ? humanize(kind) : scope + " only",
+                        allowed: true,
+                        limitReached: reached(window),
+                        primary: window,
+                        secondary: nil
+                    )
                 )
-            )
+            }
         }
+
+        if fiveHour == nil {
+            fiveHour = parseWindow(root["five_hour"], seconds: fiveHourSeconds)
+        }
+        if weekly == nil {
+            weekly = parseWindow(root["seven_day"], seconds: sevenDaySeconds)
+        }
+        let fableID = limitIDPrefix + "weekly_scoped_fable"
+        if !seen.contains(fableID) {
+            for key in legacyFableKeys {
+                if let window = parseWindow(root[key], seconds: sevenDaySeconds) {
+                    additionalLimits.append(
+                        UsageLimit(
+                            id: fableID,
+                            name: "Fable only",
+                            allowed: true,
+                            limitReached: reached(window),
+                            primary: window,
+                            secondary: nil
+                        )
+                    )
+                    break
+                }
+            }
+        }
+
+        let limitReached = reached(fiveHour) || reached(weekly)
+            || additionalLimits.contains { $0.limitReached }
 
         if let extraUsage = extraUsage(root["extra_usage"]) {
             additionalLimits.append(extraUsage)
@@ -90,6 +125,79 @@ public enum ClaudeUsageParser {
             usageCredits: nil,
             fetchedAt: fetchedAt
         )
+    }
+
+    /// One `limits[]` row; rows without a usable percentage are skipped.
+    static func meter(_ row: JSONSupport.Object, seconds: Int64) -> UsageWindow? {
+        guard let percent = percentUsed(row["percent"]) else { return nil }
+        return UsageWindow(
+            usedPercent: percent,
+            windowSeconds: seconds,
+            resetAfterSeconds: 0,
+            resetAt: parseResetDate(row["resets_at"])
+        )
+    }
+
+    static func windowSeconds(kind: String, group: String) -> Int64 {
+        if group == "session" || kind.hasPrefix("session") { return fiveHourSeconds }
+        if group.hasPrefix("month") || kind.hasPrefix("month") { return monthSeconds }
+        return sevenDaySeconds
+    }
+
+    private static func isAllModels(_ scope: JSONSupport.Object?) -> Bool {
+        guard let scope else { return false }
+        return ["model", "surface"].contains { key in
+            let object = JSONSupport.object(scope[key])
+            let name = object.map { JSONSupport.string($0["display_name"]) }
+                ?? JSONSupport.string(scope[key])
+            return name.trimmingCharacters(in: .whitespaces).lowercased() == "all models"
+        }
+    }
+
+    /// Model or surface name a meter is scoped to, or "" for account-wide meters.
+    static func scopeName(_ scope: JSONSupport.Object?) -> String {
+        guard let scope else { return "" }
+        for key in ["model", "surface"] {
+            var name = ""
+            if let object = JSONSupport.object(scope[key]) {
+                name = JSONSupport.string(object["display_name"])
+                if name.trimmingCharacters(in: .whitespaces).isEmpty {
+                    name = JSONSupport.string(object["id"])
+                }
+            } else {
+                name = JSONSupport.string(scope[key])
+            }
+            name = name.trimmingCharacters(in: .whitespaces)
+            if !name.isEmpty, name != "null" {
+                return name
+            }
+        }
+        return ""
+    }
+
+    static func slug(_ value: String) -> String {
+        let lowered = value.lowercased()
+        var result = ""
+        var lastWasSeparator = true
+        for scalar in lowered.unicodeScalars {
+            if scalar.isASCII, CharacterSet.alphanumerics.contains(scalar) {
+                result.unicodeScalars.append(scalar)
+                lastWasSeparator = false
+            } else if !lastWasSeparator {
+                result.append("_")
+                lastWasSeparator = true
+            }
+        }
+        while result.hasSuffix("_") { result.removeLast() }
+        return result
+    }
+
+    /// "weekly_all" -> "Weekly all"; used only for unscoped meters Claude adds later.
+    static func humanize(_ kind: String) -> String {
+        let spaced = kind.replacingOccurrences(of: "_", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = spaced.first else { return "Additional usage" }
+        return first.uppercased() + String(spaced.dropFirst())
     }
 
     /// One `{utilization, resets_at}` object, or `nil` when Claude reports no data.
@@ -176,23 +284,6 @@ public enum ClaudeUsageParser {
             return nil
         }
         return date
-    }
-
-    static func limitName(_ suffix: String) -> String {
-        switch suffix {
-        case "opus": return "Opus"
-        case "sonnet": return "Sonnet"
-        case "haiku": return "Haiku"
-        case "oauth_apps": return "Connected apps"
-        default:
-            let spaced = suffix
-                .replacingOccurrences(of: "_", with: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let first = spaced.first else {
-                return "Additional usage"
-            }
-            return first.uppercased() + String(spaced.dropFirst())
-        }
     }
 
     /// Plan badge from `GET /api/oauth/profile`. Reads the rate-limit tier first because it is

@@ -64,6 +64,13 @@ final class CursorUsageParserTests: XCTestCase {
         XCTAssertEqual(light.monthly?.windowSeconds, CursorUsageParser.defaultCycleSeconds)
         XCTAssertNil(light.monthly?.resetAt)
 
+        XCTAssertTrue(light.additionalLimits.isEmpty)
+
+        let oneSided = try CursorUsageParser.parse(#"{"planUsage":{"limit":2000,"autoPercentUsed":40}}"#)
+        XCTAssertEqual(oneSided.monthly?.usedPercent, 0)
+        XCTAssertEqual(oneSided.additionalLimits.map(\.id), ["cursor_auto", "cursor_api"])
+        XCTAssertEqual(oneSided.additionalLimits[1].primary?.usedPercent, 0)
+
         let empty = try CursorUsageParser.parse(#"{"enabled":false}"#)
         XCTAssertNil(empty.monthly)
         XCTAssertTrue(empty.additionalLimits.isEmpty)

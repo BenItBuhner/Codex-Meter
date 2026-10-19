@@ -57,11 +57,15 @@ public enum CursorUsageParser {
                     resetAt: resetAt
                 )
             }
-            for (key, id, name) in [
+            // Plans that split Auto and API pools report at least one of them. Connect JSON
+            // drops zero values, so the other pool is shown at 0% instead of disappearing.
+            let pools = [
                 ("autoPercentUsed", "auto", "Auto + Composer"),
                 ("apiPercentUsed", "api", "API models")
-            ] {
-                guard let value = number(planUsage[key]) else { continue }
+            ]
+            let hasPools = pools.contains { number(planUsage[$0.0]) != nil }
+            for (key, id, name) in pools where hasPools {
+                let value = number(planUsage[key]) ?? 0
                 let window = UsageWindow(
                     usedPercent: roundPercent(value),
                     windowSeconds: cycleSeconds,
