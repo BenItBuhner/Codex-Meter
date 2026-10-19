@@ -316,6 +316,8 @@ public final class MainActivity extends AppCompatActivity {
         switch (provider) {
             case CLAUDE_CODE:
                 return R.id.provider_tab_claude_code;
+            case CURSOR:
+                return R.id.provider_tab_cursor;
             case CODEX:
             default:
                 return R.id.provider_tab_codex;
@@ -358,6 +360,14 @@ public final class MainActivity extends AppCompatActivity {
                 this.swipeRefresh.setRefreshing(true);
             }
             refreshProvider(UsageProvider.CLAUDE_CODE, "tab");
+        } else if (this.provider == UsageProvider.CURSOR
+                && SecureTokenStore.isSignedIn(this, UsageProvider.CURSOR)
+                && AppPreferences.getRefreshOnLaunch(this)
+                && CursorUsageApi.isStale(this)) {
+            if (this.swipeRefresh != null) {
+                this.swipeRefresh.setRefreshing(true);
+            }
+            refreshProvider(UsageProvider.CURSOR, "tab");
         }
     }
 
@@ -1158,6 +1168,12 @@ public final class MainActivity extends AppCompatActivity {
                         inverted));
                 inverted = !inverted;
             }
+            if (snapshot.monthly != null) {
+                addDashboardCard(column, buildMetricCard(
+                        target == UsageProvider.CURSOR ? "Included usage" : "Monthly",
+                        snapshot, snapshot.monthly, inverted));
+                inverted = !inverted;
+            }
             for (UsageLimit limit : snapshot.additionalLimits) {
                 if (limit.primary != null) {
                     addDashboardCard(column, buildMetricCard(
@@ -1183,7 +1199,8 @@ public final class MainActivity extends AppCompatActivity {
         }
         if (snapshot != null && snapshot.fetchedAtMillis > 0L
                 && AppPreferences.showDashboardUsageHistory(this)
-                && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+                && (snapshot.fiveHour != null || snapshot.weekly != null
+                        || snapshot.monthly != null)) {
             addDashboardCard(column, buildUsageHistoryCard(target));
         }
         this.content.addView(column);
@@ -1196,8 +1213,12 @@ public final class MainActivity extends AppCompatActivity {
         TextView title = Ui.text(this, target.displayName, 18, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
+        String limits = target == UsageProvider.CURSOR
+                ? " included usage for this billing cycle, Auto and API model pools, and "
+                        + "on-demand spend."
+                : " 5-hour and weekly limits, including per-model caps.";
         TextView summary = Ui.text(this, "See your " + target.displayName
-                        + " 5-hour and weekly limits, including per-model caps. Sign in with the "
+                        + limits + " Sign in with the "
                         + target.accountName + " account you use in " + target.displayName
                         + ". Your tokens stay encrypted on this device.",
                 13, Ui.secondaryText(this.dark));
@@ -1258,6 +1279,8 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 if (target == UsageProvider.CLAUDE_CODE) {
                     ClaudeUsageApi.refreshAndCache(applicationContext);
+                } else if (target == UsageProvider.CURSOR) {
+                    CursorUsageApi.refreshAndCache(applicationContext);
                 }
                 WidgetRenderer.updateAll(applicationContext);
             } catch (Exception e) {

@@ -9,10 +9,12 @@
 - Home-screen widgets can show Claude Code (widget settings → Provider); tapping one opens the Claude Code tab.
 - iOS: a bottom provider switcher with a Claude Code tab (Claude sign-in by pasting the code Claude shows, usage, model caps, plan badge, demo data).
 - Background refresh covers Claude Code at most every 30 minutes with a one-hour back-off after HTTP 429, and keeps running when only one provider is signed in.
+- Cursor tab on Android and iOS: sign in with Cursor through the same browser login the Cursor editor uses (no code to paste), then see included usage for the billing cycle, Auto + Composer and API model pools, on-demand spend in dollars, the plan badge, and the reset date. Background refresh checks Cursor at most every 15 minutes.
 
 ### Development
 
 - Self-tests cover provider ids/defaults, Claude usage parsing (fractional-second ISO resets, null windows, model caps, extra usage, plan badges), the Claude authorize/token request shapes, and Claude refresh pacing.
+- Self-tests (Android and `CodexMeterCore`) cover Cursor usage parsing (epoch-ms and ISO billing cycles, string-encoded numbers, computed plan percent, personal vs team on-demand caps, plan badges), the PKCE login/poll URLs, JWT expiry, token parsing, and auth-error detection.
 
 ## 2.8.0 — 2026-08-14
 

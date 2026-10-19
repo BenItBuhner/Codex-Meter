@@ -12,6 +12,8 @@ struct DashboardView: View {
                 codexDashboard
             case .claudeCode:
                 ClaudeDashboardView()
+            case .cursor:
+                CursorDashboardView()
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -98,7 +100,7 @@ struct DashboardView: View {
     }
 }
 
-/// Bottom-anchored provider tabs: Codex (default) and Claude Code.
+/// Bottom-anchored provider tabs: Codex (default), Claude Code, and Cursor.
 private struct ProviderSwitcher: View {
     @Environment(AppModel.self) private var model
 

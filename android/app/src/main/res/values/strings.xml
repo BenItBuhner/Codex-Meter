@@ -74,4 +74,5 @@
     <string name="account_avatar">Account avatar</string>
     <string name="provider_codex">Codex</string>
     <string name="provider_claude_code">Claude Code</string>
+    <string name="provider_cursor">Cursor</string>
 </resources>

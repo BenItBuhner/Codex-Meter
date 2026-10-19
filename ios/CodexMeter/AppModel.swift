@@ -57,6 +57,8 @@ final class AppModel {
 
     /// Claude Code tab state. Independent of the Codex session below.
     let claude: ClaudeUsageModel
+    /// Cursor tab state. Independent of the Codex and Claude sessions.
+    let cursor: CursorUsageModel
     /// The dashboard tab. Codex stays the default; the choice is remembered.
     var selectedProvider: UsageProvider = .defaultProvider
     var mode: AppMode = .signedOut
@@ -118,9 +120,11 @@ final class AppModel {
         defaults: UserDefaults = .standard,
         refreshEngagementStore: RefreshEngagementStore? = nil,
         claude: ClaudeUsageModel? = nil,
+        cursor: CursorUsageModel? = nil,
         preview: Bool = false
     ) {
         self.claude = claude ?? ClaudeUsageModel(preview: preview)
+        self.cursor = cursor ?? CursorUsageModel(preview: preview)
         self.selectedProvider = UsageProvider.resolve(defaults.string(forKey: Self.providerDefaultsKey))
         self.liveService = liveService
         self.demoService = demoService
@@ -227,7 +231,7 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-demo") {
             mode = .demo
             defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
-            await enterClaudeDemoIfSignedOut()
+            await enterProviderDemosIfSignedOut()
             await refresh()
             return
         }
@@ -239,7 +243,7 @@ final class AppModel {
 
         if defaults.string(forKey: Self.modeDefaultsKey) == AppMode.demo.rawValue {
             mode = .demo
-            await enterClaudeDemoIfSignedOut()
+            await enterProviderDemosIfSignedOut()
             if usage == nil {
                 await refresh()
             }
@@ -314,12 +318,13 @@ final class AppModel {
         visibleError = nil
         accountEmail = "demo@local"
         accountPlan = "Plus (Demo)"
-        await enterClaudeDemoIfSignedOut()
+        await enterProviderDemosIfSignedOut()
         await refresh()
     }
 
     func leaveDemo() async {
         await claude.leaveDemo()
+        await cursor.leaveDemo()
         await demoService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
@@ -334,6 +339,7 @@ final class AppModel {
         DiagnosticLog.info("process", "sign_out")
         if mode == .demo {
             await claude.leaveDemo()
+            await cursor.leaveDemo()
         }
         await activeService.signOut()
         await notificationCoordinator.clearAll()
@@ -571,6 +577,8 @@ final class AppModel {
             // Claude is never refreshed in the background; foregrounding the visible tab
             // re-checks only when its data is older than five minutes.
             await claude.tabOpened()
+        } else if selectedProvider == .cursor {
+            await cursor.tabOpened()
         }
         guard mode != .signedOut, settings.refreshOnLaunch else { return }
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
@@ -602,11 +610,15 @@ final class AppModel {
         DiagnosticLog.info("process", "provider_selected", details: ["provider": provider.rawValue])
     }
 
-    /// The Codex demo also shows demo Claude data, unless a real Claude session exists.
-    private func enterClaudeDemoIfSignedOut() async {
+    /// The Codex demo also shows demo Claude and Cursor data, unless a real session exists there.
+    private func enterProviderDemosIfSignedOut() async {
         await claude.loadIfNeeded()
         if claude.phase == .signedOut {
             claude.enterDemo()
+        }
+        await cursor.loadIfNeeded()
+        if cursor.phase == .signedOut {
+            cursor.enterDemo()
         }
     }
 

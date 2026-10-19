@@ -43,6 +43,28 @@ default, unchanged) and **Claude Code**. The selection is remembered.
 These Anthropic routes are undocumented implementation details of Claude Code
 and may change without notice; Codex Meter is not affiliated with Anthropic.
 
+## Cursor tab
+
+The third tab shows **Cursor** usage.
+
+- Sign-in uses the Cursor editor's browser login: the app opens
+  `https://cursor.com/loginDeepControl` with a PKCE challenge in Safari and
+  polls `https://api2.cursor.sh/auth/poll` until the user approves, so there is
+  no code to paste and no callback URL.
+- Usage comes from `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage`
+  (the route behind the editor's usage meter). Included usage for the billing
+  cycle is the main meter; Auto + Composer, API models, and on-demand spend
+  (shown in dollars) are extra cards. The plan badge comes from
+  `/auth/full_stripe_profile`.
+- Tokens are refreshed through `https://api2.cursor.sh/oauth/token` before the
+  JWT `exp` (Cursor access tokens last about 60 days).
+- Cursor tokens use their own Keychain item (`cursor-tokens`) and cache file
+  (`cursor-cache-v1.json`). Parsing and request shapes live in `CodexMeterCore`
+  (`CursorUsageParser`, `CursorAPI`) and are covered by `swift test`.
+
+These Cursor routes are undocumented and may change without notice; Codex Meter
+is not affiliated with Anysphere.
+
 ## Requirements
 
 - Xcode 26 or newer

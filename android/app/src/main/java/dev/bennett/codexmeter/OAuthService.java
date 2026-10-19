@@ -111,6 +111,10 @@ public final class OAuthService extends Service {
         boolean credentialsCommitted = false;
         long started = android.os.SystemClock.elapsedRealtime();
         final UsageProvider flowProvider = provider;
+        if (flowProvider == UsageProvider.CURSOR) {
+            runCursorFlow(started);
+            return;
+        }
         final boolean claude = flowProvider == UsageProvider.CLAUDE_CODE;
         final String callbackPath = claude ? ClaudeCodeApi.CALLBACK_PATH : "/auth/callback";
         DiagnosticLog.info(this, "auth", "oauth_flow_started", "provider", flowProvider.id);
@@ -232,6 +236,53 @@ public final class OAuthService extends Service {
             closeQuietly(browser);
             closeServer();
         }
+    }
+
+    /**
+     * Cursor's login page needs no callback: the browser approves a PKCE challenge and the app
+     * polls for the tokens, so no local server is opened.
+     */
+    private void runCursorFlow(long started) {
+        final UsageProvider flowProvider = UsageProvider.CURSOR;
+        boolean credentialsCommitted = false;
+        try {
+            CursorApi.LoginRequest login = CursorApi.newLoginRequest();
+            String authUrl = login.loginUrl();
+            AppPreferences.setOAuthPending(this, true, authUrl);
+            updateNotification("Complete sign-in in your browser", authUrl);
+            broadcastReady(authUrl);
+            AuthTokens tokens = CursorUsageApi.pollForTokens(this, login, () -> cancelled);
+            updateNotification("Securing your Cursor session…", null);
+            SecureTokenStore.save(this, flowProvider, tokens);
+            credentialsCommitted = true;
+            AppPreferences.setOAuthPending(this, false, "");
+            broadcastResult(true, "Signed in successfully.");
+            updateNotification("Loading Cursor usage…", null);
+            try {
+                CursorUsageApi.refreshAndCache(this);
+            } catch (Exception refreshError) {
+                // refreshAndCache already recorded the error on the Cursor tab.
+            }
+            RefreshScheduler.schedulePeriodic(this);
+            safeWidgetUpdate();
+            broadcastUsageUpdated();
+            DiagnosticLog.info(this, "auth", "oauth_flow_succeeded", "provider", flowProvider.id,
+                    "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
+        } catch (Exception exception) {
+            DiagnosticLog.error(this, "auth", "oauth_flow_failed", exception,
+                    "provider", flowProvider.id,
+                    "credentials_committed", credentialsCommitted,
+                    "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
+            AppPreferences.setOAuthPending(this, false, "");
+            if (credentialsCommitted) {
+                ProviderPreferences.setLastError(this, flowProvider, cleanMessage(exception));
+                broadcastResult(true, "Signed in. Usage can be refreshed from the app.");
+                safeWidgetUpdate();
+            } else if (!cancelled) {
+                broadcastResult(false, cleanMessage(exception));
+            }
+        }
+        finishService();
     }
 
     private void performPostAuthenticationSetup() {

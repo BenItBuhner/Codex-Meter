@@ -14,7 +14,8 @@ import java.util.Locale;
  */
 public enum UsageProvider {
     CODEX("codex", "Codex", "ChatGPT", "OpenAI"),
-    CLAUDE_CODE("claude_code", "Claude Code", "Claude", "Anthropic");
+    CLAUDE_CODE("claude_code", "Claude Code", "Claude", "Anthropic"),
+    CURSOR("cursor", "Cursor", "Cursor", "Cursor");
 
     public static final UsageProvider DEFAULT = CODEX;
 

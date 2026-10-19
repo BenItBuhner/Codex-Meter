@@ -32,6 +32,10 @@ public actor AppCacheStore {
     public nonisolated static let claudeFileName = "claude-cache-v1.json"
     public nonisolated static let claude = AppCacheStore(fileURL: defaultDirectoryURL()
         .appendingPathComponent(claudeFileName))
+    /// Cursor usage gets its own file for the same reason.
+    public nonisolated static let cursorFileName = "cursor-cache-v1.json"
+    public nonisolated static let cursor = AppCacheStore(fileURL: defaultDirectoryURL()
+        .appendingPathComponent(cursorFileName))
 
     /// The Application Support folder the default caches live in.
     public nonisolated static func defaultDirectoryURL() -> URL {

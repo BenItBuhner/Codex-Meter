@@ -8,6 +8,7 @@ import Foundation
 public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable {
     case codex = "codex"
     case claudeCode = "claude_code"
+    case cursor = "cursor"
 
     public static let defaultProvider: UsageProvider = .codex
 
@@ -18,6 +19,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         switch self {
         case .codex: "Codex"
         case .claudeCode: "Claude Code"
+        case .cursor: "Cursor"
         }
     }
 
@@ -26,6 +28,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         switch self {
         case .codex: "ChatGPT"
         case .claudeCode: "Claude"
+        case .cursor: "Cursor"
         }
     }
 
@@ -34,6 +37,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         switch self {
         case .codex: "OpenAI"
         case .claudeCode: "Anthropic"
+        case .cursor: "Cursor"
         }
     }
 
