@@ -301,7 +301,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void setUpProviderTabs() {
-        this.providerTabs = findViewById(R.id.provider_switcher);
+        this.providerTabs = findViewById(R.id.provider_tabs);
         if (this.providerTabs == null) {
             return;
         }
