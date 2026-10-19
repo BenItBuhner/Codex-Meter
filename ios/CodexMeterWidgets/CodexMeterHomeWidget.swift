@@ -13,7 +13,7 @@ struct CodexMeterHomeWidget: Widget {
             CodexMeterHomeWidgetView(entry: entry)
         }
         .configurationDisplayName("Codex Meter")
-        .description("See your five-hour and weekly Codex allowances and reset credits.")
+        .description("See both Codex allowance windows or focus on one responsive usage dial.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
     }
 }
@@ -24,6 +24,25 @@ struct CodexMeterHomeWidgetView: View {
 
     private var configuration: MeterWidgetConfigurationIntent {
         entry.configuration
+    }
+
+    private var focusedAllowance: FocusedAllowance? {
+        switch configuration.allowance {
+        case .both:
+            nil
+        case .fiveHour:
+            FocusedAllowance(
+                title: "5 hours",
+                longTitle: "Five-hour allowance",
+                window: entry.snapshot.fiveHour
+            )
+        case .weekly:
+            FocusedAllowance(
+                title: LocalizedStringKey(entry.snapshot.longWindowTitle),
+                longTitle: LocalizedStringKey("\(entry.snapshot.longWindowTitle) allowance"),
+                window: entry.snapshot.weekly
+            )
+        }
     }
 
     private var destination: URL {
@@ -70,19 +89,30 @@ struct CodexMeterHomeWidgetView: View {
     private var smallLayout: some View {
         VStack(spacing: 8) {
             compactHeader
-            HStack(spacing: 9) {
+            if let focusedAllowance {
                 UsageRing(
-                    title: "5 hours",
-                    window: entry.snapshot.fiveHour,
+                    title: focusedAllowance.title,
+                    window: focusedAllowance.window,
                     configuration: configuration,
-                    compact: true
+                    prominent: true,
+                    showsReset: false
                 )
-                UsageRing(
-                    title: "Weekly",
-                    window: entry.snapshot.weekly,
-                    configuration: configuration,
-                    compact: true
-                )
+                .frame(maxWidth: 94)
+            } else {
+                HStack(spacing: 9) {
+                    UsageRing(
+                        title: "5 hours",
+                        window: entry.snapshot.fiveHour,
+                        configuration: configuration,
+                        compact: true
+                    )
+                    UsageRing(
+                        title: LocalizedStringKey(entry.snapshot.longWindowTitle),
+                        window: entry.snapshot.weekly,
+                        configuration: configuration,
+                        compact: true
+                    )
+                }
             }
         }
     }
@@ -90,30 +120,55 @@ struct CodexMeterHomeWidgetView: View {
     private var mediumLayout: some View {
         VStack(spacing: 8) {
             compactHeader
-            HStack(alignment: .top, spacing: 10) {
-                UsageRing(
-                    title: "5 hours",
-                    window: entry.snapshot.fiveHour,
-                    configuration: configuration,
-                    compact: true
-                )
-                UsageRing(
-                    title: "Weekly",
-                    window: entry.snapshot.weekly,
-                    configuration: configuration,
-                    compact: true
-                )
-                CountdownMetricTile(
-                    date: entry.snapshot.nextReset,
-                    title: "Next reset",
-                    configuration: configuration
-                )
-                RoundMetricTile(
-                    symbol: "bolt.fill",
-                    value: "\(entry.snapshot.creditCount)",
-                    title: "Credits",
-                    configuration: configuration
-                )
+            if let focusedAllowance {
+                HStack(alignment: .center, spacing: 12) {
+                    UsageRing(
+                        title: focusedAllowance.title,
+                        window: focusedAllowance.window,
+                        configuration: configuration,
+                        prominent: true,
+                        showsReset: false
+                    )
+                    .frame(maxWidth: 108)
+
+                    CountdownMetricTile(
+                        date: focusedAllowance.window.resetsAt,
+                        title: "Next reset",
+                        configuration: configuration
+                    )
+                    RoundMetricTile(
+                        symbol: "bolt.fill",
+                        value: "\(entry.snapshot.creditCount)",
+                        title: "Credits",
+                        configuration: configuration
+                    )
+                }
+            } else {
+                HStack(alignment: .top, spacing: 10) {
+                    UsageRing(
+                        title: "5 hours",
+                        window: entry.snapshot.fiveHour,
+                        configuration: configuration,
+                        compact: true
+                    )
+                    UsageRing(
+                        title: LocalizedStringKey(entry.snapshot.longWindowTitle),
+                        window: entry.snapshot.weekly,
+                        configuration: configuration,
+                        compact: true
+                    )
+                    CountdownMetricTile(
+                        date: entry.snapshot.nextReset,
+                        title: "Next reset",
+                        configuration: configuration
+                    )
+                    RoundMetricTile(
+                        symbol: "bolt.fill",
+                        value: "\(entry.snapshot.creditCount)",
+                        title: "Credits",
+                        configuration: configuration
+                    )
+                }
             }
         }
     }
@@ -122,7 +177,36 @@ struct CodexMeterHomeWidgetView: View {
         VStack(alignment: .leading, spacing: extraLarge ? 16 : 11) {
             detailedHeader
 
-            if extraLarge {
+            if let focusedAllowance {
+                MeterSurface(configuration: configuration) {
+                    HStack(alignment: .center, spacing: extraLarge ? 26 : 18) {
+                        UsageRing(
+                            title: focusedAllowance.title,
+                            window: focusedAllowance.window,
+                            configuration: configuration,
+                            prominent: true,
+                            showsReset: false
+                        )
+                        .frame(maxWidth: extraLarge ? 190 : 145)
+
+                        VStack(alignment: .leading, spacing: extraLarge ? 16 : 11) {
+                            BatteryUsageRow(
+                                title: focusedAllowance.longTitle,
+                                window: focusedAllowance.window,
+                                configuration: configuration
+                            )
+                            Divider()
+                            Label(
+                                "\(entry.snapshot.creditCount) credits",
+                                systemImage: "bolt.fill"
+                            )
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            } else if extraLarge {
                 HStack(spacing: 14) {
                     MeterSurface(configuration: configuration) {
                         BatteryUsageRow(
@@ -133,7 +217,7 @@ struct CodexMeterHomeWidgetView: View {
                     }
                     MeterSurface(configuration: configuration) {
                         BatteryUsageRow(
-                            title: "Weekly allowance",
+                            title: LocalizedStringKey("\(entry.snapshot.longWindowTitle) allowance"),
                             window: entry.snapshot.weekly,
                             configuration: configuration
                         )
@@ -201,7 +285,7 @@ struct CodexMeterHomeWidgetView: View {
     private var footer: some View {
         HStack(spacing: 12) {
             Label {
-                if let nextReset = entry.snapshot.nextReset {
+                if let nextReset = configuration.allowance.nextReset(in: entry.snapshot) {
                     Text(nextReset, style: .timer)
                         .monospacedDigit()
                 } else {
@@ -218,3 +302,8 @@ struct CodexMeterHomeWidgetView: View {
     }
 }
 
+private struct FocusedAllowance {
+    let title: LocalizedStringKey
+    let longTitle: LocalizedStringKey
+    let window: WidgetUsageWindow
+}

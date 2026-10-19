@@ -36,11 +36,15 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
+import dev.oneuiproject.oneui.layout.ToolbarLayout;
+import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
     private static final int MENU_SETTINGS = 8101;
     private static final int MENU_REORDER = 8102;
+    /** {@link UsageProvider#id} of the tab to open, e.g. from a Claude Code widget. */
+    public static final String EXTRA_PROVIDER = "provider";
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -50,6 +54,10 @@ public final class MainActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String lastLaunchedAuthUrl = "";
     private boolean launchSignInRequested;
+    /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
+    private UsageProvider provider = UsageProvider.DEFAULT;
+    private BottomTabLayout providerTabs;
+    private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -95,8 +103,12 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        Ui.Page page = Ui.installPage(this, "Codex Meter", false);
+        Ui.Page page = Ui.installPage(this, "Codex Meter", false,
+                R.layout.activity_main_dashboard);
         this.content = page.content;
+        this.toolbarLayout = page.toolbar;
+        this.provider = ProviderPreferences.getSelected(this);
+        setUpProviderTabs();
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
         int refreshAccent = Ui.accent(this, this.dark);
         // OneUI's four-dot SwipeRefresh drawable indexes two palette entries while drawing.
@@ -189,8 +201,11 @@ public final class MainActivity extends AppCompatActivity {
             this.launchSignInRequested = false;
             startOrContinueSignIn();
         }
+        refreshSelectedProviderIfStale();
         if (SecureTokenStore.isSignedIn(this)) {
-            AppPreferences.setOAuthPending(this, false, "");
+            if (ProviderPreferences.getPendingSignIn(this) == UsageProvider.CODEX) {
+                AppPreferences.setOAuthPending(this, false, "");
+            }
             UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(this);
             if (AppPreferences.getRefreshOnLaunch(this)
                     && (usageSnapshotLoadSnapshot == null || System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis > 300000)) {
@@ -222,6 +237,19 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void handleLaunchIntent(Intent intent) {
+        String requestedProvider = intent == null ? null
+                : intent.getStringExtra(EXTRA_PROVIDER);
+        if (requestedProvider != null) {
+            intent.removeExtra(EXTRA_PROVIDER);
+            UsageProvider requested = UsageProvider.fromId(requestedProvider);
+            if (requested != this.provider) {
+                this.provider = requested;
+                ProviderPreferences.setSelected(this, requested);
+                if (this.providerTabs != null) {
+                    this.providerTabs.setSelectedItem(tabId(requested));
+                }
+            }
+        }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
             this.launchSignInRequested = true;
             intent.removeExtra("start_sign_in");
@@ -272,7 +300,91 @@ public final class MainActivity extends AppCompatActivity {
                 && data.getPath().startsWith("/complete");
     }
 
+    private void setUpProviderTabs() {
+        this.providerTabs = findViewById(R.id.provider_tabs);
+        if (this.providerTabs == null) {
+            return;
+        }
+        this.providerTabs.setSelectedItem(tabId(this.provider));
+        this.providerTabs.setOnMenuItemClickListener(item -> {
+            UsageProvider selected = providerForTab(item.getItemId());
+            if (selected != null) {
+                selectProvider(selected);
+            }
+            return true;
+        });
+    }
+
+    /** Menu item for each provider's tab in {@code res/menu/provider_tabs.xml}. */
+    private static int tabId(UsageProvider provider) {
+        switch (provider) {
+            case CLAUDE_CODE:
+                return R.id.provider_tab_claude_code;
+            case CODEX:
+            default:
+                return R.id.provider_tab_codex;
+        }
+    }
+
+    private static UsageProvider providerForTab(int itemId) {
+        for (UsageProvider candidate : UsageProvider.values()) {
+            if (tabId(candidate) == itemId) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void selectProvider(UsageProvider selected) {
+        if (selected == this.provider) {
+            return;
+        }
+        DiagnosticLog.info(this, "user", "provider_selected", "provider", selected.id);
+        this.provider = selected;
+        ProviderPreferences.setSelected(this, selected);
+        if (this.swipeRefresh != null) {
+            this.swipeRefresh.setRefreshing(false);
+        }
+        rebuild();
+        refreshSelectedProviderIfStale();
+    }
+
+    /**
+     * Claude usage is never fetched in the background (its usage route rate-limits hard), so the
+     * tab refreshes itself when opened with data older than a few minutes.
+     */
+    private void refreshSelectedProviderIfStale() {
+        if (this.provider == UsageProvider.CLAUDE_CODE
+                && SecureTokenStore.isSignedIn(this, UsageProvider.CLAUDE_CODE)
+                && AppPreferences.getRefreshOnLaunch(this)
+                && ClaudeUsageApi.isStale(this)) {
+            if (this.swipeRefresh != null) {
+                this.swipeRefresh.setRefreshing(true);
+            }
+            refreshProvider(UsageProvider.CLAUDE_CODE, "tab");
+        }
+    }
+
+    /** The large title follows the selected tab, matching the iOS dashboard. */
+    private void applyProviderTitle() {
+        if (this.toolbarLayout == null) {
+            return;
+        }
+        String title = this.provider == UsageProvider.CODEX ? "Codex Meter"
+                : this.provider.displayName;
+        CharSequence current = this.toolbarLayout.getExpandedTitle();
+        if (current == null || !title.contentEquals(current)) {
+            this.toolbarLayout.setTitle(title);
+        }
+    }
+
     public void rebuild() {
+        applyProviderTitle();
+        if (this.content != null && this.provider != UsageProvider.CODEX) {
+            this.content.removeAllViews();
+            buildProviderDashboard(this.provider);
+            return;
+        }
         if (this.content != null) {
             this.content.removeAllViews();
             GitHubRelease update = UpdatePreferences.availableUpdate(this);
@@ -288,7 +400,8 @@ public final class MainActivity extends AppCompatActivity {
             boolean signedIn = SecureTokenStore.isSignedIn(this);
             if (!signedIn) {
                 Button signIn = Ui.nativePrimaryButton(this,
-                        AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
+                        ProviderPreferences.isSignInPending(this, UsageProvider.CODEX)
+                                ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
@@ -412,7 +525,7 @@ public final class MainActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
-                addDashboardCard(column, buildUsageHistoryCard());
+                addDashboardCard(column, buildUsageHistoryCard(UsageProvider.CODEX));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
                 addDashboardCard(column, buildResetCreditsCard());
             } else {
@@ -454,7 +567,8 @@ public final class MainActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
                 snapshot.fetchedAtMillis, now);
-        UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
+        UsagePace.Assessment pace = UsagePacePreferences.assess(this, this.provider, snapshot,
+                window, now);
         UsageWaveView wave = new UsageWaveView(this);
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
                 window.remainingPercent(),
@@ -465,10 +579,10 @@ public final class MainActivity extends AppCompatActivity {
         return card;
     }
 
-    private LinearLayout buildUsageHistoryCard() {
+    private LinearLayout buildUsageHistoryCard(UsageProvider target) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 12));
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, target);
         long now = System.currentTimeMillis();
         TextView title = Ui.text(this, "Usage history", 18, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
@@ -489,9 +603,9 @@ public final class MainActivity extends AppCompatActivity {
         if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView fiveChart = new UsageBurnChartView(this);
             fiveChart.setData("5-hour", fiveWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.FIVE_HOUR),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, fiveWindow, now));
             card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
@@ -500,9 +614,9 @@ public final class MainActivity extends AppCompatActivity {
         if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
             weeklyChart.setData("Weekly", weeklyWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.WEEKLY),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, weeklyWindow, now));
             card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
@@ -511,16 +625,17 @@ public final class MainActivity extends AppCompatActivity {
         if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
             monthlyChart.setData("Monthly", monthlyWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.MONTHLY),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, monthlyWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, monthlyWindow, now));
             card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
         if (!hasCharts) {
             TextView waiting = Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage windows.",
+                    "Charts appear once " + target.vendorName
+                            + " reports your 5-hour, weekly, or monthly usage windows.",
                     12, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams waitingParams = new LinearLayout.LayoutParams(-1, -2);
             waitingParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 8),
@@ -529,7 +644,7 @@ public final class MainActivity extends AppCompatActivity {
         }
 
         Button open = Ui.button(this, "View history", false, this.dark);
-        open.setOnClickListener(view -> Ui.startSecondaryActivity(this, UsageHistoryActivity.class));
+        open.setOnClickListener(view -> UsageHistoryActivity.open(this, target));
         LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
@@ -604,6 +719,9 @@ public final class MainActivity extends AppCompatActivity {
         long seconds = window.windowSeconds;
         if (seconds >= 432_000L && seconds <= 777_600L) {
             return "Weekly";
+        }
+        if (seconds >= 2_419_200L && seconds <= 2_678_400L) {
+            return "Monthly";
         }
         if (seconds >= 10_800L && seconds <= 28_800L) {
             long hours = Math.max(1L, Math.round(seconds / 3600.0d));
@@ -859,20 +977,29 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void startOrContinueSignIn() {
+        startOrContinueSignIn(UsageProvider.CODEX);
+    }
+
+    public void startOrContinueSignIn(UsageProvider target) {
         String str;
         DiagnosticLog.info(this, "user", "sign_in_requested",
-                "already_signed_in", SecureTokenStore.isSignedIn(this));
-        if (SecureTokenStore.isSignedIn(this)) {
-            AppPreferences.setOAuthPending(this, false, "");
+                "provider", target.id,
+                "already_signed_in", SecureTokenStore.isSignedIn(this, target));
+        if (SecureTokenStore.isSignedIn(this, target)) {
+            if (ProviderPreferences.isSignInPending(this, target)) {
+                AppPreferences.setOAuthPending(this, false, "");
+            }
             rebuild();
             return;
         }
         try {
-            startForegroundService(new Intent(this, (Class<?>) OAuthService.class).setAction(OAuthService.ACTION_START));
-            if (AppPreferences.isOAuthPending(this)) {
-                str = "Resuming secure OpenAI sign-in…";
+            startForegroundService(new Intent(this, (Class<?>) OAuthService.class)
+                    .setAction(OAuthService.ACTION_START)
+                    .putExtra(OAuthService.EXTRA_PROVIDER, target.id));
+            if (ProviderPreferences.isSignInPending(this, target)) {
+                str = "Resuming secure " + target.vendorName + " sign-in…";
             } else {
-                str = "Opening secure OpenAI sign-in…";
+                str = "Opening secure " + target.vendorName + " sign-in…";
             }
             Toast.makeText(this, str, 0).show();
         } catch (RuntimeException e) {
@@ -931,6 +1058,16 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void refreshFromPull() {
+        if (this.provider != UsageProvider.CODEX) {
+            if (!SecureTokenStore.isSignedIn(this, this.provider)) {
+                this.swipeRefresh.setRefreshing(false);
+                Toast.makeText(this, this.provider.signInLabel() + " to refresh usage.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            refreshProvider(this.provider, "pull");
+            return;
+        }
         DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", "pull");
         if (!SecureTokenStore.isSignedIn(this)) {
             DiagnosticLog.warn(this, "user", "manual_refresh_rejected",
@@ -982,6 +1119,8 @@ public final class MainActivity extends AppCompatActivity {
         AppPreferences.clearSnapshot(this);
         AppPreferences.setOAuthPending(this, false, "");
         RefreshScheduler.cancelAll(this);
+        // Keeps background refresh alive for other signed-in providers.
+        RefreshScheduler.schedulePeriodic(this);
         ResetAlertScheduler.cancelAll(this);
         WidgetRenderer.updateAll(this);
         rebuild();
@@ -992,6 +1131,191 @@ public final class MainActivity extends AppCompatActivity {
                         authTokensLoad);
             }
         });
+    }
+
+    /**
+     * Dashboard for providers other than Codex. It reuses the Codex metric cards; widgets,
+     * Now Bar, Wear, alerts, and burn history remain Codex-only for now.
+     */
+    private void buildProviderDashboard(UsageProvider target) {
+        GitHubRelease update = UpdatePreferences.availableUpdate(this);
+        if (update != null) {
+            this.content.addView(buildUpdateCard(update));
+            Ui.addSpacer(this.content, 20);
+        }
+        boolean signedIn = SecureTokenStore.isSignedIn(this, target);
+        if (!signedIn) {
+            this.content.addView(buildProviderIntroCard(target));
+            Ui.addSpacer(this.content, 20);
+            Button signIn = Ui.nativePrimaryButton(this,
+                    ProviderPreferences.isSignInPending(this, target)
+                            ? "Continue sign-in" : target.signInLabel());
+            signIn.setOnClickListener(view -> startOrContinueSignIn(target));
+            this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+            return;
+        }
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, target);
+        String error = ProviderPreferences.getLastError(this, target);
+        if (!error.isEmpty()) {
+            TextView errorText = Ui.text(this, error, 13.0f, Ui.danger(this.dark));
+            LinearLayout.LayoutParams errorParams = new LinearLayout.LayoutParams(-1, -2);
+            errorParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 14));
+            this.content.addView(errorText, errorParams);
+        }
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        boolean inverted = false;
+        if (snapshot != null) {
+            if (snapshot.fiveHour != null) {
+                addDashboardCard(column, buildMetricCard("5-hour", snapshot, snapshot.fiveHour,
+                        inverted));
+                inverted = !inverted;
+            }
+            if (snapshot.weekly != null) {
+                addDashboardCard(column, buildMetricCard("Weekly", snapshot, snapshot.weekly,
+                        inverted));
+                inverted = !inverted;
+            }
+            for (UsageLimit limit : snapshot.additionalLimits) {
+                if (limit.primary != null) {
+                    addDashboardCard(column, buildMetricCard(
+                            limitTitle(limit) + " · " + cadenceLabel(limit.primary),
+                            snapshot, limit.primary, inverted));
+                    inverted = !inverted;
+                }
+                if (limit.secondary != null) {
+                    addDashboardCard(column, buildMetricCard(
+                            limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
+                            snapshot, limit.secondary, inverted));
+                    inverted = !inverted;
+                }
+            }
+        }
+        if (column.getChildCount() == 0) {
+            TextView empty = Ui.text(this, "Pull down to load your " + target.displayName
+                    + " usage.", 14.0f, Ui.secondaryText(this.dark));
+            empty.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(-1, -2);
+            emptyParams.setMargins(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
+            column.addView(empty, emptyParams);
+        }
+        if (snapshot != null && snapshot.fetchedAtMillis > 0L
+                && AppPreferences.showDashboardUsageHistory(this)
+                && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+            addDashboardCard(column, buildUsageHistoryCard(target));
+        }
+        this.content.addView(column);
+        Ui.addSpacer(this.content, 20);
+        this.content.addView(buildProviderAccountCard(target, snapshot));
+    }
+
+    private LinearLayout buildProviderIntroCard(UsageProvider target) {
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, target.displayName, 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        TextView summary = Ui.text(this, "See your " + target.displayName
+                        + " 5-hour and weekly limits, plus any model-only allocation your plan has. Sign in with the "
+                        + target.accountName + " account you use in " + target.displayName
+                        + ". Your tokens stay encrypted on this device.",
+                13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
+        summaryParams.setMargins(0, Ui.dp(this, 7), 0, 0);
+        card.addView(summary, summaryParams);
+        return card;
+    }
+
+    private LinearLayout buildProviderAccountCard(UsageProvider target, UsageSnapshot snapshot) {
+        LinearLayout card = Ui.card(this, this.dark);
+        LinearLayout account = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        ImageView avatar = new ImageView(this);
+        avatar.setImageResource(R.drawable.ic_oui_contact_outline);
+        avatar.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
+        account.addView(avatar, new LinearLayout.LayoutParams(Ui.dp(this, 30), Ui.dp(this, 30)));
+        LinearLayout identity = new LinearLayout(this);
+        identity.setOrientation(LinearLayout.VERTICAL);
+        TextView title = Ui.text(this, target.accountName + " account", 17.0f,
+                Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        title.setSingleLine(true);
+        identity.addView(title);
+        String email = ProviderPreferences.getEmail(this, target);
+        TextView subtitle = Ui.text(this, email.isEmpty() ? "Connected" : email, 13.0f,
+                Ui.secondaryText(this.dark));
+        subtitle.setSingleLine(true);
+        subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        identity.addView(subtitle);
+        LinearLayout.LayoutParams identityParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        identityParams.setMargins(Ui.dp(this, 16), 0, Ui.dp(this, 10), 0);
+        account.addView(identity, identityParams);
+        if (snapshot != null && !snapshot.planType.isEmpty()) {
+            TextView badge = Ui.text(this, snapshot.planType, 14.0f, Ui.mainText(this.dark));
+            badge.setTypeface(Ui.mediumTypeface(this));
+            badge.setGravity(Gravity.CENTER);
+            badge.setPadding(Ui.dp(this, 13), Ui.dp(this, 6), Ui.dp(this, 13), Ui.dp(this, 6));
+            badge.setBackground(Ui.pillBackground(this, this.dark));
+            account.addView(badge);
+        }
+        card.addView(account, new LinearLayout.LayoutParams(-1, -2));
+        Button signOut = Ui.button(this, "Sign out", false, this.dark);
+        signOut.setCompoundDrawables(null, null, null, null);
+        signOut.setOnClickListener(view -> confirmProviderSignOut(target));
+        LinearLayout.LayoutParams signOutParams = new LinearLayout.LayoutParams(-1,
+                Ui.dp(this, 54));
+        signOutParams.setMargins(0, Ui.dp(this, 16), 0, 0);
+        card.addView(signOut, signOutParams);
+        return card;
+    }
+
+    private void refreshProvider(UsageProvider target, String source) {
+        DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", source,
+                "provider", target.id);
+        final Context applicationContext = getApplicationContext();
+        this.executor.execute(() -> {
+            String failure = null;
+            try {
+                if (target == UsageProvider.CLAUDE_CODE) {
+                    ClaudeUsageApi.refreshAndCache(applicationContext);
+                }
+                WidgetRenderer.updateAll(applicationContext);
+            } catch (Exception e) {
+                failure = safeMessage(e);
+            }
+            final String message = failure;
+            runOnUiThread(() -> {
+                if (this.swipeRefresh != null) {
+                    this.swipeRefresh.setRefreshing(false);
+                }
+                if (message != null && !"tab".equals(source)) {
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                }
+                rebuild();
+            });
+        });
+    }
+
+    private void confirmProviderSignOut(UsageProvider target) {
+        new AlertDialog.Builder(this)
+                .setTitle("Sign out of " + target.accountName + "?")
+                .setMessage("This removes encrypted " + target.accountName
+                        + " tokens and cached " + target.displayName
+                        + " usage from this device. Codex stays signed in.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Sign out", (dialog, which) -> signOutProvider(target))
+                .create()
+                .show();
+    }
+
+    private void signOutProvider(UsageProvider target) {
+        DiagnosticLog.info(this, "user", "sign_out_confirmed", "provider", target.id);
+        SecureTokenStore.clear(this, target);
+        ProviderPreferences.clearProvider(this, target);
+        RefreshScheduler.schedulePeriodic(this);
+        WidgetRenderer.updateAll(this);
+        if (ProviderPreferences.isSignInPending(this, target)) {
+            AppPreferences.setOAuthPending(this, false, "");
+        }
+        rebuild();
     }
 
     public void requestPinWidget() {

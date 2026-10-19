@@ -111,8 +111,17 @@ public final class WidgetRenderer {
 
     static RemoteViews buildPreview(Context context, int appWidgetId, WidgetOptions widgetOptions,
             Bundle appWidgetOptions) {
-        RemoteViews preview = buildViews(context, appWidgetId, widgetOptions,
-                styleForSize(context, appWidgetOptions, widgetOptions), appWidgetOptions);
+        return buildPreview(context, appWidgetId, widgetOptions, appWidgetOptions,
+                ProviderPreferences.getWidgetProvider(context, appWidgetId));
+    }
+
+    /** Preview for the configuration screen, showing the provider picked but not yet saved. */
+    static RemoteViews buildPreview(Context context, int appWidgetId, WidgetOptions widgetOptions,
+            Bundle appWidgetOptions, UsageProvider provider) {
+        String style = styleForSize(context, appWidgetOptions, widgetOptions);
+        RemoteViews preview = buildViews(context, appWidgetId, widgetOptions, style,
+                appWidgetOptions, resolveGraphicTier(context, widgetOptions, appWidgetOptions),
+                provider);
         preview.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
         return preview;
     }
@@ -154,11 +163,24 @@ public final class WidgetRenderer {
     }
 
     private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions, String str, Bundle bundle, int i2) {
+        return buildViews(context, i, widgetOptions, str, bundle, i2,
+                ProviderPreferences.getWidgetProvider(context, i));
+    }
+
+    private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions,
+            String str, Bundle bundle, int i2, UsageProvider provider) {
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), layoutForStyle(str, i2));
         boolean zChooseDark = chooseDark(context, widgetOptions);
-        WidgetState widgetStateFrom = WidgetState.from(context, widgetOptions);
-        List<MeterSlot> slots = resolveSlots(context, widgetOptions, widgetStateFrom, str, bundle);
+        WidgetState widgetStateFrom = WidgetState.from(context, widgetOptions, provider);
+        List<MeterSlot> slots = resolveSlots(context, widgetOptions, widgetStateFrom, str, bundle,
+                provider);
         applyRootAndHeader(context, remoteViews, i, widgetOptions, zChooseDark, widgetStateFrom);
+        remoteViews.setTextViewText(R.id.widget_title, provider == UsageProvider.CODEX
+                ? context.getString(R.string.widget_title)
+                : provider.accountName.toUpperCase(java.util.Locale.ROOT));
+        if (provider != UsageProvider.CODEX) {
+            applyProviderOpenIntent(context, remoteViews, i, provider);
+        }
         if (STYLE_MICRO.equals(str)) {
             renderMicro(remoteViews, widgetOptions, zChooseDark, widgetStateFrom, slots);
         } else if (WidgetOptions.STYLE_RINGS.equals(str)) {
@@ -175,8 +197,30 @@ public final class WidgetRenderer {
             renderBars(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom, bundle, slots);
         }
         applySlotVisibility(remoteViews, str, slots);
-        applyResetCreditRow(context, remoteViews, i, widgetOptions, zChooseDark, str);
+        if (provider == UsageProvider.CODEX) {
+            applyResetCreditRow(context, remoteViews, i, widgetOptions, zChooseDark, str);
+        } else {
+            // Reset credits are a Codex feature.
+            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);
+        }
         return remoteViews;
+    }
+
+    /** Widgets for other providers open the dashboard on that provider's tab. */
+    private static void applyProviderOpenIntent(Context context, RemoteViews remoteViews, int i,
+            UsageProvider provider) {
+        if (WidgetOptions.TAP_REFRESH.equals(AppPreferences.getWidgetTapAction(context, i))) {
+            return;
+        }
+        remoteViews.setOnClickPendingIntent(android.R.id.background,
+                PendingIntent.getActivity(context, 74000 + i,
+                        new Intent(context, (Class<?>) MainActivity.class)
+                                .setAction("dev.bennett.codexmeter.action.WIDGET_OPEN")
+                                .setData(widgetUri(i, "root-open-" + provider.id))
+                                .putExtra(MainActivity.EXTRA_PROVIDER, provider.id)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                        | Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 
     private static RemoteViews buildFallback(Context context, int i) {
@@ -637,17 +681,21 @@ public final class WidgetRenderer {
     }
 
     private static List<MeterSlot> resolveSlots(Context context, WidgetOptions options,
-            WidgetState state, String visualStyle, Bundle bundle) {
-        UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context)
-                ? AppPreferences.loadSnapshot(context) : null;
+            WidgetState state, String visualStyle, Bundle bundle, UsageProvider provider) {
+        UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context, provider)
+                ? ProviderPreferences.loadSnapshot(context, provider) : null;
         int height = currentHeight(context, bundle);
         int capacity = WidgetMeters.slotCapacity(visualStyle, height);
-        List<String> available = WidgetMeters.availableKeys(snapshot);
+        List<String> available = new ArrayList<>(WidgetMeters.availableKeys(snapshot));
+        if (provider != UsageProvider.CODEX) {
+            available.remove(WidgetMeters.RESET_CREDITS);
+        }
         List<String> visible = WidgetMeters.cap(
                 WidgetMeters.resolveVisibleForWidget(options.effectiveVisibleMeters(),
                         available, options.metricMode),
                 capacity);
-        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
+        ResetCreditsSnapshot credits = provider == UsageProvider.CODEX
+                ? AppPreferences.loadResetCredits(context) : null;
         int resetCount = credits == null ? 0 : credits.availableCount;
         ArrayList<MeterSlot> slots = new ArrayList<>();
         for (String key : visible) {
@@ -975,15 +1023,22 @@ public final class WidgetRenderer {
         }
 
         static WidgetState from(Context context, WidgetOptions widgetOptions) {
+            return from(context, widgetOptions, UsageProvider.CODEX);
+        }
+
+        static WidgetState from(Context context, WidgetOptions widgetOptions,
+                UsageProvider provider) {
             String str;
-            boolean zIsSignedIn = SecureTokenStore.isSignedIn(context);
-            UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context);
+            boolean zIsSignedIn = SecureTokenStore.isSignedIn(context, provider);
+            UsageSnapshot usageSnapshotLoadSnapshot =
+                    ProviderPreferences.loadSnapshot(context, provider);
             long jCurrentTimeMillis = System.currentTimeMillis();
             if (!zIsSignedIn) {
-                return new WidgetState("", -1, -1, "Sign in", "—", "SIGN IN", "—", "Open the app to connect ChatGPT", "", "Tap to connect", "", "Open the app to connect ChatGPT", "Tap anywhere to sign in", "—", 0);
+                String connect = "Open the app to connect " + provider.accountName;
+                return new WidgetState("", -1, -1, "Sign in", "—", "SIGN IN", "—", connect, "", "Tap to connect", "", connect, "Tap anywhere to sign in", "—", 0);
             }
             if (usageSnapshotLoadSnapshot == null) {
-                String lastError = AppPreferences.getLastError(context);
+                String lastError = ProviderPreferences.getLastError(context, provider);
                 if (lastError.isEmpty()) {
                     lastError = "Tap refresh to load usage";
                 }
@@ -1021,8 +1076,11 @@ public final class WidgetRenderer {
             }
             String strUpdated = UsageFormat.updated(usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
             String str2 = jCurrentTimeMillis - usageSnapshotLoadSnapshot.fetchedAtMillis > TimeUnit.HOURS.toMillis(6L) ? strUpdated + " · cached" : strUpdated;
-            String strPlanLabel = UsageFormat.planLabel(usageSnapshotLoadSnapshot.planType);
-            if (!AppPreferences.getLastError(context).isEmpty() && jCurrentTimeMillis - usageSnapshotLoadSnapshot.fetchedAtMillis > TimeUnit.MINUTES.toMillis(20L)) {
+            // Codex stores raw plan ids; other providers store the display label directly.
+            String strPlanLabel = provider == UsageProvider.CODEX
+                    ? UsageFormat.planLabel(usageSnapshotLoadSnapshot.planType)
+                    : usageSnapshotLoadSnapshot.planType;
+            if (!ProviderPreferences.getLastError(context, provider).isEmpty() && jCurrentTimeMillis - usageSnapshotLoadSnapshot.fetchedAtMillis > TimeUnit.MINUTES.toMillis(20L)) {
                 str2 = str2 + " · refresh issue";
             }
             ResetCountdown countdown = nextReset(usageSnapshotLoadSnapshot, jCurrentTimeMillis);

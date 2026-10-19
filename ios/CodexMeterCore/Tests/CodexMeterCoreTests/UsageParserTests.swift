@@ -49,6 +49,7 @@ final class UsageParserTests: XCTestCase {
         XCTAssertEqual(limit.secondary?.usedPercent, 0)
         XCTAssertEqual(limit.secondary?.remainingPercent, 100)
         XCTAssertEqual(snapshot.usageCredits?.balance, "2500.5")
+        XCTAssertTrue(snapshot.usageCredits?.shouldDisplay == true)
     }
 
     func testMainRateLimitTakesPrecedenceOverCloserAdditionalWindow() throws {
@@ -93,7 +94,140 @@ final class UsageParserTests: XCTestCase {
         XCTAssertFalse(snapshot.limitReached)
         XCTAssertNil(snapshot.fiveHour)
         XCTAssertNil(snapshot.weekly)
+        XCTAssertNil(snapshot.monthly)
         XCTAssertFalse(snapshot.hasDisplayableData)
+    }
+
+    func testMonthlyWindowClassifiesFreeTierAndCalendarDrift() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let resetAt = Int(now.addingTimeInterval(14 * 86_400).timeIntervalSince1970)
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "plan_type": "free",
+              "rate_limit": {
+                "allowed": true,
+                "limit_reached": false,
+                "primary_window": {
+                  "used_percent": 28,
+                  "limit_window_seconds": 2592000,
+                  "reset_after_seconds": 1209600,
+                  "reset_at": \(resetAt)
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertEqual(snapshot.planType, "free")
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+        XCTAssertEqual(snapshot.monthly?.usedPercent, 28)
+        XCTAssertEqual(snapshot.monthly?.windowSeconds, 2_592_000)
+        XCTAssertTrue(snapshot.hasDisplayableData)
+        XCTAssertTrue(snapshot.longWindowIsMonthly)
+        XCTAssertEqual(snapshot.longWindow, snapshot.monthly)
+        XCTAssertEqual(snapshot.nextReset(after: now), Date(timeIntervalSince1970: TimeInterval(resetAt)))
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        let restored = try JSONDecoder().decode(UsageSnapshot.self, from: encoded)
+        XCTAssertEqual(restored.monthly?.usedPercent, 28)
+        XCTAssertEqual(restored.monthly?.windowSeconds, 2_592_000)
+
+        let shortMonth = try UsageParser.parse(
+            """
+            {"plan_type":"free","rate_limit":{"primary_window":{"used_percent":5,"limit_window_seconds":2419200}}}
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNotNil(shortMonth.monthly)
+
+        let longMonth = try UsageParser.parse(
+            """
+            {"plan_type":"free","rate_limit":{"primary_window":{"used_percent":5,"limit_window_seconds":2678400}}}
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNotNil(longMonth.monthly)
+
+        let pro = try UsageParser.parse(
+            """
+            {
+              "plan_type": "pro",
+              "rate_limit": {
+                "primary_window": {"used_percent": 10, "limit_window_seconds": 18000},
+                "secondary_window": {"used_percent": 72, "limit_window_seconds": 604800}
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNotNil(pro.fiveHour)
+        XCTAssertNotNil(pro.weekly)
+        XCTAssertNil(pro.monthly)
+        XCTAssertFalse(pro.longWindowIsMonthly)
+        XCTAssertEqual(pro.longWindow, pro.weekly)
+
+        XCTAssertEqual(
+            AdaptiveRefreshPolicy.chooseMinutes(
+                snapshot: snapshot,
+                attentionScore: 0,
+                localHour: 12,
+                consecutiveFailures: 0,
+                now: now
+            ),
+            30
+        )
+
+        let lowMonthly = try UsageParser.parse(
+            """
+            {
+              "plan_type": "free",
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 92,
+                  "limit_window_seconds": 2592000,
+                  "reset_at": \(Int(now.addingTimeInterval(3 * 86_400).timeIntervalSince1970))
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertEqual(
+            AdaptiveRefreshPolicy.chooseMinutes(
+                snapshot: lowMonthly,
+                attentionScore: 0,
+                localHour: 12,
+                consecutiveFailures: 0,
+                now: now
+            ),
+            5
+        )
+    }
+
+    func testUnrecognizedSingleWindowStillDisplaysForGoStylePlans() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let snapshot = try UsageParser.parse(
+            """
+            {
+              "plan_type": "go",
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 41,
+                  "limit_window_seconds": 5184000
+                }
+              }
+            }
+            """,
+            fetchedAt: now
+        )
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+        XCTAssertEqual(snapshot.monthly?.usedPercent, 41)
+        XCTAssertEqual(snapshot.monthly?.windowSeconds, 5_184_000)
+        XCTAssertTrue(snapshot.hasDisplayableData)
+        XCTAssertTrue(snapshot.longWindowIsMonthly)
     }
 
     func testWeeklyAndCreditsCanExistWithoutFiveHourWindow() throws {
@@ -121,7 +255,7 @@ final class UsageParserTests: XCTestCase {
         XCTAssertTrue(snapshot.hasDisplayableData)
     }
 
-    func testNoCreditsBalanceIsNotStandaloneUsageData() throws {
+    func testEmptyPurchasedCreditsAreNotStandaloneUsageData() throws {
         let snapshot = try UsageParser.parse(
             """
             {"credits":{"has_credits":false,"unlimited":false,"balance":"0"}}
@@ -129,7 +263,7 @@ final class UsageParserTests: XCTestCase {
             fetchedAt: fetchedAt
         )
         XCTAssertNotNil(snapshot.usageCredits)
-        XCTAssertNil(snapshot.usageCredits?.balance)
+        XCTAssertFalse(snapshot.usageCredits?.shouldDisplay == true)
         XCTAssertFalse(snapshot.hasDisplayableData)
     }
 

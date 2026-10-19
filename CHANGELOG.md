@@ -1,6 +1,20 @@
 # Changelog
 
-## 2.8.0-alpha.1 — 2026-08-12
+## Unreleased
+
+### Added
+
+- Provider switcher: stock One UI bottom tabs (oneui-design `BottomTabLayout`, icon over label) on the dashboard switch between Codex (default, unchanged) and Claude Code, and the large title follows the selected provider. Claude Code signs in with a Claude account through the same OAuth + PKCE loopback flow as the Claude Code CLI. Its cards follow the `limits` list from the route behind Claude Code's `/usage`: usually just 5-hour and weekly, plus a model-only allocation such as Fable when the account has one, and extra usage when enabled. Providers are pluggable through `UsageProvider`.
+- Claude Code usage history, burn charts, and pace estimates are kept separately from Codex.
+- Home-screen widgets can show Claude Code (widget settings → Provider); tapping one opens the Claude Code tab.
+- iOS: a bottom provider switcher with a Claude Code tab (Claude sign-in by pasting the code Claude shows, usage cards driven by the same `limits` list, plan badge, demo data).
+- Background refresh covers Claude Code at most every 30 minutes with a one-hour back-off after HTTP 429, and keeps running when only one provider is signed in.
+
+### Development
+
+- Self-tests cover provider ids/defaults, Claude usage parsing (fractional-second ISO resets, null windows, the `limits` list with Fable-only and unknown scoped meters, extra usage, plan badges), the Claude authorize/token request shapes, and Claude refresh pacing.
+
+## 2.8.0 — 2026-08-14
 
 ### Added
 
@@ -11,8 +25,10 @@
 ### Development
 
 - Monthly-window self-tests cover free-tier parsing, 28/31-day drift, long-window fallbacks, and the downgrade→resubscribe flow; diagnostic sanitizer coverage redacts credentials, emails, JWTs, and OAuth query params (#91, #92).
+- Removed the one-time alpha bootstrap workflow now that the `alpha` branch exists, and documented release-channel etiquette for agents (#90).
+- Previously shipped to the alpha channel as 2.8.0-alpha.1.
 
-**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.7.0...v2.8.0-alpha.1 <!-- pragma: allowlist secret -->
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.7.0...v2.8.0 <!-- pragma: allowlist secret -->
 
 ## 2.7.0 — 2026-08-01
 

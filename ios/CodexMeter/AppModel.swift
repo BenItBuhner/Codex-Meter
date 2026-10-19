@@ -32,7 +32,7 @@ extension AlertMetric {
         switch self {
         case .both: "Both"
         case .fiveHour: "5-hour"
-        case .weekly: "Weekly"
+        case .weekly: "Weekly / Monthly"
         }
     }
 }
@@ -53,10 +53,18 @@ extension NotificationPermissionState {
 @Observable
 final class AppModel {
     private static let modeDefaultsKey = "codex-meter.session-mode-v1"
+    private static let providerDefaultsKey = "codex-meter.selected-provider-v1"
 
+    /// Claude Code tab state. Independent of the Codex session below.
+    let claude: ClaudeUsageModel
+    /// The dashboard tab. Codex stays the default; the choice is remembered.
+    var selectedProvider: UsageProvider = .defaultProvider
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
     var credits: ResetCreditsSnapshot?
+    var fiveHourHistory: UsageHistory = .empty(.fiveHour)
+    var weeklyHistory: UsageHistory = .empty(.weekly)
+    var monthlyHistory: UsageHistory = .empty(.monthly)
     var settings: AppSettings
     var accountEmail = ""
     var accountPlan = ""
@@ -73,12 +81,14 @@ final class AppModel {
     var isShowingSettings = false
     var isShowingReset = false
     var isShowingSignIn = false
+    var diagnosticsUnlocked = false
 
     private let liveService: LiveCodexService
     private var demoService: DemoCodexService
     private let cache: AppCacheStore
     private let settingsStore: AppSettingsStore
     private let notificationCoordinator: NotificationCoordinator
+    private let usageHistoryStore: UsageHistoryStore
     private let refreshEngagementStore: RefreshEngagementStore
     private let defaults: UserDefaults
     private var hasStarted = false
@@ -104,20 +114,26 @@ final class AppModel {
         cache: AppCacheStore = .shared,
         settingsStore: AppSettingsStore = AppSettingsStore(),
         notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
+        usageHistoryStore: UsageHistoryStore = .shared,
         defaults: UserDefaults = .standard,
         refreshEngagementStore: RefreshEngagementStore? = nil,
+        claude: ClaudeUsageModel? = nil,
         preview: Bool = false
     ) {
+        self.claude = claude ?? ClaudeUsageModel(preview: preview)
+        self.selectedProvider = UsageProvider.resolve(defaults.string(forKey: Self.providerDefaultsKey))
         self.liveService = liveService
         self.demoService = demoService
         self.cache = cache
         self.settingsStore = settingsStore
         self.notificationCoordinator = notificationCoordinator
+        self.usageHistoryStore = usageHistoryStore
         self.defaults = defaults
         self.refreshEngagementStore = refreshEngagementStore
             ?? RefreshEngagementStore(defaults: defaults)
         self.settings = settingsStore.settings
         self.isPreview = preview
+        self.diagnosticsUnlocked = DiagnosticLog.isUnlocked(defaults: defaults)
 
         if preview {
             let now = Date()
@@ -184,6 +200,11 @@ final class AppModel {
     func startIfNeeded() async {
         guard !hasStarted, !isPreview else { return }
         hasStarted = true
+        apply(history: await usageHistoryStore.load())
+        DiagnosticLog.info("process", "started", details: [
+            "mode": mode.rawValue,
+            "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        ])
         defer {
             hasFinishedStartup = true
             applyPendingRouteIfNeeded()
@@ -193,6 +214,9 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") {
             settingsStore.reset()
             settings = settingsStore.settings
+            select(provider: .defaultProvider)
+            try? await usageHistoryStore.clear()
+            apply(history: .empty)
         }
 
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-signed-out") {
@@ -203,6 +227,7 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-demo") {
             mode = .demo
             defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
+            await enterClaudeDemoIfSignedOut()
             await refresh()
             return
         }
@@ -214,6 +239,7 @@ final class AppModel {
 
         if defaults.string(forKey: Self.modeDefaultsKey) == AppMode.demo.rawValue {
             mode = .demo
+            await enterClaudeDemoIfSignedOut()
             if usage == nil {
                 await refresh()
             }
@@ -235,6 +261,8 @@ final class AppModel {
             }
         } else {
             await liveService.signOut()
+            try? await usageHistoryStore.clear()
+            apply(history: .empty)
             mode = .signedOut
             defaults.set(AppMode.signedOut.rawValue, forKey: Self.modeDefaultsKey)
         }
@@ -255,15 +283,22 @@ final class AppModel {
         isRefreshing = true
         visibleError = nil
         defer { isRefreshing = false }
+        DiagnosticLog.info("refresh", "started", details: ["mode": mode.rawValue])
 
         do {
             let snapshot = try await activeService.refresh()
             refreshEngagementStore.recordRefreshSuccess()
+            DiagnosticLog.info("refresh", "finished", details: [
+                "plan": snapshot.usage.planType,
+                "has_monthly": snapshot.usage.monthly != nil ? "true" : "false",
+                "has_weekly": snapshot.usage.weekly != nil ? "true" : "false"
+            ])
             await apply(refresh: snapshot)
         } catch is CancellationError {
             return
         } catch {
             refreshEngagementStore.recordRefreshFailure()
+            DiagnosticLog.error("refresh", "failed", error: error)
             visibleError = error.localizedDescription
             if let cached = try? await cache.load() {
                 apply(cache: cached, preservingVisibleError: true)
@@ -275,25 +310,36 @@ final class AppModel {
     func enterDemo() async {
         mode = .demo
         defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
+        DiagnosticLog.info("process", "enter_demo")
         visibleError = nil
         accountEmail = "demo@local"
         accountPlan = "Plus (Demo)"
+        await enterClaudeDemoIfSignedOut()
         await refresh()
     }
 
     func leaveDemo() async {
+        await claude.leaveDemo()
         await demoService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
+        try? await usageHistoryStore.clear()
+        apply(history: .empty)
         clearSessionState()
     }
 
     func signOut() async {
         signInTask?.cancel()
         signInTask = nil
+        DiagnosticLog.info("process", "sign_out")
+        if mode == .demo {
+            await claude.leaveDemo()
+        }
         await activeService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
+        try? await usageHistoryStore.clear()
+        apply(history: .empty)
         clearSessionState()
     }
 
@@ -305,7 +351,9 @@ final class AppModel {
 
         do {
             authChallenge = try await liveService.deviceCodeAuth.requestChallenge()
+            DiagnosticLog.info("oauth", "challenge_started")
         } catch {
+            DiagnosticLog.error("oauth", "challenge_failed", error: error)
             authenticationError = error.localizedDescription
         }
     }
@@ -325,11 +373,13 @@ final class AppModel {
                 authChallenge = nil
                 isAuthenticating = false
                 signInTask = nil
+                DiagnosticLog.info("oauth", "signed_in")
                 await refresh()
             } catch is CancellationError {
                 isAuthenticating = false
                 signInTask = nil
             } catch {
+                DiagnosticLog.error("oauth", "sign_in_failed", error: error)
                 authenticationError = error.localizedDescription
                 authChallenge = nil
                 isAuthenticating = false
@@ -367,6 +417,9 @@ final class AppModel {
             }
             if let cached = try? await cache.load() {
                 apply(cache: cached)
+                if result.applied, let refreshedUsage = cached.usage {
+                    await recordUsageHistory(refreshedUsage)
+                }
                 if result.applied {
                     let advanced: Bool
                     if let refreshedAt = cached.usage?.fetchedAt {
@@ -514,6 +567,11 @@ final class AppModel {
             await startIfNeeded()
             return
         }
+        if selectedProvider == .claudeCode {
+            // Claude is never refreshed in the background; foregrounding the visible tab
+            // re-checks only when its data is older than five minutes.
+            await claude.tabOpened()
+        }
         guard mode != .signedOut, settings.refreshOnLaunch else { return }
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
             await refresh()
@@ -523,6 +581,33 @@ final class AppModel {
     func sceneBecameInactive() {
         refreshEngagementStore.recordBackground()
         scheduleBackgroundRefresh()
+    }
+
+    func clearUsageHistory() async {
+        do {
+            try await usageHistoryStore.clear()
+            apply(history: .empty)
+        } catch {
+            visibleError = "Local usage history could not be cleared."
+        }
+    }
+
+    /// Selects and remembers a dashboard tab. Safe to call again for the current tab.
+    func select(provider: UsageProvider) {
+        if selectedProvider != provider {
+            selectedProvider = provider
+        }
+        guard defaults.string(forKey: Self.providerDefaultsKey) != provider.rawValue else { return }
+        defaults.set(provider.rawValue, forKey: Self.providerDefaultsKey)
+        DiagnosticLog.info("process", "provider_selected", details: ["provider": provider.rawValue])
+    }
+
+    /// The Codex demo also shows demo Claude data, unless a real Claude session exists.
+    private func enterClaudeDemoIfSignedOut() async {
+        await claude.loadIfNeeded()
+        if claude.phase == .signedOut {
+            claude.enterDemo()
+        }
     }
 
     private var activeService: any CodexService {
@@ -536,12 +621,13 @@ final class AppModel {
         accountPlan = UsageFormat.planLabel(refresh.usage.planType)
         visibleError = nil
         isUsingCachedData = false
+        await recordUsageHistory(refresh.usage)
 
         if mode == .live, let tokens = try? await liveService.currentTokens() {
             apply(tokens: tokens)
         }
         if let cached = try? await cache.load() {
-            visibleError = cached.resetCreditsError ?? cached.widgetError
+            visibleError = cached.resetCreditsError
         }
         await notificationCoordinator.process(
             usage: refresh.usage,
@@ -567,7 +653,7 @@ final class AppModel {
                   snapshot.usage?.isStale(at: .now, maxAge: 15 * 60) == true {
             visibleError = error
         } else {
-            visibleError = snapshot.resetCreditsError ?? snapshot.widgetError
+            visibleError = snapshot.resetCreditsError
         }
     }
 
@@ -602,7 +688,7 @@ final class AppModel {
         let now = Date()
         try? backgroundRefreshCoordinator.schedule(
             preferredMinutes: effectiveRefreshMinutes(at: now),
-            nextReset: usage?.nextReset(after: .now)
+            nextReset: usage?.nextReset(after: now)
         )
     }
 
@@ -617,6 +703,22 @@ final class AppModel {
             consecutiveFailures: refreshEngagementStore.consecutiveFailures,
             now: date
         )
+    }
+
+    private func recordUsageHistory(_ usage: UsageSnapshot) async {
+        guard let snapshot = try? await usageHistoryStore.record(usage) else { return }
+        apply(history: snapshot)
+    }
+
+    private func apply(history: LocalUsageHistorySnapshot) {
+        fiveHourHistory = history.fiveHour
+        weeklyHistory = history.weekly
+        monthlyHistory = history.monthly
+    }
+
+    func unlockDiagnostics() {
+        diagnosticsUnlocked = true
+        DiagnosticLog.unlock(defaults: defaults)
     }
 
     private func applyNotificationSettings() async {

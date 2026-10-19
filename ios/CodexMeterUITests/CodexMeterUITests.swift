@@ -18,9 +18,37 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Mode"].exists)
         XCTAssertTrue(app.buttons["Leave Demo"].exists)
-        app.swipeUp()
+        // Assert in scroll order: "System permission" sits above "Send test
+        // notification" in the Notifications section, and scrolling straight to
+        // the button can cull the earlier row out of the lazy Form hierarchy.
+        for _ in 0..<6 where !app.staticTexts["System permission"].exists {
+            app.swipeUp()
+        }
         XCTAssertTrue(app.staticTexts["System permission"].waitForExistence(timeout: 3))
+        for _ in 0..<6 where !app.buttons["Send test notification"].exists {
+            app.swipeUp()
+        }
         XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 3))
+    }
+
+    func testEditDashboardVisibilityControlsIncludeLaterReleaseSections() throws {
+        let app = launchDemo()
+
+        app.buttons["Edit dashboard"].tap()
+        XCTAssertTrue(app.navigationBars["Edit dashboard"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.switches["Show 5-hour limit"].exists)
+        XCTAssertTrue(app.switches["Show Weekly limit"].exists)
+        XCTAssertTrue(app.switches["Show Monthly limit"].exists)
+        XCTAssertTrue(app.switches["Show Usage history"].exists)
+        XCTAssertTrue(app.switches["Show Reset credits"].exists)
+
+        app.switches["Show Weekly limit"].tap()
+        app.switches["Show Usage history"].tap()
+        app.buttons["Done"].tap()
+
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["Weekly"].exists)
+        XCTAssertTrue(app.staticTexts["Reset credits"].exists)
     }
 
     func testSignedOutAndSignInPresentation() throws {
@@ -45,6 +73,7 @@ final class CodexMeterUITests: XCTestCase {
     func testResetRequiresIrreversibleConfirmation() throws {
         let app = launchDemo()
 
+        UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app)
         XCTAssertTrue(app.buttons["Use 1 reset"].waitForExistence(timeout: 5))
         app.buttons["Use 1 reset"].tap()
         XCTAssertTrue(app.navigationBars["Codex reset"].waitForExistence(timeout: 3))
@@ -79,6 +108,40 @@ final class CodexMeterUITests: XCTestCase {
         app.buttons["Leave Demo"].tap()
         XCTAssertTrue(app.buttons["Sign in with ChatGPT"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Explore demo"].exists)
+    }
+
+    func testClaudeCodeTabShowsDemoUsageAndSwitchesBack() throws {
+        let app = launchDemo()
+
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Claude Code"].waitForExistence(timeout: 5))
+        app.buttons["Claude Code"].tap()
+        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Demo data — no Anthropic requests"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["5-hour"].exists)
+        XCTAssertTrue(app.staticTexts["Weekly"].exists)
+
+        app.buttons["Codex"].tap()
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Demo data — no OpenAI requests"].exists)
+    }
+
+    func testClaudeCodeSignInPresentation() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-signed-out", "-ui-testing-reset-settings"]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["Claude Code"].waitForExistence(timeout: 5))
+        app.buttons["Claude Code"].tap()
+        XCTAssertTrue(app.buttons["Sign in with Claude"].waitForExistence(timeout: 5))
+        app.buttons["Sign in with Claude"].tap()
+        XCTAssertTrue(app.navigationBars["Connect Claude"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Open Claude sign-in"].exists)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["Sign in with Claude"].waitForExistence(timeout: 3))
+
+        app.buttons["Codex"].tap()
+        XCTAssertTrue(app.buttons["Sign in with ChatGPT"].waitForExistence(timeout: 3))
     }
 
     private func launchDemo() -> XCUIApplication {

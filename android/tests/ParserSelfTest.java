@@ -29,7 +29,7 @@ public final class ParserSelfTest {
         testCelebrationDetection();
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
-        testFullWindowHidesResetCountdown();
+        testResetCountdownFollowsApiTimeline();
         testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
@@ -60,6 +60,9 @@ public final class ParserSelfTest {
         testUpdateCheckFrequency();
         testDiagnosticSanitizer();
         testSettingsTransfer();
+        testUsageProviders();
+        testClaudeUsageParsing();
+        testClaudeOAuthRequests();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
@@ -90,16 +93,24 @@ public final class ParserSelfTest {
         System.out.println("Diagnostic sanitizer strips credentials, identity, and URL queries.");
     }
 
-    private static void testFullWindowHidesResetCountdown() {
-        UsageWindow full = new UsageWindow(0, 18000L, 600L, 2000000000L);
-        UsageWindow almostFull = new UsageWindow(1, 18000L, 600L, 2000000000L);
-        UsageWindow used = new UsageWindow(37, 18000L, 600L, 2000000000L);
-        check(full.remainingPercent() == 100, "full window remaining");
-        check(!full.showsResetCountdown(), "100% remaining hides drifting reset countdown");
-        check(almostFull.remainingPercent() == 99, "1% used is 99% remaining");
-        check(almostFull.showsResetCountdown(), "99% remaining still shows reset countdown");
-        check(used.showsResetCountdown(), "partial usage shows reset countdown");
-        System.out.println("Reset-countdown demo: hide at 100% remaining, show again at 99% or less.");
+    private static void testResetCountdownFollowsApiTimeline() {
+        UsageWindow unusedNoReset = new UsageWindow(0, 18000L, 0L, 0L);
+        UsageWindow unusedWithResetAt = new UsageWindow(0, 18000L, 0L, 2000000000L);
+        UsageWindow unusedWithResetAfter = new UsageWindow(0, 18000L, 600L, 0L);
+        UsageWindow usedNoReset = new UsageWindow(37, 18000L, 0L, 0L);
+        UsageWindow usedWithReset = new UsageWindow(37, 18000L, 600L, 2000000000L);
+        check(unusedNoReset.remainingPercent() == 100, "unused window remaining");
+        check(!unusedNoReset.showsResetCountdown(),
+                "unused window without API reset stays blank");
+        check(unusedWithResetAt.showsResetCountdown(),
+                "100% remaining still shows API reset_at");
+        check(unusedWithResetAfter.showsResetCountdown(),
+                "100% remaining still shows API reset_after");
+        check(!usedNoReset.showsResetCountdown(),
+                "used window without API reset stays blank");
+        check(usedWithReset.showsResetCountdown(),
+                "used window with API reset shows countdown");
+        System.out.println("Reset countdown follows the API timeline, including at 100% remaining.");
     }
 
     private static void testLowUsageAlertDedup() {
@@ -515,6 +526,19 @@ public final class ParserSelfTest {
                 "Wear reset label uses observation-based reset-after fallback");
         check(WearGlanceFormat.nextResetRelativeText(fallbackTimed, now).contains("h"),
                 "Wear fallback reset countdown remains finite");
+        UsageSnapshot unused = new UsageSnapshot("demo", true, false,
+                new UsageWindow(0, 18000L, 0L, 0L),
+                new UsageWindow(0, 604800L, 0L, 0L), now);
+        check("--".equals(WearGlanceFormat.nextResetWindowLabel(unused, now)),
+                "unused windows without API reset have no next-reset label");
+        check("No reset yet".equals(WearGlanceFormat.nextResetLongText(unused, now)),
+                "unused windows without API reset show no reset timeframe");
+        UsageSnapshot unusedWithReset = new UsageSnapshot("demo", true, false,
+                new UsageWindow(0, 18000L, 0L,
+                        (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
+                null, now);
+        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(unusedWithReset, now)),
+                "100% remaining still surfaces an API reset timeline");
         UsageSnapshot account = new UsageSnapshot("plus", true, true, five, weekly, 2, now);
         check("Limit reached".equals(WearGlanceFormat.accountStatus(account)),
                 "Wear account status surfaces a reached limit");
@@ -2026,6 +2050,184 @@ public final class ParserSelfTest {
                     "minimal mode hides every optional highlight");
         }
         System.out.println("History highlights: minimal defaults + per-insight overrides verified.");
+    }
+
+    private static void testUsageProviders() {
+        check(UsageProvider.DEFAULT == UsageProvider.CODEX, "Codex stays the default provider");
+        check(UsageProvider.fromId(null) == UsageProvider.CODEX, "missing provider -> Codex");
+        check(UsageProvider.fromId("unknown") == UsageProvider.CODEX, "unknown provider -> Codex");
+        check(UsageProvider.fromId(" CLAUDE_CODE ") == UsageProvider.CLAUDE_CODE,
+                "provider ids are case-insensitive");
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            check(ids.add(provider.id), "provider ids are unique");
+            check(UsageProvider.fromId(provider.id) == provider, "provider id round-trips");
+        }
+        check("Sign in with Claude".equals(UsageProvider.CLAUDE_CODE.signInLabel()),
+                "Claude sign-in label");
+        System.out.println("Usage providers: Codex default + stable ids verified.");
+    }
+
+    private static void testClaudeUsageParsing() throws Exception {
+        // Legacy-only shape: five_hour / seven_day objects. Per-model and codename keys are
+        // ignored because Claude Code no longer shows them.
+        String legacy = "{"
+                + "\"five_hour\":{\"utilization\":6.0,\"resets_at\":\"2026-10-19T18:59:59.943648+00:00\"},"
+                + "\"seven_day\":{\"utilization\":35.4,\"resets_at\":\"2026-10-23T03:00:00Z\"},"
+                + "\"seven_day_oauth_apps\":null,"
+                + "\"seven_day_opus\":{\"utilization\":0.0,\"resets_at\":null},"
+                + "\"seven_day_sonnet\":{\"utilization\":100,\"resets_at\":\"2026-10-23T03:00:00+00:00\"},"
+                + "\"seven_day_omelette\":{\"utilization\":3.0,\"resets_at\":null},"
+                + "\"iguana_necktie\":null,"
+                + "\"extra_usage\":{\"is_enabled\":true,\"monthly_limit\":5000,"
+                + "\"used_credits\":1200,\"utilization\":24.0}"
+                + "}";
+        UsageSnapshot snapshot = ClaudeUsageParser.parse(legacy, "Max 20x", 1_000L);
+        check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 6,
+                "Claude five_hour utilization is percent used");
+        check(snapshot.fiveHour.windowSeconds == 18_000L, "Claude five_hour is a 5-hour window");
+        check(snapshot.fiveHour.resetAtEpochSeconds
+                        == java.time.OffsetDateTime.parse("2026-10-19T18:59:59Z").toEpochSecond(),
+                "Claude resets_at with fractional seconds parses");
+        check(snapshot.weekly != null && snapshot.weekly.usedPercent == 35
+                        && snapshot.weekly.windowSeconds == 604_800L,
+                "Claude seven_day maps to weekly");
+        check(snapshot.weekly.remainingPercent() == 65, "Claude weekly remaining");
+        check(snapshot.monthly == null, "Claude has no monthly window");
+        check("Max 20x".equals(snapshot.planType), "Claude plan label kept");
+        check(snapshot.additionalLimits.size() == 1,
+                "legacy Opus, Sonnet, and codename keys are not shown");
+        UsageLimit extra = snapshot.additionalLimits.get(0);
+        check("Extra usage".equals(extra.displayName()) && extra.primary.usedPercent == 24,
+                "Claude extra usage maps to a monthly cap");
+        check(!snapshot.limitReached && snapshot.allowed,
+                "ignored legacy keys never mark the snapshot limited");
+
+        // Current shape: the server-built limits[] list drives the cards.
+        String current = "{"
+                + "\"five_hour\":{\"utilization\":40.0,\"resets_at\":\"2026-10-19T14:59:59+00:00\"},"
+                + "\"seven_day\":{\"utilization\":19.0,\"resets_at\":\"2026-10-23T03:00:00+00:00\"},"
+                + "\"seven_day_sonnet\":{\"utilization\":2.0,\"resets_at\":null},"
+                + "\"limits\":["
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":41,\"severity\":\"normal\","
+                + "\"resets_at\":\"2026-10-19T14:59:59.729061+00:00\",\"scope\":null,\"is_active\":true},"
+                + "{\"kind\":\"weekly_all\",\"group\":\"weekly\",\"percent\":20,\"severity\":\"normal\","
+                + "\"resets_at\":\"2026-10-23T03:00:00+00:00\",\"scope\":null,\"is_active\":false},"
+                + "{\"kind\":\"weekly_scoped\",\"group\":\"weekly\",\"percent\":100,"
+                + "\"severity\":\"critical\",\"resets_at\":\"2026-10-23T03:00:00+00:00\","
+                + "\"scope\":{\"model\":{\"id\":null,\"display_name\":\"Fable\"},\"surface\":null},"
+                + "\"is_active\":false},"
+                + "{\"kind\":\"weekly_scoped\",\"group\":\"weekly\",\"percent\":5,"
+                + "\"scope\":{\"model\":{\"id\":null,\"display_name\":\"All models\"}}},"
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":null}"
+                + "],"
+                + "\"extra_usage\":{\"is_enabled\":null,\"utilization\":null}"
+                + "}";
+        UsageSnapshot fromLimits = ClaudeUsageParser.parse(current, "Max 5x", 2_000L);
+        check(fromLimits.fiveHour.usedPercent == 41 && fromLimits.fiveHour.windowSeconds == 18_000L,
+                "limits[] session row is the 5-hour meter");
+        check(fromLimits.weekly.usedPercent == 20 && fromLimits.weekly.windowSeconds == 604_800L,
+                "limits[] weekly_all row is the weekly meter");
+        check(fromLimits.additionalLimits.size() == 1,
+                "only server-listed meters are shown; legacy Sonnet and All models are not");
+        UsageLimit fable = fromLimits.additionalLimits.get(0);
+        check("Fable only".equals(fable.displayName()) && fable.limitReached
+                        && fable.primary.windowSeconds == 604_800L,
+                "model-scoped weekly row becomes a Fable-only card");
+        check(DashboardSections.limitKey(fable).equals("limit:claude_weekly_scoped_fable"),
+                "Claude limits get stable dashboard keys");
+        check(fromLimits.limitReached && !fromLimits.allowed,
+                "an exhausted scoped meter marks the snapshot limited");
+
+        String plain = "{\"limits\":["
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":7,\"resets_at\":null},"
+                + "{\"kind\":\"weekly_all\",\"group\":\"weekly\",\"percent\":3,\"resets_at\":null}]}";
+        UsageSnapshot unified = ClaudeUsageParser.parse(plain, "Pro", 3L);
+        check(unified.fiveHour.usedPercent == 7 && unified.weekly.usedPercent == 3
+                        && unified.additionalLimits.isEmpty(),
+                "a unified plan shows only the 5-hour and weekly meters");
+
+        UsageSnapshot legacyFable = ClaudeUsageParser.parse(
+                "{\"seven_day_fable\":{\"utilization\":12,\"resets_at\":null}}", "", 4L);
+        check(legacyFable.additionalLimits.size() == 1
+                        && "Fable only".equals(legacyFable.additionalLimits.get(0).displayName()),
+                "older top-level Fable keys still show a Fable-only card");
+
+        UsageSnapshot roundTrip = UsageSnapshot.fromJson(fromLimits.toJson());
+        check(roundTrip.weekly.usedPercent == 20 && roundTrip.additionalLimits.size() == 1,
+                "Claude snapshot survives the cache round-trip");
+
+        UsageSnapshot minimal = ClaudeUsageParser.parse(
+                "{\"five_hour\":null,\"seven_day\":{\"utilization\":12.6,\"resets_at\":null},"
+                        + "\"extra_usage\":{\"is_enabled\":false,\"utilization\":null}}",
+                "", 1L);
+        check(minimal.fiveHour == null && minimal.weekly.usedPercent == 13
+                        && minimal.additionalLimits.isEmpty() && !minimal.limitReached,
+                "Claude null windows and disabled extra usage are skipped");
+        check(ClaudeUsageParser.parseResetSeconds("not a date") == 0L,
+                "bad Claude reset timestamps are ignored");
+
+        check("Max 20x".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_max\","
+                        + "\"rate_limit_tier\":\"default_claude_max_20x\"}}")),
+                "Claude Max 20x from rate-limit tier");
+        check("Max 5x".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"rate_limit_tier\":\"default_claude_max_5x\"}}")),
+                "Claude Max 5x from rate-limit tier");
+        check("Pro".equals(ClaudeUsageParser.planLabel(
+                "{\"account\":{\"has_claude_pro\":true},\"organization\":{}}")),
+                "Claude Pro from account flags");
+        check("Team".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_team\"}}")),
+                "Claude Team from organization type");
+        check("".equals(ClaudeUsageParser.planLabel("not json")), "bad profile -> no badge");
+        check("me@example.com".equals(ClaudeUsageParser.email(
+                "{\"account\":{\"email_address\":\"me@example.com\"}}")),
+                "Claude profile email");
+        System.out.println("Claude Code usage: limits list, legacy windows, extra usage, plans verified.");
+    }
+
+    private static void testClaudeOAuthRequests() throws Exception {
+        String redirect = ClaudeCodeApi.redirectUri(54545);
+        check("http://localhost:54545/callback".equals(redirect), "Claude loopback redirect");
+        String url = ClaudeCodeApi.authorizeUrl(redirect, "challenge-value", "state-value");
+        check(url.startsWith("https://claude.ai/oauth/authorize?code=true&client_id="
+                + ClaudeCodeApi.CLIENT_ID + "&response_type=code&"), "Claude authorize URL");
+        check(url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A54545%2Fcallback"),
+                "Claude authorize redirect encoded");
+        check(url.contains("scope=user%3Aprofile+user%3Ainference"), "Claude read-only scopes");
+        check(url.contains("code_challenge=challenge-value&code_challenge_method=S256"),
+                "Claude PKCE S256");
+        check(url.endsWith("&state=state-value"), "Claude state param");
+        java.util.Map<String, String> exchange = ClaudeCodeApi.codeExchangeBody(
+                "auth-code#state-value", redirect, "verifier", "state-value");
+        check("auth-code".equals(exchange.get("code")), "Claude strips #state from the code");
+        check("authorization_code".equals(exchange.get("grant_type"))
+                        && redirect.equals(exchange.get("redirect_uri"))
+                        && "verifier".equals(exchange.get("code_verifier"))
+                        && "state-value".equals(exchange.get("state")),
+                "Claude code exchange body");
+        java.util.Map<String, String> refresh = ClaudeCodeApi.refreshBody("refresh-token");
+        check("refresh_token".equals(refresh.get("grant_type"))
+                        && ClaudeCodeApi.CLIENT_ID.equals(refresh.get("client_id")),
+                "Claude refresh body");
+        long minute = 60_000L;
+        long interval = ClaudeCodeApi.BACKGROUND_INTERVAL_MILLIS;
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 0L, 0L, interval),
+                "Claude refresh due with no cached data");
+        check(!ClaudeCodeApi.isRefreshDue(100 * minute, 90 * minute, 0L, interval),
+                "Claude background refresh waits 30 minutes");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 70 * minute, 0L, interval),
+                "Claude background refresh runs after 30 minutes");
+        check(!ClaudeCodeApi.isRefreshDue(100 * minute, 0L, 70 * minute, interval),
+                "Claude backs off for an hour after a 429");
+        check(ClaudeCodeApi.isRefreshDue(200 * minute, 0L, 70 * minute, interval),
+                "Claude retries once the 429 back-off ends");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 94 * minute, 0L, 5 * minute),
+                "widget refresh taps use the 5-minute spacing");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 200 * minute, 0L, interval),
+                "a cache from the future (clock change) does not block refresh");
+        System.out.println("Claude Code OAuth: authorize URL, code exchange, refresh verified.");
     }
 
     private static void check(boolean condition, String name) {

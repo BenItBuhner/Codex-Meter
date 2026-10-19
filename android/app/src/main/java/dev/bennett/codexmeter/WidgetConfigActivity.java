@@ -60,6 +60,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private final List<String> meterOrder = new ArrayList<>();
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private String tapAction = WidgetOptions.TAP_OPEN_APP;
+    private UsageProvider widgetProvider = UsageProvider.DEFAULT;
+    private CardItemView providerRow;
     private final int tapOpenId = View.generateViewId();
     private final int tapRefreshId = View.generateViewId();
     private final int tapResetId = View.generateViewId();
@@ -101,8 +103,20 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
         WidgetOptions saved = AppPreferences.loadWidgetOptions(this, this.appWidgetId);
         this.tapAction = AppPreferences.getWidgetTapAction(this, this.appWidgetId);
+        this.widgetProvider = ProviderPreferences.getWidgetProvider(this, this.appWidgetId);
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         loadMeterSelection(saved, snapshot);
+
+        content.addView(Ui.separator(this, "Provider"));
+        RoundedLinearLayout providerCard = Ui.seslRowCard(this, this.dark);
+        this.providerRow = new CardItemView(this);
+        this.providerRow.setTitle("Show usage for");
+        this.providerRow.setSummary(this.widgetProvider.displayName);
+        this.providerRow.setShowTopDivider(false);
+        this.providerRow.setShowBottomDivider(false);
+        this.providerRow.setOnClickListener(view -> chooseProvider());
+        providerCard.addView(this.providerRow);
+        content.addView(providerCard);
 
         content.addView(Ui.separator(this, "Appearance"));
         RoundedLinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
@@ -232,6 +246,20 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         updateRowSummaries();
         updateMetersHint();
         renderPreview();
+    }
+
+    private void chooseProvider() {
+        UsageProvider[] providers = UsageProvider.values();
+        String[] labels = new String[providers.length];
+        for (int index = 0; index < providers.length; index++) {
+            labels[index] = providers[index].displayName;
+        }
+        OneUiChoiceDialog.show(this, "Show usage for", labels, this.widgetProvider.ordinal(),
+                position -> {
+                    this.widgetProvider = providers[position];
+                    this.providerRow.setSummary(this.widgetProvider.displayName);
+                    renderPreview();
+                });
     }
 
     private RoundedLinearLayout buildTapActionCard() {
@@ -614,7 +642,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 }
                 WidgetOptions options = currentOptions();
                 RemoteViews remote = WidgetRenderer.buildPreview(this, this.appWidgetId, options,
-                        this.widgetSize);
+                        this.widgetSize, this.widgetProvider);
                 FrameLayout surface = new FrameLayout(this);
                 surface.setClipToOutline(true);
                 GradientDrawable background = new GradientDrawable();
@@ -711,6 +739,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private void save() {
         AppPreferences.saveWidgetOptions(this, this.appWidgetId, currentOptions());
         AppPreferences.saveWidgetTapAction(this, this.appWidgetId, this.tapAction);
+        ProviderPreferences.setWidgetProvider(this, this.appWidgetId, this.widgetProvider);
         WidgetRenderer.update(this, AppWidgetManager.getInstance(this), this.appWidgetId);
         setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,
                 this.appWidgetId));

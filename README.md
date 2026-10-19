@@ -7,14 +7,14 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo**:
 |------|----------|--------|
 | Repository root | Shared | Docs, license, changelog, CI, convenience script wrappers |
 | [`android/`](android/) | **Android** | Phone app + Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
-| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable behavior (meters, reset credits, notifications, demo mode) |
+| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable 2.8.0 behavior (meters, monthly Free-tier windows, history analytics, diagnostics, widgets) |
 
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.8.0-alpha.1
+## Android — Version 2.8.0
 
-Version 2.8.0-alpha.1 adapts to Free-tier monthly Codex limits when a paid plan expires, adds opt-in diagnostic log tracing/export, and declutters usage-history analytics with customizable highlights. Stable 2.7.0 remains the default update channel; opt into alpha under Settings → Updates → Update channel.
+Version 2.8.0 adapts to Free-tier monthly Codex limits when a paid plan expires, adds opt-in diagnostic log tracing/export, and declutters usage-history analytics with customizable highlights. This stable release consolidates the 2.8.0-alpha.1 channel build; alpha remains opt-in under Settings → Updates → Update channel.
 
 On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
 
@@ -29,6 +29,10 @@ Settings includes an optional, user-started live usage monitor that runs only un
 ### Reset alerts
 
 Users can choose silent, notification-sound, or alarm-sound alerts for the five-hour limit, weekly limit, or both. Alerts can be conditional on the most recently observed allowance being below a selected threshold. Android schedules the notification for the cached reset time and performs a normal background refresh after the alert fires.
+
+### Provider switcher (alpha)
+
+One UI bottom tabs (the stock `BottomTabLayout` from oneui-design) under the dashboard switch between usage providers. **Codex** is the default and is unchanged. **Claude Code** signs in with your Claude account (the same OAuth flow and loopback callback the Claude Code CLI uses) and shows exactly the limits Claude Code reports in `/usage`: normally the 5-hour and weekly limits, plus a model-only weekly allocation (such as Fable) when your account has one, and extra usage when it is enabled. Claude keeps its own usage history and burn-rate estimates, and any home-screen widget can show it (widget settings → Provider). Because Anthropic's usage route rate-limits polling, Claude refreshes when you open its tab (if older than 5 minutes), pull to refresh, or tap a Claude widget's refresh, and in the background at most every 30 minutes, backing off for an hour after a 429. Now Bar, Wear, lock-screen widgets, and reset alerts remain Codex-only. New providers plug in through `UsageProvider` and a tab in `res/menu/provider_tabs.xml`.
 
 ### Widget surfaces
 
@@ -49,6 +53,7 @@ The app includes:
 - Access-token refresh with refresh-token rotation preservation.
 - Android Keystore AES-GCM encryption for locally stored tokens.
 - Usage and reset-credit retrieval from the ChatGPT backend routes used by Codex.
+- Optional Claude Code sign-in (Claude OAuth + PKCE, loopback callback) and usage from `api.anthropic.com/api/oauth/usage`, the route Claude Code's `/usage` reads. Claude tokens use their own Keystore key and are removed independently on sign-out.
 - No analytics, advertisements, WebView, or application-level relay server.
 
 ## Compatibility
@@ -86,6 +91,9 @@ Or from `android/` directly. `build.sh` assembles the release APKs with Gradle a
 ### iOS
 
 See [`ios/README.md`](ios/README.md). Requires Xcode 26+ and iOS/iPadOS 26+.
+The iOS client now carries portable Android 2.8.0 behavior: Free-tier monthly
+windows, scrubbable usage-history analytics with customize, and opt-in
+diagnostic log export.
 
 ```bash
 cd ios

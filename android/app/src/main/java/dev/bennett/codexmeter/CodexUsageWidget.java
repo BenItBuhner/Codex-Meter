@@ -39,6 +39,7 @@ public final class CodexUsageWidget extends AppWidgetProvider {
         if (iArr != null) {
             for (int i : iArr) {
                 AppPreferences.deleteWidgetOptions(context, i);
+                ProviderPreferences.clearWidgetProvider(context, i);
             }
         }
     }
@@ -54,7 +55,10 @@ public final class CodexUsageWidget extends AppWidgetProvider {
                         AppPreferences.loadWidgetOptions(context, oldId));
                 AppPreferences.saveWidgetTapAction(context, newId,
                         AppPreferences.getWidgetTapAction(context, oldId));
+                ProviderPreferences.setWidgetProvider(context, newId,
+                        ProviderPreferences.getWidgetProvider(context, oldId));
                 AppPreferences.deleteWidgetOptions(context, oldId);
+                ProviderPreferences.clearWidgetProvider(context, oldId);
             }
         }
         if (newWidgetIds != null) {
