@@ -170,7 +170,7 @@ jobs:
           PY
           }
           seed codex signed_in;              shot 01-codex-tab
-          tap_text "Cursor";                 shot 02-cursor-tab-after-tapping
+          if tap_text "Cursor"; then shot 02-cursor-tab-after-tapping; else cat "$RUNNER_TEMP/ui.xml" | head -c 4000; echo; seed cursor signed_in; shot 02-cursor-tab; fi
           seed cursor pools;                 shot 03-cursor-with-model-pools
           adb shell cmd uimode night yes
           seed cursor pools;                 shot 04-cursor-dark
