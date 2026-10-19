@@ -60,6 +60,9 @@ public final class ParserSelfTest {
         testUpdateCheckFrequency();
         testDiagnosticSanitizer();
         testSettingsTransfer();
+        testUsageProviders();
+        testClaudeUsageParsing();
+        testClaudeOAuthRequests();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
@@ -2047,6 +2050,124 @@ public final class ParserSelfTest {
                     "minimal mode hides every optional highlight");
         }
         System.out.println("History highlights: minimal defaults + per-insight overrides verified.");
+    }
+
+    private static void testUsageProviders() {
+        check(UsageProvider.DEFAULT == UsageProvider.CODEX, "Codex stays the default provider");
+        check(UsageProvider.fromId(null) == UsageProvider.CODEX, "missing provider -> Codex");
+        check(UsageProvider.fromId("unknown") == UsageProvider.CODEX, "unknown provider -> Codex");
+        check(UsageProvider.fromId(" CLAUDE_CODE ") == UsageProvider.CLAUDE_CODE,
+                "provider ids are case-insensitive");
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            check(ids.add(provider.id), "provider ids are unique");
+            check(UsageProvider.fromId(provider.id) == provider, "provider id round-trips");
+        }
+        check("Sign in with Claude".equals(UsageProvider.CLAUDE_CODE.signInLabel()),
+                "Claude sign-in label");
+        System.out.println("Usage providers: Codex default + stable ids verified.");
+    }
+
+    private static void testClaudeUsageParsing() throws Exception {
+        String body = "{"
+                + "\"five_hour\":{\"utilization\":6.0,\"resets_at\":\"2026-10-19T18:59:59.943648+00:00\"},"
+                + "\"seven_day\":{\"utilization\":35.4,\"resets_at\":\"2026-10-23T03:00:00Z\"},"
+                + "\"seven_day_oauth_apps\":null,"
+                + "\"seven_day_opus\":{\"utilization\":0.0,\"resets_at\":null},"
+                + "\"seven_day_sonnet\":{\"utilization\":100,\"resets_at\":\"2026-10-23T03:00:00+00:00\"},"
+                + "\"iguana_necktie\":null,"
+                + "\"extra_usage\":{\"is_enabled\":true,\"monthly_limit\":5000,"
+                + "\"used_credits\":1200,\"utilization\":24.0}"
+                + "}";
+        UsageSnapshot snapshot = ClaudeUsageParser.parse(body, "Max 20x", 1_000L);
+        check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 6,
+                "Claude five_hour utilization is percent used");
+        check(snapshot.fiveHour.windowSeconds == 18_000L, "Claude five_hour is a 5-hour window");
+        check(snapshot.fiveHour.resetAtEpochSeconds
+                        == java.time.OffsetDateTime.parse("2026-10-19T18:59:59Z").toEpochSecond(),
+                "Claude resets_at with fractional seconds parses");
+        check(snapshot.weekly != null && snapshot.weekly.usedPercent == 35
+                        && snapshot.weekly.windowSeconds == 604_800L,
+                "Claude seven_day maps to weekly");
+        check(snapshot.weekly.remainingPercent() == 65, "Claude weekly remaining");
+        check(snapshot.monthly == null, "Claude has no monthly window");
+        check("Max 20x".equals(snapshot.planType), "Claude plan label kept");
+        check(snapshot.additionalLimits.size() == 3,
+                "Claude opus, sonnet, and extra usage become additional limits");
+        UsageLimit opus = snapshot.additionalLimits.get(0);
+        check("Opus".equals(opus.displayName()) && opus.primary.usedPercent == 0
+                        && opus.primary.resetAtEpochSeconds == 0L,
+                "Claude Opus cap with null reset");
+        UsageLimit sonnet = snapshot.additionalLimits.get(1);
+        check("Sonnet".equals(sonnet.displayName()) && sonnet.limitReached,
+                "Claude Sonnet cap at 100% is reached");
+        UsageLimit extra = snapshot.additionalLimits.get(2);
+        check("Extra usage".equals(extra.displayName()) && extra.primary.usedPercent == 24,
+                "Claude extra usage maps to a monthly cap");
+        check(snapshot.limitReached && !snapshot.allowed,
+                "any exhausted Claude window marks the snapshot limited");
+        check(DashboardSections.limitKey(opus).equals("limit:claude_seven_day_opus"),
+                "Claude limits get stable dashboard keys");
+
+        UsageSnapshot roundTrip = UsageSnapshot.fromJson(snapshot.toJson());
+        check(roundTrip.weekly.usedPercent == 35 && roundTrip.additionalLimits.size() == 3,
+                "Claude snapshot survives the cache round-trip");
+
+        UsageSnapshot minimal = ClaudeUsageParser.parse(
+                "{\"five_hour\":null,\"seven_day\":{\"utilization\":12.6,\"resets_at\":null},"
+                        + "\"extra_usage\":{\"is_enabled\":false,\"utilization\":null}}",
+                "", 1L);
+        check(minimal.fiveHour == null && minimal.weekly.usedPercent == 13
+                        && minimal.additionalLimits.isEmpty() && !minimal.limitReached,
+                "Claude null windows and disabled extra usage are skipped");
+        check(ClaudeUsageParser.parseResetSeconds("not a date") == 0L,
+                "bad Claude reset timestamps are ignored");
+
+        check("Max 20x".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_max\","
+                        + "\"rate_limit_tier\":\"default_claude_max_20x\"}}")),
+                "Claude Max 20x from rate-limit tier");
+        check("Max 5x".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"rate_limit_tier\":\"default_claude_max_5x\"}}")),
+                "Claude Max 5x from rate-limit tier");
+        check("Pro".equals(ClaudeUsageParser.planLabel(
+                "{\"account\":{\"has_claude_pro\":true},\"organization\":{}}")),
+                "Claude Pro from account flags");
+        check("Team".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_team\"}}")),
+                "Claude Team from organization type");
+        check("".equals(ClaudeUsageParser.planLabel("not json")), "bad profile -> no badge");
+        check("me@example.com".equals(ClaudeUsageParser.email(
+                "{\"account\":{\"email_address\":\"me@example.com\"}}")),
+                "Claude profile email");
+        System.out.println("Claude Code usage: windows, model caps, extra usage, plans verified.");
+    }
+
+    private static void testClaudeOAuthRequests() throws Exception {
+        String redirect = ClaudeCodeApi.redirectUri(54545);
+        check("http://localhost:54545/callback".equals(redirect), "Claude loopback redirect");
+        String url = ClaudeCodeApi.authorizeUrl(redirect, "challenge-value", "state-value");
+        check(url.startsWith("https://claude.ai/oauth/authorize?code=true&client_id="
+                + ClaudeCodeApi.CLIENT_ID + "&response_type=code&"), "Claude authorize URL");
+        check(url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A54545%2Fcallback"),
+                "Claude authorize redirect encoded");
+        check(url.contains("scope=user%3Aprofile+user%3Ainference"), "Claude read-only scopes");
+        check(url.contains("code_challenge=challenge-value&code_challenge_method=S256"),
+                "Claude PKCE S256");
+        check(url.endsWith("&state=state-value"), "Claude state param");
+        java.util.Map<String, String> exchange = ClaudeCodeApi.codeExchangeBody(
+                "auth-code#state-value", redirect, "verifier", "state-value");
+        check("auth-code".equals(exchange.get("code")), "Claude strips #state from the code");
+        check("authorization_code".equals(exchange.get("grant_type"))
+                        && redirect.equals(exchange.get("redirect_uri"))
+                        && "verifier".equals(exchange.get("code_verifier"))
+                        && "state-value".equals(exchange.get("state")),
+                "Claude code exchange body");
+        java.util.Map<String, String> refresh = ClaudeCodeApi.refreshBody("refresh-token");
+        check("refresh_token".equals(refresh.get("grant_type"))
+                        && ClaudeCodeApi.CLIENT_ID.equals(refresh.get("client_id")),
+                "Claude refresh body");
+        System.out.println("Claude Code OAuth: authorize URL, code exchange, refresh verified.");
     }
 
     private static void check(boolean condition, String name) {

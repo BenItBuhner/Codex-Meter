@@ -71,6 +71,9 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageProvider.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeCodeApi.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeUsageParser.java" \
   "$ROOT/tests/ParserSelfTest.java"
 
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest

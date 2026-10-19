@@ -70,6 +70,8 @@
     <string name="about_oneui_title">One UI Design Library</string>
     <string name="about_oneui_summary">The SESL and One UI components behind the app’s interface.</string>
     <string name="about_privacy_title">Privacy and security</string>
-    <string name="about_privacy_summary">Tokens stay encrypted on this device. Codex Meter contains no analytics SDK and is not affiliated with OpenAI.</string>
+    <string name="about_privacy_summary">Tokens stay encrypted on this device. Codex Meter contains no analytics SDK and is not affiliated with OpenAI or Anthropic.</string>
     <string name="account_avatar">Account avatar</string>
+    <string name="provider_codex">Codex</string>
+    <string name="provider_claude_code">Claude Code</string>
 </resources>

@@ -30,6 +30,10 @@ Settings includes an optional, user-started live usage monitor that runs only un
 
 Users can choose silent, notification-sound, or alarm-sound alerts for the five-hour limit, weekly limit, or both. Alerts can be conditional on the most recently observed allowance being below a selected threshold. Android schedules the notification for the cached reset time and performs a normal background refresh after the alert fires.
 
+### Provider switcher (alpha)
+
+One UI bottom tabs under the dashboard switch between usage providers. **Codex** is the default and is unchanged. **Claude Code** signs in with your Claude account (the same OAuth flow and loopback callback the Claude Code CLI uses) and shows the 5-hour, weekly, per-model weekly (Opus/Sonnet), and extra-usage limits Claude Code reports in `/usage`. Claude usage is fetched only when you open or pull to refresh its tab, because Anthropic's usage route rate-limits background polling. Widgets, Now Bar, Wear, alerts, and burn history are still Codex-only. New providers plug in through `UsageProvider` and a tab entry in `res/menu/provider_tabs.xml`.
+
 ### Widget surfaces
 
 The app includes:
@@ -49,6 +53,7 @@ The app includes:
 - Access-token refresh with refresh-token rotation preservation.
 - Android Keystore AES-GCM encryption for locally stored tokens.
 - Usage and reset-credit retrieval from the ChatGPT backend routes used by Codex.
+- Optional Claude Code sign-in (Claude OAuth + PKCE, loopback callback) and usage from `api.anthropic.com/api/oauth/usage`, the route Claude Code's `/usage` reads. Claude tokens use their own Keystore key and are removed independently on sign-out.
 - No analytics, advertisements, WebView, or application-level relay server.
 
 ## Compatibility

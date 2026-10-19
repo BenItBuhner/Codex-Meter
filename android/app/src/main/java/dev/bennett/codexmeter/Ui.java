@@ -90,8 +90,14 @@ public final class Ui {
     }
 
     public static Page installPage(AppCompatActivity activity, String title, boolean back) {
+        return installPage(activity, title, back, R.layout.activity_oneui_dashboard);
+    }
+
+    /** Same page shell with a different layout, e.g. the dashboard with provider tabs. */
+    public static Page installPage(AppCompatActivity activity, String title, boolean back,
+            int layout) {
         ViewGroup parent = activity.findViewById(android.R.id.content);
-        View root = LayoutInflater.from(activity).inflate(R.layout.activity_oneui_dashboard, parent, false);
+        View root = LayoutInflater.from(activity).inflate(layout, parent, false);
         ToolbarLayout toolbar = root.findViewById(R.id.toolbar_layout);
         LinearLayout content = root.findViewById(R.id.dashboard_content);
         configureReachToolbar(toolbar, title, back);
