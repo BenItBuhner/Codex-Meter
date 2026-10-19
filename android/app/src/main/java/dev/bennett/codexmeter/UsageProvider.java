@@ -6,9 +6,9 @@ import java.util.Locale;
  * Coding-agent services whose subscription limits Codex Meter can show.
  *
  * <p>Codex stays the default and keeps every legacy storage key, so existing installs see no
- * change until they open another provider tab. To add a provider: add an entry here, give it a
- * tab in {@code res/menu/provider_tabs.xml} (mapped in {@code MainActivity.tabId}), add its
- * sign-in branch to {@link OAuthService}, and give it a usage client like
+ * change until they open another provider tab. To add a provider: add an entry here (the bottom
+ * switcher builds one item per entry), give it an icon in {@code ProviderSwitcherView.icon}, add
+ * its sign-in branch to {@link OAuthService}, and give it a usage client like
  * {@link ClaudeUsageApi} that returns a {@link UsageSnapshot}. Everything else (dashboard
  * cards, pace labels, account card, token storage) is shared.
  */

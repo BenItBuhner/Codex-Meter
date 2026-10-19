@@ -55,7 +55,7 @@ final class ClaudeCodeServiceTests: XCTestCase {
 
         XCTAssertEqual(usage.fiveHour?.usedPercent, 6)
         XCTAssertEqual(usage.weekly?.usedPercent, 35)
-        XCTAssertEqual(usage.additionalLimits.first?.displayName, "Opus")
+        XCTAssertEqual(usage.additionalLimits.first?.displayName, "Fable only")
         XCTAssertEqual(usage.planType, "Max 20x")
         XCTAssertEqual(counts.read()["/api/oauth/usage"], 2)
         XCTAssertEqual(counts.read()["/v1/oauth/token"], 1)
@@ -180,7 +180,16 @@ private func claudeUsageResponse() -> [String: Any] {
     [
         "five_hour": ["utilization": 6.0, "resets_at": "2026-10-19T18:59:59.943648+00:00"],
         "seven_day": ["utilization": 35.4, "resets_at": "2026-10-23T03:00:00Z"],
-        "seven_day_opus": ["utilization": 0.0, "resets_at": NSNull()]
+        "seven_day_opus": ["utilization": 0.0, "resets_at": NSNull()],
+        "limits": [
+            [
+                "kind": "weekly_scoped",
+                "group": "weekly",
+                "percent": 38,
+                "resets_at": "2026-10-23T03:00:00Z",
+                "scope": ["model": ["id": NSNull(), "display_name": "Fable"], "surface": NSNull()]
+            ]
+        ]
     ]
 }
 

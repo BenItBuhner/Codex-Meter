@@ -32,12 +32,11 @@
         </androidx.core.widget.NestedScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- One UI bottom tabs that switch the dashboard between usage providers. -->
-    <dev.oneuiproject.oneui.widget.BottomTabLayout
-        android:id="@+id/provider_tabs"
+    <!-- Floating One UI bottom bar that switches the dashboard between usage providers. -->
+    <dev.bennett.codexmeter.ProviderSwitcherView
+        android:id="@+id/provider_switcher"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_location="footer"
-        app:menu="@menu/provider_tabs" />
+        app:layout_location="footer" />
 
 </dev.oneuiproject.oneui.layout.ToolbarLayout>

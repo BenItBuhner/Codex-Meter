@@ -3,33 +3,41 @@ package dev.bennett.codexmeter;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
  * Maps Claude Code's {@code GET /api/oauth/usage} response onto the shared
  * {@link UsageSnapshot} so every dashboard card works unchanged.
  *
- * <p>Observed response shape (fields may be null or missing per plan):
+ * <p>The response carries a server-built {@code limits} list, the meters Claude Code itself
+ * renders. Usually that is just the session (5-hour) and weekly meters; some plans add a
+ * model-scoped weekly allocation such as Fable. Cards follow that list, so new meters appear
+ * without an app update:
  * <pre>
- * {
- *   "five_hour":        {"utilization": 6.0,  "resets_at": "2026-10-19T18:59:59.9+00:00"},
- *   "seven_day":        {"utilization": 35.0, "resets_at": "2026-10-23T03:00:00+00:00"},
- *   "seven_day_opus":   {"utilization": 0.0,  "resets_at": null},
- *   "seven_day_sonnet": {"utilization": 12.0, "resets_at": "..."},
- *   "extra_usage": {"is_enabled": true, "monthly_limit": 5000, "used_credits": 120,
- *                   "utilization": 2.4}
- * }
+ * "limits": [
+ *   {"kind":"session","group":"session","percent":41,"resets_at":"2026-10-19T14:59:59.72+00:00",
+ *    "scope":null},
+ *   {"kind":"weekly_all","group":"weekly","percent":20,"resets_at":"...","scope":null},
+ *   {"kind":"weekly_scoped","group":"weekly","percent":38,"resets_at":"...",
+ *    "scope":{"model":{"id":null,"display_name":"Fable"},"surface":null}}
+ * ]
  * </pre>
- * {@code utilization} is percent used (0–100), matching the "% used" Claude Code prints.
+ * Older responses only have {@code five_hour} / {@code seven_day} objects of the form
+ * {@code {"utilization": 6.0, "resets_at": "..."}}; those are the fallback. The legacy
+ * per-model keys ({@code seven_day_opus}, {@code seven_day_sonnet}) and internal codename keys
+ * are ignored because Claude Code no longer shows them. Percentages are percent used (0–100).
  */
 public final class ClaudeUsageParser {
     public static final long FIVE_HOUR_SECONDS = 5L * 60L * 60L;
     public static final long SEVEN_DAY_SECONDS = 7L * 24L * 60L * 60L;
     public static final long MONTH_SECONDS = 30L * 24L * 60L * 60L;
     static final String LIMIT_ID_PREFIX = "claude_";
+    /** Older top-level spellings of a Fable-only weekly allocation. */
+    private static final String[] LEGACY_FABLE_KEYS = {
+            "seven_day_fable", "fable_seven_day", "fable_weekly"};
 
     private ClaudeUsageParser() {
     }
@@ -37,34 +45,57 @@ public final class ClaudeUsageParser {
     public static UsageSnapshot parse(String body, String planLabel, long fetchedAtMillis)
             throws Exception {
         JSONObject root = new JSONObject(body == null ? "" : body);
-        UsageWindow fiveHour = window(root.optJSONObject("five_hour"), FIVE_HOUR_SECONDS);
-        UsageWindow weekly = window(root.optJSONObject("seven_day"), SEVEN_DAY_SECONDS);
+        UsageWindow fiveHour = null;
+        UsageWindow weekly = null;
         List<UsageLimit> extra = new ArrayList<>();
-        boolean limitReached = reached(fiveHour) || reached(weekly);
+        java.util.Set<String> seen = new java.util.HashSet<>();
 
-        // Model- and surface-specific weekly caps (seven_day_opus, seven_day_sonnet, ...). New
-        // keys Anthropic adds later appear automatically as long as they follow the prefix.
-        Iterator<String> keys = root.keys();
-        List<String> sorted = new ArrayList<>();
-        while (keys.hasNext()) sorted.add(keys.next());
-        java.util.Collections.sort(sorted);
-        for (String key : sorted) {
-            long seconds;
-            String suffix;
-            if (key.startsWith("seven_day_")) {
-                seconds = SEVEN_DAY_SECONDS;
-                suffix = key.substring("seven_day_".length());
-            } else if (key.startsWith("five_hour_")) {
-                seconds = FIVE_HOUR_SECONDS;
-                suffix = key.substring("five_hour_".length());
-            } else {
-                continue;
+        JSONArray rows = root.optJSONArray("limits");
+        if (rows != null) {
+            for (int i = 0; i < rows.length(); i++) {
+                JSONObject row = rows.optJSONObject(i);
+                if (row == null) continue;
+                String kind = row.optString("kind", "").trim().toLowerCase(Locale.ROOT);
+                String group = row.optString("group", "").trim().toLowerCase(Locale.ROOT);
+                JSONObject scopeObject = row.optJSONObject("scope");
+                // An "All models" scope repeats the weekly meter; Claude Code skips it too.
+                if (scopeObject != null && scopeObject.toString().toLowerCase(Locale.ROOT)
+                        .contains("\"all models\"")) continue;
+                String scope = scopeName(scopeObject);
+                UsageWindow window = meter(row, windowSeconds(kind, group));
+                if (window == null) continue;
+                if (scope.isEmpty() && "session".equals(kind) && fiveHour == null) {
+                    fiveHour = window;
+                } else if (scope.isEmpty() && "weekly_all".equals(kind) && weekly == null) {
+                    weekly = window;
+                } else {
+                    String id = LIMIT_ID_PREFIX + (scope.isEmpty() ? kind
+                            : group.isEmpty() ? "scoped_" + slug(scope)
+                            : group + "_scoped_" + slug(scope));
+                    if (!seen.add(id)) continue;
+                    extra.add(new UsageLimit(id, scope.isEmpty() ? humanize(kind) : scope + " only",
+                            "", true, reached(window), window, null));
+                }
             }
-            UsageWindow window = window(root.optJSONObject(key), seconds);
-            if (window == null) continue;
-            limitReached |= reached(window);
-            extra.add(new UsageLimit(LIMIT_ID_PREFIX + key, limitName(suffix), "",
-                    true, reached(window), window, null));
+        }
+
+        if (fiveHour == null) fiveHour = window(root.optJSONObject("five_hour"), FIVE_HOUR_SECONDS);
+        if (weekly == null) weekly = window(root.optJSONObject("seven_day"), SEVEN_DAY_SECONDS);
+        String fableId = LIMIT_ID_PREFIX + "weekly_scoped_fable";
+        if (!seen.contains(fableId)) {
+            for (String key : LEGACY_FABLE_KEYS) {
+                UsageWindow window = window(root.optJSONObject(key), SEVEN_DAY_SECONDS);
+                if (window != null) {
+                    extra.add(new UsageLimit(fableId, "Fable only", "", true, reached(window),
+                            window, null));
+                    break;
+                }
+            }
+        }
+
+        boolean limitReached = reached(fiveHour) || reached(weekly);
+        for (UsageLimit limit : extra) {
+            limitReached |= limit.limitReached;
         }
 
         UsageLimit extraUsage = extraUsage(root.optJSONObject("extra_usage"));
@@ -74,6 +105,55 @@ public final class ClaudeUsageParser {
 
         return new UsageSnapshot(planLabel == null ? "" : planLabel, !limitReached,
                 limitReached, fiveHour, weekly, null, extra, null, -1, fetchedAtMillis);
+    }
+
+    /** One {@code limits[]} row; rows without a usable percentage are skipped. */
+    static UsageWindow meter(JSONObject row, long windowSeconds) {
+        if (row == null || row.isNull("percent")) return null;
+        double percent = row.optDouble("percent", Double.NaN);
+        if (Double.isNaN(percent) || Double.isInfinite(percent)) return null;
+        return new UsageWindow((int) Math.round(percent), windowSeconds, 0L,
+                parseResetSeconds(row.optString("resets_at", "")));
+    }
+
+    static long windowSeconds(String kind, String group) {
+        if ("session".equals(group) || kind.startsWith("session")) return FIVE_HOUR_SECONDS;
+        if (group.startsWith("month") || kind.startsWith("month")) return MONTH_SECONDS;
+        return SEVEN_DAY_SECONDS;
+    }
+
+    /** Model or surface name a meter is scoped to, or "" for account-wide meters. */
+    static String scopeName(JSONObject scope) {
+        if (scope == null) return "";
+        for (String key : new String[] {"model", "surface"}) {
+            Object value = scope.opt(key);
+            String name = "";
+            if (value instanceof JSONObject) {
+                name = ((JSONObject) value).optString("display_name", "");
+                if (name.trim().isEmpty() || "null".equals(name)) {
+                    name = ((JSONObject) value).optString("id", "");
+                }
+            } else if (value instanceof String) {
+                name = (String) value;
+            }
+            name = name.trim();
+            if (!name.isEmpty() && !"null".equals(name)) {
+                return name;
+            }
+        }
+        return "";
+    }
+
+    static String slug(String value) {
+        return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+    }
+
+    /** "weekly_all" -> "Weekly all"; used only for unscoped meters Claude adds later. */
+    static String humanize(String kind) {
+        String spaced = kind.replace('_', ' ').trim();
+        if (spaced.isEmpty()) return "Additional usage";
+        return spaced.substring(0, 1).toUpperCase(Locale.ROOT) + spaced.substring(1);
     }
 
     /** One {@code {utilization, resets_at}} object, or null when Claude reports no data. */
@@ -103,19 +183,6 @@ public final class ClaudeUsageParser {
             return Math.max(0L, OffsetDateTime.parse(value.trim()).toEpochSecond());
         } catch (DateTimeParseException ignored) {
             return 0L;
-        }
-    }
-
-    static String limitName(String suffix) {
-        switch (suffix) {
-            case "opus": return "Opus";
-            case "sonnet": return "Sonnet";
-            case "haiku": return "Haiku";
-            case "oauth_apps": return "Connected apps";
-            default:
-                String spaced = suffix.replace('_', ' ').trim();
-                if (spaced.isEmpty()) return "Additional usage";
-                return spaced.substring(0, 1).toUpperCase(Locale.ROOT) + spaced.substring(1);
         }
     }
 

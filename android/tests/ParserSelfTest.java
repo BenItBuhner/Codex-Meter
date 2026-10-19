@@ -2069,17 +2069,20 @@ public final class ParserSelfTest {
     }
 
     private static void testClaudeUsageParsing() throws Exception {
-        String body = "{"
+        // Legacy-only shape: five_hour / seven_day objects. Per-model and codename keys are
+        // ignored because Claude Code no longer shows them.
+        String legacy = "{"
                 + "\"five_hour\":{\"utilization\":6.0,\"resets_at\":\"2026-10-19T18:59:59.943648+00:00\"},"
                 + "\"seven_day\":{\"utilization\":35.4,\"resets_at\":\"2026-10-23T03:00:00Z\"},"
                 + "\"seven_day_oauth_apps\":null,"
                 + "\"seven_day_opus\":{\"utilization\":0.0,\"resets_at\":null},"
                 + "\"seven_day_sonnet\":{\"utilization\":100,\"resets_at\":\"2026-10-23T03:00:00+00:00\"},"
+                + "\"seven_day_omelette\":{\"utilization\":3.0,\"resets_at\":null},"
                 + "\"iguana_necktie\":null,"
                 + "\"extra_usage\":{\"is_enabled\":true,\"monthly_limit\":5000,"
                 + "\"used_credits\":1200,\"utilization\":24.0}"
                 + "}";
-        UsageSnapshot snapshot = ClaudeUsageParser.parse(body, "Max 20x", 1_000L);
+        UsageSnapshot snapshot = ClaudeUsageParser.parse(legacy, "Max 20x", 1_000L);
         check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 6,
                 "Claude five_hour utilization is percent used");
         check(snapshot.fiveHour.windowSeconds == 18_000L, "Claude five_hour is a 5-hour window");
@@ -2092,25 +2095,66 @@ public final class ParserSelfTest {
         check(snapshot.weekly.remainingPercent() == 65, "Claude weekly remaining");
         check(snapshot.monthly == null, "Claude has no monthly window");
         check("Max 20x".equals(snapshot.planType), "Claude plan label kept");
-        check(snapshot.additionalLimits.size() == 3,
-                "Claude opus, sonnet, and extra usage become additional limits");
-        UsageLimit opus = snapshot.additionalLimits.get(0);
-        check("Opus".equals(opus.displayName()) && opus.primary.usedPercent == 0
-                        && opus.primary.resetAtEpochSeconds == 0L,
-                "Claude Opus cap with null reset");
-        UsageLimit sonnet = snapshot.additionalLimits.get(1);
-        check("Sonnet".equals(sonnet.displayName()) && sonnet.limitReached,
-                "Claude Sonnet cap at 100% is reached");
-        UsageLimit extra = snapshot.additionalLimits.get(2);
+        check(snapshot.additionalLimits.size() == 1,
+                "legacy Opus, Sonnet, and codename keys are not shown");
+        UsageLimit extra = snapshot.additionalLimits.get(0);
         check("Extra usage".equals(extra.displayName()) && extra.primary.usedPercent == 24,
                 "Claude extra usage maps to a monthly cap");
-        check(snapshot.limitReached && !snapshot.allowed,
-                "any exhausted Claude window marks the snapshot limited");
-        check(DashboardSections.limitKey(opus).equals("limit:claude_seven_day_opus"),
-                "Claude limits get stable dashboard keys");
+        check(!snapshot.limitReached && snapshot.allowed,
+                "ignored legacy keys never mark the snapshot limited");
 
-        UsageSnapshot roundTrip = UsageSnapshot.fromJson(snapshot.toJson());
-        check(roundTrip.weekly.usedPercent == 35 && roundTrip.additionalLimits.size() == 3,
+        // Current shape: the server-built limits[] list drives the cards.
+        String current = "{"
+                + "\"five_hour\":{\"utilization\":40.0,\"resets_at\":\"2026-10-19T14:59:59+00:00\"},"
+                + "\"seven_day\":{\"utilization\":19.0,\"resets_at\":\"2026-10-23T03:00:00+00:00\"},"
+                + "\"seven_day_sonnet\":{\"utilization\":2.0,\"resets_at\":null},"
+                + "\"limits\":["
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":41,\"severity\":\"normal\","
+                + "\"resets_at\":\"2026-10-19T14:59:59.729061+00:00\",\"scope\":null,\"is_active\":true},"
+                + "{\"kind\":\"weekly_all\",\"group\":\"weekly\",\"percent\":20,\"severity\":\"normal\","
+                + "\"resets_at\":\"2026-10-23T03:00:00+00:00\",\"scope\":null,\"is_active\":false},"
+                + "{\"kind\":\"weekly_scoped\",\"group\":\"weekly\",\"percent\":100,"
+                + "\"severity\":\"critical\",\"resets_at\":\"2026-10-23T03:00:00+00:00\","
+                + "\"scope\":{\"model\":{\"id\":null,\"display_name\":\"Fable\"},\"surface\":null},"
+                + "\"is_active\":false},"
+                + "{\"kind\":\"weekly_scoped\",\"group\":\"weekly\",\"percent\":5,"
+                + "\"scope\":{\"model\":{\"id\":null,\"display_name\":\"All models\"}}},"
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":null}"
+                + "],"
+                + "\"extra_usage\":{\"is_enabled\":null,\"utilization\":null}"
+                + "}";
+        UsageSnapshot fromLimits = ClaudeUsageParser.parse(current, "Max 5x", 2_000L);
+        check(fromLimits.fiveHour.usedPercent == 41 && fromLimits.fiveHour.windowSeconds == 18_000L,
+                "limits[] session row is the 5-hour meter");
+        check(fromLimits.weekly.usedPercent == 20 && fromLimits.weekly.windowSeconds == 604_800L,
+                "limits[] weekly_all row is the weekly meter");
+        check(fromLimits.additionalLimits.size() == 1,
+                "only server-listed meters are shown; legacy Sonnet and All models are not");
+        UsageLimit fable = fromLimits.additionalLimits.get(0);
+        check("Fable only".equals(fable.displayName()) && fable.limitReached
+                        && fable.primary.windowSeconds == 604_800L,
+                "model-scoped weekly row becomes a Fable-only card");
+        check(DashboardSections.limitKey(fable).equals("limit:claude_weekly_scoped_fable"),
+                "Claude limits get stable dashboard keys");
+        check(fromLimits.limitReached && !fromLimits.allowed,
+                "an exhausted scoped meter marks the snapshot limited");
+
+        String plain = "{\"limits\":["
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":7,\"resets_at\":null},"
+                + "{\"kind\":\"weekly_all\",\"group\":\"weekly\",\"percent\":3,\"resets_at\":null}]}";
+        UsageSnapshot unified = ClaudeUsageParser.parse(plain, "Pro", 3L);
+        check(unified.fiveHour.usedPercent == 7 && unified.weekly.usedPercent == 3
+                        && unified.additionalLimits.isEmpty(),
+                "a unified plan shows only the 5-hour and weekly meters");
+
+        UsageSnapshot legacyFable = ClaudeUsageParser.parse(
+                "{\"seven_day_fable\":{\"utilization\":12,\"resets_at\":null}}", "", 4L);
+        check(legacyFable.additionalLimits.size() == 1
+                        && "Fable only".equals(legacyFable.additionalLimits.get(0).displayName()),
+                "older top-level Fable keys still show a Fable-only card");
+
+        UsageSnapshot roundTrip = UsageSnapshot.fromJson(fromLimits.toJson());
+        check(roundTrip.weekly.usedPercent == 20 && roundTrip.additionalLimits.size() == 1,
                 "Claude snapshot survives the cache round-trip");
 
         UsageSnapshot minimal = ClaudeUsageParser.parse(
@@ -2140,7 +2184,7 @@ public final class ParserSelfTest {
         check("me@example.com".equals(ClaudeUsageParser.email(
                 "{\"account\":{\"email_address\":\"me@example.com\"}}")),
                 "Claude profile email");
-        System.out.println("Claude Code usage: windows, model caps, extra usage, plans verified.");
+        System.out.println("Claude Code usage: limits list, legacy windows, extra usage, plans verified.");
     }
 
     private static void testClaudeOAuthRequests() throws Exception {

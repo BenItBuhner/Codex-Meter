@@ -232,20 +232,10 @@ final class ClaudeUsageModel {
             ),
             additionalLimits: [
                 UsageLimit(
-                    id: "claude_seven_day_opus",
-                    name: "Opus",
+                    id: "claude_weekly_scoped_fable",
+                    name: "Fable only",
                     primary: UsageWindow(
-                        usedPercent: 18,
-                        windowSeconds: ClaudeUsageParser.sevenDaySeconds,
-                        resetAt: now.addingTimeInterval(4 * 24 * 60 * 60 + 5 * 60 * 60)
-                    ),
-                    secondary: nil
-                ),
-                UsageLimit(
-                    id: "claude_seven_day_sonnet",
-                    name: "Sonnet",
-                    primary: UsageWindow(
-                        usedPercent: 52,
+                        usedPercent: 31,
                         windowSeconds: ClaudeUsageParser.sevenDaySeconds,
                         resetAt: now.addingTimeInterval(4 * 24 * 60 * 60 + 5 * 60 * 60)
                     ),
