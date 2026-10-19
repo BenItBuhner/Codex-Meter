@@ -252,6 +252,8 @@ public final class OAuthService extends Service {
         } catch (Exception refreshError) {
             // refreshAndCache already recorded the error on the Claude Code tab.
         }
+        RefreshScheduler.schedulePeriodic(this);
+        safeWidgetUpdate();
         broadcastUsageUpdated();
     }
 

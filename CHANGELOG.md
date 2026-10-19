@@ -5,10 +5,13 @@
 ### Added
 
 - Provider switcher: One UI bottom tabs on the dashboard switch between Codex (default, unchanged) and Claude Code. Claude Code signs in with a Claude account through the same OAuth + PKCE loopback flow as the Claude Code CLI and shows 5-hour, weekly, per-model weekly, and extra-usage limits from the route behind Claude Code's `/usage`. Providers are pluggable through `UsageProvider`.
+- Claude Code usage history, burn charts, and pace estimates are kept separately from Codex.
+- Home-screen widgets can show Claude Code (widget settings → Provider); tapping one opens the Claude Code tab.
+- Background refresh covers Claude Code at most every 30 minutes with a one-hour back-off after HTTP 429, and keeps running when only one provider is signed in.
 
 ### Development
 
-- Self-tests cover provider ids/defaults, Claude usage parsing (fractional-second ISO resets, null windows, model caps, extra usage, plan badges), and the Claude authorize/token request shapes.
+- Self-tests cover provider ids/defaults, Claude usage parsing (fractional-second ISO resets, null windows, model caps, extra usage, plan badges), the Claude authorize/token request shapes, and Claude refresh pacing.
 
 ## 2.8.0 — 2026-08-14
 

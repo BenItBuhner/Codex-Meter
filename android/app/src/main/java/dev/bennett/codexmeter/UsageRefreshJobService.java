@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.app.job.JobParameters;
 import android.app.job.JobService;
+import android.content.Context;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -15,7 +16,7 @@ public final class UsageRefreshJobService extends JobService {
 
     @Override // android.app.job.JobService
     public boolean onStartJob(final JobParameters jobParameters) {
-        if (!SecureTokenStore.isSignedIn(this)) {
+        if (!RefreshScheduler.anySignedIn(this)) {
             DiagnosticLog.info(this, "scheduler", "refresh_job_skipped_signed_out",
                     "job_id", jobParameters.getJobId());
             WidgetRenderer.updateAll(this);
@@ -87,9 +88,13 @@ public final class UsageRefreshJobService extends JobService {
                     "reason", this.reason);
             try {
                 try {
-                    RefreshScheduler.scheduleAtNextReset(UsageRefreshJobService.this.getApplicationContext(), UsageApi.refreshAndCache(UsageRefreshJobService.this.getApplicationContext()));
-                    AppPreferences.recordRefreshSuccess(
-                            UsageRefreshJobService.this.getApplicationContext());
+                    Context app = UsageRefreshJobService.this.getApplicationContext();
+                    // Claude never throws here; it paces itself to avoid its rate limit.
+                    ClaudeUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
+                    if (SecureTokenStore.isSignedIn(app)) {
+                        RefreshScheduler.scheduleAtNextReset(app, UsageApi.refreshAndCache(app));
+                        AppPreferences.recordRefreshSuccess(app);
+                    }
                     WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
                     DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
                             "refresh_job_succeeded",
@@ -101,7 +106,7 @@ public final class UsageRefreshJobService extends JobService {
                         UsageRefreshJobService usageRefreshJobService = UsageRefreshJobService.this;
                         JobParameters jobParameters = this.params;
                         usageRefreshJobService.jobFinished(jobParameters, false);
-                        if (this.chainedCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
+                        if (this.chainedCycle && RefreshScheduler.anySignedIn(UsageRefreshJobService.this.getApplicationContext())) {
                             RefreshScheduler.scheduleNextShort(UsageRefreshJobService.this.getApplicationContext(), this.params.getJobId());
                         }
                     }
@@ -118,7 +123,7 @@ public final class UsageRefreshJobService extends JobService {
                     UsageRefreshJobService.this.active.remove(Integer.valueOf(this.params.getJobId()), this);
                     if (!this.stopped) {
                         UsageRefreshJobService.this.jobFinished(this.params, !this.chainedCycle);
-                        if (this.chainedCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
+                        if (this.chainedCycle && RefreshScheduler.anySignedIn(UsageRefreshJobService.this.getApplicationContext())) {
                             RefreshScheduler.scheduleNextShort(UsageRefreshJobService.this.getApplicationContext(), this.params.getJobId());
                         }
                     }
@@ -130,7 +135,7 @@ public final class UsageRefreshJobService extends JobService {
                     UsageRefreshJobService usageRefreshJobService2 = UsageRefreshJobService.this;
                     JobParameters jobParameters2 = this.params;
                     usageRefreshJobService2.jobFinished(jobParameters2, false);
-                    if (this.chainedCycle && SecureTokenStore.isSignedIn(UsageRefreshJobService.this.getApplicationContext())) {
+                    if (this.chainedCycle && RefreshScheduler.anySignedIn(UsageRefreshJobService.this.getApplicationContext())) {
                         RefreshScheduler.scheduleNextShort(UsageRefreshJobService.this.getApplicationContext(), this.params.getJobId());
                     }
                 }

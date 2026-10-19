@@ -2167,6 +2167,22 @@ public final class ParserSelfTest {
         check("refresh_token".equals(refresh.get("grant_type"))
                         && ClaudeCodeApi.CLIENT_ID.equals(refresh.get("client_id")),
                 "Claude refresh body");
+        long minute = 60_000L;
+        long interval = ClaudeCodeApi.BACKGROUND_INTERVAL_MILLIS;
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 0L, 0L, interval),
+                "Claude refresh due with no cached data");
+        check(!ClaudeCodeApi.isRefreshDue(100 * minute, 90 * minute, 0L, interval),
+                "Claude background refresh waits 30 minutes");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 70 * minute, 0L, interval),
+                "Claude background refresh runs after 30 minutes");
+        check(!ClaudeCodeApi.isRefreshDue(100 * minute, 0L, 70 * minute, interval),
+                "Claude backs off for an hour after a 429");
+        check(ClaudeCodeApi.isRefreshDue(200 * minute, 0L, 70 * minute, interval),
+                "Claude retries once the 429 back-off ends");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 94 * minute, 0L, 5 * minute),
+                "widget refresh taps use the 5-minute spacing");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 200 * minute, 0L, interval),
+                "a cache from the future (clock change) does not block refresh");
         System.out.println("Claude Code OAuth: authorize URL, code exchange, refresh verified.");
     }
 

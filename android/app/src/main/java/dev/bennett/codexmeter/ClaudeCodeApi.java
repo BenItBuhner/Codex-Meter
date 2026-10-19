@@ -24,7 +24,22 @@ public final class ClaudeCodeApi {
     /** Claude Code's loopback callback path; any localhost port is accepted. */
     public static final String CALLBACK_PATH = "/callback";
 
+    /** Scheduled background refresh spacing; the usage route throttles frequent polling. */
+    public static final long BACKGROUND_INTERVAL_MILLIS = 30L * 60L * 1000L;
+    /** After an HTTP 429, background refresh waits this long before trying again. */
+    public static final long RATE_LIMIT_BACKOFF_MILLIS = 60L * 60L * 1000L;
+
     private ClaudeCodeApi() {
+    }
+
+    /** Background-refresh pacing: honor the 429 back-off, then the minimum spacing. */
+    public static boolean isRefreshDue(long now, long fetchedAt, long rateLimitedAt,
+            long minIntervalMillis) {
+        if (rateLimitedAt > 0L && now >= rateLimitedAt
+                && now - rateLimitedAt < RATE_LIMIT_BACKOFF_MILLIS) {
+            return false;
+        }
+        return fetchedAt <= 0L || now < fetchedAt || now - fetchedAt >= minIntervalMillis;
     }
 
     public static String redirectUri(int port) {

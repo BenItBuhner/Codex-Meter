@@ -26,6 +26,30 @@ public final class ClaudeUsageApi {
     private ClaudeUsageApi() {
     }
 
+    /**
+     * Called from the shared refresh job. Scheduled runs fetch Claude usage at most every 30
+     * minutes; a widget refresh tap allows one every 5 minutes. Both back off for an hour after
+     * a 429. Never throws, so the Codex refresh in the same job always runs.
+     */
+    public static void refreshInBackgroundIfDue(Context context, boolean userRequested) {
+        try {
+            if (!SecureTokenStore.isSignedIn(context, PROVIDER)) return;
+            long now = System.currentTimeMillis();
+            UsageSnapshot cached = ProviderPreferences.loadSnapshot(context, PROVIDER);
+            if (!ClaudeCodeApi.isRefreshDue(now,
+                    cached == null ? 0L : cached.fetchedAtMillis,
+                    ProviderPreferences.getRateLimitedAt(context, PROVIDER),
+                    userRequested ? STALE_AFTER_MILLIS
+                            : ClaudeCodeApi.BACKGROUND_INTERVAL_MILLIS)) {
+                return;
+            }
+            refreshAndCache(context);
+        } catch (Exception exception) {
+            DiagnosticLog.warn(context, "scheduler", "claude_background_refresh_failed",
+                    "error", exception.getClass().getSimpleName());
+        }
+    }
+
     public static boolean isStale(Context context) {
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, PROVIDER);
         return snapshot == null
@@ -44,6 +68,10 @@ public final class ClaudeUsageApi {
                     tokens = refresh(context, tokens);
                     SecureTokenStore.save(context, PROVIDER, tokens);
                     usage = get(context, "claude_usage", ClaudeCodeApi.USAGE_URL, tokens);
+                }
+                if (usage.status == 429) {
+                    ProviderPreferences.setRateLimitedAt(context, PROVIDER,
+                            System.currentTimeMillis());
                 }
                 if (usage.status < 200 || usage.status >= 300) {
                     throw new Exception(usageError(usage));
@@ -74,6 +102,7 @@ public final class ClaudeUsageApi {
                 if (!ProviderPreferences.saveSnapshot(context, PROVIDER, snapshot)) {
                     throw new Exception("Usage was received, but it could not be saved on this device.");
                 }
+                UsageHistoryRecorder.record(context, PROVIDER, snapshot);
                 DiagnosticLog.info(context, "refresh", "claude_usage_refresh_succeeded",
                         "duration_ms", SystemClock.elapsedRealtime() - started,
                         "five_hour", snapshot.fiveHour != null,

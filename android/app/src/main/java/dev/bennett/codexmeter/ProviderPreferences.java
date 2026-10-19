@@ -21,6 +21,9 @@ public final class ProviderPreferences {
     private static final String SUFFIX_ERROR = "_error";
     private static final String SUFFIX_ERROR_AT = "_error_at";
     private static final String SUFFIX_EMAIL = "_email";
+    private static final String SUFFIX_HISTORY = "_history_";
+    private static final String SUFFIX_RATE_LIMITED_AT = "_rate_limited_at";
+    private static final String KEY_WIDGET_PROVIDER = "widget_provider_";
 
     private ProviderPreferences() {
     }
@@ -106,14 +109,95 @@ public final class ProviderPreferences {
         prefs(context).edit().putString(provider.id + SUFFIX_EMAIL, email).apply();
     }
 
-    /** Removes cached usage, errors, and identity for a non-Codex provider after sign-out. */
+    /** When the provider last answered HTTP 429, so background refresh can back off. */
+    public static long getRateLimitedAt(Context context, UsageProvider provider) {
+        return prefs(context).getLong(provider.id + SUFFIX_RATE_LIMITED_AT, 0L);
+    }
+
+    public static void setRateLimitedAt(Context context, UsageProvider provider, long at) {
+        prefs(context).edit().putLong(provider.id + SUFFIX_RATE_LIMITED_AT, at).apply();
+    }
+
+    /** Provider a home-screen widget shows; widgets made before providers existed show Codex. */
+    public static UsageProvider getWidgetProvider(Context context, int appWidgetId) {
+        return UsageProvider.fromId(prefs(context).getString(KEY_WIDGET_PROVIDER + appWidgetId,
+                null));
+    }
+
+    public static void setWidgetProvider(Context context, int appWidgetId,
+            UsageProvider provider) {
+        prefs(context).edit().putString(KEY_WIDGET_PROVIDER + appWidgetId, provider.id).apply();
+    }
+
+    public static void clearWidgetProvider(Context context, int appWidgetId) {
+        prefs(context).edit().remove(KEY_WIDGET_PROVIDER + appWidgetId).apply();
+    }
+
+    /** Whether any home-screen widget is set to this provider. */
+    public static boolean hasWidgetFor(Context context, UsageProvider provider) {
+        for (java.util.Map.Entry<String, ?> entry : prefs(context).getAll().entrySet()) {
+            if (entry.getKey().startsWith(KEY_WIDGET_PROVIDER)
+                    && provider.id.equals(entry.getValue())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static UsageHistory loadUsageHistory(Context context, UsageProvider provider,
+            String kind) {
+        if (provider == UsageProvider.CODEX) {
+            return AppPreferences.loadUsageHistory(context, kind);
+        }
+        String stored = prefs(context).getString(provider.id + SUFFIX_HISTORY + kind, null);
+        if (stored == null || stored.isEmpty()) return UsageHistory.empty(kind);
+        try {
+            return UsageHistory.fromJson(new JSONObject(stored), kind);
+        } catch (Exception ignored) {
+            return UsageHistory.empty(kind);
+        }
+    }
+
+    public static boolean saveUsageHistory(Context context, UsageProvider provider,
+            UsageHistory history) {
+        if (history == null) return false;
+        if (provider == UsageProvider.CODEX) {
+            return AppPreferences.saveUsageHistory(context, history);
+        }
+        try {
+            return prefs(context).edit()
+                    .putString(provider.id + SUFFIX_HISTORY + history.kind,
+                            history.toJson().toString())
+                    .commit();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    public static void clearUsageHistory(Context context, UsageProvider provider) {
+        if (provider == UsageProvider.CODEX) {
+            AppPreferences.clearUsageHistory(context);
+            return;
+        }
+        prefs(context).edit()
+                .remove(provider.id + SUFFIX_HISTORY + UsageHistory.FIVE_HOUR)
+                .remove(provider.id + SUFFIX_HISTORY + UsageHistory.WEEKLY)
+                .remove(provider.id + SUFFIX_HISTORY + UsageHistory.MONTHLY)
+                .apply();
+    }
+
+    /** Removes cached usage, history, errors, and identity for a non-Codex provider. */
     public static void clearProvider(Context context, UsageProvider provider) {
         if (provider == UsageProvider.CODEX) return;
         prefs(context).edit()
+                .remove(provider.id + SUFFIX_HISTORY + UsageHistory.FIVE_HOUR)
+                .remove(provider.id + SUFFIX_HISTORY + UsageHistory.WEEKLY)
+                .remove(provider.id + SUFFIX_HISTORY + UsageHistory.MONTHLY)
                 .remove(provider.id + SUFFIX_SNAPSHOT)
                 .remove(provider.id + SUFFIX_ERROR)
                 .remove(provider.id + SUFFIX_ERROR_AT)
                 .remove(provider.id + SUFFIX_EMAIL)
+                .remove(provider.id + SUFFIX_RATE_LIMITED_AT)
                 .commit();
     }
 }

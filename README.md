@@ -32,7 +32,7 @@ Users can choose silent, notification-sound, or alarm-sound alerts for the five-
 
 ### Provider switcher (alpha)
 
-One UI bottom tabs under the dashboard switch between usage providers. **Codex** is the default and is unchanged. **Claude Code** signs in with your Claude account (the same OAuth flow and loopback callback the Claude Code CLI uses) and shows the 5-hour, weekly, per-model weekly (Opus/Sonnet), and extra-usage limits Claude Code reports in `/usage`. Claude usage is fetched only when you open or pull to refresh its tab, because Anthropic's usage route rate-limits background polling. Widgets, Now Bar, Wear, alerts, and burn history are still Codex-only. New providers plug in through `UsageProvider` and a tab entry in `res/menu/provider_tabs.xml`.
+One UI bottom tabs under the dashboard switch between usage providers. **Codex** is the default and is unchanged. **Claude Code** signs in with your Claude account (the same OAuth flow and loopback callback the Claude Code CLI uses) and shows the 5-hour, weekly, per-model weekly (Opus/Sonnet), and extra-usage limits Claude Code reports in `/usage`. Claude keeps its own usage history and burn-rate estimates, and any home-screen widget can show it (widget settings → Provider). Because Anthropic's usage route rate-limits polling, Claude refreshes when you open its tab (if older than 5 minutes), pull to refresh, or tap a Claude widget's refresh, and in the background at most every 30 minutes, backing off for an hour after a 429. Now Bar, Wear, lock-screen widgets, and reset alerts remain Codex-only. New providers plug in through `UsageProvider` and a tab entry in `res/menu/provider_tabs.xml`.
 
 ### Widget surfaces
 

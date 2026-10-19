@@ -42,6 +42,8 @@ import dev.oneuiproject.oneui.widget.BottomTabLayout;
 public final class MainActivity extends AppCompatActivity {
     private static final int MENU_SETTINGS = 8101;
     private static final int MENU_REORDER = 8102;
+    /** {@link UsageProvider#id} of the tab to open, e.g. from a Claude Code widget. */
+    public static final String EXTRA_PROVIDER = "provider";
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -232,6 +234,19 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void handleLaunchIntent(Intent intent) {
+        String requestedProvider = intent == null ? null
+                : intent.getStringExtra(EXTRA_PROVIDER);
+        if (requestedProvider != null) {
+            intent.removeExtra(EXTRA_PROVIDER);
+            UsageProvider requested = UsageProvider.fromId(requestedProvider);
+            if (requested != this.provider) {
+                this.provider = requested;
+                ProviderPreferences.setSelected(this, requested);
+                if (this.providerTabs != null) {
+                    this.providerTabs.setSelectedItem(tabId(requested));
+                }
+            }
+        }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
             this.launchSignInRequested = true;
             intent.removeExtra("start_sign_in");
@@ -492,7 +507,7 @@ public final class MainActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
-                addDashboardCard(column, buildUsageHistoryCard());
+                addDashboardCard(column, buildUsageHistoryCard(UsageProvider.CODEX));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
                 addDashboardCard(column, buildResetCreditsCard());
             } else {
@@ -534,11 +549,8 @@ public final class MainActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
                 snapshot.fetchedAtMillis, now);
-        // Burn history is only recorded for Codex; other providers get the window-only estimate.
-        UsagePace.Assessment pace = this.provider == UsageProvider.CODEX
-                ? UsagePacePreferences.assess(this, snapshot, window, now)
-                : UsagePace.assess(window, snapshot.fetchedAtMillis, now,
-                        UsagePacePreferences.getSensitivity(this));
+        UsagePace.Assessment pace = UsagePacePreferences.assess(this, this.provider, snapshot,
+                window, now);
         UsageWaveView wave = new UsageWaveView(this);
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
                 window.remainingPercent(),
@@ -549,10 +561,10 @@ public final class MainActivity extends AppCompatActivity {
         return card;
     }
 
-    private LinearLayout buildUsageHistoryCard() {
+    private LinearLayout buildUsageHistoryCard(UsageProvider target) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 12));
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, target);
         long now = System.currentTimeMillis();
         TextView title = Ui.text(this, "Usage history", 18, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
@@ -573,9 +585,9 @@ public final class MainActivity extends AppCompatActivity {
         if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView fiveChart = new UsageBurnChartView(this);
             fiveChart.setData("5-hour", fiveWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.FIVE_HOUR),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, fiveWindow, now));
             card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
@@ -584,9 +596,9 @@ public final class MainActivity extends AppCompatActivity {
         if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
             weeklyChart.setData("Weekly", weeklyWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.WEEKLY),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, weeklyWindow, now));
             card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
@@ -595,16 +607,17 @@ public final class MainActivity extends AppCompatActivity {
         if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
             monthlyChart.setData("Monthly", monthlyWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.MONTHLY),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, monthlyWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, monthlyWindow, now));
             card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
         if (!hasCharts) {
             TextView waiting = Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage windows.",
+                    "Charts appear once " + target.vendorName
+                            + " reports your 5-hour, weekly, or monthly usage windows.",
                     12, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams waitingParams = new LinearLayout.LayoutParams(-1, -2);
             waitingParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 8),
@@ -613,7 +626,7 @@ public final class MainActivity extends AppCompatActivity {
         }
 
         Button open = Ui.button(this, "View history", false, this.dark);
-        open.setOnClickListener(view -> Ui.startSecondaryActivity(this, UsageHistoryActivity.class));
+        open.setOnClickListener(view -> UsageHistoryActivity.open(this, target));
         LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
@@ -1088,6 +1101,8 @@ public final class MainActivity extends AppCompatActivity {
         AppPreferences.clearSnapshot(this);
         AppPreferences.setOAuthPending(this, false, "");
         RefreshScheduler.cancelAll(this);
+        // Keeps background refresh alive for other signed-in providers.
+        RefreshScheduler.schedulePeriodic(this);
         ResetAlertScheduler.cancelAll(this);
         WidgetRenderer.updateAll(this);
         rebuild();
@@ -1166,6 +1181,11 @@ public final class MainActivity extends AppCompatActivity {
             emptyParams.setMargins(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
             column.addView(empty, emptyParams);
         }
+        if (snapshot != null && snapshot.fetchedAtMillis > 0L
+                && AppPreferences.showDashboardUsageHistory(this)
+                && (snapshot.fiveHour != null || snapshot.weekly != null)) {
+            addDashboardCard(column, buildUsageHistoryCard(target));
+        }
         this.content.addView(column);
         Ui.addSpacer(this.content, 20);
         this.content.addView(buildProviderAccountCard(target, snapshot));
@@ -1239,6 +1259,7 @@ public final class MainActivity extends AppCompatActivity {
                 if (target == UsageProvider.CLAUDE_CODE) {
                     ClaudeUsageApi.refreshAndCache(applicationContext);
                 }
+                WidgetRenderer.updateAll(applicationContext);
             } catch (Exception e) {
                 failure = safeMessage(e);
             }
@@ -1271,6 +1292,8 @@ public final class MainActivity extends AppCompatActivity {
         DiagnosticLog.info(this, "user", "sign_out_confirmed", "provider", target.id);
         SecureTokenStore.clear(this, target);
         ProviderPreferences.clearProvider(this, target);
+        RefreshScheduler.schedulePeriodic(this);
+        WidgetRenderer.updateAll(this);
         if (ProviderPreferences.isSignInPending(this, target)) {
             AppPreferences.setOAuthPending(this, false, "");
         }

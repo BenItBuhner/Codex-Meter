@@ -490,6 +490,8 @@ public final class SettingsActivity extends AppCompatActivity {
                         AppPreferences.clearSnapshot(requireContext());
                         AppPreferences.setOAuthPending(requireContext(), false, "");
                         RefreshScheduler.cancelAll(requireContext());
+                        // Keeps background refresh alive for other signed-in providers.
+                        RefreshScheduler.schedulePeriodic(requireContext());
                         ResetAlertScheduler.cancelAll(requireContext());
                         WidgetRenderer.updateAll(requireContext());
                         Toast.makeText(requireContext(), "Signed out.", Toast.LENGTH_SHORT).show();
