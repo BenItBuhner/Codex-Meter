@@ -123,6 +123,17 @@ jobs:
           }
           EOF
 
+      - name: Add provider-selection logging (CI only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=android/app/src/main/java/dev/bennett/codexmeter/MainActivity.java
+          perl -0pi -e 's/(private void selectProvider\(UsageProvider selected\) \{\n)/$1        android.util.Log.w("ProviderDebug", "selectProvider " + selected + " current=" + this.provider, new Throwable());\n/' "$F"
+          perl -0pi -e 's/(private void handleLaunchIntent\(Intent intent\) \{\n)/$1        android.util.Log.w("ProviderDebug", "handleLaunchIntent extra=" + (intent == null ? null : intent.getStringExtra(EXTRA_PROVIDER)) + " current=" + this.provider);\n/' "$F"
+          perl -0pi -e 's/(this\.provider = ProviderPreferences\.getSelected\(this\);\n)/$1        android.util.Log.w("ProviderDebug", "onCreate selected=" + this.provider);\n/' "$F"
+          perl -0pi -e 's/(public void rebuild\(\) \{\n)/$1        android.util.Log.w("ProviderDebug", "rebuild provider=" + this.provider);\n/' "$F"
+          grep -n "ProviderDebug" "$F"
+
       - name: Build debug APK
         working-directory: android
         run: |
@@ -168,6 +179,10 @@ jobs:
           print(best[0], best[1])
           PY
           }
+          adb logcat -c || true
+          seed claude_code signed_in;         shot 00-claude-tab-fresh-launch
+          adb logcat -d -s ProviderDebug:* AndroidRuntime:E > "$OUT/logcat-00.txt" || true
+          adb logcat -c || true
           seed codex signed_in;               shot 01-codex-tab
           tap_text "Claude Code";             shot 02-claude-tab-after-tapping
           adb shell input swipe 540 1700 540 700 600; shot 03-claude-tab-scrolled
@@ -176,6 +191,7 @@ jobs:
           seed claude_code signed_in;         shot 05-claude-tab-dark
           adb shell cmd uimode night no
           seed claude_code claude_signed_out; shot 06-claude-signed-out
+          adb logcat -d -s ProviderDebug:* AndroidRuntime:E DebugSeed:* > "$OUT/logcat-rest.txt" || true
           EOF
           chmod +x "$RUNNER_TEMP/capture.sh"
 
