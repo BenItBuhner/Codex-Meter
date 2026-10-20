@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- First-run setup now asks which providers to track (Codex, Claude Code, Cursor; nothing preselected), then walks through signing in to each one, with Skip for now on every sign-in step. Android and iOS.
+- Upgrading installs that never chose providers start with only Codex on (plus any provider already signed in), so a Codex-only install shows no tab bar.
+- Accounts moved off the dashboards: Settings opens with a compact Accounts list, one row per provider on the dashboard with its email and plan, to sign in or out. Settings → Providers shows who is signed in.
+
+### Development
+
+- Self-tests cover the upgrade default for provider tabs and the provider-count-aware setup steps.
+
 ## 2.9.0-alpha.1 — 2026-10-19
 
 ### Added
