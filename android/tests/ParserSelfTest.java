@@ -762,7 +762,7 @@ public final class ParserSelfTest {
                 "weekly widget meter falls back to the monthly window");
         check("Mo".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, snapshot)),
                 "weekly widget meter relabels to Mo on the free tier");
-        check("Codex · Monthly".equals(
+        check("Monthly".equals(
                         WidgetMeters.configLabel(WidgetMeters.WEEKLY, snapshot)),
                 "widget config row names the monthly window");
         check("Wk".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, pro)),
