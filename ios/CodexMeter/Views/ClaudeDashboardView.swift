@@ -31,8 +31,6 @@ struct ClaudeDashboardView: View {
                         )
                     }
 
-                    ClaudeAccountCard()
-
                     if let usage = claude.usage {
                         ClaudeStatusStrip(usage: usage, isCached: claude.isUsingCachedData)
                         ClaudeMeters(usage: usage, isRegular: horizontalSizeClass == .regular)
@@ -93,19 +91,25 @@ private struct ClaudeStatusStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                HStack(spacing: 6) {
-                    Image(systemName: isCached ? "internaldrive" : "checkmark.circle")
-                        .foregroundStyle(isCached ? .orange : .secondary)
-                    Text(
-                        isCached
-                            ? "Showing cached data · \(UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date))"
-                            : UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date)
-                    )
+            HStack(spacing: 10) {
+                if !usage.planType.isEmpty {
+                    PlanBadge(title: usage.planType)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityElement(children: .combine)
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    HStack(spacing: 6) {
+                        Image(systemName: isCached ? "internaldrive" : "checkmark.circle")
+                            .foregroundStyle(isCached ? .orange : .secondary)
+                        Text(
+                            isCached
+                                ? "Showing cached data · \(UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date))"
+                                : UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date)
+                        )
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
+                }
+                Spacer(minLength: 0)
             }
 
             if usage.limitReached {
@@ -159,58 +163,6 @@ private struct ClaudeMeters: View {
             accent: .brown,
             fetchedAt: usage.fetchedAt
         )
-    }
-}
-
-private struct ClaudeAccountCard: View {
-    @Environment(AppModel.self) private var model
-    @State private var isConfirmingSignOut = false
-
-    var body: some View {
-        let claude = model.claude
-
-        HStack(spacing: 14) {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 34))
-                .foregroundStyle(.tint)
-                .symbolRenderingMode(.hierarchical)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(claude.accountEmail.isEmpty ? "Claude account" : claude.accountEmail)
-                    .font(.headline)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                if !claude.accountPlan.isEmpty {
-                    PlanBadge(title: claude.accountPlan)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            if claude.phase == .live {
-                Button("Sign out", role: .destructive) {
-                    isConfirmingSignOut = true
-                }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("Sign out of Claude")
-            }
-        }
-        .padding(AppChrome.cardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
-        .confirmationDialog(
-            "Sign out of Claude?",
-            isPresented: $isConfirmingSignOut,
-            titleVisibility: .visible
-        ) {
-            Button("Sign out", role: .destructive) {
-                Task { await model.claude.signOut() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Removes the Claude sign-in and cached Claude usage from this device. Your ChatGPT session is not affected.")
-        }
     }
 }
 

@@ -56,6 +56,7 @@ final class AppModel {
     private static let providerDefaultsKey = "codex-meter.selected-provider-v1"
     private static let enabledProvidersDefaultsKey = "codex-meter.enabled-providers-v1"
     private static let providerOrderDefaultsKey = "codex-meter.provider-order-v1"
+    private static let onboardingCompleteDefaultsKey = "codex-meter.onboarding-complete-v1"
 
     /// Claude Code tab state. Independent of the Codex session below.
     let claude: ClaudeUsageModel
@@ -63,9 +64,10 @@ final class AppModel {
     let cursor: CursorUsageModel
     /// The dashboard tab. Codex stays the default; the choice is remembered.
     var selectedProvider: UsageProvider = .defaultProvider
-    /// Providers shown as dashboard tabs (Settings → Providers), in tab order. All by default;
-    /// with only one on, the tab bar is hidden.
-    private(set) var enabledProviders: [UsageProvider] = UsageProvider.allCases
+    /// Providers shown as dashboard tabs (Settings → Providers), in tab order. Chosen during
+    /// first-run setup; an upgrade that never chose keeps Codex plus providers already signed
+    /// in. With only one on, the tab bar is hidden.
+    private(set) var enabledProviders: [UsageProvider] = [.codex]
     /// Every provider in the tab order chosen in Settings → Providers.
     private(set) var providerOrder: [UsageProvider] = UsageProvider.allCases
     var mode: AppMode = .signedOut
@@ -90,6 +92,8 @@ final class AppModel {
     var isShowingSettings = false
     var isShowingReset = false
     var isShowingSignIn = false
+    /// First-run setup, shown once on a fresh install.
+    var isShowingOnboarding = false
     var diagnosticsUnlocked = false
 
     private let liveService: LiveCodexService
@@ -108,6 +112,9 @@ final class AppModel {
 #endif
     private var signInTask: Task<Void, Never>?
     private let isPreview: Bool
+    /// True once a provider list was saved (setup or Settings → Providers), or a UI test set
+    /// one; until then the tabs follow `UsageProvider.migrationDefault(signedIn:)`.
+    private var hasProviderChoice: Bool
 
     @ObservationIgnored
     private lazy var backgroundRefreshCoordinator = BackgroundRefreshCoordinator { [weak self] in
@@ -132,9 +139,11 @@ final class AppModel {
     ) {
         self.claude = claude ?? ClaudeUsageModel(preview: preview)
         self.cursor = cursor ?? CursorUsageModel(preview: preview)
-        var enabledProviders = UsageProvider.enabled(
-            from: defaults.stringArray(forKey: Self.enabledProvidersDefaultsKey)
-        )
+        let savedProviders = defaults.stringArray(forKey: Self.enabledProvidersDefaultsKey) ?? []
+        var hasProviderChoice = !savedProviders.isEmpty
+        // Sign-in state isn't known yet; `resolveProviderSetup()` adds signed-in providers to
+        // the migration default once the sessions load.
+        var enabledProviders = UsageProvider.enabled(from: savedProviders)
         var providerOrder = UsageProvider.order(
             from: defaults.stringArray(forKey: Self.providerOrderDefaultsKey)
         )
@@ -143,8 +152,10 @@ final class AppModel {
         if arguments.contains("-ui-testing-reset-settings") {
             defaults.removeObject(forKey: Self.enabledProvidersDefaultsKey)
             defaults.removeObject(forKey: Self.providerOrderDefaultsKey)
+            // Every tab, in memory only, so the UI tests can walk all three.
             enabledProviders = UsageProvider.allCases
             providerOrder = UsageProvider.allCases
+            hasProviderChoice = true
         }
         // In memory only, so a test that narrows or reorders the tabs never leaks into the next
         // one. The listed providers are turned on, in the listed order.
@@ -152,8 +163,18 @@ final class AppModel {
             let ids = arguments[index + 1].split(separator: ",").map(String.init)
             enabledProviders = UsageProvider.enabled(from: ids)
             providerOrder = UsageProvider.order(from: ids)
+            hasProviderChoice = true
+        }
+        if arguments.contains("-ui-testing-onboarding") {
+            defaults.removeObject(forKey: Self.onboardingCompleteDefaultsKey)
+            defaults.removeObject(forKey: Self.enabledProvidersDefaultsKey)
+            defaults.removeObject(forKey: Self.providerOrderDefaultsKey)
+            enabledProviders = [.codex]
+            providerOrder = UsageProvider.allCases
+            hasProviderChoice = false
         }
 #endif
+        self.hasProviderChoice = hasProviderChoice
         enabledProviders = UsageProvider.inOrder(enabledProviders, order: providerOrder)
         self.providerOrder = providerOrder
         self.enabledProviders = enabledProviders
@@ -248,6 +269,11 @@ final class AppModel {
             hasFinishedStartup = true
             applyPendingRouteIfNeeded()
         }
+        await startSession()
+        await resolveProviderSetup()
+    }
+
+    private func startSession() async {
         notificationPermissionState = await notificationCoordinator.permissionState()
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") {
@@ -635,6 +661,111 @@ final class AppModel {
         }
     }
 
+    // MARK: Provider accounts and first-run setup
+
+    /// A real (not demo) session exists for `provider`.
+    func isSignedIn(_ provider: UsageProvider) -> Bool {
+        switch provider {
+        case .codex: mode == .live
+        case .claudeCode: claude.phase == .live
+        case .cursor: cursor.phase == .live
+        }
+    }
+
+    func accountEmail(for provider: UsageProvider) -> String {
+        switch provider {
+        case .codex: accountEmail
+        case .claudeCode: claude.accountEmail
+        case .cursor: cursor.accountEmail
+        }
+    }
+
+    func accountPlan(for provider: UsageProvider) -> String {
+        switch provider {
+        case .codex: accountPlan
+        case .claudeCode: claude.accountPlan
+        case .cursor: cursor.accountPlan
+        }
+    }
+
+    /// Signs out of one provider; the others keep their sessions.
+    func signOut(provider: UsageProvider) async {
+        switch provider {
+        case .codex: await signOut()
+        case .claudeCode: await claude.signOut()
+        case .cursor: await cursor.signOut()
+        }
+    }
+
+    private var signedInProviders: Set<UsageProvider> {
+        Set(UsageProvider.allCases.filter { isSignedIn($0) })
+    }
+
+    /// After the sessions load: give an upgrade that never chose providers its migration
+    /// default, then decide whether this is a fresh install that needs first-run setup.
+    private func resolveProviderSetup() async {
+        await claude.loadIfNeeded()
+        await cursor.loadIfNeeded()
+        if !hasProviderChoice {
+            let updated = UsageProvider.inOrder(
+                UsageProvider.migrationDefault(signedIn: signedInProviders),
+                order: providerOrder
+            )
+            if updated != enabledProviders {
+                enabledProviders = updated
+                select(provider: UsageProvider.visibleSelection(selectedProvider, enabled: updated))
+            }
+        }
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-testing-onboarding") {
+            isShowingOnboarding = true
+            return
+        }
+        // Other UI-testing launches go straight to the dashboard they set up.
+        if arguments.contains(where: { $0.hasPrefix("-ui-testing") }) {
+            return
+        }
+#endif
+        let completed = defaults.bool(forKey: Self.onboardingCompleteDefaultsKey)
+        let hasExistingSetup = mode != .signedOut || usage != nil
+            || claude.phase != .signedOut || cursor.phase != .signedOut
+        if OnboardingFlow.shouldShow(completed: completed, hasExistingSetup: hasExistingSetup) {
+            isShowingOnboarding = true
+        } else if !completed {
+            // Installs from before setup existed never see it.
+            defaults.set(true, forKey: Self.onboardingCompleteDefaultsKey)
+        }
+    }
+
+    /// Saves the providers picked during setup as the dashboard tabs.
+    func chooseProviders(_ chosen: [UsageProvider]) {
+        guard !chosen.isEmpty else { return }
+        let updated = UsageProvider.inOrder(chosen, order: providerOrder)
+        enabledProviders = updated
+        hasProviderChoice = true
+        defaults.set(updated.map(\.rawValue), forKey: Self.enabledProvidersDefaultsKey)
+        DiagnosticLog.info("process", "providers_chosen", details: [
+            "providers": updated.map(\.rawValue).joined(separator: ",")
+        ])
+        select(provider: UsageProvider.visibleSelection(selectedProvider, enabled: updated))
+    }
+
+    func finishOnboarding() {
+        defaults.set(true, forKey: Self.onboardingCompleteDefaultsKey)
+        isShowingOnboarding = false
+        DiagnosticLog.info("process", "onboarding_finished")
+    }
+
+    /// "Explore demo" from setup: every provider gets a tab with local demo data.
+    func finishOnboardingWithDemo() async {
+        if !hasProviderChoice {
+            chooseProviders(UsageProvider.allCases)
+        }
+        finishOnboarding()
+        await enterDemo()
+    }
+
     /// Turns a provider's tab on or off. The last provider can't be turned off, and turning off
     /// the selected tab moves to the first provider still on.
     func setProvider(_ provider: UsageProvider, enabled on: Bool) {
@@ -644,6 +775,7 @@ final class AppModel {
         )
         guard updated != enabledProviders else { return }
         enabledProviders = updated
+        hasProviderChoice = true
         defaults.set(updated.map(\.rawValue), forKey: Self.enabledProvidersDefaultsKey)
         DiagnosticLog.info("process", "provider_enabled_changed", details: [
             "provider": provider.rawValue,
