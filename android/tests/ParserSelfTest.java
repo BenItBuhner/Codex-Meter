@@ -61,6 +61,7 @@ public final class ParserSelfTest {
         testDiagnosticSanitizer();
         testSettingsTransfer();
         testUsageProviders();
+        testWidgetProviders();
         testClaudeUsageParsing();
         testClaudeOAuthRequests();
         testCursorUsageParsing();
@@ -2052,6 +2053,61 @@ public final class ParserSelfTest {
                     "minimal mode hides every optional highlight");
         }
         System.out.println("History highlights: minimal defaults + per-insight overrides verified.");
+    }
+
+    private static void testWidgetProviders() {
+        java.util.List<UsageProvider> order = java.util.Arrays.asList(UsageProvider.CURSOR,
+                UsageProvider.CODEX, UsageProvider.CLAUDE_CODE);
+        check(WidgetProviders.parse("claude_code").equals(
+                java.util.Arrays.asList(UsageProvider.CLAUDE_CODE)),
+                "a single saved widget provider parses as one item");
+        check(WidgetProviders.parse(" cursor,codex,cursor,bogus ").equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "widget providers keep order and skip duplicates and unknown ids");
+        check(WidgetProviders.parse(null).isEmpty() && WidgetProviders.parse(" ").isEmpty(),
+                "no saved widget providers parses empty");
+        check("codex,claude_code".equals(WidgetProviders.serialize(java.util.Arrays.asList(
+                UsageProvider.CODEX, UsageProvider.CLAUDE_CODE))),
+                "widget providers serialize as csv");
+        java.util.List<UsageProvider> one = java.util.Arrays.asList(UsageProvider.CODEX);
+        check(WidgetProviders.toggled(one, UsageProvider.CODEX, false, order, 3).equals(one),
+                "the last widget provider can't be turned off");
+        check(WidgetProviders.toggled(one, UsageProvider.CURSOR, true, order, 3).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "turning a widget provider on follows tab order");
+        java.util.List<UsageProvider> two = java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE);
+        check(WidgetProviders.toggled(two, UsageProvider.CURSOR, true, order, 2).equals(two),
+                "wide lock widgets refuse a third provider");
+        check(WidgetProviders.fallback(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR)) == UsageProvider.CODEX,
+                "unsaved widgets stay on Codex while it's signed in");
+        check(WidgetProviders.fallback(order, java.util.Arrays.asList(UsageProvider.CLAUDE_CODE,
+                UsageProvider.CURSOR)) == UsageProvider.CURSOR,
+                "unsaved widgets without Codex follow tab order");
+        check(WidgetProviders.fallback(order, java.util.Collections.emptyList())
+                == UsageProvider.CODEX, "unsaved widgets with nobody signed in show Codex");
+        java.util.List<String> both = java.util.Arrays.asList(WidgetMeters.FIVE_HOUR,
+                WidgetMeters.WEEKLY, WidgetMeters.NEXT_RESET);
+        check(WidgetProviders.metersFor(both, true, true, 2).equals(java.util.Arrays.asList(
+                WidgetMeters.FIVE_HOUR, WidgetMeters.WEEKLY)),
+                "multi-provider rows take both usage meters when they fit");
+        check(WidgetProviders.metersFor(both, false, true, 1).equals(java.util.Arrays.asList(
+                WidgetMeters.WEEKLY)), "Cursor rows skip the missing five-hour window");
+        check(WidgetProviders.metersFor(java.util.Arrays.asList(WidgetMeters.FIVE_HOUR), false,
+                true, 1).equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
+                "a provider without the chosen meter falls back to its long window");
+        check(WidgetProviders.metersFor(both, false, false, 1).equals(java.util.Arrays.asList(
+                WidgetMeters.FIVE_HOUR)), "signed-out providers keep a placeholder meter");
+        check(WidgetProviders.metersPerProvider(2, 4) == 2
+                && WidgetProviders.metersPerProvider(3, 4) == 1
+                && WidgetProviders.metersPerProvider(2, 2) == 1,
+                "providers get two rows only when all of them fit twice");
+        check("Codex + Claude Code".equals(WidgetProviders.summary(two))
+                && "Cursor + 2 more".equals(WidgetProviders.summary(order)),
+                "widget provider summary");
+        check("CLAUDE".equals(WidgetProviders.shortTag(UsageProvider.CLAUDE_CODE)),
+                "lock labels use short provider tags");
     }
 
     private static void testUsageProviders() {

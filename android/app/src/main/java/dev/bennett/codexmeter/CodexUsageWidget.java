@@ -55,10 +55,8 @@ public final class CodexUsageWidget extends AppWidgetProvider {
                         AppPreferences.loadWidgetOptions(context, oldId));
                 AppPreferences.saveWidgetTapAction(context, newId,
                         AppPreferences.getWidgetTapAction(context, oldId));
-                ProviderPreferences.setWidgetProvider(context, newId,
-                        ProviderPreferences.getWidgetProvider(context, oldId));
+                ProviderPreferences.moveWidgetProviders(context, oldId, newId);
                 AppPreferences.deleteWidgetOptions(context, oldId);
-                ProviderPreferences.clearWidgetProvider(context, oldId);
             }
         }
         if (newWidgetIds != null) {
