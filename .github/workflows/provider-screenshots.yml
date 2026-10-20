@@ -124,7 +124,8 @@ jobs:
                                   .putInt("onboarding_step",
                                           Integer.parseInt(getIntent().getStringExtra("step")))
                                   .putString("onboarding_providers",
-                                          getIntent().getStringExtra("picked"))
+                                          "none".equals(getIntent().getStringExtra("picked"))
+                                                  ? "" : getIntent().getStringExtra("picked"))
                                   .commit();
                           target = OnboardingActivity.class;
                       } else {
@@ -187,7 +188,7 @@ jobs:
           adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
           adb shell settings put secure anr_show_background 0 || true
           shot() { sleep 6; adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true; sleep 1; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
-          seed() { adb shell am force-stop $PKG; sleep 1; adb shell am start -W -n $PKG/.DebugSeedActivity --es provider "$1" --es mode "$2" --es enabled "${3:-codex,claude_code,cursor}" --es step "${4:-0}" --es picked "${5:-}"; }
+          seed() { adb shell am force-stop $PKG; sleep 1; adb shell am start -W -n $PKG/.DebugSeedActivity --es provider "$1" --es mode "$2" --es enabled "${3:-codex,claude_code,cursor}" --es step "${4:-0}" --es picked "${5:-none}"; }
           scroll_down() { adb shell input swipe 540 1900 540 500 400; }
           tap_text() {
             adb shell uiautomator dump /sdcard/ui.xml >/dev/null
