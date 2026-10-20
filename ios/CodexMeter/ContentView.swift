@@ -39,6 +39,9 @@ struct ContentView: View {
             }
             .interactiveDismissDisabled(model.isAuthenticating)
         }
+        .fullScreenCover(isPresented: $model.isShowingOnboarding) {
+            OnboardingView()
+        }
         .preferredColorScheme(model.settings.appearance.colorScheme)
         .onOpenURL { model.handle(url: $0) }
     }
