@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -5,7 +6,8 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    @State private var confirmingSignOut = false
+    @State private var signingIn: UsageProvider?
+    @State private var confirmingSignOut: UsageProvider?
     @State private var isExportingSettings = false
     @State private var isImportingSettings = false
     @State private var transferMessage: String?
@@ -14,30 +16,10 @@ struct SettingsView: View {
         @Bindable var model = model
 
         Form {
-            Section("Account") {
-                if model.mode == .live {
-                    LabeledContent("ChatGPT account", value: model.accountEmail.isEmpty ? "Connected" : model.accountEmail)
-                    if !model.accountPlan.isEmpty {
-                        LabeledContent("Plan", value: model.accountPlan)
-                    }
-                    Button("Sign out", role: .destructive) {
-                        confirmingSignOut = true
-                    }
-                } else if model.mode == .demo {
-                    LabeledContent("Mode", value: "Demo")
-                    Button("Leave Demo", role: .destructive) {
-                        Task {
-                            await model.leaveDemo()
-                            dismiss()
-                        }
-                    }
-                } else {
-                    Button("Sign in with ChatGPT") {
-                        dismiss()
-                        model.isShowingSignIn = true
-                    }
-                }
-            }
+            ProviderAccountsSection(
+                signingIn: $signingIn,
+                confirmingSignOut: $confirmingSignOut
+            )
 
             Section("Appearance") {
                 Picker("Appearance", selection: $model.settings.appearance) {
@@ -46,6 +28,21 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+            }
+
+            Section {
+                NavigationLink {
+                    ProvidersSettingsView()
+                } label: {
+                    LabeledContent {
+                        Text(model.enabledProviders.map(\.displayName).joined(separator: ", "))
+                    } label: {
+                        Label("Providers", systemImage: "square.grid.2x2")
+                    }
+                }
+                .accessibilityIdentifier("settings-providers")
+            } footer: {
+                Text("Choose which providers get a tab at the bottom of the dashboard, and their order.")
             }
 
             Section {
@@ -194,21 +191,10 @@ struct SettingsView: View {
         .task {
             await model.refreshNotificationPermissionState()
         }
-        .confirmationDialog(
-            "Sign out of ChatGPT?",
-            isPresented: $confirmingSignOut,
-            titleVisibility: .visible
-        ) {
-            Button("Sign out", role: .destructive) {
-                Task {
-                    await model.signOut()
-                    dismiss()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Credentials and cached account data will be removed from this device and its widgets.")
-        }
+        .providerAccountPresentations(
+            signingIn: $signingIn,
+            confirmingSignOut: $confirmingSignOut
+        )
         .fileExporter(
             isPresented: $isExportingSettings,
             document: SettingsTransferDocument(settings: model.settings),
