@@ -27,24 +27,57 @@ public final class SecureTokenStore {
     private SecureTokenStore() {
     }
 
+    /** Codex (ChatGPT) credentials: the original, unchanged storage slot. */
     public static void save(Context context, AuthTokens authTokens) throws Exception {
+        save(context, UsageProvider.CODEX, authTokens);
+    }
+
+    public static AuthTokens load(Context context) {
+        return load(context, UsageProvider.CODEX);
+    }
+
+    public static boolean isSignedIn(Context context) {
+        return load(context) != null;
+    }
+
+    public static void clear(Context context) {
+        clear(context, UsageProvider.CODEX);
+    }
+
+    public static boolean isSignedIn(Context context, UsageProvider provider) {
+        return load(context, provider) != null;
+    }
+
+    /** Each provider gets its own prefs file and Keystore key so sign-outs never cross over. */
+    private static String prefsName(UsageProvider provider) {
+        return provider == UsageProvider.CODEX ? PREFS : "secure_auth_" + provider.id + "_v1";
+    }
+
+    private static String keyAlias(UsageProvider provider) {
+        return provider == UsageProvider.CODEX ? KEY_ALIAS
+                : "codex_meter_" + provider.id + "_auth_key_v1";
+    }
+
+    public static void save(Context context, UsageProvider provider, AuthTokens authTokens)
+            throws Exception {
         synchronized (LOCK) {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(1, getOrCreateKey());
+            cipher.init(1, getOrCreateKey(keyAlias(provider)));
             byte[] bArrDoFinal = cipher.doFinal(authTokens.toJson().toString().getBytes(StandardCharsets.UTF_8));
             JSONObject jSONObject = new JSONObject();
             jSONObject.put("iv", Base64.getEncoder().encodeToString(cipher.getIV()));
             jSONObject.put("ct", Base64.getEncoder().encodeToString(bArrDoFinal));
-            if (!context.getSharedPreferences(PREFS, 0).edit().putString(KEY_BLOB, jSONObject.toString()).commit()) {
+            if (!context.getSharedPreferences(prefsName(provider), 0).edit().putString(KEY_BLOB, jSONObject.toString()).commit()) {
                 throw new Exception("Could not persist encrypted credentials.");
             }
         }
     }
 
-    public static AuthTokens load(Context context) {
+    public static AuthTokens load(Context context, UsageProvider provider) {
         AuthTokens authTokens = null;
         synchronized (LOCK) {
-            SharedPreferences sharedPreferences = context.getSharedPreferences(PREFS, 0);
+            SharedPreferences sharedPreferences =
+                    context.getSharedPreferences(prefsName(provider), 0);
             String string = sharedPreferences.getString(KEY_BLOB, null);
             if (string != null && !string.isEmpty()) {
                 try {
@@ -52,7 +85,7 @@ public final class SecureTokenStore {
                     byte[] bArrDecode = Base64.getDecoder().decode(jSONObject.getString("iv"));
                     byte[] bArrDecode2 = Base64.getDecoder().decode(jSONObject.getString("ct"));
                     Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-                    cipher.init(2, getOrCreateKey(), new GCMParameterSpec(128, bArrDecode));
+                    cipher.init(2, getOrCreateKey(keyAlias(provider)), new GCMParameterSpec(128, bArrDecode));
                     AuthTokens authTokensFromJson = AuthTokens.fromJson(new JSONObject(new String(cipher.doFinal(bArrDecode2), StandardCharsets.UTF_8)));
                     if (!authTokensFromJson.isUsable()) {
                         authTokensFromJson = null;
@@ -66,33 +99,29 @@ public final class SecureTokenStore {
         return authTokens;
     }
 
-    public static boolean isSignedIn(Context context) {
-        return load(context) != null;
-    }
-
-    public static void clear(Context context) {
+    public static void clear(Context context, UsageProvider provider) {
         synchronized (LOCK) {
-            context.getSharedPreferences(PREFS, 0).edit().clear().commit();
+            context.getSharedPreferences(prefsName(provider), 0).edit().clear().commit();
             try {
                 KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
                 keyStore.load(null);
-                if (keyStore.containsAlias(KEY_ALIAS)) {
-                    keyStore.deleteEntry(KEY_ALIAS);
+                if (keyStore.containsAlias(keyAlias(provider))) {
+                    keyStore.deleteEntry(keyAlias(provider));
                 }
             } catch (Exception e) {
             }
         }
     }
 
-    private static SecretKey getOrCreateKey() throws Exception {
+    private static SecretKey getOrCreateKey(String alias) throws Exception {
         KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
         keyStore.load(null);
-        Key key = keyStore.getKey(KEY_ALIAS, null);
+        Key key = keyStore.getKey(alias, null);
         if (key instanceof SecretKey) {
             return (SecretKey) key;
         }
         KeyGenerator keyGenerator = KeyGenerator.getInstance("AES", "AndroidKeyStore");
-        keyGenerator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setRandomizedEncryptionRequired(true).build());
+        keyGenerator.init(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setRandomizedEncryptionRequired(true).build());
         return keyGenerator.generateKey();
     }
 }
