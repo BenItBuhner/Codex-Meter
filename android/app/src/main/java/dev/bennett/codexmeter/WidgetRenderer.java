@@ -66,7 +66,8 @@ public final class WidgetRenderer {
                     remoteViewsBuildViews = buildResponsiveWidget(context, i, widgetOptionsLoadWidgetOptions);
                 } else {
                     remoteViewsBuildViews = buildViews(context, i, widgetOptionsLoadWidgetOptions,
-                            styleForSize(context, appWidgetOptions, widgetOptionsLoadWidgetOptions),
+                            styleForSize(context, appWidgetOptions, widgetOptionsLoadWidgetOptions,
+                                    ProviderPreferences.getWidgetProviders(context, i)),
                             appWidgetOptions);
                 }
                 appWidgetManager.updateAppWidget(i, remoteViewsBuildViews);
@@ -87,49 +88,52 @@ public final class WidgetRenderer {
     @SuppressLint({"NewApi", "UseRequiresApi"})
     private static RemoteViews buildResponsiveWidget(Context context, int i, WidgetOptions widgetOptions) {
         LinkedHashMap<SizeF, RemoteViews> linkedHashMap = new LinkedHashMap<>();
-        boolean single = widgetOptions.singleMetric();
-        String compactStyle = preferVisualStyle(widgetOptions, WidgetMeters.VISUAL_RINGS);
+        List<UsageProvider> providers = ProviderPreferences.getWidgetProviders(context, i);
+        boolean single = providers.size() == 1 && widgetOptions.singleMetric();
+        String compactStyle = preferVisualStyle(widgetOptions, WidgetMeters.VISUAL_RINGS, single);
         String wideShortStyle = preferVisualStyle(widgetOptions,
-                single ? WidgetMeters.VISUAL_RINGS : WidgetMeters.VISUAL_FOUR_DIALS);
+                single ? WidgetMeters.VISUAL_RINGS : WidgetMeters.VISUAL_FOUR_DIALS, single);
         String tallStyle = preferVisualStyle(widgetOptions,
-                single ? WidgetMeters.VISUAL_DIALS : WidgetMeters.VISUAL_BATTERY_LIST);
+                single ? WidgetMeters.VISUAL_DIALS : WidgetMeters.VISUAL_BATTERY_LIST, single);
         linkedHashMap.put(new SizeF(110.0f, 60.0f),
                 buildViews(context, i, widgetOptions, compactStyle,
-                        sizeBundle(110, 70), GRAPHIC_STANDARD));
+                        sizeBundle(110, 70), GRAPHIC_STANDARD, providers));
         linkedHashMap.put(new SizeF(250.0f, 60.0f),
                 buildViews(context, i, widgetOptions, wideShortStyle,
-                        sizeBundle(250, 70), GRAPHIC_STANDARD));
+                        sizeBundle(250, 70), GRAPHIC_STANDARD, providers));
         linkedHashMap.put(new SizeF(110.0f, 130.0f),
                 buildViews(context, i, widgetOptions, tallStyle,
-                        sizeBundle(110, 156), GRAPHIC_STANDARD));
+                        sizeBundle(110, 156), GRAPHIC_STANDARD, providers));
         linkedHashMap.put(new SizeF(250.0f, 130.0f),
                 buildViews(context, i, widgetOptions, tallStyle,
                         sizeBundle(250, 156),
-                        single ? GRAPHIC_LARGE : GRAPHIC_STANDARD));
+                        single ? GRAPHIC_LARGE : GRAPHIC_STANDARD, providers));
         return new RemoteViews(linkedHashMap);
     }
 
     static RemoteViews buildPreview(Context context, int appWidgetId, WidgetOptions widgetOptions,
             Bundle appWidgetOptions) {
         return buildPreview(context, appWidgetId, widgetOptions, appWidgetOptions,
-                ProviderPreferences.getWidgetProvider(context, appWidgetId));
+                ProviderPreferences.getWidgetProviders(context, appWidgetId));
     }
 
-    /** Preview for the configuration screen, showing the provider picked but not yet saved. */
+    /** Preview for the configuration screen, showing the providers picked but not yet saved. */
     static RemoteViews buildPreview(Context context, int appWidgetId, WidgetOptions widgetOptions,
-            Bundle appWidgetOptions, UsageProvider provider) {
-        String style = styleForSize(context, appWidgetOptions, widgetOptions);
+            Bundle appWidgetOptions, List<UsageProvider> providers) {
+        String style = styleForSize(context, appWidgetOptions, widgetOptions, providers);
         RemoteViews preview = buildViews(context, appWidgetId, widgetOptions, style,
                 appWidgetOptions, resolveGraphicTier(context, widgetOptions, appWidgetOptions),
-                provider);
+                providers);
         preview.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
         return preview;
     }
 
-    private static String styleForSize(Context context, Bundle bundle, WidgetOptions options) {
+    private static String styleForSize(Context context, Bundle bundle, WidgetOptions options,
+            List<UsageProvider> providers) {
         int rows = option(bundle, "semAppWidgetRowSpan");
         int columns = option(bundle, "semAppWidgetColumnSpan");
-        boolean single = options != null && options.singleMetric();
+        boolean single = options != null && options.singleMetric()
+                && (providers == null || providers.size() <= 1);
         return WidgetMeters.resolveHomeVisualStyle(
                 options == null ? WidgetMeters.PREF_AUTO : options.layoutPreference(),
                 single, rows, columns, currentHeight(context, bundle),
@@ -137,7 +141,8 @@ public final class WidgetRenderer {
     }
 
     /** Applies Auto / Dials / Bars preference on top of a size-derived auto bucket style. */
-    private static String preferVisualStyle(WidgetOptions options, String autoBucketStyle) {
+    private static String preferVisualStyle(WidgetOptions options, String autoBucketStyle,
+            boolean single) {
         String preference = options == null
                 ? WidgetMeters.PREF_AUTO : options.layoutPreference();
         if (WidgetMeters.PREF_BARS.equals(preference)) {
@@ -145,8 +150,7 @@ public final class WidgetRenderer {
         }
         if (WidgetMeters.PREF_DIALS.equals(preference)
                 && WidgetMeters.VISUAL_BATTERY_LIST.equals(autoBucketStyle)) {
-            return options.singleMetric()
-                    ? WidgetMeters.VISUAL_DIALS : WidgetMeters.VISUAL_FOUR_DIALS;
+            return single ? WidgetMeters.VISUAL_DIALS : WidgetMeters.VISUAL_FOUR_DIALS;
         }
         return autoBucketStyle;
     }
@@ -164,19 +168,27 @@ public final class WidgetRenderer {
 
     private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions, String str, Bundle bundle, int i2) {
         return buildViews(context, i, widgetOptions, str, bundle, i2,
-                ProviderPreferences.getWidgetProvider(context, i));
+                ProviderPreferences.getWidgetProviders(context, i));
     }
 
+    /**
+     * One widget layout for one or more providers. With several providers each slot shows one
+     * provider, marked by its icon, so the battery list reads like Samsung's battery widget.
+     */
     private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions,
-            String str, Bundle bundle, int i2, UsageProvider provider) {
+            String str, Bundle bundle, int i2, List<UsageProvider> providers) {
+        UsageProvider provider = providers == null || providers.isEmpty()
+                ? UsageProvider.DEFAULT : providers.get(0);
+        boolean multi = providers != null && providers.size() > 1;
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), layoutForStyle(str, i2));
         boolean zChooseDark = chooseDark(context, widgetOptions);
         WidgetState widgetStateFrom = WidgetState.from(context, widgetOptions, provider);
-        List<MeterSlot> slots = resolveSlots(context, widgetOptions, widgetStateFrom, str, bundle,
-                provider);
+        List<MeterSlot> slots = multi
+                ? resolveMultiSlots(context, widgetOptions, str, bundle, providers)
+                : resolveSlots(context, widgetOptions, widgetStateFrom, str, bundle, provider);
         applyRootAndHeader(context, remoteViews, i, widgetOptions, zChooseDark, widgetStateFrom);
-        remoteViews.setTextViewText(R.id.widget_title, provider == UsageProvider.CODEX
-                ? context.getString(R.string.widget_title)
+        remoteViews.setTextViewText(R.id.widget_title, multi ? "USAGE"
+                : provider == UsageProvider.CODEX ? context.getString(R.string.widget_title)
                 : provider.accountName.toUpperCase(java.util.Locale.ROOT));
         if (provider != UsageProvider.CODEX) {
             applyProviderOpenIntent(context, remoteViews, i, provider);
@@ -197,7 +209,7 @@ public final class WidgetRenderer {
             renderBars(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom, bundle, slots);
         }
         applySlotVisibility(remoteViews, str, slots);
-        if (provider == UsageProvider.CODEX) {
+        if (provider == UsageProvider.CODEX && !multi) {
             applyResetCreditRow(context, remoteViews, i, widgetOptions, zChooseDark, str);
         } else {
             // Reset credits are a Codex feature.
@@ -705,6 +717,38 @@ public final class WidgetRenderer {
                 slot = blankSlot(key, snapshot);
             }
             slots.add(slot);
+        }
+        return slots;
+    }
+
+    /** One slot per provider (two when every provider fits twice), each with the provider's mark. */
+    private static List<MeterSlot> resolveMultiSlots(Context context, WidgetOptions options,
+            String visualStyle, Bundle bundle, List<UsageProvider> providers) {
+        int capacity = WidgetMeters.slotCapacity(visualStyle, currentHeight(context, bundle));
+        List<UsageProvider> shown = providers.subList(0,
+                Math.min(providers.size(), Math.min(capacity, WidgetProviders.MAX_HOME)));
+        // Only battery-list rows have room for a meter label next to the value.
+        int perProvider = STYLE_BATTERY_LIST.equals(visualStyle)
+                ? WidgetProviders.metersPerProvider(shown.size(), capacity) : 1;
+        List<String> visible = WidgetMeters.parse(options.effectiveVisibleMeters());
+        ArrayList<MeterSlot> slots = new ArrayList<>();
+        for (UsageProvider provider : shown) {
+            UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context, provider)
+                    ? ProviderPreferences.loadSnapshot(context, provider) : null;
+            WidgetState state = WidgetState.from(context, options, provider);
+            List<String> keys = WidgetProviders.metersFor(visible,
+                    snapshot != null && snapshot.fiveHour != null,
+                    snapshot != null && snapshot.longWindow() != null, perProvider);
+            for (String key : keys) {
+                MeterSlot slot = buildSlot(key, snapshot, state, options, 0);
+                if (slot == null) slot = blankSlot(key, snapshot);
+                String value = perProvider > 1
+                        ? WidgetMeters.shortLabel(key, snapshot) + "  " + slot.valueText
+                        : slot.valueText;
+                slots.add(new MeterSlot(key, provider.displayName,
+                        ProvidersActivity.iconRes(provider), slot.progress, value,
+                        slot.shortText, slot.progressMax, slot.usage));
+            }
         }
         return slots;
     }

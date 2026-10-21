@@ -61,6 +61,14 @@ final class SamsungLockGraphics {
 
     static Bitmap renderSingle(Context context, SamsungLockWidgetSupport.Metric metric, int value,
             boolean signedIn, int requestedWidth, int requestedHeight) {
+        return renderSingle(context, value, signedIn, requestedWidth, requestedHeight,
+                metric == SamsungLockWidgetSupport.Metric.FIVE_HOUR
+                        ? R.drawable.ic_oui_time : R.drawable.ic_oui_calendar_week);
+    }
+
+    /** One gauge with {@code iconRes} (a meter icon or a provider mark) in its center. */
+    static Bitmap renderSingle(Context context, int value, boolean signedIn, int requestedWidth,
+            int requestedHeight, int iconRes) {
         int width = clamp(requestedWidth, 44, 96, 56);
         int height = clamp(requestedHeight, 44, 96, 56);
         DisplayMetrics metrics = context == null ? null : context.getResources().getDisplayMetrics();
@@ -79,10 +87,7 @@ final class SamsungLockGraphics {
         }
         float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 46.0f));
         float top = (height - (56.0f * dialScale)) / 2.0f;
-        Drawable icon = context == null ? null : context.getDrawable(
-                metric == SamsungLockWidgetSupport.Metric.FIVE_HOUR
-                        ? R.drawable.ic_oui_time
-                        : R.drawable.ic_oui_calendar_week);
+        Drawable icon = context == null ? null : context.getDrawable(iconRes);
         drawDial(canvas, paint, width / 2.0f, top, dialScale, value, icon);
         return bitmap;
     }
