@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.
+- iOS Settings → Accounts matches Android: connected accounts only, plus an Add account row that opens a searchable provider picker. One sign-in screen handles device codes, pasted tokens and API keys, and marks experimental providers.
+- iOS first-run setup uses the same searchable multi-select provider picker as Android, and Settings → Providers lists only tabs that are on and connected accounts.
+- iOS home-screen and lock-screen widgets can each show a chosen provider (Codex, Claude Code, Cursor or any connected provider). Existing widgets keep showing Codex.
+
 ## 2.9.0-alpha.3 — 2026-10-21
 
 ### Changed
@@ -10,10 +17,6 @@
 - New Settings → Lock screen widgets page lists every Codex Meter widget on the lock screen and opens its settings to pick providers and meters, since One UI often skips the widget's own setup screen.
 - Lock-screen gauges only show meters a provider reports: a Cursor gauge shows its included-usage dial instead of an empty 5-hour dial, and a single meter draws one centered dial.
 - The Bars lock-screen widget is gone from the picker. Bars already placed now draw dials.
-- iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.
-- iOS Settings → Accounts matches Android: connected accounts only, plus an Add account row that opens a searchable provider picker. One sign-in screen handles device codes, pasted tokens and API keys, and marks experimental providers.
-- iOS first-run setup uses the same searchable multi-select provider picker as Android, and Settings → Providers lists only tabs that are on and connected accounts.
-- iOS home-screen and lock-screen widgets can each show a chosen provider (Codex, Claude Code, Cursor or any connected provider). Existing widgets keep showing Codex.
 
 ## 2.9.0-alpha.2 — 2026-10-21
 
