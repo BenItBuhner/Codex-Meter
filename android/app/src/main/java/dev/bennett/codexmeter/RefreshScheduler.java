@@ -20,13 +20,23 @@ public final class RefreshScheduler {
     private RefreshScheduler() {
     }
 
+    /** Background refresh runs while Codex or any other provider is signed in. */
+    static boolean anySignedIn(Context context) {
+        for (UsageProvider provider : UsageProvider.values()) {
+            if (SecureTokenStore.isSignedIn(context, provider)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean schedulePeriodic(Context context) {
         boolean zSubmit = false;
         Context contextAppContext = appContext(context);
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!anySignedIn(contextAppContext)) {
             DiagnosticLog.info(contextAppContext, "scheduler",
                     "refresh_schedule_skipped_signed_out");
             cancelAll(contextAppContext);
@@ -76,7 +86,7 @@ public final class RefreshScheduler {
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!anySignedIn(contextAppContext)) {
             return true;
         }
         if (!AppPreferences.getAutomaticRefresh(contextAppContext)
@@ -133,7 +143,7 @@ public final class RefreshScheduler {
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!anySignedIn(contextAppContext)) {
             WidgetRenderer.updateAll(contextAppContext);
             return true;
         }
