@@ -25,6 +25,7 @@ public final class ParserSelfTest {
         testOptionalUsageSections();
         testUsageCredits();
         testSpendControl();
+        testSpendControlLivePayload();
         testUsageCreditsAutoHide();
         testResetCreditsAutoHide();
         testDashboardSectionOrder();
@@ -893,6 +894,44 @@ public final class ParserSelfTest {
      * string-or-number field types, and stays null for accounts without one so their dashboards
      * do not change.
      */
+    /**
+     * The sanitized live payload from #98: amounts as strings with a long fractional {@code used},
+     * {@code remaining_percent} as the only percentage, an epoch-seconds {@code reset_at}, and no
+     * {@code source}, {@code remaining}, {@code used_percent}, or {@code reset_after_seconds}.
+     */
+    private static void testSpendControlLivePayload() throws Exception {
+        long resetAt = 1_790_812_801L;
+        long now = resetAt * 1000L - TimeUnit.DAYS.toMillis(10);
+        SpendControl control = UsageParser.parse(fixture("usage-spend-control-live.json"), now)
+                .spendControl;
+        check(control != null, "live spend control parses");
+        check(!control.reached, "live reached flag preserved");
+        check(control.source.isEmpty() && "Workspace spend limit".equals(control.sourceLabel()),
+                "a missing source still reads as the workspace limit");
+        check("1000".equals(control.limit) && "426.10000133514404".equals(control.used)
+                        && control.remaining.isEmpty(),
+                "live amount strings preserved verbatim");
+        check(control.usedPercent == -1 && control.remainingPercent == 57,
+                "only remaining_percent is reported");
+        check(control.effectiveRemainingPercent() == 57 && control.effectiveUsedPercent() == 43,
+                "the used share is the complement of remaining_percent");
+        check(new BigDecimal("573.89999866485596").compareTo(control.numericRemaining()) == 0,
+                "the remainder is derived from limit minus used");
+        check(SpendControl.pluralQuantity(control.numericRemaining()) != 1,
+                "a fractional remainder never takes the singular form");
+        check(control.resetAfterSeconds == 0L && control.showsResetCountdown()
+                        && control.effectiveResetAtMillis(now) == resetAt * 1000L,
+                "reset_at alone drives the reset instant");
+        UsageSnapshot restored = UsageSnapshot.fromJson(
+                UsageParser.parse(fixture("usage-spend-control-live.json"), now).toJson());
+        check(restored != null && restored.spendControl != null
+                        && "426.10000133514404".equals(restored.spendControl.used)
+                        && restored.spendControl.remainingPercent == 57
+                        && restored.spendControl.usedPercent == -1
+                        && restored.spendControl.resetAtEpochSeconds == resetAt,
+                "live spend control survives the cache round trip");
+    }
+
     private static void testSpendControl() throws Exception {
         long resetAt = 1_735_689_720L;
         long now = resetAt * 1000L - TimeUnit.HOURS.toMillis(12);
