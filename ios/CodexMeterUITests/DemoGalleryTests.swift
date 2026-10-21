@@ -199,7 +199,7 @@ final class DemoGalleryTests: XCTestCase {
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
         ]
         app.launch()
-        guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 8),
+        guard app.navigationBars["Codex"].waitForExistence(timeout: 8),
               app.staticTexts["5-hour"].waitForExistence(timeout: 8) else {
             XCTFail("The demo dashboard did not appear at the AX5 text size")
             return
@@ -218,7 +218,7 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("16d-settings-ax5")
         UITestSupport.tap(app.buttons["Done"])
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
 
         // Reset credits is the last dashboard card, so the end of the page is the
         // card; scroll there blind and ask the accessibility tree only once.

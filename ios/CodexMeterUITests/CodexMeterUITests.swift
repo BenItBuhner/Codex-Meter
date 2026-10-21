@@ -116,7 +116,7 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(UITestSupport.flipToggle(labeled: "Estimated usage time", in: app))
         app.buttons["Done"].tap()
 
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["5-hour"].exists)
         XCTAssertFalse(estimate.waitForExistence(timeout: 1))
     }
