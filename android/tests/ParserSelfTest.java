@@ -2148,7 +2148,10 @@ public final class ParserSelfTest {
         check(UsageProvider.enabledFromIds(Arrays.asList("cursor", " CODEX "), codexOnly)
                 .equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
                 "enabled tabs keep enum order");
-        List<UsageProvider> two = UsageProvider.withEnabled(all, UsageProvider.CLAUDE_CODE, false);
+        List<UsageProvider> firstThree = Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR);
+        List<UsageProvider> two = UsageProvider.withEnabled(firstThree, UsageProvider.CLAUDE_CODE,
+                false);
         check(two.equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
                 "turning a provider off removes only its tab");
         List<UsageProvider> one = UsageProvider.withEnabled(
@@ -2166,8 +2169,9 @@ public final class ParserSelfTest {
         check(UsageProvider.orderFromIds(null).equals(all), "default tab order is enum order");
         List<UsageProvider> custom = UsageProvider.orderFromIds(
                 Arrays.asList("cursor", "bogus", "CURSOR", " codex "));
-        check(custom.equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX,
-                UsageProvider.CLAUDE_CODE)),
+        check(custom.subList(0, 3).equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE)) && custom.size() == all.size()
+                && custom.get(3) == UsageProvider.COPILOT,
                 "saved order first, duplicates and unknown ids skipped, the rest appended");
         check(UsageProvider.inOrder(two, custom)
                 .equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),

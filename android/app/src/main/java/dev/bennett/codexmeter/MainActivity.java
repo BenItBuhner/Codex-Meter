@@ -62,9 +62,17 @@ public final class MainActivity extends AppCompatActivity {
     private BottomTabLayout providerTabs;
     /** Menu slots in {@code res/menu/provider_tabs.xml}, filled in tab order. */
     private static final int[] TAB_SLOTS = {
-            R.id.provider_tab_0, R.id.provider_tab_1, R.id.provider_tab_2};
+            R.id.provider_tab_0, R.id.provider_tab_1, R.id.provider_tab_2, R.id.provider_tab_3,
+            R.id.provider_tab_4, R.id.provider_tab_5, R.id.provider_tab_6, R.id.provider_tab_7,
+            R.id.provider_tab_8, R.id.provider_tab_9, R.id.provider_tab_10, R.id.provider_tab_11,
+            R.id.provider_tab_12, R.id.provider_tab_13, R.id.provider_tab_14,
+            R.id.provider_tab_15, R.id.provider_tab_16, R.id.provider_tab_17,
+            R.id.provider_tab_18, R.id.provider_tab_19, R.id.provider_tab_20,
+            R.id.provider_tab_21, R.id.provider_tab_22, R.id.provider_tab_23};
     /** Providers currently shown in the tab slots, in order. */
     private List<UsageProvider> tabProviders = new ArrayList<>();
+    /** Slots still in the tab menu; the layout inflates all of them. */
+    private int menuSlots = TAB_SLOTS.length;
     private ToolbarLayout toolbarLayout;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
@@ -324,19 +332,30 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         applyEnabledProviders();
-        this.providerTabs.setOnMenuItemClickListener(item -> {
-            UsageProvider selected = providerForTab(item.getItemId());
-            if (selected != null) {
-                selectProvider(selected);
+        this.providerTabs.setOnMenuItemClickListener(this::onProviderTabClicked);
+    }
+
+    /** Tabs and the "More" grid both land here. */
+    private boolean onProviderTabClicked(MenuItem item) {
+        UsageProvider selected = providerForTab(item.getItemId());
+        if (selected != null) {
+            selectProvider(selected);
+            if (this.providerTabs != null) {
+                this.providerTabs.setSelectedItem(item.getItemId());
             }
-            return true;
-        });
+        }
+        return true;
     }
 
     /**
      * Fills the tab slots with the providers turned on in Settings → Providers, in the order
      * chosen there, and hides the tabs entirely when only one is on. A tab turned off while
      * selected falls back to the first provider still on.
+     *
+     * <p>Up to four providers get a tab each. With five or more, One UI's BottomTabLayout keeps
+     * the first three as tabs and moves the rest into its stock "More" grid
+     * ({@link ProviderTabs}). It counts hidden menu items when deciding, so unused slots are
+     * removed from the menu, and the menu is re-inflated when the set of providers changes.
      */
     private void applyEnabledProviders() {
         List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
@@ -350,19 +369,29 @@ public final class MainActivity extends AppCompatActivity {
         }
         if (!enabled.equals(this.tabProviders)) {
             this.tabProviders = new ArrayList<>(enabled);
-            for (int slot = 0; slot < TAB_SLOTS.length; slot++) {
-                boolean used = slot < enabled.size();
-                if (used) {
-                    MenuItem item = this.providerTabs.findMenuItem(TAB_SLOTS[slot]);
-                    UsageProvider tabProvider = enabled.get(slot);
-                    item.setTitle(tabProvider.displayName);
-                    item.setIcon(ProvidersActivity.iconRes(tabProvider));
+            int needed = Math.min(enabled.size(), TAB_SLOTS.length);
+            if (this.menuSlots < needed) {
+                // Removed slots can't come back one by one, so start from a full menu again.
+                for (int slot = 0; slot < this.menuSlots; slot++) {
+                    this.providerTabs.removeMenuItem(TAB_SLOTS[slot]);
                 }
-                this.providerTabs.setItemVisible(TAB_SLOTS[slot], used);
+                this.providerTabs.inflateMenu(R.menu.provider_tabs, this::onProviderTabClicked);
+                this.menuSlots = TAB_SLOTS.length;
             }
+            for (int slot = 0; slot < needed; slot++) {
+                MenuItem item = this.providerTabs.findMenuItem(TAB_SLOTS[slot]);
+                UsageProvider tabProvider = enabled.get(slot);
+                item.setTitle(tabProvider.displayName);
+                item.setIcon(ProvidersActivity.iconRes(tabProvider));
+            }
+            for (int slot = this.menuSlots - 1; slot >= needed; slot--) {
+                this.providerTabs.removeMenuItem(TAB_SLOTS[slot]);
+            }
+            this.menuSlots = needed;
         }
         this.providerTabs.setSelectedItem(tabId(this.provider));
-        this.providerTabs.setVisibility(enabled.size() > 1 ? View.VISIBLE : View.GONE);
+        this.providerTabs.setVisibility(ProviderTabs.showsBar(enabled.size())
+                ? View.VISIBLE : View.GONE);
     }
 
     /** Tab slot showing {@code provider}; slots follow the order from Settings → Providers. */
@@ -415,6 +444,14 @@ public final class MainActivity extends AppCompatActivity {
                 this.swipeRefresh.setRefreshing(true);
             }
             refreshProvider(UsageProvider.CURSOR, "tab");
+        } else if (ProviderUsageApi.handles(this.provider)
+                && SecureTokenStore.isSignedIn(this, this.provider)
+                && AppPreferences.getRefreshOnLaunch(this)
+                && ProviderUsageApi.isStale(this, this.provider)) {
+            if (this.swipeRefresh != null) {
+                this.swipeRefresh.setRefreshing(true);
+            }
+            refreshProvider(this.provider, "tab");
         }
     }
 
@@ -780,6 +817,9 @@ public final class MainActivity extends AppCompatActivity {
             long hours = Math.max(1L, Math.round(seconds / 3600.0d));
             return hours + "-hour";
         }
+        if (seconds == 86_400L) {
+            return "Daily";
+        }
         if (seconds % 86_400L == 0L) {
             long days = seconds / 86_400L;
             return days + "-day";
@@ -1045,6 +1085,10 @@ public final class MainActivity extends AppCompatActivity {
             rebuild();
             return;
         }
+        if (ProviderCatalog.get(target).usesSignInScreen()) {
+            SignInActivity.start(this, target);
+            return;
+        }
         try {
             startForegroundService(new Intent(this, (Class<?>) OAuthService.class)
                     .setAction(OAuthService.ACTION_START)
@@ -1204,8 +1248,8 @@ public final class MainActivity extends AppCompatActivity {
         boolean inverted = false;
         if (snapshot != null) {
             if (snapshot.fiveHour != null) {
-                addDashboardCard(column, buildMetricCard("5-hour", snapshot, snapshot.fiveHour,
-                        inverted));
+                addDashboardCard(column, buildMetricCard(cadenceLabel(snapshot.fiveHour),
+                        snapshot, snapshot.fiveHour, inverted));
                 inverted = !inverted;
             }
             if (snapshot.weekly != null) {
@@ -1248,7 +1292,23 @@ public final class MainActivity extends AppCompatActivity {
                         || snapshot.monthly != null)) {
             addDashboardCard(column, buildUsageHistoryCard(target));
         }
+        if (snapshot != null && snapshot.usageCredits != null
+                && snapshot.usageCredits.shouldDisplay()) {
+            addDashboardCard(column, buildProviderBalanceCard(target, snapshot.usageCredits));
+        }
         this.content.addView(column);
+    }
+
+    /** Balance card for providers that report credits or a dollar balance. */
+    private LinearLayout buildProviderBalanceCard(UsageProvider target, UsageCredits credits) {
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "Balance", 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_credit_card_outline,
+                credits.unlimited ? "Unlimited" : credits.balance,
+                "Credit balance on your " + target.vendorName + " account"));
+        return card;
     }
 
     private LinearLayout buildProviderIntroCard(UsageProvider target) {
@@ -1259,7 +1319,10 @@ public final class MainActivity extends AppCompatActivity {
         String limits = target == UsageProvider.CURSOR
                 ? " included usage for this billing cycle, Auto and API model pools, and "
                         + "on-demand spend."
-                : " 5-hour and weekly limits, plus any model-only allocation your plan has.";
+                : target == UsageProvider.CLAUDE_CODE
+                        ? " 5-hour and weekly limits, plus any model-only allocation your plan "
+                                + "has."
+                        : ": " + ProviderCatalog.get(target).meters.toLowerCase(Locale.ROOT) + ".";
         TextView summary = Ui.text(this, "See your " + target.displayName
                         + limits + " Sign in with the "
                         + target.accountName + " account you use in " + target.displayName
@@ -1282,6 +1345,8 @@ public final class MainActivity extends AppCompatActivity {
                     ClaudeUsageApi.refreshAndCache(applicationContext);
                 } else if (target == UsageProvider.CURSOR) {
                     CursorUsageApi.refreshAndCache(applicationContext);
+                } else if (ProviderUsageApi.handles(target)) {
+                    ProviderUsageApi.refreshAndCache(applicationContext, target);
                 }
                 WidgetRenderer.updateAll(applicationContext);
             } catch (Exception e) {

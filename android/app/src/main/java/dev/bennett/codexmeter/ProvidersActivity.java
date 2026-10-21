@@ -44,13 +44,20 @@ public final class ProvidersActivity extends AppCompatActivity {
 
         TextView hint = Ui.text(this,
                 "Drag the handles to set the order of the tabs at the bottom of the dashboard, "
-                        + "and use the switches to choose which providers appear.",
+                        + "and use the switches to choose which providers appear. Add more "
+                        + "from Settings → Accounts.",
                 14.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));
         content.addView(hint, hintParams);
 
-        items.addAll(ProviderPreferences.getOrder(this));
+        // Connected accounts and tabs that are on; the rest live in Add account.
+        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
+        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+            if (enabled.contains(provider) || ProviderAccounts.isSignedIn(this, provider)) {
+                items.add(provider);
+            }
+        }
 
         RoundedLinearLayout listCard = Ui.cardGroup(this, dark);
         recycler = new RecyclerView(this);
@@ -65,9 +72,10 @@ public final class ProvidersActivity extends AppCompatActivity {
         content.addView(listCard);
 
         TextView note = Ui.text(this,
-                "With two or more providers on, tabs at the bottom of the dashboard switch "
-                        + "between them. With one on, the tabs are hidden. At least one provider "
-                        + "stays on.",
+                "With two to four providers on, each gets a tab at the bottom of the dashboard. "
+                        + "With five or more, the first three get tabs and the rest are under "
+                        + "More. With one on, the tabs are hidden. At least one provider stays "
+                        + "on.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
@@ -87,6 +95,48 @@ public final class ProvidersActivity extends AppCompatActivity {
                 return R.drawable.ic_provider_claude_code;
             case CURSOR:
                 return R.drawable.ic_provider_cursor;
+            case COPILOT:
+                return R.drawable.ic_provider_copilot;
+            case KIMI:
+                return R.drawable.ic_provider_kimi;
+            case FACTORY:
+                return R.drawable.ic_provider_factory;
+            case GROK:
+                return R.drawable.ic_provider_grok;
+            case ANTIGRAVITY:
+                return R.drawable.ic_provider_antigravity;
+            case DEVIN:
+                return R.drawable.ic_provider_devin;
+            case WINDSURF:
+                return R.drawable.ic_provider_windsurf;
+            case AUGMENT:
+                return R.drawable.ic_provider_augment;
+            case CLINE:
+                return R.drawable.ic_provider_cline;
+            case OPENCODE_GO:
+                return R.drawable.ic_provider_opencode_go;
+            case MINIMAX:
+                return R.drawable.ic_provider_minimax;
+            case ZAI:
+                return R.drawable.ic_provider_zai;
+            case KIRO:
+                return R.drawable.ic_provider_kiro;
+            case AMP:
+                return R.drawable.ic_provider_amp;
+            case OPENROUTER:
+                return R.drawable.ic_provider_openrouter;
+            case KILO:
+                return R.drawable.ic_provider_kilo;
+            case CODEBUFF:
+                return R.drawable.ic_provider_codebuff;
+            case SYNTHETIC:
+                return R.drawable.ic_provider_synthetic;
+            case CHUTES:
+                return R.drawable.ic_provider_chutes;
+            case V0:
+                return R.drawable.ic_provider_v0;
+            case WARP:
+                return R.drawable.ic_provider_warp;
             case CODEX:
             default:
                 return R.drawable.ic_provider_codex;

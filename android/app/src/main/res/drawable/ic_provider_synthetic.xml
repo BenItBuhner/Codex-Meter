@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic: a lettered placeholder, because Simple Icons has no Synthetic mark.
+     Single-color so One UI tabs and preferences tint it like their stock icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="?android:attr/textColorPrimary"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:fillType="evenOdd"
+        android:pathData="M7,1H17A6,6 0 0 1 23,7V17A6,6 0 0 1 17,23H7A6,6 0 0 1 1,17V7A6,6 0 0 1 7,1ZM7.0,2.8H17.0A4.2,4.2 0 0 1 21.2,7.0V17.0A4.2,4.2 0 0 1 17.0,21.2H7.0A4.2,4.2 0 0 1 2.8,17.0V7.0A4.2,4.2 0 0 1 7.0,2.8Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M12.07 17C14.43 17 15.82 15.86 15.82 14.09C15.82 12.46 14.56 11.62 12.92 11.24L12.04 11.03C11.21 10.83 10.48 10.52 10.48 9.8C10.48 9.15 11.06 8.68 12.08 8.68C13.07 8.68 13.69 9.13 13.77 9.9H15.69C15.66 8.19 14.25 7 12.09 7C9.98 7 8.44 8.17 8.44 9.93C8.44 11.35 9.42 12.18 11.07 12.57L12.14 12.84C13.2 13.1 13.82 13.41 13.82 14.08C13.82 14.81 13.11 15.32 12.05 15.32C10.97 15.32 10.18 14.83 10.12 13.84H8.18C8.24 15.91 9.73 17 12.07 17Z" />
+</vector>
