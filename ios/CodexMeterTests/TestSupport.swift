@@ -232,6 +232,23 @@ func usageResponse(used: Int = 40) -> [String: Any] {
     ]
 }
 
+func spendControlUsageResponse(reached: Bool = false) -> [String: Any] {
+    var response = usageResponse()
+    response["spend_control"] = [
+        "reached": reached,
+        "individual_limit": [
+            "source": "workspace_spend_controls",
+            "limit": "25000",
+            "used": "8000",
+            "remaining": "17000",
+            "used_percent": 32,
+            "remaining_percent": 68,
+            "reset_after_seconds": 43_200
+        ]
+    ]
+    return response
+}
+
 func goMonthlyUsageResponse(used: Int = 28) -> [String: Any] {
     [
         "plan_type": "go",
