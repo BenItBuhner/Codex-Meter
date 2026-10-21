@@ -283,4 +283,14 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(warp.monthly?.usedPercent, 20)
         XCTAssertFalse(ProviderUsageParsers.keyQuota(#"{"ok":true}"#, defaultSeconds: 3600, now: now).hasDisplayableData)
     }
+
+    func testBuiltInsAndWidgetFiles() {
+        XCTAssertEqual(UsageProvider.builtIns, [.codex, .claudeCode, .cursor])
+        XCTAssertTrue(UsageProvider.builtIns.allSatisfy(\.isBuiltIn))
+        XCTAssertFalse(UsageProvider.copilot.isBuiltIn)
+        // Codex keeps the original widget file so existing widgets keep working.
+        XCTAssertEqual(SharedWidgetSnapshot.fileName(for: .codex), "widget-snapshot.json")
+        XCTAssertEqual(SharedWidgetSnapshot.fileName(for: .opencodeGo), "widget-snapshot-opencode_go.json")
+        XCTAssertEqual(Set(UsageProvider.allCases.map(SharedWidgetSnapshot.fileName(for:))).count, UsageProvider.allCases.count)
+    }
 }

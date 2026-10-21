@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Kiro: a lettered placeholder, because Simple Icons has no Kiro mark.
+     Single-color so iOS tabs and settings rows tint it like an SF Symbol. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <path fill="#000000" fill-rule="evenodd" d="M7,1H17A6,6 0 0 1 23,7V17A6,6 0 0 1 17,23H7A6,6 0 0 1 1,17V7A6,6 0 0 1 7,1ZM7.0,2.8H17.0A4.2,4.2 0 0 1 21.2,7.0V17.0A4.2,4.2 0 0 1 17.0,21.2H7.0A4.2,4.2 0 0 1 2.8,17.0V7.0A4.2,4.2 0 0 1 7.0,2.8Z"/>
+  <path fill="#000000" d="M7.68 17H9.73V14.14L11.06 12.68L13.9 17H16.32L12.47 11.33L16.21 7H13.71L11.26 9.87C10.59 10.68 10.13 11.31 9.69 12.01L9.73 9.73V7H7.68Z"/>
+</svg>

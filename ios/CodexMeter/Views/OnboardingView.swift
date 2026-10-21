@@ -9,9 +9,11 @@ struct OnboardingView: View {
     @State private var step: OnboardingStep = .welcome
     @State private var selection: Set<UsageProvider> = []
     @State private var signingIn: UsageProvider?
+    @State private var query = ""
 
+    /// The picked providers in recommended order, as on Android.
     private var chosen: [UsageProvider] {
-        UsageProvider.chosen(selection)
+        ProviderCatalog.recommendedOrder.filter { selection.contains($0) }
     }
 
     private var steps: [OnboardingStep] {
@@ -113,7 +115,7 @@ struct OnboardingView: View {
         OnboardingHeader(
             systemImage: "gauge.with.dots.needle.67percent",
             title: "Meet Codex Meter",
-            message: "See how much of your Codex, Claude Code, and Cursor usage is left, and when it resets, in one place. Pick the services you use next."
+            message: "Your Codex, Claude Code, Cursor, Copilot and other AI coding limits, reset timing, and credits in one place. Next, pick the ones you use."
         )
         .accessibilityIdentifier("onboarding-welcome")
     }
@@ -123,26 +125,47 @@ struct OnboardingView: View {
             OnboardingHeader(
                 systemImage: "square.grid.2x2",
                 title: "Choose your providers",
-                message: "Each one you pick gets a tab on the dashboard. You can change this and the order later in Settings → Providers."
+                message: "Pick every service you want to track. Each one gets a tab on the dashboard, and you can add more later in Settings → Accounts."
             )
 
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search providers", text: $query)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("onboarding-search")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .cardSurface()
+
+            let listed = ProviderCatalog.pickerProviders(connected: [UsageProvider](), query: query)
             VStack(spacing: 0) {
-                ForEach(UsageProvider.allCases) { provider in
-                    Toggle(isOn: Binding(
-                        get: { selection.contains(provider) },
-                        set: { isOn in
-                            if isOn { selection.insert(provider) } else { selection.remove(provider) }
+                if listed.isEmpty {
+                    Text("No providers match \"\(query)\".")
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 14)
+                }
+                ForEach(listed) { provider in
+                    let picked = selection.contains(provider)
+                    Button {
+                        if picked { selection.remove(provider) } else { selection.insert(provider) }
+                    } label: {
+                        HStack(spacing: 10) {
+                            ProviderPickerRow(provider: provider)
+                            Image(systemName: picked ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                                .foregroundStyle(picked ? Color.accentColor : Color(.tertiaryLabel))
                         }
-                    )) {
-                        ProviderRowLabel(
-                            provider: provider,
-                            subtitle: "Signs in with \(provider.accountName)"
-                        )
+                        .contentShape(Rectangle())
                     }
-                    .padding(.vertical, 12)
+                    .buttonStyle(.plain)
+                    .padding(.vertical, 10)
+                    .accessibilityAddTraits(picked ? .isSelected : [])
                     .accessibilityIdentifier("onboarding-provider-\(provider.rawValue)")
-                    if provider != UsageProvider.allCases.last {
-                        Divider().padding(.leading, 34)
+                    if provider != listed.last {
+                        Divider().padding(.leading, 36)
                     }
                 }
             }
@@ -243,6 +266,8 @@ struct OnboardingView: View {
             "Sign in with your Claude account to see the 5-hour and weekly limits Claude Code reports, plus any model-only allocation."
         case .cursor:
             "Sign in with Cursor to see included usage for this billing cycle, Auto and API model pools, and on-demand spend."
+        default:
+            "Sign in with the \(provider.accountName) account you use in \(provider.displayName) to see \(ProviderCatalog.iOSEntry(for: provider).meters.lowercased()). Your password is only entered on \(provider.vendorName)'s own page."
         }
     }
 }

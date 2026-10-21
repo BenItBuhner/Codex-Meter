@@ -272,17 +272,31 @@ final class DemoGalleryTests: XCTestCase {
 
         UITestSupport.tap(app.buttons["Get started"])
         XCTAssertTrue(app.staticTexts["Choose your providers"].waitForExistence(timeout: 5))
-        tapToggle(app.switches["onboarding-provider-claude_code"], in: app)
-        tapToggle(app.switches["onboarding-provider-cursor"], in: app)
+        UITestSupport.tap(app.buttons["onboarding-provider-claude_code"])
+        UITestSupport.tap(app.buttons["onboarding-provider-cursor"])
         UITestSupport.settle(0.8)
         capture("21-onboarding-providers")
+
+        // The setup picker is searchable, like Android's.
+        let search = app.textFields["onboarding-search"]
+        if search.waitForExistence(timeout: 3) {
+            search.tap()
+            search.typeText("co")
+            UITestSupport.settle(0.8)
+            capture("21b-onboarding-provider-search")
+            search.buttons["Clear text"].firstMatch.tap()
+            if app.keyboards.firstMatch.exists {
+                app.keyboards.buttons["return"].firstMatch.tap()
+            }
+        }
 
         UITestSupport.tap(app.buttons["Continue"])
         XCTAssertTrue(app.staticTexts["Connect Claude Code"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("22-onboarding-connect")
 
-        // Accounts live in Settings, one compact row per provider with a tab.
+        // Accounts live in Settings: connected accounts, then Add account (nothing is
+        // connected on a signed-out install).
         app.terminate()
         app.launchArguments = [
             "-ui-testing-signed-out",
@@ -292,20 +306,45 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 8))
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        _ = app.buttons["account-cursor"].waitForExistence(timeout: 5)
+        XCTAssertTrue(app.buttons["account-add"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("23-settings-accounts")
-    }
 
-    private func tapToggle(_ toggle: XCUIElement, in app: XCUIApplication) {
-        guard toggle.waitForExistence(timeout: 5) else { return }
-        // A SwiftUI Toggle's switch sits at the trailing edge of its row.
-        if toggle.switches.firstMatch.exists {
-            toggle.switches.firstMatch.tap()
-        } else {
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
-        }
-        UITestSupport.settle(0.3)
+        // Add account: the searchable picker of every provider, then each sign-in style.
+        UITestSupport.tap(app.buttons["account-add"])
+        XCTAssertTrue(app.navigationBars["Add account"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("24-add-account")
+
+        UITestSupport.tap(app.buttons["add-account-copilot"])
+        XCTAssertTrue(app.navigationBars["Connect Copilot"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("25-sign-in-device-code")
+        tapBack(in: app, from: "Connect Copilot", to: "Add account")
+
+        if !app.buttons["add-account-windsurf"].exists { app.swipeUp() }
+        UITestSupport.tap(app.buttons["add-account-windsurf"])
+        XCTAssertTrue(app.navigationBars["Connect Windsurf"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("26-sign-in-paste-experimental")
+        tapBack(in: app, from: "Connect Windsurf", to: "Add account")
+
+        if !app.buttons["add-account-zai"].exists { app.swipeUp() }
+        UITestSupport.tap(app.buttons["add-account-zai"])
+        XCTAssertTrue(app.navigationBars["Connect Z.ai"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("27-sign-in-api-key")
+
+        // An added provider's tab, with local demo data.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "codex,copilot,kimi,zai"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Copilot"].waitForExistence(timeout: 8))
+        UITestSupport.tap(app.buttons["Copilot"])
+        XCTAssertTrue(app.navigationBars["Copilot"].waitForExistence(timeout: 5))
+        _ = app.staticTexts["Weekly"].waitForExistence(timeout: 5)
+        UITestSupport.settle(1.0)
+        capture("28-copilot-demo-tab")
     }
 
     private func capture(_ name: String) {

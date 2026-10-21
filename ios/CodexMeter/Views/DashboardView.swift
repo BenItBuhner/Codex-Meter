@@ -16,6 +16,8 @@ struct DashboardView: View {
                 ClaudeDashboardView()
             case .cursor:
                 CursorDashboardView()
+            default:
+                AddedProviderDashboardView(provider: provider)
             }
         }
         .task {
@@ -99,7 +101,7 @@ struct DashboardView: View {
     }
 }
 
-/// A provider's mark (OpenAI, Claude, Cursor) from the asset catalog, drawn as a template so
+/// A provider's mark (OpenAI, Claude, Cursor, GitHub…) from the asset catalog, drawn as a template so
 /// it tints like an SF Symbol in tab bars and settings rows.
 struct ProviderMark: View {
     let provider: UsageProvider
@@ -120,6 +122,7 @@ extension UsageProvider {
         case .codex: "ProviderCodex"
         case .claudeCode: "ProviderClaude"
         case .cursor: "ProviderCursor"
+        default: "Provider-\(rawValue)"
         }
     }
 }

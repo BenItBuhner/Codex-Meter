@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Devin: a lettered placeholder, because Simple Icons has no Devin mark.
+     Single-color so iOS tabs and settings rows tint it like an SF Symbol. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <path fill="#000000" fill-rule="evenodd" d="M7,1H17A6,6 0 0 1 23,7V17A6,6 0 0 1 17,23H7A6,6 0 0 1 1,17V7A6,6 0 0 1 7,1ZM7.0,2.8H17.0A4.2,4.2 0 0 1 21.2,7.0V17.0A4.2,4.2 0 0 1 17.0,21.2H7.0A4.2,4.2 0 0 1 2.8,17.0V7.0A4.2,4.2 0 0 1 7.0,2.8Z"/>
+  <path fill="#000000" d="M11.32 17C14.36 17 16.19 15.12 16.19 11.99C16.19 8.88 14.36 7 11.36 7H7.81V17ZM9.85 15.23V8.77H11.23C13.15 8.77 14.15 9.76 14.15 11.99C14.15 14.24 13.15 15.23 11.22 15.23Z"/>
+</svg>

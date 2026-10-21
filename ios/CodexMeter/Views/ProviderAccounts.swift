@@ -7,6 +7,17 @@ struct ProviderSignInScreen: View {
 
     var body: some View {
         NavigationStack {
+            ProviderSignInContent(provider: provider)
+        }
+    }
+}
+
+/// A provider's sign-in screen without its own navigation stack.
+struct ProviderSignInContent: View {
+    let provider: UsageProvider
+
+    var body: some View {
+        Group {
             switch provider {
             case .codex:
                 SignInView()
@@ -14,6 +25,8 @@ struct ProviderSignInScreen: View {
                 ClaudeSignInView()
             case .cursor:
                 CursorSignInView()
+            default:
+                AddedProviderSignInView(provider: provider)
             }
         }
     }
@@ -52,6 +65,7 @@ private struct ProviderSignInSheetModifier: ViewModifier {
             .onChange(of: model.mode) { _, _ in closeIfSignedIn() }
             .onChange(of: model.claude.phase) { _, _ in closeIfSignedIn() }
             .onChange(of: model.cursor.phase) { _, _ in closeIfSignedIn() }
+            .onChange(of: model.connectedProviders) { _, _ in closeIfSignedIn() }
     }
 
     private func isAuthenticating(_ provider: UsageProvider) -> Bool {
@@ -59,6 +73,7 @@ private struct ProviderSignInSheetModifier: ViewModifier {
         case .codex: model.isAuthenticating
         case .claudeCode: model.claude.isAuthenticating
         case .cursor: false
+        default: model.addedProviders[provider]?.signInStep == .checking
         }
     }
 
@@ -72,6 +87,9 @@ private struct ProviderSignInSheetModifier: ViewModifier {
         if model.cursor.phase == .signedOut {
             model.cursor.cancelSignIn()
         }
+        for added in model.addedProviders.values where added.phase == .signedOut {
+            added.cancelSignIn()
+        }
     }
 }
 
@@ -81,8 +99,12 @@ private struct ProviderAccountPresentations: ViewModifier {
     @Binding var confirmingSignOut: UsageProvider?
 
     func body(content: Content) -> some View {
+        @Bindable var model = model
         content
             .providerSignInSheet($signingIn)
+            .sheet(isPresented: $model.isAddingAccount) {
+                AddAccountFlow()
+            }
             .confirmationDialog(
                 confirmingSignOut.map { "Sign out of \($0.accountName)?" } ?? "Sign out?",
                 isPresented: Binding(
@@ -102,8 +124,9 @@ private struct ProviderAccountPresentations: ViewModifier {
     }
 }
 
-/// Settings → Accounts: one compact row per provider that has a tab. Signed-out rows start
-/// that provider's sign-in; signed-in rows ask to sign out.
+/// Settings → Accounts: only the accounts that are connected, in tab order, then one
+/// "Add account" row that opens the searchable provider picker. Tapping a connected row asks
+/// to sign out. Mirrors Android's Accounts section.
 struct ProviderAccountsSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -121,23 +144,47 @@ struct ProviderAccountsSection: View {
                     }
                 }
             } else {
-                ForEach(model.enabledProviders) { provider in
+                ForEach(model.connectedProviders) { provider in
                     accountRow(provider)
                 }
+                addAccountRow
             }
         } header: {
             Text("Accounts")
         }
     }
 
-    private func accountRow(_ provider: UsageProvider) -> some View {
-        let signedIn = model.isSignedIn(provider)
-        return Button {
-            if signedIn {
-                confirmingSignOut = provider
-            } else {
-                signingIn = provider
+    private var addAccountRow: some View {
+        Button {
+            DiagnosticLog.info("user", "add_account_opened")
+            model.isAddingAccount = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 22, height: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Add account")
+                        .foregroundStyle(Color.primary)
+                    if model.connectedProviders.isEmpty {
+                        Text("Codex, Claude Code, Cursor, Copilot and more")
+                            .font(.footnote)
+                            .foregroundStyle(Color.secondary)
+                    }
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color(.tertiaryLabel))
             }
+        }
+        .accessibilityIdentifier("account-add")
+    }
+
+    private func accountRow(_ provider: UsageProvider) -> some View {
+        Button {
+            confirmingSignOut = provider
         } label: {
             HStack(spacing: 12) {
                 ProviderMark(provider: provider)
@@ -147,26 +194,54 @@ struct ProviderAccountsSection: View {
                     // Concrete colors: a List button tints hierarchical styles with the accent.
                     Text(provider.displayName)
                         .foregroundStyle(Color.primary)
-                    Text(subtitle(provider, signedIn: signedIn))
+                    Text(subtitle(provider))
                         .font(.footnote)
                         .foregroundStyle(Color.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
                 Spacer(minLength: 8)
-                Text(signedIn ? "Sign out" : "Sign in")
+                Text("Sign out")
                     .font(.subheadline)
-                    .foregroundStyle(signedIn ? Color.red : Color.accentColor)
+                    .foregroundStyle(Color.red)
             }
         }
         .accessibilityIdentifier("account-\(provider.rawValue)")
     }
 
-    private func subtitle(_ provider: UsageProvider, signedIn: Bool) -> String {
-        guard signedIn else { return "Not signed in" }
+    private func subtitle(_ provider: UsageProvider) -> String {
         let email = model.accountEmail(for: provider)
         let plan = model.accountPlan(for: provider)
         let identity = email.isEmpty ? "Signed in" : email
         return plan.isEmpty ? identity : "\(identity) · \(plan)"
+    }
+}
+
+/// The Add account sheet: pick a provider, then its sign-in opens on top of the picker. The
+/// sheet closes once that provider is connected; the new account gets a tab.
+struct AddAccountFlow: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var chosen: UsageProvider?
+
+    var body: some View {
+        NavigationStack {
+            AddAccountView { chosen = $0 }
+                .navigationDestination(item: $chosen) { provider in
+                    ProviderSignInContent(provider: provider)
+                }
+        }
+        .onChange(of: model.connectedProviders) { _, connected in
+            if let chosen, connected.contains(chosen) {
+                dismiss()
+            }
+        }
+        .onChange(of: chosen) { old, new in
+            // Backing out of an unfinished sign-in stops its polling.
+            if let old, new == nil, !model.isSignedIn(old) {
+                model.addedProviders[old]?.cancelSignIn()
+                if old == .cursor { model.cursor.cancelSignIn() }
+            }
+        }
     }
 }

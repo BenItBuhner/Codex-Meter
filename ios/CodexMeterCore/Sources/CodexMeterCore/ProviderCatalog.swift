@@ -153,4 +153,7 @@ public extension UsageProvider {
     var isBuiltIn: Bool {
         self == .codex || self == .claudeCode || self == .cursor
     }
+
+    /// Codex, Claude Code and Cursor, in tab order.
+    static let builtIns: [UsageProvider] = [.codex, .claudeCode, .cursor]
 }

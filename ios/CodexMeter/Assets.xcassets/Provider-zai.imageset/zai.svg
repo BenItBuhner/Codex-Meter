@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Z.ai: a lettered placeholder, because Simple Icons has no Z.ai mark.
+     Single-color so iOS tabs and settings rows tint it like an SF Symbol. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <path fill="#000000" fill-rule="evenodd" d="M7,1H17A6,6 0 0 1 23,7V17A6,6 0 0 1 17,23H7A6,6 0 0 1 1,17V7A6,6 0 0 1 7,1ZM7.0,2.8H17.0A4.2,4.2 0 0 1 21.2,7.0V17.0A4.2,4.2 0 0 1 17.0,21.2H7.0A4.2,4.2 0 0 1 2.8,17.0V7.0A4.2,4.2 0 0 1 7.0,2.8Z"/>
+  <path fill="#000000" d="M8.21 17H15.81V15.3H12.66C11.98 15.3 11.31 15.3 10.63 15.34C11.05 14.85 11.46 14.35 11.81 13.86L15.79 8.23V7H8.19V8.7H11.46C12.09 8.7 12.73 8.7 13.37 8.67C12.97 9.13 12.59 9.59 12.26 10.05L8.21 15.77Z"/>
+</svg>
