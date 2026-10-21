@@ -57,8 +57,14 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var creditExpiryRemindersEnabled: Bool
     /// Minutes before expiry. Multiple values schedule one reminder each (2.2 parity).
     public var creditExpiryLeadMinutes: [Int]
-    /// Apply unused available credits in the last minute before they expire.
+    /// Use unused available credits automatically shortly before they expire.
     public var creditExpiryAutoApplyEnabled: Bool
+    /// How long before expiry to use them; one of `CreditExpiryAutoApply.leadMinuteOptions`.
+    public var creditExpiryAutoApplyLeadMinutes: Int
+    /// Spend one credit when remaining usage drops to `lowUsageAutoUseThreshold`. Off by default.
+    public var lowUsageAutoUseEnabled: Bool
+    public var lowUsageAutoUseThreshold: Int
+    public var lowUsageAutoUseMetric: LowUsageAutoUseMetric
 
     public init(
         appearance: AppAppearance = .system,
@@ -82,7 +88,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         unexpectedRefillAlertsEnabled: Bool = true,
         creditExpiryRemindersEnabled: Bool = true,
         creditExpiryLeadMinutes: [Int] = AppSettings.defaultCreditExpiryLeadMinutes,
-        creditExpiryAutoApplyEnabled: Bool = true
+        creditExpiryAutoApplyEnabled: Bool = true,
+        creditExpiryAutoApplyLeadMinutes: Int = CreditExpiryAutoApply.defaultLeadMinutes,
+        lowUsageAutoUseEnabled: Bool = false,
+        lowUsageAutoUseThreshold: Int = LowUsageAutoUse.defaultThreshold,
+        lowUsageAutoUseMetric: LowUsageAutoUseMetric = .both
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
@@ -108,6 +118,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.creditExpiryRemindersEnabled = creditExpiryRemindersEnabled
         self.creditExpiryLeadMinutes = Self.sanitizedLeadMinutes(creditExpiryLeadMinutes)
         self.creditExpiryAutoApplyEnabled = creditExpiryAutoApplyEnabled
+        self.creditExpiryAutoApplyLeadMinutes =
+            CreditExpiryAutoApply.normalizedLeadMinutes(creditExpiryAutoApplyLeadMinutes)
+        self.lowUsageAutoUseEnabled = lowUsageAutoUseEnabled
+        self.lowUsageAutoUseThreshold = LowUsageAutoUse.normalizedThreshold(lowUsageAutoUseThreshold)
+        self.lowUsageAutoUseMetric = lowUsageAutoUseMetric
     }
 
     public var effectiveCreditExpiryLeadMinutes: [Int] {
@@ -223,6 +238,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case creditExpiryRemindersEnabled
         case creditExpiryLeadMinutes
         case creditExpiryAutoApplyEnabled
+        case creditExpiryAutoApplyLeadMinutes
+        case lowUsageAutoUseEnabled
+        case lowUsageAutoUseThreshold
+        case lowUsageAutoUseMetric
     }
 
     public init(from decoder: any Decoder) throws {
@@ -250,7 +269,14 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             creditExpiryRemindersEnabled: try container.decodeIfPresent(Bool.self, forKey: .creditExpiryRemindersEnabled) ?? true,
             creditExpiryLeadMinutes: try container.decodeIfPresent([Int].self, forKey: .creditExpiryLeadMinutes)
                 ?? Self.defaultCreditExpiryLeadMinutes,
-            creditExpiryAutoApplyEnabled: try container.decodeIfPresent(Bool.self, forKey: .creditExpiryAutoApplyEnabled) ?? true
+            creditExpiryAutoApplyEnabled: try container.decodeIfPresent(Bool.self, forKey: .creditExpiryAutoApplyEnabled) ?? true,
+            creditExpiryAutoApplyLeadMinutes: try container.decodeIfPresent(Int.self, forKey: .creditExpiryAutoApplyLeadMinutes)
+                ?? CreditExpiryAutoApply.defaultLeadMinutes,
+            lowUsageAutoUseEnabled: try container.decodeIfPresent(Bool.self, forKey: .lowUsageAutoUseEnabled) ?? false,
+            lowUsageAutoUseThreshold: try container.decodeIfPresent(Int.self, forKey: .lowUsageAutoUseThreshold)
+                ?? LowUsageAutoUse.defaultThreshold,
+            lowUsageAutoUseMetric: (try? container.decodeIfPresent(LowUsageAutoUseMetric.self, forKey: .lowUsageAutoUseMetric))
+                ?? .both
         )
     }
 }

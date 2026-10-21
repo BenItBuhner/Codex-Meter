@@ -115,7 +115,7 @@ public actor LiveCodexService: CodexService {
         }
     }
 
-    public func consumeReset(creditID: String? = nil) async throws -> ResetConsumeResult {
+    public func consumeReset(creditID: String?) async throws -> ResetConsumeResult {
         if let activeRefresh {
             _ = try? await activeRefresh.value
             self.activeRefresh = nil

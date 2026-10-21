@@ -4,6 +4,23 @@ import XCTest
 @testable import CodexMeter
 
 final class SettingsAndHistoryTests: XCTestCase {
+    func testResetAutoUseSettingsDefaultAndRoundTrip() throws {
+        let legacy = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        XCTAssertTrue(legacy.creditExpiryAutoApplyEnabled)
+        XCTAssertEqual(legacy.creditExpiryAutoApplyLeadMinutes, 30)
+        XCTAssertFalse(legacy.lowUsageAutoUseEnabled)
+        XCTAssertEqual(legacy.lowUsageAutoUseThreshold, 1)
+        XCTAssertEqual(legacy.lowUsageAutoUseMetric, .both)
+
+        var custom = AppSettings()
+        custom.creditExpiryAutoApplyLeadMinutes = 60
+        custom.lowUsageAutoUseEnabled = true
+        custom.lowUsageAutoUseThreshold = 2
+        custom.lowUsageAutoUseMetric = .weekly
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(custom))
+        XCTAssertEqual(decoded, custom)
+    }
+
     func testDashboardSettingsOrderVisibilityAndTransferRoundTrip() throws {
         let spark = "limit:codex-spark"
         var settings = AppSettings()

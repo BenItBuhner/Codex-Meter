@@ -42,8 +42,8 @@ struct ResetCreditView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
-                        if model.settings.creditExpiryAutoApplyEnabled, nextExpiry != nil {
-                            Text("Unused credits apply automatically in the last minute before they expire. iOS may delay this until the next refresh.")
+                        if let autoUse = autoUseSummary(hasExpiry: nextExpiry != nil) {
+                            Text(autoUse)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
@@ -119,5 +119,22 @@ struct ResetCreditView: View {
         } message: {
             Text("This action consumes one available reset credit and cannot be undone.")
         }
+    }
+
+    /// One line describing the automatic-use rules that are on, or nil when none are.
+    private func autoUseSummary(hasExpiry: Bool) -> String? {
+        var parts: [String] = []
+        if model.settings.creditExpiryAutoApplyEnabled, hasExpiry {
+            parts.append("Unused credits are used automatically "
+                + CreditExpiryAutoApply.leadLabel(model.settings.creditExpiryAutoApplyLeadMinutes)
+                + " before they expire.")
+        }
+        if model.settings.lowUsageAutoUseEnabled {
+            parts.append("A credit is also used when your "
+                + model.settings.lowUsageAutoUseMetric.shortTitle
+                + " limit reaches \(model.settings.lowUsageAutoUseThreshold)% remaining.")
+        }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " ") + " iOS runs this on the next refresh."
     }
 }

@@ -109,6 +109,21 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("09-settings")
 
+        // Codex reset credits: expiry auto-use is on by default; running-low asks first.
+        let lowUsageSwitch = app.switches["Use a reset when running low"]
+        UITestSupport.scrollForm(untilExists: lowUsageSwitch, in: app)
+        app.swipeUp()
+        UITestSupport.settle(0.5)
+        capture("09b-settings-reset-auto-use")
+        UITestSupport.tap(lowUsageSwitch)
+        if app.alerts["Use resets automatically?"].waitForExistence(timeout: 5) {
+            UITestSupport.settle(0.5)
+            capture("09c-reset-auto-use-confirm")
+            UITestSupport.tap(app.alerts["Use resets automatically?"].buttons["Turn on"])
+            UITestSupport.settle(0.8)
+            capture("09d-reset-auto-use-on")
+        }
+
         UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app)
         UITestSupport.settle(0.5)
         capture("10-settings-notifications")
