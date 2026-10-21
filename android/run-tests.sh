@@ -86,13 +86,9 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/tests/ParserSelfTest.java" \
   "$ROOT/tests/ProviderParsersSelfTest.java"
 
-<<<<<<< HEAD
-java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
-java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
-=======
 java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ParserSelfTest
->>>>>>> origin/alpha
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.9.0-alpha.2"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
