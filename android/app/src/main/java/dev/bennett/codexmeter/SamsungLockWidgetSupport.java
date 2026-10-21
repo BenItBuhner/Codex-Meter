@@ -186,13 +186,8 @@ final class SamsungLockWidgetSupport {
     }
 
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
-        List<UsageProvider> providers = new ArrayList<>();
-        if (i == 0) {
-            providers.add(UsageProvider.CODEX);
-        } else {
-            providers.addAll(ProviderPreferences.getLockWidgetProviders(context, i,
-                metric == Metric.BOTH ? WidgetProviders.MAX_LOCK_WIDE : 1));
-        }
+        List<UsageProvider> providers = new ArrayList<>(ProviderPreferences.getLockWidgetProviders(
+                context, i, metric == Metric.BOTH ? WidgetProviders.MAX_LOCK_WIDE : 1));
         return buildViews(context, appWidgetManager, i, shape, style, metric, providers,
                 AppPreferences.loadLockWidgetOptions(context, i));
     }
@@ -238,8 +233,8 @@ final class SamsungLockWidgetSupport {
             binding = bindProviders(context, providers, lockWidgetOptionsLoadLockWidgetOptions);
             zIsSignedIn = binding.anySignedIn;
         } else {
-            binding = bindLockMeters(usageSnapshotLoadSnapshot,
-                    lockWidgetOptionsLoadLockWidgetOptions);
+            binding = markProvider(bindLockMeters(usageSnapshotLoadSnapshot,
+                    lockWidgetOptionsLoadLockWidgetOptions), provider);
         }
         String name = multi ? "Usage" : provider.displayName;
         if (metric != Metric.BOTH) {
@@ -322,7 +317,7 @@ final class SamsungLockWidgetSupport {
         }
         LockMeterBinding binding = providers != null && providers.size() > 1
                 ? bindProviders(context, providers, options)
-                : bindLockMeters(snapshot, options);
+                : markProvider(bindLockMeters(snapshot, options), provider);
         int primary = binding.primaryRemaining < 0 ? 73 : binding.primaryRemaining;
         int secondary = !binding.showSecondary ? -1
                 : binding.secondaryRemaining < 0 ? 44 : binding.secondaryRemaining;
@@ -392,6 +387,22 @@ final class SamsungLockWidgetSupport {
                 slots.size() > 1 ? slots.get(1) : null);
         binding.anySignedIn = anySignedIn;
         return binding;
+    }
+
+    /**
+     * One provider other than Codex: its mark replaces the first dial's meter icon, so the widget
+     * says whose usage it shows. Codex keeps its clock and calendar icons.
+     */
+    private static LockMeterBinding markProvider(LockMeterBinding binding,
+            UsageProvider provider) {
+        if (provider == null || provider == UsageProvider.CODEX || binding.primary == null) {
+            return binding;
+        }
+        LockMeterSlot p = binding.primary;
+        LockMeterBinding marked = new LockMeterBinding(new LockMeterSlot(p.key, p.label,
+                p.remaining, p.window, ProvidersActivity.iconRes(provider)), binding.secondary);
+        marked.anySignedIn = binding.anySignedIn;
+        return marked;
     }
 
     private static LockMeterSlot lockSlot(String key, UsageSnapshot snapshot) {

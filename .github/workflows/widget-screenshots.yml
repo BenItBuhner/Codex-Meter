@@ -106,6 +106,7 @@ jobs:
           if [[ "$V" == "after" ]]; then
             open list cursor-claude; shot 03-settings-lock-widgets
             open config-lock cursor-claude; shot 04-lock-widget-settings
+            open picked all;         shot 05-lock-picked-providers
           fi
           adb logcat -d -s WidgetGallery:* AndroidRuntime:E > "$OUT/logcat.txt" || true
           SH

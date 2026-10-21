@@ -35,6 +35,10 @@ final class Gallery {
     }
 
     static void render(WidgetGalleryActivity a, String page) {
+        if ("picked".equals(page)) {
+            renderPicked(a);
+            return;
+        }
         boolean all = !"cursor-claude".equals(a.getIntent().getStringExtra("signedin"));
         a.heading(all ? "Signed in to Codex, Claude Code, Cursor"
                 : "Signed in to Cursor and Claude Code (not Codex)");
@@ -45,15 +49,17 @@ final class Gallery {
         a.lock(r, "Gauges", SamsungLockWidgetSupport.buildViews(a, null, 0, Shape.WIDE, Style.DIALS, Metric.BOTH), 124, 56);
         r = a.row();
         a.lock(r, "Old Bars tile (now draws dials)", SamsungLockWidgetSupport.buildViews(a, null, 0, Shape.WIDE, Style.BARS, Metric.BOTH), 124, 56);
-        if (all) {
-            return;
-        }
-        a.heading("Picked in settings");
-        r = a.row();
+    }
+
+    static void renderPicked(WidgetGalleryActivity a) {
+        a.heading("Picked in Settings → Lock screen widgets");
+        LinearLayout r = a.row();
         a.lock(r, "Gauge · Cursor", chosen(a, Shape.SQUARE, Metric.FIVE_HOUR, WidgetGalleryActivity.list(CURSOR)), 56, 56);
         a.lock(r, "Gauge · Claude", chosen(a, Shape.SQUARE, Metric.FIVE_HOUR, WidgetGalleryActivity.list(CLAUDE)), 56, 56);
         r = a.row();
         a.lock(r, "Gauges · Cursor only", chosen(a, Shape.WIDE, Metric.BOTH, WidgetGalleryActivity.list(CURSOR)), 124, 56);
+        r = a.row();
+        a.lock(r, "Gauges · Codex + Cursor", chosen(a, Shape.WIDE, Metric.BOTH, WidgetGalleryActivity.list(CODEX, CURSOR)), 124, 56);
         r = a.row();
         a.lock(r, "Gauges · Claude Code only", chosen(a, Shape.WIDE, Metric.BOTH, WidgetGalleryActivity.list(CLAUDE)), 124, 56);
     }
