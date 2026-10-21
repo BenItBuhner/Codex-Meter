@@ -50,7 +50,8 @@ enum UITestSupport {
     }
 
     /// True when the element exists and sits inside the window, clear of the
-    /// navigation bar at the top and of the bottom edge.
+    /// navigation bar at the top and of the provider switcher pinned to the
+    /// bottom edge.
     static func isFullyVisible(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
         guard element.exists else { return false }
         let frame = element.frame
@@ -60,7 +61,7 @@ enum UITestSupport {
             x: window.minX,
             y: window.minY + 120,
             width: window.width,
-            height: window.height - 120 - 60
+            height: window.height - 120 - 110
         )
         return visibleArea.contains(frame)
     }

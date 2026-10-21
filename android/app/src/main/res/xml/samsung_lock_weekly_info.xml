@@ -12,6 +12,7 @@
     android:targetCellWidth="1"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="0x2000"
+    android:widgetFeatures="hide_from_picker"
     app:initialLayoutTiny="@layout/widget_lock_weekly_preview"
     app:previewLayoutTiny="@layout/widget_lock_weekly_preview"
     app:targetHost="cover|lock_and_aod"

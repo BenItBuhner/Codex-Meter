@@ -204,7 +204,7 @@ private struct DashboardSectionItem: Identifiable {
     }
 }
 
-private struct AdditionalLimitCards: View {
+struct AdditionalLimitCards: View {
     @Environment(AppModel.self) private var model
     let limit: UsageLimit
     let fetchedAt: Date
@@ -230,7 +230,7 @@ private struct AdditionalLimitCards: View {
             window: window,
             accent: accent,
             fetchedAt: fetchedAt,
-            pace: model.usagePace(for: window)
+            pace: model.usagePace(for: window, observedAt: fetchedAt)
         )
     }
 
