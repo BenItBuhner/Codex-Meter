@@ -210,7 +210,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
                     ResetCreditActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.ResetCreditActivity.6.1
                         @Override // java.lang.Runnable
                         public void run() {
-                            Toast.makeText(ResetCreditActivity.this, resetConsumeResultConsumeBestAvailable.userMessage(), 1).show();
+                            Toast.makeText(ResetCreditActivity.this, resetConsumeResultConsumeBestAvailable.userMessage(), Toast.LENGTH_LONG).show();
                             if (!resetConsumeResultConsumeBestAvailable.applied()) {
                                 ResetCreditActivity.this.rebuild();
                             } else {
@@ -226,7 +226,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
                     ResetCreditActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.ResetCreditActivity.6.2
                         @Override // java.lang.Runnable
                         public void run() {
-                            Toast.makeText(ResetCreditActivity.this, ResetCreditActivity.safeMessage(e), 1).show();
+                            Toast.makeText(ResetCreditActivity.this, ResetCreditActivity.safeMessage(e), Toast.LENGTH_LONG).show();
                             ResetCreditActivity.this.rebuild();
                         }
                     });

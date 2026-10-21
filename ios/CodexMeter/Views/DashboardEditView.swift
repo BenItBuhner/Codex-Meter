@@ -66,7 +66,7 @@ struct DashboardEditView: View {
 
     private var infoNote: String {
         if provider == .codex {
-            return "Changes save immediately. Usage-credit and reset-credit cards still hide automatically when their inventory is empty or unknown. Usage history stays off the dashboard until OpenAI reports a usage window."
+            return "Changes save immediately. Usage-credit and reset-credit cards still hide automatically when their inventory is empty or unknown, and the monthly credit limit appears only for accounts under workspace spend controls. Usage history stays off the dashboard until OpenAI reports a usage window."
         }
         return "Changes save immediately. Cards appear only while \(provider.vendorName) reports data for them, and new ones show up here automatically."
     }
@@ -115,6 +115,11 @@ struct DashboardEditView: View {
                 key: DashboardSections.usageCredits,
                 title: "Usage-credit balance",
                 summary: "Hidden automatically at a zero or negative balance"
+            ),
+            DashboardSections.spendControl: DashboardEditItem(
+                key: DashboardSections.spendControl,
+                title: "Monthly credit limit",
+                summary: "Workspace spend limit · shown only when OpenAI reports one"
             ),
             DashboardSections.usageHistory: DashboardEditItem(
                 key: DashboardSections.usageHistory,

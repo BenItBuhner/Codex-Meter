@@ -37,6 +37,12 @@ public final class OAuthService extends Service {
     public static final String ACTION_CANCEL_SILENT = "dev.bennett.codexmeter.oauth.CANCEL_SILENT";
     /** {@link UsageProvider#id} to sign in to; missing means Codex. */
     public static final String EXTRA_PROVIDER = "provider";
+    /** Broadcast while a device-code sign-in waits for the user to enter its code. */
+    public static final String ACTION_DEVICE_CODE = "dev.bennett.codexmeter.oauth.DEVICE_CODE";
+    public static final String EXTRA_USER_CODE = "user_code";
+    public static final String EXTRA_VERIFY_URL = "verify_url";
+    /** The code being shown, so a reopened sign-in screen can show it again. */
+    private volatile DeviceAuth.DeviceCode deviceCode;
     private static final String CHANNEL_ID = "oauth_sign_in";
     private static final int NOTIFICATION_ID = 7301;
 
@@ -88,8 +94,13 @@ public final class OAuthService extends Service {
                 }
             });
         } else {
-            String url = AppPreferences.getOAuthUrl(this);
-            if (!url.isEmpty()) broadcastReady(url);
+            DeviceAuth.DeviceCode code = deviceCode;
+            if (code != null) {
+                broadcastDeviceCode(code);
+            } else {
+                String url = AppPreferences.getOAuthUrl(this);
+                if (!url.isEmpty()) broadcastReady(url);
+            }
         }
         return START_NOT_STICKY;
     }
@@ -113,6 +124,11 @@ public final class OAuthService extends Service {
         final UsageProvider flowProvider = provider;
         if (flowProvider == UsageProvider.CURSOR) {
             runCursorFlow(started);
+            return;
+        }
+        ProviderClient client = ProviderClients.get(flowProvider);
+        if (client != null) {
+            runClientFlow(client, started);
             return;
         }
         final boolean claude = flowProvider == UsageProvider.CLAUDE_CODE;
@@ -285,6 +301,196 @@ public final class OAuthService extends Service {
         finishService();
     }
 
+    /**
+     * Sign-in for the providers in {@link ProviderClients}: either a device code the user types
+     * on the provider's page while the app polls, or a browser sign-in that returns to a local
+     * port. Paste and API-key sign-ins finish in {@link SignInActivity} without this service.
+     */
+    private void runClientFlow(ProviderClient client, long started) {
+        final UsageProvider flowProvider = client.provider;
+        boolean credentialsCommitted = false;
+        Socket browser = null;
+        DiagnosticLog.info(this, "auth", "oauth_flow_started", "provider", flowProvider.id);
+        try {
+            ProviderClient.Session session = new ProviderClient.Session();
+            AuthTokens tokens;
+            if (ProviderCatalog.get(flowProvider).signIn == ProviderCatalog.SignIn.LOOPBACK) {
+                int port = client.loopbackPort() > 0 ? bindPort(client.loopbackPort())
+                        : bindEphemeralServer();
+                String redirectUri = "http://127.0.0.1:" + port + client.loopbackPath();
+                String authUrl = client.loopbackAuthUrl(redirectUri, session);
+                AppPreferences.setOAuthPending(this, true, authUrl);
+                updateNotification("Complete sign-in in your browser", authUrl);
+                broadcastReady(authUrl);
+                tokens = null;
+                while (!cancelled && tokens == null) {
+                    try {
+                        browser = serverSocket.accept();
+                    } catch (SocketTimeoutException timeout) {
+                        throw new Exception("Sign-in timed out. Start again from the app.");
+                    }
+                    browser.setSoTimeout(30000);
+                    Callback callback = readCallback(browser);
+                    if (!client.loopbackPath().equals(callback.path)) {
+                        writeBrowser(browser, 404, "Not found", false);
+                        closeQuietly(browser);
+                        browser = null;
+                        continue;
+                    }
+                    String returnedState = callback.parameters.get("state");
+                    if (returnedState != null && !secureEquals(session.state, returnedState)) {
+                        writeBrowser(browser, 400, "The sign-in state did not match. Return "
+                                + "to Codex Meter and try again.", false);
+                        closeQuietly(browser);
+                        browser = null;
+                        continue;
+                    }
+                    String error = callback.parameters.get("error");
+                    if (error != null && !error.isEmpty()) {
+                        writeBrowser(browser, 400, error, false);
+                        closeQuietly(browser);
+                        browser = null;
+                        throw new Exception("Sign-in failed: " + error);
+                    }
+                    if (callback.parameters.get("code") == null) {
+                        writeBrowser(browser, 400,
+                                "The sign-in response did not include a code.", false);
+                        closeQuietly(browser);
+                        browser = null;
+                        throw new Exception("Sign-in failed because no code was returned.");
+                    }
+                    updateNotification("Securing your " + flowProvider.displayName
+                            + " session…", null);
+                    tokens = client.finishLoopback(this, session, callback.parameters,
+                            redirectUri);
+                }
+                if (tokens == null) throw new Exception("Sign-in cancelled.");
+            } else {
+                DeviceAuth.DeviceCode code = client.startDevice(this, session);
+                deviceCode = code;
+                AppPreferences.setOAuthPending(this, true, code.openUrl());
+                updateNotification(code.userCode.isEmpty()
+                        ? "Approve the sign-in in your browser"
+                        : "Enter code " + code.userCode + " on " + flowProvider.vendorName,
+                        code.openUrl());
+                broadcastDeviceCode(code);
+                tokens = pollDevice(client, session, code);
+            }
+            deviceCode = null;
+            SecureTokenStore.save(this, flowProvider, tokens);
+            credentialsCommitted = true;
+            if (!tokens.email.isEmpty()) {
+                ProviderPreferences.setEmail(this, flowProvider, tokens.email);
+            }
+            ProviderPreferences.setEnabled(this, flowProvider, true);
+            AppPreferences.setOAuthPending(this, false, "");
+            if (browser != null) {
+                try {
+                    writeBrowser(browser, 200, "Your " + flowProvider.displayName
+                            + " account is connected. Returning to Codex Meter…", true);
+                } catch (Exception ignored) {
+                    // The browser may already be closed; the sign-in is saved either way.
+                }
+            }
+            broadcastResult(true, flowProvider.displayName + " connected.");
+            updateNotification("Loading " + flowProvider.displayName + " usage…", null);
+            try {
+                ProviderUsageApi.refreshAndCache(this, flowProvider);
+            } catch (Exception refreshError) {
+                // refreshAndCache already recorded the error on the provider's tab.
+            }
+            RefreshScheduler.schedulePeriodic(this);
+            safeWidgetUpdate();
+            broadcastUsageUpdated();
+            DiagnosticLog.info(this, "auth", "oauth_flow_succeeded", "provider", flowProvider.id,
+                    "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
+        } catch (Exception exception) {
+            deviceCode = null;
+            DiagnosticLog.error(this, "auth", "oauth_flow_failed", exception,
+                    "provider", flowProvider.id,
+                    "credentials_committed", credentialsCommitted,
+                    "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
+            AppPreferences.setOAuthPending(this, false, "");
+            if (browser != null && !credentialsCommitted) {
+                try {
+                    writeBrowser(browser, 500, cleanMessage(exception), false);
+                } catch (Exception ignored) {
+                    // The callback connection may already be gone.
+                }
+            }
+            if (credentialsCommitted) {
+                ProviderPreferences.setLastError(this, flowProvider, cleanMessage(exception));
+                broadcastResult(true, "Connected. Usage can be refreshed from the app.");
+                safeWidgetUpdate();
+            } else if (!cancelled) {
+                broadcastResult(false, cleanMessage(exception));
+            }
+        } finally {
+            closeQuietly(browser);
+            closeServer();
+        }
+        finishService();
+    }
+
+    /** Polls a device code until the user approves it, declines it, or it expires. */
+    private AuthTokens pollDevice(ProviderClient client, ProviderClient.Session session,
+            DeviceAuth.DeviceCode code) throws Exception {
+        long deadline = android.os.SystemClock.elapsedRealtime()
+                + Math.min(code.expiresInSeconds, 30L * 60L) * 1000L;
+        long interval = code.intervalSeconds;
+        int failures = 0;
+        while (!cancelled) {
+            Thread.sleep(interval * 1000L);
+            if (cancelled) break;
+            if (android.os.SystemClock.elapsedRealtime() > deadline) {
+                throw new Exception("The code expired before it was entered. Start again.");
+            }
+            DeviceAuth.Poll poll;
+            try {
+                poll = client.pollDevice(this, session);
+                failures = 0;
+            } catch (java.io.IOException network) {
+                if (++failures >= 5) {
+                    throw new Exception("Sign-in could not be confirmed. Check your connection "
+                            + "and try again.");
+                }
+                continue;
+            }
+            switch (poll.state) {
+                case DONE:
+                    updateNotification("Securing your " + client.provider.displayName
+                            + " session…", null);
+                    return client.finishDevice(this, session, poll.tokens);
+                case SLOW_DOWN:
+                    interval = Math.min(interval + 5L, 30L);
+                    break;
+                case PENDING:
+                    break;
+                default:
+                    throw new Exception(poll.message.isEmpty() ? "Sign-in failed." : poll.message);
+            }
+        }
+        throw new Exception("Sign-in cancelled.");
+    }
+
+    private int bindPort(int port) throws Exception {
+        ServerSocket candidate = new ServerSocket();
+        candidate.setReuseAddress(true);
+        candidate.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), port));
+        candidate.setSoTimeout(5 * 60 * 1000);
+        serverSocket = candidate;
+        return port;
+    }
+
+    private void broadcastDeviceCode(DeviceAuth.DeviceCode code) {
+        Intent intent = new Intent(ACTION_DEVICE_CODE)
+                .setPackage(getPackageName())
+                .putExtra(EXTRA_PROVIDER, provider.id)
+                .putExtra(EXTRA_USER_CODE, code.userCode)
+                .putExtra(EXTRA_VERIFY_URL, code.openUrl());
+        sendBroadcast(intent, AppConstants.INTERNAL_PERMISSION);
+    }
+
     private void performPostAuthenticationSetup() {
         try {
             UsageSnapshot snapshot = UsageApi.refreshAndCache(this);
@@ -446,6 +652,7 @@ public final class OAuthService extends Service {
     private void broadcastReady(String authUrl) {
         Intent intent = new Intent(AppConstants.ACTION_OAUTH_READY)
                 .setPackage(getPackageName())
+                .putExtra(EXTRA_PROVIDER, provider.id)
                 .putExtra(AppConstants.EXTRA_AUTH_URL, authUrl);
         sendBroadcast(intent, AppConstants.INTERNAL_PERMISSION);
     }
@@ -453,6 +660,7 @@ public final class OAuthService extends Service {
     private void broadcastResult(boolean success, String message) {
         Intent intent = new Intent(AppConstants.ACTION_OAUTH_RESULT)
                 .setPackage(getPackageName())
+                .putExtra(EXTRA_PROVIDER, provider.id)
                 .putExtra(AppConstants.EXTRA_SUCCESS, success)
                 .putExtra(AppConstants.EXTRA_MESSAGE, message);
         sendBroadcast(intent, AppConstants.INTERNAL_PERMISSION);

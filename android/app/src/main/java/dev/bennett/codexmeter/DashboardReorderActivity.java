@@ -86,10 +86,11 @@ public final class DashboardReorderActivity extends AppCompatActivity {
 
         TextView note = Ui.text(this, provider == UsageProvider.CODEX
                 ? "Changes are saved instantly. Usage-credit balance and reset credits stay hidden "
-                        + "when they have nothing to show (zero or below), and 5-hour, weekly, "
+                        + "when they have nothing to show (zero or below); 5-hour, weekly, "
                         + "monthly, and usage-history cards appear only while OpenAI reports data "
-                        + "for them — no matter where each card is placed or whether its switch "
-                        + "is on."
+                        + "for them; and the monthly credit limit appears only for accounts under "
+                        + "workspace spend controls — no matter where each card is placed or "
+                        + "whether its switch is on."
                 : "Changes are saved instantly. Cards appear only while " + provider.vendorName
                         + " reports data for them, and new ones show up here automatically.",
                 12.0f, Ui.secondaryText(dark));
@@ -123,6 +124,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             } else if (DashboardSections.MONTHLY.equals(key)) {
                 items.add(new SectionItem(key, "Monthly limit",
                         "Rolling ~30-day Codex window (free tier)"));
+            } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+                items.add(new SectionItem(key, "Monthly credit limit",
+                        "Workspace spend limit · shown only when OpenAI reports one"));
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 items.add(new SectionItem(key, "Usage-credit balance",
                         "Hidden automatically at a zero or negative balance"));

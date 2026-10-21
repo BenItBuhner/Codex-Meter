@@ -4,7 +4,11 @@ plugins {
 
 android {
     namespace = "dev.bennett.codexmeter"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         applicationId = "dev.bennett.codexmeter"
@@ -22,6 +26,13 @@ android {
             ?: "https://api.github.com/repos/BenItBuhner/Codex-Meter/releases?per_page=30" // pragma: allowlist secret
         buildConfigField("String", "UPDATE_API_URL",
             "\"${updateApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        // Antigravity's Google sign-in client comes from the build environment, never the repo.
+        fun buildSecret(name: String): String = (providers.gradleProperty(name).orNull
+            ?: System.getenv(name) ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
+        buildConfigField("String", "ANTIGRAVITY_CLIENT_ID",
+            "\"${buildSecret("ANTIGRAVITY_CLIENT_ID")}\"")
+        buildConfigField("String", "ANTIGRAVITY_CLIENT_SECRET",
+            "\"${buildSecret("ANTIGRAVITY_CLIENT_SECRET")}\"")
     }
 
     buildFeatures {
@@ -81,7 +92,7 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":shared"))
-    implementation("com.google.android.gms:play-services-wearable:19.0.0")
-    implementation("io.github.tribalfs:oneui-design:0.9.14+oneui8")
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
+    implementation("io.github.tribalfs:oneui-design:0.9.20+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
 }

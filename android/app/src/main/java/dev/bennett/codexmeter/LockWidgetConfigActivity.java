@@ -46,11 +46,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         } else {
             this.dark = Ui.isDark(this);
             this.slots = SamsungLockWidgetSupport.slotCount(this, this.appWidgetId);
-            this.providers = new ArrayList<>(
-                    ProviderPreferences.getWidgetProviders(this, this.appWidgetId));
-            if (this.providers.size() > maxProviders()) {
-                this.providers = new ArrayList<>(this.providers.subList(0, maxProviders()));
-            }
+            this.providers = new ArrayList<>(ProviderPreferences.getLockWidgetProviders(this,
+                    this.appWidgetId, maxProviders()));
             build();
         }
     }

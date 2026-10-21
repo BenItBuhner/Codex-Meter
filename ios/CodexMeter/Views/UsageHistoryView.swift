@@ -25,6 +25,7 @@ struct UsageHistoryDashboardCard: View {
                         window: fiveHour,
                         history: model.fiveHourHistory,
                         observedAt: usage.fetchedAt,
+                        pace: model.usagePace(for: fiveHour, kind: .fiveHour),
                         compact: true
                     )
                 }
@@ -35,6 +36,7 @@ struct UsageHistoryDashboardCard: View {
                         window: weekly,
                         history: model.weeklyHistory,
                         observedAt: usage.fetchedAt,
+                        pace: model.usagePace(for: weekly, kind: .weekly),
                         compact: true
                     )
                 }
@@ -45,6 +47,7 @@ struct UsageHistoryDashboardCard: View {
                         window: monthly,
                         history: model.monthlyHistory,
                         observedAt: usage.fetchedAt,
+                        pace: model.usagePace(for: monthly, kind: .monthly),
                         compact: true
                     )
                 }
@@ -204,12 +207,14 @@ struct UsageHistoryView: View {
         history: UsageHistory,
         observedAt: Date
     ) -> some View {
+        let pace = model.usagePace(for: window, kind: kind)
         HistoryDetailCard(
             title: title,
             kind: kind,
             window: window,
             history: history,
             observedAt: observedAt,
+            pace: pace,
             pricing: pricing,
             showWindowList: model.settings.isHistorySectionVisible(HistorySections.windowList)
         )
@@ -217,6 +222,7 @@ struct UsageHistoryView: View {
             window: window,
             history: history,
             observedAt: observedAt,
+            pace: pace,
             pricing: pricing,
             settings: model.settings
         ) {
@@ -271,6 +277,7 @@ private struct HistoryDetailCard: View {
     let window: UsageWindow
     let history: UsageHistory
     let observedAt: Date
+    let pace: UsagePaceAssessment
     let pricing: PlanPricing?
     let showWindowList: Bool
 
@@ -289,6 +296,7 @@ private struct HistoryDetailCard: View {
                 window: window,
                 history: history,
                 observedAt: observedAt,
+                pace: pace,
                 compact: false,
                 selectedWindowIndex: selectedWindowIndex,
                 onScrub: handleScrub,
@@ -306,26 +314,28 @@ private struct HistoryDetailCard: View {
             .foregroundStyle(.secondary)
 
             if showWindowList, breakdown.count > 1 {
-                Divider()
-                ForEach(Array(breakdown.enumerated().reversed()), id: \.offset) { index, stats in
-                    Button {
-                        selectedWindowIndex = stats.complete ? index : nil
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(stats.complete ? windowRangeLabel(stats) : "Current window")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(
-                                    selectedWindowIndex == index || (!stats.complete && selectedWindowIndex == nil)
-                                        ? Color.accentColor : .primary
-                                )
-                            Text(windowSubtitle(stats))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(breakdown.enumerated().reversed()), id: \.offset) { index, stats in
+                        Button {
+                            selectedWindowIndex = stats.complete ? index : nil
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(stats.complete ? windowRangeLabel(stats) : "Current window")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(
+                                        selectedWindowIndex == index || (!stats.complete && selectedWindowIndex == nil)
+                                            ? Color.accentColor : .primary
+                                    )
+                                Text(windowSubtitle(stats))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.top, 6)
             }
         }
         .padding(AppChrome.cardPadding)
@@ -409,6 +419,7 @@ private struct HistoryInsightsCard: View {
         window: UsageWindow,
         history: UsageHistory,
         observedAt: Date,
+        pace: UsagePaceAssessment,
         pricing: PlanPricing?,
         settings: AppSettings
     ) -> HistoryInsightsModel? {
@@ -434,17 +445,10 @@ private struct HistoryInsightsCard: View {
             }
         }
 
-        if settings.isHistorySectionVisible(HistorySections.insightExhaustion) {
-            let pace = UsagePace.assess(
-                window: window,
-                history: history,
-                observedAt: observedAt,
-                now: now,
-                sensitivity: .balanced
-            )
-            if pace.isAvailable, let exhaustion = pace.estimatedExhaustionAt {
-                rows.append(("Projected exhaustion", UsageFormat.relative(until: exhaustion, from: now)))
-            }
+        if settings.isHistorySectionVisible(HistorySections.insightExhaustion),
+           pace.isAvailable,
+           let exhaustion = pace.estimatedExhaustionAt {
+            rows.append(("Projected exhaustion", UsageFormat.relative(until: exhaustion, from: now)))
         }
 
         if settings.isHistorySectionVisible(HistorySections.insightAverage),
@@ -523,11 +527,13 @@ private struct ValueEstimatesCard: View {
 }
 
 private struct UsageBurnChart: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let kind: UsageHistoryKind
     let window: UsageWindow
     let history: UsageHistory
     let observedAt: Date
+    let pace: UsagePaceAssessment
     let compact: Bool
     var selectedWindowIndex: Int?
     var onScrub: ((Date, Double, Bool) -> Void)?
@@ -550,16 +556,6 @@ private struct UsageBurnChart: View {
                 prefix: "history-\(index)"
             )
         }
-    }
-
-    private var pace: UsagePaceAssessment {
-        UsagePace.assess(
-            window: window,
-            history: history,
-            observedAt: observedAt,
-            now: .now,
-            sensitivity: .balanced
-        )
     }
 
     private var projectionPoints: [UsageChartPoint] {
@@ -595,10 +591,12 @@ private struct UsageBurnChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack {
+            dynamicTypeSize.rowLayout(spacing: 8) {
                 Text(title)
                     .font(.subheadline.bold())
-                Spacer(minLength: 8)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
+                }
                 Text(currentPoints.count < 2 ? "Building history" : "\(currentPoints.count) samples")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -701,6 +699,7 @@ private struct UsageBurnChart: View {
                 }
                 .font(.caption)
                 .foregroundStyle(pace.isAccelerated ? .orange : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

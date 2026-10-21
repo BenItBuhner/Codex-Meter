@@ -65,12 +65,16 @@ final class SamsungLockWidgetSupport {
 
         String label() {
             if (this.metric == Metric.FIVE_HOUR) {
-                return "5-hour · Tiny";
+                return "Gauge";
             }
             if (this.metric == Metric.WEEKLY) {
-                return "Weekly · Tiny";
+                return "Weekly gauge (older)";
             }
-            return SamsungLockWidgetSupport.styleLabel(this.style) + " · " + (this.shape == Shape.SQUARE ? "Square" : "Wide");
+            if (this.shape == Shape.WIDE && (this.style == Style.DIALS || this.style == Style.BARS)) {
+                return "Gauges";
+            }
+            return SamsungLockWidgetSupport.styleLabel(this.style) + " · "
+                    + (this.shape == Shape.SQUARE ? "Square" : "Wide") + " (older)";
         }
     }
 
@@ -182,12 +186,8 @@ final class SamsungLockWidgetSupport {
     }
 
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
-        List<UsageProvider> providers = new ArrayList<>();
-        if (i == 0) {
-            providers.add(UsageProvider.CODEX);
-        } else {
-            providers.addAll(ProviderPreferences.getWidgetProviders(context, i));
-        }
+        List<UsageProvider> providers = new ArrayList<>(ProviderPreferences.getLockWidgetProviders(
+                context, i, metric == Metric.BOTH ? WidgetProviders.MAX_LOCK_WIDE : 1));
         return buildViews(context, appWidgetManager, i, shape, style, metric, providers,
                 AppPreferences.loadLockWidgetOptions(context, i));
     }
@@ -208,6 +208,10 @@ final class SamsungLockWidgetSupport {
             LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions) {
         RemoteViews remoteViewsBuildArcViews;
         int i2;
+        if (style == Style.BARS) {
+            // The bar widgets are retired; tiles already placed draw dials instead.
+            style = Style.DIALS;
+        }
         UsageProvider provider = providers == null || providers.isEmpty()
                 ? UsageProvider.CODEX : providers.get(0);
         boolean multi = metric == Metric.BOTH && providers != null && providers.size() > 1;
@@ -229,8 +233,8 @@ final class SamsungLockWidgetSupport {
             binding = bindProviders(context, providers, lockWidgetOptionsLoadLockWidgetOptions);
             zIsSignedIn = binding.anySignedIn;
         } else {
-            binding = bindLockMeters(usageSnapshotLoadSnapshot,
-                    lockWidgetOptionsLoadLockWidgetOptions);
+            binding = markProvider(bindLockMeters(usageSnapshotLoadSnapshot,
+                    lockWidgetOptionsLoadLockWidgetOptions), provider);
         }
         String name = multi ? "Usage" : provider.displayName;
         if (metric != Metric.BOTH) {
@@ -313,15 +317,14 @@ final class SamsungLockWidgetSupport {
         }
         LockMeterBinding binding = providers != null && providers.size() > 1
                 ? bindProviders(context, providers, options)
-                : bindLockMeters(snapshot, options);
+                : markProvider(bindLockMeters(snapshot, options), provider);
         int primary = binding.primaryRemaining < 0 ? 73 : binding.primaryRemaining;
         int secondary = !binding.showSecondary ? -1
                 : binding.secondaryRemaining < 0 ? 44 : binding.secondaryRemaining;
         return SamsungLockGraphics.render(context, Shape.WIDE, Style.DIALS, primary, secondary,
                 true, 180, 82, options, 0,
                 binding.primary == null ? R.drawable.ic_oui_time : binding.primary.iconRes,
-                binding.secondary == null ? R.drawable.ic_oui_calendar_week
-                        : binding.secondary.iconRes);
+                binding.secondary == null ? 0 : binding.secondary.iconRes);
     }
 
     private static LockMeterBinding bindLockMeters(UsageSnapshot snapshot, LockWidgetOptions options) {
@@ -335,6 +338,21 @@ final class SamsungLockWidgetSupport {
                     || WidgetMeters.isLimitKey(key)) {
                 usageKeys.add(key);
             }
+        }
+        if (snapshot != null) {
+            // Drop meters this provider doesn't report (Cursor has no five-hour window), so a
+            // dial never sits at "—" next to real data.
+            ArrayList<String> reported = new ArrayList<>();
+            for (String key : usageKeys) {
+                UsageWindow window = WidgetMeters.isLimitKey(key) ? null
+                        : WidgetMeters.meterWindow(key, snapshot);
+                if (window != null || WidgetMeters.isLimitKey(key)) reported.add(key);
+            }
+            if (reported.isEmpty()) {
+                reported.addAll(WidgetProviders.metersFor(usageKeys,
+                        snapshot.fiveHour != null, snapshot.longWindow() != null, 1));
+            }
+            usageKeys = reported;
         }
         usageKeys = new ArrayList<>(WidgetMeters.cap(usageKeys, WidgetMeters.lockSlotCapacity()));
         if (usageKeys.isEmpty()) {
@@ -369,6 +387,22 @@ final class SamsungLockWidgetSupport {
                 slots.size() > 1 ? slots.get(1) : null);
         binding.anySignedIn = anySignedIn;
         return binding;
+    }
+
+    /**
+     * One provider other than Codex: its mark replaces the first dial's meter icon, so the widget
+     * says whose usage it shows. Codex keeps its clock and calendar icons.
+     */
+    private static LockMeterBinding markProvider(LockMeterBinding binding,
+            UsageProvider provider) {
+        if (provider == null || provider == UsageProvider.CODEX || binding.primary == null) {
+            return binding;
+        }
+        LockMeterSlot p = binding.primary;
+        LockMeterBinding marked = new LockMeterBinding(new LockMeterSlot(p.key, p.label,
+                p.remaining, p.window, ProvidersActivity.iconRes(provider)), binding.secondary);
+        marked.anySignedIn = binding.anySignedIn;
+        return marked;
     }
 
     private static LockMeterSlot lockSlot(String key, UsageSnapshot snapshot) {
@@ -503,8 +537,8 @@ final class SamsungLockWidgetSupport {
         int i3 = binding.secondaryRemaining;
         int primaryIconRes = binding.primary == null
                 ? R.drawable.ic_oui_time : binding.primary.iconRes;
-        int secondaryIconRes = binding.secondary == null
-                ? R.drawable.ic_oui_calendar_week : binding.secondary.iconRes;
+        // 0 tells the renderer there is no second meter, so it centers one dial.
+        int secondaryIconRes = binding.secondary == null ? 0 : binding.secondary.iconRes;
         if (shape == Shape.WIDE) {
             int[] size = grantedSize(appWidgetManager, i, shape);
             remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
@@ -676,7 +710,7 @@ final class SamsungLockWidgetSupport {
                         + shape.name().toLowerCase(Locale.US) + "/"
                         + style.name().toLowerCase(Locale.US)
                         + "/" + target))
-                .addFlags(335544320);
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         if (!z2) {
             // Open the dashboard on the widget's (first) provider tab.
             intentAddFlags.putExtra(MainActivity.EXTRA_PROVIDER, provider.id);
@@ -684,7 +718,7 @@ final class SamsungLockWidgetSupport {
         if (i2 == 0) {
             i2 = 0;
         }
-        remoteViews.setOnClickPendingIntent(i, PendingIntent.getActivity(context, 82000 + i2 + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (z2 ? 50000 : 0), intentAddFlags, 201326592));
+        remoteViews.setOnClickPendingIntent(i, PendingIntent.getActivity(context, 82000 + i2 + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (z2 ? 50000 : 0), intentAddFlags, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 
     private static int graphicLayout(Shape shape, Style style) {
