@@ -1,11 +1,29 @@
 import CodexMeterCore
 import SwiftUI
 
+/// One provider's dashboard; `ContentView` puts each enabled provider in its own tab.
 struct DashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    var provider: UsageProvider = .codex
 
     var body: some View {
+        Group {
+            switch provider {
+            case .codex:
+                codexDashboard
+            case .claudeCode:
+                ClaudeDashboardView()
+            case .cursor:
+                CursorDashboardView()
+            }
+        }
+        .task {
+            await model.startIfNeeded()
+        }
+    }
+
+    private var codexDashboard: some View {
         ScrollView {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if model.mode == .signedOut {
@@ -78,8 +96,30 @@ struct DashboardView: View {
             guard model.mode != .signedOut else { return }
             await model.refresh()
         }
-        .task {
-            await model.startIfNeeded()
+    }
+}
+
+/// A provider's mark (OpenAI, Claude, Cursor) from the asset catalog, drawn as a template so
+/// it tints like an SF Symbol in tab bars and settings rows.
+struct ProviderMark: View {
+    let provider: UsageProvider
+
+    var body: some View {
+        Image(provider.markImageName)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
+    }
+}
+
+extension UsageProvider {
+    /// Asset catalog image for this provider's tab and settings row.
+    var markImageName: String {
+        switch self {
+        case .codex: "ProviderCodex"
+        case .claudeCode: "ProviderClaude"
+        case .cursor: "ProviderCursor"
         }
     }
 }

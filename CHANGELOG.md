@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.9.0-alpha.2 — 2026-10-21
+
+### Changed
+
+- First-run setup now asks which providers to track (Codex, Claude Code, Cursor; nothing preselected), then walks through signing in to each one, with Skip for now on every sign-in step. Android and iOS.
+- Upgrading installs that never chose providers start with only Codex on (plus any provider already signed in), so a Codex-only install shows no tab bar.
+- Accounts moved off the dashboards: Settings opens with a compact Accounts list, one row per provider on the dashboard with its email and plan, to sign in or out. Settings → Providers shows who is signed in.
+- Home-screen widgets can show any provider, and larger sizes can stack several providers.
+- The lock-screen widget picker is down to three widgets (Gauge, Gauges, Bars) that work with any provider. The seven older lock-screen widgets are hidden from the picker but keep working where they are already placed.
+- Widget meter labels no longer start with "Codex ·".
+
+### Development
+
+- Self-tests cover the upgrade default for provider tabs and the provider-count-aware setup steps.
+
+## 2.9.0-alpha.1 — 2026-10-19
+
+### Added
+
+- Provider switcher: stock One UI bottom tabs (oneui-design `BottomTabLayout`, icon over label) on the dashboard switch between Codex (default, unchanged) and Claude Code, and the large title follows the selected provider. Claude Code signs in with a Claude account through the same OAuth + PKCE loopback flow as the Claude Code CLI. Its cards follow the `limits` list from the route behind Claude Code's `/usage`: usually just 5-hour and weekly, plus a model-only allocation such as Fable when the account has one, and extra usage when enabled. Providers are pluggable through `UsageProvider`.
+- Claude Code usage history, burn charts, and pace estimates are kept separately from Codex.
+- Home-screen widgets can show Claude Code (widget settings → Provider); tapping one opens the Claude Code tab.
+- iOS: a bottom provider switcher with a Claude Code tab (Claude sign-in by pasting the code Claude shows, usage cards driven by the same `limits` list, plan badge, demo data).
+- Background refresh covers Claude Code at most every 30 minutes with a one-hour back-off after HTTP 429, and keeps running when only one provider is signed in.
+- Cursor tab on Android and iOS: sign in with Cursor through the same browser login the Cursor editor uses (no code to paste), then see included usage for the billing cycle, Auto + Composer and API model pools, on-demand spend in dollars, the plan badge, and the reset date. Background refresh checks Cursor at most every 15 minutes.
+- Settings → Providers chooses which providers appear on the dashboard and in what order (drag to reorder, like Edit dashboard; all on by default, at least one stays on). With two or more on, only their tabs show; with one on, the bottom tabs are hidden. Tabs and settings rows use each service's own mark (OpenAI, Claude, Cursor) from Simple Icons. On iOS the switcher is now the native tab bar.
+
+### Development
+
+- Self-tests cover provider ids/defaults, Claude usage parsing (fractional-second ISO resets, null windows, the `limits` list with Fable-only and unknown scoped meters, extra usage, plan badges), the Claude authorize/token request shapes, and Claude refresh pacing.
+- Self-tests (Android and `CodexMeterCore`) cover Cursor usage parsing (epoch-ms and ISO billing cycles, string-encoded numbers, computed plan percent, personal vs team on-demand caps, plan badges), the PKCE login/poll URLs, JWT expiry, token parsing, and auth-error detection.
+- Self-tests cover the enabled-provider list (defaults, unknown ids, saved tab order, keeping the last provider on, and selection fallback); the iOS demo gallery captures the two-tab, single-provider, and Providers settings screens.
+
 ## 2.8.0 — 2026-08-14
 
 ### Added
