@@ -90,7 +90,11 @@ public final class ResetCreditActivity extends AppCompatActivity {
         String autoUse = autoUseSummary(nextExpiry > 0L);
         if (!autoUse.isEmpty()) {
             Ui.addSpacer(this.content, 8);
-            this.content.addView(Ui.text(this, autoUse, 13.0f, Ui.secondaryText(this.dark)));
+            android.widget.TextView autoUseText =
+                    Ui.text(this, autoUse, 13.0f, Ui.secondaryText(this.dark));
+            int inset = Ui.dp(this, 24.0f);
+            autoUseText.setPadding(inset, 0, inset, 0);
+            this.content.addView(autoUseText);
         }
 
         this.useButton = Ui.nativePrimaryButton(
