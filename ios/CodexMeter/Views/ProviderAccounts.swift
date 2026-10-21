@@ -142,13 +142,14 @@ struct ProviderAccountsSection: View {
             HStack(spacing: 12) {
                 ProviderMark(provider: provider)
                     .frame(width: 22, height: 22)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.primary)
                 VStack(alignment: .leading, spacing: 2) {
+                    // Concrete colors: a List button tints hierarchical styles with the accent.
                     Text(provider.displayName)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color.primary)
                     Text(subtitle(provider, signedIn: signedIn))
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
