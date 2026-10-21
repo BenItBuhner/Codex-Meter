@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.3 — 2026-10-21
+
 ### Changed
 
 - Lock-screen widgets now show the same providers as the rest of the app. A widget you haven't set up shows the providers you're signed in to, in tab order, each labeled with its name and icon, instead of falling back to a single provider.
