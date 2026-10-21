@@ -87,6 +87,20 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle("Estimated usage time", isOn: $model.settings.usagePaceEnabled)
+                Picker("Warning sensitivity", selection: $model.settings.usagePaceSensitivity) {
+                    ForEach(UsagePaceSensitivity.allCases, id: \.self) { sensitivity in
+                        Text(sensitivity.title).tag(sensitivity)
+                    }
+                }
+                .disabled(!model.settings.usagePaceEnabled)
+            } header: {
+                Text("Usage estimates")
+            } footer: {
+                Text("Project how long the current allowance may last from each window's usage and local history. Accelerated usage turns a meter orange; Off keeps the estimate without the warning.")
+            }
+
+            Section {
                 Toggle("Allow notifications", isOn: $model.settings.notificationsEnabled)
                     .onChange(of: model.settings.notificationsEnabled) { _, enabled in
                         Task { await model.notificationsChanged(enabled: enabled) }

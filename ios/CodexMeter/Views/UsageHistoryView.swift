@@ -25,6 +25,7 @@ struct UsageHistoryDashboardCard: View {
                         window: fiveHour,
                         history: model.fiveHourHistory,
                         observedAt: usage.fetchedAt,
+                        pace: model.usagePace(for: fiveHour, kind: .fiveHour),
                         compact: true
                     )
                 }
@@ -35,6 +36,7 @@ struct UsageHistoryDashboardCard: View {
                         window: weekly,
                         history: model.weeklyHistory,
                         observedAt: usage.fetchedAt,
+                        pace: model.usagePace(for: weekly, kind: .weekly),
                         compact: true
                     )
                 }
@@ -45,6 +47,7 @@ struct UsageHistoryDashboardCard: View {
                         window: monthly,
                         history: model.monthlyHistory,
                         observedAt: usage.fetchedAt,
+                        pace: model.usagePace(for: monthly, kind: .monthly),
                         compact: true
                     )
                 }
@@ -204,12 +207,14 @@ struct UsageHistoryView: View {
         history: UsageHistory,
         observedAt: Date
     ) -> some View {
+        let pace = model.usagePace(for: window, kind: kind)
         HistoryDetailCard(
             title: title,
             kind: kind,
             window: window,
             history: history,
             observedAt: observedAt,
+            pace: pace,
             pricing: pricing,
             showWindowList: model.settings.isHistorySectionVisible(HistorySections.windowList)
         )
@@ -217,6 +222,7 @@ struct UsageHistoryView: View {
             window: window,
             history: history,
             observedAt: observedAt,
+            pace: pace,
             pricing: pricing,
             settings: model.settings
         ) {
@@ -271,6 +277,7 @@ private struct HistoryDetailCard: View {
     let window: UsageWindow
     let history: UsageHistory
     let observedAt: Date
+    let pace: UsagePaceAssessment
     let pricing: PlanPricing?
     let showWindowList: Bool
 
@@ -289,6 +296,7 @@ private struct HistoryDetailCard: View {
                 window: window,
                 history: history,
                 observedAt: observedAt,
+                pace: pace,
                 compact: false,
                 selectedWindowIndex: selectedWindowIndex,
                 onScrub: handleScrub,
@@ -409,6 +417,7 @@ private struct HistoryInsightsCard: View {
         window: UsageWindow,
         history: UsageHistory,
         observedAt: Date,
+        pace: UsagePaceAssessment,
         pricing: PlanPricing?,
         settings: AppSettings
     ) -> HistoryInsightsModel? {
@@ -434,17 +443,10 @@ private struct HistoryInsightsCard: View {
             }
         }
 
-        if settings.isHistorySectionVisible(HistorySections.insightExhaustion) {
-            let pace = UsagePace.assess(
-                window: window,
-                history: history,
-                observedAt: observedAt,
-                now: now,
-                sensitivity: .balanced
-            )
-            if pace.isAvailable, let exhaustion = pace.estimatedExhaustionAt {
-                rows.append(("Projected exhaustion", UsageFormat.relative(until: exhaustion, from: now)))
-            }
+        if settings.isHistorySectionVisible(HistorySections.insightExhaustion),
+           pace.isAvailable,
+           let exhaustion = pace.estimatedExhaustionAt {
+            rows.append(("Projected exhaustion", UsageFormat.relative(until: exhaustion, from: now)))
         }
 
         if settings.isHistorySectionVisible(HistorySections.insightAverage),
@@ -528,6 +530,7 @@ private struct UsageBurnChart: View {
     let window: UsageWindow
     let history: UsageHistory
     let observedAt: Date
+    let pace: UsagePaceAssessment
     let compact: Bool
     var selectedWindowIndex: Int?
     var onScrub: ((Date, Double, Bool) -> Void)?
@@ -550,16 +553,6 @@ private struct UsageBurnChart: View {
                 prefix: "history-\(index)"
             )
         }
-    }
-
-    private var pace: UsagePaceAssessment {
-        UsagePace.assess(
-            window: window,
-            history: history,
-            observedAt: observedAt,
-            now: .now,
-            sensitivity: .balanced
-        )
     }
 
     private var projectionPoints: [UsageChartPoint] {

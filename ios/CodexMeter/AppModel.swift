@@ -37,6 +37,50 @@ extension AlertMetric {
     }
 }
 
+extension UsagePaceSensitivity {
+    var title: String {
+        switch self {
+        case .off: "Off"
+        case .sensitive: "Sensitive"
+        case .balanced: "Balanced"
+        case .relaxed: "Relaxed"
+        }
+    }
+}
+
+extension UsagePaceAssessment {
+    /// Android's meter-card phrasing: "Est. 1h 20m", or "Est. depleted" once the projection
+    /// has passed; nil when no estimate is available.
+    func estimateLabel(now: Date = .now) -> String? {
+        guard isAvailable, let estimatedExhaustionAt else { return nil }
+        let remaining = estimatedExhaustionAt.timeIntervalSince(now)
+        guard remaining > 0 else { return "Est. depleted" }
+        return "Est. \(Self.compactDuration(remaining))"
+    }
+
+    /// Spoken form of `estimateLabel(now:)` for VoiceOver.
+    func estimateAccessibilityValue(now: Date = .now) -> String? {
+        guard isAvailable, let estimatedExhaustionAt else { return nil }
+        let remaining = estimatedExhaustionAt.timeIntervalSince(now)
+        guard remaining > 0 else { return "estimated depleted" }
+        return "estimated \(Self.compactDuration(remaining)) left"
+    }
+
+    private static func compactDuration(_ interval: TimeInterval) -> String {
+        let minutes = max(1, Int(interval / 60))
+        let days = minutes / 1_440
+        let hours = (minutes % 1_440) / 60
+        let remainingMinutes = minutes % 60
+        if days > 0 {
+            return "\(days)d \(hours)h"
+        }
+        if hours > 0 {
+            return "\(hours)h \(remainingMinutes)m"
+        }
+        return "\(minutes)m"
+    }
+}
+
 extension NotificationPermissionState {
     var title: String {
         switch self {
@@ -670,6 +714,35 @@ final class AppModel {
         } catch {
             visibleError = "Local usage history could not be cleared."
         }
+    }
+
+    func history(for kind: UsageHistoryKind) -> UsageHistory {
+        switch kind {
+        case .fiveHour: fiveHourHistory
+        case .weekly: weeklyHistory
+        case .monthly: monthlyHistory
+        }
+    }
+
+    /// Pace for a window under the usage-estimate settings. Pass the window's history `kind` for
+    /// the Codex 5-hour, weekly, and monthly meters so local samples refine the projection;
+    /// additional model limits have no history and use the window alone. Windows from another
+    /// provider's snapshot pass that snapshot's `observedAt` instead of the Codex fetch time.
+    func usagePace(
+        for window: UsageWindow?,
+        kind: UsageHistoryKind? = nil,
+        observedAt: Date? = nil,
+        now: Date = .now
+    ) -> UsagePaceAssessment {
+        guard settings.usagePaceEnabled, let window,
+              let observed = observedAt ?? usage?.fetchedAt else { return .unavailable }
+        return UsagePace.assess(
+            window: window,
+            history: kind.map(history(for:)),
+            observedAt: observed,
+            now: now,
+            sensitivity: settings.usagePaceSensitivity
+        )
     }
 
     // MARK: Provider accounts and first-run setup

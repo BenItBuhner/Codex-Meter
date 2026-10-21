@@ -58,6 +58,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var creditExpiryRemindersEnabled: Bool
     /// Minutes before expiry. Multiple values schedule one reminder each (2.2 parity).
     public var creditExpiryLeadMinutes: [Int]
+    /// Whether meter cards and history project how long the current allowance may last.
+    public var usagePaceEnabled: Bool
+    /// `.off` keeps the projection but never flags it as accelerated.
+    public var usagePaceSensitivity: UsagePaceSensitivity
 
     public init(
         appearance: AppAppearance = .system,
@@ -81,7 +85,9 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         creditIncreaseAlertsEnabled: Bool = true,
         unexpectedRefillAlertsEnabled: Bool = true,
         creditExpiryRemindersEnabled: Bool = true,
-        creditExpiryLeadMinutes: [Int] = AppSettings.defaultCreditExpiryLeadMinutes
+        creditExpiryLeadMinutes: [Int] = AppSettings.defaultCreditExpiryLeadMinutes,
+        usagePaceEnabled: Bool = true,
+        usagePaceSensitivity: UsagePaceSensitivity = .balanced
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
@@ -107,6 +113,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.unexpectedRefillAlertsEnabled = unexpectedRefillAlertsEnabled
         self.creditExpiryRemindersEnabled = creditExpiryRemindersEnabled
         self.creditExpiryLeadMinutes = Self.sanitizedLeadMinutes(creditExpiryLeadMinutes)
+        self.usagePaceEnabled = usagePaceEnabled
+        self.usagePaceSensitivity = usagePaceSensitivity
     }
 
     public var effectiveCreditExpiryLeadMinutes: [Int] {
@@ -226,6 +234,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case unexpectedRefillAlertsEnabled
         case creditExpiryRemindersEnabled
         case creditExpiryLeadMinutes
+        case usagePaceEnabled
+        case usagePaceSensitivity
     }
 
     public init(from decoder: any Decoder) throws {
@@ -253,7 +263,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             unexpectedRefillAlertsEnabled: try container.decodeIfPresent(Bool.self, forKey: .unexpectedRefillAlertsEnabled) ?? true,
             creditExpiryRemindersEnabled: try container.decodeIfPresent(Bool.self, forKey: .creditExpiryRemindersEnabled) ?? true,
             creditExpiryLeadMinutes: try container.decodeIfPresent([Int].self, forKey: .creditExpiryLeadMinutes)
-                ?? Self.defaultCreditExpiryLeadMinutes
+                ?? Self.defaultCreditExpiryLeadMinutes,
+            usagePaceEnabled: try container.decodeIfPresent(Bool.self, forKey: .usagePaceEnabled) ?? true,
+            usagePaceSensitivity: try container.decodeIfPresent(UsagePaceSensitivity.self, forKey: .usagePaceSensitivity)
+                ?? .balanced
         )
     }
 }
