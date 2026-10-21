@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Lock-screen widgets now show the same providers as the rest of the app. A widget you haven't set up shows the providers you're signed in to, in tab order, each labeled with its name and icon, instead of falling back to a single provider.
+- New Settings → Lock screen widgets page lists every Codex Meter widget on the lock screen and opens its settings to pick providers and meters, since One UI often skips the widget's own setup screen.
+- Lock-screen gauges only show meters a provider reports: a Cursor gauge shows its included-usage dial instead of an empty 5-hour dial, and a single meter draws one centered dial.
+- The Bars lock-screen widget is gone from the picker. Bars already placed now draw dials.
+
 ## 2.9.0-alpha.2 — 2026-10-21
 
 ### Changed

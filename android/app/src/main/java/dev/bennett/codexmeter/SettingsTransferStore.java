@@ -177,6 +177,7 @@ public final class SettingsTransferStore {
         json.put("dashboard_five_hour", AppPreferences.showDashboardFiveHour(context));
         json.put("dashboard_weekly", AppPreferences.showDashboardWeekly(context));
         json.put("dashboard_monthly", AppPreferences.showDashboardMonthly(context));
+        json.put("dashboard_spend_control", AppPreferences.showDashboardSpendControl(context));
         json.put("dashboard_additional_limits",
                 AppPreferences.showDashboardAdditionalLimits(context));
         json.put("dashboard_usage_credits", AppPreferences.showDashboardUsageCredits(context));
@@ -252,6 +253,9 @@ public final class SettingsTransferStore {
                         AppPreferences.showDashboardResetCredits(context)),
                 json.optBoolean("dashboard_usage_history",
                         AppPreferences.showDashboardUsageHistory(context)));
+        AppPreferences.setShowDashboardSpendControl(context,
+                json.optBoolean("dashboard_spend_control",
+                        AppPreferences.showDashboardSpendControl(context)));
         AppPreferences.setDashboardHiddenSections(context,
                 json.optString("dashboard_hidden_sections",
                         AppPreferences.getDashboardHiddenSections(context)));

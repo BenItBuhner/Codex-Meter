@@ -76,22 +76,26 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.6)
 
+        UITestSupport.scrollDashboard(untilVisible: app.staticTexts["17,000 credits remaining"], in: app)
+        UITestSupport.settle(0.6)
+        capture("04-demo-monthly-credit-limit")
+
         UITestSupport.scrollDashboard(untilVisible: app.staticTexts["Usage history"], in: app)
         UITestSupport.settle(0.6)
-        capture("04-demo-usage-history")
+        capture("05-demo-usage-history")
 
         UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app)
         UITestSupport.settle(0.6)
-        capture("05-demo-reset-credits")
+        capture("06-demo-reset-credits")
 
         UITestSupport.tap(app.buttons["Use 1 reset"])
         XCTAssertTrue(app.navigationBars["Codex reset"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("06-reset-sheet")
+        capture("07-reset-sheet")
         UITestSupport.tap(app.buttons["Use reset"])
         XCTAssertTrue(app.alerts["Use one Codex reset?"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.6)
-        capture("07-reset-confirm")
+        capture("08-reset-confirm")
         UITestSupport.tap(app.alerts["Use one Codex reset?"].buttons["Cancel"])
         UITestSupport.tap(app.buttons["Close"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
@@ -100,27 +104,34 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.tap(app.buttons["Edit dashboard"])
         XCTAssertTrue(app.navigationBars["Edit dashboard"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("08-edit-dashboard")
+        capture("09-edit-dashboard")
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
 
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("09-settings")
+        capture("10-settings")
 
         UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app)
         UITestSupport.settle(0.5)
-        capture("10-settings-notifications")
+        capture("11-settings-notifications")
 
-        UITestSupport.scrollForm(untilExists: app.staticTexts["Data"], in: app)
+        // Scroll to the row itself, not the "Data" header: the lazy Form can
+        // materialize the header while the row below it does not exist yet. The
+        // rows after it are shorter than a screen, so one more swipe cannot push
+        // it off the top.
+        UITestSupport.scrollForm(untilExists: app.buttons["View usage history"], in: app)
+        if !app.buttons["View usage history"].isHittable {
+            app.swipeUp()
+        }
         UITestSupport.settle(0.4)
         if !UITestSupport.tap(app.buttons["View usage history"]) {
             UITestSupport.tap(app.staticTexts["View usage history"])
         }
         XCTAssertTrue(app.navigationBars["Usage history"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("11-usage-history")
+        capture("12-usage-history")
         tapBack(in: app, from: "Usage history", to: "Settings")
 
         UITestSupport.scrollForm(untilExists: app.staticTexts["About Codex Meter"], in: app)
@@ -129,14 +140,14 @@ final class DemoGalleryTests: XCTestCase {
         }
         XCTAssertTrue(app.navigationBars["About"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("12-about")
+        capture("13-about")
         tapBack(in: app, from: "About", to: "Settings")
 
         scrollSettingsToTop(in: app)
         UITestSupport.settle(0.3)
         UITestSupport.tap(app.segmentedControls.buttons["Dark"])
         UITestSupport.settle(0.8)
-        capture("13-settings-dark")
+        capture("14-settings-dark")
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
 
@@ -147,7 +158,7 @@ final class DemoGalleryTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.2)
-        capture("14-demo-dashboard-dark")
+        capture("15-demo-dashboard-dark")
 
         app.terminate()
         app.launchArguments = [
@@ -162,7 +173,63 @@ final class DemoGalleryTests: XCTestCase {
         _ = app.staticTexts["Demo refresh failed. Showing the last cached snapshot."]
             .waitForExistence(timeout: 5)
         UITestSupport.settle(1.0)
-        capture("15-refresh-failure")
+        capture("16-refresh-failure")
+
+        // Largest accessibility text size: the signed-out hero, the meters, the
+        // in-card glyphs, and the settings form all scale with Dynamic Type and
+        // must not clip. Every dashboard still is gated on the dashboard actually
+        // appearing so a missed step cannot pass off another screen as it.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing-signed-out",
+            "-ui-testing-reset-settings",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.0)
+        capture("16a-signed-out-ax5")
+
+        // Relaunch straight into demo: entering it from the signed-out card would
+        // keep that card's scroll offset, and the dashboard must be shot from the top.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing-demo",
+            "-ui-testing-reset-settings",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ]
+        app.launch()
+        guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 8),
+              app.staticTexts["5-hour"].waitForExistence(timeout: 8) else {
+            XCTFail("The demo dashboard did not appear at the AX5 text size")
+            return
+        }
+        UITestSupport.settle(1.2)
+        capture("16b-demo-dashboard-ax5")
+
+        // One long drag brings the first meter card fully into view: ring on top,
+        // full-width title and details stacked beneath it.
+        UITestSupport.dragDashboard(in: app, from: 0.92)
+        UITestSupport.settle(0.8)
+        capture("16c-demo-meter-ax5")
+
+        UITestSupport.tap(app.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("16d-settings-ax5")
+        UITestSupport.tap(app.buttons["Done"])
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+
+        // Reset credits is the last dashboard card, so the end of the page is the
+        // card; scroll there blind and ask the accessibility tree only once.
+        UITestSupport.scrollDashboardToBottom(in: app)
+        UITestSupport.settle(0.8)
+        if app.buttons["Use 1 reset"].waitForExistence(timeout: 5),
+           UITestSupport.isFullyVisible(app.buttons["Use 1 reset"], in: app) {
+            capture("16e-demo-reset-credits-ax5")
+        } else {
+            XCTFail("Reset credits card was not reached at the AX5 text size")
+        }
         UITestSupport.settle(0.8)
 
         // Settings → Providers narrows and orders the tabs: two providers keep the bar (in the
@@ -175,7 +242,7 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.tap(app.buttons["Cursor"])
         XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
         UITestSupport.settle(1.0)
-        capture("16-providers-two-tabs")
+        capture("17-providers-two-tabs")
 
         app.terminate()
         app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "cursor"]
@@ -184,7 +251,7 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Codex"].exists)
         UITestSupport.settle(1.0)
-        capture("17-providers-cursor-only")
+        capture("18-providers-cursor-only")
 
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
@@ -192,7 +259,7 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.tap(app.buttons["settings-providers"])
         XCTAssertTrue(app.navigationBars["Providers"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("18-providers-settings")
+        capture("19-providers-settings")
 
         // First-run setup on a fresh install: nothing is preselected, each chosen provider
         // gets its own Connect step.
@@ -201,19 +268,19 @@ final class DemoGalleryTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.0)
-        capture("19-onboarding-welcome")
+        capture("20-onboarding-welcome")
 
         UITestSupport.tap(app.buttons["Get started"])
         XCTAssertTrue(app.staticTexts["Choose your providers"].waitForExistence(timeout: 5))
         tapToggle(app.switches["onboarding-provider-claude_code"], in: app)
         tapToggle(app.switches["onboarding-provider-cursor"], in: app)
         UITestSupport.settle(0.8)
-        capture("20-onboarding-providers")
+        capture("21-onboarding-providers")
 
         UITestSupport.tap(app.buttons["Continue"])
         XCTAssertTrue(app.staticTexts["Connect Claude Code"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("21-onboarding-connect")
+        capture("22-onboarding-connect")
 
         // Accounts live in Settings, one compact row per provider with a tab.
         app.terminate()
@@ -227,7 +294,7 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         _ = app.buttons["account-cursor"].waitForExistence(timeout: 5)
         UITestSupport.settle(0.8)
-        capture("22-settings-accounts")
+        capture("23-settings-accounts")
     }
 
     private func tapToggle(_ toggle: XCUIElement, in app: XCUIApplication) {
@@ -257,7 +324,8 @@ final class DemoGalleryTests: XCTestCase {
     }
 
     private func scrollSettingsToTop(in app: XCUIApplication) {
-        for _ in 0..<6 where !app.staticTexts["Accounts"].exists {
+        for _ in 0..<6 {
+            if app.staticTexts["Accounts"].exists { return }
             app.swipeDown()
         }
     }

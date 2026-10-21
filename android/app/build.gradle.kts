@@ -4,7 +4,11 @@ plugins {
 
 android {
     namespace = "dev.bennett.codexmeter"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         applicationId = "dev.bennett.codexmeter"
@@ -88,7 +92,7 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":shared"))
-    implementation("com.google.android.gms:play-services-wearable:19.0.0")
-    implementation("io.github.tribalfs:oneui-design:0.9.14+oneui8")
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
+    implementation("io.github.tribalfs:oneui-design:0.9.20+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
 }

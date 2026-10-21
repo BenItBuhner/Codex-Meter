@@ -31,6 +31,10 @@
             android:key="settings_now_bar"
             android:title="Now Bar"
             app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_lock_widgets"
+            android:title="Lock screen widgets"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="App &amp; data">

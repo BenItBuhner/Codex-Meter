@@ -251,6 +251,10 @@ public final class SettingsActivity extends AppCompatActivity {
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
             bindPageLink("settings_now_bar", PAGE_NOW_BAR);
+            findPreference("settings_lock_widgets").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), LockWidgetsActivity.class);
+                return true;
+            });
             bindPageLink("settings_updates", PAGE_UPDATES);
             bindPageLink("settings_transfer", PAGE_TRANSFER);
             bindPageLink("settings_privacy", PAGE_PRIVACY);
@@ -421,6 +425,12 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarSummary = "Manual start";
             }
             findPreference("settings_now_bar").setSummary(nowBarSummary);
+
+            int lockWidgets = SamsungLockWidgetSupport.placedWidgets(requireContext()).size();
+            findPreference("settings_lock_widgets").setSummary(lockWidgets == 0
+                    ? "None placed · choose providers for One UI lock widgets"
+                    : (lockWidgets == 1 ? "1 widget" : lockWidgets + " widgets")
+                            + " · choose providers and meters");
 
             GitHubRelease availableUpdate = UpdatePreferences.availableUpdate(requireContext());
             String channelSuffix = UpdateChannel.isAlpha(

@@ -211,6 +211,31 @@ public final class ProviderPreferences {
         return fallback;
     }
 
+    /** Whether a widget has saved its own provider choice. */
+    public static boolean hasSavedWidgetProviders(Context context, int appWidgetId) {
+        return !WidgetProviders.parse(prefs(context).getString(KEY_WIDGET_PROVIDER + appWidgetId,
+                null)).isEmpty();
+    }
+
+    /**
+     * Providers a lock-screen widget shows, at most {@code max}. One UI rarely opens a lock
+     * widget's own settings, so an unsaved widget shows the signed-in providers in tab order,
+     * the same ones the home widgets and dashboard tabs show.
+     */
+    public static List<UsageProvider> getLockWidgetProviders(Context context, int appWidgetId,
+            int max) {
+        List<UsageProvider> saved = WidgetProviders.parse(
+                prefs(context).getString(KEY_WIDGET_PROVIDER + appWidgetId, null));
+        if (!saved.isEmpty()) {
+            return saved.size() > max ? new ArrayList<>(saved.subList(0, max)) : saved;
+        }
+        List<UsageProvider> signedIn = new ArrayList<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            if (SecureTokenStore.isSignedIn(context, provider)) signedIn.add(provider);
+        }
+        return WidgetProviders.lockDefault(getEnabled(context), signedIn, max);
+    }
+
     public static void setWidgetProvider(Context context, int appWidgetId,
             UsageProvider provider) {
         prefs(context).edit().putString(KEY_WIDGET_PROVIDER + appWidgetId, provider.id).apply();
