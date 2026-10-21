@@ -22,6 +22,35 @@ extension View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: AppChrome.bannerRadius, style: .continuous))
     }
+
+    /// Animates changes of `value` unless Reduce Motion is on, in which case the new state
+    /// is shown immediately.
+    func motionAnimation(_ animation: Animation, value: some Equatable) -> some View {
+        modifier(ReducedMotionAnimation(animation: animation, value: value))
+    }
+
+    /// Rolls digits with `.numericText()` unless Reduce Motion is on.
+    func numericTextTransition() -> some View {
+        modifier(ReducedMotionNumericText())
+    }
+}
+
+private struct ReducedMotionAnimation<Value: Equatable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let animation: Animation
+    let value: Value
+
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : animation, value: value)
+    }
+}
+
+private struct ReducedMotionNumericText: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.contentTransition(reduceMotion ? .identity : .numericText())
+    }
 }
 
 struct StatusBanner: View {

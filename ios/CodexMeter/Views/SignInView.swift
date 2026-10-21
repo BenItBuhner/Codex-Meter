@@ -125,7 +125,7 @@ struct SignInView: View {
                     )
                 }
                 .buttonStyle(.bordered)
-                .animation(.snappy, value: didCopyCode)
+                .motionAnimation(.snappy, value: didCopyCode)
 
                 Button("Open ChatGPT sign-in") {
                     showingBrowser = true
