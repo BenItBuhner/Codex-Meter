@@ -35,13 +35,13 @@ public final class AppConstants {
     public static final String TOKEN_URL = "https://auth.openai.com/oauth/token";
     public static final String USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
     public static final int VERSION_CODE = 30;
-    public static final String VERSION_NAME = "2.9.0-alpha.2";
+    public static final String VERSION_NAME = "2.9.0-alpha.3";
 
     private AppConstants() {
     }
 
     public static String userAgent() {
-        return "codex-meter-android/2.9.0-alpha.2 (Android " + (Build.VERSION.RELEASE == null ? "unknown" : Build.VERSION.RELEASE) + "; " + (Build.MODEL == null ? "Android" : Build.MODEL) + ")";
+        return "codex-meter-android/2.9.0-alpha.3 (Android " + (Build.VERSION.RELEASE == null ? "unknown" : Build.VERSION.RELEASE) + "; " + (Build.MODEL == null ? "Android" : Build.MODEL) + ")";
     }
 
     public static String updaterUserAgent() {
