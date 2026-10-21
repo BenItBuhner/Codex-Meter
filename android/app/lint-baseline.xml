@@ -2191,17 +2191,6 @@
     </issue>
 
     <issue
-        id="MonochromeLauncherIcon"
-        message="The application adaptive icon is missing a monochrome tag"
-        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
-        errorLine2="^">
-        <location
-            file="src/main/res/mipmap-anydpi/ic_launcher.xml"
-            line="2"
-            column="1"/>
-    </issue>
-
-    <issue
         id="SmallSp"
         message="Avoid using sizes smaller than `11sp`: `10sp`"
         errorLine1="            android:textSize=&quot;10sp&quot;"
