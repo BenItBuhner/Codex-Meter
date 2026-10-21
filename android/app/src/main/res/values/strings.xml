@@ -13,7 +13,7 @@
     <string name="lock_widget_bars_square_description">Compact horizontal Codex allowance bars for supported Samsung lock screens</string>
     <string name="lock_widget_bars_square_name">Codex · Bars · Square</string>
     <string name="lock_widget_bars_wide_description">Two usage bars: two meters from one provider, or one each from two providers</string>
-    <string name="lock_widget_bars_wide_name">Bars</string>
+    <string name="lock_widget_bars_wide_name">Gauges (older)</string>
     <string name="lock_widget_dials_square_description">Compact Codex allowance gauges for supported Samsung lock screens</string>
     <string name="lock_widget_dials_square_name">Codex · Gauges · Square</string>
     <string name="lock_widget_dials_wide_description">Two usage gauges: two meters from one provider, or one each from two providers</string>

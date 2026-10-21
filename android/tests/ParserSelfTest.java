@@ -2355,6 +2355,26 @@ public final class ParserSelfTest {
                 "widget provider summary");
         check("CLAUDE".equals(WidgetProviders.shortTag(UsageProvider.CLAUDE_CODE)),
                 "lock labels use short provider tags");
+        for (UsageProvider provider : UsageProvider.values()) {
+            String tag = WidgetProviders.shortTag(provider);
+            check(!tag.isEmpty() && tag.length() <= 6, "every provider has a short lock tag");
+        }
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR, UsageProvider.CLAUDE_CODE), 2).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "unsaved wide lock widgets show the first two signed-in tabs");
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CLAUDE_CODE),
+                2).equals(java.util.Arrays.asList(UsageProvider.CLAUDE_CODE)),
+                "unsaved lock widgets show only signed-in providers");
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR), 1).equals(java.util.Arrays.asList(UsageProvider.CURSOR)),
+                "unsaved tiny lock widgets show the first signed-in tab");
+        check(WidgetProviders.lockDefault(order, java.util.Collections.emptyList(), 2).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR)),
+                "unsaved lock widgets with nobody signed in show the first tab");
+        check(WidgetProviders.metersFor(java.util.Arrays.asList(WidgetMeters.FIVE_HOUR),
+                false, true, 1).equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
+                "Cursor lock gauges show the long window instead of an empty 5-hour dial");
     }
 
     private static void testUsageProviders() {

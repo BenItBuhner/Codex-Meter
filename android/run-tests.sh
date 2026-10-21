@@ -622,15 +622,19 @@ for provider in \
 done
 
 grep -R -q 'android:widgetCategory="0x2000"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
-# The lock picker offers three widgets; retired ones stay installed for placed tiles but hidden.
-for retired in square wide rings_square rings_wide dials_square bars_square weekly; do
+# The lock picker offers two dial widgets; retired ones stay installed for placed tiles but hidden.
+for retired in square wide rings_square rings_wide dials_square bars_square bars_wide weekly; do
   grep -q 'hide_from_picker' "$ROOT/app/src/main/res/xml/samsung_lock_${retired}_info.xml"
 done
-for kept in five_hour dials_wide bars_wide; do
+for kept in five_hour dials_wide; do
   ! grep -q 'hide_from_picker' "$ROOT/app/src/main/res/xml/samsung_lock_${kept}_info.xml"
   grep -q 'LockWidgetConfigActivity' "$ROOT/app/src/main/res/xml/samsung_lock_${kept}_info.xml"
 done
-grep -q 'getWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+grep -q 'getLockWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+# Bars are retired: placed bar tiles draw dials, and the app lists lock widgets for setup.
+grep -q 'style == Style.BARS' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+grep -q 'LockWidgetsActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'settings_lock_widgets' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 grep -q 'setWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
 grep -q 'setWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -R -q 'app:widgetStyle="monotone"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
