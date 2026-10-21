@@ -79,10 +79,11 @@ public final class DashboardReorderActivity extends AppCompatActivity {
 
         TextView note = Ui.text(this,
                 "Changes are saved instantly. Usage-credit balance and reset credits stay hidden "
-                        + "when they have nothing to show (zero or below), and 5-hour, weekly, "
+                        + "when they have nothing to show (zero or below); 5-hour, weekly, "
                         + "monthly, and usage-history cards appear only while OpenAI reports data "
-                        + "for them — no matter where each card is placed or whether its switch "
-                        + "is on.",
+                        + "for them; and the monthly credit limit appears only for accounts under "
+                        + "workspace spend controls — no matter where each card is placed or "
+                        + "whether its switch is on.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
@@ -109,6 +110,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             } else if (DashboardSections.MONTHLY.equals(key)) {
                 items.add(new SectionItem(key, "Monthly limit",
                         "Rolling ~30-day Codex window (free tier)"));
+            } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+                items.add(new SectionItem(key, "Monthly credit limit",
+                        "Workspace spend limit · shown only when OpenAI reports one"));
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 items.add(new SectionItem(key, "Usage-credit balance",
                         "Hidden automatically at a zero or negative balance"));
@@ -161,6 +165,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         if (DashboardSections.MONTHLY.equals(key)) {
             return AppPreferences.showDashboardMonthly(this);
         }
+        if (DashboardSections.SPEND_CONTROL.equals(key)) {
+            return AppPreferences.showDashboardSpendControl(this);
+        }
         if (DashboardSections.USAGE_CREDITS.equals(key)) {
             return AppPreferences.showDashboardUsageCredits(this);
         }
@@ -180,6 +187,8 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             AppPreferences.setShowDashboardWeekly(this, visible);
         } else if (DashboardSections.MONTHLY.equals(key)) {
             AppPreferences.setShowDashboardMonthly(this, visible);
+        } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+            AppPreferences.setShowDashboardSpendControl(this, visible);
         } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
             AppPreferences.setShowDashboardUsageCredits(this, visible);
         } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
