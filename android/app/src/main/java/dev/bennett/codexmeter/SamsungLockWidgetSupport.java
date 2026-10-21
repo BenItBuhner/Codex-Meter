@@ -182,35 +182,89 @@ final class SamsungLockWidgetSupport {
     }
 
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
+        List<UsageProvider> providers = new ArrayList<>();
+        if (i == 0) {
+            providers.add(UsageProvider.CODEX);
+        } else {
+            providers.addAll(ProviderPreferences.getWidgetProviders(context, i));
+        }
+        return buildViews(context, appWidgetManager, i, shape, style, metric, providers,
+                AppPreferences.loadLockWidgetOptions(context, i));
+    }
+
+    /** Which lock widget an id belongs to: one gauge (tiny) or two slots (wide and square). */
+    static int slotCount(Context context, int appWidgetId) {
+        Context app = application(context);
+        ProviderSpec spec = findSpec(AppWidgetManager.getInstance(app), app, appWidgetId);
+        return spec != null && spec.metric != Metric.BOTH ? 1 : 2;
+    }
+
+    /**
+     * Lock widget for the given providers. One provider fills both slots with its meters; two
+     * providers get one slot each, marked with the provider's icon or name.
+     */
+    static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i,
+            Shape shape, Style style, Metric metric, List<UsageProvider> providers,
+            LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions) {
         RemoteViews remoteViewsBuildArcViews;
         int i2;
-        boolean zIsSignedIn = SecureTokenStore.isSignedIn(context);
-        UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context);
-        LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions = AppPreferences.loadLockWidgetOptions(context, i);
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(context);
+        UsageProvider provider = providers == null || providers.isEmpty()
+                ? UsageProvider.CODEX : providers.get(0);
+        boolean multi = metric == Metric.BOTH && providers != null && providers.size() > 1;
+        boolean zIsSignedIn = SecureTokenStore.isSignedIn(context, provider);
+        UsageSnapshot usageSnapshotLoadSnapshot = zIsSignedIn
+                ? ProviderPreferences.loadSnapshot(context, provider) : null;
+        // Reset credits are a Codex feature.
+        boolean codexOnly = provider == UsageProvider.CODEX && !multi;
+        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = codexOnly
+                ? AppPreferences.loadResetCredits(context) : null;
+        if (!codexOnly) {
+            LockWidgetOptions o = lockWidgetOptionsLoadLockWidgetOptions;
+            lockWidgetOptionsLoadLockWidgetOptions = new LockWidgetOptions(o.metricMode, false,
+                    false, o.showCountdown, o.visibleMeters);
+        }
         int i3 = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
-        LockMeterBinding binding = bindLockMeters(usageSnapshotLoadSnapshot, lockWidgetOptionsLoadLockWidgetOptions);
-        int iRemaining = binding.primaryRemaining;
-        int iRemaining2 = binding.secondaryRemaining;
+        LockMeterBinding binding;
+        if (multi) {
+            binding = bindProviders(context, providers, lockWidgetOptionsLoadLockWidgetOptions);
+            zIsSignedIn = binding.anySignedIn;
+        } else {
+            binding = bindLockMeters(usageSnapshotLoadSnapshot,
+                    lockWidgetOptionsLoadLockWidgetOptions);
+        }
+        String name = multi ? "Usage" : provider.displayName;
         if (metric != Metric.BOTH) {
-            boolean monthlyFallback = metric == Metric.WEEKLY
+            String key = metric == Metric.WEEKLY ? WidgetMeters.WEEKLY
+                    : WidgetProviders.metersFor(
+                            WidgetMeters.parse(
+                                    lockWidgetOptionsLoadLockWidgetOptions.effectiveVisibleMeters()),
+                            usageSnapshotLoadSnapshot != null
+                                    && usageSnapshotLoadSnapshot.fiveHour != null,
+                            usageSnapshotLoadSnapshot != null
+                                    && usageSnapshotLoadSnapshot.longWindow() != null,
+                            1).get(0);
+            boolean fiveHour = WidgetMeters.FIVE_HOUR.equals(key);
+            boolean monthlyFallback = !fiveHour
                     && usageSnapshotLoadSnapshot != null
                     && usageSnapshotLoadSnapshot.longWindowIsMonthly();
-            int value = metric == Metric.FIVE_HOUR
-                    ? remaining(usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.fiveHour)
-                    : remaining(usageSnapshotLoadSnapshot == null ? null : usageSnapshotLoadSnapshot.longWindow());
+            int value = remaining(WidgetMeters.meterWindow(key, usageSnapshotLoadSnapshot));
             int[] size = grantedSize(appWidgetManager, i, Shape.SQUARE);
+            // Codex keeps its meter icons; other providers show their mark so it's clear whose
+            // usage the gauge shows.
+            int icon = provider == UsageProvider.CODEX
+                    ? (fiveHour ? R.drawable.ic_oui_time : R.drawable.ic_oui_calendar_week)
+                    : ProvidersActivity.iconRes(provider);
             RemoteViews single = new RemoteViews(context.getPackageName(), R.layout.widget_lock_dial_single);
             single.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.renderSingle(context, metric, value, zIsSignedIn,
-                            size[0], size[1]));
-            String metricName = metric == Metric.FIVE_HOUR ? "five hour"
+                    SamsungLockGraphics.renderSingle(context, value, zIsSignedIn,
+                            size[0], size[1], icon));
+            String metricName = fiveHour ? "five hour"
                     : monthlyFallback ? "monthly" : "weekly";
             single.setContentDescription(R.id.lock_graphic_root, zIsSignedIn
-                    ? "Codex " + metricName + " " + value(value) + " remaining"
-                    : "Codex Meter, sign in required");
+                    ? name + " " + metricName + " " + value(value) + " remaining"
+                    : name + ", sign in required");
             applyOpenIntent(context, single, R.id.lock_graphic_root, i, shape, style,
-                    lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
+                    lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3, provider);
             return single;
         }
         if (style == Style.NUMBERS) {
@@ -228,9 +282,46 @@ final class SamsungLockWidgetSupport {
         }
         applyCountdowns(remoteViewsBuildArcViews, shape, style, lockWidgetOptionsLoadLockWidgetOptions,
                 binding);
-        remoteViewsBuildArcViews.setContentDescription(i2, contentDescription(zIsSignedIn, binding, style, lockWidgetOptionsLoadLockWidgetOptions, i3));
-        applyOpenIntent(context, remoteViewsBuildArcViews, i2, i, shape, style, lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3);
+        remoteViewsBuildArcViews.setContentDescription(i2, contentDescription(name, zIsSignedIn,
+                binding, style, lockWidgetOptionsLoadLockWidgetOptions, i3));
+        applyOpenIntent(context, remoteViewsBuildArcViews, i2, i, shape, style,
+                lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3, provider);
         return remoteViewsBuildArcViews;
+    }
+
+    /**
+     * Configuration preview: the gauges a lock widget would draw for these providers and
+     * options, with sample values where there is no data yet.
+     */
+    static android.graphics.Bitmap previewBitmap(Context context, int slots,
+            List<UsageProvider> providers, LockWidgetOptions options) {
+        UsageProvider provider = providers == null || providers.isEmpty()
+                ? UsageProvider.CODEX : providers.get(0);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
+        if (slots <= 1) {
+            String key = WidgetProviders.metersFor(WidgetMeters.parse(
+                            options.effectiveVisibleMeters()),
+                    snapshot != null && snapshot.fiveHour != null,
+                    snapshot != null && snapshot.longWindow() != null, 1).get(0);
+            int value = remaining(WidgetMeters.meterWindow(key, snapshot));
+            int icon = provider == UsageProvider.CODEX
+                    ? (WidgetMeters.FIVE_HOUR.equals(key)
+                            ? R.drawable.ic_oui_time : R.drawable.ic_oui_calendar_week)
+                    : ProvidersActivity.iconRes(provider);
+            return SamsungLockGraphics.renderSingle(context, value < 0 ? 73 : value, true, 82,
+                    82, icon);
+        }
+        LockMeterBinding binding = providers != null && providers.size() > 1
+                ? bindProviders(context, providers, options)
+                : bindLockMeters(snapshot, options);
+        int primary = binding.primaryRemaining < 0 ? 73 : binding.primaryRemaining;
+        int secondary = !binding.showSecondary ? -1
+                : binding.secondaryRemaining < 0 ? 44 : binding.secondaryRemaining;
+        return SamsungLockGraphics.render(context, Shape.WIDE, Style.DIALS, primary, secondary,
+                true, 180, 82, options, 0,
+                binding.primary == null ? R.drawable.ic_oui_time : binding.primary.iconRes,
+                binding.secondary == null ? R.drawable.ic_oui_calendar_week
+                        : binding.secondary.iconRes);
     }
 
     private static LockMeterBinding bindLockMeters(UsageSnapshot snapshot, LockWidgetOptions options) {
@@ -252,6 +343,32 @@ final class SamsungLockWidgetSupport {
         LockMeterSlot primary = lockSlot(usageKeys.get(0), snapshot);
         LockMeterSlot secondary = usageKeys.size() > 1 ? lockSlot(usageKeys.get(1), snapshot) : null;
         return new LockMeterBinding(primary, secondary);
+    }
+
+    /** One slot per provider: its first visible meter it reports, labeled with its name. */
+    private static LockMeterBinding bindProviders(Context context, List<UsageProvider> providers,
+            LockWidgetOptions options) {
+        List<String> visible = WidgetMeters.parse(options == null ? ""
+                : options.effectiveVisibleMeters());
+        List<LockMeterSlot> slots = new ArrayList<>();
+        boolean anySignedIn = false;
+        for (UsageProvider provider : providers) {
+            if (slots.size() >= WidgetProviders.MAX_LOCK_WIDE) break;
+            boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
+            anySignedIn |= signedIn;
+            UsageSnapshot snapshot = signedIn
+                    ? ProviderPreferences.loadSnapshot(context, provider) : null;
+            String key = WidgetProviders.metersFor(visible,
+                    snapshot != null && snapshot.fiveHour != null,
+                    snapshot != null && snapshot.longWindow() != null, 1).get(0);
+            UsageWindow window = WidgetMeters.meterWindow(key, snapshot);
+            slots.add(new LockMeterSlot(key, WidgetProviders.shortTag(provider),
+                    remaining(window), window, ProvidersActivity.iconRes(provider)));
+        }
+        LockMeterBinding binding = new LockMeterBinding(slots.get(0),
+                slots.size() > 1 ? slots.get(1) : null);
+        binding.anySignedIn = anySignedIn;
+        return binding;
     }
 
     private static LockMeterSlot lockSlot(String key, UsageSnapshot snapshot) {
@@ -303,6 +420,8 @@ final class SamsungLockWidgetSupport {
         final int secondaryRemaining;
         final boolean showPrimary;
         final boolean showSecondary;
+        /** Multi-provider widgets show slots while at least one provider is signed in. */
+        boolean anySignedIn;
 
         LockMeterBinding(LockMeterSlot primary, LockMeterSlot secondary) {
             this.primary = primary;
@@ -543,7 +662,9 @@ final class SamsungLockWidgetSupport {
         }
     }
 
-    private static void applyOpenIntent(Context context, RemoteViews remoteViews, int i, int i2, Shape shape, Style style, LockWidgetOptions lockWidgetOptions, boolean z, int i3) {
+    private static void applyOpenIntent(Context context, RemoteViews remoteViews, int i, int i2,
+            Shape shape, Style style, LockWidgetOptions lockWidgetOptions, boolean z, int i3,
+            UsageProvider provider) {
         boolean z2 = lockWidgetOptions.showResetAction && z && i3 > 0;
         String target = z2 ? "reset" : "open";
         Intent intentAddFlags = new Intent(context,
@@ -556,6 +677,10 @@ final class SamsungLockWidgetSupport {
                         + style.name().toLowerCase(Locale.US)
                         + "/" + target))
                 .addFlags(335544320);
+        if (!z2) {
+            // Open the dashboard on the widget's (first) provider tab.
+            intentAddFlags.putExtra(MainActivity.EXTRA_PROVIDER, provider.id);
+        }
         if (i2 == 0) {
             i2 = 0;
         }
@@ -596,12 +721,13 @@ final class SamsungLockWidgetSupport {
                 : singleMetric ? z ? 10.5f : 13.0f : z ? 9.2f : 11.0f;
     }
 
-    private static String contentDescription(boolean z, LockMeterBinding binding, Style style,
-            LockWidgetOptions lockWidgetOptions, int i3) {
+    private static String contentDescription(String name, boolean z, LockMeterBinding binding,
+            Style style, LockWidgetOptions lockWidgetOptions, int i3) {
         if (!z) {
-            return "Codex Meter, sign in required";
+            return name + ", sign in required";
         }
-        StringBuilder sbAppend = new StringBuilder("Codex ").append(styleLabel(style).toLowerCase()).append(", ");
+        StringBuilder sbAppend = new StringBuilder(name).append(' ')
+                .append(styleLabel(style).toLowerCase(Locale.ROOT)).append(", ");
         if (binding.showPrimary) {
             String label = binding.primary == null ? "primary" : binding.primary.label;
             sbAppend.append(label).append(' ').append(value(binding.primaryRemaining))

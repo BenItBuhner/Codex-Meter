@@ -187,10 +187,28 @@ public final class ProviderPreferences {
         prefs(context).edit().putLong(provider.id + SUFFIX_RATE_LIMITED_AT, at).apply();
     }
 
-    /** Provider a home-screen widget shows; widgets made before providers existed show Codex. */
+    /** First provider a widget shows; see {@link #getWidgetProviders}. */
     public static UsageProvider getWidgetProvider(Context context, int appWidgetId) {
-        return UsageProvider.fromId(prefs(context).getString(KEY_WIDGET_PROVIDER + appWidgetId,
-                null));
+        return getWidgetProviders(context, appWidgetId).get(0);
+    }
+
+    /**
+     * Providers a home or lock-screen widget shows, in order; never empty. A widget that never
+     * saved a choice shows {@link WidgetProviders#fallback}, which keeps older widgets on Codex.
+     */
+    public static List<UsageProvider> getWidgetProviders(Context context, int appWidgetId) {
+        List<UsageProvider> saved = WidgetProviders.parse(
+                prefs(context).getString(KEY_WIDGET_PROVIDER + appWidgetId, null));
+        if (!saved.isEmpty()) {
+            return saved;
+        }
+        List<UsageProvider> signedIn = new ArrayList<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            if (SecureTokenStore.isSignedIn(context, provider)) signedIn.add(provider);
+        }
+        List<UsageProvider> fallback = new ArrayList<>();
+        fallback.add(WidgetProviders.fallback(getOrder(context), signedIn));
+        return fallback;
     }
 
     public static void setWidgetProvider(Context context, int appWidgetId,
@@ -198,15 +216,34 @@ public final class ProviderPreferences {
         prefs(context).edit().putString(KEY_WIDGET_PROVIDER + appWidgetId, provider.id).apply();
     }
 
+    public static void setWidgetProviders(Context context, int appWidgetId,
+            List<UsageProvider> providers) {
+        String csv = WidgetProviders.serialize(providers);
+        if (csv.isEmpty()) return;
+        prefs(context).edit().putString(KEY_WIDGET_PROVIDER + appWidgetId, csv).apply();
+    }
+
+    /** Moves a restored widget's saved providers to its new id. */
+    public static void moveWidgetProviders(Context context, int oldId, int newId) {
+        String saved = prefs(context).getString(KEY_WIDGET_PROVIDER + oldId, null);
+        SharedPreferences.Editor editor = prefs(context).edit()
+                .remove(KEY_WIDGET_PROVIDER + oldId);
+        if (saved != null && !saved.isEmpty()) {
+            editor.putString(KEY_WIDGET_PROVIDER + newId, saved);
+        }
+        editor.apply();
+    }
+
     public static void clearWidgetProvider(Context context, int appWidgetId) {
         prefs(context).edit().remove(KEY_WIDGET_PROVIDER + appWidgetId).apply();
     }
 
-    /** Whether any home-screen widget is set to this provider. */
+    /** Whether any widget has saved this provider among the ones it shows. */
     public static boolean hasWidgetFor(Context context, UsageProvider provider) {
         for (java.util.Map.Entry<String, ?> entry : prefs(context).getAll().entrySet()) {
             if (entry.getKey().startsWith(KEY_WIDGET_PROVIDER)
-                    && provider.id.equals(entry.getValue())) {
+                    && entry.getValue() instanceof String
+                    && WidgetProviders.parse((String) entry.getValue()).contains(provider)) {
                 return true;
             }
         }

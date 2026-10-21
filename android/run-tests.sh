@@ -72,6 +72,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageProvider.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetProviders.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeCodeApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeUsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorApi.java" \
@@ -585,6 +586,17 @@ for provider in \
 done
 
 grep -R -q 'android:widgetCategory="0x2000"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
+# The lock picker offers three widgets; retired ones stay installed for placed tiles but hidden.
+for retired in square wide rings_square rings_wide dials_square bars_square weekly; do
+  grep -q 'hide_from_picker' "$ROOT/app/src/main/res/xml/samsung_lock_${retired}_info.xml"
+done
+for kept in five_hour dials_wide bars_wide; do
+  ! grep -q 'hide_from_picker' "$ROOT/app/src/main/res/xml/samsung_lock_${kept}_info.xml"
+  grep -q 'LockWidgetConfigActivity' "$ROOT/app/src/main/res/xml/samsung_lock_${kept}_info.xml"
+done
+grep -q 'getWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+grep -q 'setWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+grep -q 'setWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -R -q 'app:widgetStyle="monotone"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
 ! grep -R -q 'com.samsung.systemui.permission.FACE_WIDGET' "$ROOT/app/src/main"
 
