@@ -3,14 +3,14 @@
   "component": {
     "group": "sesl.androidx.fragment",
     "module": "fragment",
-    "version": "1.8.9+1.0.5-sesl8+rev1",
+    "version": "1.9.0+1.0.5-sesl8+rev1",
     "attributes": {
       "org.gradle.status": "release"
     }
   },
   "createdBy": {
     "gradle": {
-      "version": "8.14.2"
+      "version": "9.7.1"
     }
   },
   "variants": [
@@ -27,14 +27,14 @@
           "group": "androidx.annotation",
           "module": "annotation",
           "version": {
-            "requires": "1.8.1"
+            "requires": "1.10.0"
           }
         },
         {
           "group": "androidx.collection",
           "module": "collection",
           "version": {
-            "requires": "1.5.0"
+            "requires": "1.6.0"
           }
         },
         {
@@ -46,37 +46,37 @@
         },
         {
           "group": "androidx.activity",
-          "module": "activity",
+          "module": "activity-ktx",
           "version": {
-            "requires": "1.8.1"
+            "requires": "1.9.3"
           }
         },
         {
           "group": "androidx.lifecycle",
           "module": "lifecycle-runtime",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
           "group": "androidx.lifecycle",
           "module": "lifecycle-livedata-core",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
           "group": "androidx.lifecycle",
-          "module": "lifecycle-viewmodel",
+          "module": "lifecycle-viewmodel-ktx",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
           "group": "androidx.lifecycle",
           "module": "lifecycle-viewmodel-savedstate",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
@@ -90,7 +90,7 @@
           "group": "androidx.annotation",
           "module": "annotation-experimental",
           "version": {
-            "requires": "1.4.1"
+            "requires": "1.6.0"
           }
         },
         {
@@ -101,7 +101,7 @@
           "group": "sesl.androidx.core",
           "module": "core",
           "version": {
-            "requires": "1.16.0+1.0.7-sesl8+rev0"
+            "requires": "1.19.0+1.0.7-sesl8+rev1"
           }
         },
         {
@@ -117,19 +117,19 @@
           "group": "org.jetbrains.kotlin",
           "module": "kotlin-stdlib",
           "version": {
-            "requires": "2.1.21"
+            "requires": "2.2.10"
           }
         }
       ],
       "files": [
         {
-          "name": "fragment-1.8.9+1.0.5-sesl8+rev1.aar",
-          "url": "fragment-1.8.9+1.0.5-sesl8+rev1.aar",
-          "size": 394098,
-          "sha512": "8ada020277c8a6bdc96ed1e357ac7d7808e005f17396d6b9ffe2117833bddb08f39792fe12b4d63a6e6b52732e665cf9cfe6ca5f119dab06e09f20a35142ce88",
-          "sha256": "4bf4422b4daa019f56b87752f162e57a708d0b4fea0947ba4d1fe1690d52340f",
-          "sha1": "21a58bcc2357e3a38333ac8bb40a8d1b126a9ceb",
-          "md5": "ae0dc124c1d4c620c850ab698520c7e1"
+          "name": "fragment-1.9.0+1.0.5-sesl8+rev1.aar",
+          "url": "fragment-1.9.0+1.0.5-sesl8+rev1.aar",
+          "size": 420121,
+          "sha512": "c6044a2193af32b4936f12b53524a45759dbdc180bef118455ffa37848b5dc272c5c0127d74db2ca2e0eb482836d225d9b25137329a58defe6d22065a4253f4b",
+          "sha256": "19b9914763568fe3786e1ab00ab4b48bef988fdd2724b294d468d321d4094da8",
+          "sha1": "7988d0b9c825a418fb4c0425cafa078b76797f04",
+          "md5": "7d8625639cb8c61292966559c802a229"
         }
       ]
     },
@@ -150,17 +150,24 @@
           }
         },
         {
+          "group": "androidx.tracing",
+          "module": "tracing",
+          "version": {
+            "requires": "2.0.1"
+          }
+        },
+        {
           "group": "androidx.annotation",
           "module": "annotation",
           "version": {
-            "requires": "1.8.1"
+            "requires": "1.10.0"
           }
         },
         {
           "group": "androidx.collection",
           "module": "collection",
           "version": {
-            "requires": "1.5.0"
+            "requires": "1.6.0"
           }
         },
         {
@@ -172,37 +179,37 @@
         },
         {
           "group": "androidx.activity",
-          "module": "activity",
+          "module": "activity-ktx",
           "version": {
-            "requires": "1.8.1"
+            "requires": "1.9.3"
           }
         },
         {
           "group": "androidx.lifecycle",
           "module": "lifecycle-runtime",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
           "group": "androidx.lifecycle",
           "module": "lifecycle-livedata-core",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
           "group": "androidx.lifecycle",
-          "module": "lifecycle-viewmodel",
+          "module": "lifecycle-viewmodel-ktx",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
           "group": "androidx.lifecycle",
           "module": "lifecycle-viewmodel-savedstate",
           "version": {
-            "requires": "2.6.2"
+            "requires": "2.11.0"
           }
         },
         {
@@ -216,7 +223,7 @@
           "group": "androidx.annotation",
           "module": "annotation-experimental",
           "version": {
-            "requires": "1.4.1"
+            "requires": "1.6.0"
           }
         },
         {
@@ -227,7 +234,7 @@
           "group": "sesl.androidx.core",
           "module": "core",
           "version": {
-            "requires": "1.16.0+1.0.7-sesl8+rev0"
+            "requires": "1.19.0+1.0.7-sesl8+rev1"
           }
         },
         {
@@ -240,29 +247,22 @@
       ],
       "dependencyConstraints": [
         {
-          "group": "androidx.fragment",
-          "module": "fragment-ktx",
-          "version": {
-            "requires": "1.8.8"
-          }
-        },
-        {
           "group": "org.jetbrains.kotlin",
           "module": "kotlin-stdlib",
           "version": {
-            "requires": "2.1.21"
+            "requires": "2.2.10"
           }
         }
       ],
       "files": [
         {
-          "name": "fragment-1.8.9+1.0.5-sesl8+rev1.aar",
-          "url": "fragment-1.8.9+1.0.5-sesl8+rev1.aar",
-          "size": 394098,
-          "sha512": "8ada020277c8a6bdc96ed1e357ac7d7808e005f17396d6b9ffe2117833bddb08f39792fe12b4d63a6e6b52732e665cf9cfe6ca5f119dab06e09f20a35142ce88",
-          "sha256": "4bf4422b4daa019f56b87752f162e57a708d0b4fea0947ba4d1fe1690d52340f",
-          "sha1": "21a58bcc2357e3a38333ac8bb40a8d1b126a9ceb",
-          "md5": "ae0dc124c1d4c620c850ab698520c7e1"
+          "name": "fragment-1.9.0+1.0.5-sesl8+rev1.aar",
+          "url": "fragment-1.9.0+1.0.5-sesl8+rev1.aar",
+          "size": 420121,
+          "sha512": "c6044a2193af32b4936f12b53524a45759dbdc180bef118455ffa37848b5dc272c5c0127d74db2ca2e0eb482836d225d9b25137329a58defe6d22065a4253f4b",
+          "sha256": "19b9914763568fe3786e1ab00ab4b48bef988fdd2724b294d468d321d4094da8",
+          "sha1": "7988d0b9c825a418fb4c0425cafa078b76797f04",
+          "md5": "7d8625639cb8c61292966559c802a229"
         }
       ]
     },
@@ -276,13 +276,13 @@
       },
       "files": [
         {
-          "name": "fragment-1.8.9+1.0.5-sesl8+rev1-sources.jar",
-          "url": "fragment-1.8.9+1.0.5-sesl8+rev1-sources.jar",
-          "size": 204282,
-          "sha512": "e98de03d3b8f38a1e234e92cbefc1803182eaf59204f8304abd4fc6897251115f2d517e08ccf620d6b8d0992543deb0f63a10d83bcddedbe3c2f0242bd4f9bc6",
-          "sha256": "b4e3f52a81cbc7deb6d4101dab33a9c9cd48402af28a887c1e07fc34144e9bac",
-          "sha1": "125905f6c834dfe69c45e5295a9ebab3e11c6445",
-          "md5": "79de609bbfd56ec4d61a66ff10d32e98"
+          "name": "fragment-1.9.0+1.0.5-sesl8+rev1-sources.jar",
+          "url": "fragment-1.9.0+1.0.5-sesl8+rev1-sources.jar",
+          "size": 211709,
+          "sha512": "9310ad7d5713262c4343168f1809ee76307773f86478e76b62a263760f0895590f756aa4ae5a3360addc2b531b93791589b488c5c550f90335a550ef693942ff",
+          "sha256": "7e60c4d3aede2dcb2a305e072604a152e443c6176fdfa71504222431edcf3f73",
+          "sha1": "fa3bba716f47eccd4029c55bcb7a5e3572129b76",
+          "md5": "700fdbdcfa080886dab12e724da697c4"
         }
       ]
     },
@@ -296,13 +296,13 @@
       },
       "files": [
         {
-          "name": "fragment-1.8.9+1.0.5-sesl8+rev1-javadoc.jar",
-          "url": "fragment-1.8.9+1.0.5-sesl8+rev1-javadoc.jar",
-          "size": 624250,
-          "sha512": "39fa3253680a04dabe6e9258830da89abb620cb9b38bd159e00c1979c3c2e0d231486a4e6a9a4bd275e95dc8bb9f24fb8e3b5ecb6cf00d9c827ca22e65bb2dbb",
-          "sha256": "0bba2961e8fb974aae06a713d6f63630c03b240c5b1e9c6ab6c6793a4c66cf62",
-          "sha1": "943e0ed24d134a06c7d6b85e9169ef8a0485af0d",
-          "md5": "16c5c066f87a290e84390919e4d67ddd"
+          "name": "fragment-1.9.0+1.0.5-sesl8+rev1-javadoc.jar",
+          "url": "fragment-1.9.0+1.0.5-sesl8+rev1-javadoc.jar",
+          "size": 805396,
+          "sha512": "50883d5c2fbb486296751d7fe293abc8416b458aa5ed5cad7e252832a2990b311be7d51de1678fe6efcf80baaf672611359c28800cf5605918dc13fb215d0e3e",
+          "sha256": "918cd6bf54b1759b819298b299a296b93b3c1f155ff0da5545ef04237cb0598e",
+          "sha1": "0ac389207b2a67536fd03283839984ee27360ce4",
+          "md5": "36e94d0dc31eec574b4f276d588cb505"
         }
       ]
     }
