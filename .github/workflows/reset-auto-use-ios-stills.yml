@@ -1,0 +1,31 @@
+name: Reset auto-use iOS stills (temporary)
+
+# One-off: copies the iOS demo-gallery stills from the PR's iOS CI run to
+# refs/ci-screenshots/reset-auto-use-ios so they can be reviewed. Removed before merge.
+on:
+  push:
+    branches: [claude/project-thread-m971ew]
+    paths: ['.github/workflows/reset-auto-use-ios-stills.yml']
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download gallery and publish stills
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh run download 39583537659 -R "$GITHUB_REPOSITORY" -n ios-demo-gallery -D gallery
+          mkdir shots
+          find gallery -name '*.png' -exec cp {} shots/ \;
+          cd shots
+          ls -1
+          git init -q
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "iOS stills"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/reset-auto-use-ios
