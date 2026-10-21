@@ -60,6 +60,9 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private final List<String> meterOrder = new ArrayList<>();
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private String tapAction = WidgetOptions.TAP_OPEN_APP;
+    private List<UsageProvider> widgetProviders = new ArrayList<>();
+    private final java.util.Map<UsageProvider, SwitchCompat> providerSwitches =
+            new java.util.EnumMap<>(UsageProvider.class);
     private final int tapOpenId = View.generateViewId();
     private final int tapRefreshId = View.generateViewId();
     private final int tapResetId = View.generateViewId();
@@ -101,8 +104,18 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
         WidgetOptions saved = AppPreferences.loadWidgetOptions(this, this.appWidgetId);
         this.tapAction = AppPreferences.getWidgetTapAction(this, this.appWidgetId);
+        this.widgetProviders = new ArrayList<>(
+                ProviderPreferences.getWidgetProviders(this, this.appWidgetId));
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         loadMeterSelection(saved, snapshot);
+
+        content.addView(Ui.separator(this, "Providers"));
+        content.addView(buildProvidersCard());
+        TextView providersHint = Ui.text(this, "Turn on more than one to stack them, one row "
+                + "per provider. Small sizes show the first one or two.", 13.0f,
+                Ui.secondaryText(this.dark));
+        providersHint.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), Ui.dp(this, 24), 0);
+        content.addView(providersHint);
 
         content.addView(Ui.separator(this, "Appearance"));
         RoundedLinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
@@ -232,6 +245,46 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         updateRowSummaries();
         updateMetersHint();
         renderPreview();
+    }
+
+    private RoundedLinearLayout buildProvidersCard() {
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        boolean first = true;
+        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+            SwitchCompat toggle = new SwitchCompat(this);
+            toggle.setChecked(this.widgetProviders.contains(provider));
+            this.providerSwitches.put(provider, toggle);
+            card.addView(buildProviderRow(provider, toggle, !first));
+            first = false;
+            toggle.setOnCheckedChangeListener((button, checked) -> {
+                List<UsageProvider> updated = WidgetProviders.toggled(this.widgetProviders,
+                        provider, checked, ProviderPreferences.getOrder(this),
+                        WidgetProviders.MAX_HOME);
+                if (updated.contains(provider) != checked) {
+                    // The last provider stays on; put the switch back.
+                    button.setChecked(!checked);
+                    return;
+                }
+                this.widgetProviders = updated;
+                renderPreview();
+            });
+        }
+        return card;
+    }
+
+    private LinearLayout buildProviderRow(UsageProvider provider, SwitchCompat toggle,
+            boolean topDivider) {
+        LinearLayout row = buildSwitchRow(provider.displayName, toggle, topDivider);
+        LinearLayout content = (LinearLayout) row.getChildAt(row.getChildCount() - 1);
+        ImageView mark = new ImageView(this);
+        mark.setImageResource(ProvidersActivity.iconRes(provider));
+        mark.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
+        mark.setContentDescription(null);
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(Ui.dp(this, 24),
+                Ui.dp(this, 24));
+        markParams.setMarginEnd(Ui.dp(this, 16));
+        content.addView(mark, 0, markParams);
+        return row;
     }
 
     private RoundedLinearLayout buildTapActionCard() {
@@ -614,7 +667,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 }
                 WidgetOptions options = currentOptions();
                 RemoteViews remote = WidgetRenderer.buildPreview(this, this.appWidgetId, options,
-                        this.widgetSize);
+                        this.widgetSize, this.widgetProviders);
                 FrameLayout surface = new FrameLayout(this);
                 surface.setClipToOutline(true);
                 GradientDrawable background = new GradientDrawable();
@@ -711,6 +764,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private void save() {
         AppPreferences.saveWidgetOptions(this, this.appWidgetId, currentOptions());
         AppPreferences.saveWidgetTapAction(this, this.appWidgetId, this.tapAction);
+        ProviderPreferences.setWidgetProviders(this, this.appWidgetId, this.widgetProviders);
         WidgetRenderer.update(this, AppWidgetManager.getInstance(this), this.appWidgetId);
         setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,
                 this.appWidgetId));

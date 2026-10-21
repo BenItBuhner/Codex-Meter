@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tab slots for the enabled providers, in the order chosen in Settings → Providers.
+     MainActivity.applyEnabledProviders sets each slot's title and mark and hides unused slots;
+     the defaults below match the default order. Add a slot when adding a provider. -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/provider_tab_0"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_1"
+        android:icon="@drawable/ic_provider_claude_code"
+        android:title="@string/provider_claude_code" />
+    <item
+        android:id="@+id/provider_tab_2"
+        android:icon="@drawable/ic_provider_cursor"
+        android:title="@string/provider_cursor" />
+</menu>
