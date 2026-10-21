@@ -166,6 +166,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 case PAGE_REFRESH_USAGE:
                     addPreferencesFromResource(R.xml.preferences_settings_refresh_usage);
                     bindRefresh();
+                    bindResetCreditAutoUse();
                     bindUsagePace();
                     break;
                 case PAGE_NOTIFICATIONS:
@@ -569,6 +570,83 @@ public final class SettingsActivity extends AppCompatActivity {
             });
         }
 
+        private void bindResetCreditAutoUse() {
+            Context context = requireContext();
+            SwitchPreferenceCompat expiry = findPreference("reset_credit_expiry_auto_apply_ui");
+            ListPreference lead = findPreference("reset_credit_expiry_auto_apply_lead_ui");
+            SwitchPreferenceCompat lowUsage = findPreference("reset_credit_low_usage_auto_use_ui");
+            ListPreference threshold = findPreference("reset_credit_low_usage_threshold_ui");
+            ListPreference metric = findPreference("reset_credit_low_usage_metric_ui");
+
+            expiry.setPersistent(false);
+            expiry.setChecked(ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context));
+            lead.setPersistent(false);
+            lead.setValue(String.valueOf(
+                    ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context)));
+            lead.setEnabled(expiry.isChecked());
+            expiry.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(requireContext(), enabled);
+                lead.setEnabled(enabled);
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
+                return true;
+            });
+            lead.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditExpiryAutoApplyLeadMillis(requireContext(),
+                        Long.parseLong(String.valueOf(value)));
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
+                return true;
+            });
+
+            lowUsage.setPersistent(false);
+            lowUsage.setChecked(ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context));
+            threshold.setPersistent(false);
+            threshold.setValue(String.valueOf(
+                    ResetAlertPreferences.resetCreditLowUsageThreshold(context)));
+            metric.setPersistent(false);
+            metric.setValue(ResetAlertPreferences.resetCreditLowUsageMetric(context));
+            threshold.setEnabled(lowUsage.isChecked());
+            metric.setEnabled(lowUsage.isChecked());
+            lowUsage.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (!enabled) {
+                    ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
+                            requireContext(), false);
+                    threshold.setEnabled(false);
+                    metric.setEnabled(false);
+                    return true;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Use resets automatically?")
+                        .setMessage("Codex Meter will spend one banked reset when your "
+                                + "remaining usage reaches the level you choose. It checks "
+                                + "after each refresh and skips a limit that refills on its "
+                                + "own within 15 minutes. Used resets cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Turn on", (dialog, which) -> {
+                            ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
+                                    requireContext(), true);
+                            lowUsage.setChecked(true);
+                            threshold.setEnabled(true);
+                            metric.setEnabled(true);
+                        })
+                        .show();
+                return false;
+            });
+            threshold.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditLowUsageThreshold(requireContext(),
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+            metric.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditLowUsageMetric(requireContext(),
+                        String.valueOf(value));
+                return true;
+            });
+        }
+
         private void bindUsagePace() {
             SwitchPreferenceCompat enabled = findPreference("usage_pace_enabled_ui");
             enabled.setPersistent(false);
@@ -834,19 +912,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 ResetAlertPreferences.setResetCreditExpiryEnabled(requireContext(), enabled);
                 expiryTimesPreference.setEnabled(enabled);
                 scheduleResetCreditExpiryReminders();
-                return true;
-            });
-
-            SwitchPreferenceCompat resetCreditExpiryAutoApply =
-                    findPreference("reset_credit_expiry_auto_apply_ui");
-            resetCreditExpiryAutoApply.setPersistent(false);
-            resetCreditExpiryAutoApply.setChecked(
-                    ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(requireContext()));
-            resetCreditExpiryAutoApply.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(
-                        requireContext(), (Boolean) value);
-                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
-                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
                 return true;
             });
 

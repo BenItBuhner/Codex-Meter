@@ -11,7 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Schedules one alarm per available reset credit, in the last minute before expiry. */
+/** Schedules one alarm per available reset credit, at the chosen lead time before expiry. */
 public final class ResetCreditExpiryApplyScheduler {
     static final String EXTRA_CREDIT_ID = "expiry_apply_credit_id";
     static final String EXTRA_EXPIRES_AT = "expiry_apply_expires_at";
@@ -31,8 +31,8 @@ public final class ResetCreditExpiryApplyScheduler {
                 || !ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(app)) {
             return;
         }
-        List<ResetCreditExpiryApply> planned = ResetCreditExpiryApply.plan(
-                snapshot.credits, System.currentTimeMillis());
+        List<ResetCreditExpiryApply> planned =
+                ResetCreditExpiryApplyReceiver.plan(app, snapshot);
         AlarmManager manager = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
         if (manager == null) return;
         long now = System.currentTimeMillis();

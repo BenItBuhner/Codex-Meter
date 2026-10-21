@@ -85,6 +85,7 @@ public final class AppPreferences {
         ResetNotificationManager.clearState(context);
         ResetCreditExpiryScheduler.cancelAll(context);
         ResetCreditExpiryApplyScheduler.cancelAll(context);
+        ResetCreditExpiryApplyReceiver.clearState(context);
         PhoneWearSync.pushUsage(context, null);
     }
 

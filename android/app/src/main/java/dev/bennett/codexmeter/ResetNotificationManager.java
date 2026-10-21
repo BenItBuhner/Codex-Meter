@@ -41,6 +41,7 @@ public final class ResetNotificationManager {
     private static final int NOTIFICATION_NEW_CREDIT = 74509;
     private static final int NOTIFICATION_CREDIT_EXPIRY_BASE = 74600;
     private static final int NOTIFICATION_CREDIT_AUTO_APPLY = 74516;
+    private static final int NOTIFICATION_CREDIT_LOW_USAGE = 74517;
     private static final int NOTIFICATION_REFILL_FIVE_HOUR = 74511;
     private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
     private static final int NOTIFICATION_REFILL_BOTH = 74513;
@@ -223,30 +224,56 @@ public final class ResetNotificationManager {
     }
 
     public static boolean showResetCreditExpiryApplyNotification(Context context,
-            String creditId, ResetConsumeResult result) {
+            long expiresAtMillis, ResetConsumeResult result) {
         if (context == null || !ResetAlertPreferences.enabled(context)) return false;
+        String expiry = expiresAtMillis > 0L
+                ? java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+                        .format(new java.util.Date(expiresAtMillis))
+                : "";
         String title;
         String text;
         if (result != null && result.applied()) {
-            title = "Codex reset applied before expiry";
-            text = result.userMessage();
+            title = "Expiring Codex reset used";
+            text = result.userMessage()
+                    + (expiry.isEmpty() ? "" : " It would have expired at " + expiry + ".");
         } else if (result != null && ResetConsumeResult.NOTHING_TO_RESET.equals(result.outcome)) {
             title = "Expiring reset had nothing to reset";
-            text = result.userMessage();
-        } else if (result != null && ResetConsumeResult.NO_CREDIT.equals(result.outcome)) {
+            text = "Your Codex limits were already full, so the credit was left to expire.";
+        } else if (result != null && (ResetConsumeResult.NO_CREDIT.equals(result.outcome)
+                || ResetConsumeResult.ALREADY_REDEEMED.equals(result.outcome))) {
             title = "Expiring reset was already gone";
             text = result.userMessage();
         } else {
-            title = "Could not apply expiring reset";
-            text = result == null || result.userMessage().isEmpty()
-                    ? "Codex Meter tried to apply a reset credit before it expired."
-                    : result.userMessage();
-        }
-        if (creditId != null && !creditId.isEmpty()) {
-            text = text + " Credit " + creditId + ".";
+            title = "Could not use expiring reset";
+            String reason = result == null ? "" : result.refreshWarning;
+            text = (reason.isEmpty() ? "Codex Meter will try again on the next refresh."
+                    : reason + " Codex Meter will try again on the next refresh.");
         }
         return post(context, NOTIFICATION_CREDIT_AUTO_APPLY, title, text,
                 NOTIFICATION_CREDIT_AUTO_APPLY);
+    }
+
+    public static boolean showResetCreditLowUsageNotification(Context context,
+            String windowLabel, int remainingPercent, ResetConsumeResult result) {
+        if (context == null || !ResetAlertPreferences.enabled(context)) return false;
+        String window = windowLabel == null || windowLabel.isEmpty() ? "usage" : windowLabel;
+        String title;
+        String text;
+        if (result != null && result.applied()) {
+            title = "Codex reset used automatically";
+            text = "Your " + window + " limit reached " + Math.max(0, remainingPercent)
+                    + "% remaining. " + result.userMessage();
+        } else if (result != null && result.outcome.length() > 0) {
+            title = "Automatic reset not used";
+            text = result.userMessage();
+        } else {
+            title = "Could not use a reset automatically";
+            String reason = result == null ? "" : result.refreshWarning;
+            text = (reason.isEmpty() ? "" : reason + " ")
+                    + "Codex Meter will try again on the next refresh.";
+        }
+        return post(context, NOTIFICATION_CREDIT_LOW_USAGE, title, text,
+                NOTIFICATION_CREDIT_LOW_USAGE);
     }
 
     public static void dismissResetCreditExpiryNotification(Context context,

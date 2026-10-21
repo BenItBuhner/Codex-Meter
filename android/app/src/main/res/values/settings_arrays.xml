@@ -79,4 +79,30 @@
         <item>balanced</item>
         <item>relaxed</item>
     </string-array>
+    <string-array name="settings_reset_auto_lead_entries">
+        <item>1 minute before it expires</item>
+        <item>15 minutes before it expires</item>
+        <item>30 minutes before it expires</item>
+        <item>1 hour before it expires</item>
+        <item>2 hours before it expires</item>
+        <item>6 hours before it expires</item>
+        <item>12 hours before it expires</item>
+        <item>24 hours before it expires</item>
+    </string-array>
+    <string-array name="settings_reset_auto_lead_values">
+        <item>60000</item><item>900000</item><item>1800000</item><item>3600000</item>
+        <item>7200000</item><item>21600000</item><item>43200000</item><item>86400000</item>
+    </string-array>
+    <string-array name="settings_reset_auto_threshold_entries">
+        <item>0% (limit reached)</item><item>1%</item><item>2%</item><item>5%</item><item>10%</item>
+    </string-array>
+    <string-array name="settings_reset_auto_threshold_values">
+        <item>0</item><item>1</item><item>2</item><item>5</item><item>10</item>
+    </string-array>
+    <string-array name="settings_reset_auto_metric_entries">
+        <item>5-hour or weekly limit</item><item>Weekly limit only</item><item>5-hour limit only</item>
+    </string-array>
+    <string-array name="settings_reset_auto_metric_values">
+        <item>both</item><item>weekly</item><item>five_hour</item>
+    </string-array>
 </resources>

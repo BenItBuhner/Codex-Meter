@@ -56,6 +56,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryApply.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditLowUsageAutoUse.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
