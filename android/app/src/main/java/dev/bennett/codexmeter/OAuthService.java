@@ -35,6 +35,8 @@ public final class OAuthService extends Service {
     public static final String ACTION_START = "dev.bennett.codexmeter.oauth.START";
     public static final String ACTION_CANCEL = "dev.bennett.codexmeter.oauth.CANCEL";
     public static final String ACTION_CANCEL_SILENT = "dev.bennett.codexmeter.oauth.CANCEL_SILENT";
+    /** {@link UsageProvider#id} to sign in to; missing means Codex. */
+    public static final String EXTRA_PROVIDER = "provider";
     private static final String CHANNEL_ID = "oauth_sign_in";
     private static final int NOTIFICATION_ID = 7301;
 
@@ -42,6 +44,7 @@ public final class OAuthService extends Service {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ServerSocket serverSocket;
     private volatile boolean cancelled;
+    private volatile UsageProvider provider = UsageProvider.CODEX;
 
     @Override
     public void onCreate() {
@@ -58,14 +61,25 @@ public final class OAuthService extends Service {
             cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
             return START_NOT_STICKY;
         }
-        if (SecureTokenStore.isSignedIn(this)) {
-            AppPreferences.setOAuthPending(this, false, "");
-            broadcastResult(true, "Already signed in.");
-            finishService();
+        UsageProvider requested = UsageProvider.fromId(
+                intent == null ? null : intent.getStringExtra(EXTRA_PROVIDER));
+        if (SecureTokenStore.isSignedIn(this, requested)) {
+            if (!running.get()) {
+                AppPreferences.setOAuthPending(this, false, "");
+                broadcastResult(true, "Already signed in.");
+                finishService();
+            }
+            return START_NOT_STICKY;
+        }
+        if (running.get() && requested != provider) {
+            broadcastResult(false, "A " + provider.accountName + " sign-in is still open. "
+                    + "Finish it or cancel it from the notification first.");
             return START_NOT_STICKY;
         }
         if (running.compareAndSet(false, true)) {
             cancelled = false;
+            provider = requested;
+            ProviderPreferences.setPendingSignIn(this, requested);
             startForegroundCompat(buildNotification("Preparing secure sign-in…", null));
             executor.execute(new Runnable() {
                 @Override
@@ -96,12 +110,21 @@ public final class OAuthService extends Service {
         Socket browser = null;
         boolean credentialsCommitted = false;
         long started = android.os.SystemClock.elapsedRealtime();
-        DiagnosticLog.info(this, "auth", "oauth_flow_started");
+        final UsageProvider flowProvider = provider;
+        if (flowProvider == UsageProvider.CURSOR) {
+            runCursorFlow(started);
+            return;
+        }
+        final boolean claude = flowProvider == UsageProvider.CLAUDE_CODE;
+        final String callbackPath = claude ? ClaudeCodeApi.CALLBACK_PATH : "/auth/callback";
+        DiagnosticLog.info(this, "auth", "oauth_flow_started", "provider", flowProvider.id);
         try {
             Pkce pkce = Pkce.generate();
-            int port = bindServer();
-            String redirectUri = "http://localhost:" + port + "/auth/callback";
-            String authUrl = buildAuthorizeUrl(redirectUri, pkce);
+            int port = claude ? bindEphemeralServer() : bindServer();
+            String redirectUri = "http://localhost:" + port + callbackPath;
+            String authUrl = claude
+                    ? ClaudeCodeApi.authorizeUrl(redirectUri, pkce.challenge, pkce.state)
+                    : buildAuthorizeUrl(redirectUri, pkce);
             AppPreferences.setOAuthPending(this, true, authUrl);
             updateNotification("Complete sign-in in your browser", authUrl);
             broadcastReady(authUrl);
@@ -114,7 +137,7 @@ public final class OAuthService extends Service {
                 }
                 browser.setSoTimeout(30000);
                 Callback callback = readCallback(browser);
-                if (!"/auth/callback".equals(callback.path)) {
+                if (!callbackPath.equals(callback.path)) {
                     writeBrowser(browser, 404, "Not found", false);
                     closeQuietly(browser);
                     browser = null;
@@ -146,10 +169,13 @@ public final class OAuthService extends Service {
                     throw new Exception("Sign-in failed because no authorization code was returned.");
                 }
 
-                updateNotification("Securing your ChatGPT session…", null);
-                AuthTokens tokens = OAuthClient.exchangeCode(this, code, redirectUri,
-                        pkce.verifier);
-                SecureTokenStore.save(this, tokens);
+                updateNotification("Securing your " + flowProvider.accountName + " session…",
+                        null);
+                AuthTokens tokens = claude
+                        ? ClaudeUsageApi.exchangeCode(this, code, redirectUri, pkce.verifier,
+                                pkce.state)
+                        : OAuthClient.exchangeCode(this, code, redirectUri, pkce.verifier);
+                SecureTokenStore.save(this, flowProvider, tokens);
                 credentialsCommitted = true;
                 AppPreferences.setOAuthPending(this, false, "");
 
@@ -158,7 +184,8 @@ public final class OAuthService extends Service {
                 // exchange into a misleading browser error page.
                 try {
                     writeBrowser(browser, 200,
-                            "Your ChatGPT account is connected. Returning to Codex Meter…", true);
+                            "Your " + flowProvider.accountName
+                                    + " account is connected. Returning to Codex Meter…", true);
                 } catch (Exception ignored) {
                     // The user may have closed the browser after authorization. Authentication
                     // remains valid and the application still receives the result broadcast.
@@ -167,8 +194,12 @@ public final class OAuthService extends Service {
                 browser = null;
                 broadcastResult(true, "Signed in successfully.");
 
-                updateNotification("Loading Codex usage…", null);
-                performPostAuthenticationSetup();
+                updateNotification("Loading " + flowProvider.displayName + " usage…", null);
+                if (claude) {
+                    performClaudePostAuthenticationSetup();
+                } else {
+                    performPostAuthenticationSetup();
+                }
                 DiagnosticLog.info(this, "auth", "oauth_flow_succeeded",
                         "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
                 finishService();
@@ -182,7 +213,7 @@ public final class OAuthService extends Service {
                 // A post-commit failure is not an authentication failure. Preserve the session,
                 // show a valid success state, and let manual refresh recover later.
                 AppPreferences.setOAuthPending(this, false, "");
-                AppPreferences.setLastError(this, cleanMessage(exception));
+                ProviderPreferences.setLastError(this, flowProvider, cleanMessage(exception));
                 broadcastResult(true, "Signed in. Usage can be refreshed from the app.");
                 safeWidgetUpdate();
                 finishService();
@@ -207,6 +238,53 @@ public final class OAuthService extends Service {
         }
     }
 
+    /**
+     * Cursor's login page needs no callback: the browser approves a PKCE challenge and the app
+     * polls for the tokens, so no local server is opened.
+     */
+    private void runCursorFlow(long started) {
+        final UsageProvider flowProvider = UsageProvider.CURSOR;
+        boolean credentialsCommitted = false;
+        try {
+            CursorApi.LoginRequest login = CursorApi.newLoginRequest();
+            String authUrl = login.loginUrl();
+            AppPreferences.setOAuthPending(this, true, authUrl);
+            updateNotification("Complete sign-in in your browser", authUrl);
+            broadcastReady(authUrl);
+            AuthTokens tokens = CursorUsageApi.pollForTokens(this, login, () -> cancelled);
+            updateNotification("Securing your Cursor session…", null);
+            SecureTokenStore.save(this, flowProvider, tokens);
+            credentialsCommitted = true;
+            AppPreferences.setOAuthPending(this, false, "");
+            broadcastResult(true, "Signed in successfully.");
+            updateNotification("Loading Cursor usage…", null);
+            try {
+                CursorUsageApi.refreshAndCache(this);
+            } catch (Exception refreshError) {
+                // refreshAndCache already recorded the error on the Cursor tab.
+            }
+            RefreshScheduler.schedulePeriodic(this);
+            safeWidgetUpdate();
+            broadcastUsageUpdated();
+            DiagnosticLog.info(this, "auth", "oauth_flow_succeeded", "provider", flowProvider.id,
+                    "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
+        } catch (Exception exception) {
+            DiagnosticLog.error(this, "auth", "oauth_flow_failed", exception,
+                    "provider", flowProvider.id,
+                    "credentials_committed", credentialsCommitted,
+                    "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
+            AppPreferences.setOAuthPending(this, false, "");
+            if (credentialsCommitted) {
+                ProviderPreferences.setLastError(this, flowProvider, cleanMessage(exception));
+                broadcastResult(true, "Signed in. Usage can be refreshed from the app.");
+                safeWidgetUpdate();
+            } else if (!cancelled) {
+                broadcastResult(false, cleanMessage(exception));
+            }
+        }
+        finishService();
+    }
+
     private void performPostAuthenticationSetup() {
         try {
             UsageSnapshot snapshot = UsageApi.refreshAndCache(this);
@@ -217,6 +295,27 @@ public final class OAuthService extends Service {
         RefreshScheduler.schedulePeriodic(this);
         safeWidgetUpdate();
         broadcastUsageUpdated();
+    }
+
+    private void performClaudePostAuthenticationSetup() {
+        try {
+            ClaudeUsageApi.refreshAndCache(this);
+        } catch (Exception refreshError) {
+            // refreshAndCache already recorded the error on the Claude Code tab.
+        }
+        RefreshScheduler.schedulePeriodic(this);
+        safeWidgetUpdate();
+        broadcastUsageUpdated();
+    }
+
+    /** Claude Code's client accepts any loopback port, so let the OS pick a free one. */
+    private int bindEphemeralServer() throws Exception {
+        ServerSocket candidate = new ServerSocket();
+        candidate.setReuseAddress(true);
+        candidate.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0));
+        candidate.setSoTimeout(5 * 60 * 1000);
+        serverSocket = candidate;
+        return candidate.getLocalPort();
     }
 
     private int bindServer() throws Exception {

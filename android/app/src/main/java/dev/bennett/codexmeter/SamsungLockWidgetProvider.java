@@ -36,6 +36,7 @@ abstract class SamsungLockWidgetProvider extends AppWidgetProvider {
             for (int i = 0; i < iMin; i++) {
                 AppPreferences.saveLockWidgetOptions(context, iArr2[i], AppPreferences.loadLockWidgetOptions(context, iArr[i]));
                 AppPreferences.deleteLockWidgetOptions(context, iArr[i]);
+                ProviderPreferences.moveWidgetProviders(context, iArr[i], iArr2[i]);
             }
         }
         SamsungLockWidgetSupport.updateIds(context, AppWidgetManager.getInstance(context), iArr2, shape(), style(), metric());
@@ -46,6 +47,7 @@ abstract class SamsungLockWidgetProvider extends AppWidgetProvider {
         if (iArr != null) {
             for (int i : iArr) {
                 AppPreferences.deleteLockWidgetOptions(context, i);
+                ProviderPreferences.clearWidgetProvider(context, i);
             }
         }
     }
