@@ -91,6 +91,28 @@ public final class WidgetProviders {
     }
 
     /**
+     * Default providers for a lock widget that never saved a choice: signed-in providers in
+     * {@code tabs} order (the dashboard tabs), up to {@code max}. With nobody signed in, the
+     * first tab, so the widget still says which account to connect.
+     */
+    public static List<UsageProvider> lockDefault(List<UsageProvider> tabs,
+            Collection<UsageProvider> signedIn, int max) {
+        List<UsageProvider> order = tabs == null || tabs.isEmpty()
+                ? UsageProvider.orderFromIds(null) : tabs;
+        List<UsageProvider> result = new ArrayList<>();
+        if (signedIn != null) {
+            for (UsageProvider provider : order) {
+                if (result.size() >= Math.max(1, max)) break;
+                if (signedIn.contains(provider)) result.add(provider);
+            }
+        }
+        if (result.isEmpty()) {
+            result.add(order.get(0));
+        }
+        return result;
+    }
+
+    /**
      * Usage meters to show for one provider of a multi-provider widget: the widget's visible
      * five-hour/weekly meters that this provider actually reports, up to {@code max}. A provider
      * that reports neither (signed out, or no data yet) gets the first visible meter so its row
@@ -145,8 +167,13 @@ public final class WidgetProviders {
             case CURSOR:
                 return "CURSOR";
             case CODEX:
-            default:
                 return "CODEX";
+            default:
+                // Any other provider: first word of its name, capped at six letters.
+                String name = provider.displayName == null ? provider.name()
+                        : provider.displayName.trim().split("[\\s/]+")[0];
+                name = name.toUpperCase(Locale.ROOT);
+                return name.length() > 6 ? name.substring(0, 6) : name;
         }
     }
 
