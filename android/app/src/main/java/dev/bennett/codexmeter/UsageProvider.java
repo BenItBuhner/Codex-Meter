@@ -10,16 +10,37 @@ import java.util.Locale;
  *
  * <p>Codex stays the default and keeps every legacy storage key, so existing installs see no
  * change until they open another provider tab. To add a provider: add an entry here, its mark
- * as {@code ic_provider_<id>} (mapped in {@code ProvidersActivity.iconRes}), one more tab slot in
- * {@code res/menu/provider_tabs.xml} if needed, add
- * its sign-in branch to {@link OAuthService}, and give it a usage client like
- * {@link ClaudeUsageApi} that returns a {@link UsageSnapshot}. Everything else (dashboard
- * cards, pace labels, Settings account row, token storage) is shared.
+ * as {@code ic_provider_<id>} (mapped in {@code ProvidersActivity.iconRes}), its sign-in style
+ * and description in {@link ProviderCatalog}, and a {@link ProviderClient} registered in
+ * {@link ProviderClients} that signs in and returns a {@link UsageSnapshot}. Everything else
+ * (Add account picker, sign-in screen, dashboard cards, tabs, refresh, token storage) is shared.
+ * Codex, Claude Code and Cursor predate that and keep their own clients.
  */
 public enum UsageProvider {
     CODEX("codex", "Codex", "ChatGPT", "OpenAI"),
     CLAUDE_CODE("claude_code", "Claude Code", "Claude", "Anthropic"),
-    CURSOR("cursor", "Cursor", "Cursor", "Cursor");
+    CURSOR("cursor", "Cursor", "Cursor", "Cursor"),
+    COPILOT("copilot", "Copilot", "GitHub", "GitHub"),
+    KIMI("kimi", "Kimi Code", "Kimi", "Moonshot AI"),
+    FACTORY("factory", "Factory", "Factory", "Factory"),
+    GROK("grok", "Grok", "xAI", "xAI"),
+    ANTIGRAVITY("antigravity", "Antigravity", "Google", "Google"),
+    DEVIN("devin", "Devin", "Devin", "Cognition"),
+    WINDSURF("windsurf", "Windsurf", "Windsurf", "Cognition"),
+    AUGMENT("augment", "Augment", "Augment", "Augment Code"),
+    CLINE("cline", "Cline", "Cline", "Cline"),
+    OPENCODE_GO("opencode_go", "OpenCode Go", "OpenCode", "OpenCode"),
+    MINIMAX("minimax", "MiniMax", "MiniMax", "MiniMax"),
+    ZAI("zai", "Z.ai", "Z.ai", "Z.ai"),
+    KIRO("kiro", "Kiro", "AWS Builder ID", "AWS"),
+    AMP("amp", "Amp", "Amp", "Amp"),
+    OPENROUTER("openrouter", "OpenRouter", "OpenRouter", "OpenRouter"),
+    KILO("kilo", "Kilo Code", "Kilo", "Kilo"),
+    CODEBUFF("codebuff", "Codebuff", "Codebuff", "Codebuff"),
+    SYNTHETIC("synthetic", "Synthetic", "Synthetic", "Synthetic"),
+    CHUTES("chutes", "Chutes", "Chutes", "Chutes"),
+    V0("v0", "v0", "v0", "Vercel"),
+    WARP("warp", "Warp", "Warp", "Warp");
 
     public static final UsageProvider DEFAULT = CODEX;
 

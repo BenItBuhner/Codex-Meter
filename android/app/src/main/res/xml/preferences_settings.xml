@@ -2,7 +2,7 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <!-- One compact row per provider on the dashboard; filled in by SettingsActivity. -->
+    <!-- Connected accounts plus an "Add account" row; filled in by SettingsActivity. -->
     <PreferenceCategory
         android:key="accounts"
         android:title="Accounts" />

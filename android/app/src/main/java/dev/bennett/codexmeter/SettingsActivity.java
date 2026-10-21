@@ -370,10 +370,15 @@ public final class SettingsActivity extends AppCompatActivity {
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
             bindAccounts();
+            List<UsageProvider> enabled = ProviderPreferences.getEnabled(requireContext());
             StringBuilder providers = new StringBuilder();
-            for (UsageProvider provider : ProviderPreferences.getEnabled(requireContext())) {
+            int named = enabled.size() > 3 ? 2 : enabled.size();
+            for (int i = 0; i < named; i++) {
                 if (providers.length() > 0) providers.append(", ");
-                providers.append(provider.displayName);
+                providers.append(enabled.get(i).displayName);
+            }
+            if (enabled.size() > named) {
+                providers.append(" + ").append(enabled.size() - named).append(" more");
             }
             findPreference("settings_providers").setSummary(providers.toString());
             String theme = AppPreferences.getAppTheme(requireContext());
@@ -445,8 +450,9 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         /**
-         * Settings → Accounts: one row per provider on the dashboard with its email and plan.
-         * Tapping a signed-out row starts that provider's sign-in; a signed-in row offers sign out.
+         * Settings → Accounts: only the accounts that are connected, in tab order, then one
+         * "Add account" row that opens the provider picker. Tapping a connected row offers
+         * sign out.
          */
         private void bindAccounts() {
             PreferenceCategory accounts = findPreference("accounts");
@@ -454,33 +460,42 @@ public final class SettingsActivity extends AppCompatActivity {
             Context context = requireContext();
             boolean dark = Ui.isDark(context);
             accounts.removeAll();
-            for (UsageProvider provider : ProviderPreferences.getEnabled(context)) {
+            for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+                if (!ProviderAccounts.isSignedIn(context, provider)) continue;
                 Preference row = new Preference(context);
                 row.setKey("account_" + provider.id);
                 row.setTitle(provider.displayName);
                 row.setSummary(ProviderAccounts.summary(context, provider));
-                android.graphics.drawable.Drawable icon = androidx.core.content.ContextCompat
-                        .getDrawable(context, ProvidersActivity.iconRes(provider));
-                if (icon != null) {
-                    icon = icon.mutate();
-                    icon.setTint(Ui.mainText(dark));
-                    row.setIcon(icon);
-                }
+                row.setIcon(tinted(context, ProvidersActivity.iconRes(provider), dark));
                 row.setOnPreferenceClickListener(preference -> {
-                    if (ProviderAccounts.isSignedIn(context, provider)) {
-                        confirmSignOut(provider);
-                    } else {
-                        startActivity(new Intent(context, MainActivity.class)
-                                .putExtra("start_sign_in", true)
-                                .putExtra(MainActivity.EXTRA_SIGN_IN_PROVIDER, provider.id)
-                                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
-                                        | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-                        requireActivity().finish();
-                    }
+                    confirmSignOut(provider);
                     return true;
                 });
                 accounts.addPreference(row);
             }
+            Preference add = new Preference(context);
+            add.setKey("account_add");
+            add.setTitle("Add account");
+            if (accounts.getPreferenceCount() == 0) {
+                add.setSummary("Codex, Claude Code, Cursor, Copilot and more");
+            }
+            add.setIcon(tinted(context, R.drawable.ic_oui_add, dark));
+            add.setOnPreferenceClickListener(preference -> {
+                DiagnosticLog.info(context, "user", "add_account_opened");
+                Ui.startSecondaryActivity(requireActivity(), AddAccountActivity.class);
+                return true;
+            });
+            accounts.addPreference(add);
+        }
+
+        private static android.graphics.drawable.Drawable tinted(Context context, int res,
+                boolean dark) {
+            android.graphics.drawable.Drawable icon = androidx.core.content.ContextCompat
+                    .getDrawable(context, res);
+            if (icon == null) return null;
+            icon = icon.mutate();
+            icon.setTint(Ui.mainText(dark));
+            return icon;
         }
 
         private void confirmSignOut(UsageProvider provider) {
