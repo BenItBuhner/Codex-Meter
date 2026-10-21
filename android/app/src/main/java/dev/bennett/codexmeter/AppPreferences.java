@@ -27,6 +27,7 @@ public final class AppPreferences {
     private static final String KEY_OAUTH_URL = "oauth_url";
     private static final String KEY_ONBOARDING_COMPLETE = "onboarding_complete";
     private static final String KEY_ONBOARDING_STEP = "onboarding_step";
+    private static final String KEY_ONBOARDING_PROVIDERS = "onboarding_providers";
     private static final String KEY_AUTOMATIC_REFRESH = "automatic_refresh";
     private static final String KEY_REFRESH_FAILURES = "refresh_failures";
     private static final String KEY_REFRESH_MINUTES = "refresh_minutes";
@@ -678,21 +679,45 @@ public final class AppPreferences {
         return prefs(context).getBoolean(KEY_ONBOARDING_COMPLETE, false);
     }
 
+    /** The saved setup step; the activity clamps it to the providers chosen so far. */
     public static int getOnboardingStep(Context context) {
-        return OnboardingFlow.normalizeStep(
-                prefs(context).getInt(KEY_ONBOARDING_STEP, OnboardingFlow.STEP_WELCOME));
+        return prefs(context).getInt(KEY_ONBOARDING_STEP, OnboardingFlow.STEP_WELCOME);
     }
 
     public static void setOnboardingStep(Context context, int step) {
-        prefs(context).edit()
-                .putInt(KEY_ONBOARDING_STEP, OnboardingFlow.normalizeStep(step))
-                .apply();
+        prefs(context).edit().putInt(KEY_ONBOARDING_STEP, step).apply();
+    }
+
+    /** Providers picked during setup, in enum order. Empty until the user picks. */
+    public static java.util.List<UsageProvider> getOnboardingProviders(Context context) {
+        java.util.List<UsageProvider> chosen = new java.util.ArrayList<>();
+        String saved = prefs(context).getString(KEY_ONBOARDING_PROVIDERS, "");
+        for (UsageProvider provider : UsageProvider.values()) {
+            for (String id : saved.split(",")) {
+                if (provider.id.equals(id.trim())) {
+                    chosen.add(provider);
+                    break;
+                }
+            }
+        }
+        return chosen;
+    }
+
+    public static void setOnboardingProviders(Context context,
+            java.util.List<UsageProvider> providers) {
+        StringBuilder ids = new StringBuilder();
+        for (UsageProvider provider : providers) {
+            if (ids.length() > 0) ids.append(',');
+            ids.append(provider.id);
+        }
+        prefs(context).edit().putString(KEY_ONBOARDING_PROVIDERS, ids.toString()).apply();
     }
 
     public static void completeOnboarding(Context context) {
         prefs(context).edit()
                 .putBoolean(KEY_ONBOARDING_COMPLETE, true)
                 .remove(KEY_ONBOARDING_STEP)
+                .remove(KEY_ONBOARDING_PROVIDERS)
                 .apply();
     }
 
