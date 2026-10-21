@@ -936,6 +936,16 @@ public final class ParserSelfTest {
     }
 
     private static void testDashboardSectionOrder() {
+        // Providers other than Codex list only what they report, then usage history.
+        check(DashboardSections.providerSections(null, UsageProvider.CURSOR.usualDashboardSections())
+                        .equals(Arrays.asList(DashboardSections.WEEKLY,
+                                DashboardSections.USAGE_HISTORY)),
+                "Cursor's editor lists included usage and history before any data");
+        check(DashboardSections.providerSections(null,
+                        UsageProvider.CLAUDE_CODE.usualDashboardSections())
+                        .equals(Arrays.asList(DashboardSections.FIVE_HOUR,
+                                DashboardSections.WEEKLY, DashboardSections.USAGE_HISTORY)),
+                "Claude Code's editor lists 5-hour, weekly, and history before any data");
         UsageLimit spark = new UsageLimit("codex-spark", "GPT-5.3-Codex-Spark",
                 "codex_bengalfox", true, false,
                 new UsageWindow(24, 18000L, 0L, 2_000_000_000L), null);
@@ -2361,13 +2371,14 @@ public final class ParserSelfTest {
         check(snapshot.fiveHour == null && snapshot.weekly == null,
                 "Cursor has no 5-hour or weekly window");
         check(snapshot.longWindowIsMonthly(), "Cursor widgets fall back to the monthly window");
-        check(snapshot.additionalLimits.size() == 3, "Cursor auto, API, and on-demand limits");
-        check("Auto + Composer".equals(snapshot.additionalLimits.get(0).name)
+        check(snapshot.additionalLimits.size() == 3,
+                "Cursor legacy plan: two model pools and on-demand");
+        check("Cursor models".equals(snapshot.additionalLimits.get(0).name)
                         && snapshot.additionalLimits.get(0).primary.usedPercent == 10,
-                "Cursor auto pool percent");
-        check("API models".equals(snapshot.additionalLimits.get(1).name)
+                "Cursor models pool percent");
+        check("Other models".equals(snapshot.additionalLimits.get(1).name)
                         && snapshot.additionalLimits.get(1).primary.usedPercent == 15,
-                "Cursor API pool percent");
+                "Other models pool percent");
         UsageLimit onDemand = snapshot.additionalLimits.get(2);
         check("On-demand ($3 of $10)".equals(onDemand.name)
                         && onDemand.primary.usedPercent == 30 && !onDemand.limitReached,
@@ -2400,6 +2411,20 @@ public final class ParserSelfTest {
         check(oneSided.monthly.usedPercent == 0 && oneSided.additionalLimits.size() == 2
                         && oneSided.additionalLimits.get(1).primary.usedPercent == 0,
                 "Cursor omitted zero pool and zero spend still show as 0%");
+        // Current plans: one included pool that refreshes weekly, no pool split.
+        UsageSnapshot weeklyPlan = CursorUsageParser.parse(
+                "{\"billingCycleStart\":\"1791676800000\",\"billingCycleEnd\":\"1792281600000\","
+                        + "\"planUsage\":{\"totalPercentUsed\":100,\"autoPercentUsed\":100},"
+                        + "\"spendLimitUsage\":{\"individualLimit\":2000,\"individualUsed\":500}}",
+                "Premium", 1L);
+        check(weeklyPlan.weekly != null && weeklyPlan.monthly == null
+                        && weeklyPlan.weekly.usedPercent == 100
+                        && weeklyPlan.weekly.windowSeconds == 7L * 24L * 3600L,
+                "Cursor weekly cycle is the weekly window");
+        check(weeklyPlan.additionalLimits.size() == 1
+                        && "Additional usage ($5 of $20)".equals(
+                                weeklyPlan.additionalLimits.get(0).name),
+                "Cursor current plan shows no model pools and calls extra spend additional usage");
         UsageSnapshot empty = CursorUsageParser.parse("{\"enabled\":false}", "", 1L);
         check(empty.monthly == null && empty.additionalLimits.isEmpty(),
                 "Cursor response without usage yields no windows");

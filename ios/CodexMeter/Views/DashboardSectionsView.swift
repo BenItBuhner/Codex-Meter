@@ -373,3 +373,139 @@ private struct ResetCreditsDashboardCard: View {
         .cardSurface()
     }
 }
+
+/// Claude Code and Cursor cards, in the order and visibility chosen in that provider's own
+/// Edit dashboard.
+struct ProviderDashboardCards: View {
+    let provider: UsageProvider
+    let usage: UsageSnapshot
+    @Environment(AppModel.self) private var model
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private static let windowKeys: Set<String> = [
+        DashboardSections.fiveHour,
+        DashboardSections.weekly,
+        DashboardSections.monthly
+    ]
+
+    private var keys: [String] {
+        DashboardSections.visibleProviderSections(
+            snapshot: usage,
+            savedOrder: model.settings.savedDashboardOrder(for: provider),
+            hidden: model.settings.hiddenDashboardSections(for: provider)
+        )
+    }
+
+    /// On wide layouts two usage windows in a row share a line, like the Codex dashboard.
+    private var rows: [[String]] {
+        let sectionKeys = keys
+        guard horizontalSizeClass == .regular else { return sectionKeys.map { [$0] } }
+        var result: [[String]] = []
+        var index = 0
+        while index < sectionKeys.count {
+            let current = sectionKeys[index]
+            if Self.windowKeys.contains(current),
+               sectionKeys.indices.contains(index + 1),
+               Self.windowKeys.contains(sectionKeys[index + 1]) {
+                result.append([current, sectionKeys[index + 1]])
+                index += 2
+            } else {
+                result.append([current])
+                index += 1
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        let cardRows = rows
+        if cardRows.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("All \(provider.displayName) cards are hidden", systemImage: "rectangle.slash")
+                    .font(.headline)
+                Text("Choose cards in Edit dashboard.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                NavigationLink("Edit dashboard") {
+                    DashboardEditView(provider: provider)
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(AppChrome.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface()
+        } else {
+            VStack(spacing: AppChrome.sectionSpacing) {
+                ForEach(cardRows, id: \.self) { row in
+                    HStack(alignment: .top, spacing: AppChrome.sectionSpacing) {
+                        ForEach(row, id: \.self) { key in
+                            card(for: key)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func card(for key: String) -> some View {
+        switch key {
+        case DashboardSections.fiveHour:
+            UsageMeterCard(
+                title: "5-hour",
+                systemImage: "clock",
+                window: usage.fiveHour,
+                accent: .orange,
+                fetchedAt: usage.fetchedAt
+            )
+        case DashboardSections.weekly:
+            UsageMeterCard(
+                title: provider == .cursor ? "Included usage · Weekly" : "Weekly",
+                systemImage: "calendar",
+                window: usage.weekly,
+                accent: provider == .cursor ? .indigo : .brown,
+                fetchedAt: usage.fetchedAt
+            )
+        case DashboardSections.monthly:
+            UsageMeterCard(
+                title: provider == .cursor ? "Included usage · Monthly" : "Monthly",
+                systemImage: "calendar.badge.clock",
+                window: usage.monthly,
+                accent: .indigo,
+                fetchedAt: usage.fetchedAt
+            )
+        default:
+            if let limit = usage.additionalLimits.first(where: { DashboardSections.limitKey($0) == key }) {
+                if provider == .cursor {
+                    CursorLimitCard(limit: limit, fetchedAt: usage.fetchedAt)
+                } else {
+                    AdditionalLimitCards(limit: limit, fetchedAt: usage.fetchedAt)
+                }
+            }
+        }
+    }
+}
+
+/// A Cursor pool or spend cap. The name alone is the title: every Cursor limit shares the
+/// included usage's cycle, so a cadence suffix would only repeat it, and long titles truncate.
+private struct CursorLimitCard: View {
+    let limit: UsageLimit
+    let fetchedAt: Date
+
+    private var isSpend: Bool {
+        limit.id == CursorUsageParser.limitIDPrefix + "on_demand"
+    }
+
+    var body: some View {
+        if let window = limit.primary ?? limit.secondary {
+            UsageMeterCard(
+                title: LocalizedStringKey(limit.displayName),
+                systemImage: isSpend ? "dollarsign.circle" : "square.stack.3d.up",
+                window: window,
+                accent: isSpend ? .purple : .teal,
+                fetchedAt: fetchedAt
+            )
+        }
+    }
+}

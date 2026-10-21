@@ -45,23 +45,35 @@ struct SettingsView: View {
                 Text("Choose which providers get a tab at the bottom of the dashboard, and their order.")
             }
 
+            // Edit dashboard follows the selected tab; each provider keeps its own layout.
+            let dashboardProvider = model.selectedProvider
             Section {
                 NavigationLink {
-                    DashboardEditView()
+                    DashboardEditView(provider: dashboardProvider)
                 } label: {
-                    Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    LabeledContent {
+                        Text(dashboardProvider.displayName)
+                    } label: {
+                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    }
                 }
-                Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
-                Toggle("Weekly limit", isOn: $model.settings.showWeekly)
-                Toggle("Monthly limit", isOn: $model.settings.showMonthly)
-                Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
-                Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
-                Toggle("Usage history", isOn: $model.settings.showUsageHistory)
-                Toggle("Reset credits", isOn: $model.settings.showResetCredits)
+                if dashboardProvider == .codex {
+                    Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
+                    Toggle("Weekly limit", isOn: $model.settings.showWeekly)
+                    Toggle("Monthly limit", isOn: $model.settings.showMonthly)
+                    Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
+                    Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
+                    Toggle("Usage history", isOn: $model.settings.showUsageHistory)
+                    Toggle("Reset credits", isOn: $model.settings.showResetCredits)
+                }
             } header: {
                 Text("Dashboard")
             } footer: {
-                Text("Enabled cards still appear only when data is available. Edit dashboard also controls order and individual model-specific limits.")
+                if dashboardProvider == .codex {
+                    Text("Enabled cards still appear only when data is available. Edit dashboard also controls order and individual model-specific limits.")
+                } else {
+                    Text("Arrange and hide \(dashboardProvider.displayName) cards. Each provider keeps its own layout; switch tabs to edit another one.")
+                }
             }
 
             Section {

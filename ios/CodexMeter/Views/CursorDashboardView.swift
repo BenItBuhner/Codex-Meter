@@ -1,8 +1,8 @@
 import CodexMeterCore
 import SwiftUI
 
-/// The Cursor tab: sign-in when signed out, otherwise the included-usage meter for the billing
-/// cycle plus the Auto, API, and on-demand cards, using the same meter cards as Codex.
+/// The Cursor tab: sign-in when signed out, otherwise the included-usage meter plus any pool and
+/// extra-spend cards, in the order chosen in Cursor's own Edit dashboard.
 struct CursorDashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -33,7 +33,7 @@ struct CursorDashboardView: View {
 
                     if let usage = cursor.usage {
                         CursorStatusStrip(usage: usage, isCached: cursor.isUsingCachedData)
-                        CursorMeters(usage: usage)
+                        ProviderDashboardCards(provider: .cursor, usage: usage)
                     } else {
                         CursorEmptyUsageCard()
                     }
@@ -50,6 +50,12 @@ struct CursorDashboardView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if cursor.phase != .signedOut {
+                    NavigationLink {
+                        DashboardEditView(provider: .cursor)
+                    } label: {
+                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    }
+
                     Button {
                         Task { await model.cursor.refresh() }
                     } label: {
@@ -116,35 +122,13 @@ private struct CursorStatusStrip: View {
             }
 
             if usage.limitReached {
-                Label("Cursor's included usage for this billing cycle is used up.", systemImage: "exclamationmark.circle.fill")
+                Label("Cursor's included usage is used up until it refreshes.", systemImage: "exclamationmark.circle.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
-    }
-}
-
-private struct CursorMeters: View {
-    let usage: UsageSnapshot
-
-    var body: some View {
-        VStack(spacing: AppChrome.sectionSpacing) {
-            if usage.monthly != nil {
-                UsageMeterCard(
-                    title: "Included usage",
-                    systemImage: "calendar",
-                    window: usage.monthly,
-                    accent: .indigo,
-                    fetchedAt: usage.fetchedAt
-                )
-            }
-
-            ForEach(usage.additionalLimits) { limit in
-                AdditionalLimitCards(limit: limit, fetchedAt: usage.fetchedAt)
-            }
-        }
     }
 }
 
@@ -194,7 +178,7 @@ private struct CursorSignedOutView: View {
                 Text("Your Cursor usage at a glance")
                     .font(.title2.bold())
                     .multilineTextAlignment(.center)
-                Text("Connect your Cursor account to see how much of this billing cycle's included usage is left, Auto and API model pools, on-demand spend, and when it resets.")
+                Text("Connect your Cursor account to see how much included usage is left and when it refreshes, plus any extra spend on top of your plan.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }

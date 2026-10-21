@@ -9,7 +9,7 @@ final class CodexMeterUITests: XCTestCase {
     func testDemoDashboardAndSettings() throws {
         let app = launchDemo()
 
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["5-hour"].exists)
         XCTAssertTrue(app.staticTexts["Weekly"].exists)
         XCTAssertTrue(app.staticTexts["Demo data — no OpenAI requests"].exists)
@@ -46,7 +46,7 @@ final class CodexMeterUITests: XCTestCase {
         app.switches["Show Usage history"].tap()
         app.buttons["Done"].tap()
 
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.staticTexts["Weekly"].exists)
         XCTAssertTrue(app.staticTexts["Reset credits"].exists)
     }
@@ -113,7 +113,7 @@ final class CodexMeterUITests: XCTestCase {
     func testClaudeCodeTabShowsDemoUsageAndSwitchesBack() throws {
         let app = launchDemo()
 
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Claude Code"].waitForExistence(timeout: 5))
         app.buttons["Claude Code"].tap()
         XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5))
@@ -122,7 +122,7 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Weekly"].exists)
 
         app.buttons["Codex"].tap()
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Demo data — no OpenAI requests"].exists)
     }
 

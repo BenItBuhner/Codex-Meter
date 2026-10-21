@@ -34,6 +34,33 @@ final class SettingsAndHistoryTests: XCTestCase {
         XCTAssertFalse(shown.dashboardHiddenSections.contains(spark))
     }
 
+    func testEachProviderKeepsItsOwnDashboardLayout() throws {
+        let spend = "limit:cursor_on_demand"
+        var settings = AppSettings()
+        settings.setDashboardOrder([DashboardSections.weekly, DashboardSections.fiveHour], for: .codex)
+        settings.setDashboardOrder([spend, DashboardSections.weekly], for: .cursor)
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: false, for: .claudeCode)
+
+        // Codex still uses its original fields, so existing layouts carry over.
+        XCTAssertEqual(settings.dashboardOrder, [DashboardSections.weekly, DashboardSections.fiveHour])
+        XCTAssertEqual(settings.savedDashboardOrder(for: .cursor), [spend, DashboardSections.weekly])
+        XCTAssertEqual(settings.savedDashboardOrder(for: .claudeCode), [])
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .codex))
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .cursor))
+        XCTAssertFalse(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .claudeCode))
+        XCTAssertTrue(settings.showWeekly)
+
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: false, for: .codex)
+        XCTAssertFalse(settings.showWeekly)
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .cursor))
+
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded, settings)
+
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: true, for: .claudeCode)
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .claudeCode))
+    }
+
     func testUsageHistoryStoreRecordsPersistsAndClearsBoundedSamples() async throws {
         let fileURL = temporaryFileURL("usage-history.json")
         defer { try? FileManager.default.removeItem(at: fileURL) }

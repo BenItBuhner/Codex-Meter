@@ -22,8 +22,15 @@ import org.json.JSONObject;
  *   "enabled": true
  * }
  * </pre>
- * The included plan becomes the monthly window; Auto and API model pools and on-demand spend
- * become named limits on the same billing cycle.
+ * Cursor sells two kinds of plan, and both answer with this shape:
+ * <ul>
+ *   <li>Current plans have one included pool for Cursor models that refreshes weekly. It
+ *       becomes the weekly window, and spend past it is "Additional usage".
+ *   <li>Legacy plans (Pro, Pro+, Ultra, Teams Standard) keep a monthly cycle with two pools,
+ *       "Cursor models" and "Other models". The included total becomes the monthly window,
+ *       each pool a named limit, and spend past it is "On-demand".
+ * </ul>
+ * The cycle length tells them apart: Cursor reports the weekly refresh as the cycle.
  */
 public final class CursorUsageParser {
     public static final long DEFAULT_CYCLE_SECONDS = 30L * 24L * 60L * 60L;
@@ -41,6 +48,7 @@ public final class CursorUsageParser {
                 : DEFAULT_CYCLE_SECONDS;
         long resetSeconds = end > 0L ? end / 1000L : 0L;
 
+        boolean weekly = isWeeklyCycle(cycleSeconds);
         UsageWindow plan = null;
         List<UsageLimit> limits = new ArrayList<>();
         JSONObject planUsage = root.optJSONObject("planUsage");
@@ -55,25 +63,26 @@ public final class CursorUsageParser {
             if (!Double.isNaN(percent)) {
                 plan = new UsageWindow(roundPercent(percent), cycleSeconds, 0L, resetSeconds);
             }
-            // Plans that split Auto and API pools report at least one of them. Connect JSON
-            // drops zero values, so the other pool is shown at 0% instead of disappearing.
-            if (!Double.isNaN(number(planUsage, "autoPercentUsed"))
-                    || !Double.isNaN(number(planUsage, "apiPercentUsed"))) {
-                addPool(limits, planUsage, "autoPercentUsed", "auto", "Auto + Composer",
+            // Only legacy monthly plans split usage into two pools. Connect JSON drops zero
+            // values, so when one pool is reported the other is shown at 0%.
+            if (!weekly && (!Double.isNaN(number(planUsage, "autoPercentUsed"))
+                    || !Double.isNaN(number(planUsage, "apiPercentUsed")))) {
+                addPool(limits, planUsage, "autoPercentUsed", "auto", "Cursor models",
                         cycleSeconds, resetSeconds);
-                addPool(limits, planUsage, "apiPercentUsed", "api", "API models",
+                addPool(limits, planUsage, "apiPercentUsed", "api", "Other models",
                         cycleSeconds, resetSeconds);
             }
         }
 
         UsageLimit onDemand = onDemand(root.optJSONObject("spendLimitUsage"), cycleSeconds,
-                resetSeconds);
+                resetSeconds, weekly);
         if (onDemand != null) limits.add(onDemand);
 
         boolean planSpent = plan != null && plan.usedPercent >= 100;
         boolean limitReached = planSpent && (onDemand == null || onDemand.limitReached);
         return new UsageSnapshot(planLabel == null ? "" : planLabel, !limitReached,
-                limitReached, null, null, plan, limits, null, -1, fetchedAtMillis);
+                limitReached, null, weekly ? plan : null, weekly ? null : plan, limits, null, -1,
+                fetchedAtMillis);
     }
 
     private static void addPool(List<UsageLimit> limits, JSONObject planUsage, String key,
@@ -86,19 +95,26 @@ public final class CursorUsageParser {
                 window.usedPercent >= 100, window, null));
     }
 
+    /** A cycle of up to ten days is the weekly refresh of a current plan. */
+    static boolean isWeeklyCycle(long cycleSeconds) {
+        return cycleSeconds > 0L && cycleSeconds <= 10L * 24L * 60L * 60L;
+    }
+
     /**
-     * Usage-based ("on-demand") spending past the included plan. A personal cap wins over a
-     * team pool; no cap means unlimited or disabled, which has nothing to meter.
+     * Paid usage past the included plan: "Additional usage" on current plans, "On-demand" on
+     * legacy ones. A personal cap wins over a team pool; no cap means unlimited or disabled,
+     * which has nothing to meter.
      */
-    static UsageLimit onDemand(JSONObject spend, long cycleSeconds, long resetSeconds) {
+    static UsageLimit onDemand(JSONObject spend, long cycleSeconds, long resetSeconds,
+            boolean weekly) {
         if (spend == null) return null;
         double limit = number(spend, "individualLimit");
         double used = number(spend, "individualUsed");
-        String name = "On-demand";
+        String name = weekly ? "Additional usage" : "On-demand";
         if (!(limit > 0)) {
             limit = number(spend, "pooledLimit");
             used = number(spend, "pooledUsed");
-            name = "Team on-demand";
+            name = weekly ? "Team additional usage" : "Team on-demand";
         }
         if (!(limit > 0)) return null;
         if (Double.isNaN(used)) used = 0;

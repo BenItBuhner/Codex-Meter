@@ -29,6 +29,8 @@ public final class ProviderPreferences {
     private static final String SUFFIX_HISTORY = "_history_";
     private static final String SUFFIX_RATE_LIMITED_AT = "_rate_limited_at";
     private static final String KEY_WIDGET_PROVIDER = "widget_provider_";
+    private static final String SUFFIX_DASHBOARD_ORDER = "_dashboard_order";
+    private static final String SUFFIX_DASHBOARD_HIDDEN = "_dashboard_hidden";
 
     private ProviderPreferences() {
     }
@@ -103,6 +105,72 @@ public final class ProviderPreferences {
         }
         prefs(context).edit().putString(KEY_ENABLED, ids(updated)).apply();
         return true;
+    }
+
+    /**
+     * Saved card order for one provider's dashboard (Edit dashboard). Codex keeps its original
+     * keys in {@link AppPreferences}; every other provider has its own, so layouts never mix.
+     */
+    public static String getDashboardOrder(Context context, UsageProvider provider) {
+        if (provider == UsageProvider.CODEX) return AppPreferences.getDashboardOrder(context);
+        return prefs(context).getString(provider.id + SUFFIX_DASHBOARD_ORDER, "");
+    }
+
+    public static void setDashboardOrder(Context context, UsageProvider provider,
+            List<String> order) {
+        if (provider == UsageProvider.CODEX) {
+            AppPreferences.setDashboardOrder(context, order);
+            return;
+        }
+        prefs(context).edit().putString(provider.id + SUFFIX_DASHBOARD_ORDER,
+                DashboardSections.serialize(order)).apply();
+    }
+
+    /** Whether a card is switched on in one provider's Edit dashboard. */
+    public static boolean isDashboardSectionVisible(Context context, UsageProvider provider,
+            String key) {
+        if (provider != UsageProvider.CODEX) {
+            return !DashboardSections.isHidden(
+                    prefs(context).getString(provider.id + SUFFIX_DASHBOARD_HIDDEN, ""), key);
+        }
+        if (DashboardSections.FIVE_HOUR.equals(key)) return AppPreferences.showDashboardFiveHour(context);
+        if (DashboardSections.WEEKLY.equals(key)) return AppPreferences.showDashboardWeekly(context);
+        if (DashboardSections.MONTHLY.equals(key)) return AppPreferences.showDashboardMonthly(context);
+        if (DashboardSections.USAGE_CREDITS.equals(key)) {
+            return AppPreferences.showDashboardUsageCredits(context);
+        }
+        if (DashboardSections.USAGE_HISTORY.equals(key)) {
+            return AppPreferences.showDashboardUsageHistory(context);
+        }
+        if (DashboardSections.RESET_CREDITS.equals(key)) {
+            return AppPreferences.showDashboardResetCredits(context);
+        }
+        return !AppPreferences.isDashboardSectionHidden(context, key);
+    }
+
+    public static void setDashboardSectionVisible(Context context, UsageProvider provider,
+            String key, boolean visible) {
+        if (provider != UsageProvider.CODEX) {
+            String hidden = prefs(context).getString(provider.id + SUFFIX_DASHBOARD_HIDDEN, "");
+            prefs(context).edit().putString(provider.id + SUFFIX_DASHBOARD_HIDDEN,
+                    DashboardSections.setHidden(hidden, key, !visible)).apply();
+            return;
+        }
+        if (DashboardSections.FIVE_HOUR.equals(key)) {
+            AppPreferences.setShowDashboardFiveHour(context, visible);
+        } else if (DashboardSections.WEEKLY.equals(key)) {
+            AppPreferences.setShowDashboardWeekly(context, visible);
+        } else if (DashboardSections.MONTHLY.equals(key)) {
+            AppPreferences.setShowDashboardMonthly(context, visible);
+        } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
+            AppPreferences.setShowDashboardUsageCredits(context, visible);
+        } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+            AppPreferences.setShowDashboardUsageHistory(context, visible);
+        } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+            AppPreferences.setShowDashboardResetCredits(context, visible);
+        } else {
+            AppPreferences.setDashboardSectionHidden(context, key, !visible);
+        }
     }
 
     public static void setSelected(Context context, UsageProvider provider) {

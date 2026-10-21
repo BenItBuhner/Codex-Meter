@@ -23,7 +23,7 @@
     <PreferenceCategory android:title="Dashboard">
         <Preference
             android:key="dashboard_reorder_ui"
-            android:summary="Arrange usage cards and choose which ones appear"
+            android:summary="Arrange the selected tab\'s cards and choose which ones appear"
             android:title="Edit dashboard" />
         <SwitchPreferenceCompat
             android:defaultValue="true"

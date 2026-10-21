@@ -532,7 +532,10 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindRefresh() {
             findPreference("dashboard_reorder_ui").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
+                Ui.startSecondaryActivity(requireActivity(),
+                        new Intent(requireActivity(), DashboardReorderActivity.class).putExtra(
+                                DashboardReorderActivity.EXTRA_PROVIDER,
+                                ProviderPreferences.getSelected(requireContext()).id));
                 return true;
             });
 

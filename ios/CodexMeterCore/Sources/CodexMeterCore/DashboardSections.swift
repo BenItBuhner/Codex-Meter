@@ -38,6 +38,52 @@ public enum DashboardSections {
         return result
     }
 
+    /// Sections a provider other than Codex can show, in default order: its 5-hour, weekly, and
+    /// monthly windows, its additional limits, then usage history when that provider keeps one.
+    /// Without data yet, `emptyDefaults` stands in for the windows so Edit dashboard still lists
+    /// that provider's usual cards. Mirrors Android's `DashboardSections.providerSections`.
+    public static func providerSections(
+        snapshot: UsageSnapshot?,
+        emptyDefaults: [String],
+        includeHistory: Bool = true
+    ) -> [String] {
+        var result: [String] = []
+        if let snapshot {
+            if snapshot.fiveHour != nil { result.append(fiveHour) }
+            if snapshot.weekly != nil { result.append(weekly) }
+            if snapshot.monthly != nil { result.append(monthly) }
+            for limit in snapshot.additionalLimits {
+                let key = limitKey(limit)
+                if !result.contains(key) {
+                    result.append(key)
+                }
+            }
+        } else {
+            result = deduplicating(emptyDefaults)
+        }
+        if includeHistory, !result.contains(usageHistory) {
+            result.append(usageHistory)
+        }
+        return result
+    }
+
+    /// The cards a provider dashboard shows, in the user's order, without hidden ones.
+    public static func visibleProviderSections(
+        snapshot: UsageSnapshot,
+        savedOrder: [String],
+        hidden: [String],
+        includeHistory: Bool = false
+    ) -> [String] {
+        let available = providerSections(
+            snapshot: snapshot,
+            emptyDefaults: [],
+            includeHistory: includeHistory
+        )
+        let hiddenKeys = Set(hidden)
+        return resolveOrder(saved: savedOrder, available: available)
+            .filter { !hiddenKeys.contains($0) }
+    }
+
     /// Applies a saved order to the currently available section keys.
     ///
     /// Unavailable saved keys are removed. Newly available keys are inserted after the nearest

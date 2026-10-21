@@ -46,6 +46,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var showResetCredits: Bool
     public var dashboardOrder: [String]
     public var dashboardHiddenSections: [String]
+    /// Edit dashboard order for providers other than Codex, keyed by provider raw value.
+    /// Codex keeps `dashboardOrder` so existing layouts survive.
+    public var providerDashboardOrders: [String: [String]]
+    /// Hidden cards for providers other than Codex, keyed by provider raw value.
+    public var providerDashboardHiddenSections: [String: [String]]
     /// CSV of usage-history highlight keys the user toggled away from their default.
     public var historySectionOverrides: String
     public var notificationsEnabled: Bool
@@ -72,6 +77,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         showResetCredits: Bool = true,
         dashboardOrder: [String] = [],
         dashboardHiddenSections: [String] = [],
+        providerDashboardOrders: [String: [String]] = [:],
+        providerDashboardHiddenSections: [String: [String]] = [:],
         historySectionOverrides: String = "",
         notificationsEnabled: Bool = false,
         alertMetric: AlertMetric = .both,
@@ -94,6 +101,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.showResetCredits = showResetCredits
         self.dashboardOrder = Self.sanitizedSectionKeys(dashboardOrder)
         self.dashboardHiddenSections = Self.sanitizedSectionKeys(dashboardHiddenSections)
+        self.providerDashboardOrders = Self.sanitizedProviderSections(providerDashboardOrders)
+        self.providerDashboardHiddenSections = Self.sanitizedProviderSections(
+            providerDashboardHiddenSections
+        )
         self.historySectionOverrides = HistorySections.serialize(
             HistorySections.parseCSV(historySectionOverrides)
         )
@@ -169,6 +180,49 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         dashboardOrder = Self.sanitizedSectionKeys(keys)
     }
 
+    /// Saved card order for one provider's dashboard. Each provider keeps its own layout.
+    public func savedDashboardOrder(for provider: UsageProvider) -> [String] {
+        provider == .codex ? dashboardOrder : providerDashboardOrders[provider.rawValue] ?? []
+    }
+
+    /// Hidden cards for a provider other than Codex.
+    public func hiddenDashboardSections(for provider: UsageProvider) -> [String] {
+        provider == .codex ? dashboardHiddenSections : providerDashboardHiddenSections[provider.rawValue] ?? []
+    }
+
+    public func isDashboardSectionVisible(_ key: String, for provider: UsageProvider) -> Bool {
+        guard provider != .codex else { return isDashboardSectionVisible(key) }
+        return !hiddenDashboardSections(for: provider).contains(key)
+    }
+
+    public mutating func setDashboardSectionVisible(
+        _ key: String,
+        visible: Bool,
+        for provider: UsageProvider
+    ) {
+        guard provider != .codex else {
+            setDashboardSectionVisible(key, visible: visible)
+            return
+        }
+        var hidden = hiddenDashboardSections(for: provider)
+        if visible {
+            hidden.removeAll { $0 == key }
+        } else {
+            hidden.append(key)
+        }
+        let sanitized = Self.sanitizedSectionKeys(hidden)
+        providerDashboardHiddenSections[provider.rawValue] = sanitized.isEmpty ? nil : sanitized
+    }
+
+    public mutating func setDashboardOrder(_ keys: [String], for provider: UsageProvider) {
+        guard provider != .codex else {
+            setDashboardOrder(keys)
+            return
+        }
+        let sanitized = Self.sanitizedSectionKeys(keys)
+        providerDashboardOrders[provider.rawValue] = sanitized.isEmpty ? nil : sanitized
+    }
+
     public func isHistorySectionVisible(_ key: String) -> Bool {
         HistorySections.isVisible(historySectionOverrides, key: key)
     }
@@ -184,6 +238,18 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     private static func sanitizedLeadMinutes(_ values: [Int]) -> [Int] {
         let filtered = Set(values).intersection(Set(allowedCreditExpiryLeadMinutes))
         return filtered.sorted()
+    }
+
+    private static func sanitizedProviderSections(_ values: [String: [String]]) -> [String: [String]] {
+        var result: [String: [String]] = [:]
+        for (id, keys) in values {
+            guard let provider = UsageProvider(rawValue: id), provider != .codex else { continue }
+            let sanitized = sanitizedSectionKeys(keys)
+            if !sanitized.isEmpty {
+                result[provider.rawValue] = sanitized
+            }
+        }
+        return result
     }
 
     private static func sanitizedSectionKeys(_ values: [String]) -> [String] {
@@ -210,6 +276,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case showResetCredits
         case dashboardOrder
         case dashboardHiddenSections
+        case providerDashboardOrders
+        case providerDashboardHiddenSections
         case historySectionOverrides
         case notificationsEnabled
         case alertMetric
@@ -236,6 +304,12 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             showResetCredits: try container.decodeIfPresent(Bool.self, forKey: .showResetCredits) ?? true,
             dashboardOrder: try container.decodeIfPresent([String].self, forKey: .dashboardOrder) ?? [],
             dashboardHiddenSections: try container.decodeIfPresent([String].self, forKey: .dashboardHiddenSections) ?? [],
+            providerDashboardOrders: (try? container.decodeIfPresent(
+                [String: [String]].self, forKey: .providerDashboardOrders
+            )) ?? [:],
+            providerDashboardHiddenSections: (try? container.decodeIfPresent(
+                [String: [String]].self, forKey: .providerDashboardHiddenSections
+            )) ?? [:],
             historySectionOverrides: try container.decodeIfPresent(String.self, forKey: .historySectionOverrides) ?? "",
             notificationsEnabled: try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false,
             alertMetric: try container.decodeIfPresent(AlertMetric.self, forKey: .alertMetric) ?? .both,

@@ -323,7 +323,7 @@ public final class OnboardingActivity extends AppCompatActivity {
             case CLAUDE_CODE:
                 return "5-hour and weekly limits · Claude account";
             case CURSOR:
-                return "Included usage and on-demand spend · Cursor account";
+                return "Included usage and extra spend · Cursor account";
             case CODEX:
             default:
                 return "5-hour and weekly limits, reset credits · ChatGPT account";

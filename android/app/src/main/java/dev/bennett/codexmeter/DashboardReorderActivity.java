@@ -27,7 +27,10 @@ import java.util.List;
  * visibility are saved immediately so the dashboard rebuilds on return.
  */
 public final class DashboardReorderActivity extends AppCompatActivity {
+    /** Provider id whose dashboard is being edited; Codex when missing. */
+    public static final String EXTRA_PROVIDER = "provider";
     private final List<SectionItem> items = new ArrayList<>();
+    private UsageProvider provider = UsageProvider.CODEX;
     private RecyclerView recycler;
     private boolean dark;
 
@@ -48,16 +51,20 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
         this.dark = Ui.isDark(this);
+        this.provider = UsageProvider.fromId(getIntent().getStringExtra(EXTRA_PROVIDER));
         LinearLayout content = Ui.installPage(this, "Edit dashboard", true).content;
         // Pull-to-refresh would swallow downward drag gestures while rearranging rows.
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =
                 findViewById(R.id.dashboard_refresh);
         refresh.setEnabled(false);
 
-        TextView hint = Ui.text(this,
-                "Drag the handles to arrange your usage cards and use the switches to hide the "
+        TextView hint = Ui.text(this, provider == UsageProvider.CODEX
+                ? "Drag the handles to arrange your Codex cards and use the switches to hide the "
                         + "ones you don't need. Model-specific limits such as GPT-5.3-Codex-Spark "
-                        + "appear here automatically once OpenAI reports them for your account.",
+                        + "appear here automatically once OpenAI reports them for your account."
+                : "Drag the handles to arrange your " + provider.displayName + " cards and use "
+                        + "the switches to hide the ones you don't need. Each provider keeps its "
+                        + "own layout.",
                 14.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));
@@ -77,12 +84,14 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         listCard.addView(recycler, new LinearLayout.LayoutParams(-1, -2));
         content.addView(listCard);
 
-        TextView note = Ui.text(this,
-                "Changes are saved instantly. Usage-credit balance and reset credits stay hidden "
+        TextView note = Ui.text(this, provider == UsageProvider.CODEX
+                ? "Changes are saved instantly. Usage-credit balance and reset credits stay hidden "
                         + "when they have nothing to show (zero or below), and 5-hour, weekly, "
                         + "monthly, and usage-history cards appear only while OpenAI reports data "
                         + "for them — no matter where each card is placed or whether its switch "
-                        + "is on.",
+                        + "is on."
+                : "Changes are saved instantly. Cards appear only while " + provider.vendorName
+                        + " reports data for them, and new ones show up here automatically.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
@@ -96,11 +105,16 @@ public final class DashboardReorderActivity extends AppCompatActivity {
     }
 
     private void buildItems() {
+        if (provider != UsageProvider.CODEX) {
+            buildProviderItems();
+            return;
+        }
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         List<UsageLimit> limits = snapshot == null
                 ? Collections.<UsageLimit>emptyList() : snapshot.additionalLimits;
         List<String> ordered = DashboardSections.resolveOrder(
-                AppPreferences.getDashboardOrder(this), DashboardSections.defaultOrder(limits));
+                ProviderPreferences.getDashboardOrder(this, provider),
+                DashboardSections.defaultOrder(limits));
         for (String key : ordered) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
                 items.add(new SectionItem(key, "5-hour limit", "Rolling 5-hour Codex window"));
@@ -119,18 +133,51 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                 items.add(new SectionItem(key, "Reset credits",
                         "Hidden automatically when no resets are available"));
             } else {
-                UsageLimit match = null;
-                for (UsageLimit limit : limits) {
-                    if (limit != null && DashboardSections.limitKey(limit).equals(key)) {
-                        match = limit;
-                        break;
-                    }
-                }
-                items.add(new SectionItem(key,
-                        match == null ? "Additional limit" : match.displayName(),
+                items.add(new SectionItem(key, limitName(limits, key, "Additional limit"),
                         "Model-specific limit · detected automatically"));
             }
         }
+    }
+
+    /** Claude Code, Cursor, and future providers: only the cards that provider reports. */
+    private void buildProviderItems() {
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, provider);
+        List<UsageLimit> limits = snapshot == null
+                ? Collections.<UsageLimit>emptyList() : snapshot.additionalLimits;
+        List<String> ordered = DashboardSections.resolveOrder(
+                ProviderPreferences.getDashboardOrder(this, provider),
+                DashboardSections.providerSections(snapshot,
+                        provider.usualDashboardSections()));
+        boolean cursor = provider == UsageProvider.CURSOR;
+        for (String key : ordered) {
+            if (DashboardSections.FIVE_HOUR.equals(key)) {
+                items.add(new SectionItem(key, "5-hour limit",
+                        "Rolling 5-hour " + provider.displayName + " window"));
+            } else if (DashboardSections.WEEKLY.equals(key)) {
+                items.add(new SectionItem(key, cursor ? "Included usage" : "Weekly limit",
+                        cursor ? "Your plan's included usage, refreshed weekly"
+                                : "Rolling 7-day " + provider.displayName + " window"));
+            } else if (DashboardSections.MONTHLY.equals(key)) {
+                items.add(new SectionItem(key, cursor ? "Included usage" : "Monthly limit",
+                        cursor ? "Your plan's included usage for the billing month"
+                                : "Monthly " + provider.displayName + " window"));
+            } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+                items.add(new SectionItem(key, "Usage history",
+                        "Burn charts from usage samples kept on this device"));
+            } else {
+                items.add(new SectionItem(key, limitName(limits, key, "Additional limit"),
+                        "Reported by " + provider.vendorName + " for your plan"));
+            }
+        }
+    }
+
+    private static String limitName(List<UsageLimit> limits, String key, String fallback) {
+        for (UsageLimit limit : limits) {
+            if (limit != null && DashboardSections.limitKey(limit).equals(key)) {
+                return limit.displayName();
+            }
+        }
+        return fallback;
     }
 
     /**
@@ -148,47 +195,15 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         for (SectionItem item : items) {
             order.add(item.key);
         }
-        AppPreferences.setDashboardOrder(this, order);
+        ProviderPreferences.setDashboardOrder(this, provider, order);
     }
 
     private boolean isSectionVisible(String key) {
-        if (DashboardSections.FIVE_HOUR.equals(key)) {
-            return AppPreferences.showDashboardFiveHour(this);
-        }
-        if (DashboardSections.WEEKLY.equals(key)) {
-            return AppPreferences.showDashboardWeekly(this);
-        }
-        if (DashboardSections.MONTHLY.equals(key)) {
-            return AppPreferences.showDashboardMonthly(this);
-        }
-        if (DashboardSections.USAGE_CREDITS.equals(key)) {
-            return AppPreferences.showDashboardUsageCredits(this);
-        }
-        if (DashboardSections.USAGE_HISTORY.equals(key)) {
-            return AppPreferences.showDashboardUsageHistory(this);
-        }
-        if (DashboardSections.RESET_CREDITS.equals(key)) {
-            return AppPreferences.showDashboardResetCredits(this);
-        }
-        return !AppPreferences.isDashboardSectionHidden(this, key);
+        return ProviderPreferences.isDashboardSectionVisible(this, provider, key);
     }
 
     private void setSectionVisible(String key, boolean visible) {
-        if (DashboardSections.FIVE_HOUR.equals(key)) {
-            AppPreferences.setShowDashboardFiveHour(this, visible);
-        } else if (DashboardSections.WEEKLY.equals(key)) {
-            AppPreferences.setShowDashboardWeekly(this, visible);
-        } else if (DashboardSections.MONTHLY.equals(key)) {
-            AppPreferences.setShowDashboardMonthly(this, visible);
-        } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
-            AppPreferences.setShowDashboardUsageCredits(this, visible);
-        } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
-            AppPreferences.setShowDashboardUsageHistory(this, visible);
-        } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-            AppPreferences.setShowDashboardResetCredits(this, visible);
-        } else {
-            AppPreferences.setDashboardSectionHidden(this, key, !visible);
-        }
+        ProviderPreferences.setDashboardSectionVisible(this, provider, key, visible);
     }
 
     private final class SectionAdapter extends RecyclerView.Adapter<SectionHolder> {
