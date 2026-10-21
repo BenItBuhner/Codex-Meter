@@ -31,11 +31,50 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.5)
 
+        UITestSupport.tap(app.buttons["Claude Code"])
+        XCTAssertTrue(app.buttons["Sign in with Claude"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("02b-claude-signed-out")
+        UITestSupport.tap(app.buttons["Sign in with Claude"])
+        XCTAssertTrue(app.navigationBars["Connect Claude"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("02c-claude-sign-in")
+        UITestSupport.tap(app.buttons["Cancel"])
+        XCTAssertTrue(app.buttons["Sign in with Claude"].waitForExistence(timeout: 5))
+
+        UITestSupport.tap(app.buttons["Cursor"])
+        XCTAssertTrue(app.buttons["Sign in with Cursor"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("02d-cursor-signed-out")
+        UITestSupport.tap(app.buttons["Sign in with Cursor"])
+        XCTAssertTrue(app.navigationBars["Connect Cursor"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("02e-cursor-sign-in")
+        UITestSupport.tap(app.buttons["Cancel"])
+        XCTAssertTrue(app.buttons["Sign in with Cursor"].waitForExistence(timeout: 5))
+        UITestSupport.tap(app.buttons["Codex"])
+        XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.5)
+
         UITestSupport.tap(app.buttons["Explore demo"])
         XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.2)
         capture("03-demo-dashboard")
+
+        UITestSupport.tap(app.buttons["Claude Code"])
+        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Weekly"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("03b-claude-code-demo")
+        UITestSupport.tap(app.buttons["Cursor"])
+        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("03c-cursor-demo")
+        UITestSupport.tap(app.buttons["Codex"])
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.6)
 
         UITestSupport.scrollDashboard(untilVisible: app.staticTexts["Usage history"], in: app)
         UITestSupport.settle(0.6)
@@ -125,6 +164,81 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(1.0)
         capture("15-refresh-failure")
         UITestSupport.settle(0.8)
+
+        // Settings → Providers narrows and orders the tabs: two providers keep the bar (in the
+        // chosen order, Cursor first here), and one hides it.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "cursor,codex"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Cursor"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["Claude Code"].exists)
+        UITestSupport.tap(app.buttons["Cursor"])
+        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("16-providers-two-tabs")
+
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "cursor"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Codex"].exists)
+        UITestSupport.settle(1.0)
+        capture("17-providers-cursor-only")
+
+        UITestSupport.tap(app.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.scrollForm(untilExists: app.buttons["settings-providers"], in: app)
+        UITestSupport.tap(app.buttons["settings-providers"])
+        XCTAssertTrue(app.navigationBars["Providers"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("18-providers-settings")
+
+        // First-run setup on a fresh install: nothing is preselected, each chosen provider
+        // gets its own Connect step.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-onboarding"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.0)
+        capture("19-onboarding-welcome")
+
+        UITestSupport.tap(app.buttons["Get started"])
+        XCTAssertTrue(app.staticTexts["Choose your providers"].waitForExistence(timeout: 5))
+        tapToggle(app.switches["onboarding-provider-claude_code"], in: app)
+        tapToggle(app.switches["onboarding-provider-cursor"], in: app)
+        UITestSupport.settle(0.8)
+        capture("20-onboarding-providers")
+
+        UITestSupport.tap(app.buttons["Continue"])
+        XCTAssertTrue(app.staticTexts["Connect Claude Code"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("21-onboarding-connect")
+
+        // Accounts live in Settings, one compact row per provider with a tab.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing-signed-out",
+            "-ui-testing-providers", "codex,claude_code,cursor"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 8))
+        UITestSupport.tap(app.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        _ = app.buttons["account-cursor"].waitForExistence(timeout: 5)
+        UITestSupport.settle(0.8)
+        capture("22-settings-accounts")
+    }
+
+    private func tapToggle(_ toggle: XCUIElement, in app: XCUIApplication) {
+        guard toggle.waitForExistence(timeout: 5) else { return }
+        // A SwiftUI Toggle's switch sits at the trailing edge of its row.
+        if toggle.switches.firstMatch.exists {
+            toggle.switches.firstMatch.tap()
+        } else {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        }
+        UITestSupport.settle(0.3)
     }
 
     private func capture(_ name: String) {
@@ -143,7 +257,7 @@ final class DemoGalleryTests: XCTestCase {
     }
 
     private func scrollSettingsToTop(in app: XCUIApplication) {
-        for _ in 0..<6 where !app.staticTexts["Account"].exists {
+        for _ in 0..<6 where !app.staticTexts["Accounts"].exists {
             app.swipeDown()
         }
     }
