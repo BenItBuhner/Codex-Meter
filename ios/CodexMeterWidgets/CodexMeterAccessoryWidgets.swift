@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import WidgetKit
 
