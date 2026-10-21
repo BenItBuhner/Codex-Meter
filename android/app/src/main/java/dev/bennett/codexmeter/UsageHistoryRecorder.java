@@ -8,19 +8,25 @@ final class UsageHistoryRecorder {
     }
 
     static void record(Context context, UsageSnapshot snapshot) {
+        record(context, UsageProvider.CODEX, snapshot);
+    }
+
+    /** Each provider keeps its own burn history so charts and pace never mix accounts. */
+    static void record(Context context, UsageProvider provider, UsageSnapshot snapshot) {
         if (context == null || snapshot == null) return;
-        recordWindow(context, UsageHistory.FIVE_HOUR, snapshot.fiveHour,
+        recordWindow(context, provider, UsageHistory.FIVE_HOUR, snapshot.fiveHour,
                 snapshot.fetchedAtMillis);
-        recordWindow(context, UsageHistory.WEEKLY, snapshot.weekly,
+        recordWindow(context, provider, UsageHistory.WEEKLY, snapshot.weekly,
                 snapshot.fetchedAtMillis);
-        recordWindow(context, UsageHistory.MONTHLY, snapshot.monthly,
+        recordWindow(context, provider, UsageHistory.MONTHLY, snapshot.monthly,
                 snapshot.fetchedAtMillis);
     }
 
-    private static void recordWindow(Context context, String kind, UsageWindow window,
-            long observedAtMillis) {
+    private static void recordWindow(Context context, UsageProvider provider, String kind,
+            UsageWindow window, long observedAtMillis) {
         if (window == null) return;
-        UsageHistory current = AppPreferences.loadUsageHistory(context, kind);
-        AppPreferences.saveUsageHistory(context, current.append(window, observedAtMillis));
+        UsageHistory current = ProviderPreferences.loadUsageHistory(context, provider, kind);
+        ProviderPreferences.saveUsageHistory(context, provider,
+                current.append(window, observedAtMillis));
     }
 }
