@@ -108,6 +108,80 @@ final class ModelsAndFormattingTests: XCTestCase {
         )
     }
 
+    func testSpendControlLimitSanitizesAmountsAndFormatsCopy() throws {
+        let english = Locale(identifier: "en_US")
+        let limit = SpendControlLimit(
+            source: " workspace_spend_controls ",
+            limit: " 25000 ",
+            used: "8000",
+            remaining: "",
+            usedPercent: 132,
+            resetAfterSeconds: -5,
+            resetAt: Date(timeIntervalSince1970: 0)
+        )
+        XCTAssertEqual(limit.source, "workspace_spend_controls")
+        XCTAssertEqual(limit.limit, "25000")
+        XCTAssertNil(limit.remaining)
+        XCTAssertEqual(limit.numericRemaining, 17_000)
+        XCTAssertEqual(limit.usedPercent, 100)
+        XCTAssertEqual(limit.remainingPercent, 0)
+        XCTAssertEqual(limit.resetAfterSeconds, 0)
+        XCTAssertNil(limit.resetAt)
+        XCTAssertFalse(limit.showsResetCountdown)
+        XCTAssertNil(limit.effectiveResetDate(relativeTo: Date(timeIntervalSince1970: 1_000)))
+        XCTAssertEqual(
+            UsageFormat.spendControlUsage(limit, locale: english),
+            "8,000 of 25,000 credits used"
+        )
+        XCTAssertEqual(
+            UsageFormat.spendControlRemaining(limit, locale: english),
+            "17,000 credits remaining"
+        )
+
+        let fractional = SpendControlLimit(
+            limit: "2,500.5",
+            used: "1",
+            remaining: "1",
+            usedPercent: 0,
+            resetAfterSeconds: 600
+        )
+        XCTAssertEqual(
+            UsageFormat.spendControlUsage(fractional, locale: english),
+            "1 of 2,500.5 credits used"
+        )
+        XCTAssertEqual(
+            UsageFormat.spendControlRemaining(fractional, locale: english),
+            "1 credit remaining"
+        )
+        XCTAssertEqual(
+            fractional.effectiveResetDate(relativeTo: Date(timeIntervalSince1970: 1_000)),
+            Date(timeIntervalSince1970: 1_600)
+        )
+
+        let opaque = SpendControlLimit(limit: "pending", used: nil, usedPercent: 40)
+        XCTAssertNil(opaque.numericLimit)
+        XCTAssertNil(opaque.numericRemaining)
+        XCTAssertNil(UsageFormat.spendControlUsage(opaque, locale: english))
+        XCTAssertNil(UsageFormat.spendControlRemaining(opaque, locale: english))
+
+        let control = SpendControl(reached: true, individualLimit: limit)
+        XCTAssertEqual(
+            try JSONDecoder().decode(SpendControl.self, from: JSONEncoder().encode(control)),
+            control
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(SpendControl.self, from: Data("{}".utf8)),
+            SpendControl(reached: false, individualLimit: nil)
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                SpendControlLimit.self,
+                from: Data("{\"limit\":\"10\",\"usedPercent\":-3}".utf8)
+            ),
+            SpendControlLimit(limit: "10", used: nil, usedPercent: 0)
+        )
+    }
+
     func testSharedSnapshotIsSanitizedAndCodable() throws {
         let now = Date(timeIntervalSince1970: 2_000)
         let shared = SharedWidgetSnapshot(

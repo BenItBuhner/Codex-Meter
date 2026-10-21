@@ -42,6 +42,7 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var showMonthly: Bool
     public var showAdditionalLimits: Bool
     public var showUsageCredits: Bool
+    public var showSpendControl: Bool
     public var showUsageHistory: Bool
     public var showResetCredits: Bool
     public var dashboardOrder: [String]
@@ -68,6 +69,7 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         showMonthly: Bool = true,
         showAdditionalLimits: Bool = true,
         showUsageCredits: Bool = true,
+        showSpendControl: Bool = true,
         showUsageHistory: Bool = true,
         showResetCredits: Bool = true,
         dashboardOrder: [String] = [],
@@ -90,6 +92,7 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.showMonthly = showMonthly
         self.showAdditionalLimits = showAdditionalLimits
         self.showUsageCredits = showUsageCredits
+        self.showSpendControl = showSpendControl
         self.showUsageHistory = showUsageHistory
         self.showResetCredits = showResetCredits
         self.dashboardOrder = Self.sanitizedSectionKeys(dashboardOrder)
@@ -131,6 +134,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             showMonthly
         case DashboardSections.usageCredits:
             showUsageCredits
+        case DashboardSections.spendControl:
+            showSpendControl
         case DashboardSections.usageHistory:
             showUsageHistory
         case DashboardSections.resetCredits:
@@ -150,6 +155,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             showMonthly = visible
         case DashboardSections.usageCredits:
             showUsageCredits = visible
+        case DashboardSections.spendControl:
+            showSpendControl = visible
         case DashboardSections.usageHistory:
             showUsageHistory = visible
         case DashboardSections.resetCredits:
@@ -206,6 +213,7 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case showMonthly
         case showAdditionalLimits
         case showUsageCredits
+        case showSpendControl
         case showUsageHistory
         case showResetCredits
         case dashboardOrder
@@ -232,6 +240,7 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             showMonthly: try container.decodeIfPresent(Bool.self, forKey: .showMonthly) ?? true,
             showAdditionalLimits: try container.decodeIfPresent(Bool.self, forKey: .showAdditionalLimits) ?? true,
             showUsageCredits: try container.decodeIfPresent(Bool.self, forKey: .showUsageCredits) ?? true,
+            showSpendControl: try container.decodeIfPresent(Bool.self, forKey: .showSpendControl) ?? true,
             showUsageHistory: try container.decodeIfPresent(Bool.self, forKey: .showUsageHistory) ?? true,
             showResetCredits: try container.decodeIfPresent(Bool.self, forKey: .showResetCredits) ?? true,
             dashboardOrder: try container.decodeIfPresent([String].self, forKey: .dashboardOrder) ?? [],

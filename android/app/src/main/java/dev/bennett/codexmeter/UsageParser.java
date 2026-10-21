@@ -84,6 +84,7 @@ public final class UsageParser {
                 usageWindowNearest, usageWindowNearestExcluding);
         JSONObject jSONObjectNullableObject3 = nullableObject(jSONObject, "rate_limit_reset_credits");
         UsageCredits usageCredits = UsageCredits.fromJson(nullableObject(jSONObject, "credits"));
+        SpendControl spendControl = SpendControl.fromJson(nullableObject(jSONObject, "spend_control"));
         return new UsageSnapshot(
                 strOptString,
                 z,
@@ -93,6 +94,7 @@ public final class UsageParser {
                 usageWindowMonthly,
                 additionalLimits,
                 usageCredits,
+                spendControl,
                 jSONObjectNullableObject3 == null
                         ? -1 : jSONObjectNullableObject3.optInt("available_count", -1),
                 j);
