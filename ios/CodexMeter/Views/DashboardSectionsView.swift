@@ -194,7 +194,7 @@ private struct DashboardSectionItem: Identifiable {
     }
 }
 
-private struct AdditionalLimitCards: View {
+struct AdditionalLimitCards: View {
     let limit: UsageLimit
     let fetchedAt: Date
 

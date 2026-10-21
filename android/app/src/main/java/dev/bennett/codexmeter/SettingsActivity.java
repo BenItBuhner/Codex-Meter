@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,7 +14,6 @@ import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -30,9 +28,6 @@ import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
-import dev.oneuiproject.oneui.preference.LayoutPreference;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
-import dev.oneuiproject.oneui.widget.CardItemView;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
@@ -248,7 +243,10 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindRoot() {
-            bindAccount();
+            findPreference("settings_providers").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), ProvidersActivity.class);
+                return true;
+            });
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
@@ -367,6 +365,13 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
+            bindAccounts();
+            StringBuilder providers = new StringBuilder();
+            for (UsageProvider provider : ProviderPreferences.getEnabled(requireContext())) {
+                if (providers.length() > 0) providers.append(", ");
+                providers.append(provider.displayName);
+            }
+            findPreference("settings_providers").setSummary(providers.toString());
             String theme = AppPreferences.getAppTheme(requireContext());
             String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
                     ? "System default"
@@ -429,79 +434,60 @@ public final class SettingsActivity extends AppCompatActivity {
             return "Both limits";
         }
 
-        private void bindAccount() {
-            boolean dark = Ui.isDark(requireContext());
-            LayoutPreference preference = findPreference("account_card");
-            RoundedLinearLayout card = preference.findViewById(R.id.settings_account_card);
-            card.setBackground(Ui.card(requireContext(), dark).getBackground());
-            ImageView avatar = preference.findViewById(R.id.settings_account_avatar);
-            GradientDrawable avatarBackground = new GradientDrawable();
-            avatarBackground.setShape(GradientDrawable.OVAL);
-            avatarBackground.setColor(Ui.controlSurface(requireContext(), dark));
-            avatar.setBackground(avatarBackground);
-            avatar.setPadding(Ui.dp(requireContext(), 10), Ui.dp(requireContext(), 10),
-                    Ui.dp(requireContext(), 10), Ui.dp(requireContext(), 10));
-            avatar.setImageResource(R.drawable.ic_oui_contact_outline);
-            avatar.setColorFilter(Ui.mainText(dark));
-            TextView title = preference.findViewById(R.id.settings_account_title);
-            TextView summary = preference.findViewById(R.id.settings_account_summary);
-            TextView plan = preference.findViewById(R.id.settings_account_plan);
-            CardItemView action = preference.findViewById(R.id.settings_account_action);
-            title.setTextColor(Ui.mainText(dark));
-            summary.setTextColor(Ui.secondaryText(dark));
-            plan.setTextColor(Ui.mainText(dark));
-            plan.setBackground(Ui.pillBackground(requireContext(), dark));
-
-            AuthTokens tokens = SecureTokenStore.load(requireContext());
-            UsageSnapshot snapshot = AppPreferences.loadSnapshot(requireContext());
-            title.setText(tokens == null ? "Not connected" : "ChatGPT account");
-            summary.setText(tokens == null ? "Sign in from the dashboard"
-                    : (tokens.email.isEmpty() ? "Connected" : tokens.email));
-            if (tokens != null && snapshot != null) {
-                String label = UsageFormat.planLabel(snapshot.planType);
-                plan.setText(label.isEmpty() ? "Codex" : label);
-                plan.setVisibility(View.VISIBLE);
-            } else {
-                plan.setVisibility(View.GONE);
-            }
-            action.getTitleView().setText(tokens == null ? "Sign in with ChatGPT" : "Sign out");
-            action.getTitleView().setTextColor(tokens == null
-                    ? Ui.accent(requireContext(), dark)
-                    : (dark ? 0xFFFF6B6B : 0xFFFF3B30));
-            action.setOnClickListener(view -> {
-                if (SecureTokenStore.isSignedIn(requireContext())) {
-                    confirmSignOut();
-                } else {
-                    startActivity(new Intent(requireContext(), MainActivity.class)
-                            .putExtra("start_sign_in", true));
-                    requireActivity().finish();
+        /**
+         * Settings → Accounts: one row per provider on the dashboard with its email and plan.
+         * Tapping a signed-out row starts that provider's sign-in; a signed-in row offers sign out.
+         */
+        private void bindAccounts() {
+            PreferenceCategory accounts = findPreference("accounts");
+            if (accounts == null) return;
+            Context context = requireContext();
+            boolean dark = Ui.isDark(context);
+            accounts.removeAll();
+            for (UsageProvider provider : ProviderPreferences.getEnabled(context)) {
+                Preference row = new Preference(context);
+                row.setKey("account_" + provider.id);
+                row.setTitle(provider.displayName);
+                row.setSummary(ProviderAccounts.summary(context, provider));
+                android.graphics.drawable.Drawable icon = androidx.core.content.ContextCompat
+                        .getDrawable(context, ProvidersActivity.iconRes(provider));
+                if (icon != null) {
+                    icon = icon.mutate();
+                    icon.setTint(Ui.mainText(dark));
+                    row.setIcon(icon);
                 }
-            });
+                row.setOnPreferenceClickListener(preference -> {
+                    if (ProviderAccounts.isSignedIn(context, provider)) {
+                        confirmSignOut(provider);
+                    } else {
+                        startActivity(new Intent(context, MainActivity.class)
+                                .putExtra("start_sign_in", true)
+                                .putExtra(MainActivity.EXTRA_SIGN_IN_PROVIDER, provider.id)
+                                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                        | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                        requireActivity().finish();
+                    }
+                    return true;
+                });
+                accounts.addPreference(row);
+            }
         }
 
-        private void confirmSignOut() {
-            androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    .setTitle("Sign out?")
-                    .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
+        private void confirmSignOut(UsageProvider provider) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Sign out of " + provider.accountName + "?")
+                    .setMessage("This removes encrypted " + provider.accountName
+                            + " tokens and cached " + provider.displayName
+                            + " usage from this device. Other accounts stay signed in.")
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Sign out", (dialogInterface, which) -> {
-                        AuthTokens tokens = SecureTokenStore.load(requireContext());
-                        SecureTokenStore.clear(requireContext());
-                        AppPreferences.clearSnapshot(requireContext());
-                        AppPreferences.setOAuthPending(requireContext(), false, "");
-                        RefreshScheduler.cancelAll(requireContext());
-                        ResetAlertScheduler.cancelAll(requireContext());
-                        WidgetRenderer.updateAll(requireContext());
-                        Toast.makeText(requireContext(), "Signed out.", Toast.LENGTH_SHORT).show();
-                        requireActivity().recreate();
-                        if (tokens != null) {
-                            Context app = requireContext().getApplicationContext();
-                            new Thread(() -> OAuthClient.revokeBestEffort(app, tokens),
-                                    "codex-sign-out").start();
-                        }
+                        ProviderAccounts.signOut(requireContext(), provider);
+                        Toast.makeText(requireContext(), "Signed out of " + provider.accountName
+                                + ".", Toast.LENGTH_SHORT).show();
+                        bindAccounts();
                     })
-                    .create();
-            dialog.show();
+                    .create()
+                    .show();
         }
 
         private void bindAppearance() {

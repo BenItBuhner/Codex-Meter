@@ -2,13 +2,16 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <dev.oneuiproject.oneui.preference.LayoutPreference
-        android:key="account_card"
-        android:layout="@layout/preference_account_card"
-        app:allowDividerAbove="false"
-        app:allowDividerBelow="false" />
+    <!-- One compact row per provider on the dashboard; filled in by SettingsActivity. -->
+    <PreferenceCategory
+        android:key="accounts"
+        android:title="Accounts" />
 
     <PreferenceCategory android:title="General">
+        <Preference
+            android:key="settings_providers"
+            android:title="Providers"
+            app:iconSpaceReserved="false" />
         <Preference
             android:key="settings_appearance"
             android:title="Appearance"
