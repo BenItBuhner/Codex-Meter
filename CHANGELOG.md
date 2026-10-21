@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Antigravity, Augment, Chutes, Codebuff, Devin, Factory, Grok, Kilo Code, Kiro, Synthetic and Z.ai now show their own logos in tabs, Accounts, Add account, first-run setup and widgets, instead of a letter in a box.
+
 ## 2.9.0-alpha.3 — 2026-10-21
 
 ### Changed
