@@ -166,7 +166,11 @@ public final class ProvidersActivity extends AppCompatActivity {
             UsageProvider provider = items.get(position);
             holder.icon.setImageResource(iconRes(provider));
             holder.title.setText(provider.displayName);
-            holder.summary.setText("Signs in with " + provider.accountName);
+            String email = ProviderAccounts.isSignedIn(ProvidersActivity.this, provider)
+                    ? ProviderAccounts.email(ProvidersActivity.this, provider) : "";
+            holder.summary.setText(ProviderAccounts.isSignedIn(ProvidersActivity.this, provider)
+                    ? (email.isEmpty() ? "Signed in" : "Signed in as " + email)
+                    : "Signs in with " + provider.accountName);
             holder.toggle.setContentDescription("Show " + provider.displayName + " tab");
             holder.toggle.setOnCheckedChangeListener(null);
             boolean on = ProviderPreferences.getEnabled(ProvidersActivity.this)

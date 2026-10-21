@@ -1592,34 +1592,44 @@ public final class ParserSelfTest {
     }
 
     private static void testOnboardingFlow() {
-        check(OnboardingFlow.launchAction(false, false, false)
+        check(OnboardingFlow.launchAction(false, false, false, false)
                         == OnboardingFlow.LAUNCH_ONBOARDING,
                 "fresh install opens onboarding");
-        check(OnboardingFlow.launchAction(false, true, false)
+        check(OnboardingFlow.launchAction(false, true, false, false)
                         == OnboardingFlow.LAUNCH_MAIN_AND_COMPLETE,
                 "signed-in upgrade is not interrupted");
-        check(OnboardingFlow.launchAction(false, true, true)
+        check(OnboardingFlow.launchAction(false, true, true, false)
                         == OnboardingFlow.LAUNCH_ONBOARDING,
-                "OAuth return reaches onboarding completion");
-        check(OnboardingFlow.launchAction(true, false, false)
+                "OAuth return resumes onboarding");
+        check(OnboardingFlow.launchAction(false, true, false, true)
+                        == OnboardingFlow.LAUNCH_ONBOARDING,
+                "a setup in progress resumes after a sign-in");
+        check(OnboardingFlow.launchAction(true, false, false, false)
                         == OnboardingFlow.LAUNCH_MAIN,
                 "completed onboarding stays completed after sign-out");
-        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_USAGE, false, false)
-                        == OnboardingFlow.STEP_USAGE,
-                "incomplete onboarding resumes saved page");
-        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_WELCOME, true, true)
-                        == OnboardingFlow.STEP_COMPLETE,
-                "successful OAuth opens completion page");
-        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_WELCOME, false, true)
-                        == OnboardingFlow.STEP_ACCOUNT,
-                "failed OAuth returns to account page");
-        check(OnboardingFlow.nextStep(OnboardingFlow.STEP_COMPLETE)
-                        == OnboardingFlow.STEP_COMPLETE,
+        check(OnboardingFlow.stepCount(2) == 5, "two providers: welcome, pick, two sign-ins, done");
+        check(OnboardingFlow.completeStep(1) == 3, "one provider finishes on step four");
+        check(OnboardingFlow.signInIndex(2, 2) == 0 && OnboardingFlow.signInIndex(3, 2) == 1,
+                "sign-in steps map to the chosen providers in order");
+        check(OnboardingFlow.signInIndex(4, 2) == -1
+                        && OnboardingFlow.signInIndex(OnboardingFlow.STEP_PROVIDERS, 2) == -1,
+                "other steps are not sign-in steps");
+        check(OnboardingFlow.initialStep(3, 2) == 3,
+                "a saved sign-in step survives the browser round trip");
+        check(OnboardingFlow.initialStep(4, 0) == OnboardingFlow.STEP_WELCOME,
+                "a saved step past the end resets safely");
+        check(OnboardingFlow.normalizeStep(2, 0) == OnboardingFlow.STEP_PROVIDERS,
+                "no providers chosen keeps the picker open");
+        check(OnboardingFlow.nextStep(OnboardingFlow.STEP_PROVIDERS, 0)
+                        == OnboardingFlow.STEP_PROVIDERS,
+                "the picker needs at least one provider");
+        check(OnboardingFlow.nextStep(OnboardingFlow.completeStep(3), 3)
+                        == OnboardingFlow.completeStep(3),
                 "next step clamps at completion");
-        check(OnboardingFlow.previousStep(OnboardingFlow.STEP_WELCOME)
+        check(OnboardingFlow.previousStep(OnboardingFlow.STEP_WELCOME, 1)
                         == OnboardingFlow.STEP_WELCOME,
                 "previous step clamps at welcome");
-        check(OnboardingFlow.normalizeStep(99) == OnboardingFlow.STEP_WELCOME,
+        check(OnboardingFlow.normalizeStep(99, 1) == OnboardingFlow.STEP_WELCOME,
                 "invalid persisted page resets safely");
     }
 
@@ -2125,10 +2135,17 @@ public final class ParserSelfTest {
                 "Claude sign-in label");
 
         List<UsageProvider> all = Arrays.asList(UsageProvider.values());
-        check(UsageProvider.enabledFromIds(null).equals(all), "no saved choice -> every tab on");
-        check(UsageProvider.enabledFromIds(Arrays.asList("", "bogus")).equals(all),
-                "unreadable choice -> every tab on");
-        check(UsageProvider.enabledFromIds(Arrays.asList("cursor", " CODEX "))
+        List<UsageProvider> codexOnly = Arrays.asList(UsageProvider.CODEX);
+        check(UsageProvider.migrationDefault(null).equals(codexOnly),
+                "an upgrade with no saved choice shows only Codex");
+        check(UsageProvider.migrationDefault(Arrays.asList(UsageProvider.CURSOR,
+                UsageProvider.CODEX)).equals(Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR)), "an upgrade keeps providers it already signed in to");
+        check(UsageProvider.enabledFromIds(null, codexOnly).equals(codexOnly),
+                "no saved choice -> the fallback");
+        check(UsageProvider.enabledFromIds(Arrays.asList("", "bogus"), codexOnly)
+                .equals(codexOnly), "unreadable choice -> the fallback");
+        check(UsageProvider.enabledFromIds(Arrays.asList("cursor", " CODEX "), codexOnly)
                 .equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
                 "enabled tabs keep enum order");
         List<UsageProvider> two = UsageProvider.withEnabled(all, UsageProvider.CLAUDE_CODE, false);

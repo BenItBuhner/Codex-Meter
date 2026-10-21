@@ -1,7 +1,6 @@
 package dev.bennett.codexmeter;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -15,7 +14,7 @@ import java.util.Locale;
  * {@code res/menu/provider_tabs.xml} if needed, add
  * its sign-in branch to {@link OAuthService}, and give it a usage client like
  * {@link ClaudeUsageApi} that returns a {@link UsageSnapshot}. Everything else (dashboard
- * cards, pace labels, account card, token storage) is shared.
+ * cards, pace labels, Settings account row, token storage) is shared.
  */
 public enum UsageProvider {
     CODEX("codex", "Codex", "ChatGPT", "OpenAI"),
@@ -54,10 +53,11 @@ public enum UsageProvider {
     }
 
     /**
-     * Providers whose tabs are on, in tab order. Unknown ids are skipped; a missing or empty
-     * list turns every provider on, so new installs and upgrades see all tabs.
+     * Providers whose tabs are on, in enum order. Unknown ids are skipped; when nothing valid
+     * is saved the result is {@code fallback} (see {@link #migrationDefault}).
      */
-    public static List<UsageProvider> enabledFromIds(Collection<String> ids) {
+    public static List<UsageProvider> enabledFromIds(Collection<String> ids,
+            List<UsageProvider> fallback) {
         List<UsageProvider> enabled = new ArrayList<>();
         if (ids != null) {
             for (UsageProvider provider : values()) {
@@ -69,7 +69,22 @@ public enum UsageProvider {
                 }
             }
         }
-        return enabled.isEmpty() ? new ArrayList<>(Arrays.asList(values())) : enabled;
+        return enabled.isEmpty() ? new ArrayList<>(fallback) : enabled;
+    }
+
+    /**
+     * Tabs for an install that never chose its providers (an upgrade from before provider
+     * setup): Codex, plus any other provider it is already signed in to. A Codex-only install
+     * therefore shows no tab bar.
+     */
+    public static List<UsageProvider> migrationDefault(Collection<UsageProvider> signedIn) {
+        List<UsageProvider> result = new ArrayList<>();
+        for (UsageProvider provider : values()) {
+            if (provider == DEFAULT || (signedIn != null && signedIn.contains(provider))) {
+                result.add(provider);
+            }
+        }
+        return result;
     }
 
     /**

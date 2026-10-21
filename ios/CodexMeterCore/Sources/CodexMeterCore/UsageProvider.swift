@@ -45,15 +45,30 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         "Sign in with \(accountName)"
     }
 
-    /// Providers whose tabs are on, in tab order. Unknown ids are skipped; a missing or empty
-    /// list turns every provider on, so new installs and upgrades see all tabs.
-    public static func enabled(from ids: [String]?) -> [UsageProvider] {
+    /// Providers whose tabs are on, in declaration order. Unknown ids are skipped. A missing or
+    /// empty list means nothing was ever chosen, so it falls back to `migrationDefault(signedIn:)`.
+    public static func enabled(
+        from ids: [String]?,
+        signedIn: Set<UsageProvider> = []
+    ) -> [UsageProvider] {
         let normalized = Set((ids ?? []).map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased(with: Locale(identifier: "en_US_POSIX"))
         })
         let enabled = allCases.filter { normalized.contains($0.rawValue) }
-        return enabled.isEmpty ? allCases : enabled
+        return enabled.isEmpty ? migrationDefault(signedIn: signedIn) : enabled
+    }
+
+    /// Tabs for an install that never chose providers (an upgrade from before provider tabs):
+    /// Codex, plus any other provider the user already signed in to. With only Codex on, the
+    /// tab bar stays hidden, so upgrading changes nothing on screen.
+    public static func migrationDefault(signedIn: Set<UsageProvider>) -> [UsageProvider] {
+        allCases.filter { $0 == defaultProvider || signedIn.contains($0) }
+    }
+
+    /// The providers picked during setup, in declaration order.
+    public static func chosen(_ selection: Set<UsageProvider>) -> [UsageProvider] {
+        allCases.filter { selection.contains($0) }
     }
 
     /// Every provider in the user's tab order: saved ids first (duplicates and unknown ids

@@ -31,8 +31,6 @@ struct CursorDashboardView: View {
                         )
                     }
 
-                    CursorAccountCard()
-
                     if let usage = cursor.usage {
                         CursorStatusStrip(usage: usage, isCached: cursor.isUsingCachedData)
                         CursorMeters(usage: usage)
@@ -96,19 +94,25 @@ private struct CursorStatusStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                HStack(spacing: 6) {
-                    Image(systemName: isCached ? "internaldrive" : "checkmark.circle")
-                        .foregroundStyle(isCached ? .orange : .secondary)
-                    Text(
-                        isCached
-                            ? "Showing cached data · \(UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date))"
-                            : UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date)
-                    )
+            HStack(spacing: 10) {
+                if !usage.planType.isEmpty {
+                    PlanBadge(title: usage.planType)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityElement(children: .combine)
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    HStack(spacing: 6) {
+                        Image(systemName: isCached ? "internaldrive" : "checkmark.circle")
+                            .foregroundStyle(isCached ? .orange : .secondary)
+                        Text(
+                            isCached
+                                ? "Showing cached data · \(UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date))"
+                                : UsageFormat.updated(fetchedAt: usage.fetchedAt, now: context.date)
+                        )
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
+                }
+                Spacer(minLength: 0)
             }
 
             if usage.limitReached {
@@ -140,58 +144,6 @@ private struct CursorMeters: View {
             ForEach(usage.additionalLimits) { limit in
                 AdditionalLimitCards(limit: limit, fetchedAt: usage.fetchedAt)
             }
-        }
-    }
-}
-
-private struct CursorAccountCard: View {
-    @Environment(AppModel.self) private var model
-    @State private var isConfirmingSignOut = false
-
-    var body: some View {
-        let cursor = model.cursor
-
-        HStack(spacing: 14) {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 34))
-                .foregroundStyle(.tint)
-                .symbolRenderingMode(.hierarchical)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(cursor.accountEmail.isEmpty ? "Cursor account" : cursor.accountEmail)
-                    .font(.headline)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                if !cursor.accountPlan.isEmpty {
-                    PlanBadge(title: cursor.accountPlan)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            if cursor.phase == .live {
-                Button("Sign out", role: .destructive) {
-                    isConfirmingSignOut = true
-                }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("Sign out of Cursor")
-            }
-        }
-        .padding(AppChrome.cardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
-        .confirmationDialog(
-            "Sign out of Cursor?",
-            isPresented: $isConfirmingSignOut,
-            titleVisibility: .visible
-        ) {
-            Button("Sign out", role: .destructive) {
-                Task { await model.cursor.signOut() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Removes the Cursor sign-in and cached Cursor usage from this device. Your other accounts are not affected.")
         }
     }
 }

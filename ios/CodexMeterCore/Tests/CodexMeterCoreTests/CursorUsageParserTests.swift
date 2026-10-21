@@ -145,9 +145,23 @@ final class CursorUsageParserTests: XCTestCase {
     }
 
     func testEnabledProviderTabs() {
-        XCTAssertEqual(UsageProvider.enabled(from: nil), UsageProvider.allCases)
-        XCTAssertEqual(UsageProvider.enabled(from: ["", "bogus"]), UsageProvider.allCases)
+        // Nothing saved: an upgrade keeps just Codex, plus providers already signed in.
+        XCTAssertEqual(UsageProvider.enabled(from: nil), [.codex])
+        XCTAssertEqual(UsageProvider.enabled(from: ["", "bogus"]), [.codex])
+        XCTAssertEqual(UsageProvider.enabled(from: nil, signedIn: [.cursor]), [.codex, .cursor])
+        XCTAssertEqual(UsageProvider.migrationDefault(signedIn: [.codex]), [.codex])
+        XCTAssertEqual(
+            UsageProvider.migrationDefault(signedIn: [.cursor, .claudeCode]),
+            UsageProvider.allCases
+        )
         XCTAssertEqual(UsageProvider.enabled(from: ["cursor", " CODEX "]), [.codex, .cursor])
+        XCTAssertEqual(
+            UsageProvider.enabled(from: ["cursor"], signedIn: [.claudeCode]),
+            [.cursor],
+            "a saved choice wins over sign-in state"
+        )
+        XCTAssertEqual(UsageProvider.chosen([.cursor, .codex]), [.codex, .cursor])
+        XCTAssertEqual(UsageProvider.chosen([]), [])
 
         let two = UsageProvider.enabled(UsageProvider.allCases, setting: .claudeCode, on: false)
         XCTAssertEqual(two, [.codex, .cursor])
@@ -166,5 +180,23 @@ final class CursorUsageParserTests: XCTestCase {
         let custom = UsageProvider.order(from: ["cursor", "bogus", "CURSOR", " codex "])
         XCTAssertEqual(custom, [.cursor, .codex, .claudeCode])
         XCTAssertEqual(UsageProvider.inOrder(two, order: custom), [.cursor, .codex])
+    }
+
+    func testOnboardingSteps() {
+        XCTAssertEqual(OnboardingFlow.steps(for: []), [.welcome, .providers, .done])
+        let steps = OnboardingFlow.steps(for: [.claudeCode, .cursor])
+        XCTAssertEqual(
+            steps,
+            [.welcome, .providers, .connect(.claudeCode), .connect(.cursor), .done]
+        )
+        XCTAssertEqual(OnboardingFlow.next(after: .providers, in: steps), .connect(.claudeCode))
+        XCTAssertEqual(OnboardingFlow.next(after: .connect(.cursor), in: steps), .done)
+        XCTAssertEqual(OnboardingFlow.next(after: .done, in: steps), .done)
+        XCTAssertEqual(OnboardingFlow.previous(before: .connect(.claudeCode), in: steps), .providers)
+        XCTAssertEqual(OnboardingFlow.previous(before: .welcome, in: steps), .welcome)
+
+        XCTAssertTrue(OnboardingFlow.shouldShow(completed: false, hasExistingSetup: false))
+        XCTAssertFalse(OnboardingFlow.shouldShow(completed: false, hasExistingSetup: true))
+        XCTAssertFalse(OnboardingFlow.shouldShow(completed: true, hasExistingSetup: false))
     }
 }

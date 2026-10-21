@@ -14,7 +14,7 @@ struct ProvidersSettingsView: View {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(provider.displayName)
-                                Text("Signs in with \(provider.accountName)")
+                                Text(subtitle(for: provider))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -36,6 +36,14 @@ struct ProvidersSettingsView: View {
         .environment(\.editMode, .constant(.active))
         .navigationTitle("Providers")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func subtitle(for provider: UsageProvider) -> String {
+        let email = model.accountEmail(for: provider)
+        guard model.isSignedIn(provider), !email.isEmpty else {
+            return "Signs in with \(provider.accountName)"
+        }
+        return "Signed in as \(email)"
     }
 
     private func binding(for provider: UsageProvider) -> Binding<Bool> {

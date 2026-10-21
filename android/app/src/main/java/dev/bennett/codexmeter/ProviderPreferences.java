@@ -44,11 +44,31 @@ public final class ProviderPreferences {
                 getEnabled(context));
     }
 
-    /** Providers shown as dashboard tabs (Settings → Providers), in tab order. All by default. */
+    /**
+     * Providers shown as dashboard tabs (Settings → Providers), in tab order. Setup saves the
+     * user's choice; an install that never chose gets {@link UsageProvider#migrationDefault}.
+     */
     public static List<UsageProvider> getEnabled(Context context) {
         String saved = prefs(context).getString(KEY_ENABLED, null);
-        return UsageProvider.inOrder(UsageProvider.enabledFromIds(saved == null ? null
-                : new ArrayList<>(Arrays.asList(saved.split(",")))), getOrder(context));
+        if (saved == null || saved.trim().isEmpty()) {
+            // Decided once and saved, so the tabs don't shift when a sign-in changes later.
+            List<UsageProvider> signedIn = new ArrayList<>();
+            for (UsageProvider provider : UsageProvider.values()) {
+                if (SecureTokenStore.isSignedIn(context, provider)) signedIn.add(provider);
+            }
+            List<UsageProvider> initial = UsageProvider.migrationDefault(signedIn);
+            prefs(context).edit().putString(KEY_ENABLED, ids(initial)).apply();
+            return UsageProvider.inOrder(initial, getOrder(context));
+        }
+        return UsageProvider.inOrder(UsageProvider.enabledFromIds(
+                new ArrayList<>(Arrays.asList(saved.split(","))),
+                UsageProvider.migrationDefault(null)), getOrder(context));
+    }
+
+    /** Saves the providers picked during setup (at least one). */
+    public static void setEnabledProviders(Context context, List<UsageProvider> providers) {
+        if (providers == null || providers.isEmpty()) return;
+        prefs(context).edit().putString(KEY_ENABLED, ids(providers)).apply();
     }
 
     /** Every provider in the user's tab order (Settings → Providers). Enum order by default. */

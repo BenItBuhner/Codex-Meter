@@ -45,6 +45,8 @@ public final class MainActivity extends AppCompatActivity {
     private static final int MENU_REORDER = 8102;
     /** {@link UsageProvider#id} of the tab to open, e.g. from a Claude Code widget. */
     public static final String EXTRA_PROVIDER = "provider";
+    /** With {@code start_sign_in}: which provider to sign in to (Settings → Accounts). */
+    public static final String EXTRA_SIGN_IN_PROVIDER = "sign_in_provider";
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -54,6 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String lastLaunchedAuthUrl = "";
     private boolean launchSignInRequested;
+    private UsageProvider launchSignInProvider = UsageProvider.CODEX;
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
     private BottomTabLayout providerTabs;
@@ -205,7 +208,7 @@ public final class MainActivity extends AppCompatActivity {
         rebuild();
         if (this.launchSignInRequested) {
             this.launchSignInRequested = false;
-            startOrContinueSignIn();
+            startOrContinueSignIn(this.launchSignInProvider);
         }
         refreshSelectedProviderIfStale();
         if (SecureTokenStore.isSignedIn(this)) {
@@ -259,7 +262,10 @@ public final class MainActivity extends AppCompatActivity {
         }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
             this.launchSignInRequested = true;
+            this.launchSignInProvider = UsageProvider.fromId(
+                    intent.getStringExtra(EXTRA_SIGN_IN_PROVIDER));
             intent.removeExtra("start_sign_in");
+            intent.removeExtra(EXTRA_SIGN_IN_PROVIDER);
         }
         Uri data = intent == null ? null : intent.getData();
         if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
@@ -273,10 +279,15 @@ public final class MainActivity extends AppCompatActivity {
 
     private boolean routeToOnboarding(Intent intent) {
         boolean oauthReturn = isOAuthReturnIntent(intent);
+        boolean anySignedIn = false;
+        for (UsageProvider candidate : UsageProvider.values()) {
+            anySignedIn |= SecureTokenStore.isSignedIn(this, candidate);
+        }
         int action = OnboardingFlow.launchAction(
                 AppPreferences.isOnboardingComplete(this),
-                SecureTokenStore.isSignedIn(this),
-                oauthReturn);
+                anySignedIn,
+                oauthReturn,
+                AppPreferences.getOnboardingStep(this) > OnboardingFlow.STEP_WELCOME);
         if (action == OnboardingFlow.LAUNCH_MAIN_AND_COMPLETE) {
             // Existing signed-in installs predate onboarding and should not be interrupted.
             AppPreferences.completeOnboarding(this);
@@ -1155,24 +1166,8 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void signOut() {
-        DiagnosticLog.info(this, "user", "sign_out_confirmed");
-        final AuthTokens authTokensLoad = SecureTokenStore.load(this);
-        SecureTokenStore.clear(this);
-        AppPreferences.clearSnapshot(this);
-        AppPreferences.setOAuthPending(this, false, "");
-        RefreshScheduler.cancelAll(this);
-        // Keeps background refresh alive for other signed-in providers.
-        RefreshScheduler.schedulePeriodic(this);
-        ResetAlertScheduler.cancelAll(this);
-        WidgetRenderer.updateAll(this);
+        ProviderAccounts.signOut(this, UsageProvider.CODEX);
         rebuild();
-        this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.11
-            @Override // java.lang.Runnable
-            public void run() {
-                OAuthClient.revokeBestEffort(MainActivity.this.getApplicationContext(),
-                        authTokensLoad);
-            }
-        });
     }
 
     /**
@@ -1254,8 +1249,6 @@ public final class MainActivity extends AppCompatActivity {
             addDashboardCard(column, buildUsageHistoryCard(target));
         }
         this.content.addView(column);
-        Ui.addSpacer(this.content, 20);
-        this.content.addView(buildProviderAccountCard(target, snapshot));
     }
 
     private LinearLayout buildProviderIntroCard(UsageProvider target) {
@@ -1275,48 +1268,6 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
         summaryParams.setMargins(0, Ui.dp(this, 7), 0, 0);
         card.addView(summary, summaryParams);
-        return card;
-    }
-
-    private LinearLayout buildProviderAccountCard(UsageProvider target, UsageSnapshot snapshot) {
-        LinearLayout card = Ui.card(this, this.dark);
-        LinearLayout account = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
-        ImageView avatar = new ImageView(this);
-        avatar.setImageResource(R.drawable.ic_oui_contact_outline);
-        avatar.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
-        account.addView(avatar, new LinearLayout.LayoutParams(Ui.dp(this, 30), Ui.dp(this, 30)));
-        LinearLayout identity = new LinearLayout(this);
-        identity.setOrientation(LinearLayout.VERTICAL);
-        TextView title = Ui.text(this, target.accountName + " account", 17.0f,
-                Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        title.setSingleLine(true);
-        identity.addView(title);
-        String email = ProviderPreferences.getEmail(this, target);
-        TextView subtitle = Ui.text(this, email.isEmpty() ? "Connected" : email, 13.0f,
-                Ui.secondaryText(this.dark));
-        subtitle.setSingleLine(true);
-        subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        identity.addView(subtitle);
-        LinearLayout.LayoutParams identityParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
-        identityParams.setMargins(Ui.dp(this, 16), 0, Ui.dp(this, 10), 0);
-        account.addView(identity, identityParams);
-        if (snapshot != null && !snapshot.planType.isEmpty()) {
-            TextView badge = Ui.text(this, snapshot.planType, 14.0f, Ui.mainText(this.dark));
-            badge.setTypeface(Ui.mediumTypeface(this));
-            badge.setGravity(Gravity.CENTER);
-            badge.setPadding(Ui.dp(this, 13), Ui.dp(this, 6), Ui.dp(this, 13), Ui.dp(this, 6));
-            badge.setBackground(Ui.pillBackground(this, this.dark));
-            account.addView(badge);
-        }
-        card.addView(account, new LinearLayout.LayoutParams(-1, -2));
-        Button signOut = Ui.button(this, "Sign out", false, this.dark);
-        signOut.setCompoundDrawables(null, null, null, null);
-        signOut.setOnClickListener(view -> confirmProviderSignOut(target));
-        LinearLayout.LayoutParams signOutParams = new LinearLayout.LayoutParams(-1,
-                Ui.dp(this, 54));
-        signOutParams.setMargins(0, Ui.dp(this, 16), 0, 0);
-        card.addView(signOut, signOutParams);
         return card;
     }
 
@@ -1347,30 +1298,6 @@ public final class MainActivity extends AppCompatActivity {
                 rebuild();
             });
         });
-    }
-
-    private void confirmProviderSignOut(UsageProvider target) {
-        new AlertDialog.Builder(this)
-                .setTitle("Sign out of " + target.accountName + "?")
-                .setMessage("This removes encrypted " + target.accountName
-                        + " tokens and cached " + target.displayName
-                        + " usage from this device. Codex stays signed in.")
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Sign out", (dialog, which) -> signOutProvider(target))
-                .create()
-                .show();
-    }
-
-    private void signOutProvider(UsageProvider target) {
-        DiagnosticLog.info(this, "user", "sign_out_confirmed", "provider", target.id);
-        SecureTokenStore.clear(this, target);
-        ProviderPreferences.clearProvider(this, target);
-        RefreshScheduler.schedulePeriodic(this);
-        WidgetRenderer.updateAll(this);
-        if (ProviderPreferences.isSignInPending(this, target)) {
-            AppPreferences.setOAuthPending(this, false, "");
-        }
-        rebuild();
     }
 
     public void requestPinWidget() {

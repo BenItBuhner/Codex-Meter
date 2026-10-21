@@ -193,6 +193,52 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Providers"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("18-providers-settings")
+
+        // First-run setup on a fresh install: nothing is preselected, each chosen provider
+        // gets its own Connect step.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-onboarding"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.0)
+        capture("19-onboarding-welcome")
+
+        UITestSupport.tap(app.buttons["Get started"])
+        XCTAssertTrue(app.staticTexts["Choose your providers"].waitForExistence(timeout: 5))
+        tapToggle(app.switches["onboarding-provider-claude_code"], in: app)
+        tapToggle(app.switches["onboarding-provider-cursor"], in: app)
+        UITestSupport.settle(0.8)
+        capture("20-onboarding-providers")
+
+        UITestSupport.tap(app.buttons["Continue"])
+        XCTAssertTrue(app.staticTexts["Connect Claude Code"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("21-onboarding-connect")
+
+        // Accounts live in Settings, one compact row per provider with a tab.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing-signed-out",
+            "-ui-testing-providers", "codex,claude_code,cursor"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 8))
+        UITestSupport.tap(app.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        _ = app.buttons["account-cursor"].waitForExistence(timeout: 5)
+        UITestSupport.settle(0.8)
+        capture("22-settings-accounts")
+    }
+
+    private func tapToggle(_ toggle: XCUIElement, in app: XCUIApplication) {
+        guard toggle.waitForExistence(timeout: 5) else { return }
+        // A SwiftUI Toggle's switch sits at the trailing edge of its row.
+        if toggle.switches.firstMatch.exists {
+            toggle.switches.firstMatch.tap()
+        } else {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        }
+        UITestSupport.settle(0.3)
     }
 
     private func capture(_ name: String) {
@@ -211,7 +257,7 @@ final class DemoGalleryTests: XCTestCase {
     }
 
     private func scrollSettingsToTop(in app: XCUIApplication) {
-        for _ in 0..<6 where !app.staticTexts["Account"].exists {
+        for _ in 0..<6 where !app.staticTexts["Accounts"].exists {
             app.swipeDown()
         }
     }
