@@ -174,6 +174,62 @@ final class DemoGalleryTests: XCTestCase {
             .waitForExistence(timeout: 5)
         UITestSupport.settle(1.0)
         capture("16-refresh-failure")
+
+        // Largest accessibility text size: the signed-out hero, the meters, the
+        // in-card glyphs, and the settings form all scale with Dynamic Type and
+        // must not clip. Every dashboard still is gated on the dashboard actually
+        // appearing so a missed step cannot pass off another screen as it.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing-signed-out",
+            "-ui-testing-reset-settings",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.0)
+        capture("16a-signed-out-ax5")
+
+        // Relaunch straight into demo: entering it from the signed-out card would
+        // keep that card's scroll offset, and the dashboard must be shot from the top.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing-demo",
+            "-ui-testing-reset-settings",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ]
+        app.launch()
+        guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 8),
+              app.staticTexts["5-hour"].waitForExistence(timeout: 8) else {
+            XCTFail("The demo dashboard did not appear at the AX5 text size")
+            return
+        }
+        UITestSupport.settle(1.2)
+        capture("16b-demo-dashboard-ax5")
+
+        // One long drag brings the first meter card fully into view: ring on top,
+        // full-width title and details stacked beneath it.
+        UITestSupport.dragDashboard(in: app, from: 0.92)
+        UITestSupport.settle(0.8)
+        capture("16c-demo-meter-ax5")
+
+        UITestSupport.tap(app.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("16d-settings-ax5")
+        UITestSupport.tap(app.buttons["Done"])
+        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+
+        // Reset credits is the last dashboard card, so the end of the page is the
+        // card; scroll there blind and ask the accessibility tree only once.
+        UITestSupport.scrollDashboardToBottom(in: app)
+        UITestSupport.settle(0.8)
+        if app.buttons["Use 1 reset"].waitForExistence(timeout: 5),
+           UITestSupport.isFullyVisible(app.buttons["Use 1 reset"], in: app) {
+            capture("16e-demo-reset-credits-ax5")
+        } else {
+            XCTFail("Reset credits card was not reached at the AX5 text size")
+        }
         UITestSupport.settle(0.8)
 
         // Settings → Providers narrows and orders the tabs: two providers keep the bar (in the
@@ -268,7 +324,8 @@ final class DemoGalleryTests: XCTestCase {
     }
 
     private func scrollSettingsToTop(in app: XCUIApplication) {
-        for _ in 0..<6 where !app.staticTexts["Accounts"].exists {
+        for _ in 0..<6 {
+            if app.staticTexts["Accounts"].exists { return }
             app.swipeDown()
         }
     }

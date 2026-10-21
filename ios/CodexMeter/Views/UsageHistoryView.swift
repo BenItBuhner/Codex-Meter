@@ -314,26 +314,28 @@ private struct HistoryDetailCard: View {
             .foregroundStyle(.secondary)
 
             if showWindowList, breakdown.count > 1 {
-                Divider()
-                ForEach(Array(breakdown.enumerated().reversed()), id: \.offset) { index, stats in
-                    Button {
-                        selectedWindowIndex = stats.complete ? index : nil
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(stats.complete ? windowRangeLabel(stats) : "Current window")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(
-                                    selectedWindowIndex == index || (!stats.complete && selectedWindowIndex == nil)
-                                        ? Color.accentColor : .primary
-                                )
-                            Text(windowSubtitle(stats))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(breakdown.enumerated().reversed()), id: \.offset) { index, stats in
+                        Button {
+                            selectedWindowIndex = stats.complete ? index : nil
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(stats.complete ? windowRangeLabel(stats) : "Current window")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(
+                                        selectedWindowIndex == index || (!stats.complete && selectedWindowIndex == nil)
+                                            ? Color.accentColor : .primary
+                                    )
+                                Text(windowSubtitle(stats))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.top, 6)
             }
         }
         .padding(AppChrome.cardPadding)
@@ -525,6 +527,7 @@ private struct ValueEstimatesCard: View {
 }
 
 private struct UsageBurnChart: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let kind: UsageHistoryKind
     let window: UsageWindow
@@ -588,10 +591,12 @@ private struct UsageBurnChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack {
+            dynamicTypeSize.rowLayout(spacing: 8) {
                 Text(title)
                     .font(.subheadline.bold())
-                Spacer(minLength: 8)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
+                }
                 Text(currentPoints.count < 2 ? "Building history" : "\(currentPoints.count) samples")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -694,6 +699,7 @@ private struct UsageBurnChart: View {
                 }
                 .font(.caption)
                 .foregroundStyle(pace.isAccelerated ? .orange : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

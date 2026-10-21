@@ -6,6 +6,8 @@ struct SignInView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingBrowser = false
     @State private var didCopyCode = false
+    @ScaledMetric(relativeTo: .largeTitle) private var introSymbolSize: CGFloat = 54
+    @ScaledMetric(relativeTo: .largeTitle) private var codeSymbolSize: CGFloat = 48
 
     var body: some View {
         ScrollView {
@@ -59,7 +61,7 @@ struct SignInView: View {
     private var introStep: some View {
         VStack(spacing: 20) {
             Image(systemName: "person.crop.circle.badge.checkmark")
-                .font(.system(size: 54))
+                .font(.system(size: introSymbolSize))
                 .foregroundStyle(.tint)
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityHidden(true)
@@ -96,7 +98,7 @@ struct SignInView: View {
     private func codeStep(challenge: DeviceCodeChallenge) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "person.badge.key.fill")
-                .font(.system(size: 48))
+                .font(.system(size: codeSymbolSize))
                 .foregroundStyle(.tint)
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityHidden(true)

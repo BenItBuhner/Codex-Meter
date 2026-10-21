@@ -5,6 +5,7 @@ struct AboutView: View {
     @State private var versionTaps = 0
     @State private var unlockHint: String?
     @State private var showingDiagnostics = false
+    @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 52
 
     private static let diagnosticTaps = 7
 
@@ -17,7 +18,7 @@ struct AboutView: View {
             Section {
                 VStack(spacing: 12) {
                     Image(systemName: "gauge.with.dots.needle.67percent")
-                        .font(.system(size: 52))
+                        .font(.system(size: symbolSize))
                         .foregroundStyle(.tint)
                         .symbolRenderingMode(.hierarchical)
                         .accessibilityHidden(true)

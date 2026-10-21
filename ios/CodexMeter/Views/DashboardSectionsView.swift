@@ -282,6 +282,8 @@ struct AdditionalLimitCards: View {
 
 private struct UsageCreditsCard: View {
     let credits: UsageCredits
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var balance: String {
         if credits.unlimited {
@@ -311,9 +313,9 @@ private struct UsageCreditsCard: View {
             Text("Usage credits")
                 .font(.headline.bold())
 
-            HStack(spacing: 16) {
+            dynamicTypeSize.rowLayout(spacing: 16) {
                 Image(systemName: "creditcard.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)
@@ -325,7 +327,9 @@ private struct UsageCreditsCard: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
             }
         }
         .padding(AppChrome.cardPadding)
@@ -452,6 +456,8 @@ private struct SpendControlBar: View {
 
 private struct ResetCreditsDashboardCard: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var count: Int {
         model.credits?.availableCount ?? model.usage?.resetCreditsAvailable ?? 0
@@ -480,9 +486,9 @@ private struct ResetCreditsDashboardCard: View {
             Text("Reset credits")
                 .font(.headline.bold())
 
-            HStack(spacing: 16) {
+            dynamicTypeSize.rowLayout(spacing: 16) {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)
@@ -500,7 +506,9 @@ private struct ResetCreditsDashboardCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
             }
 
             Button(count > 0 ? "Use 1 reset" : "No resets available") {

@@ -2,6 +2,10 @@ import CodexMeterCore
 import SwiftUI
 
 struct UsageMeterCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    // The ring frames a .title2 numeral, so it grows with that text style.
+    @ScaledMetric(relativeTo: .title2) private var ringDiameter: CGFloat = 92
+
     let title: LocalizedStringKey
     let systemImage: String
     let window: UsageWindow?
@@ -16,7 +20,7 @@ struct UsageMeterCard: View {
     private var ringAccent: Color { pace.isAccelerated ? .orange : accent }
 
     var body: some View {
-        HStack(spacing: 18) {
+        dynamicTypeSize.rowLayout(spacing: 18) {
             ZStack {
                 Circle()
                     .stroke(ringAccent.opacity(0.16), lineWidth: 11)
@@ -34,7 +38,7 @@ struct UsageMeterCard: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 92, height: 92)
+            .frame(width: ringDiameter, height: ringDiameter)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(title))
             .accessibilityValue(accessibilityValue)
@@ -42,6 +46,7 @@ struct UsageMeterCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label(title, systemImage: systemImage)
                     .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if window != nil {
                     Text("\(used)% used")
@@ -78,7 +83,9 @@ struct UsageMeterCard: View {
                     .foregroundStyle(pace.isAccelerated ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
                 }
             }
-            Spacer(minLength: 0)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer(minLength: 0)
+            }
         }
         .padding(AppChrome.cardPadding)
         .frame(maxWidth: .infinity, minHeight: 138, alignment: .leading)
