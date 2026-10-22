@@ -20,9 +20,10 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Design">
-        <Preference
-            android:key="one_ui_9_preview"
-            android:title="Try One UI 9" />
+        <SwitchPreferenceCompat
+            android:key="one_ui_9_design"
+            android:summary="Floating toolbar and tab bar from Samsung's One UI 9"
+            android:title="One UI 9 design" />
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -2,15 +2,10 @@ plugins {
     id("com.android.application")
 }
 
-// One UI 9 preview: `-PoneUi9=true` builds a side-by-side app ("dev.bennett.codexmeter.oneui9")
-// on Samsung's SESL9 libraries instead of SESL8. SESL8 and SESL9 share class names, so one APK
-// can only hold one of them. SESL9 is published only on GitHub Packages (needs a token with
-// read:packages) and ships Java 24 bytecode, so this build needs JDK 25.
-val oneUi9 = providers.gradleProperty("oneUi9").orNull?.toBoolean() ?: false
-
-// tribalfs has no oneui9 build of oneui-design yet, so the oneui8 build runs on SESL9 underneath.
-// Pins are strict because oneui-design's POM still asks for SESL8, whose numerically higher
-// versions would otherwise win resolution.
+// Samsung's SESL9 libraries (One UI 9) back the whole app. The Appearance setting picks between
+// the classic look and the One UI 9 chrome at runtime (see DesignChrome); SESL8 and SESL9 share
+// class names, so one APK can only hold one of them. SESL9 is published only on GitHub Packages
+// and vendored in vendor/m2 (ci/vendor-sesl9.sh). It ships Java 24 bytecode, so builds need JDK 25.
 val sesl9 = mapOf(
     "sesl.androidx.appcompat:appcompat" to "1.8.0+1.0.38-sesl9+rev4",
     "sesl.androidx.coordinatorlayout:coordinatorlayout" to "1.3.0+1.0.6-sesl9+rev0",
@@ -45,12 +40,6 @@ android {
         targetSdk = 36
         versionCode = 30
         versionName = "2.9.0-alpha.4"
-        buildConfigField("boolean", "ONE_UI_9", oneUi9.toString())
-        manifestPlaceholders["appLabel"] = if (oneUi9) "Codex Meter One UI 9" else "@string/app_name"
-        if (oneUi9) {
-            applicationIdSuffix = ".oneui9"
-            versionNameSuffix = "-oneui9"
-        }
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -108,15 +97,6 @@ android {
     lint {
         baseline = file("lint-baseline.xml")
     }
-
-    // One UI 9 chrome (floating toolbar, floating tab bar, native fades) only compiles against
-    // SESL9, so each design keeps its own copy of DesignChrome.
-    sourceSets.getByName("main") {
-        java.directories.add(if (oneUi9) "src/oneui9/java" else "src/oneui8/java")
-        if (oneUi9) {
-            res.directories.add("src/oneui9/res")
-        }
-    }
 }
 
 configurations.configureEach {
@@ -139,10 +119,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("io.github.tribalfs:oneui-design:0.9.20+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
-    if (oneUi9) {
-        implementation(project(":oneui9compat"))
-        sesl9.forEach { (module, pinned) ->
-            implementation(module) { version { strictly(pinned) } }
-        }
+    implementation(project(":oneui9compat"))
+    sesl9.forEach { (module, pinned) ->
+        implementation(module) { version { strictly(pinned) } }
     }
 }

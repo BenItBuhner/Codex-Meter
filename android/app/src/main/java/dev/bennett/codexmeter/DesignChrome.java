@@ -34,7 +34,8 @@ import java.util.List;
 import java.util.WeakHashMap;
 
 /**
- * One UI 9 preview: puts SESL9's own chrome on top of the One UI 8 oneui-design wrappers.
+ * One UI 9 design (Settings → Appearance): puts SESL9's own chrome on top of the One UI 8
+ * oneui-design wrappers. With the setting off, pages keep the classic look.
  *
  * <ul>
  *   <li>Each collapsing app bar's toolbar moves into SESL9's {@link FloatingToolbarLayout}, the
@@ -50,10 +51,32 @@ import java.util.WeakHashMap;
 final class DesignChrome {
     private static final int INSTALLED_TAG = R.id.design_chrome_installed;
 
+    /** The design each live activity was built with, so a switch in Settings can rebuild it. */
+    private static final WeakHashMap<Activity, Boolean> BUILT_WITH = new WeakHashMap<>();
+
     private DesignChrome() {
     }
 
+    /**
+     * Rebuilds an activity that was built with the other design. Settings recreates itself when
+     * the switch changes; the pages behind it catch up here when they come back to the front.
+     */
+    static void syncOnResume(Activity activity) {
+        Boolean builtWith = BUILT_WITH.get(activity);
+        if (builtWith != null && builtWith != AppPreferences.isOneUi9Design(activity)) {
+            BUILT_WITH.remove(activity);
+            activity.recreate();
+        }
+    }
+
     static void install(Activity activity) {
+        boolean oneUi9 = AppPreferences.isOneUi9Design(activity);
+        if (!BUILT_WITH.containsKey(activity)) {
+            BUILT_WITH.put(activity, oneUi9);
+        }
+        if (!oneUi9 || !BUILT_WITH.get(activity)) {
+            return;
+        }
         ViewGroup content = activity.findViewById(android.R.id.content);
         if (content == null || content.getTag(INSTALLED_TAG) != null) {
             return;
