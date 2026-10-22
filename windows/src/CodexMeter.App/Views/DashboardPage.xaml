@@ -6,7 +6,22 @@
     xmlns:controls="using:CodexMeter.App.Controls"
     Background="Transparent">
     <ScrollViewer x:Name="PageScroller" VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="1180" Padding="36,28,36,36" Spacing="14">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="Wide">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="760" /></VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="Narrow">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="0" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ContentPanel.Padding" Value="16,20,16,24" />
+                        <Setter Target="RefreshLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="TitleText.FontSize" Value="24" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <StackPanel x:Name="ContentPanel" MaxWidth="1180" Padding="36,28,36,36" Spacing="14">
             <Grid ColumnSpacing="14">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -16,20 +31,20 @@
                 <Border x:Name="HeaderIconHost" Width="40" Height="40" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock x:Name="TitleText" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.AutomationId="DashboardTitle" />
+                        <TextBlock x:Name="TitleText" Style="{StaticResource TitleTextBlockStyle}" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DashboardTitle" />
                         <Border x:Name="PlanBadge" Style="{StaticResource PlanBadgeStyle}" Visibility="Collapsed">
                             <TextBlock x:Name="PlanText" Style="{StaticResource PlanBadgeTextStyle}" AutomationProperties.AutomationId="PlanBadge" />
                         </Border>
                     </StackPanel>
-                    <TextBlock x:Name="SubtitleText" Style="{StaticResource CaptionSecondaryTextStyle}" AutomationProperties.AutomationId="DashboardSubtitle" />
+                    <TextBlock x:Name="SubtitleText" Style="{StaticResource CaptionSecondaryTextStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DashboardSubtitle" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <ProgressRing x:Name="RefreshingRing" Width="20" Height="20" IsActive="False" />
-                    <Button x:Name="RefreshButton" Click="OnRefreshClick" AutomationProperties.AutomationId="RefreshButton"
+                    <Button x:Name="RefreshButton" Click="OnRefreshClick" AutomationProperties.AutomationId="RefreshButton" AutomationProperties.Name="Refresh"
                             ToolTipService.ToolTip="Refresh (F5)">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE72C;" FontSize="14" />
-                            <TextBlock Text="Refresh" />
+                            <TextBlock x:Name="RefreshLabel" Text="Refresh" />
                         </StackPanel>
                         <Button.KeyboardAccelerators>
                             <KeyboardAccelerator Key="F5" />

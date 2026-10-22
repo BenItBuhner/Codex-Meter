@@ -27,7 +27,9 @@
             AutomationProperties.AutomationId="MainNavigation"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="True"
-            PaneDisplayMode="Left"
+            PaneDisplayMode="Auto"
+            CompactModeThresholdWidth="560"
+            ExpandedModeThresholdWidth="900"
             OpenPaneLength="240"
             IsPaneToggleButtonVisible="True"
             SelectionChanged="OnNavigationSelectionChanged">
