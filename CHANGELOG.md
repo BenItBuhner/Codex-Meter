@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Codex Meter for Mac (`macos/`): a native SwiftUI app with a menu bar meter that shows the allowance closest to running out, a panel with every provider's meters, a sidebar window with the same Codex, Claude Code and Cursor dashboards as the iPhone app, a Settings window (⌘,), Usage menu shortcuts (⌘R, ⌘1–⌘9), Open at login, and desktop widgets. It keeps refreshing, alerting, and auto-using expiring resets from the menu bar after its window closes.
+
 ## 2.9.0-alpha.4 — 2026-10-22
 
 ### Added
