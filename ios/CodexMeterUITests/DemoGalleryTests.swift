@@ -57,7 +57,7 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.5)
 
         UITestSupport.tap(app.buttons["Explore demo"])
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.2)
         capture("03-demo-dashboard")
@@ -69,11 +69,11 @@ final class DemoGalleryTests: XCTestCase {
         capture("03b-claude-code-demo")
         UITestSupport.tap(app.buttons["Cursor"])
         XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Included usage · Weekly"].waitForExistence(timeout: 5))
         UITestSupport.settle(1.0)
         capture("03c-cursor-demo")
         UITestSupport.tap(app.buttons["Codex"])
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.6)
 
         UITestSupport.scrollDashboard(untilVisible: app.staticTexts["17,000 credits remaining"], in: app)
@@ -98,7 +98,7 @@ final class DemoGalleryTests: XCTestCase {
         capture("08-reset-confirm")
         UITestSupport.tap(app.alerts["Use one Codex reset?"].buttons["Cancel"])
         UITestSupport.tap(app.buttons["Close"])
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.4)
 
         UITestSupport.tap(app.buttons["Edit dashboard"])
@@ -106,7 +106,7 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("09-edit-dashboard")
         UITestSupport.tap(app.buttons["Done"])
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
 
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
@@ -149,7 +149,7 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("14-settings-dark")
         UITestSupport.tap(app.buttons["Done"])
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
 
         // Relaunch so the dark dashboard is captured from the top, with the
         // meters visible, instead of at whatever scroll offset the tour left.
@@ -199,7 +199,7 @@ final class DemoGalleryTests: XCTestCase {
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
         ]
         app.launch()
-        guard app.navigationBars["Codex Meter"].waitForExistence(timeout: 8),
+        guard app.navigationBars["Codex"].waitForExistence(timeout: 8),
               app.staticTexts["5-hour"].waitForExistence(timeout: 8) else {
             XCTFail("The demo dashboard did not appear at the AX5 text size")
             return
@@ -218,7 +218,7 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("16d-settings-ax5")
         UITestSupport.tap(app.buttons["Done"])
-        XCTAssertTrue(app.navigationBars["Codex Meter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
 
         // Reset credits is the last dashboard card, so the end of the page is the
         // card; scroll there blind and ask the accessibility tree only once.
@@ -240,7 +240,7 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.buttons["Cursor"].waitForExistence(timeout: 8))
         XCTAssertFalse(app.buttons["Claude Code"].exists)
         UITestSupport.tap(app.buttons["Cursor"])
-        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Included usage · Weekly"].waitForExistence(timeout: 5))
         UITestSupport.settle(1.0)
         capture("17-providers-two-tabs")
 
@@ -248,7 +248,7 @@ final class DemoGalleryTests: XCTestCase {
         app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "cursor"]
         app.launch()
         XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["Included usage"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Included usage · Weekly"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Codex"].exists)
         UITestSupport.settle(1.0)
         capture("18-providers-cursor-only")

@@ -85,7 +85,8 @@ public final class CursorUsageApi {
                 }
                 UsageSnapshot snapshot = CursorUsageParser.parse(usage.body, plan,
                         System.currentTimeMillis());
-                if (snapshot.monthly == null && snapshot.additionalLimits.isEmpty()) {
+                if (snapshot.weekly == null && snapshot.monthly == null
+                        && snapshot.additionalLimits.isEmpty()) {
                     throw new Exception("Cursor returned no recognizable usage data.");
                 }
                 if (!ProviderPreferences.saveSnapshot(context, PROVIDER, snapshot)) {
@@ -94,7 +95,8 @@ public final class CursorUsageApi {
                 UsageHistoryRecorder.record(context, PROVIDER, snapshot);
                 DiagnosticLog.info(context, "refresh", "cursor_usage_refresh_succeeded",
                         "duration_ms", SystemClock.elapsedRealtime() - started,
-                        "plan_window", snapshot.monthly != null,
+                        "plan_window", snapshot.weekly != null ? "weekly"
+                                : snapshot.monthly != null ? "monthly" : "none",
                         "additional_limits", snapshot.additionalLimits.size());
                 return snapshot;
             }

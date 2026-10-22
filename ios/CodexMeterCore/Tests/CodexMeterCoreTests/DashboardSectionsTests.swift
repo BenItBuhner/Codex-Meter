@@ -99,4 +99,57 @@ final class DashboardSectionsTests: XCTestCase {
             ["weekly", "five_hour"]
         )
     }
+
+    func testProviderSectionsListOnlyWhatEachProviderReports() {
+        // Before any data, each provider lists its usual cards.
+        XCTAssertEqual(
+            DashboardSections.providerSections(
+                snapshot: nil,
+                emptyDefaults: UsageProvider.cursor.usualDashboardSections
+            ),
+            [DashboardSections.weekly, DashboardSections.usageHistory]
+        )
+        XCTAssertEqual(
+            DashboardSections.providerSections(
+                snapshot: nil,
+                emptyDefaults: UsageProvider.claudeCode.usualDashboardSections,
+                includeHistory: false
+            ),
+            [DashboardSections.fiveHour, DashboardSections.weekly]
+        )
+        XCTAssertFalse(UsageProvider.cursor.usualDashboardSections.contains(DashboardSections.fiveHour))
+
+        let window = UsageWindow(usedPercent: 10, windowSeconds: 604_800)
+        let pool = UsageLimit(id: "cursor_auto", name: "Cursor models", primary: window, secondary: nil)
+        let spend = UsageLimit(id: "cursor_on_demand", name: "On-demand ($1 of $2)", primary: window, secondary: nil)
+        let monthly = UsageSnapshot(
+            planType: "Pro",
+            allowed: true,
+            limitReached: false,
+            fiveHour: nil,
+            weekly: nil,
+            monthly: window,
+            additionalLimits: [pool, spend, pool],
+            fetchedAt: Date(timeIntervalSince1970: 0)
+        )
+        XCTAssertEqual(
+            DashboardSections.providerSections(snapshot: monthly, emptyDefaults: [DashboardSections.weekly]),
+            [
+                DashboardSections.monthly,
+                "limit:cursor_auto",
+                "limit:cursor_on_demand",
+                DashboardSections.usageHistory
+            ]
+        )
+
+        // Saved order and hidden keys apply; unavailable saved keys drop out.
+        XCTAssertEqual(
+            DashboardSections.visibleProviderSections(
+                snapshot: monthly,
+                savedOrder: ["limit:cursor_on_demand", DashboardSections.fiveHour, DashboardSections.monthly],
+                hidden: ["limit:cursor_auto"]
+            ),
+            ["limit:cursor_on_demand", DashboardSections.monthly]
+        )
+    }
 }

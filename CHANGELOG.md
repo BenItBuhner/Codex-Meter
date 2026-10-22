@@ -6,8 +6,15 @@
 
 - Settings → Appearance → Try One UI 9 opens the One UI 9 preview, a separate app that installs next to Codex Meter and uses Samsung's One UI 9 (SESL9) components. The standard app keeps its One UI 8 design.
 
+### Changed
+
+- The Codex tab's title now reads "Codex", like the Claude Code and Cursor tabs.
+- Edit dashboard is per provider: each tab keeps its own card order and hidden cards, and the editor lists only the cards that provider reports (Codex keeps its existing layout).
+- Cursor limits follow Cursor's current plans. Current plans show one "Included usage · Weekly" card plus any "Additional usage" cap. Legacy monthly plans (Pro, Pro+, Ultra) show "Included usage · Monthly", the "Cursor models" and "Other models" pools, and on-demand spend. The outdated "Auto + Composer" and "API models" labels are gone, and Cursor card titles no longer truncate.
+
 ### Development
 
+- Self-tests cover Cursor weekly vs legacy plans and the per-provider dashboard sections.
 - Android: AGP 9.4.1, Gradle 9.8.2, Wear Tiles 1.6.2, ProtoLayout 1.4.2, androidx.core 1.19.1, Guava 33.7.2.
 - `-PoneUi9=true` builds the One UI 9 preview (`dev.bennett.codexmeter.oneui9`). It needs JDK 25 and GitHub Packages access, or SESL9 in `android/vendor/m2` (`android/ci/vendor-sesl9.sh`).
 
