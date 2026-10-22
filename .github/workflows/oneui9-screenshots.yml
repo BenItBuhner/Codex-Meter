@@ -124,6 +124,8 @@ jobs:
             seed $SET codex settings;        shot "$p-06-settings"
             swipe_up;                        shot "$p-07-settings-scrolled"
             seed $SET codex appearance;      shot "$p-08-appearance"
+            seed $SET codex widget;          shot "$p-09-widget-settings"
+            swipe_up;                        shot "$p-10-widget-settings-scrolled"
           }
           run_set light
           # Animation recordings (light)

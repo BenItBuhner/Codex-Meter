@@ -55,6 +55,9 @@ public class DebugSeedActivity extends Activity {
             next = new Intent(this, SettingsActivity.class);
         } else if ("appearance".equals(open)) {
             next = new Intent(this, SettingsActivity.class).putExtra("settings_page", "appearance");
+        } else if ("widget".equals(open)) {
+            next = new Intent(this, WidgetConfigActivity.class)
+                    .putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, 4242);
         } else if ("add".equals(open)) {
             next = new Intent(this, AddAccountActivity.class);
         } else if ("sign_in".equals(open)) {

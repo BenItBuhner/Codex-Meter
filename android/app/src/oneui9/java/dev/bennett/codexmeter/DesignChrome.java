@@ -5,6 +5,7 @@ import android.content.res.Resources;
 import android.graphics.Insets;
 import android.os.Build;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -21,6 +22,8 @@ import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
+import com.google.android.material.oneui.dividerbuttonlayout.DividerButtonLayout;
+import com.google.android.material.oneui.floatingactioncontainer.FloatingBottomLayout;
 import com.google.android.material.oneui.floatingactioncontainer.FloatingToolbarLayout;
 import com.google.android.material.tabs.TabLayout;
 import dev.oneuiproject.oneui.widget.BottomTabLayout;
@@ -35,6 +38,7 @@ import java.util.WeakHashMap;
  *   <li>Each collapsing app bar's toolbar moves into SESL9's {@link FloatingToolbarLayout}, the
  *       floating pill toolbar One UI 9 shows once the large title scrolls away.</li>
  *   <li>Scrolling lists get SESL9's native top and bottom fading edges.</li>
+ *   <li>Widget settings get SESL9's floating Cancel / Save bar.</li>
  *   <li>The provider tabs become SESL9's floating, blurred {@link BottomNavigationView}.</li>
  * </ul>
  *
@@ -63,6 +67,7 @@ final class DesignChrome {
             if (tabs != null) {
                 FloatingTabs.attach(activity, content, tabs);
             }
+            installFloatingConfigActions(content);
         };
         apply.run();
         // Settings fragments, sign-in pages and rebuilt dashboards attach their views later.
@@ -85,6 +90,52 @@ final class DesignChrome {
             // A list can get its first insets before the fade helper installs its listener.
             ViewCompat.requestApplyInsets(view);
         }
+    }
+
+    /**
+     * Widget settings: swaps the hand-drawn Cancel / Save pill for SESL9's
+     * {@link DividerButtonLayout} inside a {@link FloatingBottomLayout}, as Twidget's
+     * WidgetConfigChrome does. The buttons forward to the original views, so the page's own
+     * click handlers stay the single source of behavior.
+     */
+    private static void installFloatingConfigActions(ViewGroup content) {
+        View oldBar = content.findViewById(R.id.config_button_bar);
+        if (oldBar == null || oldBar.getVisibility() == View.GONE) {
+            return;
+        }
+        View cancel = content.findViewById(R.id.config_cancel);
+        View save = content.findViewById(R.id.config_save);
+        CoordinatorLayout coordinator = content.findViewById(R.id.toolbarlayout_coordinator_layout);
+        NestedScrollView scroll = content.findViewById(R.id.widget_settings_scroll);
+        if (cancel == null || save == null || coordinator == null || scroll == null) {
+            return;
+        }
+        oldBar.setVisibility(View.GONE);
+        View overlay = LayoutInflater.from(content.getContext())
+                .inflate(R.layout.design_config_actions, coordinator, false);
+        coordinator.addView(overlay, new CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        FloatingBottomLayout floating = overlay.findViewById(R.id.design_config_floating);
+        DividerButtonLayout buttons = overlay.findViewById(R.id.design_config_buttons);
+        buttons.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.design_config_cancel) {
+                return cancel.performClick();
+            } else if (id == R.id.design_config_save) {
+                return save.performClick();
+            }
+            return false;
+        });
+        floating.enableScrollTransition(false, true);
+        floating.setNestedScrollView(scroll);
+        // Keep the last settings row clear of the floating bar.
+        floating.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orr, ob) -> {
+            int clearance = coordinator.getHeight() - floating.getTop();
+            if (clearance > 0 && scroll.getPaddingBottom() != clearance) {
+                scroll.setPadding(scroll.getPaddingLeft(), scroll.getPaddingTop(),
+                        scroll.getPaddingRight(), clearance);
+            }
+        });
     }
 
     private static void installFloatingToolbar(AppBarLayout appBar) {
