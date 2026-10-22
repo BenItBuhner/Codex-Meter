@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.4 — 2026-10-22
+
 ### Added
 
 - Settings → Appearance → Try One UI 9 opens the One UI 9 preview, a separate app that installs next to Codex Meter. It runs on Samsung's One UI 9 (SESL9) libraries and uses their One UI 9 components: the floating toolbar, the floating blurred tab bar, native fading list edges and the floating Cancel / Save bar in widget settings. The standard app keeps its One UI 8 design.

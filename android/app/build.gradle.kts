@@ -44,7 +44,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 30
-        versionName = "2.9.0-alpha.3"
+        versionName = "2.9.0-alpha.4"
         buildConfigField("boolean", "ONE_UI_9", oneUi9.toString())
         manifestPlaceholders["appLabel"] = if (oneUi9) "Codex Meter One UI 9" else "@string/app_name"
         if (oneUi9) {
