@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.8 — 2026-10-22
+
 ### Fixed
 
 - One UI 9 design: the lighter grey band behind the floating back button is gone. SESL fades list edges on Android 16+ by erasing what the list drew there, and SESL's settings list draws its cards as a grey background under black gaps, so the fade uncovered that grey. Every One UI 9 list now fades into the exact page color instead.
