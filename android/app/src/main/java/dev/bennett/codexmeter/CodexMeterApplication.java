@@ -51,6 +51,7 @@ public final class CodexMeterApplication extends Application
 
     @Override
     public void onActivityStarted(Activity activity) {
+        DesignChrome.install(activity);
     }
 
     @Override

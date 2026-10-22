@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- BottomTabLayout's overflow tab label. SESL8 material had it; SESL9 material doesn't. -->
+    <string name="sesl_more_item_label">More</string>
+</resources>
