@@ -60,6 +60,7 @@ final class OneUi9Page implements Ui.Header {
     private int bottomInset;
     private int bottomReserve;
     private View boundScroller;
+    private View statusScrim;
     private int scrollerBasePaddingBottom;
 
     private OneUi9Page(AppCompatActivity activity, View root, boolean expandable) {
@@ -100,6 +101,7 @@ final class OneUi9Page implements Ui.Header {
 
     private void setUp(CharSequence title, boolean back) {
         edgeToEdge();
+        addStatusScrim();
         activity.setSupportActionBar(toolbar);
         ActionBar actionBar = activity.getSupportActionBar();
         if (actionBar != null) {
@@ -153,6 +155,30 @@ final class OneUi9Page implements Ui.Header {
     }
 
     /**
+     * SESL9 fades scrolling content under the status bar only on Android 16 and later. Older
+     * versions get the same look from a soft gradient in the window color, so content never sits
+     * hard against the clock and status icons. It is not a header box: it only covers the
+     * status bar and fades out right below it.
+     */
+    private void addStatusScrim() {
+        if (Build.VERSION.SDK_INT >= 36) {
+            return;
+        }
+        int color = activity.getColor(R.color.oui_des_round_and_bgcolor);
+        int clear = color & 0x00FFFFFF;
+        statusScrim = new View(activity);
+        statusScrim.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {color, color, clear}));
+        statusScrim.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        CoordinatorLayout.LayoutParams params = new CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0);
+        params.gravity = android.view.Gravity.TOP;
+        // Above the content, below the floating toolbar.
+        root.addView(statusScrim, root.indexOfChild(floating), params);
+    }
+
+    /**
      * Keeps the header's controls below the status bar while the page itself fills the window.
      * The collapsed stop includes the inset too, so content only reaches the toolbar once SESL9
      * enters its floating phase.
@@ -168,6 +194,11 @@ final class OneUi9Page implements Ui.Header {
                 (CoordinatorLayout.LayoutParams) floating.getLayoutParams();
         params.topMargin = top;
         floating.setLayoutParams(params);
+        if (statusScrim != null) {
+            ViewGroup.LayoutParams scrim = statusScrim.getLayoutParams();
+            scrim.height = top + Ui.dp(activity, 20.0f);
+            statusScrim.setLayoutParams(scrim);
+        }
         collapsing.setMinimumHeight(toolbarHeight);
         float collapsedHeight = baseCollapsedHeight + top;
         if (!expandable) {

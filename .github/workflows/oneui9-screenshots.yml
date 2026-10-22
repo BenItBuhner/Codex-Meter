@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [oneui9, classic, alpha6]
+        variant: [oneui9, oneui9-api36, classic]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -90,7 +90,7 @@ jobs:
           V="$VARIANT"
           PKG=dev.bennett.codexmeter
           DESIGN=classic
-          [[ "$V" == "oneui9" ]] && DESIGN=oneui9
+          [[ "$V" == oneui9* ]] && DESIGN=oneui9
           OUT="$GITHUB_WORKSPACE/shots"
           mkdir -p "$OUT/rec"
           adb install -r android/app/build/outputs/apk/debug/app-debug.apk
@@ -198,7 +198,7 @@ jobs:
         env:
           VARIANT: ${{ matrix.variant }}
         with:
-          api-level: 34
+          api-level: ${{ matrix.variant == 'oneui9-api36' && 36 || 34 }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
