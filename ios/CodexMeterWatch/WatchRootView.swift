@@ -73,9 +73,11 @@ struct ProviderPage: View {
                 message: "Sign in to \(provider.name) in Codex Meter on your iPhone."
             )
         } else if let primary = meters.first {
-            VStack(spacing: 6) {
-                PrimaryRing(meter: primary)
-                ForEach(meters.dropFirst().prefix(2)) { meter in
+            let bars = Array(meters.dropFirst().prefix(2))
+            VStack(spacing: bars.count > 1 ? 4 : 6) {
+                // Two bars leave less room, so the ring shrinks to keep clear of the title.
+                PrimaryRing(meter: primary, size: bars.count > 1 ? 70 : 92)
+                ForEach(bars) { meter in
                     MeterBar(meter: meter)
                 }
                 footer(at: date)
@@ -110,6 +112,7 @@ struct ProviderPage: View {
 
 private struct PrimaryRing: View {
     let meter: WatchMeter
+    let size: CGFloat
 
     var body: some View {
         Gauge(value: Double(meter.remainingPercent), in: 0...100) {
@@ -117,17 +120,19 @@ private struct PrimaryRing: View {
         } currentValueLabel: {
             VStack(spacing: -2) {
                 Text("\(meter.remainingPercent)%")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(.system(size: size > 80 ? 26 : 20, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                 Text(meter.label)
-                    .font(.system(size: 11))
+                    .font(.system(size: size > 80 ? 11 : 9))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.6)
             }
+            // Keep the caption inside the ring's hole.
+            .frame(maxWidth: size - 30)
         }
         .gaugeStyle(RingGaugeStyle(tint: meterTint(remaining: meter.remainingPercent)))
-        .frame(width: 92, height: 92)
+        .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(meter.label), \(meter.remainingPercent) percent left")
     }

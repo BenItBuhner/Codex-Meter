@@ -125,8 +125,9 @@ struct UsageComplicationView: View {
                     HStack(spacing: 4) {
                         Text(meter.shortLabel)
                             .font(.caption2)
-                            .frame(width: 34, alignment: .leading)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(width: 40, alignment: .leading)
                         Gauge(value: Double(meter.remainingPercent), in: 0...100) {
                             EmptyView()
                         }
