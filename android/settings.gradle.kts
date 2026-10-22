@@ -26,3 +26,4 @@ rootProject.name = "Codex-Meter"
 include(":app")
 include(":shared")
 include(":wear")
+include(":oneui9compat")

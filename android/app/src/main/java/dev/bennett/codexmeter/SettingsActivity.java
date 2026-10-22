@@ -41,7 +41,12 @@ import java.util.concurrent.TimeUnit;
 public final class SettingsActivity extends AppCompatActivity {
     private static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
+    private static final String PAGE_ACCOUNTS = "accounts";
     private static final String PAGE_APPEARANCE = "appearance";
+    private static final String ONE_UI_8_PACKAGE = "dev.bennett.codexmeter";
+    private static final String ONE_UI_9_PACKAGE = "dev.bennett.codexmeter.oneui9";
+    private static final String RELEASES_URL =
+            "https://github.com/BenItBuhner/Codex-Meter/releases";
     private static final String PAGE_REFRESH_USAGE = "refresh_usage";
     private static final String PAGE_NOTIFICATIONS = "notifications";
     private static final String PAGE_NOW_BAR = "now_bar";
@@ -72,7 +77,8 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private static String normalizePage(String page) {
-        if (PAGE_APPEARANCE.equals(page)
+        if (PAGE_ACCOUNTS.equals(page)
+                || PAGE_APPEARANCE.equals(page)
                 || PAGE_REFRESH_USAGE.equals(page)
                 || PAGE_NOTIFICATIONS.equals(page)
                 || PAGE_NOW_BAR.equals(page)
@@ -87,6 +93,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private static String pageTitle(String page) {
         switch (page) {
+            case PAGE_ACCOUNTS:
+                return "Accounts";
             case PAGE_APPEARANCE:
                 return "Appearance";
             case PAGE_REFRESH_USAGE:
@@ -159,6 +167,10 @@ public final class SettingsActivity extends AppCompatActivity {
             page = normalizePage(getArguments() == null
                     ? null : getArguments().getString(ARG_PAGE));
             switch (page) {
+                case PAGE_ACCOUNTS:
+                    addPreferencesFromResource(R.xml.preferences_settings_accounts);
+                    bindAccounts();
+                    break;
                 case PAGE_APPEARANCE:
                     addPreferencesFromResource(R.xml.preferences_settings_appearance);
                     bindAppearance();
@@ -166,6 +178,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 case PAGE_REFRESH_USAGE:
                     addPreferencesFromResource(R.xml.preferences_settings_refresh_usage);
                     bindRefresh();
+                    bindResetCreditAutoUse();
                     bindUsagePace();
                     break;
                 case PAGE_NOTIFICATIONS:
@@ -226,6 +239,8 @@ public final class SettingsActivity extends AppCompatActivity {
             super.onResume();
             if (PAGE_ROOT.equals(page)) {
                 updateRootSummaries();
+            } else if (PAGE_ACCOUNTS.equals(page)) {
+                bindAccounts();
             } else if (PAGE_NOTIFICATIONS.equals(page)) {
                 updatePermissionSummary();
             } else if (PAGE_NOW_BAR.equals(page)) {
@@ -247,6 +262,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 Ui.startSecondaryActivity(requireActivity(), ProvidersActivity.class);
                 return true;
             });
+            bindPageLink("settings_accounts", PAGE_ACCOUNTS);
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
@@ -369,7 +385,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
-            bindAccounts();
+            findPreference("settings_accounts").setSummary(
+                    ProviderAccounts.connectedSummary(requireContext()));
             List<UsageProvider> enabled = ProviderPreferences.getEnabled(requireContext());
             StringBuilder providers = new StringBuilder();
             int named = enabled.size() > 3 ? 2 : enabled.size();
@@ -450,16 +467,18 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         /**
-         * Settings → Accounts: only the accounts that are connected, in tab order, then one
-         * "Add account" row that opens the provider picker. Tapping a connected row offers
-         * sign out.
+         * Settings → Accounts: the connected accounts in tab order, each as "email · plan",
+         * then one "Add account" row that opens the provider picker. Tapping a connected row
+         * offers sign out.
          */
         private void bindAccounts() {
             PreferenceCategory accounts = findPreference("accounts");
-            if (accounts == null) return;
+            PreferenceCategory addCategory = findPreference("accounts_add");
+            if (accounts == null || addCategory == null) return;
             Context context = requireContext();
             boolean dark = Ui.isDark(context);
             accounts.removeAll();
+            addCategory.removeAll();
             for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
                 if (!ProviderAccounts.isSignedIn(context, provider)) continue;
                 Preference row = new Preference(context);
@@ -473,19 +492,20 @@ public final class SettingsActivity extends AppCompatActivity {
                 });
                 accounts.addPreference(row);
             }
+            accounts.setVisible(accounts.getPreferenceCount() > 0);
             Preference add = new Preference(context);
             add.setKey("account_add");
             add.setTitle("Add account");
-            if (accounts.getPreferenceCount() == 0) {
-                add.setSummary("Codex, Claude Code, Cursor, Copilot and more");
-            }
+            add.setSummary(accounts.getPreferenceCount() == 0
+                    ? "Codex, Claude Code, Cursor, Copilot and more"
+                    : "Connect another service");
             add.setIcon(tinted(context, R.drawable.ic_oui_add, dark));
             add.setOnPreferenceClickListener(preference -> {
                 DiagnosticLog.info(context, "user", "add_account_opened");
                 Ui.startSecondaryActivity(requireActivity(), AddAccountActivity.class);
                 return true;
             });
-            accounts.addPreference(add);
+            addCategory.addPreference(add);
         }
 
         private static android.graphics.drawable.Drawable tinted(Context context, int res,
@@ -553,11 +573,48 @@ public final class SettingsActivity extends AppCompatActivity {
                 requireActivity().recreate();
                 return true;
             });
+            bindOneUi9Preview();
+        }
+
+        /**
+         * SESL8 and SESL9 share class names, so the One UI 9 design ships as a separate preview
+         * app instead of an in-place switch. This row hops between the two installs.
+         */
+        private void bindOneUi9Preview() {
+            Preference row = findPreference("one_ui_9_preview");
+            boolean inPreview = BuildConfig.ONE_UI_9;
+            String otherPackage = inPreview ? ONE_UI_8_PACKAGE : ONE_UI_9_PACKAGE;
+            Intent launch = requireContext().getPackageManager()
+                    .getLaunchIntentForPackage(otherPackage);
+            if (inPreview) {
+                row.setTitle("Back to the standard design");
+                row.setSummary(launch != null
+                        ? "You're using the One UI 9 preview. Open the standard app."
+                        : "You're using the One UI 9 preview. The standard app isn't installed.");
+            } else {
+                row.setSummary(launch != null
+                        ? "Open the One UI 9 preview app"
+                        : "Get the One UI 9 preview. It installs next to this app and keeps "
+                                + "this design as is.");
+            }
+            row.setOnPreferenceClickListener(preference -> {
+                Intent intent = launch != null ? launch
+                        : new Intent(Intent.ACTION_VIEW, Uri.parse(RELEASES_URL));
+                try {
+                    startActivity(intent);
+                } catch (android.content.ActivityNotFoundException e) {
+                    Toast.makeText(requireContext(), "Couldn't open it", Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            });
         }
 
         private void bindRefresh() {
             findPreference("dashboard_reorder_ui").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
+                Ui.startSecondaryActivity(requireActivity(),
+                        new Intent(requireActivity(), DashboardReorderActivity.class).putExtra(
+                                DashboardReorderActivity.EXTRA_PROVIDER,
+                                ProviderPreferences.getSelected(requireContext()).id));
                 return true;
             });
 
@@ -590,6 +647,83 @@ public final class SettingsActivity extends AppCompatActivity {
                 interval.setEnabled(!automatic);
                 RefreshScheduler.schedulePeriodic(requireContext());
                 PhoneWearSync.pushSettings(requireContext());
+                return true;
+            });
+        }
+
+        private void bindResetCreditAutoUse() {
+            Context context = requireContext();
+            SwitchPreferenceCompat expiry = findPreference("reset_credit_expiry_auto_apply_ui");
+            ListPreference lead = findPreference("reset_credit_expiry_auto_apply_lead_ui");
+            SwitchPreferenceCompat lowUsage = findPreference("reset_credit_low_usage_auto_use_ui");
+            ListPreference threshold = findPreference("reset_credit_low_usage_threshold_ui");
+            ListPreference metric = findPreference("reset_credit_low_usage_metric_ui");
+
+            expiry.setPersistent(false);
+            expiry.setChecked(ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context));
+            lead.setPersistent(false);
+            lead.setValue(String.valueOf(
+                    ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context)));
+            lead.setEnabled(expiry.isChecked());
+            expiry.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(requireContext(), enabled);
+                lead.setEnabled(enabled);
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
+                return true;
+            });
+            lead.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditExpiryAutoApplyLeadMillis(requireContext(),
+                        Long.parseLong(String.valueOf(value)));
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
+                return true;
+            });
+
+            lowUsage.setPersistent(false);
+            lowUsage.setChecked(ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context));
+            threshold.setPersistent(false);
+            threshold.setValue(String.valueOf(
+                    ResetAlertPreferences.resetCreditLowUsageThreshold(context)));
+            metric.setPersistent(false);
+            metric.setValue(ResetAlertPreferences.resetCreditLowUsageMetric(context));
+            threshold.setEnabled(lowUsage.isChecked());
+            metric.setEnabled(lowUsage.isChecked());
+            lowUsage.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (!enabled) {
+                    ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
+                            requireContext(), false);
+                    threshold.setEnabled(false);
+                    metric.setEnabled(false);
+                    return true;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Use resets automatically?")
+                        .setMessage("Codex Meter will spend one banked reset when your "
+                                + "remaining usage reaches the level you choose. It checks "
+                                + "after each refresh and skips a limit that refills on its "
+                                + "own within 15 minutes. Used resets cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Turn on", (dialog, which) -> {
+                            ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
+                                    requireContext(), true);
+                            lowUsage.setChecked(true);
+                            threshold.setEnabled(true);
+                            metric.setEnabled(true);
+                        })
+                        .show();
+                return false;
+            });
+            threshold.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditLowUsageThreshold(requireContext(),
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+            metric.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditLowUsageMetric(requireContext(),
+                        String.valueOf(value));
                 return true;
             });
         }

@@ -72,7 +72,7 @@ public final class ProviderCatalog {
             new Entry(UsageProvider.CLAUDE_CODE, SignIn.BROWSER,
                     "5-hour and weekly limits", "Claude sign-in", "", false, false),
             new Entry(UsageProvider.CURSOR, SignIn.BROWSER,
-                    "Included usage and on-demand spend", "Cursor sign-in", "", false, false),
+                    "Included usage and extra spend", "Cursor sign-in", "", false, false),
             new Entry(UsageProvider.COPILOT, SignIn.DEVICE_CODE,
                     "Monthly premium requests and chat", "GitHub sign-in", "", false, false),
             new Entry(UsageProvider.KIMI, SignIn.DEVICE_CODE,

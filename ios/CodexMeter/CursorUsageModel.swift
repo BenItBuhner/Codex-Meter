@@ -116,7 +116,8 @@ final class CursorUsageModel {
                 accountEmail = tokens.email
             }
             DiagnosticLog.info("refresh", "cursor_usage_refresh_succeeded", details: [
-                "plan_window": snapshot.monthly != nil ? "true" : "false",
+                "plan_window": snapshot.weekly != nil ? "weekly"
+                    : snapshot.monthly != nil ? "monthly" : "none",
                 "additional_limits": String(snapshot.additionalLimits.count)
             ])
         } catch is CancellationError {
@@ -223,9 +224,10 @@ final class CursorUsageModel {
         isUsingCachedData = false
     }
 
+    /// A current Cursor plan: one included pool that refreshes weekly, plus additional usage.
     static func demoSnapshot(at now: Date, refreshCount: Int = 0) -> UsageSnapshot {
-        let cycle = CursorUsageParser.defaultCycleSeconds
-        let reset = now.addingTimeInterval(12 * 24 * 60 * 60 + 4 * 60 * 60)
+        let cycle: Int64 = 7 * 24 * 60 * 60
+        let reset = now.addingTimeInterval(4 * 24 * 60 * 60 + 4 * 60 * 60)
         func window(_ percent: Int) -> UsageWindow {
             UsageWindow(usedPercent: percent, windowSeconds: cycle, resetAt: reset)
         }
@@ -234,12 +236,15 @@ final class CursorUsageModel {
             allowed: true,
             limitReached: false,
             fiveHour: nil,
-            weekly: nil,
-            monthly: window(min(100, 58 + refreshCount)),
+            weekly: window(min(100, 58 + refreshCount)),
+            monthly: nil,
             additionalLimits: [
-                UsageLimit(id: "cursor_auto", name: "Auto + Composer", primary: window(34), secondary: nil),
-                UsageLimit(id: "cursor_api", name: "API models", primary: window(71), secondary: nil),
-                UsageLimit(id: "cursor_on_demand", name: "On-demand ($4.20 of $20)", primary: window(21), secondary: nil)
+                UsageLimit(
+                    id: CursorUsageParser.limitIDPrefix + "on_demand",
+                    name: "Additional usage ($4.20 of $20)",
+                    primary: window(21),
+                    secondary: nil
+                )
             ],
             fetchedAt: now
         )

@@ -1,0 +1,207 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.picker",
+    "module": "picker-basic",
+    "version": "1.0.8+1.0.8-sesl9+rev1",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.7.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.10.0"
+          }
+        },
+        {
+          "group": "androidx.dynamicanimation",
+          "module": "dynamicanimation",
+          "version": {
+            "requires": "1.1.0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.8.0+1.0.38-sesl9+rev4"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev2"
+          }
+        },
+        {
+          "group": "sesl.androidx.viewpager",
+          "module": "viewpager",
+          "version": {
+            "requires": "1.1.0-beta01+1.0.1-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-basic-1.0.8+1.0.8-sesl9+rev1.aar",
+          "url": "picker-basic-1.0.8+1.0.8-sesl9+rev1.aar",
+          "size": 496074,
+          "sha512": "df7cd558fa17f1c0e2f853f539715f8cea2b7f6ca81065766a2b7c95c4643748ac36d6e0d065695daf70f65947852995983f8a8daa2f741550e55ce70c81fabb",
+          "sha256": "10cee298aa8facec528c76b2ca8c2ec1f7bc75a98ab6d2f9a8f9138b7a986cee",
+          "sha1": "23bf96092923c12a388c2f87c499b2ffbb3c4c41",
+          "md5": "c1df2f7d67b290e3f71b1cc836b3893b"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.constraintlayout",
+          "module": "constraintlayout",
+          "version": {
+            "requires": "2.2.2"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.10.0"
+          }
+        },
+        {
+          "group": "androidx.dynamicanimation",
+          "module": "dynamicanimation",
+          "version": {
+            "requires": "1.1.0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.1"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.8.0+1.0.38-sesl9+rev4"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev2"
+          }
+        },
+        {
+          "group": "sesl.androidx.viewpager",
+          "module": "viewpager",
+          "version": {
+            "requires": "1.1.0-beta01+1.0.1-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-basic-1.0.8+1.0.8-sesl9+rev1.aar",
+          "url": "picker-basic-1.0.8+1.0.8-sesl9+rev1.aar",
+          "size": 496074,
+          "sha512": "df7cd558fa17f1c0e2f853f539715f8cea2b7f6ca81065766a2b7c95c4643748ac36d6e0d065695daf70f65947852995983f8a8daa2f741550e55ce70c81fabb",
+          "sha256": "10cee298aa8facec528c76b2ca8c2ec1f7bc75a98ab6d2f9a8f9138b7a986cee",
+          "sha1": "23bf96092923c12a388c2f87c499b2ffbb3c4c41",
+          "md5": "c1df2f7d67b290e3f71b1cc836b3893b"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-basic-1.0.8+1.0.8-sesl9+rev1-sources.jar",
+          "url": "picker-basic-1.0.8+1.0.8-sesl9+rev1-sources.jar",
+          "size": 152295,
+          "sha512": "a6836fb414941c0a5762dbac238882c3dbb908c0d4acfe760bb51be0ca91ac1e62471db6b6e63203c50f8e87e442629027b661f6e5ad6cdd05caebe4ebd02183",
+          "sha256": "3865f7ba79ff081d763bbf97999a37339bbd08306a7671d852185e4e917faa97",
+          "sha1": "202c7905ccb7e54d5d9cda49ee0801267ffc8162",
+          "md5": "90c0d13bea7a2ee0b8db2dcf226bb6ec"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-basic-1.0.8+1.0.8-sesl9+rev1-javadoc.jar",
+          "url": "picker-basic-1.0.8+1.0.8-sesl9+rev1-javadoc.jar",
+          "size": 698649,
+          "sha512": "6b14c114d861996f7c6ccbedcc190c98ecd4b6b60abeaf5de39f6f9425bac1c320ca09bc0d1172d590f3b5857575f313e6daae94599a0f2816ef68c136335f57",
+          "sha256": "368046942ac4a1080e1dc2bc0913503c0381b3f039c9d7c18af37ad9fdc0635d",
+          "sha1": "bd2589ab60803db9a11d3690bdb5b3e1b3105300",
+          "md5": "e233535f9685e0bc4eb6152d3e2375bd"
+        }
+      ]
+    }
+  ]
+}

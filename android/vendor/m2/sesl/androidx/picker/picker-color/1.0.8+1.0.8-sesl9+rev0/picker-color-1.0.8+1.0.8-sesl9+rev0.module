@@ -1,0 +1,179 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.picker",
+    "module": "picker-color",
+    "version": "1.0.8+1.0.8-sesl9+rev0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.7.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.8.0+1.0.38-sesl9+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.fragment",
+          "module": "fragment",
+          "version": {
+            "requires": "1.9.0+1.0.6-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-color-1.0.8+1.0.8-sesl9+rev0.aar",
+          "url": "picker-color-1.0.8+1.0.8-sesl9+rev0.aar",
+          "size": 299258,
+          "sha512": "e83c25b384f10c48c7bc9437946e8b22a01078eeab8e7b7d471513de23d04bb994bdcd3da8af008a141d43e26250ffc05a35a177e3d6765da9f023fc656bcab6",
+          "sha256": "3e3d816a5eadfb32db4cafbde1d7ee015db31b82102916d1af3c8c16c26553d2",
+          "sha1": "c5b0ae607e442aa4f19f4286669644c3c05a11e4",
+          "md5": "c603f18c7ada8e69aed3726645baef17"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "sesl.com.google.android.material",
+          "module": "material",
+          "version": {
+            "requires": "1.14.0+1.0.47-sesl9+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.8.0+1.0.38-sesl9+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.fragment",
+          "module": "fragment",
+          "version": {
+            "requires": "1.9.0+1.0.6-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "picker-color-1.0.8+1.0.8-sesl9+rev0.aar",
+          "url": "picker-color-1.0.8+1.0.8-sesl9+rev0.aar",
+          "size": 299258,
+          "sha512": "e83c25b384f10c48c7bc9437946e8b22a01078eeab8e7b7d471513de23d04bb994bdcd3da8af008a141d43e26250ffc05a35a177e3d6765da9f023fc656bcab6",
+          "sha256": "3e3d816a5eadfb32db4cafbde1d7ee015db31b82102916d1af3c8c16c26553d2",
+          "sha1": "c5b0ae607e442aa4f19f4286669644c3c05a11e4",
+          "md5": "c603f18c7ada8e69aed3726645baef17"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-color-1.0.8+1.0.8-sesl9+rev0-sources.jar",
+          "url": "picker-color-1.0.8+1.0.8-sesl9+rev0-sources.jar",
+          "size": 59500,
+          "sha512": "7a15fe0e1a47491ec8849ea3df53464ea67b1c25038b086e984da72b881f0e0056d3c1af4b90fd45edd8761d4fd7a8ff5ff2bb440ba2f2df226233e92d3fb495",
+          "sha256": "b8de7d82cb854aef0db8603a11ad6cb635b16b053c083499225629956d1da6c9",
+          "sha1": "ce861bdaaabb4b8f016851c24267a76ade2842c0",
+          "md5": "d593a243eb1c0ee00798cc0425e53cbf"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "picker-color-1.0.8+1.0.8-sesl9+rev0-javadoc.jar",
+          "url": "picker-color-1.0.8+1.0.8-sesl9+rev0-javadoc.jar",
+          "size": 613781,
+          "sha512": "f28be18b42f91a687c0eee8b0707311752c6a1394f9740a371b75f5d51d04ab9ae3141f9c200cf01995f3de5f7d293fd648d0656d05e680af323feafbef7ebd3",
+          "sha256": "f23c63abf40ec10b017dc3682fac712bbf540c59f25fbb3d3d7a215767d7adab",
+          "sha1": "14149a6065cab1b345d830398ce99df4f85355b7",
+          "md5": "c2a24b94e6fa71fa7897518fd7027d8f"
+        }
+      ]
+    }
+  ]
+}
