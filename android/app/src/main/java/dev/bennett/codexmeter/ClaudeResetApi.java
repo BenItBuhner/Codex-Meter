@@ -94,6 +94,48 @@ public final class ClaudeResetApi {
         }
     }
 
+    /**
+     * Asks the usage route for saved resets right now and returns a plain report of the answer.
+     * A good answer is also cached, so the dashboard card updates without another request.
+     */
+    public static String check(Context context) {
+        Context app = context.getApplicationContext() == null ? context
+                : context.getApplicationContext();
+        long now = System.currentTimeMillis();
+        try {
+            ClaudeUsageApi.Response usage;
+            synchronized (ClaudeUsageApi.LOCK) {
+                AuthTokens tokens = ClaudeUsageApi.usableTokens(app);
+                usage = ClaudeUsageApi.get(app, "claude_saved_reset_check",
+                        ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
+                if (usage.status == 401) {
+                    tokens = ClaudeUsageApi.refresh(app, tokens);
+                    SecureTokenStore.save(app, PROVIDER, tokens);
+                    usage = ClaudeUsageApi.get(app, "claude_saved_reset_check",
+                            ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
+                }
+                if (usage.status == 429) {
+                    ProviderPreferences.setRateLimitedAt(app, PROVIDER, now);
+                }
+                if (usage.status >= 200 && usage.status < 300) {
+                    ProviderPreferences.saveSavedResets(app, PROVIDER,
+                            ClaudeSavedResets.fromUsageBody(usage.body, now));
+                }
+            }
+            ClaudeResetExpiryReceiver.schedule(app);
+            String report = ClaudeSavedResets.describeCheck(usage.status, usage.body,
+                    ProviderPreferences.getGrantedScope(app, PROVIDER), now);
+            DiagnosticLog.info(app, "reset", "claude_saved_reset_checked",
+                    "status", usage.status, "report", report);
+            return report;
+        } catch (Exception exception) {
+            DiagnosticLog.error(app, "network", "claude_saved_reset_check_failed", exception);
+            String message = exception.getMessage();
+            return "The check could not reach Anthropic: "
+                    + (message == null ? exception.getClass().getSimpleName() : message);
+        }
+    }
+
     /** The organization from the sign-in, else from the profile route. */
     private static String organization(Context context, AuthTokens tokens) throws Exception {
         if (tokens.accountId != null && !tokens.accountId.isEmpty()) return tokens.accountId;

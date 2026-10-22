@@ -107,6 +107,10 @@
         <Preference
             android:key="claude_saved_reset_status_ui"
             android:title="Your resets" />
+        <Preference
+            android:key="claude_saved_reset_check_ui"
+            android:summary="Ask Anthropic now and show exactly what it reports"
+            android:title="Check with Anthropic" />
         <SwitchPreferenceCompat
             android:key="claude_saved_reset_expiry_ui"
             android:summary="Use a banked reset before it expires instead of losing it"

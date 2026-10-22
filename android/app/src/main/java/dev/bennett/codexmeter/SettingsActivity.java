@@ -181,6 +181,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     bindResetCreditAutoUse();
                     bindClaudeSavedResets();
                     bindResetStatus();
+                    bindClaudeResetCheck();
                     bindUsagePace();
                     break;
                 case PAGE_NOTIFICATIONS:
@@ -769,14 +770,62 @@ public final class SettingsActivity extends AppCompatActivity {
             }
         }
 
+        /** "Check with Anthropic": one fresh request, then the server's answer in a dialog. */
+        private void bindClaudeResetCheck() {
+            Preference check = findPreference("claude_saved_reset_check_ui");
+            if (check == null) return;
+            check.setOnPreferenceClickListener(preference -> {
+                Context context = requireContext().getApplicationContext();
+                if (!SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE)) {
+                    Toast.makeText(context, "Sign in to Claude Code first.",
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                preference.setEnabled(false);
+                preference.setSummary("Checking\u2026");
+                new Thread(() -> {
+                    String report = ClaudeResetApi.check(context);
+                    if (getActivity() == null) return;
+                    requireActivity().runOnUiThread(() -> {
+                        if (!isAdded()) return;
+                        preference.setEnabled(true);
+                        preference.setSummary(CHECK_SUMMARY);
+                        updateResetStatus();
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle("Claude Code resets")
+                                .setMessage(report)
+                                .setPositiveButton("Close", null)
+                                .setNeutralButton("Copy", (dialog, which) -> {
+                                    android.content.ClipboardManager clipboard =
+                                            (android.content.ClipboardManager) requireContext()
+                                                    .getSystemService(Context.CLIPBOARD_SERVICE);
+                                    if (clipboard != null) {
+                                        clipboard.setPrimaryClip(android.content.ClipData
+                                                .newPlainText("Claude Code resets", report));
+                                    }
+                                })
+                                .show();
+                    });
+                }, "claude-reset-check").start();
+                return true;
+            });
+        }
+
+        private static final String CHECK_SUMMARY =
+                "Ask Anthropic now and show exactly what it reports";
+
         private static String claudeResetStatus(Context context, long now) {
             if (!SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE)) {
                 return "Sign in to view reset credits";
             }
             ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(context,
                     UsageProvider.CLAUDE_CODE);
+            if (ClaudeSavedResets.needsClaudeCodeSignIn(ProviderPreferences.getGrantedScope(
+                    context, UsageProvider.CLAUDE_CODE))) {
+                return "Sign out of Claude Code and sign in again to turn on resets";
+            }
             if (saved == null) {
-                return "Not checked yet. Refresh the Claude Code tab.";
+                return "Not checked yet. Tap Check with Anthropic below.";
             }
             if (!saved.eligible && saved.availableCount(now) <= 0) {
                 return "Anthropic is not offering resets to this account here"
