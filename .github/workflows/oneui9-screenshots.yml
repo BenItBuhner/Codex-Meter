@@ -117,18 +117,22 @@ jobs:
           rec_start() { adb shell "screenrecord --time-limit $2 --size 540x1200 /sdcard/$1.mp4" & REC=$!; sleep 1; }
           rec_stop() { wait $REC; adb pull /sdcard/$1.mp4 "$OUT/rec/$V-$1.mp4" >/dev/null; }
           SET=codex,claude_code,cursor
+          swipe_small() { adb shell input swipe 540 1500 540 1150 500; }
           run_set() {
             local p="$1"
             seed $SET codex;                 shot "$p-01-codex"
-            swipe_up;                        shot "$p-02-codex-scrolled"
-            seed $SET claude_code;           shot "$p-03-claude"
-            seed $SET cursor;                shot "$p-04-cursor"
-            seed codex,claude_code,cursor,copilot,kimi,factory codex; shot "$p-05-six-providers"
-            seed $SET codex settings;        shot "$p-06-settings"
-            swipe_up;                        shot "$p-07-settings-scrolled"
-            seed $SET codex appearance;      shot "$p-08-appearance"
-            seed $SET codex widget;          shot "$p-09-widget-settings"
-            swipe_up;                        shot "$p-10-widget-settings-scrolled"
+            swipe_small;                     shot "$p-02-codex-scroll-a"
+            swipe_up;                        shot "$p-03-codex-scroll-b"
+            swipe_up;                        shot "$p-04-codex-scroll-end"
+            seed $SET claude_code;           swipe_up; swipe_up; shot "$p-05-claude-scrolled"
+            seed codex,claude_code,cursor,copilot,kimi,factory codex; swipe_up; swipe_up; shot "$p-06-six-providers-scrolled"
+            seed $SET codex settings;        shot "$p-07-settings"
+            swipe_small;                     shot "$p-08-settings-scroll-a"
+            swipe_up;                        shot "$p-09-settings-scroll-b"
+            swipe_up;                        shot "$p-10-settings-scroll-c"
+            seed $SET codex appearance;      swipe_up; shot "$p-11-appearance-scrolled"
+            seed $SET codex widget;          swipe_up; shot "$p-12-widget-scrolled"
+            swipe_up;                        shot "$p-13-widget-scrolled-more"
           }
           run_set light
           # Animation recordings (light)
@@ -140,6 +144,8 @@ jobs:
           seed $SET codex
           GEAR=$(locate "Settings" || echo "980 440")
           rec_start pages 7; adb shell input tap $GEAR; sleep 3; adb shell input keyevent KEYCODE_BACK; rec_stop pages
+          seed $SET codex settings
+          rec_start settings-scroll 7; swipe_up; sleep 1; swipe_up; sleep 1; swipe_down; sleep 1; swipe_down; rec_stop settings-scroll
           adb shell cmd uimode night yes
           run_set dark
           adb shell cmd uimode night no
@@ -167,7 +173,7 @@ jobs:
           cd shots/rec
           for f in *.mp4; do
             [[ -f "$f" ]] || continue
-            ffmpeg -loglevel error -i "$f" -vf "fps=6,scale=180:-1,tile=10x4" -frames:v 1 "../${f%.mp4}-frames.png" || true
+            ffmpeg -loglevel error -i "$f" -vf "fps=8,scale=180:-1,tile=10x5" -frames:v 1 "../${f%.mp4}-frames.png" || true
           done
 
       - uses: actions/upload-artifact@v7
