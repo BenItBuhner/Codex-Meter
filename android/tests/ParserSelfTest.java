@@ -2324,6 +2324,15 @@ public final class ParserSelfTest {
         check("63 · 39%".equals(MeterOverlap.text(63, 39, true))
                 && "— · 39".equals(MeterOverlap.text(-1, 39, false)),
                 "overlapped value text");
+        check(MeterOverlap.enabled(MeterOverlap.AUTO, 2)
+                && !MeterOverlap.enabled(MeterOverlap.AUTO, 1)
+                && !MeterOverlap.enabled(null, 1),
+                "auto overlaps only multi-provider widgets");
+        check(MeterOverlap.enabled(MeterOverlap.ON, 1)
+                && !MeterOverlap.enabled(MeterOverlap.OFF, 3),
+                "the overlap switch overrides auto");
+        check(MeterOverlap.AUTO.equals(MeterOverlap.normalize("bogus")),
+                "unknown overlap modes read as auto");
         System.out.println("Overlapped meters: layering and labels verified.");
     }
 

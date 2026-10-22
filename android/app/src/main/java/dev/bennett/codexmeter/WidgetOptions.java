@@ -68,7 +68,7 @@ public final class WidgetOptions {
      * Draw a provider's short and long limits (5-hour and weekly) overlapped in one dial or bar,
      * the long one in a lighter shade, instead of one dial or bar each.
      */
-    public final boolean overlapMeters;
+    public final String overlapMode;
 
     public WidgetOptions(String str, String str2, String str3, int i, String str4, String str5) {
         this(str, "auto", SURFACE_MATERIAL, "auto", str2, str3, i, str4, str5, "both", false, true, true, true, false, false);
@@ -103,14 +103,14 @@ public final class WidgetOptions {
             boolean z3, boolean z4, boolean z5, boolean z6, boolean showPercentSymbol,
             String visibleMeters) {
         this(str, str2, str3, str4, str5, str6, i, str7, str8, str9, z, z2, z3, z4, z5, z6,
-                showPercentSymbol, visibleMeters, false);
+                showPercentSymbol, visibleMeters, MeterOverlap.AUTO);
     }
 
     private WidgetOptions(String str, String str2, String str3, String str4, String str5,
             String str6, int i, String str7, String str8, String str9, boolean z, boolean z2,
             boolean z3, boolean z4, boolean z5, boolean z6, boolean showPercentSymbol,
-            String visibleMeters, boolean overlapMeters) {
-        this.overlapMeters = overlapMeters;
+            String visibleMeters, String overlapMode) {
+        this.overlapMode = MeterOverlap.normalize(overlapMode);
         this.layout = normalizeStyle(str);
         this.density = oneOf(str2, "auto", "compact", DENSITY_COMFORTABLE) ? str2 : "auto";
         this.surfaceStyle = oneOf(str3, SURFACE_MATERIAL, SURFACE_ONE_UI) ? str3 : SURFACE_MATERIAL;
@@ -144,15 +144,24 @@ public final class WidgetOptions {
                 this.graphicScale, this.theme, this.accent, this.opacity, this.resetMode,
                 this.displayMode, this.metricMode, this.showTitle, this.showPlan,
                 this.showUpdated, this.showRefresh, this.showResetCredits,
-                this.showResetAction, show, this.visibleMeters, this.overlapMeters);
+                this.showResetAction, show, this.visibleMeters, this.overlapMode);
     }
 
     public WidgetOptions withOverlapMeters(boolean overlap) {
+        return withOverlapMode(overlap ? MeterOverlap.ON : MeterOverlap.OFF);
+    }
+
+    /** Whether this widget overlaps meters while showing {@code providers} providers. */
+    public boolean overlaps(int providers) {
+        return MeterOverlap.enabled(this.overlapMode, providers);
+    }
+
+    public WidgetOptions withOverlapMode(String mode) {
         return new WidgetOptions(this.layout, this.density, this.surfaceStyle,
                 this.graphicScale, this.theme, this.accent, this.opacity, this.resetMode,
                 this.displayMode, this.metricMode, this.showTitle, this.showPlan,
                 this.showUpdated, this.showRefresh, this.showResetCredits,
-                this.showResetAction, this.showPercentSymbol, this.visibleMeters, overlap);
+                this.showResetAction, this.showPercentSymbol, this.visibleMeters, mode);
     }
 
     public WidgetOptions withVisibleMeters(String metersCsv) {
@@ -161,7 +170,7 @@ public final class WidgetOptions {
                 this.displayMode, this.metricMode, this.showTitle, this.showPlan,
                 this.showUpdated, this.showRefresh, this.showResetCredits,
                 this.showResetAction, this.showPercentSymbol,
-                metersCsv == null ? "" : metersCsv, this.overlapMeters);
+                metersCsv == null ? "" : metersCsv, this.overlapMode);
     }
 
     public static WidgetOptions defaults() {

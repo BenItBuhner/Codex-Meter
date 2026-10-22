@@ -225,7 +225,7 @@ final class SamsungLockWidgetSupport {
         if (!codexOnly) {
             LockWidgetOptions o = lockWidgetOptionsLoadLockWidgetOptions;
             lockWidgetOptionsLoadLockWidgetOptions = new LockWidgetOptions(o.metricMode, false,
-                    false, o.showCountdown, o.visibleMeters, o.overlapMeters);
+                    false, o.showCountdown, o.visibleMeters, o.overlapMode);
         }
         int i3 = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
         LockMeterBinding binding;
@@ -233,14 +233,14 @@ final class SamsungLockWidgetSupport {
             binding = bindProviders(context, providers, lockWidgetOptionsLoadLockWidgetOptions);
             zIsSignedIn = binding.anySignedIn;
         } else {
-            binding = lockWidgetOptionsLoadLockWidgetOptions.overlapMeters
+            binding = lockWidgetOptionsLoadLockWidgetOptions.overlaps(1)
                     && overlapSlot(provider, usageSnapshotLoadSnapshot) != null
                     ? new LockMeterBinding(overlapSlot(provider, usageSnapshotLoadSnapshot), null)
                     : markProvider(bindLockMeters(usageSnapshotLoadSnapshot,
                             lockWidgetOptionsLoadLockWidgetOptions), provider);
         }
         String name = multi ? "Usage" : provider.displayName;
-        LockMeterSlot overlapped = lockWidgetOptionsLoadLockWidgetOptions.overlapMeters
+        LockMeterSlot overlapped = !multi && lockWidgetOptionsLoadLockWidgetOptions.overlaps(1)
                 ? overlapSlot(provider, usageSnapshotLoadSnapshot) : null;
         if (metric != Metric.BOTH && overlapped != null) {
             int[] size = grantedSize(appWidgetManager, i, Shape.SQUARE);
@@ -322,7 +322,9 @@ final class SamsungLockWidgetSupport {
         UsageProvider provider = providers == null || providers.isEmpty()
                 ? UsageProvider.CODEX : providers.get(0);
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
-        LockMeterSlot overlapped = options.overlapMeters ? overlapSlot(provider, snapshot) : null;
+        LockMeterSlot overlapped = options.overlaps(providers == null ? 1 : providers.size())
+                && (providers == null || providers.size() <= 1)
+                ? overlapSlot(provider, snapshot) : null;
         if (slots <= 1 && overlapped != null) {
             return SamsungLockGraphics.renderSingle(context, overlapped.remaining,
                     overlapped.longRemaining, true, 82, 82, overlapped.iconRes);
@@ -406,7 +408,7 @@ final class SamsungLockWidgetSupport {
                     snapshot != null && snapshot.fiveHour != null,
                     snapshot != null && snapshot.longWindow() != null, 1).get(0);
             UsageWindow window = WidgetMeters.meterWindow(key, snapshot);
-            LockMeterSlot overlapped = options != null && options.overlapMeters
+            LockMeterSlot overlapped = options != null && options.overlaps(providers.size())
                     ? overlapSlot(provider, snapshot) : null;
             slots.add(overlapped != null ? overlapped
                     : new LockMeterSlot(key, WidgetProviders.shortTag(provider),

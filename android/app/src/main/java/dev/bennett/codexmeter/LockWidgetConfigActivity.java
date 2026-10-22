@@ -28,6 +28,9 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
     private CheckBox showResetCredits;
     private TextView metersHint;
     private SwitchCompat overlapSwitch;
+    /** Auto until the overlap switch is touched, then on or off. */
+    private String overlapMode = MeterOverlap.AUTO;
+    private boolean syncingOverlap;
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private List<UsageProvider> providers = new ArrayList<>();
     private final java.util.Map<UsageProvider, SwitchCompat> providerSwitches =
@@ -150,10 +153,16 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             });
         }
         this.overlapSwitch = new SwitchCompat(this);
-        this.overlapSwitch.setChecked(saved.overlapMeters);
+        this.overlapMode = saved.overlapMode;
+        this.overlapSwitch.setChecked(saved.overlaps(this.providers.size()));
         metersCard.addView(buildSwitchRow("Overlap 5-hour and weekly in one dial",
                 this.overlapSwitch, true));
-        this.overlapSwitch.setOnCheckedChangeListener((button, checked) -> updatePreview());
+        this.overlapSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!this.syncingOverlap) {
+                this.overlapMode = checked ? MeterOverlap.ON : MeterOverlap.OFF;
+            }
+            updatePreview();
+        });
         linearLayout.addView(metersCard);
 
         linearLayout.addView(Ui.separator(this, "Content"));
@@ -215,7 +224,9 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         int selected = this.selectedMeters.size();
         int capacity = this.slots > 1 ? WidgetMeters.lockSlotCapacity() : 1;
         String message = this.providers.size() > 1
-                ? "With two providers, each shows the first meter it reports."
+                ? (MeterOverlap.enabled(this.overlapMode, this.providers.size())
+                        ? "With two providers, each dial overlaps its 5-hour and weekly limits."
+                        : "With two providers, each shows the first meter it reports.")
                 : this.slots > 1 ? "Lock widgets show up to " + capacity + " meters."
                 : "The gauge shows the first meter it can.";
         if (selected > capacity && this.slots > 1 && this.providers.size() <= 1) {
@@ -244,7 +255,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         }
         return new LockWidgetOptions(metricMode, this.showResetCredits.isChecked(),
                 this.showResetAction.isChecked(), this.showCountdown.isChecked(), visible,
-                this.overlapSwitch != null && this.overlapSwitch.isChecked());
+                this.overlapMode);
     }
 
     private int maxProviders() {
@@ -275,8 +286,20 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                 entry.getValue().setChecked(on);
             }
         }
+        syncOverlapSwitch();
         updateMetersHint();
         updatePreview();
+    }
+
+    /** Shows what Auto means for the providers now picked, without fixing the mode. */
+    private void syncOverlapSwitch() {
+        if (this.overlapSwitch == null) return;
+        boolean on = MeterOverlap.enabled(this.overlapMode, this.providers.size());
+        if (this.overlapSwitch.isChecked() != on) {
+            this.syncingOverlap = true;
+            this.overlapSwitch.setChecked(on);
+            this.syncingOverlap = false;
+        }
     }
 
     private void updatePreview() {

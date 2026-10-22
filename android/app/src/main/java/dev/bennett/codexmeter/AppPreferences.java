@@ -463,8 +463,8 @@ public final class AppPreferences {
                 .withPercentSymbol(sharedPreferencesPrefs.getBoolean(
                         "default_show_percent_symbol", true))
                 .withVisibleMeters(sharedPreferencesPrefs.getString("default_visible_meters", ""))
-                .withOverlapMeters(sharedPreferencesPrefs.getBoolean("default_overlap_meters",
-                        false)));
+                .withOverlapMode(sharedPreferencesPrefs.getString("default_overlap_mode",
+                        MeterOverlap.AUTO)));
     }
 
     public static void saveDefaultWidgetOptions(Context context, WidgetOptions widgetOptions) {
@@ -488,7 +488,7 @@ public final class AppPreferences {
                 .putBoolean("default_show_reset_credits", widgetOptions.showResetCredits)
                 .putBoolean("default_show_reset_action", widgetOptions.showResetAction)
                 .putBoolean("default_show_percent_symbol", widgetOptions.showPercentSymbol)
-                .putBoolean("default_overlap_meters", widgetOptions.overlapMeters)
+                .putString("default_overlap_mode", widgetOptions.overlapMode)
                 .apply();
     }
 
@@ -535,8 +535,8 @@ public final class AppPreferences {
                         widgetOptionsLoadDefaultWidgetOptions.showPercentSymbol))
                 .withVisibleMeters(sharedPreferencesPrefs.getString(str + "visible_meters",
                         widgetOptionsLoadDefaultWidgetOptions.visibleMeters))
-                .withOverlapMeters(sharedPreferencesPrefs.getBoolean(str + "overlap_meters",
-                        widgetOptionsLoadDefaultWidgetOptions.overlapMeters)));
+                .withOverlapMode(sharedPreferencesPrefs.getString(str + "overlap_mode",
+                        widgetOptionsLoadDefaultWidgetOptions.overlapMode)));
     }
 
     public static String getWidgetTapAction(Context context, int appWidgetId) {
@@ -566,7 +566,7 @@ public final class AppPreferences {
                 false, false, false, false, false, false)
                 .withPercentSymbol(options.showPercentSymbol)
                 .withVisibleMeters(options.visibleMeters)
-                .withOverlapMeters(options.overlapMeters);
+                .withOverlapMode(options.overlapMode);
     }
 
     public static void saveWidgetOptions(Context context, int i, WidgetOptions widgetOptions) {
@@ -592,7 +592,7 @@ public final class AppPreferences {
                 .putBoolean(str + "show_reset_credits", widgetOptions.showResetCredits)
                 .putBoolean(str + "show_reset_action", widgetOptions.showResetAction)
                 .putBoolean(str + "show_percent_symbol", widgetOptions.showPercentSymbol)
-                .putBoolean(str + "overlap_meters", widgetOptions.overlapMeters)
+                .putString(str + "overlap_mode", widgetOptions.overlapMode)
                 .apply();
     }
 
@@ -616,7 +616,7 @@ public final class AppPreferences {
                 "graphic_scale", "theme", "accent", "opacity", "reset_mode", "display_mode",
                 "metric_mode", "visible_meters", "show_title", "show_plan", "show_updated",
                 "show_refresh", "show_reset_credits", "show_reset_action", "show_percent_symbol",
-                "overlap_meters", "tap_action"}) {
+                "overlap_mode", "tap_action"}) {
             editorEdit.remove(str + str2);
         }
         editorEdit.apply();
@@ -634,8 +634,8 @@ public final class AppPreferences {
                 sharedPreferencesPrefs.getBoolean(str + "show_reset_action", false),
                 sharedPreferencesPrefs.getBoolean(str + "show_countdown", true),
                 sharedPreferencesPrefs.getString(str + "visible_meters", ""))
-                .withOverlapMeters(sharedPreferencesPrefs.getBoolean(str + "overlap_meters",
-                        false));
+                .withOverlapMode(sharedPreferencesPrefs.getString(str + "overlap_mode",
+                        MeterOverlap.AUTO));
     }
 
     public static void saveLockWidgetOptions(Context context, int i, LockWidgetOptions lockWidgetOptions) {
@@ -647,7 +647,7 @@ public final class AppPreferences {
                     .putBoolean(str + "show_reset_action", lockWidgetOptions.showResetAction)
                     .putBoolean(str + "show_countdown", lockWidgetOptions.showCountdown)
                     .putString(str + "visible_meters", lockWidgetOptions.visibleMeters)
-                    .putBoolean(str + "overlap_meters", lockWidgetOptions.overlapMeters)
+                    .putString(str + "overlap_mode", lockWidgetOptions.overlapMode)
                     .apply();
         }
     }
@@ -660,7 +660,7 @@ public final class AppPreferences {
                 .remove(str + "show_reset_action")
                 .remove(str + "show_countdown")
                 .remove(str + "visible_meters")
-                .remove(str + "overlap_meters")
+                .remove(str + "overlap_mode")
                 .apply();
     }
 

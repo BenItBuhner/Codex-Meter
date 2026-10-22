@@ -7,7 +7,22 @@ package dev.bennett.codexmeter;
  * self-tests cover it.
  */
 public final class MeterOverlap {
+    /** Overlap when the widget shows two or more providers (the default). */
+    public static final String AUTO = "auto";
+    public static final String ON = "on";
+    public static final String OFF = "off";
+
     private MeterOverlap() {
+    }
+
+    public static String normalize(String mode) {
+        return ON.equals(mode) || OFF.equals(mode) ? mode : AUTO;
+    }
+
+    /** Whether a widget in {@code mode} showing {@code providers} providers overlaps meters. */
+    public static boolean enabled(String mode, int providers) {
+        String normalized = normalize(mode);
+        return ON.equals(normalized) || (AUTO.equals(normalized) && providers > 1);
     }
 
     /** True when the long limit is the larger fill, so it goes underneath. */

@@ -72,7 +72,7 @@ final class Gallery {
             return;
         }
         boolean dark = a.getIntent().getBooleanExtra("dark", false);
-        WidgetOptions plain = WidgetGalleryActivity.homeOptions(dark);
+        WidgetOptions plain = WidgetGalleryActivity.homeOptions(dark).withOverlapMeters(false);
         WidgetOptions over = plain.withOverlapMeters(true);
         List<UsageProvider> one = WidgetGalleryActivity.list(CODEX);
         List<UsageProvider> three = WidgetGalleryActivity.list(CODEX, CLAUDE, CURSOR);

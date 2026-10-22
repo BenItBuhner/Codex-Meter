@@ -734,7 +734,7 @@ public final class WidgetRenderer {
         }
         List<String> resolved = new ArrayList<>(WidgetMeters.resolveVisibleForWidget(
                 options.effectiveVisibleMeters(), available, options.metricMode));
-        boolean overlap = options.overlapMeters && snapshot != null
+        boolean overlap = options.overlaps(1) && snapshot != null
                 && snapshot.fiveHour != null && snapshot.longWindow() != null;
         if (overlap) {
             // Both limits share the five-hour slot, which frees a row for other meters.
@@ -770,7 +770,8 @@ public final class WidgetRenderer {
         List<UsageProvider> shown = providers.subList(0,
                 Math.min(providers.size(), Math.min(capacity, WidgetProviders.MAX_HOME)));
         // Only battery-list rows have room for a meter label next to the value.
-        int perProvider = STYLE_BATTERY_LIST.equals(visualStyle) && !options.overlapMeters
+        boolean overlapAll = options.overlaps(shown.size());
+        int perProvider = STYLE_BATTERY_LIST.equals(visualStyle) && !overlapAll
                 ? WidgetProviders.metersPerProvider(shown.size(), capacity) : 1;
         List<String> visible = WidgetMeters.parse(options.effectiveVisibleMeters());
         ArrayList<MeterSlot> slots = new ArrayList<>();
@@ -778,7 +779,7 @@ public final class WidgetRenderer {
             UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context, provider)
                     ? ProviderPreferences.loadSnapshot(context, provider) : null;
             WidgetState state = WidgetState.from(context, options, provider);
-            if (options.overlapMeters && snapshot != null && snapshot.fiveHour != null
+            if (overlapAll && snapshot != null && snapshot.fiveHour != null
                     && snapshot.longWindow() != null) {
                 MeterSlot both = overlapSlot(snapshot, state, options, provider);
                 MeterSlot named = new MeterSlot(both.key, provider.displayName, both.iconRes,
