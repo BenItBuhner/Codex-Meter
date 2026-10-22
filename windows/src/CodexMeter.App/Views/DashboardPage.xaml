@@ -14,7 +14,7 @@
                 <VisualState x:Name="Narrow">
                     <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="0" /></VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="ContentPanel.Padding" Value="16,20,16,24" />
+                        <Setter Target="ContentPanel.Padding" Value="16,52,16,24" />
                         <Setter Target="RefreshLabel.Visibility" Value="Collapsed" />
                         <Setter Target="TitleText.FontSize" Value="24" />
                     </VisualState.Setters>
