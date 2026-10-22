@@ -2,7 +2,7 @@ name: One UI 9 screenshots (temporary)
 
 # One-off: renders alpha.5 in One UI 9 mode (before), and this branch in classic and One UI 9
 # mode, at rest and at several scroll depths, plus a recording of the design switch restarting
-# the app. Output goes to refs/ci-screenshots/oneui9-header. Removed before the PR merges.
+# the app. Output goes to refs/ci-screenshots/oneui9-header2. Removed before the PR merges.
 on:
   push:
     branches: [claude/project-thread-cidms8]
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [alpha4, before, classic, oneui9]
+        variant: [classic, oneui9]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -220,7 +220,7 @@ jobs:
           pattern: shots-*
           merge-multiple: true
           path: shots
-      - name: Publish to refs/ci-screenshots/oneui9-header
+      - name: Publish to refs/ci-screenshots/oneui9-header2
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -230,4 +230,4 @@ jobs:
           git init -q
           git add -A
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "One UI 9 screenshots"
-          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/oneui9-header
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/oneui9-header2

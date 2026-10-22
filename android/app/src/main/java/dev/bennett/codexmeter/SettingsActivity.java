@@ -24,6 +24,7 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceListCorners;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
@@ -234,6 +235,9 @@ public final class SettingsActivity extends AppCompatActivity {
         public void onViewCreated(View view, Bundle bundle) {
             super.onViewCreated(view, bundle);
             view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
+            if (AppPreferences.isOneUi9Design(requireContext())) {
+                PreferenceListCorners.drop(this);
+            }
         }
 
         @Override
