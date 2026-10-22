@@ -277,19 +277,6 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("21-onboarding-providers")
 
-        // The setup picker is searchable, like Android's.
-        let search = app.textFields["onboarding-search"]
-        if search.waitForExistence(timeout: 3) {
-            search.tap()
-            search.typeText("co")
-            UITestSupport.settle(0.8)
-            capture("21b-onboarding-provider-search")
-            search.buttons["Clear text"].firstMatch.tap()
-            if app.keyboards.firstMatch.exists {
-                app.keyboards.buttons["return"].firstMatch.tap()
-            }
-        }
-
         UITestSupport.tap(app.buttons["Continue"])
         XCTAssertTrue(app.staticTexts["Connect Claude Code"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
