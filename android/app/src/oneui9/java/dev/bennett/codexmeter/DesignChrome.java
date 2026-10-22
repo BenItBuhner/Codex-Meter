@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.app.Activity;
 import android.content.res.Resources;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.Insets;
 import android.os.Build;
@@ -14,6 +15,7 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import androidx.appcompat.widget.Toolbar;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.view.ViewCompat;
@@ -292,6 +294,12 @@ final class DesignChrome {
                 next.append('|').append(tab == null ? "" : tab.getText());
             }
             if (next.toString().equals(signature)) {
+                // MainActivity shows the stock tab bar again when it rebuilds tabs (for example
+                // after returning from Settings). Hide it before this frame draws.
+                if (tabs.getVisibility() != View.GONE) {
+                    tabs.setVisibility(View.GONE);
+                    return false;
+                }
                 return true;
             }
             signature = next.toString();
@@ -322,10 +330,37 @@ final class DesignChrome {
 
         private void syncSelection() {
             int position = tabs.getSelectedTabPosition();
-            if (position >= 0 && position < nav.getMenu().size()) {
-                syncing = true;
-                nav.setSelectedItemId(position + 1);
-                syncing = false;
+            Menu menu = nav.getMenu();
+            if (position < 0 || position >= menu.size()) {
+                return;
+            }
+            syncing = true;
+            menu.findItem(position + 1).setChecked(true);
+            syncing = false;
+            // SESL9 keeps every label at the same weight; bold the selected one as One UI does.
+            for (int i = 0; i < menu.size(); i++) {
+                MenuItem item = menu.getItem(i);
+                View view = nav.findViewById(item.getItemId());
+                if (view instanceof ViewGroup) {
+                    boolean checked = item.getItemId() == position + 1;
+                    styleLabels((ViewGroup) view, checked ? Typeface.BOLD : Typeface.NORMAL);
+                    view.setSelected(checked);
+                }
+            }
+        }
+
+        private static void styleLabels(ViewGroup group, int style) {
+            for (int i = 0; i < group.getChildCount(); i++) {
+                View child = group.getChildAt(i);
+                if (child instanceof TextView) {
+                    TextView label = (TextView) child;
+                    Typeface face = label.getTypeface();
+                    if (face == null || face.getStyle() != style) {
+                        label.setTypeface(Typeface.create(face, style));
+                    }
+                } else if (child instanceof ViewGroup) {
+                    styleLabels((ViewGroup) child, style);
+                }
             }
         }
 

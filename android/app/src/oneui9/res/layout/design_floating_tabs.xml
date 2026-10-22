@@ -7,5 +7,6 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_gravity="bottom|center_horizontal"
+    app:itemBackground="@drawable/design_floating_navigation_item_background"
     app:itemHorizontalTranslationEnabled="false"
     app:labelVisibilityMode="labeled" />

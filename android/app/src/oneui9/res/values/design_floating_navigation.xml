@@ -9,4 +9,5 @@
         <item name="android:elevation">6dp</item>
     </style>
     <color name="design_floating_navigation_surface">#F6F6F6</color>
+    <color name="design_floating_navigation_checked">#1F000000</color>
 </resources>
