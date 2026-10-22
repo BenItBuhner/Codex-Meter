@@ -2,10 +2,13 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.6 — 2026-10-22
+
 ### Fixed
 
 - One UI 9 design: settings pages no longer wrap scrolled content in a filled box with One UI 8 corners. Content now fades under the floating buttons.
 - Classic design: the collapsed header stays pinned while you scroll instead of scrolling away, and widget settings show the Cancel / Save bar again.
+- Claude Code saved resets now show up for accounts that have them: usage and reset requests now identify as Claude Code, since Anthropic decides reset eligibility per client. Settings → Refresh & usage has a new **Your resets** row for Codex and Claude Code that shows the count and next expiry, or why no resets are offered.
 
 ### Changed
 
