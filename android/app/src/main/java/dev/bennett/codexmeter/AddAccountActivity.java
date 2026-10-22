@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -16,6 +17,11 @@ import java.util.List;
  * provider gets a dashboard tab.
  */
 public final class AddAccountActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private ActivityResultLauncher<Intent> signIn;
 
     @Override
