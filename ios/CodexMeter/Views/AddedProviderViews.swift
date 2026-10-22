@@ -48,7 +48,10 @@ struct AddedProviderDashboardView: View {
                     }
                     if let usage = state.usage {
                         AddedProviderStatusStrip(provider: provider, usage: usage, isCached: state.isUsingCachedData)
-                        AddedProviderMeters(usage: usage)
+                        ProviderDashboardCards(provider: provider, usage: usage)
+                        if let credits = usage.usageCredits, credits.shouldDisplay {
+                            AddedProviderBalanceCard(credits: credits)
+                        }
                     } else {
                         AddedProviderEmptyCard(state: state)
                     }
@@ -64,6 +67,12 @@ struct AddedProviderDashboardView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if state.phase != .signedOut {
+                    NavigationLink {
+                        DashboardEditView(provider: provider)
+                    } label: {
+                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    }
+
                     Button {
                         Task { await state.refresh() }
                     } label: {
@@ -141,67 +150,6 @@ private struct AddedProviderStatusStrip: View {
     }
 }
 
-/// The short, weekly and monthly windows, extra limits, and any credit balance.
-private struct AddedProviderMeters: View {
-    @Environment(AppModel.self) private var model
-    let usage: UsageSnapshot
-
-    private enum Card {
-        case window(UsageWindow, systemImage: String, accent: Color)
-        case limit(AdditionalLimitWindow)
-        case balance(UsageCredits)
-    }
-
-    private struct Cell: Identifiable {
-        let id: String
-        let card: Card
-    }
-
-    private var cells: [Cell] {
-        var cells: [Cell] = []
-        if let window = usage.fiveHour {
-            cells.append(Cell(id: "short", card: .window(window, systemImage: "clock", accent: .blue)))
-        }
-        if let window = usage.weekly {
-            cells.append(Cell(id: "weekly", card: .window(window, systemImage: "calendar", accent: .purple)))
-        }
-        if let window = usage.monthly {
-            cells.append(Cell(id: "monthly", card: .window(window, systemImage: "calendar.badge.clock", accent: .indigo)))
-        }
-        for limit in usage.additionalLimits {
-            cells += AdditionalLimitWindow.windows(of: limit).map { Cell(id: $0.id, card: .limit($0)) }
-        }
-        if let credits = usage.usageCredits, credits.shouldDisplay {
-            cells.append(Cell(id: "balance", card: .balance(credits)))
-        }
-        return cells
-    }
-
-    var body: some View {
-        DashboardCardGrid(items: cells) { cell in
-            switch cell.card {
-            case let .window(window, systemImage, accent):
-                meter(window, systemImage: systemImage, accent: accent)
-            case let .limit(window):
-                AdditionalLimitCard(window: window, fetchedAt: usage.fetchedAt)
-            case let .balance(credits):
-                AddedProviderBalanceCard(credits: credits)
-            }
-        }
-    }
-
-    private func meter(_ window: UsageWindow, systemImage: String, accent: Color) -> some View {
-        UsageMeterCard(
-            title: LocalizedStringKey(ProviderUsageParsers.durationName(window.windowSeconds)),
-            systemImage: systemImage,
-            window: window,
-            accent: accent,
-            fetchedAt: usage.fetchedAt,
-            pace: model.usagePace(for: window, observedAt: usage.fetchedAt)
-        )
-    }
-}
-
 private struct AddedProviderBalanceCard: View {
     let credits: UsageCredits
 
@@ -221,7 +169,7 @@ private struct AddedProviderBalanceCard: View {
             Spacer(minLength: 0)
         }
         .padding(AppChrome.cardPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
         .accessibilityElement(children: .combine)
     }
