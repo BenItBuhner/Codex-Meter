@@ -174,7 +174,8 @@ public final class ClaudeUsageApi {
         if (tokens == null) {
             throw new Exception("Sign in with Claude first.");
         }
-        if (tokens.shouldRefresh(System.currentTimeMillis())) {
+        long now = System.currentTimeMillis();
+        if (tokens.shouldRefresh(now) || wantsScopeUpgrade(context, now)) {
             DiagnosticLog.info(context, "auth", "claude_token_refresh_due");
             tokens = refresh(context, tokens);
             SecureTokenStore.save(context, PROVIDER, tokens);
@@ -192,16 +193,52 @@ public final class ClaudeUsageApi {
         }
         AuthTokens tokens = parseTokens(response, null);
         ProviderPreferences.setEmail(context, PROVIDER, tokens.email);
+        ProviderPreferences.setGrantedScope(context, PROVIDER, grantedScope(response));
         return tokens;
     }
 
     static AuthTokens refresh(Context context, AuthTokens current) throws Exception {
-        Map<String, String> body = ClaudeCodeApi.refreshBody(current.refreshToken);
+        ProviderPreferences.setScopeUpgradeTriedAt(context, PROVIDER, System.currentTimeMillis());
+        Response response = postRefresh(context,
+                ClaudeCodeApi.refreshBody(current.refreshToken, ClaudeCodeApi.SCOPE));
+        if (response.status == 400
+                && !OAuthClient.readError(response.body, "").contains("invalid_grant")) {
+            // Same fallback as Claude Code: keep the scopes this sign-in already has.
+            DiagnosticLog.warn(context, "auth", "claude_scope_upgrade_rejected");
+            response = postRefresh(context, ClaudeCodeApi.refreshBody(current.refreshToken));
+        }
+        AuthTokens tokens = current.mergeRefresh(parseTokens(response, current));
+        ProviderPreferences.setGrantedScope(context, PROVIDER, grantedScope(response));
+        return tokens;
+    }
+
+    private static Response postRefresh(Context context, Map<String, String> body)
+            throws Exception {
         Response response = postForm(context, "claude_token_refresh", body);
         if (shouldRetryAsJson(response)) {
             response = postJson(context, "claude_token_refresh", body);
         }
-        return current.mergeRefresh(parseTokens(response, current));
+        return response;
+    }
+
+    /**
+     * A sign-in without Claude Code's scope gets one early refresh a day to pick it up, since
+     * Anthropic only reports saved resets to Claude Code sign-ins.
+     */
+    private static boolean wantsScopeUpgrade(Context context, long now) {
+        String granted = ProviderPreferences.getGrantedScope(context, PROVIDER);
+        boolean missing = granted.isEmpty() || ClaudeSavedResets.needsClaudeCodeSignIn(granted);
+        return missing && now - ProviderPreferences.getScopeUpgradeTriedAt(context, PROVIDER)
+                > 24L * 60L * 60L * 1000L;
+    }
+
+    /** The token response's space-separated {@code scope}, or empty. */
+    static String grantedScope(Response response) {
+        try {
+            return new JSONObject(response.body).optString("scope", "");
+        } catch (Exception exception) {
+            return "";
+        }
     }
 
     /**
