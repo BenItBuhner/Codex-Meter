@@ -42,6 +42,7 @@ public final class ResetNotificationManager {
     private static final int NOTIFICATION_CREDIT_EXPIRY_BASE = 74600;
     private static final int NOTIFICATION_CREDIT_AUTO_APPLY = 74516;
     private static final int NOTIFICATION_CREDIT_LOW_USAGE = 74517;
+    private static final int NOTIFICATION_CLAUDE_SAVED_RESET = 74518;
     private static final int NOTIFICATION_REFILL_FIVE_HOUR = 74511;
     private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
     private static final int NOTIFICATION_REFILL_BOTH = 74513;
@@ -274,6 +275,51 @@ public final class ResetNotificationManager {
         }
         return post(context, NOTIFICATION_CREDIT_LOW_USAGE, title, text,
                 NOTIFICATION_CREDIT_LOW_USAGE);
+    }
+
+    /** Same titles and wording as the Codex reset-credit notices, naming Claude Code. */
+    public static boolean showClaudeSavedResetNotification(Context context,
+            ClaudeResetAutoUse decision, ClaudeSavedResets.ClaimResult result) {
+        if (context == null || decision == null || result == null
+                || !ResetAlertPreferences.enabled(context)) {
+            return false;
+        }
+        boolean expiring = ClaudeResetAutoUse.FIRE_EXPIRING.equals(decision.outcome);
+        String title;
+        String text;
+        if (expiring) {
+            String expiry = decision.grant != null && decision.grant.endsAtMillis > 0L
+                    ? java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+                            .format(new java.util.Date(decision.grant.endsAtMillis))
+                    : "";
+            if (result.applied()) {
+                title = "Expiring Claude Code reset used";
+                text = result.userMessage()
+                        + (expiry.isEmpty() ? "" : " It would have expired at " + expiry + ".");
+            } else if (ClaudeSavedResets.ClaimResult.NOT_LIMITED.equals(result.result)) {
+                title = "Expiring reset had nothing to reset";
+                text = result.userMessage();
+            } else if (ClaudeSavedResets.ClaimResult.ALREADY_USED.equals(result.result)) {
+                title = "Expiring reset was already gone";
+                text = result.userMessage();
+            } else {
+                title = "Could not use expiring reset";
+                text = result.userMessage() + " Codex Meter will try again on the next refresh.";
+            }
+        } else if (result.applied()) {
+            title = "Claude Code reset used automatically";
+            text = "Your " + decision.windowLabel + " limit reached "
+                    + Math.max(0, decision.remainingPercent) + "% remaining. "
+                    + result.userMessage();
+        } else if (!result.retryable()) {
+            title = "Automatic reset not used";
+            text = result.userMessage();
+        } else {
+            title = "Could not use a reset automatically";
+            text = result.userMessage() + " Codex Meter will try again on the next refresh.";
+        }
+        return post(context, NOTIFICATION_CLAUDE_SAVED_RESET, title, text,
+                NOTIFICATION_CLAUDE_SAVED_RESET);
     }
 
     public static void dismissResetCreditExpiryNotification(Context context,

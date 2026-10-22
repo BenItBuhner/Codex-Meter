@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Copies the SESL9 (One UI 9) artifacts that the One UI 9 preview build resolves into
-# vendor/m2, so `-PoneUi9=true` builds work offline like the SESL8 build does.
+# Copies the SESL9 (One UI 9) artifacts the app build resolves into
+# vendor/m2, so builds work offline without GitHub Packages access.
 # Needs GH_USERNAME / GH_ACCESS_TOKEN with read:packages (GitHub Packages always requires auth).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -18,7 +18,7 @@ grep -oE '"sesl\.[a-z0-9.]+:[a-z0-9-]+"' "$ROOT/app/build.gradle.kts" | tr -d '"
 # Drop old SESL9 copies so Gradle downloads the pinned ones (a vendored POM without its AAR
 # would otherwise shadow GitHub Packages), then build so every artifact file is fetched.
 find "$ROOT/vendor/m2/sesl" -type d -name '*sesl9*' -prune -exec rm -rf {} +
-"$ROOT/gradlew" --project-dir "$ROOT" -PoneUi9=true -q :app:assembleDebug
+"$ROOT/gradlew" --project-dir "$ROOT" -q :app:assembleDebug
 
 copied=0
 # Copy exactly the pinned versions listed in app/build.gradle.kts.

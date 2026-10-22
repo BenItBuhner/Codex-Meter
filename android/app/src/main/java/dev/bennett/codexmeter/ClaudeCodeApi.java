@@ -17,6 +17,14 @@ public final class ClaudeCodeApi {
     public static final String TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
     public static final String USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
     public static final String PROFILE_URL = "https://api.anthropic.com/api/oauth/profile";
+    /**
+     * The usage route with Claude Code's saved-reset status added ({@code cedar_ember} block).
+     * One request keeps the rate-limited usage route at its usual load.
+     */
+    public static final String USAGE_WITH_SAVED_RESETS_URL = USAGE_URL + "?cedar_ember=1";
+    /** Spends a saved reset; {@code %s} is the organization UUID. */
+    public static final String RESET_RATE_LIMITS_URL =
+            "https://api.anthropic.com/api/organizations/%s/reset_rate_limits";
     /** Required beta header for OAuth-token access to api.anthropic.com. */
     public static final String OAUTH_BETA = "oauth-2025-04-20";
     /** Read-only scopes: profile for the plan badge, inference matches Claude Code's grant. */
@@ -40,6 +48,14 @@ public final class ClaudeCodeApi {
             return false;
         }
         return fetchedAt <= 0L || now < fetchedAt || now - fetchedAt >= minIntervalMillis;
+    }
+
+    public static String resetRateLimitsUrl(String organizationUuid) {
+        String org = organizationUuid == null ? "" : organizationUuid.trim();
+        if (!org.matches("^[A-Za-z0-9-]{1,64}$")) {
+            throw new IllegalArgumentException("Missing Claude organization.");
+        }
+        return String.format(java.util.Locale.ROOT, RESET_RATE_LIMITS_URL, org);
     }
 
     public static String redirectUri(int port) {

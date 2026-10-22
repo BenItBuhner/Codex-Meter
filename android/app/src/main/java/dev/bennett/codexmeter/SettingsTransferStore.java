@@ -217,6 +217,16 @@ public final class SettingsTransferStore {
                 ResetAlertPreferences.resetCreditLowUsageThreshold(context));
         json.put("reset_credit_low_usage_metric",
                 ResetAlertPreferences.resetCreditLowUsageMetric(context));
+        json.put("claude_saved_reset_expiry",
+                ResetAlertPreferences.claudeSavedResetExpiryEnabled(context));
+        json.put("claude_saved_reset_expiry_lead_ms",
+                ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context));
+        json.put("claude_saved_reset_low_usage",
+                ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context));
+        json.put("claude_saved_reset_threshold",
+                ResetAlertPreferences.claudeSavedResetThreshold(context));
+        json.put("claude_saved_reset_metric",
+                ResetAlertPreferences.claudeSavedResetMetric(context));
         json.put("reset_credit_expiry_lead_times", SettingsTransfer.leadTimesToJson(
                 ResetAlertPreferences.getResetCreditExpiryLeadTimes(context)));
         return json;
@@ -329,6 +339,21 @@ public final class SettingsTransferStore {
         ResetAlertPreferences.setResetCreditLowUsageMetric(context,
                 json.optString("reset_credit_low_usage_metric",
                         ResetAlertPreferences.resetCreditLowUsageMetric(context)));
+        ResetAlertPreferences.setClaudeSavedResetExpiryEnabled(context,
+                json.optBoolean("claude_saved_reset_expiry",
+                        ResetAlertPreferences.claudeSavedResetExpiryEnabled(context)));
+        ResetAlertPreferences.setClaudeSavedResetExpiryLeadMillis(context,
+                json.optLong("claude_saved_reset_expiry_lead_ms",
+                        ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context)));
+        ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(context,
+                json.optBoolean("claude_saved_reset_low_usage",
+                        ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context)));
+        ResetAlertPreferences.setClaudeSavedResetThreshold(context,
+                json.optInt("claude_saved_reset_threshold",
+                        ResetAlertPreferences.claudeSavedResetThreshold(context)));
+        ResetAlertPreferences.setClaudeSavedResetMetric(context,
+                json.optString("claude_saved_reset_metric",
+                        ResetAlertPreferences.claudeSavedResetMetric(context)));
         if (leadTimes != null) {
             ResetAlertPreferences.setResetCreditExpiryLeadTimes(context, leadTimes);
         }
