@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- One UI 9 design rebuilt from scratch on SESL9's own page parts instead of the One UI 8 header. Headers are fully transparent: the large title collapses, then the back and action buttons float in their own pills while content scrolls under them and fades out below the status bar. No filled or rounded header box anywhere. The dashboard's provider tabs are a floating tab bar, and widget settings keep a floating Cancel / Save bar.
+- Classic design is unchanged from alpha.6, with the collapsed header pinned at every scroll depth.
+
 ## 2.9.0-alpha.6 — 2026-10-22
 
 ### Fixed

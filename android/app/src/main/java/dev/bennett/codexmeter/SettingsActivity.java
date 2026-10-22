@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -27,7 +28,6 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceListCorners;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
-import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
@@ -67,10 +67,8 @@ public final class SettingsActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
-        setContentView(R.layout.activity_settings);
         String page = normalizePage(getIntent().getStringExtra(EXTRA_PAGE));
-        ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
-        Ui.configureReachToolbar(toolbar, pageTitle(page), true);
+        Ui.installSettingsPage(this, pageTitle(page));
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, SettingsFragment.newInstance(page))
@@ -235,9 +233,14 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onViewCreated(View view, Bundle bundle) {
             super.onViewCreated(view, bundle);
-            view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
             if (AppPreferences.isOneUi9Design(requireContext())) {
+                // One UI 9: the list runs edge to edge under the floating toolbar and fades, so
+                // it has no backdrop of its own and no rounded list edges; each row group keeps
+                // its own card.
+                view.setBackgroundColor(Color.TRANSPARENT);
                 PreferenceListCorners.drop(this);
+            } else {
+                view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
             }
         }
 

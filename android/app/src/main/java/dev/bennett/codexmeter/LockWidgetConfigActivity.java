@@ -181,8 +181,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         this.showResetCredits.setOnCheckedChangeListener(previewCheckListener);
         this.showResetAction.setOnCheckedChangeListener(previewCheckListener);
 
-        page.cancel.setOnClickListener(view -> finish());
-        page.save.setOnClickListener(view -> save());
+        page.onCancel(this::finish);
+        page.onSave(this::save);
         updateMetersHint();
         updatePreview();
     }
