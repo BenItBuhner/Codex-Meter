@@ -30,6 +30,12 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             {
                 window.Navigate(pages[i]);
                 await Task.Delay(1200);
+                var expected = pages[i] switch { "settings" => "SettingsPage", "accounts" => "AccountsPage", _ => "DashboardPage" };
+                if (window.CurrentPageType?.Name != expected)
+                {
+                    App.Log($"Expected {expected} for {pages[i]} but the window shows {window.CurrentPageType?.Name ?? "nothing"}.");
+                    failures++;
+                }
                 failures += await CaptureAsync($"{name}-{i + 1:00}-{pages[i]}.png") ? 0 : 1;
             }
             // Narrow window: the pane collapses and the meter cards stack.

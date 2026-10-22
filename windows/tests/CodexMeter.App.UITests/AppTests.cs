@@ -46,7 +46,7 @@ public class AppTests
         Assert.NotNull(app.Find("Meter_fiveHour"));
         app.Open("Nav_cursor");
         app.WaitUntil(() => app.TextOf("DashboardTitle") == "Cursor", "Cursor page did not open.");
-        Assert.NotNull(app.Find("Meter_monthly"));
+        Assert.NotNull(app.Find("Meter_weekly"));
     }
 
     [Fact]

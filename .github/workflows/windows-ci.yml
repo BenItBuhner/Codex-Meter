@@ -91,6 +91,12 @@ jobs:
           CODEXMETER_EXE: ${{ github.workspace }}\windows\out\CodexMeter-win-x64\CodexMeter.exe
         run: dotnet test tests/CodexMeter.App.UITests --logger "console;verbosity=normal" --logger "trx;LogFileName=ui-tests.trx" --results-directory out/test-results
 
+      - name: Show app log
+        if: always()
+        run: |
+          $log = Join-Path $env:LOCALAPPDATA 'CodexMeter/codexmeter.log'
+          if (Test-Path $log) { Get-Content $log } else { 'No log written.' }
+
       - name: Zip builds
         if: always()
         run: |

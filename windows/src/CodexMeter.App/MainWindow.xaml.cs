@@ -37,6 +37,11 @@ public sealed partial class MainWindow : Window
         state.ProvidersChanged += OnProvidersChanged;
         state.Settings.Changed += (_, _) => ApplyAppearance();
         AppWindow.Closing += OnClosing;
+        ContentFrame.NavigationFailed += (_, args) =>
+        {
+            App.Log($"Navigation to {args.SourcePageType?.Name} failed: {args.Exception}");
+            args.Handled = true;
+        };
         Nav.DisplayModeChanged += (_, args) =>
             AppTitleBar.Padding = new Thickness(args.DisplayMode == NavigationViewDisplayMode.Minimal ? 56 : 16, 0, 140, 0);
     }
@@ -148,9 +153,19 @@ public sealed partial class MainWindow : Window
             "accounts" => AccountsItem,
             _ => Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == tag),
         };
-        if (item is null) return;
-        if (Nav.SelectedItem != item) Nav.SelectedItem = item;
-        else ShowPage(tag);
+        if (tag != "settings" && item is null) return;
+        // Select the pane item without relying on SelectionChanged, then show the page directly.
+        rebuildingNav = true;
+        try
+        {
+            if (item is not null && Nav.SelectedItem != item) Nav.SelectedItem = item;
+        }
+        finally
+        {
+            rebuildingNav = false;
+        }
+        if (tag == currentTag && ContentFrame.Content is not null) return;
+        ShowPage(tag);
     }
 
     private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -163,6 +178,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowPage(string tag)
     {
+        currentTag = tag;
         var transition = new EntranceNavigationTransitionInfo();
         switch (tag)
         {
@@ -180,9 +196,11 @@ public sealed partial class MainWindow : Window
             state.Settings.Update(s => s with { SelectedProvider = tag });
     }
 
-    public string CurrentTag => Nav.SelectedItem == Nav.SettingsItem
-        ? "settings"
-        : (Nav.SelectedItem as NavigationViewItem)?.Tag as string ?? "";
+    private string currentTag = "";
+
+    public string CurrentTag => currentTag;
+
+    public Type? CurrentPageType => ContentFrame.Content?.GetType();
 
     public ScrollViewer? CurrentScrollViewer => (ContentFrame.Content as FrameworkElement)?.FindName("PageScroller") as ScrollViewer;
 }

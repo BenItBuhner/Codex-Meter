@@ -240,7 +240,9 @@ public sealed partial class DashboardPage : Page
             }
         };
         panel.Children.Add(button);
-        return Cards.Card(panel, "ResetCreditsCard");
+        var card = Cards.Card(panel, "ResetCreditsCard");
+        AutomationProperties.SetName(card, "Banked resets");
+        return card;
     }
 
     private static Border PurchasedCreditsCard(UsageCredits credits)
@@ -255,6 +257,8 @@ public sealed partial class DashboardPage : Page
             : credits.Balance ?? "Available";
         panel.Children.Add(Cards.Text(amount, "SubtitleTextBlockStyle"));
         panel.Children.Add(Cards.Text("Purchased credits keep Codex going after a limit is reached.", "SecondaryTextStyle"));
-        return Cards.Card(panel, "UsageCreditsCard");
+        var card = Cards.Card(panel, "UsageCreditsCard");
+        AutomationProperties.SetName(card, "Usage credits");
+        return card;
     }
 }
