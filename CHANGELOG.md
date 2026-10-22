@@ -2,10 +2,17 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.7 — 2026-10-22
+
 ### Fixed
 
 - One UI 9 design rebuilt from scratch on SESL9's own page parts instead of the One UI 8 header. Headers are fully transparent: the large title collapses, then the back and action buttons float in their own pills while content scrolls under them and fades out below the status bar. No filled or rounded header box anywhere. The dashboard's provider tabs are a floating tab bar, and widget settings keep a floating Cancel / Save bar.
 - Classic design is unchanged from alpha.6, with the collapsed header pinned at every scroll depth.
+- Claude Code saved resets: sign-in and token refresh now ask for Claude Code's full scope list, so Anthropic treats the app as Claude Code. Existing sign-ins pick up the new scope on their next refresh. Settings → Refresh & usage → **Check with Anthropic** makes one fresh usage request and shows exactly what came back, with a Copy button.
+
+### Changed
+
+- Lock screen gauges lead with the weekly limit instead of the five-hour one. When a dial can only show one window (two providers on the Gauges widget, or the single Gauge widget), it now shows weekly on the main ring and five-hour as a thinner, lighter ring inside it, so both stay visible. On iOS, the circular lock screen widget puts weekly on the bold outer ring, and the rectangular and inline widgets list weekly first.
 
 ## 2.9.0-alpha.6 — 2026-10-22
 

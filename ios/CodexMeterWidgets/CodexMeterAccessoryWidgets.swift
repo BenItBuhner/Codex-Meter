@@ -146,11 +146,13 @@ private struct DualAccessoryCircularUsageView: View {
                 .widgetURL(URL(string: "codexmeter://dashboard"))
                 .accessibilityLabel("Sign in to Codex Meter")
         } else {
+            // Weekly leads on the outer ring; the five-hour window sits inside it as a
+            // thinner, lighter ring of the same tint.
             ZStack {
                 Circle()
                     .stroke(.primary.opacity(0.18), lineWidth: 4)
                 Circle()
-                    .trim(from: 0, to: progress(snapshot.fiveHour))
+                    .trim(from: 0, to: progress(snapshot.weekly))
                     .stroke(
                         .primary,
                         style: StrokeStyle(lineWidth: 4, lineCap: .round)
@@ -162,7 +164,7 @@ private struct DualAccessoryCircularUsageView: View {
                     .stroke(.primary.opacity(0.10), lineWidth: 3)
                     .padding(8)
                 Circle()
-                    .trim(from: 0, to: progress(snapshot.weekly))
+                    .trim(from: 0, to: progress(snapshot.fiveHour))
                     .stroke(
                         .secondary,
                         style: StrokeStyle(lineWidth: 3, lineCap: .round)
@@ -172,8 +174,9 @@ private struct DualAccessoryCircularUsageView: View {
                     .widgetAccentable()
 
                 VStack(spacing: -1) {
-                    Text("5h \(percentText(snapshot.fiveHour.usedPercent, symbol: false))")
                     Text("\(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(snapshot.weekly.usedPercent, symbol: false))")
+                    Text("5h \(percentText(snapshot.fiveHour.usedPercent, symbol: false))")
+                        .foregroundStyle(.secondary)
                 }
                 .font(.system(size: 8, weight: .bold, design: .rounded))
                 .minimumScaleFactor(0.7)
@@ -184,7 +187,7 @@ private struct DualAccessoryCircularUsageView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Both allowance windows")
             .accessibilityValue(
-                "5-hour \(percentText(snapshot.fiveHour.usedPercent, symbol: true)) used, \(snapshot.longWindowTitle.lowercased()) \(percentText(snapshot.weekly.usedPercent, symbol: true)) used"
+                "\(snapshot.longWindowTitle.lowercased()) \(percentText(snapshot.weekly.usedPercent, symbol: true)) used, 5-hour \(percentText(snapshot.fiveHour.usedPercent, symbol: true)) used"
             )
         }
     }
@@ -217,12 +220,12 @@ private struct DualAccessoryUsageView: View {
             case .both:
                 HStack(spacing: 4) {
                     Image(systemName: "gauge.with.dots.needle.33percent")
-                    Text("5h \(percentText(snapshot.fiveHour.usedPercent, symbol: true))")
-                    if let reset = snapshot.fiveHour.resetsAt, reset > .now {
+                    Text("\(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(snapshot.weekly.usedPercent, symbol: true))")
+                    if let reset = snapshot.weekly.resetsAt, reset > .now {
                         Text(reset, style: .timer).monospacedDigit()
                     }
-                    Text("· \(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(snapshot.weekly.usedPercent, symbol: true))")
-                    if let reset = snapshot.weekly.resetsAt, reset > .now {
+                    Text("· 5h \(percentText(snapshot.fiveHour.usedPercent, symbol: true))")
+                    if let reset = snapshot.fiveHour.resetsAt, reset > .now {
                         Text(reset, style: .timer).monospacedDigit()
                     }
                 }
@@ -243,8 +246,8 @@ private struct DualAccessoryUsageView: View {
             switch allowance {
             case .both:
                 VStack(alignment: .leading, spacing: 5) {
-                    accessoryRow(title: "5 hours", window: snapshot.fiveHour)
                     accessoryRow(title: LocalizedStringKey(snapshot.longWindowTitle), window: snapshot.weekly)
+                    accessoryRow(title: "5 hours", window: snapshot.fiveHour)
                 }
             case .fiveHour:
                 accessoryRow(title: "5 hours", window: snapshot.fiveHour)
