@@ -39,20 +39,20 @@ final class IPadLayoutTests: XCTestCase {
 
     func testLandscapeDashboardUsesColumnsSidebarAndKeyboard() throws {
         let app = launch(.landscapeLeft)
-        capture("01-landscape-codex")
+        capture("01-landscape-sidebar-codex")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Codex 5-hour and Weekly share a row in landscape")
 
-        // The sidebar holds every provider tab; opening it narrows the dashboard, which must
-        // still keep at least two columns on a landscape iPad.
+        // Landscape opens with the sidebar showing. Its button switches to the floating tab bar
+        // (and back); either way the dashboard keeps at least two columns.
         if openSidebar(in: app) {
             UITestSupport.settle(1.0)
-            capture("02-landscape-sidebar")
+            capture("02-landscape-tab-bar")
             XCTAssertTrue(app.buttons["Copilot"].firstMatch.exists, "The sidebar lists the added providers too")
             assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Columns survive the sidebar")
             UITestSupport.tap(app.buttons["Claude Code"])
             XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Sidebar rows switch tabs")
             UITestSupport.settle(0.8)
-            capture("03-landscape-sidebar-claude")
+            capture("03-landscape-claude-from-sidebar")
             closeSidebar(in: app)
             UITestSupport.settle(0.8)
         }

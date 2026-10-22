@@ -58,6 +58,16 @@ STATUS=$?
 set -e
 
 cp -f "$STAGING_DIR"/*.png "$OUT_DIR" 2>/dev/null || true
+# XCUIScreen captures the panel in its native portrait orientation; turn the
+# landscape stills upright so they read like the device.
+for still in "$OUT_DIR"/*landscape*.png "$OUT_DIR"/14-*.png; do
+  [[ -f "$still" ]] || continue
+  width="$(sips -g pixelWidth "$still" | awk '/pixelWidth/ {print $2}')"
+  height="$(sips -g pixelHeight "$still" | awk '/pixelHeight/ {print $2}')"
+  if [[ "$height" -gt "$width" ]]; then
+    sips -r 270 "$still" >/dev/null
+  fi
+done
 xcrun simctl status_bar "$UDID" clear >/dev/null 2>&1 || true
 xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 
