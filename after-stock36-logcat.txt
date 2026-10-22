@@ -1,0 +1,14 @@
+10-22 22:50:06.819   588   688 I ActivityManager: Start proc 2270:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:50:49.667   588   688 I ActivityManager: Start proc 3855:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:51:28.703   588   688 I ActivityManager: Start proc 3992:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:52:03.342   588   688 I ActivityManager: Start proc 4091:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:52:38.450   588   688 I ActivityManager: Start proc 4188:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:53:19.391   588   688 I ActivityManager: Start proc 4311:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:54:07.543   588   688 I ActivityManager: Start proc 4635:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:54:56.897   588   688 I ActivityManager: Start proc 5312:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:55:31.986   588   688 I ActivityManager: Start proc 5401:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:56:11.470   588   688 I ActivityManager: Start proc 5492:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:56:45.817   588   688 I ActivityManager: Start proc 5579:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:57:21.029   588   688 I ActivityManager: Start proc 5666:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:58:02.062   588   688 I ActivityManager: Start proc 5782:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:58:50.445   588   688 I ActivityManager: Start proc 6100:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}

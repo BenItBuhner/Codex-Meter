@@ -1,0 +1,28 @@
+10-22 22:49:29.028   656   691 I ActivityManager: Start proc 2226:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:49:33.878  2226  2226 I DebugSeed: isOneUI forced: true
+10-22 22:50:13.119   656   691 I ActivityManager: Start proc 3765:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:50:14.531  3765  3765 I DebugSeed: isOneUI forced: true
+10-22 22:50:55.470   656   691 I ActivityManager: Start proc 3930:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:50:57.175  3930  3930 I DebugSeed: isOneUI forced: true
+10-22 22:51:30.050   656   691 I ActivityManager: Start proc 4097:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:51:31.628  4097  4097 I DebugSeed: isOneUI forced: true
+10-22 22:52:04.861   656   691 I ActivityManager: Start proc 4187:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:52:06.294  4187  4187 I DebugSeed: isOneUI forced: true
+10-22 22:52:45.653   656   691 I ActivityManager: Start proc 4307:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:52:47.043  4307  4307 I DebugSeed: isOneUI forced: true
+10-22 22:53:33.693   656   691 I ActivityManager: Start proc 4620:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:53:35.314  4620  4620 I DebugSeed: isOneUI forced: true
+10-22 22:54:22.659   656   691 I ActivityManager: Start proc 5333:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:54:23.706  5333  5333 I DebugSeed: isOneUI forced: true
+10-22 22:54:57.452   656   691 I ActivityManager: Start proc 5429:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:54:58.956  5429  5429 I DebugSeed: isOneUI forced: true
+10-22 22:55:36.669   656   691 I ActivityManager: Start proc 5518:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:55:38.125  5518  5518 I DebugSeed: isOneUI forced: true
+10-22 22:56:10.995   656   691 I ActivityManager: Start proc 5606:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:56:12.480  5606  5606 I DebugSeed: isOneUI forced: true
+10-22 22:56:46.092   656   691 I ActivityManager: Start proc 5696:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:56:47.456  5696  5696 I DebugSeed: isOneUI forced: true
+10-22 22:57:26.978   656   691 I ActivityManager: Start proc 5813:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:57:28.405  5813  5813 I DebugSeed: isOneUI forced: true
+10-22 22:58:15.010   656   691 I ActivityManager: Start proc 6128:dev.bennett.codexmeter/u0a216 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 22:58:16.456  6128  6128 I DebugSeed: isOneUI forced: true
