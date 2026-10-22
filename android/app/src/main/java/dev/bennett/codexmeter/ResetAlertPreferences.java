@@ -12,6 +12,16 @@ import java.util.Set;
 public final class ResetAlertPreferences {
     private static final String KEY_METRIC = "metric";
     private static final String KEY_RESET_CREDIT_EXPIRY = "reset_credit_expiry";
+    private static final String KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY =
+            "reset_credit_expiry_auto_apply";
+    private static final String KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY_LEAD =
+            "reset_credit_expiry_auto_apply_lead_ms";
+    private static final String KEY_RESET_CREDIT_LOW_USAGE_AUTO_USE =
+            "reset_credit_low_usage_auto_use";
+    private static final String KEY_RESET_CREDIT_LOW_USAGE_THRESHOLD =
+            "reset_credit_low_usage_threshold";
+    private static final String KEY_RESET_CREDIT_LOW_USAGE_METRIC =
+            "reset_credit_low_usage_metric";
     private static final String KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES =
             "reset_credit_expiry_lead_times";
     private static final String KEY_RESET_CREDIT_INCREASES = "reset_credit_increases";
@@ -93,6 +103,55 @@ public final class ResetAlertPreferences {
 
     public static void setResetCreditExpiryEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_RESET_CREDIT_EXPIRY, enabled).apply();
+    }
+
+    public static boolean resetCreditExpiryAutoApplyEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY, true);
+    }
+
+    public static void setResetCreditExpiryAutoApplyEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY, enabled).apply();
+    }
+
+    /** How long before expiry an unused credit is used automatically. */
+    public static long resetCreditExpiryAutoApplyLeadMillis(Context context) {
+        return ResetCreditExpiryApply.normalizeLead(prefs(context).getLong(
+                KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY_LEAD, ResetCreditExpiryApply.DEFAULT_LEAD_MS));
+    }
+
+    public static void setResetCreditExpiryAutoApplyLeadMillis(Context context, long leadMillis) {
+        prefs(context).edit().putLong(KEY_RESET_CREDIT_EXPIRY_AUTO_APPLY_LEAD,
+                ResetCreditExpiryApply.normalizeLead(leadMillis)).apply();
+    }
+
+    /** Off by default: spending a credit early is a choice the user makes. */
+    public static boolean resetCreditLowUsageAutoUseEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_RESET_CREDIT_LOW_USAGE_AUTO_USE, false);
+    }
+
+    public static void setResetCreditLowUsageAutoUseEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_RESET_CREDIT_LOW_USAGE_AUTO_USE, enabled).apply();
+    }
+
+    public static int resetCreditLowUsageThreshold(Context context) {
+        return ResetCreditLowUsageAutoUse.normalizeThreshold(prefs(context).getInt(
+                KEY_RESET_CREDIT_LOW_USAGE_THRESHOLD,
+                ResetCreditLowUsageAutoUse.DEFAULT_THRESHOLD));
+    }
+
+    public static void setResetCreditLowUsageThreshold(Context context, int threshold) {
+        prefs(context).edit().putInt(KEY_RESET_CREDIT_LOW_USAGE_THRESHOLD,
+                ResetCreditLowUsageAutoUse.normalizeThreshold(threshold)).apply();
+    }
+
+    public static String resetCreditLowUsageMetric(Context context) {
+        return ResetCreditLowUsageAutoUse.normalizeMetric(prefs(context).getString(
+                KEY_RESET_CREDIT_LOW_USAGE_METRIC, ResetCreditLowUsageAutoUse.METRIC_BOTH));
+    }
+
+    public static void setResetCreditLowUsageMetric(Context context, String metric) {
+        prefs(context).edit().putString(KEY_RESET_CREDIT_LOW_USAGE_METRIC,
+                ResetCreditLowUsageAutoUse.normalizeMetric(metric)).apply();
     }
 
     public static List<Long> getResetCreditExpiryLeadTimes(Context context) {

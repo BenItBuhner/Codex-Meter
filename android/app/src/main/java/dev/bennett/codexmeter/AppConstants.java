@@ -12,6 +12,8 @@ public final class AppConstants {
     public static final String ACTION_RESET_ALERT = "dev.bennett.codexmeter.action.RESET_ALERT";
     public static final String ACTION_RESET_CREDIT_EXPIRY_ALERT =
             "dev.bennett.codexmeter.action.RESET_CREDIT_EXPIRY_ALERT";
+    public static final String ACTION_RESET_CREDIT_EXPIRY_APPLY =
+            "dev.bennett.codexmeter.action.RESET_CREDIT_EXPIRY_APPLY";
     public static final String ACTION_RESET_CREDITS_UPDATED = "dev.bennett.codexmeter.action.RESET_CREDITS_UPDATED";
     public static final String ACTION_USAGE_UPDATED = "dev.bennett.codexmeter.action.USAGE_UPDATED";
     public static final String APP_LINK = "codexmeter://auth/complete";

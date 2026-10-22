@@ -70,6 +70,31 @@ public final class DashboardSections {
         return order;
     }
 
+    /**
+     * Sections a provider other than Codex can show, in default order: its 5-hour, weekly, and
+     * monthly windows, its additional limits, then usage history. Without data yet,
+     * {@code emptyDefaults} stands in for the windows so the editor still lists that provider's
+     * usual cards.
+     */
+    public static List<String> providerSections(UsageSnapshot snapshot,
+            List<String> emptyDefaults) {
+        List<String> order = new ArrayList<>();
+        if (snapshot == null) {
+            if (emptyDefaults != null) order.addAll(emptyDefaults);
+        } else {
+            if (snapshot.fiveHour != null) order.add(FIVE_HOUR);
+            if (snapshot.weekly != null) order.add(WEEKLY);
+            if (snapshot.monthly != null) order.add(MONTHLY);
+            for (UsageLimit limit : snapshot.additionalLimits) {
+                if (limit != null && !order.contains(limitKey(limit))) {
+                    order.add(limitKey(limit));
+                }
+            }
+        }
+        if (!order.contains(USAGE_HISTORY)) order.add(USAGE_HISTORY);
+        return order;
+    }
+
     /** Whether a section key is present in the saved hidden-key CSV. */
     public static boolean isHidden(String hiddenCsv, String key) {
         return key != null && parseCsv(hiddenCsv).contains(key);

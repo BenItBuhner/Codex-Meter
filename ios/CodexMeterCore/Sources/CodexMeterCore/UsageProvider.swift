@@ -41,6 +41,15 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         }
     }
 
+    /// Usage cards this provider usually reports, listed in Edit dashboard before any data.
+    /// Cursor has one included-usage meter; the others report 5-hour and weekly windows.
+    public var usualDashboardSections: [String] {
+        switch self {
+        case .cursor: [DashboardSections.weekly]
+        case .codex, .claudeCode: [DashboardSections.fiveHour, DashboardSections.weekly]
+        }
+    }
+
     public var signInLabel: String {
         "Sign in with \(accountName)"
     }

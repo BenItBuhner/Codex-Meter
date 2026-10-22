@@ -60,6 +60,19 @@ public enum UsageProvider {
         this.vendorName = vendorName;
     }
 
+    /** Usage cards this provider usually reports, listed in Edit dashboard before any data. */
+    public List<String> usualDashboardSections() {
+        List<String> sections = new ArrayList<>();
+        if (this == CURSOR) {
+            sections.add(DashboardSections.WEEKLY);
+        } else if (this == CODEX || this == CLAUDE_CODE) {
+            sections.add(DashboardSections.FIVE_HOUR);
+            sections.add(DashboardSections.WEEKLY);
+        }
+        // Other providers list their cards once they report data.
+        return sections;
+    }
+
     /** Resolves a saved id, falling back to {@link #DEFAULT} for unknown or missing values. */
     public static UsageProvider fromId(String id) {
         if (id != null) {
