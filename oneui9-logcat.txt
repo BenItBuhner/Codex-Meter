@@ -1,0 +1,21 @@
+10-22 04:59:23.438   520   550 I ActivityManager: Start proc 3729:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:00:07.784   520   550 I ActivityManager: Start proc 4862:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:00:42.283   520   550 I ActivityManager: Start proc 5154:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:01:17.129   520   550 I ActivityManager: Start proc 5315:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:01:52.666   520   550 I ActivityManager: Start proc 5439:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:02:31.237   520   550 I ActivityManager: Start proc 5597:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:03:09.924   520   550 I ActivityManager: Start proc 5753:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:03:50.850   520   550 I ActivityManager: Start proc 5920:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:04:22.210   520  1921 I ActivityManager: Process dev.bennett.codexmeter (pid 5920) has died: fg  TOP 
+10-22 05:04:22.314   520   550 I ActivityManager: Start proc 6339:dev.bennett.codexmeter/u0a192 for top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.SettingsActivity}
+10-22 05:05:06.321   520  1706 I ActivityManager: Process dev.bennett.codexmeter (pid 6339) has died: fg  TOP 
+10-22 05:05:06.359   520   550 I ActivityManager: Start proc 6940:dev.bennett.codexmeter/u0a192 for top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.SettingsActivity}
+10-22 05:05:41.354   520   550 I ActivityManager: Start proc 7252:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:06:19.766   520   550 I ActivityManager: Start proc 7408:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:06:52.891   520   550 I ActivityManager: Start proc 7535:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:07:26.006   520   550 I ActivityManager: Start proc 7656:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:07:59.966   520   550 I ActivityManager: Start proc 7778:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:08:37.024   520   550 I ActivityManager: Start proc 7931:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:09:13.575   520  1920 W ActivityManager: Exception when unbinding service com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabsConnectionService
+10-22 05:09:13.575   520  1920 W ActivityManager: android.os.DeadObjectException
+10-22 05:09:14.365   520   550 I ActivityManager: Start proc 8086:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}

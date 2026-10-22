@@ -1,0 +1,17 @@
+10-22 04:59:19.455   519   547 I ActivityManager: Start proc 3438:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 04:59:26.856   519  2077 W ActivityManager: Exception when unbinding service com.google.android.apps.nexuslauncher/com.android.quickstep.TouchInteractionService
+10-22 04:59:26.856   519  2077 W ActivityManager: android.os.DeadObjectException
+10-22 04:59:26.862   519  2077 W ActivityManager: android.os.DeadObjectException
+10-22 05:00:08.938   519   547 I ActivityManager: Start proc 4917:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:00:43.858   519   547 I ActivityManager: Start proc 5218:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:01:18.670   519   547 I ActivityManager: Start proc 5381:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:01:54.127   519   547 I ActivityManager: Start proc 5510:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:02:32.582   519   547 I ActivityManager: Start proc 5668:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:03:10.898   519   547 I ActivityManager: Start proc 5831:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:03:51.808   519   547 I ActivityManager: Start proc 6003:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:04:30.280   519   547 I ActivityManager: Start proc 6155:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:05:03.230   519   547 I ActivityManager: Start proc 6284:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:05:36.082   519   547 I ActivityManager: Start proc 6410:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:06:09.954   519   547 I ActivityManager: Start proc 6547:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:06:47.073   519   547 I ActivityManager: Start proc 6705:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 05:07:24.205   519   547 I ActivityManager: Start proc 6858:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
