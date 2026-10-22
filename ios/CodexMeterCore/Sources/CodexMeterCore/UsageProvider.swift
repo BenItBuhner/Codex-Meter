@@ -132,6 +132,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         switch self {
         case .cursor: [DashboardSections.weekly]
         case .codex, .claudeCode: [DashboardSections.fiveHour, DashboardSections.weekly]
+        default: [DashboardSections.fiveHour, DashboardSections.weekly]
         }
     }
 
