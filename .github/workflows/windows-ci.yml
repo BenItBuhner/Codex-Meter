@@ -1,0 +1,127 @@
+name: Windows CI
+
+on:
+  pull_request:
+    branches: [main, alpha]
+    paths:
+      - 'windows/**'
+      - 'ios/CodexMeterCore/Tests/CodexMeterCoreTests/Fixtures/**'
+      - 'android/tests/fixtures/**'
+      - '.github/workflows/windows-ci.yml'
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: '1'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  core-tests:
+    name: Shared core tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Test CodexMeter.Core
+        run: dotnet test tests/CodexMeter.Core.Tests --logger "console;verbosity=normal"
+
+  app:
+    name: Build, UI-test and screenshot the app
+    runs-on: windows-2025
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test CodexMeter.Core on Windows
+        run: dotnet test tests/CodexMeter.Core.Tests
+
+      - name: Publish x64 and ARM64
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            $platform = if ($arch -eq 'x64') { 'x64' } else { 'ARM64' }
+            dotnet publish src/CodexMeter.App/CodexMeter.App.csproj -c Release -r "win-$arch" -p:Platform=$platform -o "out/CodexMeter-win-$arch"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Get-ChildItem out/CodexMeter-win-x64 -Filter CodexMeter.exe | Format-List Name, Length
+
+      - name: Use a 1080p desktop
+        continue-on-error: true
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+
+      - name: Capture screenshots
+        run: |
+          $shots = Join-Path $PWD 'out/screenshots'
+          $p = Start-Process -FilePath out/CodexMeter-win-x64/CodexMeter.exe -ArgumentList '--screenshots', "`"$shots`"" -PassThru
+          if (-not $p.WaitForExit(240000)) { $p.Kill(); throw 'Screenshot run timed out' }
+          Get-ChildItem $shots | Format-Table Name, Length
+          $log = Join-Path $env:LOCALAPPDATA 'CodexMeter/codexmeter.log'
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "Screenshot run exited with $($p.ExitCode)" }
+          if ((Get-ChildItem $shots -Filter '*.png').Count -lt 10) { throw 'Too few screenshots' }
+
+      - name: UI automation tests
+        env:
+          CODEXMETER_EXE: ${{ github.workspace }}\windows\out\CodexMeter-win-x64\CodexMeter.exe
+        run: dotnet test tests/CodexMeter.App.UITests --logger "console;verbosity=normal" --logger "trx;LogFileName=ui-tests.trx" --results-directory out/test-results
+
+      - name: Zip builds
+        if: always()
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            if (Test-Path "out/CodexMeter-win-$arch") { Compress-Archive -Path "out/CodexMeter-win-$arch/*" -DestinationPath "out/CodexMeter-win-$arch.zip" -Force }
+          }
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-screenshots
+          path: windows/out/screenshots
+          if-no-files-found: ignore
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ui-test-results
+          path: windows/out/test-results
+          if-no-files-found: ignore
+
+      - name: Upload x64 build
+        uses: actions/upload-artifact@v7
+        with:
+          name: CodexMeter-win-x64
+          path: windows/out/CodexMeter-win-x64.zip
+
+      - name: Upload ARM64 build
+        uses: actions/upload-artifact@v7
+        with:
+          name: CodexMeter-win-arm64
+          path: windows/out/CodexMeter-win-arm64.zip

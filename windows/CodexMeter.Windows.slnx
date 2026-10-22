@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodexMeter.App/CodexMeter.App.csproj" />
+    <Project Path="src/CodexMeter.Core/CodexMeter.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodexMeter.App.UITests/CodexMeter.App.UITests.csproj" />
+    <Project Path="tests/CodexMeter.Core.Tests/CodexMeter.Core.Tests.csproj" />
+  </Folder>
+</Solution>

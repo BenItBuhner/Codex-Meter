@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Version>2.9.0-alpha.4</Version>
+    <Company>Codex Meter</Company>
+    <Product>Codex Meter</Product>
+    <Copyright>Codex Meter contributors</Copyright>
+  </PropertyGroup>
+</Project>
