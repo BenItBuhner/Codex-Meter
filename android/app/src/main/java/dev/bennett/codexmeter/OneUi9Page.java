@@ -155,15 +155,12 @@ final class OneUi9Page implements Ui.Header {
     }
 
     /**
-     * SESL9 fades scrolling content under the status bar only on Android 16 and later. Older
-     * versions get the same look from a soft gradient in the window color, so content never sits
-     * hard against the clock and status icons. It is not a header box: it only covers the
-     * status bar and fades out right below it.
+     * A soft gradient in the window color over the status bar, so content scrolling up never
+     * sits hard against the clock and status icons. SESL9's own fading edge does not reliably
+     * show on every phone (it did nothing on a stock Android 16 emulator), so this is always on.
+     * It is not a header box: it only covers the status bar and fades out right below it.
      */
     private void addStatusScrim() {
-        if (Build.VERSION.SDK_INT >= 36) {
-            return;
-        }
         int color = activity.getColor(R.color.oui_des_round_and_bgcolor);
         int clear = color & 0x00FFFFFF;
         statusScrim = new View(activity);
