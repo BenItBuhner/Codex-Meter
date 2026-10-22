@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
@@ -27,6 +28,11 @@ import java.util.List;
  * the dashboard picks them up on return.
  */
 public final class ProvidersActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private final List<UsageProvider> items = new ArrayList<>();
     private RecyclerView recycler;
     private boolean dark;

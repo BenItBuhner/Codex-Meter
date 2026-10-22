@@ -41,6 +41,11 @@ import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final int MENU_SETTINGS = 8101;
     private static final int MENU_REORDER = 8102;
     /** {@link UsageProvider#id} of the tab to open, e.g. from a Claude Code widget. */

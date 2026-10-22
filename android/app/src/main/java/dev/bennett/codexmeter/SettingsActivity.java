@@ -39,14 +39,15 @@ import java.util.concurrent.TimeUnit;
 
 /** Settings built from the One UI Design Library preference components used by its sample app. */
 public final class SettingsActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
     private static final String PAGE_ACCOUNTS = "accounts";
     private static final String PAGE_APPEARANCE = "appearance";
-    private static final String ONE_UI_8_PACKAGE = "dev.bennett.codexmeter";
-    private static final String ONE_UI_9_PACKAGE = "dev.bennett.codexmeter.oneui9";
-    private static final String RELEASES_URL =
-            "https://github.com/BenItBuhner/Codex-Meter/releases";
     private static final String PAGE_REFRESH_USAGE = "refresh_usage";
     private static final String PAGE_NOTIFICATIONS = "notifications";
     private static final String PAGE_NOW_BAR = "now_bar";
@@ -574,38 +575,17 @@ public final class SettingsActivity extends AppCompatActivity {
                 requireActivity().recreate();
                 return true;
             });
-            bindOneUi9Preview();
+            bindDesign();
         }
 
-        /**
-         * SESL8 and SESL9 share class names, so the One UI 9 design ships as a separate preview
-         * app instead of an in-place switch. This row hops between the two installs.
-         */
-        private void bindOneUi9Preview() {
-            Preference row = findPreference("one_ui_9_preview");
-            boolean inPreview = BuildConfig.ONE_UI_9;
-            String otherPackage = inPreview ? ONE_UI_8_PACKAGE : ONE_UI_9_PACKAGE;
-            Intent launch = requireContext().getPackageManager()
-                    .getLaunchIntentForPackage(otherPackage);
-            if (inPreview) {
-                row.setTitle("Back to the standard design");
-                row.setSummary(launch != null
-                        ? "You're using the One UI 9 preview. Open the standard app."
-                        : "You're using the One UI 9 preview. The standard app isn't installed.");
-            } else {
-                row.setSummary(launch != null
-                        ? "Open the One UI 9 preview app"
-                        : "Get the One UI 9 preview. It installs next to this app and keeps "
-                                + "this design as is.");
-            }
-            row.setOnPreferenceClickListener(preference -> {
-                Intent intent = launch != null ? launch
-                        : new Intent(Intent.ACTION_VIEW, Uri.parse(RELEASES_URL));
-                try {
-                    startActivity(intent);
-                } catch (android.content.ActivityNotFoundException e) {
-                    Toast.makeText(requireContext(), "Couldn't open it", Toast.LENGTH_SHORT).show();
-                }
+        private void bindDesign() {
+            SwitchPreferenceCompat oneUi9 = findPreference("one_ui_9_design");
+            oneUi9.setPersistent(false);
+            oneUi9.setChecked(AppPreferences.isOneUi9Design(requireContext()));
+            oneUi9.setOnPreferenceChangeListener((preference, value) -> {
+                AppPreferences.setOneUi9Design(requireContext(), (Boolean) value);
+                // This page rebuilds now; the pages behind it rebuild when you go back to them.
+                requireActivity().recreate();
                 return true;
             });
         }
