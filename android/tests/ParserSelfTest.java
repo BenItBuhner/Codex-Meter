@@ -4,12 +4,16 @@ import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
 import dev.bennett.codexmeter.wear.WearUsageState;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 
 public final class ParserSelfTest {
     public static void main(String[] args) throws Exception {
@@ -20,6 +24,8 @@ public final class ParserSelfTest {
         testPrimaryLimitWinsOverAdditional();
         testOptionalUsageSections();
         testUsageCredits();
+        testSpendControl();
+        testSpendControlLivePayload();
         testUsageCreditsAutoHide();
         testResetCreditsAutoHide();
         testDashboardSectionOrder();
@@ -884,6 +890,235 @@ public final class ParserSelfTest {
                 "zero balance for an account without purchased credits is not standalone data");
     }
 
+    /**
+     * Workspace spend controls (#98): {@code spend_control.individual_limit} parses into its own
+     * slot beside the windows and credits, survives the cache and Wear round trips, accepts
+     * string-or-number field types, and stays null for accounts without one so their dashboards
+     * do not change.
+     */
+    /**
+     * The sanitized live payload from #98: amounts as strings with a long fractional {@code used},
+     * {@code remaining_percent} as the only percentage, an epoch-seconds {@code reset_at}, and no
+     * {@code source}, {@code remaining}, {@code used_percent}, or {@code reset_after_seconds}.
+     */
+    private static void testSpendControlLivePayload() throws Exception {
+        long resetAt = 1_790_812_801L;
+        long now = resetAt * 1000L - TimeUnit.DAYS.toMillis(10);
+        SpendControl control = UsageParser.parse(fixture("usage-spend-control-live.json"), now)
+                .spendControl;
+        check(control != null, "live spend control parses");
+        check(!control.reached, "live reached flag preserved");
+        check(control.source.isEmpty() && "Workspace spend limit".equals(control.sourceLabel()),
+                "a missing source still reads as the workspace limit");
+        check("1000".equals(control.limit) && "426.10000133514404".equals(control.used)
+                        && control.remaining.isEmpty(),
+                "live amount strings preserved verbatim");
+        check(control.usedPercent == -1 && control.remainingPercent == 57,
+                "only remaining_percent is reported");
+        check(control.effectiveRemainingPercent() == 57 && control.effectiveUsedPercent() == 43,
+                "the used share is the complement of remaining_percent");
+        check(new BigDecimal("573.89999866485596").compareTo(control.numericRemaining()) == 0,
+                "the remainder is derived from limit minus used");
+        check(SpendControl.pluralQuantity(control.numericRemaining()) != 1,
+                "a fractional remainder never takes the singular form");
+        check(control.resetAfterSeconds == 0L && control.showsResetCountdown()
+                        && control.effectiveResetAtMillis(now) == resetAt * 1000L,
+                "reset_at alone drives the reset instant");
+        UsageSnapshot restored = UsageSnapshot.fromJson(
+                UsageParser.parse(fixture("usage-spend-control-live.json"), now).toJson());
+        check(restored != null && restored.spendControl != null
+                        && "426.10000133514404".equals(restored.spendControl.used)
+                        && restored.spendControl.remainingPercent == 57
+                        && restored.spendControl.usedPercent == -1
+                        && restored.spendControl.resetAtEpochSeconds == resetAt,
+                "live spend control survives the cache round trip");
+    }
+
+    private static void testSpendControl() throws Exception {
+        long resetAt = 1_735_689_720L;
+        long now = resetAt * 1000L - TimeUnit.HOURS.toMillis(12);
+        UsageSnapshot snapshot = UsageParser.parse(fixture("usage-spend-control.json"), now);
+        SpendControl control = snapshot.spendControl;
+        check(control != null, "spend control parsed from the usage response");
+        check(!control.reached, "reached flag preserved");
+        check(SpendControl.SOURCE_WORKSPACE.equals(control.source), "source preserved");
+        check("25000".equals(control.limit) && "8000".equals(control.used)
+                        && "17000".equals(control.remaining),
+                "amount strings preserved verbatim");
+        check(control.usedPercent == 32 && control.remainingPercent == 68,
+                "percentages preserved");
+        check(control.effectiveRemainingPercent() == 68 && control.effectiveUsedPercent() == 32,
+                "explicit percentages win over derived ones");
+        check(control.resetAfterSeconds == 43_200L && control.resetAtEpochSeconds == resetAt,
+                "reset timeline preserved");
+        check(control.showsResetCountdown()
+                        && control.effectiveResetAtMillis(now) == resetAt * 1000L,
+                "explicit reset_at drives the reset instant");
+        check(new BigDecimal("25000").compareTo(control.numericLimit()) == 0
+                        && new BigDecimal("8000").compareTo(control.numericUsed()) == 0
+                        && new BigDecimal("17000").compareTo(control.numericRemaining()) == 0,
+                "amounts parse as numbers");
+        check("Workspace spend limit".equals(control.sourceLabel()),
+                "workspace source gets a human label");
+        check(SpendControl.pluralQuantity(new BigDecimal("17000")) == 17_000
+                        && SpendControl.pluralQuantity(new BigDecimal("25000")) == 25_000
+                        && SpendControl.pluralQuantity(BigDecimal.ZERO) == 0,
+                "integral amounts select their own plurals quantity");
+        check(SpendControl.pluralQuantity(BigDecimal.ONE) == 1
+                        && SpendControl.pluralQuantity(new BigDecimal("1.00")) == 1,
+                "exactly one credit is singular");
+        check(SpendControl.pluralQuantity(new BigDecimal("1.5")) != 1
+                        && SpendControl.pluralQuantity(new BigDecimal("2500.5")) != 1
+                        && SpendControl.pluralQuantity(new BigDecimal("99999999999")) != 1
+                        && SpendControl.pluralQuantity(null) != 1,
+                "fractional, oversized, and missing amounts never take the singular form");
+
+        // Everything else in the response is untouched and stays a separate concept.
+        check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 42
+                        && snapshot.weekly != null && snapshot.weekly.usedPercent == 5,
+                "rate-limit windows still parse beside the spend control");
+        check(snapshot.usageCredits != null && "2500.5".equals(snapshot.usageCredits.balance),
+                "purchased usage credits stay separate from the spend control");
+        check(snapshot.resetCreditsAvailable == 3,
+                "banked reset credits stay separate from the spend control");
+        check(snapshot.additionalLimits.size() == 1, "additional limits still parse");
+        check(snapshot.nextResetMillis(now) == 1_735_647_120_000L,
+                "the earliest rate-limit reset, not the spend-control reset, drives the "
+                        + "next-reset selection");
+        check(snapshot.hasDisplayableData(), "response remains displayable");
+
+        UsageSnapshot restored = UsageSnapshot.fromJson(snapshot.toJson());
+        check(restored != null && restored.spendControl != null
+                        && !restored.spendControl.reached
+                        && "8000".equals(restored.spendControl.used)
+                        && "25000".equals(restored.spendControl.limit)
+                        && restored.spendControl.usedPercent == 32
+                        && restored.spendControl.remainingPercent == 68
+                        && restored.spendControl.resetAtEpochSeconds == resetAt
+                        && restored.spendControl.resetAfterSeconds == 43_200L
+                        && SpendControl.SOURCE_WORKSPACE.equals(restored.spendControl.source),
+                "spend control survives the cache round trip");
+        WearUsageState wear = WearUsageState.fromJson(
+                new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE).toJson());
+        check(wear != null && wear.snapshot != null && wear.snapshot.spendControl != null
+                        && "8000".equals(wear.snapshot.spendControl.used)
+                        && "25000".equals(wear.snapshot.spendControl.limit)
+                        && wear.snapshot.spendControl.usedPercent == 32,
+                "spend control rides along in the Wear Data Layer payload");
+
+        // Absent, null, or empty spend controls leave the slot empty: no card, no change.
+        String windowsOnly = "\"rate_limit\":{\"primary_window\":{\"used_percent\":10,"
+                + "\"limit_window_seconds\":18000}}";
+        check(UsageParser.parse("{" + windowsOnly + "}", now).spendControl == null,
+                "responses without spend_control leave the slot empty");
+        check(UsageParser.parse("{\"spend_control\":null," + windowsOnly + "}", now)
+                        .spendControl == null,
+                "null spend_control is tolerated");
+        check(UsageParser.parse("{\"spend_control\":{\"reached\":true}," + windowsOnly + "}",
+                        now).spendControl == null,
+                "reached without an individual_limit has nothing to show");
+        check(UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                        + "\"individual_limit\":null}," + windowsOnly + "}", now)
+                        .spendControl == null,
+                "null individual_limit is tolerated");
+        check(UsageParser.parse("{\"spend_control\":{\"individual_limit\":{}}," + windowsOnly
+                        + "}", now).spendControl == null,
+                "empty individual_limit is not displayable");
+        UsageSnapshot sourceOnly = UsageParser.parse(
+                "{\"spend_control\":{\"individual_limit\":{\"source\":\"x\"}}}", now);
+        check(sourceOnly.spendControl == null && !sourceOnly.hasDisplayableData(),
+                "individual_limit without amounts or percentages is ignored");
+        UsageSnapshot spendOnly = UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                + "\"individual_limit\":{\"limit\":\"100\",\"used\":\"1\"}}}", now);
+        check(spendOnly.spendControl != null && spendOnly.hasDisplayableData(),
+                "a spend-control-only response is still recognizable usage data");
+
+        // Field types are not trusted: numbers where strings are documented and vice versa.
+        SpendControl typed = UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                + "\"individual_limit\":{\"limit\":25000,\"used\":8000.0,\"remaining\":17000,"
+                + "\"used_percent\":\"32\",\"remaining_percent\":\"68%\","
+                + "\"reset_after_seconds\":\"43200\",\"reset_at\":\"" + resetAt + "\"}}}", now)
+                .spendControl;
+        check(typed != null && "25000".equals(typed.limit) && "8000".equals(typed.used)
+                        && "17000".equals(typed.remaining),
+                "numeric amounts normalize to plain strings");
+        check(typed.usedPercent == 32 && typed.remainingPercent == 68,
+                "string percentages parse, with or without a percent sign");
+        check(typed.resetAfterSeconds == 43_200L && typed.resetAtEpochSeconds == resetAt,
+                "string reset fields parse");
+        check(new BigDecimal("8000").compareTo(typed.numericUsed()) == 0
+                        && new BigDecimal("25000").compareTo(typed.numericLimit()) == 0,
+                "typed variant yields the same amounts");
+
+        // Missing fields are derived from whatever was reported.
+        SpendControl amountsOnly = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"25000\",\"used\":\"8000\"}}"));
+        check(amountsOnly != null
+                        && new BigDecimal("17000").compareTo(amountsOnly.numericRemaining()) == 0
+                        && amountsOnly.effectiveRemainingPercent() == 68
+                        && amountsOnly.effectiveUsedPercent() == 32,
+                "remainder and percentages derive from limit and used");
+        SpendControl percentOnly = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"used_percent\":32}}"));
+        check(percentOnly != null && percentOnly.numericLimit() == null
+                        && percentOnly.numericUsed() == null
+                        && percentOnly.numericRemaining() == null
+                        && percentOnly.effectiveUsedPercent() == 32
+                        && percentOnly.effectiveRemainingPercent() == 68,
+                "percent-only payloads keep the percentages and no amounts");
+        SpendControl restoredPercentOnly = SpendControl.fromJson(percentOnly.toJson());
+        check(restoredPercentOnly != null && restoredPercentOnly.limit.isEmpty()
+                        && restoredPercentOnly.usedPercent == 32
+                        && restoredPercentOnly.remainingPercent == -1
+                        && !restoredPercentOnly.showsResetCountdown(),
+                "unknown fields stay unknown through the round trip");
+
+        // Reached, overspent, clamped, and garbage payloads.
+        SpendControl reached = SpendControl.fromJson(new JSONObject("{\"reached\":true,"
+                + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"25000\","
+                + "\"remaining\":\"0\",\"used_percent\":100,\"remaining_percent\":0}}"));
+        check(reached != null && reached.reached && reached.effectiveRemainingPercent() == 0
+                        && reached.numericRemaining().signum() == 0,
+                "exhausted allocation reports the reached state");
+        SpendControl reachedEarly = SpendControl.fromJson(new JSONObject("{\"reached\":true,"
+                + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"8000\","
+                + "\"remaining\":\"17000\"}}"));
+        check(reachedEarly != null && reachedEarly.reached
+                        && new BigDecimal("17000").compareTo(reachedEarly.numericRemaining()) == 0,
+                "workspace reached flag is preserved even when a remainder is still reported");
+        SpendControl overspent = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"100\",\"used\":\"120\",\"remaining\":\"-20\"}}"));
+        check(overspent != null && overspent.effectiveRemainingPercent() == 0
+                        && overspent.numericRemaining().signum() < 0,
+                "negative remainders report zero percent remaining");
+        SpendControl clamped = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"used_percent\":150,\"remaining_percent\":-5}}"));
+        check(clamped != null && clamped.usedPercent == 100 && clamped.remainingPercent == -1
+                        && clamped.effectiveRemainingPercent() == 0,
+                "out-of-range percentages clamp or become unknown");
+        check(SpendControl.fromJson(new JSONObject("{\"individual_limit\":{\"limit\":\"lots\","
+                        + "\"used\":\"some\",\"used_percent\":\"forty\"}}")) == null,
+                "non-numeric payloads are ignored rather than rendered");
+        SpendControl relative = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"1\",\"used\":\"0\","
+                        + "\"reset_after_seconds\":3600}}"));
+        check(relative != null && relative.showsResetCountdown() && relative.resetAtMillis() == 0L
+                        && relative.effectiveResetAtMillis(now) == now + TimeUnit.HOURS.toMillis(1),
+                "reset_after_seconds falls back to a fetch-relative reset instant");
+        check(!SpendControl.fromJson(new JSONObject(
+                        "{\"individual_limit\":{\"limit\":\"1\",\"used\":\"0\"}}"))
+                        .showsResetCountdown(),
+                "no reset fields means no countdown");
+        System.out.println("Spend control: monthly credit limit parses beside the windows and "
+                + "credits, round-trips, tolerates field types, and hides when absent.");
+    }
+
+    private static String fixture(String name) throws Exception {
+        return new String(Files.readAllBytes(Paths.get(
+                System.getProperty("codex.fixtures", "tests/fixtures")).resolve(name)),
+                StandardCharsets.UTF_8);
+    }
+
     private static void testUsageCreditsAutoHide() {
         check(new UsageCredits(true, false, "2500").shouldDisplay(),
                 "positive usage-credit balance stays visible");
@@ -938,6 +1173,16 @@ public final class ParserSelfTest {
     }
 
     private static void testDashboardSectionOrder() {
+        // Providers other than Codex list only what they report, then usage history.
+        check(DashboardSections.providerSections(null, UsageProvider.CURSOR.usualDashboardSections())
+                        .equals(Arrays.asList(DashboardSections.WEEKLY,
+                                DashboardSections.USAGE_HISTORY)),
+                "Cursor's editor lists included usage and history before any data");
+        check(DashboardSections.providerSections(null,
+                        UsageProvider.CLAUDE_CODE.usualDashboardSections())
+                        .equals(Arrays.asList(DashboardSections.FIVE_HOUR,
+                                DashboardSections.WEEKLY, DashboardSections.USAGE_HISTORY)),
+                "Claude Code's editor lists 5-hour, weekly, and history before any data");
         UsageLimit spark = new UsageLimit("codex-spark", "GPT-5.3-Codex-Spark",
                 "codex_bengalfox", true, false,
                 new UsageWindow(24, 18000L, 0L, 2_000_000_000L), null);
@@ -950,11 +1195,11 @@ public final class ParserSelfTest {
         List<String> defaults = DashboardSections.defaultOrder(Arrays.asList(spark));
         check(defaults.equals(Arrays.asList(
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
-                        DashboardSections.MONTHLY, sparkKey,
+                        DashboardSections.MONTHLY, DashboardSections.SPEND_CONTROL, sparkKey,
                         DashboardSections.USAGE_CREDITS, DashboardSections.USAGE_HISTORY,
                         DashboardSections.RESET_CREDITS)),
-                "default order is 5-hour, weekly, monthly, detected limits, credits, "
-                        + "history, resets");
+                "default order is 5-hour, weekly, monthly, monthly credit limit, detected "
+                        + "limits, credits, history, resets");
 
         check(DashboardSections.resolveOrder("", defaults).equals(defaults),
                 "no saved order keeps the defaults");
@@ -962,15 +1207,17 @@ public final class ParserSelfTest {
                 "usage_credits, limit:codex-spark ,five_hour,weekly", defaults);
         check(saved.equals(Arrays.asList(DashboardSections.USAGE_CREDITS, sparkKey,
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
-                        DashboardSections.MONTHLY,
+                        DashboardSections.MONTHLY, DashboardSections.SPEND_CONTROL,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
-                "saved order is applied with whitespace tolerated and the new monthly, history, "
-                        + "and reset-credit sections slot in at their default positions");
+                "saved order is applied with whitespace tolerated and the new monthly, spend "
+                        + "control, history, and reset-credit sections slot in at their default "
+                        + "positions");
         List<String> withoutSpark = DashboardSections.resolveOrder(
                 "weekly,five_hour,usage_credits",
                 DashboardSections.defaultOrder(Arrays.asList(spark)));
         check(withoutSpark.equals(Arrays.asList(DashboardSections.WEEKLY,
-                        DashboardSections.FIVE_HOUR, DashboardSections.MONTHLY, sparkKey,
+                        DashboardSections.FIVE_HOUR, DashboardSections.MONTHLY,
+                        DashboardSections.SPEND_CONTROL, sparkKey,
                         DashboardSections.USAGE_CREDITS,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
                 "newly detected Spark limit slots in before credits, not at the end");
@@ -982,7 +1229,7 @@ public final class ParserSelfTest {
                 "keys for limits no longer reported are dropped");
         check(DashboardSections.serialize(saved)
                         .equals("usage_credits,limit:codex-spark,five_hour,weekly,monthly,"
-                                + "usage_history,reset_credits"),
+                                + "spend_control,usage_history,reset_credits"),
                 "order round-trips through the stored CSV form");
         check(DashboardSections.resolveOrder(null,
                         Arrays.asList(DashboardSections.FIVE_HOUR))
@@ -2239,6 +2486,26 @@ public final class ParserSelfTest {
                 "widget provider summary");
         check("CLAUDE".equals(WidgetProviders.shortTag(UsageProvider.CLAUDE_CODE)),
                 "lock labels use short provider tags");
+        for (UsageProvider provider : UsageProvider.values()) {
+            String tag = WidgetProviders.shortTag(provider);
+            check(!tag.isEmpty() && tag.length() <= 6, "every provider has a short lock tag");
+        }
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR, UsageProvider.CLAUDE_CODE), 2).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "unsaved wide lock widgets show the first two signed-in tabs");
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CLAUDE_CODE),
+                2).equals(java.util.Arrays.asList(UsageProvider.CLAUDE_CODE)),
+                "unsaved lock widgets show only signed-in providers");
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR), 1).equals(java.util.Arrays.asList(UsageProvider.CURSOR)),
+                "unsaved tiny lock widgets show the first signed-in tab");
+        check(WidgetProviders.lockDefault(order, java.util.Collections.emptyList(), 2).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR)),
+                "unsaved lock widgets with nobody signed in show the first tab");
+        check(WidgetProviders.metersFor(java.util.Arrays.asList(WidgetMeters.FIVE_HOUR),
+                false, true, 1).equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
+                "Cursor lock gauges show the long window instead of an empty 5-hour dial");
     }
 
     private static void testUsageProviders() {
@@ -2269,7 +2536,10 @@ public final class ParserSelfTest {
         check(UsageProvider.enabledFromIds(Arrays.asList("cursor", " CODEX "), codexOnly)
                 .equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
                 "enabled tabs keep enum order");
-        List<UsageProvider> two = UsageProvider.withEnabled(all, UsageProvider.CLAUDE_CODE, false);
+        List<UsageProvider> firstThree = Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR);
+        List<UsageProvider> two = UsageProvider.withEnabled(firstThree, UsageProvider.CLAUDE_CODE,
+                false);
         check(two.equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
                 "turning a provider off removes only its tab");
         List<UsageProvider> one = UsageProvider.withEnabled(
@@ -2287,8 +2557,9 @@ public final class ParserSelfTest {
         check(UsageProvider.orderFromIds(null).equals(all), "default tab order is enum order");
         List<UsageProvider> custom = UsageProvider.orderFromIds(
                 Arrays.asList("cursor", "bogus", "CURSOR", " codex "));
-        check(custom.equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX,
-                UsageProvider.CLAUDE_CODE)),
+        check(custom.subList(0, 3).equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE)) && custom.size() == all.size()
+                && custom.get(3) == UsageProvider.COPILOT,
                 "saved order first, duplicates and unknown ids skipped, the rest appended");
         check(UsageProvider.inOrder(two, custom)
                 .equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
@@ -2482,13 +2753,14 @@ public final class ParserSelfTest {
         check(snapshot.fiveHour == null && snapshot.weekly == null,
                 "Cursor has no 5-hour or weekly window");
         check(snapshot.longWindowIsMonthly(), "Cursor widgets fall back to the monthly window");
-        check(snapshot.additionalLimits.size() == 3, "Cursor auto, API, and on-demand limits");
-        check("Auto + Composer".equals(snapshot.additionalLimits.get(0).name)
+        check(snapshot.additionalLimits.size() == 3,
+                "Cursor legacy plan: two model pools and on-demand");
+        check("Cursor models".equals(snapshot.additionalLimits.get(0).name)
                         && snapshot.additionalLimits.get(0).primary.usedPercent == 10,
-                "Cursor auto pool percent");
-        check("API models".equals(snapshot.additionalLimits.get(1).name)
+                "Cursor models pool percent");
+        check("Other models".equals(snapshot.additionalLimits.get(1).name)
                         && snapshot.additionalLimits.get(1).primary.usedPercent == 15,
-                "Cursor API pool percent");
+                "Other models pool percent");
         UsageLimit onDemand = snapshot.additionalLimits.get(2);
         check("On-demand ($3 of $10)".equals(onDemand.name)
                         && onDemand.primary.usedPercent == 30 && !onDemand.limitReached,
@@ -2521,6 +2793,20 @@ public final class ParserSelfTest {
         check(oneSided.monthly.usedPercent == 0 && oneSided.additionalLimits.size() == 2
                         && oneSided.additionalLimits.get(1).primary.usedPercent == 0,
                 "Cursor omitted zero pool and zero spend still show as 0%");
+        // Current plans: one included pool that refreshes weekly, no pool split.
+        UsageSnapshot weeklyPlan = CursorUsageParser.parse(
+                "{\"billingCycleStart\":\"1791676800000\",\"billingCycleEnd\":\"1792281600000\","
+                        + "\"planUsage\":{\"totalPercentUsed\":100,\"autoPercentUsed\":100},"
+                        + "\"spendLimitUsage\":{\"individualLimit\":2000,\"individualUsed\":500}}",
+                "Premium", 1L);
+        check(weeklyPlan.weekly != null && weeklyPlan.monthly == null
+                        && weeklyPlan.weekly.usedPercent == 100
+                        && weeklyPlan.weekly.windowSeconds == 7L * 24L * 3600L,
+                "Cursor weekly cycle is the weekly window");
+        check(weeklyPlan.additionalLimits.size() == 1
+                        && "Additional usage ($5 of $20)".equals(
+                                weeklyPlan.additionalLimits.get(0).name),
+                "Cursor current plan shows no model pools and calls extra spend additional usage");
         UsageSnapshot empty = CursorUsageParser.parse("{\"enabled\":false}", "", 1L);
         check(empty.monthly == null && empty.additionalLimits.isEmpty(),
                 "Cursor response without usage yields no windows");

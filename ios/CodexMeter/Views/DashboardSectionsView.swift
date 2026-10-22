@@ -16,7 +16,8 @@ struct DashboardSectionsView: View {
                     title: "5-hour",
                     systemImage: "clock",
                     window: window,
-                    accent: .mint
+                    accent: .mint,
+                    pace: model.usagePace(for: window, kind: .fiveHour)
                 )
             )
         }
@@ -27,7 +28,8 @@ struct DashboardSectionsView: View {
                     title: "Weekly",
                     systemImage: "calendar",
                     window: window,
-                    accent: .indigo
+                    accent: .indigo,
+                    pace: model.usagePace(for: window, kind: .weekly)
                 )
             )
         }
@@ -38,7 +40,8 @@ struct DashboardSectionsView: View {
                     title: "Monthly",
                     systemImage: "calendar.badge.clock",
                     window: window,
-                    accent: .orange
+                    accent: .blue,
+                    pace: model.usagePace(for: window, kind: .monthly)
                 )
             )
         }
@@ -58,6 +61,14 @@ struct DashboardSectionsView: View {
             available[DashboardSections.usageCredits] = DashboardSectionItem(
                 key: DashboardSections.usageCredits,
                 kind: .usageCredits(credits)
+            )
+        }
+        if model.settings.showSpendControl,
+           let control = usage?.spendControl,
+           let limit = control.individualLimit {
+            available[DashboardSections.spendControl] = DashboardSectionItem(
+                key: DashboardSections.spendControl,
+                kind: .spendControl(limit, reached: control.reached)
             )
         }
         if model.settings.showUsageHistory,
@@ -141,13 +152,14 @@ struct DashboardSectionsView: View {
     @ViewBuilder
     private func sectionView(_ section: DashboardSectionItem) -> some View {
         switch section.kind {
-        case let .meter(title, systemImage, window, accent):
+        case let .meter(title, systemImage, window, accent, pace):
             UsageMeterCard(
                 title: LocalizedStringKey(title),
                 systemImage: systemImage,
                 window: window,
                 accent: accent,
-                fetchedAt: model.usage?.fetchedAt ?? .now
+                fetchedAt: model.usage?.fetchedAt ?? .now,
+                pace: pace
             )
         case let .additional(limit):
             AdditionalLimitCards(
@@ -156,6 +168,12 @@ struct DashboardSectionsView: View {
             )
         case let .usageCredits(credits):
             UsageCreditsCard(credits: credits)
+        case let .spendControl(limit, reached):
+            SpendControlCard(
+                limit: limit,
+                reached: reached,
+                fetchedAt: model.usage?.fetchedAt ?? .now
+            )
         case .usageHistory:
             UsageHistoryDashboardCard()
         case .resetCredits:
@@ -174,9 +192,16 @@ private struct DashboardSectionRow: Identifiable {
 
 private struct DashboardSectionItem: Identifiable {
     enum Kind {
-        case meter(title: String, systemImage: String, window: UsageWindow, accent: Color)
+        case meter(
+            title: String,
+            systemImage: String,
+            window: UsageWindow,
+            accent: Color,
+            pace: UsagePaceAssessment
+        )
         case additional(UsageLimit)
         case usageCredits(UsageCredits)
+        case spendControl(SpendControlLimit, reached: Bool)
         case usageHistory
         case resetCredits
     }
@@ -195,6 +220,7 @@ private struct DashboardSectionItem: Identifiable {
 }
 
 struct AdditionalLimitCards: View {
+    @Environment(AppModel.self) private var model
     let limit: UsageLimit
     let fetchedAt: Date
 
@@ -218,7 +244,8 @@ struct AdditionalLimitCards: View {
                 ? "calendar.badge.clock" : "clock.badge",
             window: window,
             accent: accent,
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            pace: model.usagePace(for: window, observedAt: fetchedAt)
         )
     }
 
@@ -255,6 +282,8 @@ struct AdditionalLimitCards: View {
 
 private struct UsageCreditsCard: View {
     let credits: UsageCredits
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var balance: String {
         if credits.unlimited {
@@ -284,21 +313,23 @@ private struct UsageCreditsCard: View {
             Text("Usage credits")
                 .font(.headline.bold())
 
-            HStack(spacing: 16) {
+            dynamicTypeSize.rowLayout(spacing: 16) {
                 Image(systemName: "creditcard.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(balance)
                         .font(.title3.bold())
-                        .contentTransition(.numericText())
+                        .numericTextTransition()
                     Text(summary)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
             }
         }
         .padding(AppChrome.cardPadding)
@@ -308,8 +339,125 @@ private struct UsageCreditsCard: View {
     }
 }
 
+private struct SpendControlCard: View {
+    let limit: SpendControlLimit
+    let reached: Bool
+    let fetchedAt: Date
+
+    private var accent: Color {
+        reached ? .orange : .accentColor
+    }
+
+    private var usageLine: String {
+        UsageFormat.spendControlUsage(limit) ?? "\(limit.remainingPercent)% of credits left"
+    }
+
+    private var resetAt: Date? {
+        guard limit.showsResetCountdown else { return nil }
+        return limit.effectiveResetDate(relativeTo: fetchedAt)
+    }
+
+    private var accessibilityValue: String {
+        var parts = [
+            "\(limit.remainingPercent) percent remaining",
+            "\(limit.usedPercent) percent used"
+        ]
+        if let usage = UsageFormat.spendControlUsage(limit) {
+            parts.append(usage)
+        }
+        if reached {
+            parts.append("limit reached")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Label("Monthly credit limit", systemImage: "creditcard.and.123")
+                    .font(.headline.bold())
+                Spacer(minLength: 0)
+                Text("\(limit.remainingPercent)% left")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+            }
+
+            SpendControlBar(fraction: Double(limit.remainingPercent) / 100, accent: accent)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Monthly credit limit")
+                .accessibilityValue(accessibilityValue)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(usageLine)
+                    .font(.title3.bold())
+                    .contentTransition(.numericText())
+                if let remaining = UsageFormat.spendControlRemaining(limit) {
+                    Text(remaining)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+            }
+
+            if let resetAt {
+                HStack(spacing: 6) {
+                    Text("Resets in")
+                        .foregroundStyle(.secondary)
+                    Text(resetAt, style: .relative)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                    Text("·")
+                        .foregroundStyle(.secondary)
+                    Text(resetAt, format: .dateTime.month(.abbreviated).day().hour().minute())
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                .accessibilityElement(children: .combine)
+            }
+
+            if reached {
+                Label("Workspace credit limit reached", systemImage: "exclamationmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(AppChrome.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+}
+
+/// Fills the remaining share, like the meter rings, so every gauge in the app reads the same way.
+private struct SpendControlBar: View {
+    let fraction: Double
+    let accent: Color
+
+    private static let height: CGFloat = 10
+
+    var body: some View {
+        GeometryReader { proxy in
+            let clamped = CGFloat(min(1, max(0, fraction)))
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(accent.opacity(0.16))
+                if clamped > 0 {
+                    Capsule()
+                        .fill(accent)
+                        .frame(width: max(Self.height, proxy.size.width * clamped))
+                }
+            }
+        }
+        .frame(height: Self.height)
+        .animation(.snappy, value: fraction)
+    }
+}
+
 private struct ResetCreditsDashboardCard: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 30
 
     private var count: Int {
         model.credits?.availableCount ?? model.usage?.resetCreditsAvailable ?? 0
@@ -338,16 +486,16 @@ private struct ResetCreditsDashboardCard: View {
             Text("Reset credits")
                 .font(.headline.bold())
 
-            HStack(spacing: 16) {
+            dynamicTypeSize.rowLayout(spacing: 16) {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: symbolSize))
                     .foregroundStyle(.tint)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(count == 1 ? "1 reset available" : "\(count) resets available")
                         .font(.title3.bold())
-                        .contentTransition(.numericText())
+                        .numericTextTransition()
                     if let nextExpiry {
                         Text("Next expires \(nextExpiry, style: .relative)")
                             .font(.subheadline)
@@ -358,7 +506,9 @@ private struct ResetCreditsDashboardCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
             }
 
             Button(count > 0 ? "Use 1 reset" : "No resets available") {
@@ -371,5 +521,141 @@ private struct ResetCreditsDashboardCard: View {
         }
         .padding(AppChrome.cardPadding)
         .cardSurface()
+    }
+}
+
+/// Claude Code and Cursor cards, in the order and visibility chosen in that provider's own
+/// Edit dashboard.
+struct ProviderDashboardCards: View {
+    let provider: UsageProvider
+    let usage: UsageSnapshot
+    @Environment(AppModel.self) private var model
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private static let windowKeys: Set<String> = [
+        DashboardSections.fiveHour,
+        DashboardSections.weekly,
+        DashboardSections.monthly
+    ]
+
+    private var keys: [String] {
+        DashboardSections.visibleProviderSections(
+            snapshot: usage,
+            savedOrder: model.settings.savedDashboardOrder(for: provider),
+            hidden: model.settings.hiddenDashboardSections(for: provider)
+        )
+    }
+
+    /// On wide layouts two usage windows in a row share a line, like the Codex dashboard.
+    private var rows: [[String]] {
+        let sectionKeys = keys
+        guard horizontalSizeClass == .regular else { return sectionKeys.map { [$0] } }
+        var result: [[String]] = []
+        var index = 0
+        while index < sectionKeys.count {
+            let current = sectionKeys[index]
+            if Self.windowKeys.contains(current),
+               sectionKeys.indices.contains(index + 1),
+               Self.windowKeys.contains(sectionKeys[index + 1]) {
+                result.append([current, sectionKeys[index + 1]])
+                index += 2
+            } else {
+                result.append([current])
+                index += 1
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        let cardRows = rows
+        if cardRows.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("All \(provider.displayName) cards are hidden", systemImage: "rectangle.slash")
+                    .font(.headline)
+                Text("Choose cards in Edit dashboard.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                NavigationLink("Edit dashboard") {
+                    DashboardEditView(provider: provider)
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(AppChrome.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface()
+        } else {
+            VStack(spacing: AppChrome.sectionSpacing) {
+                ForEach(cardRows, id: \.self) { row in
+                    HStack(alignment: .top, spacing: AppChrome.sectionSpacing) {
+                        ForEach(row, id: \.self) { key in
+                            card(for: key)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func card(for key: String) -> some View {
+        switch key {
+        case DashboardSections.fiveHour:
+            UsageMeterCard(
+                title: "5-hour",
+                systemImage: "clock",
+                window: usage.fiveHour,
+                accent: .orange,
+                fetchedAt: usage.fetchedAt
+            )
+        case DashboardSections.weekly:
+            UsageMeterCard(
+                title: provider == .cursor ? "Included usage · Weekly" : "Weekly",
+                systemImage: "calendar",
+                window: usage.weekly,
+                accent: provider == .cursor ? .indigo : .brown,
+                fetchedAt: usage.fetchedAt
+            )
+        case DashboardSections.monthly:
+            UsageMeterCard(
+                title: provider == .cursor ? "Included usage · Monthly" : "Monthly",
+                systemImage: "calendar.badge.clock",
+                window: usage.monthly,
+                accent: .indigo,
+                fetchedAt: usage.fetchedAt
+            )
+        default:
+            if let limit = usage.additionalLimits.first(where: { DashboardSections.limitKey($0) == key }) {
+                if provider == .cursor {
+                    CursorLimitCard(limit: limit, fetchedAt: usage.fetchedAt)
+                } else {
+                    AdditionalLimitCards(limit: limit, fetchedAt: usage.fetchedAt)
+                }
+            }
+        }
+    }
+}
+
+/// A Cursor pool or spend cap. The name alone is the title: every Cursor limit shares the
+/// included usage's cycle, so a cadence suffix would only repeat it, and long titles truncate.
+private struct CursorLimitCard: View {
+    let limit: UsageLimit
+    let fetchedAt: Date
+
+    private var isSpend: Bool {
+        limit.id == CursorUsageParser.limitIDPrefix + "on_demand"
+    }
+
+    var body: some View {
+        if let window = limit.primary ?? limit.secondary {
+            UsageMeterCard(
+                title: LocalizedStringKey(limit.displayName),
+                systemImage: isSpend ? "dollarsign.circle" : "square.stack.3d.up",
+                window: window,
+                accent: isSpend ? .purple : .teal,
+                fetchedAt: fetchedAt
+            )
+        }
     }
 }

@@ -21,6 +21,9 @@ jobs:
     env:
       GH_USERNAME: ${{ github.actor }}
       GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Optional: enables Antigravity sign-in. Builds without them still work.
+      ANTIGRAVITY_CLIENT_ID: ${{ secrets.ANTIGRAVITY_CLIENT_ID }}
+      ANTIGRAVITY_CLIENT_SECRET: ${{ secrets.ANTIGRAVITY_CLIENT_SECRET }}
     defaults:
       run:
         working-directory: android
@@ -52,8 +55,8 @@ jobs:
           fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" \
-            "platforms;android-36" \
             "platforms;android-37.0" \
+            "platforms;android-37.1" \
             "build-tools;36.0.0"
 
       - name: Validate version

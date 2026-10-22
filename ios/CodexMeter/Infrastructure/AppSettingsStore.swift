@@ -42,10 +42,16 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var showMonthly: Bool
     public var showAdditionalLimits: Bool
     public var showUsageCredits: Bool
+    public var showSpendControl: Bool
     public var showUsageHistory: Bool
     public var showResetCredits: Bool
     public var dashboardOrder: [String]
     public var dashboardHiddenSections: [String]
+    /// Edit dashboard order for providers other than Codex, keyed by provider raw value.
+    /// Codex keeps `dashboardOrder` so existing layouts survive.
+    public var providerDashboardOrders: [String: [String]]
+    /// Hidden cards for providers other than Codex, keyed by provider raw value.
+    public var providerDashboardHiddenSections: [String: [String]]
     /// CSV of usage-history highlight keys the user toggled away from their default.
     public var historySectionOverrides: String
     public var notificationsEnabled: Bool
@@ -65,6 +71,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var lowUsageAutoUseEnabled: Bool
     public var lowUsageAutoUseThreshold: Int
     public var lowUsageAutoUseMetric: LowUsageAutoUseMetric
+    /// Whether meter cards and history project how long the current allowance may last.
+    public var usagePaceEnabled: Bool
+    /// `.off` keeps the projection but never flags it as accelerated.
+    public var usagePaceSensitivity: UsagePaceSensitivity
 
     public init(
         appearance: AppAppearance = .system,
@@ -76,10 +86,13 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         showMonthly: Bool = true,
         showAdditionalLimits: Bool = true,
         showUsageCredits: Bool = true,
+        showSpendControl: Bool = true,
         showUsageHistory: Bool = true,
         showResetCredits: Bool = true,
         dashboardOrder: [String] = [],
         dashboardHiddenSections: [String] = [],
+        providerDashboardOrders: [String: [String]] = [:],
+        providerDashboardHiddenSections: [String: [String]] = [:],
         historySectionOverrides: String = "",
         notificationsEnabled: Bool = false,
         alertMetric: AlertMetric = .both,
@@ -92,7 +105,9 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         creditExpiryAutoApplyLeadMinutes: Int = CreditExpiryAutoApply.defaultLeadMinutes,
         lowUsageAutoUseEnabled: Bool = false,
         lowUsageAutoUseThreshold: Int = LowUsageAutoUse.defaultThreshold,
-        lowUsageAutoUseMetric: LowUsageAutoUseMetric = .both
+        lowUsageAutoUseMetric: LowUsageAutoUseMetric = .both,
+        usagePaceEnabled: Bool = true,
+        usagePaceSensitivity: UsagePaceSensitivity = .balanced
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
@@ -103,10 +118,15 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.showMonthly = showMonthly
         self.showAdditionalLimits = showAdditionalLimits
         self.showUsageCredits = showUsageCredits
+        self.showSpendControl = showSpendControl
         self.showUsageHistory = showUsageHistory
         self.showResetCredits = showResetCredits
         self.dashboardOrder = Self.sanitizedSectionKeys(dashboardOrder)
         self.dashboardHiddenSections = Self.sanitizedSectionKeys(dashboardHiddenSections)
+        self.providerDashboardOrders = Self.sanitizedProviderSections(providerDashboardOrders)
+        self.providerDashboardHiddenSections = Self.sanitizedProviderSections(
+            providerDashboardHiddenSections
+        )
         self.historySectionOverrides = HistorySections.serialize(
             HistorySections.parseCSV(historySectionOverrides)
         )
@@ -123,6 +143,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.lowUsageAutoUseEnabled = lowUsageAutoUseEnabled
         self.lowUsageAutoUseThreshold = LowUsageAutoUse.normalizedThreshold(lowUsageAutoUseThreshold)
         self.lowUsageAutoUseMetric = lowUsageAutoUseMetric
+        self.usagePaceEnabled = usagePaceEnabled
+        self.usagePaceSensitivity = usagePaceSensitivity
     }
 
     public var effectiveCreditExpiryLeadMinutes: [Int] {
@@ -150,6 +172,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             showMonthly
         case DashboardSections.usageCredits:
             showUsageCredits
+        case DashboardSections.spendControl:
+            showSpendControl
         case DashboardSections.usageHistory:
             showUsageHistory
         case DashboardSections.resetCredits:
@@ -169,6 +193,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             showMonthly = visible
         case DashboardSections.usageCredits:
             showUsageCredits = visible
+        case DashboardSections.spendControl:
+            showSpendControl = visible
         case DashboardSections.usageHistory:
             showUsageHistory = visible
         case DashboardSections.resetCredits:
@@ -188,6 +214,49 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         dashboardOrder = Self.sanitizedSectionKeys(keys)
     }
 
+    /// Saved card order for one provider's dashboard. Each provider keeps its own layout.
+    public func savedDashboardOrder(for provider: UsageProvider) -> [String] {
+        provider == .codex ? dashboardOrder : providerDashboardOrders[provider.rawValue] ?? []
+    }
+
+    /// Hidden cards for a provider other than Codex.
+    public func hiddenDashboardSections(for provider: UsageProvider) -> [String] {
+        provider == .codex ? dashboardHiddenSections : providerDashboardHiddenSections[provider.rawValue] ?? []
+    }
+
+    public func isDashboardSectionVisible(_ key: String, for provider: UsageProvider) -> Bool {
+        guard provider != .codex else { return isDashboardSectionVisible(key) }
+        return !hiddenDashboardSections(for: provider).contains(key)
+    }
+
+    public mutating func setDashboardSectionVisible(
+        _ key: String,
+        visible: Bool,
+        for provider: UsageProvider
+    ) {
+        guard provider != .codex else {
+            setDashboardSectionVisible(key, visible: visible)
+            return
+        }
+        var hidden = hiddenDashboardSections(for: provider)
+        if visible {
+            hidden.removeAll { $0 == key }
+        } else {
+            hidden.append(key)
+        }
+        let sanitized = Self.sanitizedSectionKeys(hidden)
+        providerDashboardHiddenSections[provider.rawValue] = sanitized.isEmpty ? nil : sanitized
+    }
+
+    public mutating func setDashboardOrder(_ keys: [String], for provider: UsageProvider) {
+        guard provider != .codex else {
+            setDashboardOrder(keys)
+            return
+        }
+        let sanitized = Self.sanitizedSectionKeys(keys)
+        providerDashboardOrders[provider.rawValue] = sanitized.isEmpty ? nil : sanitized
+    }
+
     public func isHistorySectionVisible(_ key: String) -> Bool {
         HistorySections.isVisible(historySectionOverrides, key: key)
     }
@@ -203,6 +272,18 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     private static func sanitizedLeadMinutes(_ values: [Int]) -> [Int] {
         let filtered = Set(values).intersection(Set(allowedCreditExpiryLeadMinutes))
         return filtered.sorted()
+    }
+
+    private static func sanitizedProviderSections(_ values: [String: [String]]) -> [String: [String]] {
+        var result: [String: [String]] = [:]
+        for (id, keys) in values {
+            guard let provider = UsageProvider(rawValue: id), provider != .codex else { continue }
+            let sanitized = sanitizedSectionKeys(keys)
+            if !sanitized.isEmpty {
+                result[provider.rawValue] = sanitized
+            }
+        }
+        return result
     }
 
     private static func sanitizedSectionKeys(_ values: [String]) -> [String] {
@@ -225,10 +306,13 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case showMonthly
         case showAdditionalLimits
         case showUsageCredits
+        case showSpendControl
         case showUsageHistory
         case showResetCredits
         case dashboardOrder
         case dashboardHiddenSections
+        case providerDashboardOrders
+        case providerDashboardHiddenSections
         case historySectionOverrides
         case notificationsEnabled
         case alertMetric
@@ -242,6 +326,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case lowUsageAutoUseEnabled
         case lowUsageAutoUseThreshold
         case lowUsageAutoUseMetric
+        case usagePaceEnabled
+        case usagePaceSensitivity
     }
 
     public init(from decoder: any Decoder) throws {
@@ -256,10 +342,17 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             showMonthly: try container.decodeIfPresent(Bool.self, forKey: .showMonthly) ?? true,
             showAdditionalLimits: try container.decodeIfPresent(Bool.self, forKey: .showAdditionalLimits) ?? true,
             showUsageCredits: try container.decodeIfPresent(Bool.self, forKey: .showUsageCredits) ?? true,
+            showSpendControl: try container.decodeIfPresent(Bool.self, forKey: .showSpendControl) ?? true,
             showUsageHistory: try container.decodeIfPresent(Bool.self, forKey: .showUsageHistory) ?? true,
             showResetCredits: try container.decodeIfPresent(Bool.self, forKey: .showResetCredits) ?? true,
             dashboardOrder: try container.decodeIfPresent([String].self, forKey: .dashboardOrder) ?? [],
             dashboardHiddenSections: try container.decodeIfPresent([String].self, forKey: .dashboardHiddenSections) ?? [],
+            providerDashboardOrders: (try? container.decodeIfPresent(
+                [String: [String]].self, forKey: .providerDashboardOrders
+            )) ?? [:],
+            providerDashboardHiddenSections: (try? container.decodeIfPresent(
+                [String: [String]].self, forKey: .providerDashboardHiddenSections
+            )) ?? [:],
             historySectionOverrides: try container.decodeIfPresent(String.self, forKey: .historySectionOverrides) ?? "",
             notificationsEnabled: try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false,
             alertMetric: try container.decodeIfPresent(AlertMetric.self, forKey: .alertMetric) ?? .both,
@@ -276,7 +369,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             lowUsageAutoUseThreshold: try container.decodeIfPresent(Int.self, forKey: .lowUsageAutoUseThreshold)
                 ?? LowUsageAutoUse.defaultThreshold,
             lowUsageAutoUseMetric: (try? container.decodeIfPresent(LowUsageAutoUseMetric.self, forKey: .lowUsageAutoUseMetric))
-                ?? .both
+                ?? .both,
+            usagePaceEnabled: try container.decodeIfPresent(Bool.self, forKey: .usagePaceEnabled) ?? true,
+            usagePaceSensitivity: try container.decodeIfPresent(UsagePaceSensitivity.self, forKey: .usagePaceSensitivity)
+                ?? .balanced
         )
     }
 }

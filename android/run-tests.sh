@@ -28,6 +28,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/SpendControl.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java" \
@@ -79,22 +80,31 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeUsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorUsageParser.java" \
-  "$ROOT/tests/ParserSelfTest.java"
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderCatalog.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderTabs.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderUsageParsers.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DeviceAuth.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java" \
+  "$ROOT/tests/ParserSelfTest.java" \
+  "$ROOT/tests/ProviderParsersSelfTest.java"
 
-java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
+java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
+  dev.bennett.codexmeter.ParserSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.9.0-alpha.2"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME = "2.9.0-alpha.3"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.9.0-alpha.2"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.3"' "$ROOT/app/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.9.0-alpha.2"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.3"' "$ROOT/wear/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.9.0-alpha.2' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.9.0-alpha.2"' "$ROOT/build.sh"
+grep -q 'codex-meter-android/2.9.0-alpha.3' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.9.0-alpha.3"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
+grep -Fq '"platforms;android-37.1"' "$WORKFLOW"
 grep -q 'BenItBuhner/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
 ! grep -R -q 'thatjoshguy67/Codex-Meter' \
   "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
@@ -200,6 +210,8 @@ grep -q 'usage_history_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'dashboard_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'dashboard_monthly' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 grep -q 'WINDOW_MONTHLY' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 grep -q 'longWindowIsMonthly' \
@@ -210,6 +222,37 @@ grep -q 'meterWindow' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
 grep -q 'Hidden automatically when no resets are available' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+
+# Workspace spend controls (#98): spend_control.individual_limit parses into its own slot and
+# renders as an orderable, hideable "Monthly credit limit" card that is absent for everyone else.
+test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/SpendControl.java"
+test -f "$ROOT/tests/fixtures/usage-spend-control.json"
+grep -q 'testSpendControl' "$ROOT/tests/ParserSelfTest.java"
+grep -q 'SPEND_CONTROL = "spend_control"' \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'SpendControl.fromJson(nullableObject(jSONObject, "spend_control"))' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java"
+# The card is an orderable section that is built only behind its switch and only when the
+# payload carries a limit; accounts without spend controls never get the section at all.
+grep -q 'AppPreferences.showDashboardSpendControl(this) && snapshot.spendControl != null' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'buildSpendControlCard(snapshot)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# Credit amounts are pluralized through resources, never by string concatenation.
+grep -q 'R.plurals.spend_control_credits_remaining' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageFormat.java"
+grep -q '<plurals name="spend_control_credits_used">' \
+  "$ROOT/app/src/main/res/values/strings.xml"
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
+grep -q 'dashboard_spend_control' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.
 grep -q 'snapshot.usageCredits.shouldDisplay()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
@@ -588,15 +631,19 @@ for provider in \
 done
 
 grep -R -q 'android:widgetCategory="0x2000"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
-# The lock picker offers three widgets; retired ones stay installed for placed tiles but hidden.
-for retired in square wide rings_square rings_wide dials_square bars_square weekly; do
+# The lock picker offers two dial widgets; retired ones stay installed for placed tiles but hidden.
+for retired in square wide rings_square rings_wide dials_square bars_square bars_wide weekly; do
   grep -q 'hide_from_picker' "$ROOT/app/src/main/res/xml/samsung_lock_${retired}_info.xml"
 done
-for kept in five_hour dials_wide bars_wide; do
+for kept in five_hour dials_wide; do
   ! grep -q 'hide_from_picker' "$ROOT/app/src/main/res/xml/samsung_lock_${kept}_info.xml"
   grep -q 'LockWidgetConfigActivity' "$ROOT/app/src/main/res/xml/samsung_lock_${kept}_info.xml"
 done
-grep -q 'getWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+grep -q 'getLockWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+# Bars are retired: placed bar tiles draw dials, and the app lists lock widgets for setup.
+grep -q 'style == Style.BARS' "$ROOT/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+grep -q 'LockWidgetsActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -q 'settings_lock_widgets' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 grep -q 'setWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
 grep -q 'setWidgetProviders' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
 grep -R -q 'app:widgetStyle="monotone"' "$ROOT/app/src/main/res/xml/samsung_lock_"*_info.xml
@@ -703,6 +750,19 @@ grep -q '!usageWindow.showsResetCountdown()' \
 ! grep -q 'titlePaint.setColor(0xFF000000)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
 
+# Reduced motion: the dashboard wave skips its infinite animator and draws a flat fill.
+test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'ValueAnimator.areAnimatorsEnabled()' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'Settings.Global.ANIMATOR_DURATION_SCALE' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReducedMotion.java"
+grep -q 'reduceMotion = ReducedMotion.isRequested(getContext());' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'if (reduceMotion) return;' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+grep -q 'fillPath.lineTo(edge, getHeight());' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageWaveView.java"
+
 # Wear OS companion module and phone↔watch sync contract.
 test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearMainActivity.java"
 test -f "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearSettingsActivity.java"
@@ -760,7 +820,9 @@ grep -q 'KEY_MONITOR_DESIRED' \
 ! grep -q 'setMonitorActive(context, true);' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"
 # Vendored SESL transitive deps keep phone Android CI working without GitHub Packages auth.
-test -f "$ROOT/vendor/m2/sesl/androidx/appcompat/appcompat/1.7.1+1.0.21-sesl8+rev8/appcompat-1.7.1+1.0.21-sesl8+rev8.aar"
+test -f "$ROOT/vendor/m2/io/github/tribalfs/oneui-design/0.9.20+oneui8/oneui-design-0.9.20+oneui8.aar"
+grep -q 'io.github.tribalfs:oneui-design:0.9.20+oneui8' "$ROOT/app/build.gradle.kts"
+test -f "$ROOT/vendor/m2/sesl/androidx/appcompat/appcompat/1.8.0+1.0.21-sesl8+rev2/appcompat-1.8.0+1.0.21-sesl8+rev2.aar"
 test -f "$ROOT/vendor/m2/sesl/com/google/android/material/material/1.12.0+1.0.32-sesl8+rev3/material-1.12.0+1.0.32-sesl8+rev3.aar"
 grep -q ':wear:assembleRelease' "$ROOT/build.sh"
 grep -q ':wear:lintRelease' "$ROOT/lint.sh"

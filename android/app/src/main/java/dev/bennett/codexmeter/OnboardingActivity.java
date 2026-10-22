@@ -5,16 +5,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -226,8 +222,9 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private void buildWelcome() {
         addIntro("Meet Codex Meter",
-                "Your Codex, Claude Code, and Cursor limits, reset timing, and credits in one "
-                        + "quick One UI view. Next, pick the ones you use.",
+                "Your Codex, Claude Code, Cursor, Copilot and other AI coding limits, reset "
+                        + "timing, and credits in one quick One UI view. Next, pick the ones you "
+                        + "use.",
                 R.drawable.ic_oui_battery);
 
         Ui.addSpacer(this.content, 20);
@@ -250,26 +247,16 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void buildProviders() {
         addIntro("Choose your providers",
                 "Pick every service you want to track. Each one gets a tab on the dashboard, "
-                        + "and you can change this later in Settings → Providers.",
+                        + "and you can add more later in Settings → Accounts.",
                 R.drawable.ic_oui_samsung_account);
 
-        this.content.addView(Ui.separator(this, "Providers"));
-        RoundedLinearLayout list = Ui.seslRowCard(this, this.dark);
         Button next = Ui.nativePrimaryButton(this, "Continue");
-        UsageProvider[] all = UsageProvider.values();
-        for (int i = 0; i < all.length; i++) {
-            UsageProvider provider = all[i];
-            list.addView(buildProviderPickRow(provider, next));
-            if (i < all.length - 1) {
-                View divider = new View(this);
-                divider.setBackgroundColor(Ui.secondaryText(this.dark) & 0x22FFFFFF);
-                LinearLayout.LayoutParams dividerParams =
-                        new LinearLayout.LayoutParams(-1, Math.max(1, Ui.dp(this, 0.5f)));
-                dividerParams.setMargins(Ui.dp(this, 66), 0, Ui.dp(this, 20), 0);
-                list.addView(divider, dividerParams);
-            }
-        }
-        this.content.addView(list);
+        ProviderPicker picker = new ProviderPicker(this, this.dark, null, this.picked,
+                provider -> {
+                    next.setEnabled(!this.picked.isEmpty());
+                    next.setAlpha(this.picked.isEmpty() ? 0.45f : 1.0f);
+                });
+        this.content.addView(picker.view());
 
         next.setEnabled(!this.picked.isEmpty());
         next.setAlpha(this.picked.isEmpty() ? 0.45f : 1.0f);
@@ -279,60 +266,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.content.addView(next, params);
     }
 
-    private View buildProviderPickRow(UsageProvider provider, Button next) {
-        LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
-        row.setMinimumHeight(Ui.dp(this, 72));
-        row.setPadding(Ui.dp(this, 20), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10));
-        row.setClickable(true);
-        row.setFocusable(true);
-
-        ImageView icon = new ImageView(this);
-        icon.setImageResource(ProvidersActivity.iconRes(provider));
-        icon.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
-                Ui.dp(this, 26), Ui.dp(this, 26));
-        iconParams.setMargins(0, 0, Ui.dp(this, 20), 0);
-        row.addView(icon, iconParams);
-
-        LinearLayout labels = new LinearLayout(this);
-        labels.setOrientation(LinearLayout.VERTICAL);
-        labels.addView(Ui.text(this, provider.displayName, 17.0f, Ui.mainText(this.dark)));
-        TextView summary = Ui.text(this, providerBlurb(provider), 13.0f,
-                Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-2, -2);
-        summaryParams.setMargins(0, Ui.dp(this, 2), 0, 0);
-        labels.addView(summary, summaryParams);
-        row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1.0f));
-
-        CheckBox check = Ui.checkbox(this, "", this.picked.contains(provider), this.dark);
-        check.setContentDescription("Track " + provider.displayName);
-        check.setOnCheckedChangeListener((button, on) -> {
-            if (on && !this.picked.contains(provider)) this.picked.add(provider);
-            if (!on) this.picked.remove(provider);
-            next.setEnabled(!this.picked.isEmpty());
-            next.setAlpha(this.picked.isEmpty() ? 0.45f : 1.0f);
-        });
-        row.addView(check, new LinearLayout.LayoutParams(-2, -2));
-        row.setOnClickListener(view -> check.toggle());
-        return row;
-    }
-
-    private static String providerBlurb(UsageProvider provider) {
-        switch (provider) {
-            case CLAUDE_CODE:
-                return "5-hour and weekly limits · Claude account";
-            case CURSOR:
-                return "Included usage and on-demand spend · Cursor account";
-            case CODEX:
-            default:
-                return "5-hour and weekly limits, reset credits · ChatGPT account";
-        }
-    }
-
     private void saveProvidersAndContinue() {
         List<UsageProvider> ordered = new ArrayList<>();
-        for (UsageProvider provider : UsageProvider.values()) {
+        for (UsageProvider provider : ProviderCatalog.recommendedOrder()) {
             if (this.picked.contains(provider)) ordered.add(provider);
         }
         if (ordered.isEmpty()) return;
@@ -487,6 +423,11 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void startSignIn(UsageProvider provider) {
         if (SecureTokenStore.isSignedIn(this, provider)) {
             render();
+            return;
+        }
+        if (ProviderCatalog.get(provider).usesSignInScreen()) {
+            // Device codes, pasted tokens and keys have their own screen; it closes when done.
+            startActivity(SignInActivity.intent(this, provider));
             return;
         }
         boolean resuming = ProviderPreferences.isSignInPending(this, provider);

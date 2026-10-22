@@ -195,13 +195,13 @@ struct CodexMeterHomeWidgetView: View {
                                 window: focusedAllowance.window,
                                 configuration: configuration
                             )
-                            Divider()
                             Label(
                                 "\(entry.snapshot.creditCount) credits",
                                 systemImage: "bolt.fill"
                             )
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
+                            .padding(.top, extraLarge ? 6 : 4)
                         }
                     }
                     .frame(maxWidth: .infinity)

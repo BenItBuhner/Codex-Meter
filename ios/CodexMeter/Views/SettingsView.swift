@@ -46,23 +46,36 @@ struct SettingsView: View {
                 Text("Choose which providers get a tab at the bottom of the dashboard, and their order.")
             }
 
+            // Edit dashboard follows the selected tab; each provider keeps its own layout.
+            let dashboardProvider = model.selectedProvider
             Section {
                 NavigationLink {
-                    DashboardEditView()
+                    DashboardEditView(provider: dashboardProvider)
                 } label: {
-                    Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    LabeledContent {
+                        Text(dashboardProvider.displayName)
+                    } label: {
+                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    }
                 }
-                Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
-                Toggle("Weekly limit", isOn: $model.settings.showWeekly)
-                Toggle("Monthly limit", isOn: $model.settings.showMonthly)
-                Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
-                Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
-                Toggle("Usage history", isOn: $model.settings.showUsageHistory)
-                Toggle("Reset credits", isOn: $model.settings.showResetCredits)
+                if dashboardProvider == .codex {
+                    Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
+                    Toggle("Weekly limit", isOn: $model.settings.showWeekly)
+                    Toggle("Monthly limit", isOn: $model.settings.showMonthly)
+                    Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
+                    Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
+                    Toggle("Monthly credit limit", isOn: $model.settings.showSpendControl)
+                    Toggle("Usage history", isOn: $model.settings.showUsageHistory)
+                    Toggle("Reset credits", isOn: $model.settings.showResetCredits)
+                }
             } header: {
                 Text("Dashboard")
             } footer: {
-                Text("Enabled cards still appear only when data is available. Edit dashboard also controls order and individual model-specific limits.")
+                if dashboardProvider == .codex {
+                    Text("Enabled cards still appear only when data is available. Edit dashboard also controls order and individual model-specific limits.")
+                } else {
+                    Text("Arrange and hide \(dashboardProvider.displayName) cards. Each provider keeps its own layout; switch tabs to edit another one.")
+                }
             }
 
             Section {
@@ -119,6 +132,20 @@ struct SettingsView: View {
                 Button("Turn on") { model.settings.lowUsageAutoUseEnabled = true }
             } message: {
                 Text("Codex Meter will spend one banked reset when your remaining usage reaches the level you choose. Used resets cannot be undone.")
+            }
+
+            Section {
+                Toggle("Estimated usage time", isOn: $model.settings.usagePaceEnabled)
+                Picker("Warning sensitivity", selection: $model.settings.usagePaceSensitivity) {
+                    ForEach(UsagePaceSensitivity.allCases, id: \.self) { sensitivity in
+                        Text(sensitivity.title).tag(sensitivity)
+                    }
+                }
+                .disabled(!model.settings.usagePaceEnabled)
+            } header: {
+                Text("Usage estimates")
+            } footer: {
+                Text("Project how long the current allowance may last from each window's usage and local history. Accelerated usage turns a meter orange; Off keeps the estimate without the warning.")
             }
 
             Section {

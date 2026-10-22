@@ -2,8 +2,9 @@
 
 Native SwiftUI client for viewing the Codex allowance attached to a signed-in
 ChatGPT account. It shows adaptive standard and model-specific usage windows,
-Free-tier monthly limits, purchased usage credits, reset times, earned reset
-credits, local burn history, notifications, and WidgetKit widgets.
+Free-tier monthly limits, purchased usage credits, workspace monthly credit
+limits, reset times, earned reset credits, local burn history, notifications,
+and WidgetKit widgets.
 
 This directory is the **iOS** package of the Codex Meter monorepo. The Android
 application lives under [`../android/`](../android/). Behavior is aligned with
@@ -50,7 +51,10 @@ service's mark (`ProviderCodex`, `ProviderClaude`, `ProviderCursor` template
 images from Simple Icons, CC0; the marks are their owners' trademarks).
 Settings → Providers turns tabs on or off (all on by default, at least one
 stays on) and reorders them by dragging; with only one on, the tab bar is
-hidden. UI tests can narrow and order the tabs in memory with
+hidden. Each provider has its own Edit dashboard layout (card order and
+visibility): Codex keeps its original settings keys, and Claude Code and Cursor
+store theirs under their provider id, listing only the cards that provider
+reports. UI tests can narrow and order the tabs in memory with
 `-ui-testing-providers cursor,codex`.
 
 ## Cursor tab
@@ -62,9 +66,12 @@ The third tab shows **Cursor** usage.
   polls `https://api2.cursor.sh/auth/poll` until the user approves, so there is
   no code to paste and no callback URL.
 - Usage comes from `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage`
-  (the route behind the editor's usage meter). Included usage for the billing
-  cycle is the main meter; Auto + Composer, API models, and on-demand spend
-  (shown in dollars) are extra cards. The plan badge comes from
+  (the route behind the editor's usage meter). Current plans have one included
+  pool that refreshes weekly ("Included usage · Weekly") plus "Additional usage"
+  spend. Legacy plans (Pro, Pro+, Ultra, Teams Standard) keep a monthly cycle
+  ("Included usage · Monthly") with "Cursor models" and "Other models" pools
+  and "On-demand" spend. A billing cycle of ten days or less marks a current
+  weekly plan. Spend is shown in dollars. The plan badge comes from
   `/auth/full_stripe_profile`.
 - Tokens are refreshed through `https://api2.cursor.sh/oauth/token` before the
   JWT `exp` (Cursor access tokens last about 60 days).

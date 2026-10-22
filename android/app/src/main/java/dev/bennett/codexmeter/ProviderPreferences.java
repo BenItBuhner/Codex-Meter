@@ -29,6 +29,8 @@ public final class ProviderPreferences {
     private static final String SUFFIX_HISTORY = "_history_";
     private static final String SUFFIX_RATE_LIMITED_AT = "_rate_limited_at";
     private static final String KEY_WIDGET_PROVIDER = "widget_provider_";
+    private static final String SUFFIX_DASHBOARD_ORDER = "_dashboard_order";
+    private static final String SUFFIX_DASHBOARD_HIDDEN = "_dashboard_hidden";
 
     private ProviderPreferences() {
     }
@@ -103,6 +105,77 @@ public final class ProviderPreferences {
         }
         prefs(context).edit().putString(KEY_ENABLED, ids(updated)).apply();
         return true;
+    }
+
+    /**
+     * Saved card order for one provider's dashboard (Edit dashboard). Codex keeps its original
+     * keys in {@link AppPreferences}; every other provider has its own, so layouts never mix.
+     */
+    public static String getDashboardOrder(Context context, UsageProvider provider) {
+        if (provider == UsageProvider.CODEX) return AppPreferences.getDashboardOrder(context);
+        return prefs(context).getString(provider.id + SUFFIX_DASHBOARD_ORDER, "");
+    }
+
+    public static void setDashboardOrder(Context context, UsageProvider provider,
+            List<String> order) {
+        if (provider == UsageProvider.CODEX) {
+            AppPreferences.setDashboardOrder(context, order);
+            return;
+        }
+        prefs(context).edit().putString(provider.id + SUFFIX_DASHBOARD_ORDER,
+                DashboardSections.serialize(order)).apply();
+    }
+
+    /** Whether a card is switched on in one provider's Edit dashboard. */
+    public static boolean isDashboardSectionVisible(Context context, UsageProvider provider,
+            String key) {
+        if (provider != UsageProvider.CODEX) {
+            return !DashboardSections.isHidden(
+                    prefs(context).getString(provider.id + SUFFIX_DASHBOARD_HIDDEN, ""), key);
+        }
+        if (DashboardSections.FIVE_HOUR.equals(key)) return AppPreferences.showDashboardFiveHour(context);
+        if (DashboardSections.WEEKLY.equals(key)) return AppPreferences.showDashboardWeekly(context);
+        if (DashboardSections.MONTHLY.equals(key)) return AppPreferences.showDashboardMonthly(context);
+        if (DashboardSections.SPEND_CONTROL.equals(key)) {
+            return AppPreferences.showDashboardSpendControl(context);
+        }
+        if (DashboardSections.USAGE_CREDITS.equals(key)) {
+            return AppPreferences.showDashboardUsageCredits(context);
+        }
+        if (DashboardSections.USAGE_HISTORY.equals(key)) {
+            return AppPreferences.showDashboardUsageHistory(context);
+        }
+        if (DashboardSections.RESET_CREDITS.equals(key)) {
+            return AppPreferences.showDashboardResetCredits(context);
+        }
+        return !AppPreferences.isDashboardSectionHidden(context, key);
+    }
+
+    public static void setDashboardSectionVisible(Context context, UsageProvider provider,
+            String key, boolean visible) {
+        if (provider != UsageProvider.CODEX) {
+            String hidden = prefs(context).getString(provider.id + SUFFIX_DASHBOARD_HIDDEN, "");
+            prefs(context).edit().putString(provider.id + SUFFIX_DASHBOARD_HIDDEN,
+                    DashboardSections.setHidden(hidden, key, !visible)).apply();
+            return;
+        }
+        if (DashboardSections.FIVE_HOUR.equals(key)) {
+            AppPreferences.setShowDashboardFiveHour(context, visible);
+        } else if (DashboardSections.WEEKLY.equals(key)) {
+            AppPreferences.setShowDashboardWeekly(context, visible);
+        } else if (DashboardSections.MONTHLY.equals(key)) {
+            AppPreferences.setShowDashboardMonthly(context, visible);
+        } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+            AppPreferences.setShowDashboardSpendControl(context, visible);
+        } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
+            AppPreferences.setShowDashboardUsageCredits(context, visible);
+        } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+            AppPreferences.setShowDashboardUsageHistory(context, visible);
+        } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+            AppPreferences.setShowDashboardResetCredits(context, visible);
+        } else {
+            AppPreferences.setDashboardSectionHidden(context, key, !visible);
+        }
     }
 
     public static void setSelected(Context context, UsageProvider provider) {
@@ -209,6 +282,31 @@ public final class ProviderPreferences {
         List<UsageProvider> fallback = new ArrayList<>();
         fallback.add(WidgetProviders.fallback(getOrder(context), signedIn));
         return fallback;
+    }
+
+    /** Whether a widget has saved its own provider choice. */
+    public static boolean hasSavedWidgetProviders(Context context, int appWidgetId) {
+        return !WidgetProviders.parse(prefs(context).getString(KEY_WIDGET_PROVIDER + appWidgetId,
+                null)).isEmpty();
+    }
+
+    /**
+     * Providers a lock-screen widget shows, at most {@code max}. One UI rarely opens a lock
+     * widget's own settings, so an unsaved widget shows the signed-in providers in tab order,
+     * the same ones the home widgets and dashboard tabs show.
+     */
+    public static List<UsageProvider> getLockWidgetProviders(Context context, int appWidgetId,
+            int max) {
+        List<UsageProvider> saved = WidgetProviders.parse(
+                prefs(context).getString(KEY_WIDGET_PROVIDER + appWidgetId, null));
+        if (!saved.isEmpty()) {
+            return saved.size() > max ? new ArrayList<>(saved.subList(0, max)) : saved;
+        }
+        List<UsageProvider> signedIn = new ArrayList<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            if (SecureTokenStore.isSignedIn(context, provider)) signedIn.add(provider);
+        }
+        return WidgetProviders.lockDefault(getEnabled(context), signedIn, max);
     }
 
     public static void setWidgetProvider(Context context, int appWidgetId,

@@ -242,7 +242,7 @@ struct OnboardingView: View {
         case .claudeCode:
             "Sign in with your Claude account to see the 5-hour and weekly limits Claude Code reports, plus any model-only allocation."
         case .cursor:
-            "Sign in with Cursor to see included usage for this billing cycle, Auto and API model pools, and on-demand spend."
+            "Sign in with Cursor to see your included usage and when it refreshes, plus any extra spend on top of your plan."
         }
     }
 }

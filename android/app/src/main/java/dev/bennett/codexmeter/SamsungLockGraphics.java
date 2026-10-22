@@ -49,8 +49,13 @@ final class SamsungLockGraphics {
         }
         float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 124.0f));
         float top = (height - (56.0f * dialScale)) / 2.0f;
-        float spacer = (width - (92.0f * dialScale)) / 3.0f;
         Drawable primaryIcon = context == null ? null : context.getDrawable(primaryIconRes);
+        if (secondaryIconRes == 0) {
+            // Only one meter to show: one centered dial instead of a blank second one.
+            drawDial(canvas, paint, width / 2.0f, top, dialScale, fiveHour, primaryIcon);
+            return bitmap;
+        }
+        float spacer = (width - (92.0f * dialScale)) / 3.0f;
         Drawable secondaryIcon = context == null ? null : context.getDrawable(secondaryIconRes);
         drawDial(canvas, paint, spacer + (23.0f * dialScale), top, dialScale,
                 fiveHour, primaryIcon);

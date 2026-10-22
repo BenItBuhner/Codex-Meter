@@ -23,7 +23,7 @@
     <PreferenceCategory android:title="Dashboard">
         <Preference
             android:key="dashboard_reorder_ui"
-            android:summary="Arrange usage cards and choose which ones appear"
+            android:summary="Arrange the selected tab\'s cards and choose which ones appear"
             android:title="Edit dashboard" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
@@ -35,6 +35,16 @@
             android:key="dashboard_weekly"
             android:summary="Shown only when OpenAI returns this window"
             android:title="Weekly limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_monthly"
+            android:summary="Shown only when OpenAI returns this window (free tier)"
+            android:title="Monthly limit" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="dashboard_spend_control"
+            android:summary="Workspace spend limit · shown only when OpenAI reports one"
+            android:title="Monthly credit limit" />
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="dashboard_additional_limits"

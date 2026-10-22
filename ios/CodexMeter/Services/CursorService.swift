@@ -158,7 +158,8 @@ public actor CursorService {
             }
 
             let snapshot = try CursorUsageParser.parse(usage.data, planLabel: plan, fetchedAt: now())
-            guard snapshot.monthly != nil || !snapshot.additionalLimits.isEmpty else {
+            guard snapshot.weekly != nil || snapshot.monthly != nil
+                || !snapshot.additionalLimits.isEmpty else {
                 throw CursorServiceError.message("Cursor returned no recognizable usage data.")
             }
             try await cache.updateUsage(snapshot, at: now())

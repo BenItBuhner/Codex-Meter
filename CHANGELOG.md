@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The Codex tab's title now reads "Codex", like the Claude Code and Cursor tabs.
+- Edit dashboard is per provider: each tab keeps its own card order and hidden cards, and the editor lists only the cards that provider reports (Codex keeps its existing layout).
+- Cursor limits follow Cursor's current plans. Current plans show one "Included usage · Weekly" card plus any "Additional usage" cap. Legacy monthly plans (Pro, Pro+, Ultra) show "Included usage · Monthly", the "Cursor models" and "Other models" pools, and on-demand spend. The outdated "Auto + Composer" and "API models" labels are gone, and Cursor card titles no longer truncate.
+
+### Development
+
+- Self-tests cover Cursor weekly vs legacy plans and the per-provider dashboard sections.
+
+## 2.9.0-alpha.3 — 2026-10-21
+
+### Changed
+
+- Lock-screen widgets now show the same providers as the rest of the app. A widget you haven't set up shows the providers you're signed in to, in tab order, each labeled with its name and icon, instead of falling back to a single provider.
+- New Settings → Lock screen widgets page lists every Codex Meter widget on the lock screen and opens its settings to pick providers and meters, since One UI often skips the widget's own setup screen.
+- Lock-screen gauges only show meters a provider reports: a Cursor gauge shows its included-usage dial instead of an empty 5-hour dial, and a single meter draws one centered dial.
+- The Bars lock-screen widget is gone from the picker. Bars already placed now draw dials.
+
 ## 2.9.0-alpha.2 — 2026-10-21
 
 ### Changed
