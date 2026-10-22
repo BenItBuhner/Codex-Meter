@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.5 — 2026-10-22
+
+### Added
+
+- Claude Code saved resets (claude.ai Settings → Usage → Limit resets) now show on the Claude tab in the same Reset credits card and reset screen as Codex, with Reset for free, and Settings has the same before-expiry and running-low auto-use rules. Anthropic can hold a reset until you hit a usage limit; the button then stays off and the reset screen says why.
+
 ### Changed
 
 - Settings → Appearance → One UI 9 design switches the app between its classic look and Samsung's One UI 9 design, in place, with no second app to install. One UI 9 uses SESL9's own components: the floating toolbar, the floating blurred tab bar, native fading list edges and the floating Cancel / Save bar in widget settings. The "Try One UI 9" row and the separate preview app are gone.
