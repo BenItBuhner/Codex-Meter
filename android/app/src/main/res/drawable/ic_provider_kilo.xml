@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Kilo Code: a lettered placeholder, because Simple Icons has no Kilo Code mark.
+<!-- Kilo Code mark from Lobe Icons (MIT). The trademark belongs to its owner.
      Single-color so One UI tabs and preferences tint it like their stock icons. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
@@ -9,9 +9,5 @@
     android:viewportHeight="24">
     <path
         android:fillColor="@android:color/white"
-        android:fillType="evenOdd"
-        android:pathData="M7,1H17A6,6 0 0 1 23,7V17A6,6 0 0 1 17,23H7A6,6 0 0 1 1,17V7A6,6 0 0 1 7,1ZM7.0,2.8H17.0A4.2,4.2 0 0 1 21.2,7.0V17.0A4.2,4.2 0 0 1 17.0,21.2H7.0A4.2,4.2 0 0 1 2.8,17.0V7.0A4.2,4.2 0 0 1 7.0,2.8Z" />
-    <path
-        android:fillColor="@android:color/white"
-        android:pathData="M5.2 16.05H6.88V13.7L7.98 12.5L10.31 16.05H12.3L9.14 11.39L12.21 7.83H10.15L8.14 10.19C7.59 10.85 7.21 11.37 6.86 11.94L6.88 10.07V7.83H5.2ZM16.05 16.17C17.53 16.17 18.57 15.37 18.8 14.07L17.26 13.79C17.13 14.46 16.7 14.87 16.06 14.87C15.18 14.87 14.72 14.09 14.72 12.99C14.72 11.87 15.18 11.11 16.06 11.11C16.7 11.11 17.11 11.5 17.25 12.14L18.79 11.86C18.56 10.59 17.51 9.8 16.05 9.8C14.19 9.8 13.03 11.08 13.03 12.99C13.03 14.89 14.19 16.17 16.05 16.17Z" />
+        android:pathData="M0 0H24V24H0ZM22.222 22.222V1.778H1.778V22.222ZM18.667 17.258H16.889V19.036H14.095L12.89 17.83V15.036H14.667V13.258H17.46L18.667 14.465ZM18.667 9.333V11.111H12.889V9.333H14.876V7.111H12.889V5.333H15.447L16.653 6.54V9.333ZM7.111 7.333H9.333L11.111 9.111V11.111H9.333V9.111H7.111V11.111H5.333V5.333H7.111ZM5.333 12.889H7.111V16.889H11.111V18.667H6.54L5.333 17.46ZM16.889 15.036H14.668V17.258H16.889ZM11.111 7.333H9.333V5.333H11.111ZM11.111 14.667H9.333V12.889H11.111Z" />
 </vector>
