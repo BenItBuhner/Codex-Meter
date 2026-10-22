@@ -333,7 +333,7 @@ private struct HistoryDetailCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.plain)
-                        .hoverEffect(.highlight)
+                        .pointerHighlight()
                     }
                 }
                 .padding(.top, 6)

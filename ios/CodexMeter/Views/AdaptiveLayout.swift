@@ -115,3 +115,16 @@ struct AdditionalLimitWindow: Identifiable {
         return result
     }
 }
+
+extension View {
+    /// The iPad pointer highlight for a plain-styled row. A no-op where hover effects don't
+    /// exist (the Mac app compiles these views too).
+    func pointerHighlight(cornerRadius: CGFloat = 10) -> some View {
+#if os(iOS)
+        contentShape(.hoverEffect, RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .hoverEffect(.highlight)
+#else
+        self
+#endif
+    }
+}
