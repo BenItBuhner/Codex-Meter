@@ -279,6 +279,9 @@
             android:name="dev.bennett.codexmeter.ResetCreditExpiryReceiver"
             android:exported="false"/>
         <receiver
+            android:name="dev.bennett.codexmeter.ResetCreditExpiryApplyReceiver"
+            android:exported="false"/>
+        <receiver
             android:name="dev.bennett.codexmeter.NowBarActionReceiver"
             android:exported="false"/>
         <receiver

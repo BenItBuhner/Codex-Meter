@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var isExportingSettings = false
     @State private var isImportingSettings = false
     @State private var transferMessage: String?
+    @State private var confirmingLowUsageAutoUse = false
 
     var body: some View {
         @Bindable var model = model
@@ -96,6 +97,41 @@ struct SettingsView: View {
                 Text(model.settings.refreshMode == .automatic
                     ? "Automatic adapts on device to remaining usage, reset timing, recent attention, quiet hours, accelerated usage, and failures. iOS still decides when background work runs."
                     : "iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
+            }
+
+            Section {
+                Toggle("Use resets before they expire", isOn: $model.settings.creditExpiryAutoApplyEnabled)
+                if model.settings.creditExpiryAutoApplyEnabled {
+                    Picker("When to use it", selection: $model.settings.creditExpiryAutoApplyLeadMinutes) {
+                        ForEach(CreditExpiryAutoApply.leadMinuteOptions, id: \.self) { minutes in
+                            Text("\(CreditExpiryAutoApply.leadLabel(minutes)) before").tag(minutes)
+                        }
+                    }
+                }
+                Toggle("Use a reset when running low", isOn: lowUsageAutoUseBinding)
+                if model.settings.lowUsageAutoUseEnabled {
+                    Picker("Use when remaining reaches", selection: $model.settings.lowUsageAutoUseThreshold) {
+                        ForEach(LowUsageAutoUse.thresholdOptions, id: \.self) { value in
+                            Text(value == 0 ? "0% (limit reached)" : "\(value)%").tag(value)
+                        }
+                    }
+                    Picker("Watch", selection: $model.settings.lowUsageAutoUseMetric) {
+                        ForEach(LowUsageAutoUseMetric.allCases) { metric in
+                            Text(metric.title).tag(metric)
+                        }
+                    }
+                }
+            } header: {
+                Text("Codex reset credits")
+            } footer: {
+                Text("Banked resets are used automatically so they are not lost. Running-low use fires once per usage window and skips a limit that refills on its own within 15 minutes. iOS runs these on the next refresh, so allow some slack.")
+            }
+            .disabled(model.mode == .signedOut)
+            .alert("Use resets automatically?", isPresented: $confirmingLowUsageAutoUse) {
+                Button("Cancel", role: .cancel) {}
+                Button("Turn on") { model.settings.lowUsageAutoUseEnabled = true }
+            } message: {
+                Text("Codex Meter will spend one banked reset when your remaining usage reaches the level you choose. Used resets cannot be undone.")
             }
 
             Section {
@@ -271,6 +307,20 @@ struct SettingsView: View {
         } message: {
             Text(transferMessage ?? "")
         }
+    }
+
+    /// Turning the running-low rule on asks first, because it spends credits on its own.
+    private var lowUsageAutoUseBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.lowUsageAutoUseEnabled },
+            set: { enabled in
+                if enabled {
+                    confirmingLowUsageAutoUse = true
+                } else {
+                    model.settings.lowUsageAutoUseEnabled = false
+                }
+            }
+        )
     }
 
     private func leadTimeBinding(_ minutes: Int, model: AppModel) -> Binding<Bool> {

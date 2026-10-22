@@ -113,6 +113,29 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("10-settings")
 
+        // Codex reset credits: expiry auto-use is on by default; running-low asks first.
+        let expirySwitch = app.switches["Use resets before they expire"]
+        UITestSupport.scrollForm(untilExists: expirySwitch, in: app)
+        if expirySwitch.firstMatch.exists {
+            // Drag the section's first row up near the top so the whole section is in view.
+            let start = expirySwitch.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            start.press(forDuration: 0.1, thenDragTo: end)
+        }
+        UITestSupport.settle(0.8)
+        capture("09b-settings-reset-auto-use")
+        let lowUsageSwitch = app.switches["Use a reset when running low"].firstMatch
+        if lowUsageSwitch.waitForExistence(timeout: 3) {
+            lowUsageSwitch.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        }
+        if app.alerts["Use resets automatically?"].waitForExistence(timeout: 5) {
+            UITestSupport.settle(0.5)
+            capture("09c-reset-auto-use-confirm")
+            UITestSupport.tap(app.alerts["Use resets automatically?"].buttons["Turn on"])
+            UITestSupport.settle(0.8)
+            capture("09d-reset-auto-use-on")
+        }
+
         UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app)
         UITestSupport.settle(0.5)
         capture("11-settings-notifications")

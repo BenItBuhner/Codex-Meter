@@ -67,6 +67,37 @@
             android:title="Reset credits" />
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:key="reset_credit_auto_use_category"
+        android:title="Codex reset credits">
+        <SwitchPreferenceCompat
+            android:key="reset_credit_expiry_auto_apply_ui"
+            android:summary="Use a banked reset before it expires instead of losing it"
+            android:title="Use resets before they expire" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_lead_entries"
+            android:entryValues="@array/settings_reset_auto_lead_values"
+            android:key="reset_credit_expiry_auto_apply_lead_ui"
+            android:title="When to use it"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_low_usage_auto_use_ui"
+            android:summary="Use a banked reset when your remaining usage gets low"
+            android:title="Use a reset when running low" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_threshold_entries"
+            android:entryValues="@array/settings_reset_auto_threshold_values"
+            android:key="reset_credit_low_usage_threshold_ui"
+            android:title="Use when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_metric_entries"
+            android:entryValues="@array/settings_reset_auto_metric_values"
+            android:key="reset_credit_low_usage_metric_ui"
+            android:title="Watch"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Usage estimates">
         <SwitchPreferenceCompat
             android:key="usage_pace_enabled_ui"

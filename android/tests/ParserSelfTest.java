@@ -36,6 +36,8 @@ public final class ParserSelfTest {
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
         testResetCountdownFollowsApiTimeline();
+        testResetCreditExpiryAutoApply();
+        testResetCreditLowUsageAutoUse();
         testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
@@ -1430,6 +1432,110 @@ public final class ParserSelfTest {
         System.out.println("Reset-credit inventory demo: available credits sort by expiry.");
     }
 
+    private static void testResetCreditExpiryAutoApply() {
+        long now = 3_000_000_000L;
+        long minute = TimeUnit.MINUTES.toMillis(1);
+        long lead = ResetCreditExpiryApply.DEFAULT_LEAD_MS;
+        check(lead == TimeUnit.MINUTES.toMillis(30), "default auto-use lead is 30 minutes");
+        RateLimitResetCredit due = new RateLimitResetCredit("due", "both", "available",
+                now - 1, now + 20 * minute, "", "");
+        RateLimitResetCredit later = new RateLimitResetCredit("later", "both", "available",
+                now - 1, now + 90 * minute, "", "");
+        RateLimitResetCredit redeemed = new RateLimitResetCredit("used", "both", "redeemed",
+                now - 1, now + 10 * minute, "", "");
+        RateLimitResetCredit expired = new RateLimitResetCredit("expired", "both", "available",
+                now - 1, now - 1, "", "");
+        RateLimitResetCredit noExpiry = new RateLimitResetCredit("none", "both", "available",
+                now - 1, 0L, "", "");
+        List<ResetCreditExpiryApply> planned = ResetCreditExpiryApply.plan(
+                Arrays.asList(later, redeemed, expired, noExpiry, due), now, lead);
+        check(planned.size() == 2, "only unexpired available credits are scheduled to auto-apply");
+        check("due".equals(planned.get(0).creditId), "soonest expiry is scheduled first");
+        check(planned.get(0).triggerAtMillis == due.expiresAtMillis - lead,
+                "auto-apply triggers the chosen lead time before expiry");
+        List<ResetCreditExpiryApply> dueNow = ResetCreditExpiryApply.due(
+                Arrays.asList(due, later, expired), now, lead);
+        check(dueNow.size() == 1 && "due".equals(dueNow.get(0).creditId),
+                "only credits inside the lead window are due now");
+        check(ResetCreditExpiryApply.isDue(now + 30 * minute, now, lead),
+                "exactly the lead time remaining is inside the apply window");
+        check(!ResetCreditExpiryApply.isDue(now + 31 * minute, now, lead),
+                "just outside the lead time is not applied yet");
+        check(ResetCreditExpiryApply.isDue(later.expiresAtMillis, now,
+                        TimeUnit.HOURS.toMillis(2)),
+                "a 2-hour lead picks up a credit expiring in 90 minutes");
+        check(!ResetCreditExpiryApply.isDue(due.expiresAtMillis, now, minute),
+                "the last-minute option waits until the final minute");
+        check(!ResetCreditExpiryApply.isDue(expired.expiresAtMillis, now, lead),
+                "already-expired credits are not applied");
+        check(ResetCreditExpiryApply.normalizeLead(0L) == lead,
+                "missing lead falls back to the default");
+        check(ResetCreditExpiryApply.normalizeLead(TimeUnit.MINUTES.toMillis(50))
+                        == TimeUnit.HOURS.toMillis(1),
+                "an off-menu lead snaps to the nearest option");
+        check("30 minutes".equals(ResetCreditExpiryApply.leadLabel(lead))
+                        && "1 hour".equals(ResetCreditExpiryApply.leadLabel(60 * minute))
+                        && "1 minute".equals(ResetCreditExpiryApply.leadLabel(minute)),
+                "lead labels read naturally");
+        RateLimitResetCredit alsoDue = new RateLimitResetCredit("also-due", "both", "available",
+                now - 1, now + 5 * minute, "", "");
+        List<ResetCreditExpiryApply> twoDue = ResetCreditExpiryApply.due(
+                Arrays.asList(alsoDue, due, later), now, lead);
+        check(twoDue.size() == 2
+                        && "also-due".equals(twoDue.get(0).creditId)
+                        && "due".equals(twoDue.get(1).creditId),
+                "several due credits apply soonest first");
+        System.out.println("Reset-credit auto-apply demo: credits inside the chosen lead window "
+                + "apply, later and expired credits do not.");
+    }
+
+    private static void testResetCreditLowUsageAutoUse() {
+        long now = 3_000_000_000L;
+        long hour = 3600L;
+        // 5-hour at 1% remaining, weekly at 40%, both resetting in an hour.
+        UsageSnapshot low = snapshot(99, 60, hour, now);
+        ResetCreditLowUsageAutoUse fire = ResetCreditLowUsageAutoUse.evaluate(low,
+                ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 2, "", now);
+        check(fire.fires() && "5-hour".equals(fire.windowLabel) && fire.remainingPercent == 1,
+                "1% remaining on the 5-hour limit fires at a 1% threshold");
+        check(!ResetCreditLowUsageAutoUse.evaluate(low,
+                        ResetCreditLowUsageAutoUse.METRIC_WEEKLY, 1, 2, "", now).fires(),
+                "weekly-only rule ignores a low 5-hour limit");
+        check(!ResetCreditLowUsageAutoUse.evaluate(snapshot(97, 60, hour, now),
+                        ResetCreditLowUsageAutoUse.METRIC_BOTH, 2, 2, "", now).fires(),
+                "3% remaining waits at a 2% threshold");
+        check(ResetCreditLowUsageAutoUse.evaluate(snapshot(98, 60, hour, now),
+                        ResetCreditLowUsageAutoUse.METRIC_BOTH, 2, 2, "", now).fires(),
+                "2% remaining fires at a 2% threshold");
+        ResetCreditLowUsageAutoUse again = ResetCreditLowUsageAutoUse.evaluate(
+                snapshot(100, 60, hour - 60, now + 60_000L),
+                ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 1, fire.windowToken, now + 60_000L);
+        check(ResetCreditLowUsageAutoUse.SKIP_ALREADY_USED.equals(again.outcome),
+                "a rule fires once per usage window");
+        check(ResetCreditLowUsageAutoUse.SKIP_NO_CREDIT.equals(ResetCreditLowUsageAutoUse
+                        .evaluate(low, ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 0, "", now)
+                        .outcome),
+                "no credit means no attempt");
+        check(ResetCreditLowUsageAutoUse.SKIP_RESET_IMMINENT.equals(ResetCreditLowUsageAutoUse
+                        .evaluate(snapshot(100, 60, 600L, now),
+                                ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 1, "", now).outcome),
+                "a window refilling within 15 minutes is not worth a credit");
+        check(ResetCreditLowUsageAutoUse.WAIT.equals(ResetCreditLowUsageAutoUse.evaluate(low,
+                        ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 1, "",
+                        now + TimeUnit.MINUTES.toMillis(5)).outcome),
+                "a stale snapshot never spends a credit");
+        ResetCreditLowUsageAutoUse monthly = ResetCreditLowUsageAutoUse.evaluate(
+                monthlySnapshot(100, 86_400L, now),
+                ResetCreditLowUsageAutoUse.METRIC_WEEKLY, 0, 1, "", now);
+        check(monthly.fires() && "monthly".equals(monthly.windowLabel),
+                "the weekly rule covers a free-tier monthly window");
+        check(ResetCreditLowUsageAutoUse.normalizeThreshold(7)
+                        == ResetCreditLowUsageAutoUse.DEFAULT_THRESHOLD,
+                "an off-menu threshold falls back to 1%");
+        System.out.println("Reset-credit low-usage demo: one credit fires per window at the "
+                + "threshold, never from stale data or right before a natural refill.");
+    }
+
     private static UsageSnapshot snapshot(int fiveHourUsed, int weeklyUsed,
             long resetAfterSeconds, long fetchedAtMillis) {
         return new UsageSnapshot("pro", true, false,
@@ -1489,6 +1595,11 @@ public final class ParserSelfTest {
                 .put("unexpected_refills", false)
                 .put("reset_credit_increases", true)
                 .put("reset_credit_expiry", true)
+                .put("reset_credit_expiry_auto_apply", true)
+                .put("reset_credit_expiry_auto_apply_lead_ms", 3_600_000L)
+                .put("reset_credit_low_usage_auto_use", true)
+                .put("reset_credit_low_usage_threshold", 2)
+                .put("reset_credit_low_usage_metric", "weekly")
                 .put("reset_credit_expiry_lead_times",
                         SettingsTransfer.leadTimesToJson(Arrays.asList(
                                 TimeUnit.HOURS.toMillis(1),
@@ -1531,6 +1642,16 @@ public final class ParserSelfTest {
                 "usage pace sensitivity preserved");
         check(!restored.showPercentSymbol, "percent symbol flag restored");
         check(parsed.notifications.getInt("threshold") == 50, "notification threshold restored");
+        check(parsed.notifications.getBoolean("reset_credit_expiry_auto_apply"),
+                "expiry auto-apply preference restored");
+        check(parsed.notifications.getLong("reset_credit_expiry_auto_apply_lead_ms")
+                        == 3_600_000L,
+                "expiry auto-apply lead time restored");
+        check(parsed.notifications.getBoolean("reset_credit_low_usage_auto_use")
+                        && parsed.notifications.getInt("reset_credit_low_usage_threshold") == 2
+                        && "weekly".equals(parsed.notifications.getString(
+                                "reset_credit_low_usage_metric")),
+                "low-usage auto-use preferences restored");
         check(SettingsTransfer.leadTimesFromJson(
                 parsed.notifications.getJSONArray("reset_credit_expiry_lead_times")).size() == 2,
                 "lead times restored");
