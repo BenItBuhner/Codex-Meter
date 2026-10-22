@@ -18,6 +18,11 @@ import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class ResetCreditActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private LinearLayout content;
     private boolean dark;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();

@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -27,6 +28,11 @@ import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.utils.EdgeToEdge;
 
 public final class AboutActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final int MENU_GITHUB = 8201;
     private static final int MENU_APP_INFO = 8202;
     private static final int DIAGNOSTIC_TAPS = 7;

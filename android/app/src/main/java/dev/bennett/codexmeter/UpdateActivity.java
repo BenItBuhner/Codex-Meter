@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -18,6 +19,11 @@ import java.util.concurrent.Executors;
 
 /** User-facing secure download and PackageInstaller hand-off flow. */
 public final class UpdateActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     public static final String EXTRA_VERSION = "release_version";
     public static final String EXTRA_FORCE_CHECK = "force_check";
     public static final String EXTRA_START_INSTALL = "start_install";

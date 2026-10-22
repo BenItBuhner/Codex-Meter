@@ -63,6 +63,9 @@ android {
         buildConfig = true
     }
 
+    // SESL8 values for the classic design (see DesignChrome.wrap).
+    sourceSets.getByName("main").res.directories.add("src/main/res-classic")
+
     signingConfigs {
         create("localRelease") {
             val signingDir = rootProject.file(".local-signing")

@@ -30,6 +30,11 @@ import java.util.List;
  * choose providers (nothing preselected), sign in to each chosen provider or skip, then done.
  */
 public final class OnboardingActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     public static final String EXTRA_AUTH_RETURN = "oauth_return";
 
     private LinearLayout content;

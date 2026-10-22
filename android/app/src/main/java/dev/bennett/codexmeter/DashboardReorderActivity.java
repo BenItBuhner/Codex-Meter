@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
@@ -27,6 +28,11 @@ import java.util.List;
  * visibility are saved immediately so the dashboard rebuilds on return.
  */
 public final class DashboardReorderActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     /** Provider id whose dashboard is being edited; Codex when missing. */
     public static final String EXTRA_PROVIDER = "provider";
     private final List<SectionItem> items = new ArrayList<>();

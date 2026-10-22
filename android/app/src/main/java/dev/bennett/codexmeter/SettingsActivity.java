@@ -39,6 +39,11 @@ import java.util.concurrent.TimeUnit;
 
 /** Settings built from the One UI Design Library preference components used by its sample app. */
 public final class SettingsActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
     private static final String PAGE_ACCOUNTS = "accounts";
