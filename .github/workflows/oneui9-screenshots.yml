@@ -151,19 +151,21 @@ jobs:
           rec_start pages 7; adb shell input tap $GEAR; sleep 3; adb shell input keyevent KEYCODE_BACK; rec_stop pages
           if [[ "$V" == "classic" ]]; then
             # Flip the design both ways inside one installed app.
-            seed $SET codex appearance classic
-            SW=$(locate "One UI 9 design")
-            rec_start toggle 60
-            shot toggle-01-appearance-classic
-            adb shell input tap $SW; shot toggle-02-appearance-oneui9
-            adb shell input keyevent KEYCODE_BACK; shot toggle-03-back
+            # Start on the dashboard, go to Settings > Appearance, flip, come back, and repeat.
+            seed $SET codex main classic
+            rec_start toggle 75
+            shot toggle-01-dashboard-classic
+            tap_text "Settings"; sleep 2; tap_text "Appearance"; sleep 2
+            shot toggle-02-appearance-classic
+            tap_text "One UI 9 design"; shot toggle-03-appearance-oneui9
+            adb shell input keyevent KEYCODE_BACK; sleep 2
             adb shell input keyevent KEYCODE_BACK; shot toggle-04-dashboard-oneui9
             adb shell input swipe 540 1900 540 700 600; shot toggle-05-dashboard-oneui9-scrolled
-            adb shell input swipe 540 700 540 1900 600; sleep 1
-            tap_text "Settings"; sleep 2
-            tap_text "Appearance"; sleep 2
-            SW=$(locate "One UI 9 design"); adb shell input tap $SW; shot toggle-06-appearance-classic-again
-            adb shell input keyevent KEYCODE_BACK; adb shell input keyevent KEYCODE_BACK; shot toggle-07-dashboard-classic-again
+            adb shell input swipe 540 700 540 1900 600; sleep 2
+            tap_text "Settings"; sleep 2; tap_text "Appearance"; sleep 2
+            tap_text "One UI 9 design"; shot toggle-06-appearance-classic-again
+            adb shell input keyevent KEYCODE_BACK; sleep 2
+            adb shell input keyevent KEYCODE_BACK; shot toggle-07-dashboard-classic-again
             rec_stop toggle
           fi
           adb shell cmd uimode night yes
