@@ -1,0 +1,207 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.recyclerview",
+    "module": "recyclerview",
+    "version": "1.4.0+1.0.25-sesl9+rev0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.7.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.10.0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.customview",
+          "module": "customview",
+          "version": {
+            "requires": "1.2.0-rc01+1.0.1-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "recyclerview-1.4.0+1.0.25-sesl9+rev0.aar",
+          "url": "recyclerview-1.4.0+1.0.25-sesl9+rev0.aar",
+          "size": 614024,
+          "sha512": "cab04fc9935a014946351be4b14fed550e353bb2a28ce9d557b8154c73216c45bc55e02cdbf2b33816e57b56ba2a44d4b60d720b9373ee7a97d3bbdc15247fc6",
+          "sha256": "da4bc1b6542cc7c93e6bc168fd70b4173e029f5d13305f8669240a4957f2b6b4",
+          "sha1": "91850f8f1a785659bfd7b7c4efa818846f8cba42",
+          "md5": "5245dfae2bac8c56dd7ed7a3bbdfa1a4"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.core",
+          "module": "core-viewtree",
+          "version": {
+            "requires": "1.0.0"
+          }
+        },
+        {
+          "group": "androidx.collection",
+          "module": "collection",
+          "version": {
+            "requires": "1.6.0"
+          }
+        },
+        {
+          "group": "androidx.customview",
+          "module": "customview-poolingcontainer",
+          "version": {
+            "requires": "1.1.0"
+          }
+        },
+        {
+          "group": "androidx.profileinstaller",
+          "module": "profileinstaller",
+          "version": {
+            "requires": "1.4.0"
+          }
+        },
+        {
+          "group": "androidx.compose.ui",
+          "module": "ui",
+          "version": {
+            "requires": "1.8.2"
+          }
+        },
+        {
+          "group": "sesl.androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.8.0+1.0.38-sesl9+rev0"
+          }
+        },
+        {
+          "group": "androidx.tracing",
+          "module": "tracing",
+          "version": {
+            "requires": "2.0.1"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.10.0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev0"
+          }
+        },
+        {
+          "group": "sesl.androidx.customview",
+          "module": "customview",
+          "version": {
+            "requires": "1.2.0-rc01+1.0.1-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "recyclerview-1.4.0+1.0.25-sesl9+rev0.aar",
+          "url": "recyclerview-1.4.0+1.0.25-sesl9+rev0.aar",
+          "size": 614024,
+          "sha512": "cab04fc9935a014946351be4b14fed550e353bb2a28ce9d557b8154c73216c45bc55e02cdbf2b33816e57b56ba2a44d4b60d720b9373ee7a97d3bbdc15247fc6",
+          "sha256": "da4bc1b6542cc7c93e6bc168fd70b4173e029f5d13305f8669240a4957f2b6b4",
+          "sha1": "91850f8f1a785659bfd7b7c4efa818846f8cba42",
+          "md5": "5245dfae2bac8c56dd7ed7a3bbdfa1a4"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "recyclerview-1.4.0+1.0.25-sesl9+rev0-sources.jar",
+          "url": "recyclerview-1.4.0+1.0.25-sesl9+rev0-sources.jar",
+          "size": 406180,
+          "sha512": "3816f9f603bc9a5bfe530f68b6239d63e89e3a4cfd6e921686061237d8bc1e801775426ac2d8f8564ebbed36d08b2f4d59660260ad05cb649c20855f0ba01f04",
+          "sha256": "52cc457f362a14242cb4b0774fb9cbc85672edcdee27a402d932f22dc88dd752",
+          "sha1": "9d715799441bc4c7105257830183810be564721f",
+          "md5": "6f9064ae0e73f232a10ed340f996b068"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "recyclerview-1.4.0+1.0.25-sesl9+rev0-javadoc.jar",
+          "url": "recyclerview-1.4.0+1.0.25-sesl9+rev0-javadoc.jar",
+          "size": 1096517,
+          "sha512": "9f31bd9af602b25c6e7e15c945cf2f04a1fae9e62938fc22b5330f008446325ad2d13543335bb202deed8e27631cc6bc145b94d3f90420c10df94db113bfbc3e",
+          "sha256": "1b65c392bcfd2bb60810b43ec0d594fc116655ba7950812ac69057cdb3a67f09",
+          "sha1": "b20d326eea0df8eaf4a326c24ab08faff1e3b6fa",
+          "md5": "7e538096db98110cce217aedf38333b7"
+        }
+      ]
+    }
+  ]
+}
