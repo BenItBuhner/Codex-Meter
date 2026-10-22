@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var isExportingSettings = false
     @State private var isImportingSettings = false
     @State private var transferMessage: String?
+    @State private var confirmingLowUsageAutoUse = false
 
     var body: some View {
         @Bindable var model = model
@@ -40,24 +41,36 @@ struct SettingsView: View {
                 Text("Choose which providers get a tab at the bottom of the dashboard, and their order.")
             }
 
+            // Edit dashboard follows the selected tab; each provider keeps its own layout.
+            let dashboardProvider = model.selectedProvider
             Section {
                 NavigationLink {
-                    DashboardEditView()
+                    DashboardEditView(provider: dashboardProvider)
                 } label: {
-                    Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    LabeledContent {
+                        Text(dashboardProvider.displayName)
+                    } label: {
+                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    }
                 }
-                Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
-                Toggle("Weekly limit", isOn: $model.settings.showWeekly)
-                Toggle("Monthly limit", isOn: $model.settings.showMonthly)
-                Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
-                Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
-                Toggle("Monthly credit limit", isOn: $model.settings.showSpendControl)
-                Toggle("Usage history", isOn: $model.settings.showUsageHistory)
-                Toggle("Reset credits", isOn: $model.settings.showResetCredits)
+                if dashboardProvider == .codex {
+                    Toggle("5-hour limit", isOn: $model.settings.showFiveHour)
+                    Toggle("Weekly limit", isOn: $model.settings.showWeekly)
+                    Toggle("Monthly limit", isOn: $model.settings.showMonthly)
+                    Toggle("Additional model limits", isOn: $model.settings.showAdditionalLimits)
+                    Toggle("Usage-credit balance", isOn: $model.settings.showUsageCredits)
+                    Toggle("Monthly credit limit", isOn: $model.settings.showSpendControl)
+                    Toggle("Usage history", isOn: $model.settings.showUsageHistory)
+                    Toggle("Reset credits", isOn: $model.settings.showResetCredits)
+                }
             } header: {
                 Text("Dashboard")
             } footer: {
-                Text("Enabled cards still appear only when data is available. Edit dashboard also controls order and individual model-specific limits.")
+                if dashboardProvider == .codex {
+                    Text("Enabled cards still appear only when data is available. Edit dashboard also controls order and individual model-specific limits.")
+                } else {
+                    Text("Arrange and hide \(dashboardProvider.displayName) cards. Each provider keeps its own layout; switch tabs to edit another one.")
+                }
             }
 
             Section {
@@ -79,6 +92,41 @@ struct SettingsView: View {
                 Text(model.settings.refreshMode == .automatic
                     ? "Automatic adapts on device to remaining usage, reset timing, recent attention, quiet hours, accelerated usage, and failures. iOS still decides when background work runs."
                     : "iOS decides when background work runs. This interval is an earliest preference, not a guaranteed schedule.")
+            }
+
+            Section {
+                Toggle("Use resets before they expire", isOn: $model.settings.creditExpiryAutoApplyEnabled)
+                if model.settings.creditExpiryAutoApplyEnabled {
+                    Picker("When to use it", selection: $model.settings.creditExpiryAutoApplyLeadMinutes) {
+                        ForEach(CreditExpiryAutoApply.leadMinuteOptions, id: \.self) { minutes in
+                            Text("\(CreditExpiryAutoApply.leadLabel(minutes)) before").tag(minutes)
+                        }
+                    }
+                }
+                Toggle("Use a reset when running low", isOn: lowUsageAutoUseBinding)
+                if model.settings.lowUsageAutoUseEnabled {
+                    Picker("Use when remaining reaches", selection: $model.settings.lowUsageAutoUseThreshold) {
+                        ForEach(LowUsageAutoUse.thresholdOptions, id: \.self) { value in
+                            Text(value == 0 ? "0% (limit reached)" : "\(value)%").tag(value)
+                        }
+                    }
+                    Picker("Watch", selection: $model.settings.lowUsageAutoUseMetric) {
+                        ForEach(LowUsageAutoUseMetric.allCases) { metric in
+                            Text(metric.title).tag(metric)
+                        }
+                    }
+                }
+            } header: {
+                Text("Codex reset credits")
+            } footer: {
+                Text("Banked resets are used automatically so they are not lost. Running-low use fires once per usage window and skips a limit that refills on its own within 15 minutes. iOS runs these on the next refresh, so allow some slack.")
+            }
+            .disabled(model.mode == .signedOut)
+            .alert("Use resets automatically?", isPresented: $confirmingLowUsageAutoUse) {
+                Button("Cancel", role: .cancel) {}
+                Button("Turn on") { model.settings.lowUsageAutoUseEnabled = true }
+            } message: {
+                Text("Codex Meter will spend one banked reset when your remaining usage reaches the level you choose. Used resets cannot be undone.")
             }
 
             Section {
@@ -250,6 +298,20 @@ struct SettingsView: View {
         } message: {
             Text(transferMessage ?? "")
         }
+    }
+
+    /// Turning the running-low rule on asks first, because it spends credits on its own.
+    private var lowUsageAutoUseBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.lowUsageAutoUseEnabled },
+            set: { enabled in
+                if enabled {
+                    confirmingLowUsageAutoUse = true
+                } else {
+                    model.settings.lowUsageAutoUseEnabled = false
+                }
+            }
+        )
     }
 
     private func leadTimeBinding(_ minutes: Int, model: AppModel) -> Binding<Bool> {

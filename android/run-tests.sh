@@ -56,6 +56,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryApply.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditLowUsageAutoUse.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
@@ -91,14 +93,14 @@ java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.9.0-alpha.3"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME = "2.9.0-alpha.4"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.9.0-alpha.3"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.4"' "$ROOT/app/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.9.0-alpha.3"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.4"' "$ROOT/wear/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.9.0-alpha.3' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.9.0-alpha.3"' "$ROOT/build.sh"
+grep -q 'codex-meter-android/2.9.0-alpha.4' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.9.0-alpha.4"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"

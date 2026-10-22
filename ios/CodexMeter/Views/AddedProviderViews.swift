@@ -47,7 +47,10 @@ struct AddedProviderDashboardView: View {
                     }
                     if let usage = state.usage {
                         AddedProviderStatusStrip(provider: provider, usage: usage, isCached: state.isUsingCachedData)
-                        AddedProviderMeters(usage: usage)
+                        ProviderDashboardCards(provider: provider, usage: usage)
+                        if let credits = usage.usageCredits, credits.shouldDisplay {
+                            AddedProviderBalanceCard(credits: credits)
+                        }
                     } else {
                         AddedProviderEmptyCard(state: state)
                     }
@@ -62,6 +65,12 @@ struct AddedProviderDashboardView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if state.phase != .signedOut {
+                    NavigationLink {
+                        DashboardEditView(provider: provider)
+                    } label: {
+                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    }
+
                     Button {
                         Task { await state.refresh() }
                     } label: {
@@ -136,43 +145,6 @@ private struct AddedProviderStatusStrip: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
-    }
-}
-
-/// The short, weekly and monthly windows, extra limits, and any credit balance.
-private struct AddedProviderMeters: View {
-    @Environment(AppModel.self) private var model
-    let usage: UsageSnapshot
-
-    var body: some View {
-        VStack(spacing: AppChrome.sectionSpacing) {
-            if let window = usage.fiveHour {
-                meter(window, systemImage: "clock", accent: .blue)
-            }
-            if let window = usage.weekly {
-                meter(window, systemImage: "calendar", accent: .purple)
-            }
-            if let window = usage.monthly {
-                meter(window, systemImage: "calendar.badge.clock", accent: .indigo)
-            }
-            ForEach(usage.additionalLimits) { limit in
-                AdditionalLimitCards(limit: limit, fetchedAt: usage.fetchedAt)
-            }
-            if let credits = usage.usageCredits, credits.shouldDisplay {
-                AddedProviderBalanceCard(credits: credits)
-            }
-        }
-    }
-
-    private func meter(_ window: UsageWindow, systemImage: String, accent: Color) -> some View {
-        UsageMeterCard(
-            title: LocalizedStringKey(ProviderUsageParsers.durationName(window.windowSeconds)),
-            systemImage: systemImage,
-            window: window,
-            accent: accent,
-            fetchedAt: usage.fetchedAt,
-            pace: model.usagePace(for: window, observedAt: usage.fetchedAt)
-        )
     }
 }
 

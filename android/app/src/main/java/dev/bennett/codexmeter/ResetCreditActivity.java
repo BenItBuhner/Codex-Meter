@@ -87,6 +87,16 @@ public final class ResetCreditActivity extends AppCompatActivity {
             this.content.addView(errorCard);
         }
 
+        String autoUse = autoUseSummary(nextExpiry > 0L);
+        if (!autoUse.isEmpty()) {
+            Ui.addSpacer(this.content, 8);
+            android.widget.TextView autoUseText =
+                    Ui.text(this, autoUse, 13.0f, Ui.secondaryText(this.dark));
+            int inset = Ui.dp(this, 24.0f);
+            autoUseText.setPadding(inset, 0, inset, 0);
+            this.content.addView(autoUseText);
+        }
+
         this.useButton = Ui.nativePrimaryButton(
                 this, available > 0 ? "Use 1 reset" : "No resets available");
         this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this));
@@ -242,5 +252,29 @@ public final class ResetCreditActivity extends AppCompatActivity {
         }
         String strTrim = message.trim();
         return strTrim.length() > 240 ? strTrim.substring(0, 240) : strTrim;
+    }
+
+    /** One line describing the automatic-use rules that are on, or empty when none are. */
+    private String autoUseSummary(boolean hasExpiry) {
+        StringBuilder text = new StringBuilder();
+        if (ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(this) && hasExpiry) {
+            text.append("Unused credits are used automatically ")
+                    .append(ResetCreditExpiryApply.leadLabel(
+                            ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(this)))
+                    .append(" before they expire.");
+        }
+        if (ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(this)) {
+            if (text.length() > 0) text.append(' ');
+            String metric = ResetAlertPreferences.resetCreditLowUsageMetric(this);
+            String window = ResetCreditLowUsageAutoUse.METRIC_WEEKLY.equals(metric) ? "weekly"
+                    : ResetCreditLowUsageAutoUse.METRIC_FIVE_HOUR.equals(metric) ? "5-hour"
+                    : "5-hour or weekly";
+            text.append("A credit is also used when your ").append(window)
+                    .append(" limit reaches ")
+                    .append(ResetAlertPreferences.resetCreditLowUsageThreshold(this))
+                    .append("% remaining.");
+        }
+        if (text.length() > 0) text.append(" Change this in Settings > Refresh & usage.");
+        return text.toString();
     }
 }

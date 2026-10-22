@@ -14,10 +14,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <queries>
+        <!-- The standard app and the One UI 9 preview open each other from Settings. -->
+        <package android:name="dev.bennett.codexmeter"/>
+        <package android:name="dev.bennett.codexmeter.oneui9"/>
+    </queries>
     <application
         android:name="dev.bennett.codexmeter.CodexMeterApplication"
         android:theme="@style/AppTheme"
-        android:label="@string/app_name"
+        android:label="${appLabel}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:supportsRtl="true"
@@ -272,6 +277,9 @@
             android:exported="false"/>
         <receiver
             android:name="dev.bennett.codexmeter.ResetCreditExpiryReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name="dev.bennett.codexmeter.ResetCreditExpiryApplyReceiver"
             android:exported="false"/>
         <receiver
             android:name="dev.bennett.codexmeter.NowBarActionReceiver"

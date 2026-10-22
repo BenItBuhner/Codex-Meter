@@ -64,7 +64,7 @@ struct DashboardView: View {
             .padding(.vertical, 18)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Codex Meter")
+        .navigationTitle("Codex")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if model.mode != .signedOut {

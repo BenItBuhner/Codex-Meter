@@ -4,6 +4,23 @@ import XCTest
 @testable import CodexMeter
 
 final class SettingsAndHistoryTests: XCTestCase {
+    func testResetAutoUseSettingsDefaultAndRoundTrip() throws {
+        let legacy = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        XCTAssertTrue(legacy.creditExpiryAutoApplyEnabled)
+        XCTAssertEqual(legacy.creditExpiryAutoApplyLeadMinutes, 30)
+        XCTAssertFalse(legacy.lowUsageAutoUseEnabled)
+        XCTAssertEqual(legacy.lowUsageAutoUseThreshold, 1)
+        XCTAssertEqual(legacy.lowUsageAutoUseMetric, .both)
+
+        var custom = AppSettings()
+        custom.creditExpiryAutoApplyLeadMinutes = 60
+        custom.lowUsageAutoUseEnabled = true
+        custom.lowUsageAutoUseThreshold = 2
+        custom.lowUsageAutoUseMetric = .weekly
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(custom))
+        XCTAssertEqual(decoded, custom)
+    }
+
     func testDashboardSettingsOrderVisibilityAndTransferRoundTrip() throws {
         let spark = "limit:codex-spark"
         var settings = AppSettings()
@@ -42,6 +59,33 @@ final class SettingsAndHistoryTests: XCTestCase {
         XCTAssertTrue(shown.showAdditionalLimits)
         XCTAssertTrue(shown.isDashboardSectionVisible(spark))
         XCTAssertFalse(shown.dashboardHiddenSections.contains(spark))
+    }
+
+    func testEachProviderKeepsItsOwnDashboardLayout() throws {
+        let spend = "limit:cursor_on_demand"
+        var settings = AppSettings()
+        settings.setDashboardOrder([DashboardSections.weekly, DashboardSections.fiveHour], for: .codex)
+        settings.setDashboardOrder([spend, DashboardSections.weekly], for: .cursor)
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: false, for: .claudeCode)
+
+        // Codex still uses its original fields, so existing layouts carry over.
+        XCTAssertEqual(settings.dashboardOrder, [DashboardSections.weekly, DashboardSections.fiveHour])
+        XCTAssertEqual(settings.savedDashboardOrder(for: .cursor), [spend, DashboardSections.weekly])
+        XCTAssertEqual(settings.savedDashboardOrder(for: .claudeCode), [])
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .codex))
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .cursor))
+        XCTAssertFalse(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .claudeCode))
+        XCTAssertTrue(settings.showWeekly)
+
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: false, for: .codex)
+        XCTAssertFalse(settings.showWeekly)
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .cursor))
+
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded, settings)
+
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: true, for: .claudeCode)
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .claudeCode))
     }
 
     func testUsagePaceSettingsDefaultRoundTripAndLegacyDecode() throws {

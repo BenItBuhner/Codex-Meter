@@ -158,7 +158,8 @@ public final class MainActivity extends AppCompatActivity {
         }
         if (item.getItemId() == MENU_REORDER) {
             DiagnosticLog.info(this, "user", "dashboard_editor_opened");
-            Ui.startSecondaryActivity(this, DashboardReorderActivity.class);
+            Ui.startSecondaryActivity(this, new Intent(this, DashboardReorderActivity.class)
+                    .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, this.provider.id));
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -455,13 +456,12 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** The large title follows the selected tab, matching the iOS dashboard. */
+    /** The large title names the selected provider ("Codex", "Cursor"), matching iOS. */
     private void applyProviderTitle() {
         if (this.toolbarLayout == null) {
             return;
         }
-        String title = this.provider == UsageProvider.CODEX ? "Codex Meter"
-                : this.provider.displayName;
+        String title = this.provider.displayName;
         CharSequence current = this.toolbarLayout.getExpandedTitle();
         if (current == null || !title.contentEquals(current)) {
             this.toolbarLayout.setTitle(title);
@@ -1312,51 +1312,74 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         boolean inverted = false;
+        boolean anyUsage = false;
         if (snapshot != null) {
-            if (snapshot.fiveHour != null) {
-                addDashboardCard(column, buildMetricCard(cadenceLabel(snapshot.fiveHour),
-                        snapshot, snapshot.fiveHour, inverted));
-                inverted = !inverted;
-            }
-            if (snapshot.weekly != null) {
-                addDashboardCard(column, buildMetricCard("Weekly", snapshot, snapshot.weekly,
-                        inverted));
-                inverted = !inverted;
-            }
-            if (snapshot.monthly != null) {
-                addDashboardCard(column, buildMetricCard(
-                        target == UsageProvider.CURSOR ? "Included usage" : "Monthly",
-                        snapshot, snapshot.monthly, inverted));
-                inverted = !inverted;
-            }
+            Map<String, UsageLimit> limitsByKey = new LinkedHashMap<>();
             for (UsageLimit limit : snapshot.additionalLimits) {
-                if (limit.primary != null) {
-                    addDashboardCard(column, buildMetricCard(
-                            limitTitle(limit) + " · " + cadenceLabel(limit.primary),
-                            snapshot, limit.primary, inverted));
-                    inverted = !inverted;
+                limitsByKey.put(DashboardSections.limitKey(limit), limit);
+            }
+            List<String> available = new ArrayList<>();
+            for (String key : DashboardSections.providerSections(snapshot, null)) {
+                if (DashboardSections.USAGE_HISTORY.equals(key)
+                        && (snapshot.fetchedAtMillis <= 0L || (snapshot.fiveHour == null
+                                && snapshot.weekly == null && snapshot.monthly == null))) {
+                    continue;
                 }
-                if (limit.secondary != null) {
-                    addDashboardCard(column, buildMetricCard(
-                            limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
-                            snapshot, limit.secondary, inverted));
+                if (ProviderPreferences.isDashboardSectionVisible(this, target, key)) {
+                    available.add(key);
+                }
+            }
+            anyUsage = snapshot.fiveHour != null || snapshot.weekly != null
+                    || snapshot.monthly != null || !snapshot.additionalLimits.isEmpty()
+                    || (snapshot.usageCredits != null && snapshot.usageCredits.shouldDisplay());
+            for (String key : DashboardSections.resolveOrder(
+                    ProviderPreferences.getDashboardOrder(this, target), available)) {
+                if (DashboardSections.FIVE_HOUR.equals(key)) {
+                    addDashboardCard(column, buildMetricCard(cadenceLabel(snapshot.fiveHour),
+                            snapshot, snapshot.fiveHour, inverted));
                     inverted = !inverted;
+                } else if (DashboardSections.WEEKLY.equals(key)) {
+                    addDashboardCard(column, buildMetricCard(
+                            target == UsageProvider.CURSOR ? "Included usage · Weekly" : "Weekly",
+                            snapshot, snapshot.weekly, inverted));
+                    inverted = !inverted;
+                } else if (DashboardSections.MONTHLY.equals(key)) {
+                    addDashboardCard(column, buildMetricCard(
+                            target == UsageProvider.CURSOR ? "Included usage · Monthly"
+                                    : "Monthly",
+                            snapshot, snapshot.monthly, inverted));
+                    inverted = !inverted;
+                } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+                    addDashboardCard(column, buildUsageHistoryCard(target));
+                } else {
+                    UsageLimit limit = limitsByKey.get(key);
+                    if (limit == null) continue;
+                    // Cursor's pools all share the billing cycle, so the name says enough.
+                    boolean cadence = target != UsageProvider.CURSOR;
+                    if (limit.primary != null) {
+                        addDashboardCard(column, buildMetricCard(cadence
+                                        ? limitTitle(limit) + " · " + cadenceLabel(limit.primary)
+                                        : limit.displayName(),
+                                snapshot, limit.primary, inverted));
+                        inverted = !inverted;
+                    }
+                    if (limit.secondary != null) {
+                        addDashboardCard(column, buildMetricCard(cadence
+                                        ? limitTitle(limit) + " · " + cadenceLabel(limit.secondary)
+                                        : limit.displayName(),
+                                snapshot, limit.secondary, inverted));
+                        inverted = !inverted;
+                    }
                 }
             }
         }
-        if (column.getChildCount() == 0) {
+        if (!anyUsage) {
             TextView empty = Ui.text(this, "Pull down to load your " + target.displayName
                     + " usage.", 14.0f, Ui.secondaryText(this.dark));
             empty.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(-1, -2);
             emptyParams.setMargins(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
             column.addView(empty, emptyParams);
-        }
-        if (snapshot != null && snapshot.fetchedAtMillis > 0L
-                && AppPreferences.showDashboardUsageHistory(this)
-                && (snapshot.fiveHour != null || snapshot.weekly != null
-                        || snapshot.monthly != null)) {
-            addDashboardCard(column, buildUsageHistoryCard(target));
         }
         if (snapshot != null && snapshot.usageCredits != null
                 && snapshot.usageCredits.shouldDisplay()) {
@@ -1383,8 +1406,8 @@ public final class MainActivity extends AppCompatActivity {
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         String limits = target == UsageProvider.CURSOR
-                ? " included usage for this billing cycle, Auto and API model pools, and "
-                        + "on-demand spend."
+                ? " included usage and when it refreshes, plus any extra spend on top of "
+                        + "your plan."
                 : target == UsageProvider.CLAUDE_CODE
                         ? " 5-hour and weekly limits, plus any model-only allocation your plan "
                                 + "has."

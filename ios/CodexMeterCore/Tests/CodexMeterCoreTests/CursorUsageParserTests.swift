@@ -29,9 +29,9 @@ final class CursorUsageParserTests: XCTestCase {
 
         XCTAssertEqual(snapshot.additionalLimits.map(\.id),
                        ["cursor_auto", "cursor_api", "cursor_on_demand"])
-        XCTAssertEqual(snapshot.additionalLimits[0].name, "Auto + Composer")
+        XCTAssertEqual(snapshot.additionalLimits[0].name, "Cursor models")
         XCTAssertEqual(snapshot.additionalLimits[0].primary?.usedPercent, 10)
-        XCTAssertEqual(snapshot.additionalLimits[1].name, "API models")
+        XCTAssertEqual(snapshot.additionalLimits[1].name, "Other models")
         XCTAssertEqual(snapshot.additionalLimits[1].primary?.usedPercent, 15)
         let onDemand = snapshot.additionalLimits[2]
         XCTAssertEqual(onDemand.name, "On-demand ($3 of $10)")
@@ -39,6 +39,45 @@ final class CursorUsageParserTests: XCTestCase {
         XCTAssertFalse(onDemand.limitReached)
         XCTAssertFalse(snapshot.limitReached)
         XCTAssertTrue(snapshot.allowed)
+    }
+
+    func testWeeklyPlanUsesWeeklyWindowWithoutPools() throws {
+        // Current plans refresh weekly: one included pool, extra spend is "Additional usage".
+        let snapshot = try CursorUsageParser.parse(
+            """
+            {"billingCycleStart":"1791676800000","billingCycleEnd":"1792281600000",
+             "planUsage":{"totalPercentUsed":42,"autoPercentUsed":30,"apiPercentUsed":12},
+             "spendLimitUsage":{"individualLimit":2000,"individualUsed":420}}
+            """,
+            planLabel: "Pro",
+            fetchedAt: fetchedAt
+        )
+        let plan = try XCTUnwrap(snapshot.weekly)
+        XCTAssertEqual(plan.usedPercent, 42)
+        XCTAssertEqual(plan.windowSeconds, 7 * 24 * 60 * 60)
+        XCTAssertEqual(plan.resetAt, Date(timeIntervalSince1970: 1_792_281_600))
+        XCTAssertNil(snapshot.monthly)
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertEqual(snapshot.additionalLimits.map(\.id), ["cursor_on_demand"])
+        XCTAssertEqual(snapshot.additionalLimits[0].name, "Additional usage ($4.20 of $20)")
+        XCTAssertEqual(snapshot.additionalLimits[0].primary?.usedPercent, 21)
+
+        let team = try CursorUsageParser.parse(
+            """
+            {"billingCycleStart":1791676800000,"billingCycleEnd":1792281600000,
+             "planUsage":{"totalPercentUsed":5},
+             "spendLimitUsage":{"pooledLimit":"5000","pooledUsed":100}}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNotNil(team.weekly)
+        XCTAssertEqual(team.additionalLimits.map(\.name), ["Team additional usage ($1 of $50)"])
+
+        XCTAssertTrue(CursorUsageParser.isWeeklyCycle(7 * 24 * 60 * 60))
+        XCTAssertTrue(CursorUsageParser.isWeeklyCycle(10 * 24 * 60 * 60))
+        XCTAssertFalse(CursorUsageParser.isWeeklyCycle(10 * 24 * 60 * 60 + 1))
+        XCTAssertFalse(CursorUsageParser.isWeeklyCycle(CursorUsageParser.defaultCycleSeconds))
+        XCTAssertFalse(CursorUsageParser.isWeeklyCycle(0))
     }
 
     func testComputesPercentAndFallsBackToTeamPool() throws {

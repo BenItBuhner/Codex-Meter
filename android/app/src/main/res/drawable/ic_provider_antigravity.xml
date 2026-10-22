@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Antigravity: a lettered placeholder, because Simple Icons has no Antigravity mark.
+<!-- Antigravity mark from Lobe Icons (MIT). The trademark belongs to its owner.
      Single-color so One UI tabs and preferences tint it like their stock icons. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
@@ -9,9 +9,5 @@
     android:viewportHeight="24">
     <path
         android:fillColor="@android:color/white"
-        android:fillType="evenOdd"
-        android:pathData="M7,1H17A6,6 0 0 1 23,7V17A6,6 0 0 1 17,23H7A6,6 0 0 1 1,17V7A6,6 0 0 1 7,1ZM7.0,2.8H17.0A4.2,4.2 0 0 1 21.2,7.0V17.0A4.2,4.2 0 0 1 17.0,21.2H7.0A4.2,4.2 0 0 1 2.8,17.0V7.0A4.2,4.2 0 0 1 7.0,2.8Z" />
-    <path
-        android:fillColor="@android:color/white"
-        android:pathData="M5.97 14.39H7.51L8.01 12.81H10.42L10.95 14.39H12.49L10.11 7.6H8.29ZM8.36 11.72 8.56 11.11C8.76 10.43 8.96 9.62 9.19 8.69C9.43 9.61 9.64 10.41 9.86 11.11L10.06 11.72ZM15.56 16.4C17 16.4 18.03 15.73 18.03 14.35V9.29H16.68V10.15H16.62C16.44 9.75 16.02 9.23 15.16 9.23C14.03 9.23 13.08 10.11 13.08 11.83C13.08 13.52 14.01 14.31 15.16 14.31C15.98 14.31 16.38 13.89 16.57 13.48H16.67V14.42C16.67 15.09 16.25 15.41 15.55 15.41C14.89 15.41 14.57 15.11 14.45 14.82L13.27 15.15C13.49 15.88 14.29 16.4 15.56 16.4ZM15.58 13.28C14.87 13.28 14.49 12.71 14.49 11.82C14.49 10.95 14.87 10.32 15.58 10.32C16.29 10.32 16.68 10.92 16.68 11.82C16.68 12.73 16.28 13.28 15.58 13.28Z" />
+        android:pathData="M21.751 22.553C16.559 19.035 16.894 12.838 12.037 12.838C7.179 12.838 7.514 19.035 2.322 22.552C0.982 23.557 -1.195 23.055 0.815 21.046C6.342 15.686 5.17 0.946 12.037 0.946C18.904 0.946 17.73 15.686 23.259 21.045C25.101 22.888 23.091 23.558 21.751 22.553Z" />
 </vector>

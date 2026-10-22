@@ -644,7 +644,9 @@ final class AppModel {
             || previous.creditIncreaseAlertsEnabled != settings.creditIncreaseAlertsEnabled
             || previous.unexpectedRefillAlertsEnabled != settings.unexpectedRefillAlertsEnabled
             || previous.creditExpiryRemindersEnabled != settings.creditExpiryRemindersEnabled
-            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes {
+            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes
+            || previous.creditExpiryAutoApplyEnabled != settings.creditExpiryAutoApplyEnabled
+            || previous.creditExpiryAutoApplyLeadMinutes != settings.creditExpiryAutoApplyLeadMinutes {
             Task { await applyNotificationSettings() }
         }
     }
@@ -1015,6 +1017,138 @@ final class AppModel {
             settings: settings
         )
         scheduleBackgroundRefresh()
+        await autoApplyExpiringCreditsIfNeeded()
+        await autoUseCreditOnLowUsageIfNeeded()
+    }
+
+    private static let handledExpiryTokensKey = "codexMeter.autoUse.handledExpiryTokens"
+    private static let failedExpiryTokensKey = "codexMeter.autoUse.failedExpiryTokens"
+    private static let lowUsageWindowTokenKey = "codexMeter.autoUse.lowUsageWindowToken"
+    private static let lowUsageFailedTokenKey = "codexMeter.autoUse.lowUsageFailedToken"
+
+    /// Uses an unused credit once it is inside the chosen lead time before expiry. Each credit is
+    /// handled once: any answer from OpenAI is final, and only network errors retry (silently
+    /// after the first notice).
+    private func autoApplyExpiringCreditsIfNeeded() async {
+        guard settings.creditExpiryAutoApplyEnabled, mode != .signedOut, !isRedeemingReset else {
+            return
+        }
+        isRedeemingReset = true
+        defer { isRedeemingReset = false }
+        var handled = Set(defaults.stringArray(forKey: Self.handledExpiryTokensKey) ?? [])
+        for _ in 0..<5 {
+            guard let credits else { return }
+            let due = CreditExpiryAutoApply.due(
+                credits: credits.credits,
+                now: .now,
+                leadMinutes: settings.creditExpiryAutoApplyLeadMinutes
+            ).filter { !handled.contains($0.token) }
+            guard let credit = due.first else { return }
+            do {
+                let priorUsage = usage
+                let result = try await activeService.consumeReset(creditID: credit.creditId)
+                handled.insert(credit.token)
+                defaults.set(Self.prunedTokens(handled), forKey: Self.handledExpiryTokensKey)
+                if result.applied, let priorUsage {
+                    await notificationCoordinator.markUserReset(usage: priorUsage)
+                }
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyExpiryAutoApply(
+                        result: result,
+                        expiresAt: credit.expiresAt
+                    )
+                }
+                if let cached = try? await cache.load() {
+                    apply(cache: cached)
+                    if result.applied, let refreshed = cached.usage {
+                        await recordUsageHistory(refreshed)
+                    }
+                }
+            } catch {
+                var failed = Set(defaults.stringArray(forKey: Self.failedExpiryTokensKey) ?? [])
+                if failed.insert(credit.token).inserted {
+                    defaults.set(Self.prunedTokens(failed), forKey: Self.failedExpiryTokensKey)
+                    if settings.notificationsEnabled {
+                        await notificationCoordinator.notifyExpiryAutoApplyFailure(
+                            message: error.localizedDescription
+                        )
+                    }
+                }
+                return
+            }
+        }
+    }
+
+    /// Spends one credit when the watched window reaches the chosen remaining level, at most once
+    /// per usage window. Runs on the snapshot a refresh just returned.
+    private func autoUseCreditOnLowUsageIfNeeded() async {
+        guard settings.lowUsageAutoUseEnabled, mode != .signedOut, !isRedeemingReset else {
+            return
+        }
+        let decision = LowUsageAutoUse.evaluate(
+            snapshot: usage,
+            metric: settings.lowUsageAutoUseMetric,
+            threshold: settings.lowUsageAutoUseThreshold,
+            availableCredits: credits?.availableCount ?? usage?.resetCreditsAvailable,
+            lastFiredToken: defaults.string(forKey: Self.lowUsageWindowTokenKey),
+            now: .now
+        )
+        guard decision.fires else { return }
+        isRedeemingReset = true
+        defer { isRedeemingReset = false }
+        do {
+            let priorUsage = usage
+            let result = try await activeService.consumeReset(creditID: nil)
+            defaults.set(decision.windowToken, forKey: Self.lowUsageWindowTokenKey)
+            if result.applied, let priorUsage {
+                await notificationCoordinator.markUserReset(usage: priorUsage)
+            }
+            if settings.notificationsEnabled {
+                await notificationCoordinator.notifyLowUsageAutoUse(
+                    result: result,
+                    windowLabel: decision.windowLabel,
+                    remainingPercent: decision.remainingPercent
+                )
+            }
+            if let cached = try? await cache.load() {
+                apply(cache: cached)
+                if result.applied, let refreshed = cached.usage {
+                    await recordUsageHistory(refreshed)
+                }
+            }
+        } catch {
+            if defaults.string(forKey: Self.lowUsageFailedTokenKey) != decision.windowToken {
+                defaults.set(decision.windowToken, forKey: Self.lowUsageFailedTokenKey)
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyLowUsageAutoUseFailure(
+                        message: error.localizedDescription
+                    )
+                }
+            }
+        }
+    }
+
+    /// The next time an expiring credit becomes due, so background refresh can aim for it.
+    private func nextAutoUseDate(after date: Date) -> Date? {
+        guard settings.creditExpiryAutoApplyEnabled, let credits else { return nil }
+        return CreditExpiryAutoApply.plan(
+            credits: credits.credits,
+            now: date,
+            leadMinutes: settings.creditExpiryAutoApplyLeadMinutes
+        )
+        .map { max($0.triggerAt, date.addingTimeInterval(60)) }
+        .min()
+    }
+
+    /// Keeps tokens for credits that expired less than a day ago.
+    private static func prunedTokens(_ tokens: Set<String>) -> [String] {
+        let cutoff = Date().addingTimeInterval(-86_400).timeIntervalSince1970
+        return tokens.filter { token in
+            guard let split = token.lastIndex(of: ":"),
+                  let seconds = Double(token[token.index(after: split)...]) else { return false }
+            return seconds > cutoff
+        }
+        .sorted()
     }
 
     private func apply(
@@ -1131,9 +1265,12 @@ final class AppModel {
             refreshEngagementStore.recordRefreshSuccess()
             await apply(refresh: refreshed)
             let now = Date()
+            let nextReset = [refreshed.usage.nextReset(after: now), nextAutoUseDate(after: now)]
+                .compactMap { $0 }
+                .min()
             return BackgroundRefreshOutcome(
                 preferredMinutes: effectiveRefreshMinutes(at: now),
-                nextReset: refreshed.usage.nextReset(after: now)
+                nextReset: nextReset
             )
         } catch {
             refreshEngagementStore.recordRefreshFailure()
