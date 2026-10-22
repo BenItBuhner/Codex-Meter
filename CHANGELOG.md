@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Lock screen gauges lead with the weekly limit instead of the five-hour one. When a dial can only show one window (two providers on the Gauges widget, or the single Gauge widget), it now shows weekly on the main ring and five-hour as a thinner, lighter ring inside it, so both stay visible. On iOS, the circular lock screen widget puts weekly on the bold outer ring, and the rectangular and inline widgets list weekly first.
+
 ## 2.9.0-alpha.6 — 2026-10-22
 
 ### Fixed
