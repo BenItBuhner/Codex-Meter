@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- One UI 9 design: settings pages no longer wrap scrolled content in a filled box with One UI 8 corners. Content now fades under the floating buttons.
+- Classic design: the collapsed header stays pinned while you scroll instead of scrolling away, and widget settings show the Cancel / Save bar again.
+
+### Changed
+
+- Turning the One UI 9 design on or off restarts the app and reopens Settings → Appearance, so every page is rebuilt cleanly.
+
 ## 2.9.0-alpha.5 — 2026-10-22
 
 ### Added
