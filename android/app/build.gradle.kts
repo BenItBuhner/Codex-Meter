@@ -2,6 +2,35 @@ plugins {
     id("com.android.application")
 }
 
+// One UI 9 preview: `-PoneUi9=true` builds a side-by-side app ("dev.bennett.codexmeter.oneui9")
+// on Samsung's SESL9 libraries instead of SESL8. SESL8 and SESL9 share class names, so one APK
+// can only hold one of them. SESL9 is published only on GitHub Packages (needs a token with
+// read:packages) and ships Java 24 bytecode, so this build needs JDK 25.
+val oneUi9 = providers.gradleProperty("oneUi9").orNull?.toBoolean() ?: false
+
+// tribalfs has no oneui9 build of oneui-design yet, so the oneui8 build runs on SESL9 underneath.
+// Pins are strict because oneui-design's POM still asks for SESL8, whose numerically higher
+// versions would otherwise win resolution.
+val sesl9 = mapOf(
+    "sesl.androidx.appcompat:appcompat" to "1.8.0+1.0.38-sesl9+rev0",
+    "sesl.androidx.coordinatorlayout:coordinatorlayout" to "1.3.0+1.0.6-sesl9+rev0",
+    "sesl.androidx.core:core" to "1.19.0+1.0.29-sesl9+rev0",
+    "sesl.androidx.customview:customview" to "1.2.0-rc01+1.0.1-sesl9+rev0",
+    "sesl.androidx.drawerlayout:drawerlayout" to "1.2.0+1.0.5-sesl9+rev0",
+    "sesl.androidx.fragment:fragment" to "1.9.0+1.0.6-sesl9+rev0",
+    "sesl.androidx.indexscroll:indexscroll" to "1.0.2+1.0.2-sesl9+rev0",
+    "sesl.com.google.android.material:material" to "1.14.0+1.0.47-sesl9+rev0",
+    "sesl.androidx.picker:picker-app" to "1.0.17+1.0.17-sesl9+rev0",
+    "sesl.androidx.picker:picker-basic" to "1.0.8+1.0.8-sesl9+rev0",
+    "sesl.androidx.picker:picker-color" to "1.0.8+1.0.8-sesl9+rev0",
+    "sesl.androidx.preference:preference" to "1.2.1+1.0.5-sesl9+rev0",
+    "sesl.androidx.recyclerview:recyclerview" to "1.4.0+1.0.25-sesl9+rev0",
+    "sesl.androidx.slidingpanelayout:slidingpanelayout" to "1.2.0+1.0.2-sesl9+rev0",
+    "sesl.androidx.swiperefreshlayout:swiperefreshlayout" to "1.2.0-alpha01+1.0.2-sesl9+rev0",
+    "sesl.androidx.viewpager:viewpager" to "1.1.0-beta01+1.0.1-sesl9+rev0",
+    "sesl.androidx.viewpager2:viewpager2" to "1.1.0+1.0.5-sesl9+rev0",
+)
+
 android {
     namespace = "dev.bennett.codexmeter"
     compileSdk {
@@ -16,6 +45,12 @@ android {
         targetSdk = 36
         versionCode = 30
         versionName = "2.9.0-alpha.3"
+        buildConfigField("boolean", "ONE_UI_9", oneUi9.toString())
+        manifestPlaceholders["appLabel"] = if (oneUi9) "Codex Meter One UI 9" else "@string/app_name"
+        if (oneUi9) {
+            applicationIdSuffix = ".oneui9"
+            versionNameSuffix = "-oneui9"
+        }
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -95,4 +130,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("io.github.tribalfs:oneui-design:0.9.20+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
+    if (oneUi9) {
+        sesl9.forEach { (module, pinned) ->
+            implementation(module) { version { strictly(pinned) } }
+        }
+    }
 }

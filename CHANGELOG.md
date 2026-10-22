@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- Settings → Appearance → Try One UI 9 opens the One UI 9 preview, a separate app that installs next to Codex Meter and uses Samsung's One UI 9 (SESL9) components. The standard app keeps its One UI 8 design.
+
+### Development
+
+- Android: AGP 9.4.1, Gradle 9.8.2, Wear Tiles 1.6.2, ProtoLayout 1.4.2, androidx.core 1.19.1, Guava 33.7.2.
+- `-PoneUi9=true` builds the One UI 9 preview (`dev.bennett.codexmeter.oneui9`). It needs JDK 25 and GitHub Packages access, or SESL9 in `android/vendor/m2` (`android/ci/vendor-sesl9.sh`).
+
 ## 2.9.0-alpha.3 — 2026-10-21
 
 ### Changed
