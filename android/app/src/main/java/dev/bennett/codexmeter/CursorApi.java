@@ -24,6 +24,9 @@ public final class CursorApi {
     public static final String USAGE_URL =
             "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
     public static final String PROFILE_URL = "https://api2.cursor.sh/auth/full_stripe_profile";
+    /** Connect RPC that returns the signed-in account's email; the profile above has none. */
+    public static final String EMAIL_URL =
+            "https://api2.cursor.sh/aiserver.v1.AuthService/GetEmail";
     /** Cursor's production auth client id, used by the editor for token refresh. */
     public static final String CLIENT_ID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB";
 

@@ -42,8 +42,29 @@ public final class ProviderAccounts {
         }
         String email = email(context, provider);
         String plan = plan(context, provider);
-        String who = email.isEmpty() ? "Signed in" : email;
+        String who = email.isEmpty() ? identifier(context, provider) : email;
         return plan.isEmpty() ? who : who + " · " + plan;
+    }
+
+    /** The best label when a provider shares no email: how the account is connected. */
+    static String identifier(Context context, UsageProvider provider) {
+        AuthTokens tokens = provider == UsageProvider.CODEX
+                ? SecureTokenStore.load(context) : SecureTokenStore.load(context, provider);
+        if (tokens != null && ProviderClient.API_KEY_ACCOUNT.equals(tokens.accountId)) {
+            return "API key";
+        }
+        return "Signed in";
+    }
+
+    /** Settings row summary: which accounts are connected. */
+    public static String connectedSummary(Context context) {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+            if (isSignedIn(context, provider)) names.add(provider.displayName);
+        }
+        if (names.isEmpty()) return "None connected";
+        if (names.size() <= 3) return String.join(", ", names);
+        return names.get(0) + ", " + names.get(1) + " + " + (names.size() - 2) + " more";
     }
 
     /** Removes one provider's tokens and cached usage; other providers stay signed in. */
