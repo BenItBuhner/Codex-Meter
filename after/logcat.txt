@@ -1,0 +1,43 @@
+--------- beginning of crash
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: FATAL EXCEPTION: main
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: Process: com.google.android.as, PID: 1691
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: java.util.NoSuchElementException: Death link does not exist (NAME_NOT_FOUND)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.os.BinderProxy.unlinkToDeath(Native Method)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.service.smartspace.SmartspaceService$CallbackWrapper.destroy(SmartspaceService.java:325)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.service.smartspace.SmartspaceService$$ExternalSyntheticLambda0.accept(Unknown Source:2)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at java.util.ArrayList.forEach(ArrayList.java:1528)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.service.smartspace.SmartspaceService.doDestroy(SmartspaceService.java:253)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.service.smartspace.SmartspaceService.-$$Nest$mdoDestroy(Unknown Source:0)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.service.smartspace.SmartspaceService$1.$r8$lambda$JBlwae6_o0aBFrdzLyvKWj1utao(Unknown Source:0)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.service.smartspace.SmartspaceService$1$$ExternalSyntheticLambda2.accept(Unknown Source:4)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at com.android.internal.util.function.pooled.PooledLambdaImpl.doInvoke(PooledLambdaImpl.java:281)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at com.android.internal.util.function.pooled.PooledLambdaImpl.invoke(PooledLambdaImpl.java:204)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at com.android.internal.util.function.pooled.OmniFunction.run(OmniFunction.java:87)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:958)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:205)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:294)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:8177)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:552)
+10-22 03:14:13.576  1691  1691 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:971)
+10-22 03:14:17.466   840   840 E AndroidRuntime: FATAL EXCEPTION: main
+10-22 03:14:17.466   840   840 E AndroidRuntime: Process: com.android.systemui, PID: 840
+10-22 03:14:17.466   840   840 E AndroidRuntime: java.lang.RuntimeException: Error receiving broadcast Intent { act=android.intent.action.PACKAGE_CHANGED dat=package: flg=0x5000010 (has extras) } in com.android.systemui.recents.OverviewProxyService$2@eeaa509
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.app.LoadedApk$ReceiverDispatcher$Args.lambda$getRunnable$0(LoadedApk.java:1810)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.app.LoadedApk$ReceiverDispatcher$Args.$r8$lambda$gDuJqgxY6Zb-ifyeubKeivTLAwk(Unknown Source:0)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0.run(Unknown Source:2)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:958)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:205)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:294)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:8177)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:552)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:971)
+10-22 03:14:17.466   840   840 E AndroidRuntime: Caused by: java.lang.NullPointerException: Attempt to read from field 'android.content.pm.ServiceInfo android.content.pm.ResolveInfo.serviceInfo' on a null object reference in method 'void com.android.systemui.recents.OverviewProxyService$2.onReceive(android.content.Context, android.content.Intent)'
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at com.android.systemui.recents.OverviewProxyService$2.onReceive(go/retraceme 19693c2b0a8439b7183751b64d60893829dbf56dc1e08e0669fc0cfc55754948:44)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	at android.app.LoadedApk$ReceiverDispatcher$Args.lambda$getRunnable$0(LoadedApk.java:1802)
+10-22 03:14:17.466   840   840 E AndroidRuntime: 	... 10 more
+--------- beginning of main
+10-22 03:15:21.638  5270  5270 I WidgetGallery: bound ComponentInfo{dev.bennett.codexmeter/dev.bennett.codexmeter.SamsungLockDialsWideWidget} -> true
