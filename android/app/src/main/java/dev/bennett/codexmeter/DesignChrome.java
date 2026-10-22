@@ -30,6 +30,7 @@ import com.google.android.material.oneui.dividerbuttonlayout.DividerButtonLayout
 import com.google.android.material.oneui.floatingactioncontainer.FloatingBottomLayout;
 import com.google.android.material.oneui.floatingactioncontainer.FloatingToolbarLayout;
 import com.google.android.material.tabs.TabLayout;
+import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.widget.BottomTabLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,16 +54,9 @@ import java.util.WeakHashMap;
 final class DesignChrome {
     private static final int INSTALLED_TAG = R.id.design_chrome_installed;
 
-    /** The design each live activity was built with, so a switch in Settings can rebuild it. */
-    private static final WeakHashMap<Activity, Boolean> BUILT_WITH = new WeakHashMap<>();
-
     private DesignChrome() {
     }
 
-    /**
-     * Rebuilds an activity that was built with the other design. Settings recreates itself when
-     * the switch changes; the pages behind it catch up here when they come back to the front.
-     */
     /**
      * Classic design: gives the activity mcc=999 resources, which select res-classic/values-mcc999*.
      * Those hold SESL8's values for every dimen and color SESL9 changed, so classic pages keep their
@@ -77,30 +71,25 @@ final class DesignChrome {
 
     private static final int CLASSIC_MCC = 999;
 
-    static void syncOnResume(Activity activity) {
-        Boolean builtWith = BUILT_WITH.get(activity);
-        if (builtWith != null && builtWith != AppPreferences.isOneUi9Design(activity)) {
-            BUILT_WITH.remove(activity);
-            activity.recreate();
-        }
-    }
-
     static void install(Activity activity) {
-        boolean oneUi9 = AppPreferences.isOneUi9Design(activity);
-        if (!BUILT_WITH.containsKey(activity)) {
-            BUILT_WITH.put(activity, oneUi9);
-        }
-        if (!oneUi9 || !BUILT_WITH.get(activity)) {
-            return;
-        }
         ViewGroup content = activity.findViewById(android.R.id.content);
         if (content == null || content.getTag(INSTALLED_TAG) != null) {
             return;
         }
         content.setTag(INSTALLED_TAG, Boolean.TRUE);
+        // Switching the design restarts the app, so the setting can't change under a live page.
+        if (!AppPreferences.isOneUi9Design(activity)) {
+            Runnable classic = () -> keepCollapsedAppBarsPinned(content);
+            classic.run();
+            content.getViewTreeObserver().addOnGlobalLayoutListener(classic::run);
+            return;
+        }
         WeakHashMap<View, Boolean> faded = new WeakHashMap<>();
         Runnable apply = () -> {
             enableNativeFadingEdges(content, faded);
+            for (ToolbarLayout toolbarLayout : descendants(content, ToolbarLayout.class)) {
+                dropClassicContentCorners(toolbarLayout);
+            }
             for (AppBarLayout appBar : descendants(content, AppBarLayout.class)) {
                 installFloatingToolbar(appBar);
             }
@@ -113,6 +102,31 @@ final class DesignChrome {
         apply.run();
         // Settings fragments, sign-in pages and rebuilt dashboards attach their views later.
         content.getViewTreeObserver().addOnGlobalLayoutListener(apply::run);
+    }
+
+    /**
+     * SESL9's app bar hides completely once you scroll past its collapsed state, because One UI 9
+     * expects the floating toolbar to take over. The classic design has no floating toolbar, so its
+     * collapsed bar stays pinned at the top, as it did on SESL8.
+     */
+    private static void keepCollapsedAppBarsPinned(ViewGroup content) {
+        for (AppBarLayout appBar : descendants(content, AppBarLayout.class)) {
+            if (appBar.seslCanChangeToHideState()) {
+                appBar.seslSetAllowStateToHide(false);
+            }
+        }
+    }
+
+    /**
+     * The oneui-design wrapper clips its content into a One UI 8 card: rounded top corners under
+     * the app bar and rounded bottom corners above the nav bar, filled with the window color. In
+     * One UI 9 the content runs edge to edge and fades under the floating toolbar instead, so
+     * those corners would wrap the faded content in a box.
+     */
+    private static void dropClassicContentCorners(ToolbarLayout toolbarLayout) {
+        if (toolbarLayout.getMainRoundedCorners() != ToolbarLayout.MainRoundedCorners.NONE) {
+            toolbarLayout.setMainRoundedCorners(ToolbarLayout.MainRoundedCorners.NONE);
+        }
     }
 
     private static void enableNativeFadingEdges(ViewGroup root, WeakHashMap<View, Boolean> faded) {

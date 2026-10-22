@@ -584,10 +584,24 @@ public final class SettingsActivity extends AppCompatActivity {
             oneUi9.setChecked(AppPreferences.isOneUi9Design(requireContext()));
             oneUi9.setOnPreferenceChangeListener((preference, value) -> {
                 AppPreferences.setOneUi9Design(requireContext(), (Boolean) value);
-                // This page rebuilds now; the pages behind it rebuild when you go back to them.
-                requireActivity().recreate();
+                // Restart the whole app so every page is built fresh with the new design.
+                Activity activity = requireActivity();
+                getListView().postDelayed(() -> restartForDesign(activity), 250);
                 return true;
             });
+        }
+
+        /** Relaunches the app on Settings → Appearance in a fresh process. */
+        private static void restartForDesign(Activity activity) {
+            Intent main = new Intent(activity, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            Intent settings = new Intent(activity, SettingsActivity.class);
+            Intent appearance = new Intent(activity, SettingsActivity.class)
+                    .putExtra(EXTRA_PAGE, PAGE_APPEARANCE);
+            activity.startActivities(new Intent[] {main, settings, appearance});
+            activity.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            activity.finishAffinity();
+            Runtime.getRuntime().exit(0);
         }
 
         private void bindRefresh() {
