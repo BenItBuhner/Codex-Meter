@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Installs the debug Wear app on a running Wear OS emulator, seeds demo data from
-# wear-demo-prefs.py and saves one screenshot per screen and tile.
+# wear-demo-prefs.py and saves one screenshot per app screen and followed provider.
+# Tiles are left out: this Wear OS image has no show-tile debug operation, and reaching
+# a tile by swiping the carousel was not reliable on CI.
 set -euo pipefail
 
 APK="${1:?wear APK required}"
@@ -51,37 +53,6 @@ seed claude_code; open_app; shot 05-app-claude-code 12
 seed cursor;      open_app; shot 06-app-cursor 12
 seed copilot;     open_app; shot 07-app-copilot 12
 seed kimi;        open_app; shot 08-app-signed-out 12
-
-# Tiles follow the same choice; show them for Codex and Claude Code. This Wear OS build
-# has no show-tile debug operation, so each tile is added alone and reached by swiping
-# left from the watch face.
-show_tiles() {
-  local tag="$1" n=0
-  for tile in UsageOverviewTileService FiveHourTileService WeeklyTileService \
-      ResetCountdownTileService MonitorStatusTileService; do
-    n=$((n + 1))
-    adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
-      --es operation clear-tiles >/dev/null
-    adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
-      --es operation add-tile --ecn component "$PKG/$PKG.$tile" | tail -n 1
-    sleep 2
-    adb shell input keyevent KEYCODE_WAKEUP
-    adb shell input keyevent KEYCODE_HOME
-    sleep 2
-    sleep 3
-    # The carousel can start with the system Apps tile; step past it to the new tile.
-    for _ in 1 2 3; do
-      adb shell input swipe 400 225 50 225 250
-      sleep 3
-      adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
-      adb shell cat /sdcard/ui.xml 2>/dev/null | grep -q 'text="Apps"' || break
-    done
-    shot "$(printf '%s-tile-%d-%s' "$tag" "$n" "$tile")" 8
-  done
-}
-
-seed codex;       show_tiles 10-codex
-seed claude_code; show_tiles 20-claude-code
 
 adb logcat -d -b crash > "$OUT/logcat-crash.txt" || true
 adb logcat -d > "$OUT/logcat.txt" || true
