@@ -2,6 +2,7 @@ package dev.bennett.codexmeter;
 
 import android.app.Activity;
 import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
 import android.graphics.Insets;
 import android.os.Build;
 import android.view.Gravity;
@@ -21,7 +22,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.navigation.NavigationBarView;
 import com.google.android.material.oneui.dividerbuttonlayout.DividerButtonLayout;
 import com.google.android.material.oneui.floatingactioncontainer.FloatingBottomLayout;
 import com.google.android.material.oneui.floatingactioncontainer.FloatingToolbarLayout;
@@ -238,18 +238,10 @@ final class DesignChrome {
         private FloatingTabs(Activity activity, ViewGroup content, BottomTabLayout tabs) {
             this.tabs = tabs;
             this.content = content;
-            this.nav = new BottomNavigationView(activity, null, 0,
-                    Ui.isDark(activity)
-                            ? R.style.Widget_Design_BottomNavigationView_Floating_IconText
-                            : R.style.Widget_Design_Light_BottomNavigationView_Floating_IconText);
-            nav.setId(R.id.floating_provider_tabs);
-            nav.setLabelVisibilityMode(NavigationBarView.LABEL_VISIBILITY_LABELED);
-            nav.setItemHorizontalTranslationEnabled(false);
+            this.nav = (BottomNavigationView) LayoutInflater.from(activity)
+                    .inflate(R.layout.design_floating_tabs, content, false);
             nav.setOnItemSelectedListener(this::onItemSelected);
-            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                    Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-            content.addView(nav, params);
+            content.addView(nav);
             nav.setOnApplyWindowInsetsListener((view, insets) -> {
                 if (Build.VERSION.SDK_INT >= 30) {
                     Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
@@ -312,8 +304,16 @@ final class DesignChrome {
                     continue;
                 }
                 MenuItem item = menu.add(Menu.NONE, i + 1, i, tab.getText());
-                item.setIcon(tab.getIcon());
+                Drawable icon = tab.getIcon();
+                if (icon != null && icon.getConstantState() != null) {
+                    // The nav tints its icons; keep the stock tab's drawable untouched.
+                    icon = icon.getConstantState().newDrawable(nav.getResources()).mutate();
+                }
+                item.setIcon(icon);
+                // SESL moves items without SHOW_AS_ACTION_ALWAYS into its own "More" overflow.
+                item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
             }
+            menu.setGroupCheckable(Menu.NONE, true, true);
             nav.setVisibility(wanted && count > 1 ? View.VISIBLE : View.GONE);
             syncSelection();
             applyMargins();

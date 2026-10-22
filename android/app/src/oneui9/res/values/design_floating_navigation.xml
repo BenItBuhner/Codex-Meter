@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SESL9 floating tab bar (One UI 9 preview). Same setup as Twidget's floating navigation:
+     an explicit surface tint keeps the bar readable where the device has no blur. -->
+<resources>
+    <style name="DesignFloatingNavigation" parent="Widget.Design.Light.BottomNavigationView.Floating.IconText">
+        <item name="android:background">@drawable/sesl_bottom_navigation_floating_background_light</item>
+        <item name="backgroundTint">@color/design_floating_navigation_surface</item>
+        <item name="seslBottomBarApplyBlur">true</item>
+        <item name="android:elevation">6dp</item>
+    </style>
+    <color name="design_floating_navigation_surface">#F6F6F6</color>
+</resources>
