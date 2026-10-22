@@ -3,6 +3,7 @@ name: Build Codex Meter APK
 on:
   pull_request:
     branches: [main, alpha]
+    types: [opened, synchronize, reopened, labeled]
   push:
     tags: ['v*']
   workflow_dispatch:
@@ -164,6 +165,81 @@ jobs:
           path: android/dist/
           if-no-files-found: error
           retention-days: 3
+
+  # One UI 9 preview: a separate app id built on SESL9. Experimental, so it never blocks the
+  # main build. Label a same-repo PR "refresh-sesl9-vendor" to have CI copy the resolved SESL9
+  # artifacts into android/vendor/m2 and push them to the PR branch.
+  oneui9-preview:
+    if: github.event_name == 'pull_request' || github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    permissions:
+      contents: write
+      packages: read
+    env:
+      GH_USERNAME: ${{ github.actor }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REFRESH_VENDOR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'refresh-sesl9-vendor') }}
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+
+      # SESL9 ships Java 24 bytecode, which javac 21 can't read.
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Refresh vendored SESL9 artifacts
+        if: env.REFRESH_VENDOR == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./ci/vendor-sesl9.sh
+          if [[ -n "$(git status --porcelain vendor/m2)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add vendor/m2
+            git commit -m "Vendor SESL9 artifacts for the One UI 9 preview build"
+            git push origin "HEAD:${GITHUB_HEAD_REF}"
+          fi
+
+      - name: Build One UI 9 preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug -PoneUi9=true --console=plain
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/CodexMeter-OneUI9-preview.apk
+
+      - name: Upload One UI 9 preview APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: codex-meter-oneui9-preview
+          path: android/dist/CodexMeter-OneUI9-preview.apk
+          retention-days: 7
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
