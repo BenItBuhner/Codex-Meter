@@ -30,6 +30,16 @@ public final class WidgetGraphics {
 
     public static Bitmap compactDial(Context context, int value, int iconRes, int progressColor,
             int trackColor, int textColor, String valueText, float scale) {
+        return compactDial(context, value, -1, iconRes, progressColor, trackColor, textColor,
+                valueText, scale);
+    }
+
+    /**
+     * Compact dial; with {@code longValue} >= 0 the long limit shares the arc in a lighter shade
+     * of {@code progressColor} (see {@link MeterOverlap}).
+     */
+    public static Bitmap compactDial(Context context, int value, int longValue, int iconRes,
+            int progressColor, int trackColor, int textColor, String valueText, float scale) {
         float fClampScale = clampScale(scale);
         // Match the established 56x56 One UI dial geometry once fit into a 58dp row.
         // Keeping this canvas tight prevents four-column widgets from scaling the arc down
@@ -53,7 +63,10 @@ public final class WidgetGraphics {
         final float arcStart = 156.0f;
         final float arcSweep = 228.0f;
         canvas.drawArc(rectF, arcStart, arcSweep, false, paint);
-        if (value >= 0) {
+        if (longValue >= 0) {
+            drawOverlapArcs(canvas, paint, rectF, arcStart, arcSweep, value, longValue,
+                    progressColor, overlapColor(progressColor, trackColor));
+        } else if (value >= 0) {
             paint.setColor(progressColor);
             canvas.drawArc(rectF, arcStart, (arcSweep * clamp(value)) / 100.0f,
                     false, paint);
@@ -92,6 +105,12 @@ public final class WidgetGraphics {
     /** Gauge dial with an explicit center value (countdowns, credit counts, plain percents). */
     public static Bitmap dial(int i, int i2, int i3, int i4, String centerText, String str,
             float f) {
+        return dial(i, -1, i2, i3, i4, centerText, str, f);
+    }
+
+    /** Large dial; {@code longValue} >= 0 overlaps the long limit in a lighter shade. */
+    public static Bitmap dial(int i, int longValue, int i2, int i3, int i4, String centerText,
+            String str, float f) {
         float fClampScale = clampScale(f);
         int iRound = Math.round(260.0f * fClampScale);
         Bitmap bitmapCreateBitmap = Bitmap.createBitmap(iRound, Math.round(190.0f * fClampScale), Bitmap.Config.ARGB_8888);
@@ -104,7 +123,10 @@ public final class WidgetGraphics {
         RectF rectF = new RectF(22.0f * fClampScale, 20.0f * fClampScale, iRound - (22.0f * fClampScale), iRound - (24.0f * fClampScale));
         paint.setColor(i3);
         canvas.drawArc(rectF, 145.0f, 250.0f, false, paint);
-        if (i >= 0) {
+        if (longValue >= 0) {
+            drawOverlapArcs(canvas, paint, rectF, 145.0f, 250.0f, i, longValue, i2,
+                    overlapColor(i2, i3));
+        } else if (i >= 0) {
             paint.setColor(i2);
             float sweep = (250.0f * clamp(i)) / 100.0f;
             canvas.drawArc(rectF, 145.0f, sweep, false, paint);
@@ -135,6 +157,36 @@ public final class WidgetGraphics {
         }
         canvas.drawText(str, iRound / 2.0f, 160.0f * fClampScale, paint);
         return bitmapCreateBitmap;
+    }
+
+    /** Larger fill underneath, smaller on top; short limit in full color, long one lighter. */
+    static void drawOverlapArcs(Canvas canvas, Paint paint, RectF rect, float start,
+            float sweep, int shortValue, int longValue, int shortColor, int longColor) {
+        boolean longUnder = MeterOverlap.longUnderneath(shortValue, longValue);
+        int under = MeterOverlap.under(shortValue, longValue);
+        int over = MeterOverlap.over(shortValue, longValue);
+        if (under >= 0) {
+            paint.setColor(longUnder ? longColor : shortColor);
+            canvas.drawArc(rect, start, (sweep * under) / 100.0f, false, paint);
+        }
+        if (over >= 0) {
+            paint.setColor(longUnder ? shortColor : longColor);
+            canvas.drawArc(rect, start, (sweep * over) / 100.0f, false, paint);
+        }
+    }
+
+    /**
+     * The long limit's shade: the accent mixed halfway toward the track, kept opaque so it reads
+     * the same on top of the full-color fill as on the track.
+     */
+    public static int overlapColor(int accent, int track) {
+        boolean darkTrack = Color.red(track) > 128;
+        int toward = darkTrack ? Color.rgb(40, 42, 46) : Color.WHITE;
+        float mix = darkTrack ? 0.5f : 0.55f;
+        return Color.rgb(
+                Math.round(Color.red(accent) + (Color.red(toward) - Color.red(accent)) * mix),
+                Math.round(Color.green(accent) + (Color.green(toward) - Color.green(accent)) * mix),
+                Math.round(Color.blue(accent) + (Color.blue(toward) - Color.blue(accent)) * mix));
     }
 
     public static int accentColor(Context context, String str, boolean z) {

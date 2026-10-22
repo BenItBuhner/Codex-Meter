@@ -543,11 +543,14 @@ public final class WidgetRenderer {
             remoteViews.setInt(R.id.secondary_samsung_icon, "setColorFilter", iMainTextColor);
         } else {
             remoteViews.setImageViewBitmap(R.id.primary_graphic,
-                    WidgetGraphics.dial(primaryProgress, iAccentColor, iTrackColor, iMainTextColor,
+                    WidgetGraphics.dial(primaryProgress, primary == null ? -1 : primary.longProgress,
+                            iAccentColor, iTrackColor, iMainTextColor,
                             primary == null ? "—" : primary.valueText,
                             primary == null || primary.usage ? str : primary.label, fMin));
             remoteViews.setImageViewBitmap(R.id.secondary_graphic,
-                    WidgetGraphics.dial(secondaryProgress, iAccentColor, iTrackColor, iMainTextColor,
+                    WidgetGraphics.dial(secondaryProgress,
+                            secondary == null ? -1 : secondary.longProgress,
+                            iAccentColor, iTrackColor, iMainTextColor,
                             secondary == null ? "—" : secondary.valueText,
                             secondary == null || secondary.usage ? str : secondary.label, fMin));
         }
@@ -593,8 +596,8 @@ public final class WidgetRenderer {
                 remoteViews.setViewVisibility(sectionIds[index], View.VISIBLE);
             }
             remoteViews.setImageViewBitmap(graphicIds[index],
-                    WidgetGraphics.compactDial(context, slot.progress, slot.iconRes,
-                            accent, track, text, slot.valueText, 1.0f));
+                    WidgetGraphics.compactDial(context, slot.progress, slot.longProgress,
+                            slot.iconRes, accent, track, text, slot.valueText, 1.0f));
         }
     }
 
@@ -637,8 +640,14 @@ public final class WidgetRenderer {
             }
             applyProgressColors(remoteViews, progressIds[index], accent, track);
             int max = slot.progressMax > 0 ? slot.progressMax : 100;
-            remoteViews.setProgressBar(progressIds[index], max,
-                    Math.max(GRAPHIC_STANDARD, slot.progress), false);
+            if (slot.longProgress >= 0) {
+                applyOverlapBar(remoteViews, progressIds[index], slot.progress,
+                        slot.longProgress, accent, track);
+            } else {
+                remoteViews.setProgressBar(progressIds[index], max,
+                        Math.max(GRAPHIC_STANDARD, slot.progress), false);
+                remoteViews.setInt(progressIds[index], "setSecondaryProgress", 0);
+            }
             remoteViews.setTextViewText(valueIds[index], slot.valueText);
             remoteViews.setTextColor(valueIds[index], textColor);
             remoteViews.setImageViewResource(iconIds[index], slot.iconRes);
@@ -660,6 +669,27 @@ public final class WidgetRenderer {
             return "—";
         }
         return Integer.toString(value) + (showPercentSymbol ? "%" : "");
+    }
+
+    /**
+     * Native overlapped bar: the larger fill is the secondary progress underneath and the
+     * smaller one the progress on top, each tinted for the limit it shows (short limit in the
+     * accent, long limit in a lighter shade).
+     */
+    private static void applyOverlapBar(RemoteViews views, int viewId, int shortValue,
+            int longValue, int accent, int track) {
+        boolean longUnder = MeterOverlap.longUnderneath(shortValue, longValue);
+        int under = Math.max(0, MeterOverlap.under(shortValue, longValue));
+        int over = Math.max(0, MeterOverlap.over(shortValue, longValue));
+        int light = WidgetGraphics.overlapColor(accent, track);
+        views.setProgressBar(viewId, 100, over, false);
+        views.setInt(viewId, "setSecondaryProgress", under);
+        if (Build.VERSION.SDK_INT >= 31) {
+            views.setColorStateList(viewId, "setProgressTintList",
+                    ColorStateList.valueOf(longUnder ? accent : light));
+            views.setColorStateList(viewId, "setSecondaryProgressTintList",
+                    ColorStateList.valueOf(longUnder ? light : accent));
+        }
     }
 
     private static void applyProgressColors(RemoteViews views, int viewId, int accent, int track) {
@@ -702,15 +732,27 @@ public final class WidgetRenderer {
         if (provider != UsageProvider.CODEX) {
             available.remove(WidgetMeters.RESET_CREDITS);
         }
-        List<String> visible = WidgetMeters.cap(
-                WidgetMeters.resolveVisibleForWidget(options.effectiveVisibleMeters(),
-                        available, options.metricMode),
-                capacity);
+        List<String> resolved = new ArrayList<>(WidgetMeters.resolveVisibleForWidget(
+                options.effectiveVisibleMeters(), available, options.metricMode));
+        boolean overlap = options.overlaps(1) && snapshot != null
+                && snapshot.fiveHour != null && snapshot.longWindow() != null;
+        if (overlap) {
+            // Both limits share the five-hour slot, which frees a row for other meters.
+            resolved.remove(WidgetMeters.WEEKLY);
+            if (!resolved.contains(WidgetMeters.FIVE_HOUR)) {
+                resolved.add(0, WidgetMeters.FIVE_HOUR);
+            }
+        }
+        List<String> visible = WidgetMeters.cap(resolved, capacity);
         ResetCreditsSnapshot credits = provider == UsageProvider.CODEX
                 ? AppPreferences.loadResetCredits(context) : null;
         int resetCount = credits == null ? 0 : credits.availableCount;
         ArrayList<MeterSlot> slots = new ArrayList<>();
         for (String key : visible) {
+            if (overlap && WidgetMeters.FIVE_HOUR.equals(key)) {
+                slots.add(overlapSlot(snapshot, state, options, provider));
+                continue;
+            }
             MeterSlot slot = buildSlot(key, snapshot, state, options, resetCount);
             if (slot == null) {
                 // Keep the reserved slot so a toggled-on meter never collapses away.
@@ -728,7 +770,8 @@ public final class WidgetRenderer {
         List<UsageProvider> shown = providers.subList(0,
                 Math.min(providers.size(), Math.min(capacity, WidgetProviders.MAX_HOME)));
         // Only battery-list rows have room for a meter label next to the value.
-        int perProvider = STYLE_BATTERY_LIST.equals(visualStyle)
+        boolean overlapAll = options.overlaps(shown.size());
+        int perProvider = STYLE_BATTERY_LIST.equals(visualStyle) && !overlapAll
                 ? WidgetProviders.metersPerProvider(shown.size(), capacity) : 1;
         List<String> visible = WidgetMeters.parse(options.effectiveVisibleMeters());
         ArrayList<MeterSlot> slots = new ArrayList<>();
@@ -736,6 +779,15 @@ public final class WidgetRenderer {
             UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context, provider)
                     ? ProviderPreferences.loadSnapshot(context, provider) : null;
             WidgetState state = WidgetState.from(context, options, provider);
+            if (overlapAll && snapshot != null && snapshot.fiveHour != null
+                    && snapshot.longWindow() != null) {
+                MeterSlot both = overlapSlot(snapshot, state, options, provider);
+                MeterSlot named = new MeterSlot(both.key, provider.displayName, both.iconRes,
+                        both.progress, both.valueText, both.shortText, 100, true);
+                named.longProgress = both.longProgress;
+                slots.add(named);
+                continue;
+            }
             List<String> keys = WidgetProviders.metersFor(visible,
                     snapshot != null && snapshot.fiveHour != null,
                     snapshot != null && snapshot.longWindow() != null, perProvider);
@@ -751,6 +803,18 @@ public final class WidgetRenderer {
             }
         }
         return slots;
+    }
+
+    /** Five-hour and long limit in one slot, marked with the provider (see MeterOverlap). */
+    private static MeterSlot overlapSlot(UsageSnapshot snapshot, WidgetState state,
+            WidgetOptions options, UsageProvider provider) {
+        String text = MeterOverlap.text(state.primaryValue, state.secondaryValue,
+                options.showPercentSymbol);
+        MeterSlot slot = new MeterSlot(WidgetMeters.FIVE_HOUR,
+                "5h · " + WidgetMeters.shortLabel(WidgetMeters.WEEKLY, snapshot),
+                ProvidersActivity.iconRes(provider), state.primaryValue, text, text, 100, true);
+        slot.longProgress = state.secondaryValue;
+        return slot;
     }
 
     private static MeterSlot blankSlot(String key, UsageSnapshot snapshot) {
@@ -819,6 +883,8 @@ public final class WidgetRenderer {
         final int progressMax;
         /** True for percent-based usage windows; false for countdown/credit helpers. */
         final boolean usage;
+        /** The long limit sharing this slot when meters overlap, else -1. */
+        int longProgress = -1;
 
         MeterSlot(String key, String label, int iconRes, int progress, String valueText,
                 String shortText, int progressMax, boolean usage) {

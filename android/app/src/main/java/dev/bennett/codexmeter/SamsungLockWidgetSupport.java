@@ -225,7 +225,7 @@ final class SamsungLockWidgetSupport {
         if (!codexOnly) {
             LockWidgetOptions o = lockWidgetOptionsLoadLockWidgetOptions;
             lockWidgetOptionsLoadLockWidgetOptions = new LockWidgetOptions(o.metricMode, false,
-                    false, o.showCountdown, o.visibleMeters);
+                    false, o.showCountdown, o.visibleMeters, o.overlapMode);
         }
         int i3 = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
         LockMeterBinding binding;
@@ -233,10 +233,30 @@ final class SamsungLockWidgetSupport {
             binding = bindProviders(context, providers, lockWidgetOptionsLoadLockWidgetOptions);
             zIsSignedIn = binding.anySignedIn;
         } else {
-            binding = markProvider(bindLockMeters(usageSnapshotLoadSnapshot,
-                    lockWidgetOptionsLoadLockWidgetOptions), provider);
+            binding = lockWidgetOptionsLoadLockWidgetOptions.overlaps(1)
+                    && overlapSlot(provider, usageSnapshotLoadSnapshot) != null
+                    ? new LockMeterBinding(overlapSlot(provider, usageSnapshotLoadSnapshot), null)
+                    : markProvider(bindLockMeters(usageSnapshotLoadSnapshot,
+                            lockWidgetOptionsLoadLockWidgetOptions), provider);
         }
         String name = multi ? "Usage" : provider.displayName;
+        LockMeterSlot overlapped = !multi && lockWidgetOptionsLoadLockWidgetOptions.overlaps(1)
+                ? overlapSlot(provider, usageSnapshotLoadSnapshot) : null;
+        if (metric != Metric.BOTH && overlapped != null) {
+            int[] size = grantedSize(appWidgetManager, i, Shape.SQUARE);
+            RemoteViews single = new RemoteViews(context.getPackageName(), R.layout.widget_lock_dial_single);
+            single.setImageViewBitmap(R.id.lock_graphic_image,
+                    SamsungLockGraphics.renderSingle(context, overlapped.remaining,
+                            overlapped.longRemaining, zIsSignedIn, size[0], size[1],
+                            overlapped.iconRes));
+            single.setContentDescription(R.id.lock_graphic_root, name + " five hour "
+                    + value(overlapped.remaining) + ", "
+                    + (usageSnapshotLoadSnapshot.longWindowIsMonthly() ? "monthly " : "weekly ")
+                    + value(overlapped.longRemaining) + " remaining");
+            applyOpenIntent(context, single, R.id.lock_graphic_root, i, shape, style,
+                    lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3, provider);
+            return single;
+        }
         if (metric != Metric.BOTH) {
             String key = metric == Metric.WEEKLY ? WidgetMeters.WEEKLY
                     : WidgetProviders.metersFor(
@@ -302,6 +322,13 @@ final class SamsungLockWidgetSupport {
         UsageProvider provider = providers == null || providers.isEmpty()
                 ? UsageProvider.CODEX : providers.get(0);
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
+        LockMeterSlot overlapped = options.overlaps(providers == null ? 1 : providers.size())
+                && (providers == null || providers.size() <= 1)
+                ? overlapSlot(provider, snapshot) : null;
+        if (slots <= 1 && overlapped != null) {
+            return SamsungLockGraphics.renderSingle(context, overlapped.remaining,
+                    overlapped.longRemaining, true, 82, 82, overlapped.iconRes);
+        }
         if (slots <= 1) {
             String key = WidgetProviders.metersFor(WidgetMeters.parse(
                             options.effectiveVisibleMeters()),
@@ -317,12 +344,13 @@ final class SamsungLockWidgetSupport {
         }
         LockMeterBinding binding = providers != null && providers.size() > 1
                 ? bindProviders(context, providers, options)
+                : overlapped != null ? new LockMeterBinding(overlapped, null)
                 : markProvider(bindLockMeters(snapshot, options), provider);
         int primary = binding.primaryRemaining < 0 ? 73 : binding.primaryRemaining;
         int secondary = !binding.showSecondary ? -1
                 : binding.secondaryRemaining < 0 ? 44 : binding.secondaryRemaining;
-        return SamsungLockGraphics.render(context, Shape.WIDE, Style.DIALS, primary, secondary,
-                true, 180, 82, options, 0,
+        return SamsungLockGraphics.render(context, Shape.WIDE, Style.DIALS, primary,
+                longOf(binding.primary), secondary, longOf(binding.secondary), true, 180, 82,
                 binding.primary == null ? R.drawable.ic_oui_time : binding.primary.iconRes,
                 binding.secondary == null ? 0 : binding.secondary.iconRes);
     }
@@ -380,8 +408,11 @@ final class SamsungLockWidgetSupport {
                     snapshot != null && snapshot.fiveHour != null,
                     snapshot != null && snapshot.longWindow() != null, 1).get(0);
             UsageWindow window = WidgetMeters.meterWindow(key, snapshot);
-            slots.add(new LockMeterSlot(key, WidgetProviders.shortTag(provider),
-                    remaining(window), window, ProvidersActivity.iconRes(provider)));
+            LockMeterSlot overlapped = options != null && options.overlaps(providers.size())
+                    ? overlapSlot(provider, snapshot) : null;
+            slots.add(overlapped != null ? overlapped
+                    : new LockMeterSlot(key, WidgetProviders.shortTag(provider),
+                            remaining(window), window, ProvidersActivity.iconRes(provider)));
         }
         LockMeterBinding binding = new LockMeterBinding(slots.get(0),
                 slots.size() > 1 ? slots.get(1) : null);
@@ -403,6 +434,25 @@ final class SamsungLockWidgetSupport {
                 p.remaining, p.window, ProvidersActivity.iconRes(provider)), binding.secondary);
         marked.anySignedIn = binding.anySignedIn;
         return marked;
+    }
+
+    /**
+     * One dial for both of a provider's limits (see {@link MeterOverlap}), marked with the
+     * provider; null when it doesn't report both a short and a long limit.
+     */
+    private static LockMeterSlot overlapSlot(UsageProvider provider, UsageSnapshot snapshot) {
+        if (snapshot == null || snapshot.fiveHour == null || snapshot.longWindow() == null) {
+            return null;
+        }
+        LockMeterSlot slot = new LockMeterSlot(WidgetMeters.FIVE_HOUR,
+                WidgetProviders.shortTag(provider), remaining(snapshot.fiveHour),
+                snapshot.fiveHour, ProvidersActivity.iconRes(provider));
+        slot.longRemaining = remaining(snapshot.longWindow());
+        return slot;
+    }
+
+    private static int longOf(LockMeterSlot slot) {
+        return slot == null ? -1 : slot.longRemaining;
     }
 
     private static LockMeterSlot lockSlot(String key, UsageSnapshot snapshot) {
@@ -437,6 +487,8 @@ final class SamsungLockWidgetSupport {
         final int remaining;
         final UsageWindow window;
         final int iconRes;
+        /** The long limit sharing this dial when meters overlap, else -1. */
+        int longRemaining = -1;
 
         LockMeterSlot(String key, String label, int remaining, UsageWindow window, int iconRes) {
             this.key = key;
@@ -542,8 +594,9 @@ final class SamsungLockWidgetSupport {
         if (shape == Shape.WIDE) {
             int[] size = grantedSize(appWidgetManager, i, shape);
             remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.render(context, shape, style, i2, i3, z, size[0], size[1],
-                            lockWidgetOptions, i4, primaryIconRes, secondaryIconRes));
+                    SamsungLockGraphics.render(context, shape, style, i2, longOf(binding.primary),
+                            i3, longOf(binding.secondary), z, size[0], size[1],
+                            primaryIconRes, secondaryIconRes));
             if (!z) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
                 remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
@@ -559,9 +612,9 @@ final class SamsungLockWidgetSupport {
         }
         int[] iArrGrantedSize = grantedSize(appWidgetManager, i, shape);
         remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
-                SamsungLockGraphics.render(context, shape, style, i2, i3, z,
-                        iArrGrantedSize[0], iArrGrantedSize[1], lockWidgetOptions, i4,
-                        primaryIconRes, secondaryIconRes));
+                SamsungLockGraphics.render(context, shape, style, i2, longOf(binding.primary),
+                        i3, longOf(binding.secondary), z, iArrGrantedSize[0],
+                        iArrGrantedSize[1], primaryIconRes, secondaryIconRes));
         if (z) {
             if (shape == Shape.SQUARE) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_center_value, View.GONE);
