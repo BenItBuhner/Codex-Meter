@@ -751,11 +751,13 @@ public final class SettingsActivity extends AppCompatActivity {
                 ResetAlertPreferences.setClaudeSavedResetExpiryEnabled(requireContext(),
                         enabled);
                 lead.setEnabled(enabled);
+                ClaudeResetExpiryReceiver.schedule(requireContext());
                 return true;
             });
             lead.setOnPreferenceChangeListener((preference, value) -> {
                 ResetAlertPreferences.setClaudeSavedResetExpiryLeadMillis(requireContext(),
                         Long.parseLong(String.valueOf(value)));
+                ClaudeResetExpiryReceiver.schedule(requireContext());
                 return true;
             });
 
@@ -777,12 +779,11 @@ public final class SettingsActivity extends AppCompatActivity {
                     return true;
                 }
                 new AlertDialog.Builder(requireContext())
-                        .setTitle("Use Claude resets automatically?")
-                        .setMessage("Codex Meter will spend one saved Claude Code reset when "
-                                + "your remaining usage reaches the level you choose. It checks "
-                                + "after each Claude refresh (about every 30 minutes in the "
-                                + "background) and skips a limit that refills on its own within "
-                                + "15 minutes. Used resets cannot be undone.")
+                        .setTitle("Use resets automatically?")
+                        .setMessage("Codex Meter will spend one banked reset when your "
+                                + "remaining usage reaches the level you choose. It checks "
+                                + "after each refresh and skips a limit that refills on its "
+                                + "own within 15 minutes. Used resets cannot be undone.")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Turn on", (dialog, which) -> {
                             ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(

@@ -211,6 +211,34 @@ public final class ClaudeSavedResets {
         return availableCount(nowMillis) > 0;
     }
 
+    /**
+     * The same inventory as Codex reset credits, one entry per remaining reset, so the shared
+     * Reset credits card and screen render Claude resets unchanged.
+     */
+    public ResetCreditsSnapshot toResetCreditsSnapshot(long nowMillis) {
+        List<RateLimitResetCredit> credits = new ArrayList<>();
+        for (Grant grant : grants) {
+            if (!grant.hasResets(nowMillis)) continue;
+            for (int i = 0; i < grant.resetsLeft; i++) {
+                credits.add(new RateLimitResetCredit(
+                        grant.resetsLeft == 1 ? grant.id : grant.id + "#" + (i + 1),
+                        grant.type, RateLimitResetCredit.STATUS_AVAILABLE, 0L,
+                        grant.endsAtMillis, grant.title(), grant.clearsLabel()));
+            }
+        }
+        return new ResetCreditsSnapshot(credits.size(), credits, fetchedAtMillis);
+    }
+
+    /** Earliest expiry among grants that still hold resets, or 0 when none expire. */
+    public long nextExpiryMillis(long nowMillis) {
+        long next = 0L;
+        for (Grant grant : grants) {
+            if (!grant.hasResets(nowMillis) || grant.endsAtMillis <= 0L) continue;
+            if (next == 0L || grant.endsAtMillis < next) next = grant.endsAtMillis;
+        }
+        return next;
+    }
+
     /** The grant the server wants spent next, else the one that expires first. */
     public Grant nextGrant(long nowMillis) {
         Grant best = null;
@@ -394,33 +422,29 @@ public final class ClaudeSavedResets {
             return ERROR.equals(result) || RATE_LIMITED.equals(result);
         }
 
+        /** Same wording as {@link ResetConsumeResult#userMessage()} for Codex. */
         public String userMessage() {
             switch (result) {
                 case RESET:
-                    return "Your Claude Code limit was reset."
-                            + (resetsLeft >= 0 ? " " + left(resetsLeft) : "");
+                    int windows = cleared.size();
+                    return windows > 0 ? "Reset applied to " + windows + " usage window"
+                            + (windows == 1 ? "." : "s.") : "Claude Code usage reset applied.";
                 case NOT_LIMITED:
-                    return "Your reset only works at a usage limit, and you're not at one now. "
-                            + "Nothing was used.";
+                    return "There is no used Claude Code allowance to reset right now.";
                 case ALREADY_USED:
-                    return "That reset was already used.";
-                case COOLDOWN:
-                    return "Saved resets are cooling down. Try again shortly. Nothing was used.";
+                    return "That reset request was already redeemed.";
                 case INELIGIBLE:
                 case UNAVAILABLE:
-                    return "Your reset can't be used for this limit right now. Nothing was used.";
+                    return "No reset credit is currently available.";
+                case COOLDOWN:
+                    return "Resets are cooling down. Try again in a few minutes.";
                 case RATE_LIMITED:
                     return "Claude is rate-limiting requests. Try again in a few minutes.";
                 case AUTH_ERROR:
                     return "Claude rejected the saved sign-in. Sign in with Claude again.";
                 default:
-                    return "Could not reach Claude to use the reset. Nothing was used.";
+                    return "The reset could not be applied.";
             }
-        }
-
-        private static String left(int count) {
-            if (count == 0) return "No saved resets left.";
-            return count + (count == 1 ? " saved reset left." : " saved resets left.");
         }
     }
 

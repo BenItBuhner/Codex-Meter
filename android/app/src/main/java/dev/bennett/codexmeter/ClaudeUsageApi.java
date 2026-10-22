@@ -67,6 +67,12 @@ public final class ClaudeUsageApi {
     static UsageSnapshot refreshAndCache(Context context, boolean autoUse) throws Exception {
         UsageSnapshot fresh = refreshAndCacheLocked(context);
         if (autoUse) ClaudeResetApi.autoUseIfDue(context);
+        try {
+            ClaudeResetExpiryReceiver.schedule(context);
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warn(context, "reset", "claude_reset_expiry_schedule_failed",
+                    "error", exception.getClass().getSimpleName());
+        }
         return fresh;
     }
 

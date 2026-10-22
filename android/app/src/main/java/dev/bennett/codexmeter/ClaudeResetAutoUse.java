@@ -3,8 +3,8 @@ package dev.bennett.codexmeter;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Pure decision: should a saved Claude Code reset be spent automatically right now? Mirrors the
- * Codex reset-credit rules:
+ * Pure decision: should a saved Claude Code reset be spent automatically right now? Same rules,
+ * lead times and thresholds as the Codex reset credits:
  * <ul>
  *   <li><b>Before it expires</b> (on by default): use a reset once it is within the chosen lead
  *       time of expiring.</li>
@@ -16,11 +16,6 @@ import java.util.concurrent.TimeUnit;
  * reset, work any time, others only at a limit. Nothing fires on a grant the server holds back.
  */
 public final class ClaudeResetAutoUse {
-    /** Claude usage refreshes about every 30 minutes, so short lead times can't be honored. */
-    public static final long[] LEAD_OPTIONS_MS = {
-            TimeUnit.HOURS.toMillis(1), TimeUnit.HOURS.toMillis(2), TimeUnit.HOURS.toMillis(6),
-            TimeUnit.HOURS.toMillis(12), TimeUnit.HOURS.toMillis(24)};
-    public static final long DEFAULT_LEAD_MS = TimeUnit.HOURS.toMillis(2);
     /** Only a status this fresh may spend a reset. */
     public static final long MAX_STATUS_AGE_MS = TimeUnit.MINUTES.toMillis(2);
 
@@ -51,13 +46,6 @@ public final class ClaudeResetAutoUse {
         return FIRE_EXPIRING.equals(outcome) || FIRE_LOW_USAGE.equals(outcome);
     }
 
-    public static long normalizeLead(long leadMillis) {
-        for (long option : LEAD_OPTIONS_MS) {
-            if (option == leadMillis) return leadMillis;
-        }
-        return DEFAULT_LEAD_MS;
-    }
-
     /**
      * @param lastExpiryKey the {@link #attemptKey} of the last expiry attempt
      * @param lastLowUsageToken the {@link #attemptKey} of the last running-low attempt
@@ -72,7 +60,7 @@ public final class ClaudeResetAutoUse {
         }
         ClaudeResetAutoUse skipped = null;
         if (expiryEnabled) {
-            long lead = normalizeLead(leadMillis);
+            long lead = ResetCreditExpiryApply.normalizeLead(leadMillis);
             ClaudeSavedResets.Grant expiring = null;
             for (ClaudeSavedResets.Grant grant : status.grants) {
                 if (!grant.hasResets(nowMillis) || !grant.usableNow

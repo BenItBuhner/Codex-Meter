@@ -170,13 +170,13 @@ public final class ResetAlertPreferences {
     }
 
     public static long claudeSavedResetExpiryLeadMillis(Context context) {
-        return ClaudeResetAutoUse.normalizeLead(prefs(context).getLong(
-                KEY_CLAUDE_SAVED_RESET_EXPIRY_LEAD, ClaudeResetAutoUse.DEFAULT_LEAD_MS));
+        return ResetCreditExpiryApply.normalizeLead(prefs(context).getLong(
+                KEY_CLAUDE_SAVED_RESET_EXPIRY_LEAD, ResetCreditExpiryApply.DEFAULT_LEAD_MS));
     }
 
     public static void setClaudeSavedResetExpiryLeadMillis(Context context, long leadMillis) {
         prefs(context).edit().putLong(KEY_CLAUDE_SAVED_RESET_EXPIRY_LEAD,
-                ClaudeResetAutoUse.normalizeLead(leadMillis)).apply();
+                ResetCreditExpiryApply.normalizeLead(leadMillis)).apply();
     }
 
     /** Off by default: spending a saved reset early is a choice the user makes. */

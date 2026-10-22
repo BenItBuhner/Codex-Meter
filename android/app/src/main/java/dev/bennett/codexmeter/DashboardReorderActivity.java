@@ -173,8 +173,8 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                 items.add(new SectionItem(key, "Usage history",
                         "Burn charts from usage samples kept on this device"));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                items.add(new SectionItem(key, "Limit resets",
-                        "Hidden automatically when you have none"));
+                items.add(new SectionItem(key, "Reset credits",
+                        "Hidden automatically when no resets are available"));
             } else {
                 items.add(new SectionItem(key, limitName(limits, key, "Additional limit"),
                         "Reported by " + provider.vendorName + " for your plan"));

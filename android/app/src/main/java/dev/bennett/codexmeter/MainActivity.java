@@ -623,7 +623,7 @@ public final class MainActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard(UsageProvider.CODEX));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                addDashboardCard(column, buildResetCreditsCard());
+                addDashboardCard(column, buildResetCreditsCard(UsageProvider.CODEX));
             } else {
                 List<UsageLimit> group = limitsByKey.get(key);
                 if (group == null) {
@@ -1003,12 +1003,20 @@ public final class MainActivity extends AppCompatActivity {
         linearLayout.addView(viewText, layoutParams2);
     }
 
-    private LinearLayout buildResetCreditsCard() {
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
-        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
-        int available = credits == null ? 0 : credits.availableCount;
+    /** The Reset credits card, shared by Codex reset credits and Claude Code saved resets. */
+    private LinearLayout buildResetCreditsCard(UsageProvider target) {
+        boolean claude = target == UsageProvider.CLAUDE_CODE;
+        boolean signedIn = SecureTokenStore.isSignedIn(this, target);
         long now = System.currentTimeMillis();
+        ClaudeSavedResets saved = claude ? ProviderPreferences.loadSavedResets(this, target)
+                : null;
+        ResetCreditsSnapshot credits = claude
+                ? (saved == null ? null : saved.toResetCreditsSnapshot(now))
+                : AppPreferences.loadResetCredits(this);
+        int available = credits == null ? 0 : credits.availableCount;
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
+        // Claude only: Anthropic can hold a reset until you reach a usage limit.
+        boolean usableNow = !claude || (saved != null && saved.usableGrant(now) != null);
 
         LinearLayout card = Ui.card(this, this.dark);
         TextView title = Ui.text(this, "Reset credits", 18, Ui.mainText(this.dark));
@@ -1019,11 +1027,11 @@ public final class MainActivity extends AppCompatActivity {
                 resetCreditsSummary(signedIn, available, nextExpiry, now)));
 
         if (signedIn) {
-            card.setOnClickListener(view -> openResetCredits());
+            card.setOnClickListener(view -> openResetCredits(target));
             Button button = Ui.nativePrimaryButton(this,
                     available > 0 ? "Use 1 reset" : "No resets available");
-            button.setEnabled(available > 0);
-            button.setOnClickListener(view -> openResetCredits());
+            button.setEnabled(available > 0 && usableNow);
+            button.setOnClickListener(view -> openResetCredits(target));
             LinearLayout.LayoutParams buttonParams =
                     new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
             buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
@@ -1060,8 +1068,8 @@ public final class MainActivity extends AppCompatActivity {
         return "Earn credits from ChatGPT Codex";
     }
 
-    private void openResetCredits() {
-        Ui.startSecondaryActivity(this, ResetCreditActivity.class);
+    private void openResetCredits(UsageProvider target) {
+        Ui.startSecondaryActivity(this, ResetCreditActivity.intent(this, target));
     }
 
     /**
@@ -1360,7 +1368,7 @@ public final class MainActivity extends AppCompatActivity {
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                     addDashboardCard(column, buildUsageHistoryCard(target));
                 } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                    addDashboardCard(column, buildClaudeSavedResetsCard(savedResets));
+                    addDashboardCard(column, buildResetCreditsCard(target));
                 } else {
                     UsageLimit limit = limitsByKey.get(key);
                     if (limit == null) continue;
@@ -1396,107 +1404,6 @@ public final class MainActivity extends AppCompatActivity {
             addDashboardCard(column, buildProviderBalanceCard(target, snapshot.usageCredits));
         }
         this.content.addView(column);
-    }
-
-    /**
-     * Claude Code saved resets ("Limit resets" on claude.ai), styled like the Codex
-     * reset-credits card. The server says per grant whether it can be used now: a full reset
-     * works any time, others only once a limit is blocking you.
-     */
-    private LinearLayout buildClaudeSavedResetsCard(ClaudeSavedResets saved) {
-        long now = System.currentTimeMillis();
-        int available = saved.availableCount(now);
-        ClaudeSavedResets.Grant next = saved.nextGrant(now);
-        ClaudeSavedResets.Grant usable = saved.usableGrant(now);
-        ClaudeSavedResets.Grant shown = usable != null ? usable : next;
-
-        LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, "Limit resets", 18, Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
-        String headline = shown == null ? "No resets saved"
-                : shown.title() + (available > 1 ? " · " + available + " saved" : "");
-        StringBuilder detail = new StringBuilder();
-        if (shown != null) {
-            detail.append("Refills your ").append(shown.clearsLabel());
-            if (shown.endsAtMillis > 0L) {
-                detail.append(" · expires ")
-                        .append(UsageFormat.absolute(this, shown.endsAtMillis, now));
-            }
-        }
-        card.addView(buildIconDetailRow(R.drawable.ic_oui_battery, headline,
-                detail.toString()));
-
-        String blocked = saved.unavailableMessage(now);
-        if (!blocked.isEmpty()) {
-            TextView note = Ui.text(this, blocked, 12, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
-            noteParams.setMargins(Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4), 0);
-            card.addView(note, noteParams);
-        }
-        String rules = claudeAutoUseSummary();
-        if (!rules.isEmpty()) {
-            TextView note = Ui.text(this, rules, 12, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
-            noteParams.setMargins(Ui.dp(this, 4), Ui.dp(this, 8), Ui.dp(this, 4), 0);
-            card.addView(note, noteParams);
-        }
-        Button button = Ui.nativePrimaryButton(this,
-                usable != null ? "Reset for free" : "Not available yet");
-        button.setEnabled(usable != null);
-        if (usable != null) {
-            button.setOnClickListener(view -> confirmClaudeSavedReset(usable));
-        }
-        LinearLayout.LayoutParams buttonParams =
-                new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
-        buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
-        card.addView(button, buttonParams);
-        return card;
-    }
-
-    /** Which automatic rules are on, like the Codex reset screen says. */
-    private String claudeAutoUseSummary() {
-        List<String> parts = new ArrayList<>();
-        if (ResetAlertPreferences.claudeSavedResetExpiryEnabled(this)) {
-            long hours = ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(this) / 3_600_000L;
-            parts.add("used automatically " + hours + (hours == 1 ? " hour" : " hours")
-                    + " before they expire");
-        }
-        if (ResetAlertPreferences.claudeSavedResetLowUsageEnabled(this)) {
-            parts.add("when remaining usage reaches "
-                    + ResetAlertPreferences.claudeSavedResetThreshold(this) + "%");
-        }
-        if (parts.isEmpty()) return "";
-        return "Saved resets are " + String.join(", and ", parts) + ".";
-    }
-
-    private void confirmClaudeSavedReset(ClaudeSavedResets.Grant grant) {
-        new AlertDialog.Builder(this)
-                .setTitle("Use a saved reset?")
-                .setMessage("This uses your " + grant.title().toLowerCase(Locale.ROOT)
-                        + " now and refills your Claude Code " + grant.clearsLabel()
-                        + ". Used resets cannot be undone.")
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Reset now", (dialog, which) -> useClaudeSavedReset(grant))
-                .show();
-    }
-
-    private void useClaudeSavedReset(ClaudeSavedResets.Grant grant) {
-        if (this.swipeRefresh != null) {
-            this.swipeRefresh.setRefreshing(true);
-        }
-        final Context applicationContext = getApplicationContext();
-        this.executor.execute(() -> {
-            ClaudeSavedResets.ClaimResult result =
-                    ClaudeResetApi.use(applicationContext, grant.id, "dashboard");
-            runOnUiThread(() -> {
-                if (this.swipeRefresh != null) {
-                    this.swipeRefresh.setRefreshing(false);
-                }
-                Toast.makeText(this, result.userMessage(), Toast.LENGTH_LONG).show();
-                rebuild();
-            });
-        });
     }
 
     /** Balance card for providers that report credits or a dollar balance. */

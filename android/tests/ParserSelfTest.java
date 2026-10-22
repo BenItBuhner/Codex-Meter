@@ -1614,12 +1614,13 @@ public final class ParserSelfTest {
                 "{\"result\":\"reset\",\"resets_left\":1,\"cleared\":[\"five_hour\"]}");
         check(reset.applied() && reset.resetsLeft == 1 && reset.cleared.contains("five_hour"),
                 "successful claim parses");
-        check(reset.userMessage().contains("1 saved reset left"), "success says what's left");
+        check("Reset applied to 1 usage window.".equals(reset.userMessage()),
+                "success uses the Codex wording");
         ClaudeSavedResets.ClaimResult notLimited = ClaudeSavedResets.ClaimResult.parse(
                 "{\"result\":\"not_limited\"}");
         check(!notLimited.applied() && !notLimited.retryable()
-                        && notLimited.userMessage().contains("Nothing was used"),
-                "not_limited is final and says nothing was used");
+                        && notLimited.userMessage().contains("no used Claude Code allowance"),
+                "not_limited is final, worded like Codex's nothing-to-reset");
         check(ClaudeSavedResets.ClaimResult.UNAVAILABLE.equals(
                         ClaudeSavedResets.ClaimResult.parse("{\"result\":\"surprise\"}").result),
                 "unknown results read as unavailable");
@@ -1678,8 +1679,12 @@ public final class ParserSelfTest {
         check(!claudeAuto(usableSoon, low, true, true, "", "",
                         now + TimeUnit.MINUTES.toMillis(5)).fires(),
                 "a stale status never spends a reset");
-        check(ClaudeResetAutoUse.normalizeLead(60_000L) == ClaudeResetAutoUse.DEFAULT_LEAD_MS,
-                "lead times Claude's refresh can't honor fall back to the default");
+        ResetCreditsSnapshot shared = usableLater.toResetCreditsSnapshot(now);
+        check(shared.availableCount == 2 && "Session reset".equals(
+                        shared.nextExpiringAvailable(now).title),
+                "Claude resets feed the shared Reset credits inventory");
+        check(shared.nextExpiryMillis(now) == usableLater.nextExpiryMillis(now),
+                "shared inventory keeps the next expiry");
         System.out.println("Claude saved-reset auto-use: expiry lead time and running-low rules.");
     }
 
