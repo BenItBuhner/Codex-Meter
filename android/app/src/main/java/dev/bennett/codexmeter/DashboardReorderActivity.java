@@ -148,10 +148,14 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, provider);
         List<UsageLimit> limits = snapshot == null
                 ? Collections.<UsageLimit>emptyList() : snapshot.additionalLimits;
+        List<String> sections = new ArrayList<>(DashboardSections.providerSections(snapshot,
+                provider.usualDashboardSections()));
+        if (provider == UsageProvider.CLAUDE_CODE
+                && ProviderPreferences.loadSavedResets(this, provider) != null) {
+            sections.add(DashboardSections.RESET_CREDITS);
+        }
         List<String> ordered = DashboardSections.resolveOrder(
-                ProviderPreferences.getDashboardOrder(this, provider),
-                DashboardSections.providerSections(snapshot,
-                        provider.usualDashboardSections()));
+                ProviderPreferences.getDashboardOrder(this, provider), sections);
         boolean cursor = provider == UsageProvider.CURSOR;
         for (String key : ordered) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
@@ -168,6 +172,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 items.add(new SectionItem(key, "Usage history",
                         "Burn charts from usage samples kept on this device"));
+            } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+                items.add(new SectionItem(key, "Reset credits",
+                        "Hidden automatically when no resets are available"));
             } else {
                 items.add(new SectionItem(key, limitName(limits, key, "Additional limit"),
                         "Reported by " + provider.vendorName + " for your plan"));
