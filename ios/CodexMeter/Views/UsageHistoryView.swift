@@ -169,7 +169,7 @@ struct UsageHistoryView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(!hasSamples)
             }
-            .frame(maxWidth: AppChrome.contentMaxWidth)
+            .frame(maxWidth: AppChrome.readingMaxWidth)
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
@@ -333,6 +333,7 @@ private struct HistoryDetailCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.plain)
+                        .hoverEffect(.highlight)
                     }
                 }
                 .padding(.top, 6)
@@ -673,6 +674,15 @@ private struct UsageBurnChart: View {
                                     onScrubEnd?()
                                 }
                         )
+                        // With a trackpad or mouse on iPad, hovering scrubs the chart too.
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case let .active(location):
+                                handleDrag(at: location, proxy: proxy, geometry: geometry)
+                            case .ended:
+                                onScrubEnd?()
+                            }
+                        }
                 }
             }
             .accessibilityLabel("\(title) usage burn chart")

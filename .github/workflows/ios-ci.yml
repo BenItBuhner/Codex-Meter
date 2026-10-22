@@ -164,3 +164,124 @@ jobs:
             ios/GalleryResults.xcresult
           if-no-files-found: ignore
           retention-days: 3
+
+  ipad-layout:
+    name: iPad layout tests and screenshots
+    runs-on: macos-26
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Pick iPad simulators
+        id: ipads
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available | grep -i ipad || true
+          # Smallest, mid-size and largest iPad screens the runner image offers.
+          pick() {
+            xcrun simctl list devices available \
+              | sed -nE 's/^[[:space:]]+(iPad[^()]*(\([^)]*\))?) \([0-9A-F-]{36}\).*/\1/p' \
+              | sed -E 's/[[:space:]]+$//' \
+              | grep -E "$1" | head -n 1 || true
+          }
+          MINI="$(pick '^iPad mini')"
+          AIR="$(pick '^iPad Air 11')"
+          [[ -n "$AIR" ]] || AIR="$(pick '^iPad( \(|$)')"
+          PRO="$(pick '^iPad Pro 13')"
+          [[ -n "$PRO" ]] || PRO="$(pick '^iPad Pro')"
+          if [[ -z "$PRO$AIR$MINI" ]]; then
+            echo "::error::No iPad simulators on this runner image"
+            exit 1
+          fi
+          echo "Using: ${PRO:-none} / ${AIR:-none} / ${MINI:-none}"
+          {
+            echo "pro=$PRO"
+            echo "air=$AIR"
+            echo "mini=$MINI"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build for testing
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO build-for-testing
+
+      - name: iPad Pro 13-inch (light)
+        if: steps.ipads.outputs.pro != ''
+        shell: bash
+        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.pro }}" "$PWD/ci-ipad-gallery" light DerivedData
+
+      - name: iPad Pro 13-inch (dark)
+        if: (success() || failure()) && steps.ipads.outputs.pro != ''
+        shell: bash
+        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.pro }}" "$PWD/ci-ipad-gallery" dark DerivedData
+
+      - name: iPad Air 11-inch (light)
+        if: (success() || failure()) && steps.ipads.outputs.air != ''
+        shell: bash
+        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.air }}" "$PWD/ci-ipad-gallery" light DerivedData
+
+      - name: iPad mini (light)
+        if: (success() || failure()) && steps.ipads.outputs.mini != ''
+        shell: bash
+        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.mini }}" "$PWD/ci-ipad-gallery" light DerivedData
+
+      - name: iPhone UI tests on iPad Pro
+        if: (success() || failure()) && steps.ipads.outputs.pro != ''
+        shell: bash
+        env:
+          DEVICE_NAME: ${{ steps.ipads.outputs.pro }}
+        run: |
+          set -euo pipefail
+          # The main UI suite also runs on iPad, so the sidebar never breaks a flow that
+          # works on iPhone.
+          xcodebuild test-without-building -project CodexMeter.xcodeproj -scheme CodexMeter \
+            -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
+            -derivedDataPath DerivedData \
+            -resultBundlePath iPadSuiteResults.xcresult \
+            -parallel-testing-enabled NO \
+            -only-testing:CodexMeterUITests/CodexMeterUITests \
+            -retry-tests-on-failure -test-iterations 3
+
+      - name: Summarize iPad gallery
+        if: success() || failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## iPad gallery"
+            echo
+            echo "Download the **ipad-gallery** artifact: one folder per simulator and appearance."
+            echo
+            if [[ -d ci-ipad-gallery ]]; then
+              echo '```'
+              (cd ci-ipad-gallery && find . -name '*.png' | sort)
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload iPad gallery
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ipad-gallery
+          path: ios/ci-ipad-gallery/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload iPad test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ipad-test-results
+          path: ios/iPad*.xcresult
+          if-no-files-found: ignore
+          retention-days: 3

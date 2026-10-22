@@ -30,6 +30,7 @@ struct DashboardView: View {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if model.mode == .signedOut {
                     SignedOutView()
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if model.mode == .demo {
                         StatusBanner(
@@ -60,6 +61,7 @@ struct DashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }

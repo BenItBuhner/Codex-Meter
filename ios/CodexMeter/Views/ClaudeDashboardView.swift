@@ -14,6 +14,7 @@ struct ClaudeDashboardView: View {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if claude.phase == .signedOut {
                     ClaudeSignedOutView()
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if claude.phase == .demo {
                         StatusBanner(
@@ -42,6 +43,7 @@ struct ClaudeDashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- iPad: the provider tabs become a sidebar (or a floating top tab bar the sidebar button toggles), with Settings at the bottom of the sidebar, so every connected provider is one tap away instead of behind a More tab.
+- iPad: dashboards lay cards out in one, two or three columns from the width they actually get, so full screen, Split View, Slide Over and Stage Manager windows of any size re-flow live. Cards in a row share one height, the usage history chart keeps a full row, and the signed-out card stays card-sized.
+- iPad keyboard and menu bar: ⌘1–⌘9 jump to a provider tab, ⇧⌘] and ⇧⌘[ move between tabs, ⌘R refreshes the visible tab and ⌘, opens Settings. With a trackpad or mouse, hovering scrubs the usage history charts and picker rows highlight.
+
+### Development
+
+- `DashboardGrid` in CodexMeterCore decides columns and rows, with unit tests. `IPadLayoutTests` checks the columns, sidebar and shortcuts on iPad simulators, and iOS CI runs it on iPad Pro 13-inch (light and dark), iPad Air 11-inch and iPad mini, uploading the stills as `ipad-gallery`. The main UI suite also runs on iPad Pro.
+
 ### Changed
 
 - iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.

@@ -34,6 +34,7 @@ struct AddedProviderDashboardView: View {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if state.phase == .signedOut {
                     AddedProviderSignedOutView(provider: provider) { isShowingSignIn = true }
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if state.phase == .demo {
                         StatusBanner(
@@ -55,6 +56,7 @@ struct AddedProviderDashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }
@@ -144,21 +146,45 @@ private struct AddedProviderMeters: View {
     @Environment(AppModel.self) private var model
     let usage: UsageSnapshot
 
+    private enum Card {
+        case window(UsageWindow, systemImage: String, accent: Color)
+        case limit(AdditionalLimitWindow)
+        case balance(UsageCredits)
+    }
+
+    private struct Cell: Identifiable {
+        let id: String
+        let card: Card
+    }
+
+    private var cells: [Cell] {
+        var cells: [Cell] = []
+        if let window = usage.fiveHour {
+            cells.append(Cell(id: "short", card: .window(window, systemImage: "clock", accent: .blue)))
+        }
+        if let window = usage.weekly {
+            cells.append(Cell(id: "weekly", card: .window(window, systemImage: "calendar", accent: .purple)))
+        }
+        if let window = usage.monthly {
+            cells.append(Cell(id: "monthly", card: .window(window, systemImage: "calendar.badge.clock", accent: .indigo)))
+        }
+        for limit in usage.additionalLimits {
+            cells += AdditionalLimitWindow.windows(of: limit).map { Cell(id: $0.id, card: .limit($0)) }
+        }
+        if let credits = usage.usageCredits, credits.shouldDisplay {
+            cells.append(Cell(id: "balance", card: .balance(credits)))
+        }
+        return cells
+    }
+
     var body: some View {
-        VStack(spacing: AppChrome.sectionSpacing) {
-            if let window = usage.fiveHour {
-                meter(window, systemImage: "clock", accent: .blue)
-            }
-            if let window = usage.weekly {
-                meter(window, systemImage: "calendar", accent: .purple)
-            }
-            if let window = usage.monthly {
-                meter(window, systemImage: "calendar.badge.clock", accent: .indigo)
-            }
-            ForEach(usage.additionalLimits) { limit in
-                AdditionalLimitCards(limit: limit, fetchedAt: usage.fetchedAt)
-            }
-            if let credits = usage.usageCredits, credits.shouldDisplay {
+        DashboardCardGrid(items: cells) { cell in
+            switch cell.card {
+            case let .window(window, systemImage, accent):
+                meter(window, systemImage: systemImage, accent: accent)
+            case let .limit(window):
+                AdditionalLimitCard(window: window, fetchedAt: usage.fetchedAt)
+            case let .balance(credits):
                 AddedProviderBalanceCard(credits: credits)
             }
         }
@@ -195,7 +221,7 @@ private struct AddedProviderBalanceCard: View {
             Spacer(minLength: 0)
         }
         .padding(AppChrome.cardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .cardSurface()
         .accessibilityElement(children: .combine)
     }

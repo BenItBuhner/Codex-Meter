@@ -14,6 +14,7 @@ struct CursorDashboardView: View {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if cursor.phase == .signedOut {
                     CursorSignedOutView()
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if cursor.phase == .demo {
                         StatusBanner(
@@ -42,6 +43,7 @@ struct CursorDashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }

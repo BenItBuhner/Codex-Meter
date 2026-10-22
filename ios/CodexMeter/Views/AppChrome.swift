@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 
 enum AppChrome {
@@ -5,7 +6,12 @@ enum AppChrome {
     static let bannerRadius: CGFloat = 14
     static let cardPadding: CGFloat = 20
     static let sectionSpacing: CGFloat = 16
-    static let contentMaxWidth: CGFloat = 920
+    /// Dashboards widen up to this, then center (`DashboardGrid` picks the columns).
+    static let contentMaxWidth = CGFloat(DashboardGrid.contentMaxWidth)
+    /// Single-column pages (usage history, sign-in) stay at a comfortable reading width.
+    static let readingMaxWidth: CGFloat = 920
+    /// The sign-in card on a signed-out tab stays card-sized in a wide iPad window.
+    static let signedOutMaxWidth: CGFloat = 640
 }
 
 extension View {
