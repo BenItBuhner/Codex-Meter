@@ -105,4 +105,15 @@
     <string-array name="settings_reset_auto_metric_values">
         <item>both</item><item>weekly</item><item>five_hour</item>
     </string-array>
+    <string-array name="settings_claude_reset_lead_entries">
+        <item>1 hour before it expires</item>
+        <item>2 hours before it expires</item>
+        <item>6 hours before it expires</item>
+        <item>12 hours before it expires</item>
+        <item>24 hours before it expires</item>
+    </string-array>
+    <string-array name="settings_claude_reset_lead_values">
+        <item>3600000</item><item>7200000</item><item>21600000</item><item>43200000</item>
+        <item>86400000</item>
+    </string-array>
 </resources>

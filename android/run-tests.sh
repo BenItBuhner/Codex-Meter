@@ -78,6 +78,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetProviders.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeCodeApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeUsageParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeSavedResets.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeResetAutoUse.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorUsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderCatalog.java" \

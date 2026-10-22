@@ -98,6 +98,37 @@
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:key="claude_saved_reset_category"
+        android:title="Claude Code saved resets">
+        <SwitchPreferenceCompat
+            android:key="claude_saved_reset_expiry_ui"
+            android:summary="Use a saved reset before it expires instead of losing it"
+            android:title="Use resets before they expire" />
+        <ListPreference
+            android:entries="@array/settings_claude_reset_lead_entries"
+            android:entryValues="@array/settings_claude_reset_lead_values"
+            android:key="claude_saved_reset_expiry_lead_ui"
+            android:title="When to use it"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="claude_saved_reset_low_usage_ui"
+            android:summary="Use a saved reset when your remaining Claude Code usage gets low"
+            android:title="Use a reset when running low" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_threshold_entries"
+            android:entryValues="@array/settings_reset_auto_threshold_values"
+            android:key="claude_saved_reset_threshold_ui"
+            android:title="Use when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_metric_entries"
+            android:entryValues="@array/settings_reset_auto_metric_values"
+            android:key="claude_saved_reset_metric_ui"
+            android:title="Watch"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Usage estimates">
         <SwitchPreferenceCompat
             android:key="usage_pace_enabled_ui"

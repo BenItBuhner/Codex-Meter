@@ -42,6 +42,7 @@ public final class ResetNotificationManager {
     private static final int NOTIFICATION_CREDIT_EXPIRY_BASE = 74600;
     private static final int NOTIFICATION_CREDIT_AUTO_APPLY = 74516;
     private static final int NOTIFICATION_CREDIT_LOW_USAGE = 74517;
+    private static final int NOTIFICATION_CLAUDE_SAVED_RESET = 74518;
     private static final int NOTIFICATION_REFILL_FIVE_HOUR = 74511;
     private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
     private static final int NOTIFICATION_REFILL_BOTH = 74513;
@@ -274,6 +275,36 @@ public final class ResetNotificationManager {
         }
         return post(context, NOTIFICATION_CREDIT_LOW_USAGE, title, text,
                 NOTIFICATION_CREDIT_LOW_USAGE);
+    }
+
+    public static boolean showClaudeSavedResetNotification(Context context,
+            ClaudeResetAutoUse decision, ClaudeSavedResets.ClaimResult result) {
+        if (context == null || decision == null || result == null
+                || !ResetAlertPreferences.enabled(context)) {
+            return false;
+        }
+        boolean expiring = ClaudeResetAutoUse.FIRE_EXPIRING.equals(decision.outcome);
+        String title;
+        if (result.applied()) {
+            title = expiring ? "Expiring Claude Code reset used"
+                    : "Claude Code reset used automatically";
+        } else if (result.retryable()) {
+            title = "Could not use a Claude Code reset";
+        } else {
+            title = "Claude Code reset not used";
+        }
+        String text = result.userMessage();
+        if (result.applied()) {
+            String why = expiring ? "It was about to expire. "
+                    : "Your " + decision.windowLabel + " limit reached "
+                            + Math.max(0, decision.remainingPercent) + "% remaining. ";
+            text = why + "Your " + decision.grant.clearsLabel() + " was refilled. " + text;
+        }
+        if (result.retryable()) {
+            text = text + " Codex Meter will try again on the next refresh.";
+        }
+        return post(context, NOTIFICATION_CLAUDE_SAVED_RESET, title, text,
+                NOTIFICATION_CLAUDE_SAVED_RESET);
     }
 
     public static void dismissResetCreditExpiryNotification(Context context,

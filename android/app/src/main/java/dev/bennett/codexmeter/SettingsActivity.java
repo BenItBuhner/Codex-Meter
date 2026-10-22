@@ -179,6 +179,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     addPreferencesFromResource(R.xml.preferences_settings_refresh_usage);
                     bindRefresh();
                     bindResetCreditAutoUse();
+                    bindClaudeSavedResets();
                     bindUsagePace();
                     break;
                 case PAGE_NOTIFICATIONS:
@@ -723,6 +724,83 @@ public final class SettingsActivity extends AppCompatActivity {
             });
             metric.setOnPreferenceChangeListener((preference, value) -> {
                 ResetAlertPreferences.setResetCreditLowUsageMetric(requireContext(),
+                        String.valueOf(value));
+                return true;
+            });
+        }
+
+        private void bindClaudeSavedResets() {
+            Context context = requireContext();
+            SwitchPreferenceCompat expiry = findPreference("claude_saved_reset_expiry_ui");
+            ListPreference lead = findPreference("claude_saved_reset_expiry_lead_ui");
+            SwitchPreferenceCompat lowUsage = findPreference("claude_saved_reset_low_usage_ui");
+            ListPreference threshold = findPreference("claude_saved_reset_threshold_ui");
+            ListPreference metric = findPreference("claude_saved_reset_metric_ui");
+            if (expiry == null || lead == null || lowUsage == null || threshold == null
+                    || metric == null) {
+                return;
+            }
+            expiry.setPersistent(false);
+            expiry.setChecked(ResetAlertPreferences.claudeSavedResetExpiryEnabled(context));
+            lead.setPersistent(false);
+            lead.setValue(String.valueOf(
+                    ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context)));
+            lead.setEnabled(expiry.isChecked());
+            expiry.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                ResetAlertPreferences.setClaudeSavedResetExpiryEnabled(requireContext(),
+                        enabled);
+                lead.setEnabled(enabled);
+                return true;
+            });
+            lead.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setClaudeSavedResetExpiryLeadMillis(requireContext(),
+                        Long.parseLong(String.valueOf(value)));
+                return true;
+            });
+
+            lowUsage.setPersistent(false);
+            lowUsage.setChecked(ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context));
+            threshold.setPersistent(false);
+            threshold.setValue(String.valueOf(
+                    ResetAlertPreferences.claudeSavedResetThreshold(context)));
+            metric.setPersistent(false);
+            metric.setValue(ResetAlertPreferences.claudeSavedResetMetric(context));
+            threshold.setEnabled(lowUsage.isChecked());
+            metric.setEnabled(lowUsage.isChecked());
+            lowUsage.setOnPreferenceChangeListener((preference, value) -> {
+                if (!(Boolean) value) {
+                    ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(requireContext(),
+                            false);
+                    threshold.setEnabled(false);
+                    metric.setEnabled(false);
+                    return true;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Use Claude resets automatically?")
+                        .setMessage("Codex Meter will spend one saved Claude Code reset when "
+                                + "your remaining usage reaches the level you choose. It checks "
+                                + "after each Claude refresh (about every 30 minutes in the "
+                                + "background) and skips a limit that refills on its own within "
+                                + "15 minutes. Used resets cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Turn on", (dialog, which) -> {
+                            ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(
+                                    requireContext(), true);
+                            lowUsage.setChecked(true);
+                            threshold.setEnabled(true);
+                            metric.setEnabled(true);
+                        })
+                        .show();
+                return false;
+            });
+            threshold.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setClaudeSavedResetThreshold(requireContext(),
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+            metric.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setClaudeSavedResetMetric(requireContext(),
                         String.valueOf(value));
                 return true;
             });

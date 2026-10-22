@@ -38,6 +38,8 @@ public final class ParserSelfTest {
         testResetCountdownFollowsApiTimeline();
         testResetCreditExpiryAutoApply();
         testResetCreditLowUsageAutoUse();
+        testClaudeSavedResets();
+        testClaudeResetAutoUse();
         testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
@@ -1534,6 +1536,151 @@ public final class ParserSelfTest {
                 "an off-menu threshold falls back to 1%");
         System.out.println("Reset-credit low-usage demo: one credit fires per window at the "
                 + "threshold, never from stale data or right before a natural refill.");
+    }
+
+    private static String claudeUsageBody(boolean atLimit, boolean usableNow, String endsAt,
+            int resetsLeft) {
+        return "{\"five_hour\":{\"utilization\":100,\"resets_at\":\"2070-01-01T00:00:00Z\"},"
+                + "\"cedar_ember\":{\"eligible\":true,\"at_limit\":" + atLimit + ","
+                + "\"grants\":[{\"id\":\"grant_late\",\"label\":\"Reset\",\"resets_total\":1,"
+                + "\"resets_left\":1,\"ends_at\":\"2071-01-01T00:00:00Z\",\"clears\":[\"seven_day\"],"
+                + "\"usable_now\":" + usableNow + ",\"type\":\"weekly\"},"
+                + "{\"id\":\"grant_soon\",\"label\":\"Reset\",\"resets_total\":2,"
+                + "\"resets_left\":" + resetsLeft + ",\"ends_at\":" + endsAt + ","
+                + "\"clears\":[\"five_hour\"],\"paused\":false,\"usable_now\":" + usableNow + ","
+                + "\"use_requires_limit\":true,\"type\":\"session\","
+                + "\"unavailable_reason\":" + (usableNow ? "null" : "\"needs_limit\"") + "},"
+                + "{\"id\":\"BAD ID\",\"resets_left\":5}],"
+                + "\"next_grant_id\":\"grant_soon\",\"cooldown_until\":null}}";
+    }
+
+    private static void testClaudeSavedResets() throws Exception {
+        long now = java.time.Instant.parse("2070-06-01T00:00:00Z").toEpochMilli();
+        ClaudeSavedResets parsed = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, false, "\"2070-06-03T00:00:00Z\"", 2), now);
+        check(parsed != null && parsed.eligible && !parsed.atLimit,
+                "cedar_ember block parses");
+        check(parsed.grants.size() == 2, "grants with malformed ids are dropped");
+        check(parsed.availableCount(now) == 3 && parsed.shouldDisplay(now),
+                "available resets add up across grants");
+        check("grant_soon".equals(parsed.nextGrant(now).id), "server's next grant comes first");
+        check("5-hour limit".equals(parsed.nextGrant(now).clearsLabel()),
+                "session grant clears the 5-hour limit");
+        check(parsed.usableGrant(now) == null
+                        && "Works once you hit a usage limit".equals(
+                                parsed.unavailableMessage(now)),
+                "a grant the server marks needs_limit waits for a limit");
+        check("Session reset".equals(parsed.nextGrant(now).title())
+                        && parsed.grants.get(0).clearsWeekly(),
+                "grant titles and cleared limits read from type and clears");
+        ClaudeSavedResets roundTrip = ClaudeSavedResets.fromJson(
+                new org.json.JSONObject(parsed.toJson().toString()));
+        check(roundTrip.availableCount(now) == 3 && "grant_soon".equals(roundTrip.nextGrantId)
+                        && roundTrip.grants.get(1).endsAtMillis == parsed.grants.get(1).endsAtMillis,
+                "saved resets survive the on-device cache");
+        ClaudeSavedResets usable = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(true, true, "\"2070-06-03T00:00:00Z\"", 2), now);
+        check("grant_soon".equals(usable.usableGrant(now).id), "usable grant is picked at a limit");
+        check(usable.afterUse("grant_soon").availableCount(now) == 2,
+                "using a reset takes one off the card right away");
+        check(ClaudeSavedResets.fromUsageBody("{\"five_hour\":{}}", now) == null,
+                "no cedar_ember block means no saved resets");
+        check(ClaudeSavedResets.fromUsageBody("not json", now) == null,
+                "unreadable body means no saved resets");
+        ClaudeSavedResets none = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, false, "\"2070-05-01T00:00:00Z\"", 0), now);
+        check(none.availableCount(now) == 1, "expired or empty grants don't count");
+
+        org.json.JSONObject body = ClaudeSavedResets.claimBody("grant_soon", "req-123");
+        check("cedar_ember".equals(body.getString("program"))
+                        && "grant_soon".equals(body.getString("grant_id"))
+                        && "req-123".equals(body.getString("request_id")),
+                "claim body matches Claude Code's request");
+        boolean rejected = false;
+        try {
+            ClaudeSavedResets.claimBody("../evil", "req");
+        } catch (IllegalArgumentException expected) {
+            rejected = true;
+        }
+        check(rejected, "malformed grant ids are never sent");
+        check(ClaudeCodeApi.resetRateLimitsUrl("0f1e2d3c-aaaa-bbbb-cccc-1234567890ab").equals(
+                        "https://api.anthropic.com/api/organizations/"
+                                + "0f1e2d3c-aaaa-bbbb-cccc-1234567890ab/reset_rate_limits"),
+                "claim URL targets the organization");
+        check(ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL.endsWith("/api/oauth/usage?cedar_ember=1"),
+                "usage refresh asks for saved resets");
+
+        ClaudeSavedResets.ClaimResult reset = ClaudeSavedResets.ClaimResult.parse(
+                "{\"result\":\"reset\",\"resets_left\":1,\"cleared\":[\"five_hour\"]}");
+        check(reset.applied() && reset.resetsLeft == 1 && reset.cleared.contains("five_hour"),
+                "successful claim parses");
+        check(reset.userMessage().contains("1 saved reset left"), "success says what's left");
+        ClaudeSavedResets.ClaimResult notLimited = ClaudeSavedResets.ClaimResult.parse(
+                "{\"result\":\"not_limited\"}");
+        check(!notLimited.applied() && !notLimited.retryable()
+                        && notLimited.userMessage().contains("Nothing was used"),
+                "not_limited is final and says nothing was used");
+        check(ClaudeSavedResets.ClaimResult.UNAVAILABLE.equals(
+                        ClaudeSavedResets.ClaimResult.parse("{\"result\":\"surprise\"}").result),
+                "unknown results read as unavailable");
+        check(ClaudeSavedResets.ClaimResult.parse("<html>").retryable(),
+                "unreadable claim responses retry");
+        System.out.println("Claude saved resets: status, cache, claim body, and results parse.");
+    }
+
+    private static ClaudeResetAutoUse claudeAuto(ClaudeSavedResets status, UsageSnapshot usage,
+            boolean expiry, boolean lowUsage, String lastExpiry, String lastLow, long now) {
+        return ClaudeResetAutoUse.evaluate(status, usage, expiry, TimeUnit.HOURS.toMillis(2),
+                lowUsage, 1, ResetCreditLowUsageAutoUse.METRIC_BOTH, lastExpiry, lastLow, now);
+    }
+
+    private static void testClaudeResetAutoUse() {
+        long now = java.time.Instant.parse("2070-06-01T00:00:00Z").toEpochMilli();
+        long hour = 3600L;
+        UsageSnapshot healthy = snapshot(19, 49, hour, now);
+        UsageSnapshot low = snapshot(99, 49, hour, now);
+        // A full reset works any time, like claude.ai's "Reset for free".
+        ClaudeSavedResets usableLater = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, true, "\"2070-06-20T00:00:00Z\"", 1), now);
+        ClaudeSavedResets usableSoon = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, true, "\"2070-06-01T01:30:00Z\"", 1), now);
+        ClaudeSavedResets heldBack = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, false, "\"2070-06-01T01:30:00Z\"", 1), now);
+
+        check(!claudeAuto(usableLater, healthy, true, true, "", "", now).fires(),
+                "nothing fires with plenty left and no reset expiring");
+        ClaudeResetAutoUse expiring = claudeAuto(usableSoon, healthy, true, false, "", "", now);
+        check(ClaudeResetAutoUse.FIRE_EXPIRING.equals(expiring.outcome)
+                        && "grant_soon".equals(expiring.grant.id),
+                "a reset inside the lead time is used before it expires");
+        check(!claudeAuto(usableSoon, healthy, false, false, "", "", now).fires(),
+                "both rules off means nothing fires");
+        check(!claudeAuto(heldBack, healthy, true, true, "", "", now).fires(),
+                "a grant the server holds back is never spent");
+        check(ClaudeResetAutoUse.SKIP_ALREADY_TRIED.equals(claudeAuto(usableSoon, healthy, true,
+                        false, expiring.attemptKey, "", now).outcome),
+                "an expiring reset is tried once");
+        ClaudeResetAutoUse lowFire = claudeAuto(usableLater, low, false, true, "", "", now);
+        check(ClaudeResetAutoUse.FIRE_LOW_USAGE.equals(lowFire.outcome)
+                        && "grant_soon".equals(lowFire.grant.id)
+                        && "5-hour".equals(lowFire.windowLabel),
+                "running low on the 5-hour limit uses a reset that refills it");
+        check(ClaudeResetAutoUse.SKIP_ALREADY_TRIED.equals(claudeAuto(usableLater, low, false,
+                        true, "", lowFire.attemptKey, now).outcome),
+                "running-low rule fires once per window");
+        UsageSnapshot weeklyLow = snapshot(19, 100, 2 * hour, now);
+        ClaudeResetAutoUse weekly = claudeAuto(usableLater, weeklyLow, false, true, "", "", now);
+        check(weekly.fires() && "grant_late".equals(weekly.grant.id),
+                "a low weekly limit picks the reset that refills the weekly limit");
+        check(ClaudeResetAutoUse.WAIT.equals(claudeAuto(usableLater, snapshot(100, 49, 600L, now),
+                        false, true, "", "", now).outcome),
+                "a limit that refills within 15 minutes is not worth a reset");
+        check(!claudeAuto(usableSoon, low, true, true, "", "",
+                        now + TimeUnit.MINUTES.toMillis(5)).fires(),
+                "a stale status never spends a reset");
+        check(ClaudeResetAutoUse.normalizeLead(60_000L) == ClaudeResetAutoUse.DEFAULT_LEAD_MS,
+                "lead times Claude's refresh can't honor fall back to the default");
+        System.out.println("Claude saved-reset auto-use: expiry lead time and running-low rules.");
     }
 
     private static UsageSnapshot snapshot(int fiveHourUsed, int weeklyUsed,
