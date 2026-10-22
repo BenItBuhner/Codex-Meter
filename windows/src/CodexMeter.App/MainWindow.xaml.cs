@@ -135,8 +135,8 @@ public sealed partial class MainWindow : Window
             Navigate(target);
             return;
         }
-        var provider = UsageProvider.VisibleSelection(UsageProvider.Resolve(target), state.EnabledProviders);
-        Navigate(provider.Id);
+        var selected = UsageProvider.VisibleSelection(UsageProvider.Resolve(target), state.EnabledProviders);
+        Navigate(selected.Id);
     }
 
     /// <summary>Opens a provider dashboard ("codex", "claude_code", "cursor"), "accounts" or "settings".</summary>

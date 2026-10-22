@@ -27,7 +27,7 @@ public static class Program
             main.Activated += (_, _) => App.Current?.ShowMainWindowFromRedirect();
         }
 
-        Application.Start(_ =>
+        Application.Start(_ignored =>
         {
             var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
             SynchronizationContext.SetSynchronizationContext(context);
