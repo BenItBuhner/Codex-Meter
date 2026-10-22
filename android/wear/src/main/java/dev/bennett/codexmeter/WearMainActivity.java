@@ -161,8 +161,14 @@ public final class WearMainActivity extends Activity implements DataClient.OnDat
         renderProviders(providerId, now);
     }
 
-    /** Plan badge for the followed provider; "Claude Code usage" when it reports no plan. */
+    /**
+     * Plan badge for the followed provider; "Claude Code usage" when it reports no plan, and
+     * "Sign in on phone" when it is signed out there.
+     */
     private String accountText(UsageSnapshot snapshot, String providerName) {
+        if (!WearPreferences.isSelectedSignedIn(this)) {
+            return getString(R.string.wear_provider_signed_out);
+        }
         if (snapshot != null && snapshot.allowed && !snapshot.limitReached
                 && snapshot.planType.trim().isEmpty()) {
             return getString(R.string.wear_provider_usage, providerName);

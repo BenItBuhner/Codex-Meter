@@ -31,6 +31,11 @@ shot() {
 open_app() {
   adb shell input keyevent KEYCODE_WAKEUP
   adb shell am start -W -n "$PKG/.WearMainActivity" >/dev/null
+  # Wait until the app's own window has focus, past the launch splash.
+  for _ in $(seq 1 30); do
+    adb shell dumpsys window | grep -q "mCurrentFocus=.*WearMainActivity" && break
+    sleep 1
+  done
 }
 
 scroll_down() { adb shell input swipe 225 380 225 120 300; }
@@ -46,27 +51,25 @@ seed cursor;      open_app; shot 06-app-cursor 12
 seed copilot;     open_app; shot 07-app-copilot 12
 seed kimi;        open_app; shot 08-app-signed-out 12
 
-# Tiles follow the same choice; show them for Codex and Claude Code.
+# Tiles follow the same choice; show them for Codex and Claude Code. This Wear OS build
+# has no show-tile debug operation, so each tile is added alone and reached by swiping
+# left from the watch face.
 show_tiles() {
   local tag="$1" n=0
   for tile in UsageOverviewTileService FiveHourTileService WeeklyTileService \
       ResetCountdownTileService MonitorStatusTileService; do
     n=$((n + 1))
-    local result index
-    result="$(adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
-      --es operation add-tile --ecn component "$PKG/$PKG.$tile")"
-    index="$(sed -n 's/.*Index=\[\([0-9]*\)\].*/\1/p' <<<"$result")"
-    echo "$tile: $result"
-    if [[ -z "$index" ]]; then
-      echo "Could not add $tile: $result"
-      continue
-    fi
     adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
-      --es operation show-tile --ei index "$index"
-    shot "$(printf '%s-tile-%d-%s' "$tag" "$n" "$tile")" 10
+      --es operation clear-tiles >/dev/null
+    adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
+      --es operation add-tile --ecn component "$PKG/$PKG.$tile" | tail -n 1
+    sleep 2
+    adb shell input keyevent KEYCODE_WAKEUP
+    adb shell input keyevent KEYCODE_HOME
+    sleep 2
+    adb shell input swipe 400 225 50 225 250
+    shot "$(printf '%s-tile-%d-%s' "$tag" "$n" "$tile")" 8
   done
-  adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
-    --es operation clear-tiles >/dev/null || true
 }
 
 seed codex;       show_tiles 10-codex
