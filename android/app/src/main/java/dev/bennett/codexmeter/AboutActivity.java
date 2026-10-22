@@ -202,6 +202,8 @@ public final class AboutActivity extends AppCompatActivity {
         floating.enableScrollTransition(false, true);
         floating.enableToolbarItemBackgroundTransition(true);
         scroll.seslSetFadingEdgeEnabled(true);
+        // Fade into the page color instead of erasing; see OneUi9Page.bindScroller.
+        scroll.seslSetFadingEdgeColor(getColor(R.color.oui_des_round_and_bgcolor));
         floating.setNestedScrollView(scroll);
         ViewCompat.setOnApplyWindowInsetsListener(floating, (view, insets) -> {
             int top = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
