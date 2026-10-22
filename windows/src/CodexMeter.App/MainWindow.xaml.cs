@@ -106,8 +106,7 @@ public sealed partial class MainWindow : Window
 
     private void OnProvidersChanged()
     {
-        var current = (Nav.SelectedItem as NavigationViewItem)?.Tag as string;
-        BuildNavigation(current);
+        BuildNavigation(currentTag.Length > 0 ? currentTag : null);
     }
 
     /// <summary>One pane item per enabled provider, in the user's order, with the provider's own mark.</summary>

@@ -33,7 +33,7 @@ public static class Program
             SynchronizationContext.SetSynchronizationContext(context);
             _ = new App(options);
         });
-        return App.Current?.ExitCode ?? 0;
+        return App.ExitCode;
     }
 }
 

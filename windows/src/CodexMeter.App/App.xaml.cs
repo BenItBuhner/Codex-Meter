@@ -34,7 +34,8 @@ public partial class App : Application
 
     public AppState State { get; private set; } = null!;
 
-    public int ExitCode { get; private set; }
+    /// <summary>Kept static so <c>Main</c> can read it after the application object is gone.</summary>
+    public static int ExitCode { get; private set; }
 
     public MainWindow? Window => window;
 

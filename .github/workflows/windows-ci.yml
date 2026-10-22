@@ -79,6 +79,7 @@ jobs:
         run: |
           $shots = Join-Path $PWD 'out/screenshots'
           $p = Start-Process -FilePath out/CodexMeter-win-x64/CodexMeter.exe -ArgumentList '--screenshots', "`"$shots`"" -PassThru
+          $null = $p.Handle  # keeps the exit code readable after exit
           if (-not $p.WaitForExit(240000)) { $p.Kill(); throw 'Screenshot run timed out' }
           Get-ChildItem $shots | Format-Table Name, Length
           $log = Join-Path $env:LOCALAPPDATA 'CodexMeter/codexmeter.log'
