@@ -136,7 +136,12 @@ public final class ClaudeUsageApi {
                         "weekly", snapshot.weekly != null,
                         "additional_limits", snapshot.additionalLimits.size(),
                         "saved_resets", savedResets == null ? -1
-                                : savedResets.availableCount(System.currentTimeMillis()));
+                                : savedResets.availableCount(System.currentTimeMillis()),
+                        "saved_resets_eligible", savedResets != null && savedResets.eligible,
+                        "saved_resets_reason", savedResets == null ? "absent"
+                                : savedResets.ineligibleReason,
+                        "saved_reset_grants", savedResets == null ? 0
+                                : savedResets.grants.size());
                 return snapshot;
             }
         } catch (Exception exception) {
@@ -247,7 +252,8 @@ public final class ClaudeUsageApi {
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("Authorization", "Bearer " + tokens.accessToken);
             connection.setRequestProperty("anthropic-beta", ClaudeCodeApi.OAUTH_BETA);
-            connection.setRequestProperty("User-Agent", AppConstants.userAgent());
+            connection.setRequestProperty("User-Agent", ClaudeCodeApi.CLI_USER_AGENT);
+            connection.setRequestProperty("x-app", ClaudeCodeApi.CLI_APP);
             int status = connection.getResponseCode();
             String body = OAuthClient.readBody(connection, status);
             DiagnosticLog.info(context, "network", "request_finished", "operation", operation,

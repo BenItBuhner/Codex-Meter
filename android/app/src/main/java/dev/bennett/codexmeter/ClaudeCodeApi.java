@@ -25,6 +25,13 @@ public final class ClaudeCodeApi {
     /** Spends a saved reset; {@code %s} is the organization UUID. */
     public static final String RESET_RATE_LIMITS_URL =
             "https://api.anthropic.com/api/organizations/%s/reset_rate_limits";
+    /**
+     * Client headers matching the Claude Code CLI. The server decides saved-reset eligibility
+     * per client surface and CLI version, so without these the {@code cedar_ember} block comes
+     * back ineligible or empty for an account that has resets.
+     */
+    public static final String CLI_USER_AGENT = "claude-cli/2.1.307 (external, cli)";
+    public static final String CLI_APP = "cli";
     /** Required beta header for OAuth-token access to api.anthropic.com. */
     public static final String OAUTH_BETA = "oauth-2025-04-20";
     /** Read-only scopes: profile for the plan badge, inference matches Claude Code's grant. */
