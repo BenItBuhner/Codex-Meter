@@ -131,6 +131,7 @@ dependencies {
     implementation("io.github.tribalfs:oneui-design:0.9.20+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
     if (oneUi9) {
+        implementation(project(":oneui9compat"))
         sesl9.forEach { (module, pinned) ->
             implementation(module) { version { strictly(pinned) } }
         }
