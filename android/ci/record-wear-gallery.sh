@@ -36,15 +36,15 @@ open_app() {
 scroll_down() { adb shell input swipe 225 380 225 120 300; }
 
 seed
-open_app;    shot 01-app-codex 6
+open_app;    shot 01-app-codex 12
 scroll_down; shot 02-app-details
 scroll_down; shot 03-app-providers
 scroll_down; shot 04-app-providers-more
 
-seed claude_code; open_app; shot 05-app-claude-code 6
-seed cursor;      open_app; shot 06-app-cursor 6
-seed copilot;     open_app; shot 07-app-copilot 6
-seed kimi;        open_app; shot 08-app-signed-out 6
+seed claude_code; open_app; shot 05-app-claude-code 12
+seed cursor;      open_app; shot 06-app-cursor 12
+seed copilot;     open_app; shot 07-app-copilot 12
+seed kimi;        open_app; shot 08-app-signed-out 12
 
 # Tiles follow the same choice; show them for Codex and Claude Code.
 show_tiles() {
@@ -56,13 +56,14 @@ show_tiles() {
     result="$(adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
       --es operation add-tile --ecn component "$PKG/$PKG.$tile")"
     index="$(sed -n 's/.*Index=\[\([0-9]*\)\].*/\1/p' <<<"$result")"
+    echo "$tile: $result"
     if [[ -z "$index" ]]; then
       echo "Could not add $tile: $result"
       continue
     fi
     adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
-      --es operation show-tile --ei index "$index" >/dev/null
-    shot "$(printf '%s-tile-%d-%s' "$tag" "$n" "$tile")" 6
+      --es operation show-tile --ei index "$index"
+    shot "$(printf '%s-tile-%d-%s' "$tag" "$n" "$tile")" 10
   done
   adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE \
     --es operation clear-tiles >/dev/null || true
@@ -70,3 +71,10 @@ show_tiles() {
 
 seed codex;       show_tiles 10-codex
 seed claude_code; show_tiles 20-claude-code
+
+adb logcat -d -b crash > "$OUT/logcat-crash.txt" || true
+adb logcat -d > "$OUT/logcat.txt" || true
+if [[ -s "$OUT/logcat-crash.txt" ]]; then
+  echo "Crashes during the gallery run:"
+  cat "$OUT/logcat-crash.txt"
+fi
