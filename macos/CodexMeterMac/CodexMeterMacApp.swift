@@ -9,6 +9,7 @@ extension Notification.Name {
 
 /// Owns the one `AppModel` shared by the main window, the menu bar extra, and Settings, and
 /// mirrors the iOS app delegate's notification handling.
+@MainActor
 final class MacAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     let model = AppModel()
 
@@ -31,14 +32,14 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationC
         model.sceneBecameInactive()
     }
 
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .list, .sound]
     }
 
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
