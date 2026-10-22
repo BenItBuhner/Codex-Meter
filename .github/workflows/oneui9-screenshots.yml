@@ -2,7 +2,7 @@ name: One UI 9 screenshots (temporary)
 
 # One-off: renders alpha (SESL8 baseline), this branch in classic mode and this branch in
 # One UI 9 mode with sample data, plus frame strips of the animations and a recording of the
-# design switch. Output goes to refs/ci-screenshots/oneui9. Removed before the PR merges.
+# design switch. Output goes to refs/ci-screenshots/oneui9-switch. Removed before the PR merges.
 on:
   push:
     branches: [claude/project-thread-cidms8]
@@ -216,7 +216,7 @@ jobs:
           pattern: shots-*
           merge-multiple: true
           path: shots
-      - name: Publish to refs/ci-screenshots/oneui9
+      - name: Publish to refs/ci-screenshots/oneui9-switch
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -226,4 +226,4 @@ jobs:
           git init -q
           git add -A
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "One UI 9 screenshots"
-          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/oneui9
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/oneui9-switch
