@@ -1,0 +1,21 @@
+10-22 14:38:28.554   521   551 I ActivityManager: Start proc 3722:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:39:09.842   521   551 I ActivityManager: Start proc 4815:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:39:44.143   521   551 I ActivityManager: Start proc 5088:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:40:18.207   521   551 I ActivityManager: Start proc 5245:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:40:52.640   521   551 I ActivityManager: Start proc 5374:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:41:30.309   521   551 I ActivityManager: Start proc 5533:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:42:07.613   521   551 I ActivityManager: Start proc 5694:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:42:47.759   521   551 I ActivityManager: Start proc 5861:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:43:11.749   521   551 I ActivityManager: Start proc 6152:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:43:36.346   521   551 I ActivityManager: Start proc 6532:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:44:06.543   521  2586 I ActivityManager: Process dev.bennett.codexmeter (pid 6532) has died: fg  TOP 
+10-22 14:44:06.581   521   551 I ActivityManager: Start proc 6978:dev.bennett.codexmeter/u0a192 for top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.SettingsActivity}
+10-22 14:44:49.371   521   817 I ActivityManager: Process dev.bennett.codexmeter (pid 6978) has died: fg  TOP 
+10-22 14:44:49.432   521   551 I ActivityManager: Start proc 7663:dev.bennett.codexmeter/u0a192 for top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.SettingsActivity}
+10-22 14:45:23.900   521   551 I ActivityManager: Start proc 8006:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:46:00.356   521   551 I ActivityManager: Start proc 8143:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:46:33.030   521   551 I ActivityManager: Start proc 8271:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:47:05.603   521   551 I ActivityManager: Start proc 8391:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:47:38.895   521   551 I ActivityManager: Start proc 8521:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:48:15.521   521   551 I ActivityManager: Start proc 8677:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
+10-22 14:48:51.937   521   551 I ActivityManager: Start proc 8834:dev.bennett.codexmeter/u0a192 for next-top-activity {dev.bennett.codexmeter/dev.bennett.codexmeter.DebugSeedActivity}
