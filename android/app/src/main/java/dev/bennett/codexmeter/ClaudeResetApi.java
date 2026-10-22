@@ -169,7 +169,8 @@ public final class ClaudeResetApi {
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("Authorization", "Bearer " + tokens.accessToken);
             connection.setRequestProperty("anthropic-beta", ClaudeCodeApi.OAUTH_BETA);
-            connection.setRequestProperty("User-Agent", AppConstants.userAgent());
+            connection.setRequestProperty("User-Agent", ClaudeCodeApi.CLI_USER_AGENT);
+            connection.setRequestProperty("x-app", ClaudeCodeApi.CLI_APP);
             connection.setFixedLengthStreamingMode(payload.length);
             try (OutputStream output = connection.getOutputStream()) {
                 output.write(payload);

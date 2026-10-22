@@ -182,6 +182,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     bindRefresh();
                     bindResetCreditAutoUse();
                     bindClaudeSavedResets();
+                    bindResetStatus();
                     bindUsagePace();
                     break;
                 case PAGE_NOTIFICATIONS:
@@ -260,6 +261,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 updateUpdateSummary();
             } else if (PAGE_DIAGNOSTICS.equals(page)) {
                 updateDiagnosticSummary();
+            } else if (PAGE_REFRESH_USAGE.equals(page)) {
+                updateResetStatus();
             }
         }
 
@@ -725,6 +728,73 @@ public final class SettingsActivity extends AppCompatActivity {
                         String.valueOf(value));
                 return true;
             });
+        }
+
+        /** "Your resets" rows: what each provider has right now; tap opens its reset screen. */
+        private void bindResetStatus() {
+            bindResetStatusRow("reset_credit_status_ui", UsageProvider.CODEX);
+            bindResetStatusRow("claude_saved_reset_status_ui", UsageProvider.CLAUDE_CODE);
+            updateResetStatus();
+        }
+
+        private void bindResetStatusRow(String key, UsageProvider provider) {
+            Preference row = findPreference(key);
+            if (row == null) return;
+            row.setOnPreferenceClickListener(preference -> {
+                if (!SecureTokenStore.isSignedIn(requireContext(), provider)) return true;
+                Ui.startSecondaryActivity(requireActivity(),
+                        ResetCreditActivity.intent(requireContext(), provider));
+                return true;
+            });
+        }
+
+        private void updateResetStatus() {
+            Context context = requireContext();
+            long now = System.currentTimeMillis();
+            Preference codex = findPreference("reset_credit_status_ui");
+            if (codex != null) {
+                ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
+                codex.setSummary(!SecureTokenStore.isSignedIn(context, UsageProvider.CODEX)
+                        ? "Sign in to view reset credits"
+                        : credits == null ? "Not checked yet. Refresh the Codex tab."
+                        : resetStatus(context, credits.availableCount,
+                                credits.nextExpiryMillis(now), now));
+            }
+            Preference claude = findPreference("claude_saved_reset_status_ui");
+            if (claude != null) {
+                claude.setSummary(claudeResetStatus(context, now));
+            }
+        }
+
+        private static String claudeResetStatus(Context context, long now) {
+            if (!SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE)) {
+                return "Sign in to view reset credits";
+            }
+            ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(context,
+                    UsageProvider.CLAUDE_CODE);
+            if (saved == null) {
+                return "Not checked yet. Refresh the Claude Code tab.";
+            }
+            if (!saved.eligible && saved.availableCount(now) <= 0) {
+                return "Anthropic is not offering resets to this account here"
+                        + (saved.ineligibleReason.isEmpty() ? ""
+                                : " (" + saved.ineligibleReason.replace('_', ' ') + ")");
+            }
+            ResetCreditsSnapshot credits = saved.toResetCreditsSnapshot(now);
+            String status = resetStatus(context, credits.availableCount,
+                    credits.nextExpiryMillis(now), now);
+            if (credits.availableCount > 0 && saved.usableGrant(now) == null) {
+                status += "\n" + saved.unavailableMessage(now);
+            }
+            return status;
+        }
+
+        private static String resetStatus(Context context, int available, long nextExpiry,
+                long now) {
+            String count = available <= 0 ? "No resets available"
+                    : available == 1 ? "1 reset available" : available + " resets available";
+            if (available <= 0 || nextExpiry <= 0L) return count;
+            return count + " · Next expires " + UsageFormat.absolute(context, nextExpiry, now);
         }
 
         private void bindClaudeSavedResets() {
