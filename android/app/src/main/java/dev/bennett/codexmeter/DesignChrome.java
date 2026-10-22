@@ -111,8 +111,19 @@ final class DesignChrome {
      */
     private static void keepCollapsedAppBarsPinned(ViewGroup content) {
         for (AppBarLayout appBar : descendants(content, AppBarLayout.class)) {
+            boolean changed = false;
+            // SESL9 sizes the scroll range for a floating toolbar, which pushes content (and the
+            // widget page's Cancel / Save bar) a toolbar-height below the screen.
+            if (appBar.useFloatingToolbar()) {
+                appBar.setUseFloatingToolbar(false);
+                changed = true;
+            }
             if (appBar.seslCanChangeToHideState()) {
                 appBar.seslSetAllowStateToHide(false);
+                changed = true;
+            }
+            if (changed) {
+                appBar.requestLayout();
             }
         }
     }
