@@ -69,6 +69,28 @@ jobs:
           codesign --verify --deep --strict "$APP"
           echo "Bundle OK"
 
+      - name: Smoke-launch the app
+        id: smoke
+        shell: bash
+        run: ./ci/smoke-launch.sh "DerivedData/Build/Products/Debug/Codex Meter.app/Contents/MacOS/Codex Meter" smoke
+
+      - name: Upload smoke diagnostics
+        if: always() && steps.smoke.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-smoke
+          path: macos/smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop when the app does not settle
+        if: steps.smoke.outputs.healthy != 'true'
+        shell: bash
+        run: |
+          cat smoke/summary.txt
+          echo "::error::The app did not settle after launch; see the smoke summary above"
+          exit 1
+
       - name: Run unit and UI tests
         shell: bash
         run: |

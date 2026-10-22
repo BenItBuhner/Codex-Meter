@@ -81,4 +81,14 @@ enum MacLaunchOptions {
         false
 #endif
     }
+
+    /// `-mac-diag-<name>` switches off one part of the Mac shell, so CI can bisect a launch
+    /// problem without a Mac at hand: `commands`, `menubar`, `sidebar`, `dashboard`, `root`.
+    static func diagnosticDisables(_ name: String) -> Bool {
+#if DEBUG
+        arguments.contains("-mac-diag-no-\(name)")
+#else
+        false
+#endif
+    }
 }

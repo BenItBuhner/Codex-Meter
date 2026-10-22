@@ -13,11 +13,21 @@ struct MacRootView: View {
         @Bindable var model = model
 
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            MacSidebar()
-                .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 320)
+            Group {
+                if MacLaunchOptions.diagnosticDisables("sidebar") {
+                    Text("Sidebar")
+                } else {
+                    MacSidebar()
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 320)
         } detail: {
             NavigationStack {
-                DashboardView(provider: model.selectedProvider)
+                if MacLaunchOptions.diagnosticDisables("dashboard") {
+                    Text("Dashboard")
+                } else {
+                    DashboardView(provider: model.selectedProvider)
+                }
             }
             // A fresh stack per provider, so a pushed Edit dashboard or history page never
             // carries over to another provider.

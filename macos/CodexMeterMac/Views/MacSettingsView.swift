@@ -97,37 +97,44 @@ struct MacCommands: Commands {
         CommandGroup(replacing: .newItem) {}
 
         CommandMenu("Usage") {
-            Button("Refresh") {
-                Task { await model.macRefresh(model.selectedProvider) }
+            if !MacLaunchOptions.diagnosticDisables("commands") {
+                usageItems
             }
-            .keyboardShortcut("r")
+        }
+    }
 
-            Button("Refresh All Providers") {
-                Task { await model.macRefreshAll() }
+    @ViewBuilder
+    private var usageItems: some View {
+        Button("Refresh") {
+            Task { await model.macRefresh(model.selectedProvider) }
+        }
+        .keyboardShortcut("r")
+
+        Button("Refresh All Providers") {
+            Task { await model.macRefreshAll() }
+        }
+        .keyboardShortcut("r", modifiers: [.command, .shift])
+
+        Divider()
+
+        ForEach(Array(model.enabledProviders.prefix(9).enumerated()), id: \.element) { index, provider in
+            Button(provider.displayName) {
+                model.select(provider: provider)
             }
-            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
+        }
 
-            Divider()
+        Divider()
 
-            ForEach(Array(model.enabledProviders.prefix(9).enumerated()), id: \.element) { index, provider in
-                Button(provider.displayName) {
-                    model.select(provider: provider)
-                }
-                .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
-            }
+        Button("Use a Reset Credit…") {
+            model.select(provider: .codex)
+            model.isShowingReset = true
+        }
+        .disabled(model.mode == .signedOut)
 
-            Divider()
-
-            Button("Use a Reset Credit…") {
-                model.select(provider: .codex)
-                model.isShowingReset = true
-            }
-            .disabled(model.mode == .signedOut)
-
-            if model.mode == .signedOut {
-                Button("Explore Demo") {
-                    Task { await model.enterDemo() }
-                }
+        if model.mode == .signedOut {
+            Button("Explore Demo") {
+                Task { await model.enterDemo() }
             }
         }
     }

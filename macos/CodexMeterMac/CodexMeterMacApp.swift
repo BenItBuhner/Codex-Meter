@@ -75,17 +75,26 @@ struct CodexMeterMacApp: App {
 
     private var model: AppModel { appDelegate.model }
 
+    private var menuBarExtraInserted: Binding<Bool> {
+        MacLaunchOptions.diagnosticDisables("menubar") ? .constant(false) : $showsMenuBarExtra
+    }
+
     var body: some Scene {
         Window("Codex Meter", id: MacSceneID.main) {
-            MacRootView()
-                .environment(model)
+            if MacLaunchOptions.diagnosticDisables("root") {
+                Text("Codex Meter")
+                    .frame(width: 400, height: 300)
+            } else {
+                MacRootView()
+                    .environment(model)
+            }
         }
         .defaultSize(width: 1_040, height: 760)
         .commands {
             MacCommands(model: model)
         }
 
-        MenuBarExtra(isInserted: $showsMenuBarExtra) {
+        MenuBarExtra(isInserted: menuBarExtraInserted) {
             MenuBarPanel()
                 .environment(model)
         } label: {
