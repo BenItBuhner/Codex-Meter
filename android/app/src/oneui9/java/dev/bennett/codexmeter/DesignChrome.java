@@ -168,10 +168,16 @@ final class DesignChrome {
         CoordinatorLayout.LayoutParams params = new CoordinatorLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.setAnchorId(appBar.getId());
-        // Anchored TOP places the floating bar's bottom edge on the app bar's top edge... so the
-        // pair below keeps it pinned to the top of the window as the app bar scrolls away.
-        params.anchorGravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-        params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+        ViewGroup.LayoutParams toolbarParams = toolbar.getLayoutParams();
+        boolean bottomAligned = toolbarParams instanceof FrameLayout.LayoutParams
+                && (((FrameLayout.LayoutParams) toolbarParams).gravity
+                        & Gravity.VERTICAL_GRAVITY_MASK) == Gravity.BOTTOM;
+        // In an anchored CoordinatorLayout, TOP places the child's bottom at the anchor and
+        // BOTTOM places its top there.
+        params.anchorGravity = (bottomAligned ? Gravity.BOTTOM : Gravity.TOP)
+                | Gravity.CENTER_HORIZONTAL;
+        params.gravity = (bottomAligned ? Gravity.TOP : Gravity.BOTTOM)
+                | Gravity.CENTER_HORIZONTAL;
         coordinator.addView(floating, params);
 
         Runnable moveToolbars = () -> {
@@ -189,7 +195,21 @@ final class DesignChrome {
             if (toolbarHeight > 0) {
                 collapsing.setMinimumHeight(toolbarHeight);
             }
+            // The floating controls keep the app bar's status-bar inset.
+            CoordinatorLayout.LayoutParams floatingParams =
+                    (CoordinatorLayout.LayoutParams) floating.getLayoutParams();
+            if (floatingParams.topMargin != appBar.getPaddingTop()) {
+                floatingParams.topMargin = appBar.getPaddingTop();
+                floating.setLayoutParams(floatingParams);
+            }
+            // The collapsed stop keeps that inset too, so content only reaches the toolbar once
+            // SESL9 enters its floating phase.
             float collapsedHeight = collapsedToolbarHeight + appBar.getPaddingTop();
+            // Fixed-height pages (widget settings) need room for the inset as well, or SESL9
+            // treats them as already scrolled away on entry.
+            if (!appBar.isEnabled() && appBar.getLayoutParams().height != (int) collapsedHeight) {
+                appBar.seslSetCustomHeight((int) collapsedHeight);
+            }
             if (appBar.seslGetCollapsedHeight() != collapsedHeight) {
                 appBar.seslSetCollapsedHeight(collapsedHeight);
                 appBar.requestLayout();
