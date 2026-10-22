@@ -8,12 +8,20 @@ public final class LockWidgetOptions {
     public final boolean showResetCredits;
     /** Ordered CSV of {@link WidgetMeters} keys; empty means migrate from {@link #metricMode}. */
     public final String visibleMeters;
+    /** Short and long limits share one dial, the long one in a lighter shade. */
+    public final boolean overlapMeters;
 
     public LockWidgetOptions(String str, boolean z, boolean z2, boolean z3) {
         this(str, z, z2, z3, "");
     }
 
     public LockWidgetOptions(String str, boolean z, boolean z2, boolean z3, String visibleMeters) {
+        this(str, z, z2, z3, visibleMeters, false);
+    }
+
+    public LockWidgetOptions(String str, boolean z, boolean z2, boolean z3, String visibleMeters,
+            boolean overlapMeters) {
+        this.overlapMeters = overlapMeters;
         if (!"five_hour".equals(str) && !"weekly".equals(str)) {
             str = "both";
         }
@@ -31,7 +39,12 @@ public final class LockWidgetOptions {
 
     public LockWidgetOptions withVisibleMeters(String metersCsv) {
         return new LockWidgetOptions(this.metricMode, this.showResetCredits, this.showResetAction,
-                this.showCountdown, metersCsv);
+                this.showCountdown, metersCsv, this.overlapMeters);
+    }
+
+    public LockWidgetOptions withOverlapMeters(boolean overlap) {
+        return new LockWidgetOptions(this.metricMode, this.showResetCredits, this.showResetAction,
+                this.showCountdown, this.visibleMeters, overlap);
     }
 
     public String effectiveVisibleMeters() {

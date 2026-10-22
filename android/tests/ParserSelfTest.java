@@ -68,6 +68,7 @@ public final class ParserSelfTest {
         testSettingsTransfer();
         testUsageProviders();
         testWidgetProviders();
+        testMeterOverlap();
         testClaudeUsageParsing();
         testClaudeOAuthRequests();
         testCursorUsageParsing();
@@ -2310,6 +2311,20 @@ public final class ParserSelfTest {
                     "minimal mode hides every optional highlight");
         }
         System.out.println("History highlights: minimal defaults + per-insight overrides verified.");
+    }
+
+    private static void testMeterOverlap() {
+        check(MeterOverlap.longUnderneath(63, 80) && !MeterOverlap.longUnderneath(63, 39),
+                "the larger fill goes underneath");
+        check(MeterOverlap.under(63, 39) == 63 && MeterOverlap.over(63, 39) == 39,
+                "overlapped fills: larger under, smaller over");
+        check(MeterOverlap.over(63, -1) == -1 && MeterOverlap.under(-1, 40) == 40,
+                "a missing limit leaves one fill");
+        check(MeterOverlap.under(140, 20) == 100, "overlapped fills clamp at 100");
+        check("63 · 39%".equals(MeterOverlap.text(63, 39, true))
+                && "— · 39".equals(MeterOverlap.text(-1, 39, false)),
+                "overlapped value text");
+        System.out.println("Overlapped meters: layering and labels verified.");
     }
 
     private static void testWidgetProviders() {

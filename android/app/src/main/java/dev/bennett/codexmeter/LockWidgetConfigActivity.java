@@ -27,6 +27,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
     private CheckBox showResetAction;
     private CheckBox showResetCredits;
     private TextView metersHint;
+    private SwitchCompat overlapSwitch;
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private List<UsageProvider> providers = new ArrayList<>();
     private final java.util.Map<UsageProvider, SwitchCompat> providerSwitches =
@@ -148,6 +149,11 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                 updatePreview();
             });
         }
+        this.overlapSwitch = new SwitchCompat(this);
+        this.overlapSwitch.setChecked(saved.overlapMeters);
+        metersCard.addView(buildSwitchRow("Overlap 5-hour and weekly in one dial",
+                this.overlapSwitch, true));
+        this.overlapSwitch.setOnCheckedChangeListener((button, checked) -> updatePreview());
         linearLayout.addView(metersCard);
 
         linearLayout.addView(Ui.separator(this, "Content"));
@@ -237,7 +243,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             metricMode = WidgetOptions.METRIC_WEEKLY;
         }
         return new LockWidgetOptions(metricMode, this.showResetCredits.isChecked(),
-                this.showResetAction.isChecked(), this.showCountdown.isChecked(), visible);
+                this.showResetAction.isChecked(), this.showCountdown.isChecked(), visible,
+                this.overlapSwitch != null && this.overlapSwitch.isChecked());
     }
 
     private int maxProviders() {
