@@ -5,7 +5,7 @@
 ### Changed
 
 - iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.
-- iOS Settings → Accounts matches Android: connected accounts only, plus an Add account row that opens a searchable provider picker. One sign-in screen handles device codes, pasted tokens and API keys, and marks experimental providers.
+- iOS Settings → Accounts matches Android: one Accounts row listing the connected services opens an Accounts page with the connected accounts (email · plan, or "API key" / "Signed in") and an Add account row that opens a searchable provider picker. The Cursor row now shows its email. One sign-in screen handles device codes, pasted tokens and API keys, and marks experimental providers.
 - iOS first-run setup uses the same searchable multi-select provider picker as Android, and Settings → Providers lists only tabs that are on and connected accounts.
 - iOS home-screen and lock-screen widgets can each show a chosen provider (Codex, Claude Code, Cursor or any connected provider). Existing widgets keep showing Codex.
 

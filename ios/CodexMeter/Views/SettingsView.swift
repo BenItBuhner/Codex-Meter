@@ -6,8 +6,6 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    @State private var signingIn: UsageProvider?
-    @State private var confirmingSignOut: UsageProvider?
     @State private var isExportingSettings = false
     @State private var isImportingSettings = false
     @State private var transferMessage: String?
@@ -16,10 +14,7 @@ struct SettingsView: View {
         @Bindable var model = model
 
         Form {
-            ProviderAccountsSection(
-                signingIn: $signingIn,
-                confirmingSignOut: $confirmingSignOut
-            )
+            SettingsAccountsSection()
 
             Section("Appearance") {
                 Picker("Appearance", selection: $model.settings.appearance) {
@@ -206,10 +201,6 @@ struct SettingsView: View {
         .task {
             await model.refreshNotificationPermissionState()
         }
-        .providerAccountPresentations(
-            signingIn: $signingIn,
-            confirmingSignOut: $confirmingSignOut
-        )
         .fileExporter(
             isPresented: $isExportingSettings,
             document: SettingsTransferDocument(settings: model.settings),

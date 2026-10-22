@@ -39,7 +39,7 @@ extension View {
         modifier(ProviderSignInSheetModifier(provider: provider))
     }
 
-    /// The sign-in sheet and sign-out confirmation behind `ProviderAccountsSection`. Attach it
+    /// The sign-in sheet and sign-out confirmation behind `AccountsView`. Attach it
     /// to the Form rather than to rows inside the list.
     func providerAccountPresentations(
         signingIn: Binding<UsageProvider?>,
@@ -124,14 +124,11 @@ private struct ProviderAccountPresentations: ViewModifier {
     }
 }
 
-/// Settings → Accounts: only the accounts that are connected, in tab order, then one
-/// "Add account" row that opens the searchable provider picker. Tapping a connected row asks
-/// to sign out. Mirrors Android's Accounts section.
-struct ProviderAccountsSection: View {
+/// The top of Settings: demo controls while in demo, then one Accounts row that lists the
+/// connected services and opens the Accounts page. Mirrors Android.
+struct SettingsAccountsSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @Binding var signingIn: UsageProvider?
-    @Binding var confirmingSignOut: UsageProvider?
 
     var body: some View {
         Section {
@@ -143,15 +140,55 @@ struct ProviderAccountsSection: View {
                         dismiss()
                     }
                 }
-            } else {
-                ForEach(model.connectedProviders) { provider in
-                    accountRow(provider)
+            }
+            NavigationLink {
+                AccountsView()
+            } label: {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Accounts")
+                        Text(model.connectedAccountsSummary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                } icon: {
+                    Image(systemName: "person.crop.circle")
                 }
+            }
+            .accessibilityIdentifier("settings-accounts")
+        } header: {
+            Text("General")
+        }
+    }
+}
+
+/// Settings → Accounts: the connected accounts in tab order (tap one to sign out), then a
+/// separate Add account row that opens the searchable provider picker. Mirrors Android.
+struct AccountsView: View {
+    @Environment(AppModel.self) private var model
+    @State private var signingIn: UsageProvider?
+    @State private var confirmingSignOut: UsageProvider?
+
+    var body: some View {
+        Form {
+            if !model.connectedProviders.isEmpty {
+                Section("Connected") {
+                    ForEach(model.connectedProviders) { provider in
+                        accountRow(provider)
+                    }
+                }
+            }
+            Section {
                 addAccountRow
             }
-        } header: {
-            Text("Accounts")
         }
+        .navigationTitle("Accounts")
+        .navigationBarTitleDisplayMode(.inline)
+        .providerAccountPresentations(
+            signingIn: $signingIn,
+            confirmingSignOut: $confirmingSignOut
+        )
     }
 
     private var addAccountRow: some View {
@@ -167,11 +204,11 @@ struct ProviderAccountsSection: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Add account")
                         .foregroundStyle(Color.primary)
-                    if model.connectedProviders.isEmpty {
-                        Text("Codex, Claude Code, Cursor, Copilot and more")
-                            .font(.footnote)
-                            .foregroundStyle(Color.secondary)
-                    }
+                    Text(model.connectedProviders.isEmpty
+                        ? "Codex, Claude Code, Cursor, Copilot and more"
+                        : "Connect another service")
+                        .font(.footnote)
+                        .foregroundStyle(Color.secondary)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
@@ -194,7 +231,7 @@ struct ProviderAccountsSection: View {
                     // Concrete colors: a List button tints hierarchical styles with the accent.
                     Text(provider.displayName)
                         .foregroundStyle(Color.primary)
-                    Text(subtitle(provider))
+                    Text(model.accountSummary(for: provider))
                         .font(.footnote)
                         .foregroundStyle(Color.secondary)
                         .lineLimit(1)
@@ -207,13 +244,6 @@ struct ProviderAccountsSection: View {
             }
         }
         .accessibilityIdentifier("account-\(provider.rawValue)")
-    }
-
-    private func subtitle(_ provider: UsageProvider) -> String {
-        let email = model.accountEmail(for: provider)
-        let plan = model.accountPlan(for: provider)
-        let identity = email.isEmpty ? "Signed in" : email
-        return plan.isEmpty ? identity : "\(identity) · \(plan)"
     }
 }
 

@@ -282,8 +282,8 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("22-onboarding-connect")
 
-        // Accounts live in Settings: connected accounts, then Add account (nothing is
-        // connected on a signed-out install).
+        // Settings → Accounts opens its own page: connected accounts, then Add account
+        // (nothing is connected on a signed-out install).
         app.terminate()
         app.launchArguments = [
             "-ui-testing-signed-out",
@@ -293,9 +293,13 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 8))
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("23-settings-accounts-row")
+        UITestSupport.tap(app.buttons["settings-accounts"])
+        XCTAssertTrue(app.navigationBars["Accounts"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["account-add"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("23-settings-accounts")
+        capture("23b-accounts-page")
 
         // Add account: the searchable picker of every provider, then each sign-in style.
         UITestSupport.tap(app.buttons["account-add"])

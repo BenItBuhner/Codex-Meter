@@ -31,6 +31,8 @@ final class ProviderUsageModel {
     var phase: Phase = .signedOut
     var usage: UsageSnapshot?
     var accountEmail = ""
+    /// The account is a pasted API key rather than a sign-in.
+    var usesAPIKey = false
     var visibleError: String?
     var isUsingCachedData = false
     var isRefreshing = false
@@ -96,6 +98,7 @@ final class ProviderUsageModel {
         }
         phase = .live
         accountEmail = tokens.email
+        usesAPIKey = isAPIKey(tokens)
         if let cached = await service.cachedSnapshot() {
             usage = cached.usage
             isUsingCachedData = cached.usage != nil
@@ -273,6 +276,7 @@ final class ProviderUsageModel {
         signInError = nil
         phase = .live
         accountEmail = tokens.email
+        usesAPIKey = isAPIKey(tokens)
         usage = nil
         visibleError = nil
         isUsingCachedData = false
