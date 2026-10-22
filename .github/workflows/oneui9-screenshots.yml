@@ -86,6 +86,8 @@ jobs:
           adb install -r android/app/build/outputs/apk/debug/app-debug.apk
           adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
           adb shell cmd connectivity airplane-mode enable || true
+          # The emulator launcher sometimes ANRs; keep its dialog off the captures.
+          adb shell settings put global hide_error_dialogs 1 || true
           # Animations on for the recordings (the runner disables them by default).
           adb shell settings put global window_animation_scale 1
           adb shell settings put global transition_animation_scale 1
