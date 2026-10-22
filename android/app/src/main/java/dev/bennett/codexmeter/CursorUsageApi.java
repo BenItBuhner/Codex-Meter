@@ -79,6 +79,9 @@ public final class CursorUsageApi {
                     DiagnosticLog.warn(context, "refresh", "cursor_profile_failed",
                             "error", profileError.getClass().getSimpleName());
                 }
+                if (ProviderPreferences.getEmail(context, PROVIDER).isEmpty()) {
+                    fetchEmail(context, tokens.accessToken);
+                }
                 if (plan.isEmpty()) {
                     UsageSnapshot previous = ProviderPreferences.loadSnapshot(context, PROVIDER);
                     if (previous != null) plan = previous.planType;
@@ -213,6 +216,21 @@ public final class CursorUsageApi {
     }
 
     /** POST with a JSON body when {@code body} is set, otherwise GET. */
+    /** Saves the account email so Settings → Accounts can show it like other providers. */
+    private static void fetchEmail(Context context, String accessToken) {
+        try {
+            Response response = request(context, "cursor_email", CursorApi.EMAIL_URL, "{}",
+                    accessToken);
+            if (response.status >= 200 && response.status < 300) {
+                String email = CursorUsageParser.email(response.body);
+                if (!email.isEmpty()) ProviderPreferences.setEmail(context, PROVIDER, email);
+            }
+        } catch (Exception emailError) {
+            DiagnosticLog.warn(context, "refresh", "cursor_email_failed",
+                    "error", emailError.getClass().getSimpleName());
+        }
+    }
+
     private static Response request(Context context, String operation, String url, String body,
             String bearer) throws Exception {
         HttpsURLConnection connection =

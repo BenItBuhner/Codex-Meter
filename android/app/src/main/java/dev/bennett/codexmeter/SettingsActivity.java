@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 public final class SettingsActivity extends AppCompatActivity {
     private static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
+    private static final String PAGE_ACCOUNTS = "accounts";
     private static final String PAGE_APPEARANCE = "appearance";
     private static final String PAGE_REFRESH_USAGE = "refresh_usage";
     private static final String PAGE_NOTIFICATIONS = "notifications";
@@ -72,7 +73,8 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private static String normalizePage(String page) {
-        if (PAGE_APPEARANCE.equals(page)
+        if (PAGE_ACCOUNTS.equals(page)
+                || PAGE_APPEARANCE.equals(page)
                 || PAGE_REFRESH_USAGE.equals(page)
                 || PAGE_NOTIFICATIONS.equals(page)
                 || PAGE_NOW_BAR.equals(page)
@@ -87,6 +89,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private static String pageTitle(String page) {
         switch (page) {
+            case PAGE_ACCOUNTS:
+                return "Accounts";
             case PAGE_APPEARANCE:
                 return "Appearance";
             case PAGE_REFRESH_USAGE:
@@ -159,6 +163,10 @@ public final class SettingsActivity extends AppCompatActivity {
             page = normalizePage(getArguments() == null
                     ? null : getArguments().getString(ARG_PAGE));
             switch (page) {
+                case PAGE_ACCOUNTS:
+                    addPreferencesFromResource(R.xml.preferences_settings_accounts);
+                    bindAccounts();
+                    break;
                 case PAGE_APPEARANCE:
                     addPreferencesFromResource(R.xml.preferences_settings_appearance);
                     bindAppearance();
@@ -226,6 +234,8 @@ public final class SettingsActivity extends AppCompatActivity {
             super.onResume();
             if (PAGE_ROOT.equals(page)) {
                 updateRootSummaries();
+            } else if (PAGE_ACCOUNTS.equals(page)) {
+                bindAccounts();
             } else if (PAGE_NOTIFICATIONS.equals(page)) {
                 updatePermissionSummary();
             } else if (PAGE_NOW_BAR.equals(page)) {
@@ -247,6 +257,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 Ui.startSecondaryActivity(requireActivity(), ProvidersActivity.class);
                 return true;
             });
+            bindPageLink("settings_accounts", PAGE_ACCOUNTS);
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
@@ -369,7 +380,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
-            bindAccounts();
+            findPreference("settings_accounts").setSummary(
+                    ProviderAccounts.connectedSummary(requireContext()));
             List<UsageProvider> enabled = ProviderPreferences.getEnabled(requireContext());
             StringBuilder providers = new StringBuilder();
             int named = enabled.size() > 3 ? 2 : enabled.size();
@@ -450,16 +462,18 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         /**
-         * Settings → Accounts: only the accounts that are connected, in tab order, then one
-         * "Add account" row that opens the provider picker. Tapping a connected row offers
-         * sign out.
+         * Settings → Accounts: the connected accounts in tab order, each as "email · plan",
+         * then one "Add account" row that opens the provider picker. Tapping a connected row
+         * offers sign out.
          */
         private void bindAccounts() {
             PreferenceCategory accounts = findPreference("accounts");
-            if (accounts == null) return;
+            PreferenceCategory addCategory = findPreference("accounts_add");
+            if (accounts == null || addCategory == null) return;
             Context context = requireContext();
             boolean dark = Ui.isDark(context);
             accounts.removeAll();
+            addCategory.removeAll();
             for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
                 if (!ProviderAccounts.isSignedIn(context, provider)) continue;
                 Preference row = new Preference(context);
@@ -473,19 +487,20 @@ public final class SettingsActivity extends AppCompatActivity {
                 });
                 accounts.addPreference(row);
             }
+            accounts.setVisible(accounts.getPreferenceCount() > 0);
             Preference add = new Preference(context);
             add.setKey("account_add");
             add.setTitle("Add account");
-            if (accounts.getPreferenceCount() == 0) {
-                add.setSummary("Codex, Claude Code, Cursor, Copilot and more");
-            }
+            add.setSummary(accounts.getPreferenceCount() == 0
+                    ? "Codex, Claude Code, Cursor, Copilot and more"
+                    : "Connect another service");
             add.setIcon(tinted(context, R.drawable.ic_oui_add, dark));
             add.setOnPreferenceClickListener(preference -> {
                 DiagnosticLog.info(context, "user", "add_account_opened");
                 Ui.startSecondaryActivity(requireActivity(), AddAccountActivity.class);
                 return true;
             });
-            accounts.addPreference(add);
+            addCategory.addPreference(add);
         }
 
         private static android.graphics.drawable.Drawable tinted(Context context, int res,
