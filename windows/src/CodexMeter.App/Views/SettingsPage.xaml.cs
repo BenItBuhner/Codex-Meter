@@ -50,8 +50,13 @@ public sealed partial class SettingsPage : Page
         CloseToTraySwitch.IsOn = s.CloseToTray;
         CloseToTraySwitch.IsEnabled = s.ShowTrayIcon;
         StartupSwitch.IsOn = state.IsDemo ? s.StartWithWindows : StartupRegistration.IsEnabled;
-        var version = typeof(App).Assembly.GetName().Version;
-        VersionText.Text = $"Version 2.9.0-alpha.4 ({(Environment.Is64BitProcess ? System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant() : "x86")})";
+        var version = typeof(App).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "";
+        var plus = version.IndexOf('+');
+        if (plus >= 0) version = version[..plus];
+        var arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+        VersionText.Text = $"Version {version} ({arch})";
         loading = false;
     }
 
