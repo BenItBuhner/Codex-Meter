@@ -41,7 +41,8 @@ open_app() {
 scroll_down() { adb shell input swipe 225 380 225 120 300; }
 
 seed
-open_app;    shot 01-app-codex 12
+# The first cold start after install can land behind the watch face, so open twice.
+open_app; sleep 5; open_app; shot 01-app-codex 8
 scroll_down; shot 02-app-details
 scroll_down; shot 03-app-providers
 scroll_down; shot 04-app-providers-more
@@ -67,7 +68,14 @@ show_tiles() {
     adb shell input keyevent KEYCODE_WAKEUP
     adb shell input keyevent KEYCODE_HOME
     sleep 2
-    adb shell input swipe 400 225 50 225 250
+    sleep 3
+    # The carousel can start with the system Apps tile; step past it to the new tile.
+    for _ in 1 2 3; do
+      adb shell input swipe 400 225 50 225 250
+      sleep 3
+      adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+      adb shell cat /sdcard/ui.xml 2>/dev/null | grep -q 'text="Apps"' || break
+    done
     shot "$(printf '%s-tile-%d-%s' "$tag" "$n" "$tile")" 8
   done
 }
