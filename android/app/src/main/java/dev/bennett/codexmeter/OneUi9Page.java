@@ -155,13 +155,16 @@ final class OneUi9Page implements Ui.Header {
     }
 
     /**
-     * A soft gradient in the window color over the status bar, so content scrolling up never
-     * sits hard against the clock and status icons. SESL9's own fading edge does not reliably
-     * show on every phone (it did nothing on a stock Android 16 emulator), so this is always on.
-     * It is not a header box: it only covers the status bar and fades out right below it.
+     * Phones without One UI don't get SESL9's native top fade (it only renders on Samsung's
+     * Android 16+ builds), so there a soft gradient in the window color over the status bar keeps
+     * content from sitting hard against the clock. On One UI phones SESL's own fade does this and
+     * nothing is added.
      */
     private void addStatusScrim() {
-        int color = activity.getColor(R.color.oui_des_round_and_bgcolor);
+        if (androidx.reflect.DeviceInfo.isOneUI() && Build.VERSION.SDK_INT >= 36) {
+            return;
+        }
+        int color = pageColor();
         int clear = color & 0x00FFFFFF;
         statusScrim = new View(activity);
         statusScrim.setBackground(new android.graphics.drawable.GradientDrawable(
@@ -197,6 +200,12 @@ final class OneUi9Page implements Ui.Header {
             statusScrim.setLayoutParams(scrim);
         }
         collapsing.setMinimumHeight(toolbarHeight);
+        if (expandable) {
+            // SESL sizes the expanded header as a share of the window height. The header here
+            // also reaches under the status bar, so it gets the inset on top of that share;
+            // otherwise the large title sits a status bar's height lower than on classic pages.
+            appBar.seslSetProportionExtraHeight(top);
+        }
         float collapsedHeight = baseCollapsedHeight + top;
         if (!expandable) {
             appBar.seslSetCustomHeight((int) collapsedHeight);
@@ -229,6 +238,13 @@ final class OneUi9Page implements Ui.Header {
         }
         boundScroller = scroller;
         scrollerBasePaddingBottom = scroller.getPaddingBottom();
+        // On One UI phones SESL fades the list's top and bottom edges by erasing what the list
+        // draws there, which uncovers the list's own background. SESL's preference list paints
+        // that background in ?android:colorBackground (#17171A in dark mode), a lighter grey than
+        // the page (#010102), and covers it with page-colored gaps between the cards. The fade
+        // erased those gaps and showed the grey as a band behind the floating back button. The
+        // list's background is the page color here, so the fade always uncovers the page itself.
+        scroller.setBackgroundColor(pageColor());
         if (scroller instanceof NestedScrollView) {
             NestedScrollView scroll = (NestedScrollView) scroller;
             scroll.setClipToPadding(false);
@@ -243,6 +259,11 @@ final class OneUi9Page implements Ui.Header {
         applyBottomPadding();
         // The fading edge reads the status bar inset from the insets it receives.
         ViewCompat.requestApplyInsets(scroller);
+    }
+
+    /** The window background every One UI 9 page shows: SESL's round-and-background color. */
+    private int pageColor() {
+        return activity.getColor(R.color.oui_des_round_and_bgcolor);
     }
 
     private void applyBottomPadding() {
