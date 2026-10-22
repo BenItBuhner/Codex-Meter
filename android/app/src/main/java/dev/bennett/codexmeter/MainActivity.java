@@ -628,7 +628,7 @@ public final class MainActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard(UsageProvider.CODEX));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                addDashboardCard(column, buildResetCreditsCard());
+                addDashboardCard(column, buildResetCreditsCard(UsageProvider.CODEX));
             } else {
                 List<UsageLimit> group = limitsByKey.get(key);
                 if (group == null) {
@@ -1008,12 +1008,20 @@ public final class MainActivity extends AppCompatActivity {
         linearLayout.addView(viewText, layoutParams2);
     }
 
-    private LinearLayout buildResetCreditsCard() {
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
-        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
-        int available = credits == null ? 0 : credits.availableCount;
+    /** The Reset credits card, shared by Codex reset credits and Claude Code saved resets. */
+    private LinearLayout buildResetCreditsCard(UsageProvider target) {
+        boolean claude = target == UsageProvider.CLAUDE_CODE;
+        boolean signedIn = SecureTokenStore.isSignedIn(this, target);
         long now = System.currentTimeMillis();
+        ClaudeSavedResets saved = claude ? ProviderPreferences.loadSavedResets(this, target)
+                : null;
+        ResetCreditsSnapshot credits = claude
+                ? (saved == null ? null : saved.toResetCreditsSnapshot(now))
+                : AppPreferences.loadResetCredits(this);
+        int available = credits == null ? 0 : credits.availableCount;
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
+        // Claude only: Anthropic can hold a reset until you reach a usage limit.
+        boolean usableNow = !claude || (saved != null && saved.usableGrant(now) != null);
 
         LinearLayout card = Ui.card(this, this.dark);
         TextView title = Ui.text(this, "Reset credits", 18, Ui.mainText(this.dark));
@@ -1024,11 +1032,11 @@ public final class MainActivity extends AppCompatActivity {
                 resetCreditsSummary(signedIn, available, nextExpiry, now)));
 
         if (signedIn) {
-            card.setOnClickListener(view -> openResetCredits());
+            card.setOnClickListener(view -> openResetCredits(target));
             Button button = Ui.nativePrimaryButton(this,
                     available > 0 ? "Use 1 reset" : "No resets available");
-            button.setEnabled(available > 0);
-            button.setOnClickListener(view -> openResetCredits());
+            button.setEnabled(available > 0 && usableNow);
+            button.setOnClickListener(view -> openResetCredits(target));
             LinearLayout.LayoutParams buttonParams =
                     new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
             buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
@@ -1065,8 +1073,8 @@ public final class MainActivity extends AppCompatActivity {
         return "Earn credits from ChatGPT Codex";
     }
 
-    private void openResetCredits() {
-        Ui.startSecondaryActivity(this, ResetCreditActivity.class);
+    private void openResetCredits(UsageProvider target) {
+        Ui.startSecondaryActivity(this, ResetCreditActivity.intent(this, target));
     }
 
     /**
@@ -1324,7 +1332,15 @@ public final class MainActivity extends AppCompatActivity {
                 limitsByKey.put(DashboardSections.limitKey(limit), limit);
             }
             List<String> available = new ArrayList<>();
-            for (String key : DashboardSections.providerSections(snapshot, null)) {
+            List<String> sections = new ArrayList<>(
+                    DashboardSections.providerSections(snapshot, null));
+            // Saved resets hide whenever none are left, like Codex reset credits.
+            ClaudeSavedResets savedResets = target == UsageProvider.CLAUDE_CODE
+                    ? ProviderPreferences.loadSavedResets(this, target) : null;
+            if (savedResets != null && savedResets.shouldDisplay(System.currentTimeMillis())) {
+                sections.add(DashboardSections.RESET_CREDITS);
+            }
+            for (String key : sections) {
                 if (DashboardSections.USAGE_HISTORY.equals(key)
                         && (snapshot.fetchedAtMillis <= 0L || (snapshot.fiveHour == null
                                 && snapshot.weekly == null && snapshot.monthly == null))) {
@@ -1356,6 +1372,8 @@ public final class MainActivity extends AppCompatActivity {
                     inverted = !inverted;
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                     addDashboardCard(column, buildUsageHistoryCard(target));
+                } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+                    addDashboardCard(column, buildResetCreditsCard(target));
                 } else {
                     UsageLimit limit = limitsByKey.get(key);
                     if (limit == null) continue;

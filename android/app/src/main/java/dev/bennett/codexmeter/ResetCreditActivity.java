@@ -28,13 +28,39 @@ public final class ResetCreditActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private int expiryNotificationId = -1;
     private Button useButton;
+    /** Codex by default; Claude Code reuses this screen for its saved resets. */
+    private UsageProvider provider = UsageProvider.CODEX;
+
+    /** Opens the reset screen for {@code provider} (Codex or Claude Code). */
+    public static Intent intent(Context context, UsageProvider provider) {
+        return new Intent(context, ResetCreditActivity.class)
+                .putExtra(MainActivity.EXTRA_PROVIDER, provider.id);
+    }
+
+    private boolean claude() {
+        return this.provider == UsageProvider.CLAUDE_CODE;
+    }
+
+    private ResetCreditsSnapshot loadCredits() {
+        if (!claude()) return AppPreferences.loadResetCredits(this);
+        ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(this, this.provider);
+        return saved == null ? null : saved.toResetCreditsSnapshot(System.currentTimeMillis());
+    }
+
+    private boolean signedIn() {
+        return SecureTokenStore.isSignedIn(this, this.provider);
+    }
 
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         this.dark = Ui.isDark(this);
-        this.content = Ui.installPage(this, "Codex reset", true).content;
+        if (UsageProvider.CLAUDE_CODE.id.equals(
+                getIntent().getStringExtra(MainActivity.EXTRA_PROVIDER))) {
+            this.provider = UsageProvider.CLAUDE_CODE;
+        }
+        this.content = Ui.installPage(this, this.provider.displayName + " reset", true).content;
         rebuild();
         refreshDetailsIfNeeded();
         if (bundle == null) {
@@ -58,7 +84,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
     public void rebuild() {
         this.content.removeAllViews();
-        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
+        ResetCreditsSnapshot snapshot = loadCredits();
         int available = snapshot == null ? 0 : snapshot.availableCount;
         long now = System.currentTimeMillis();
         List<RateLimitResetCredit> availableCredits = snapshot == null
@@ -83,7 +109,8 @@ public final class ResetCreditActivity extends AppCompatActivity {
         addCreditExpirations(expirations, availableCredits, available, now);
         this.content.addView(expirations);
 
-        String visibleResetCreditsError = AppPreferences.getVisibleResetCreditsError(this);
+        String visibleResetCreditsError = claude() ? ""
+                : AppPreferences.getVisibleResetCreditsError(this);
         if (!visibleResetCreditsError.isEmpty()) {
             Ui.addSpacer(this.content, 12);
             RoundedLinearLayout errorCard = Ui.seslCard(this, this.dark);
@@ -102,9 +129,24 @@ public final class ResetCreditActivity extends AppCompatActivity {
             this.content.addView(autoUseText);
         }
 
+        // Claude only: Anthropic can hold a reset until you reach a limit, so say why it's off.
+        String heldBack = "";
+        if (claude() && available > 0) {
+            ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(this, this.provider);
+            heldBack = saved == null ? "" : saved.unavailableMessage(now);
+        }
+        if (!heldBack.isEmpty()) {
+            Ui.addSpacer(this.content, 8);
+            android.widget.TextView heldText =
+                    Ui.text(this, heldBack + ".", 13.0f, Ui.secondaryText(this.dark));
+            int inset = Ui.dp(this, 24.0f);
+            heldText.setPadding(inset, 0, inset, 0);
+            this.content.addView(heldText);
+        }
+
         this.useButton = Ui.nativePrimaryButton(
                 this, available > 0 ? "Use 1 reset" : "No resets available");
-        this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this));
+        this.useButton.setEnabled(available > 0 && heldBack.isEmpty() && signedIn());
         LinearLayout.LayoutParams useButtonParams =
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
         useButtonParams.setMargins(0, Ui.dp(this, 22.0f), 0, Ui.dp(this, 8.0f));
@@ -118,7 +160,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
                     + " · " + UsageFormat.relative(nextExpiry, now);
         }
         if (available > 0) {
-            return "OpenAI will choose an eligible credit";
+            return (claude() ? "Anthropic" : "OpenAI") + " will choose an eligible credit";
         }
         return "No reset credit is currently available";
     }
@@ -152,11 +194,25 @@ public final class ResetCreditActivity extends AppCompatActivity {
             card.addView(missing);
         } else if (availableCount == 0) {
             card.addView(Ui.actionRow(this, "No available credits",
-                    "Earn credits from ChatGPT Codex", 0, null));
+                    claude() ? "No reset credit is currently available"
+                            : "Earn credits from ChatGPT Codex", 0, null));
         }
     }
 
     private void refreshDetailsIfNeeded() {
+        if (claude()) {
+            if (!signedIn() || !ClaudeUsageApi.isStale(this)) return;
+            final Context app = getApplicationContext();
+            this.executor.execute(() -> {
+                try {
+                    ClaudeUsageApi.refreshAndCache(app);
+                    runOnUiThread(this::rebuild);
+                } catch (Exception ignored) {
+                    // The Claude tab shows refresh errors; this screen keeps the cached resets.
+                }
+            });
+            return;
+        }
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(this);
         long now = System.currentTimeMillis();
         long jMax = resetCreditsSnapshotLoadResetCredits == null ? Long.MAX_VALUE : Math.max(0L, now - resetCreditsSnapshotLoadResetCredits.fetchedAtMillis);
@@ -186,7 +242,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     public void confirmUse() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one Codex reset?").setMessage("The available credit expiring soonest will be used. This cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use 1 reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one " + this.provider.displayName + " reset?").setMessage("The available credit expiring soonest will be used. This cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use 1 reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 ResetCreditActivity.this.consume();
@@ -196,7 +252,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     private void maybePromptUseReset(Intent intent) {
-        if (intent == null || !intent.getBooleanExtra(
+        if (claude() || intent == null || !intent.getBooleanExtra(
                 AppConstants.EXTRA_PROMPT_USE_RESET, false)) {
             return;
         }
@@ -217,6 +273,31 @@ public final class ResetCreditActivity extends AppCompatActivity {
             this.useButton.setText("Applying…");
         }
         final Context applicationContext = getApplicationContext();
+        if (claude()) {
+            ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(this, this.provider);
+            ClaudeSavedResets.Grant grant = saved == null ? null
+                    : saved.usableGrant(System.currentTimeMillis());
+            if (grant == null) {
+                Toast.makeText(this, "No reset credit is currently available.",
+                        Toast.LENGTH_LONG).show();
+                rebuild();
+                return;
+            }
+            final String grantId = grant.id;
+            this.executor.execute(() -> {
+                ClaudeSavedResets.ClaimResult result =
+                        ClaudeResetApi.use(applicationContext, grantId, "reset_screen");
+                runOnUiThread(() -> {
+                    Toast.makeText(this, result.userMessage(), Toast.LENGTH_LONG).show();
+                    if (result.applied()) {
+                        finish();
+                    } else {
+                        rebuild();
+                    }
+                });
+            });
+            return;
+        }
         this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.ResetCreditActivity.6
             @Override // java.lang.Runnable
             public void run() {
@@ -261,23 +342,34 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
     /** One line describing the automatic-use rules that are on, or empty when none are. */
     private String autoUseSummary(boolean hasExpiry) {
+        boolean expiryOn = claude()
+                ? ResetAlertPreferences.claudeSavedResetExpiryEnabled(this)
+                : ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(this);
+        long lead = claude()
+                ? ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(this)
+                : ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(this);
+        boolean lowOn = claude()
+                ? ResetAlertPreferences.claudeSavedResetLowUsageEnabled(this)
+                : ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(this);
+        String metric = claude()
+                ? ResetAlertPreferences.claudeSavedResetMetric(this)
+                : ResetAlertPreferences.resetCreditLowUsageMetric(this);
+        int threshold = claude()
+                ? ResetAlertPreferences.claudeSavedResetThreshold(this)
+                : ResetAlertPreferences.resetCreditLowUsageThreshold(this);
         StringBuilder text = new StringBuilder();
-        if (ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(this) && hasExpiry) {
+        if (expiryOn && hasExpiry) {
             text.append("Unused credits are used automatically ")
-                    .append(ResetCreditExpiryApply.leadLabel(
-                            ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(this)))
+                    .append(ResetCreditExpiryApply.leadLabel(lead))
                     .append(" before they expire.");
         }
-        if (ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(this)) {
+        if (lowOn) {
             if (text.length() > 0) text.append(' ');
-            String metric = ResetAlertPreferences.resetCreditLowUsageMetric(this);
             String window = ResetCreditLowUsageAutoUse.METRIC_WEEKLY.equals(metric) ? "weekly"
                     : ResetCreditLowUsageAutoUse.METRIC_FIVE_HOUR.equals(metric) ? "5-hour"
                     : "5-hour or weekly";
             text.append("A credit is also used when your ").append(window)
-                    .append(" limit reaches ")
-                    .append(ResetAlertPreferences.resetCreditLowUsageThreshold(this))
-                    .append("% remaining.");
+                    .append(" limit reaches ").append(threshold).append("% remaining.");
         }
         if (text.length() > 0) text.append(" Change this in Settings > Refresh & usage.");
         return text.toString();
