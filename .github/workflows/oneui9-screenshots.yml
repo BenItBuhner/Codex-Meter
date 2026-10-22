@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [before-sim, after-sim, after-stock]
+        variant: [before-sim, after-sim, after-stock, after-stock36]
     steps:
       - uses: actions/checkout@v7
         with:

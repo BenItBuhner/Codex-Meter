@@ -83,7 +83,7 @@
         android:id="@+id/about_scroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/oui_des_round_and_bgcolor"
+        android:background="@android:color/transparent"
         android:fillViewport="true"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
