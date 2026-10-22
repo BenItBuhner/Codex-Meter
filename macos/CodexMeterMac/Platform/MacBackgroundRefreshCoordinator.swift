@@ -12,7 +12,7 @@ public final class BackgroundRefreshCoordinator {
     public typealias RefreshHandler = @Sendable () async throws -> BackgroundRefreshOutcome
 
     /// Never wake more often than this, however close the next reset is.
-    static let minimumDelay: TimeInterval = 60
+    nonisolated static let minimumDelay: TimeInterval = 60
 
     private let refreshHandler: RefreshHandler
     private var pending: Task<Void, Never>?
