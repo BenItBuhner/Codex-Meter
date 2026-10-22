@@ -17,8 +17,15 @@ import Foundation
 /// }
 /// ```
 ///
-/// The included plan becomes the monthly window; Auto and API model pools and on-demand spend
-/// become named limits on the same billing cycle.
+/// Cursor sells two kinds of plan, and both answer with this shape:
+///
+/// - Current plans have one included pool for Cursor models that refreshes weekly. It becomes
+///   the weekly window, and spend past it is "Additional usage".
+/// - Legacy plans (Pro, Pro+, Ultra, Teams Standard) keep a monthly cycle with two pools,
+///   "Cursor models" and "Other models". The included total becomes the monthly window, each
+///   pool a named limit, and spend past it is "On-demand".
+///
+/// The cycle length tells them apart: Cursor reports the weekly refresh as the cycle.
 public enum CursorUsageParser {
     public static let defaultCycleSeconds: Int64 = 30 * 24 * 60 * 60
     public static let limitIDPrefix = "cursor_"
@@ -42,6 +49,7 @@ public enum CursorUsageParser {
         let cycleSeconds = start > 0 && end > start ? (end - start) / 1_000 : defaultCycleSeconds
         let resetAt = end > 0 ? Date(timeIntervalSince1970: TimeInterval(end / 1_000)) : nil
 
+        let weekly = isWeeklyCycle(cycleSeconds)
         var plan: UsageWindow?
         var limits: [UsageLimit] = []
         if let planUsage = JSONSupport.object(root["planUsage"]) {
@@ -57,13 +65,13 @@ public enum CursorUsageParser {
                     resetAt: resetAt
                 )
             }
-            // Plans that split Auto and API pools report at least one of them. Connect JSON
-            // drops zero values, so the other pool is shown at 0% instead of disappearing.
+            // Only legacy monthly plans split usage into two pools. Connect JSON drops zero
+            // values, so when one pool is reported the other is shown at 0%.
             let pools = [
-                ("autoPercentUsed", "auto", "Auto + Composer"),
-                ("apiPercentUsed", "api", "API models")
+                ("autoPercentUsed", "auto", "Cursor models"),
+                ("apiPercentUsed", "api", "Other models")
             ]
-            let hasPools = pools.contains { number(planUsage[$0.0]) != nil }
+            let hasPools = !weekly && pools.contains { number(planUsage[$0.0]) != nil }
             for (key, id, name) in pools where hasPools {
                 let value = number(planUsage[key]) ?? 0
                 let window = UsageWindow(
@@ -84,7 +92,8 @@ public enum CursorUsageParser {
         let onDemand = onDemand(
             JSONSupport.object(root["spendLimitUsage"]),
             cycleSeconds: cycleSeconds,
-            resetAt: resetAt
+            resetAt: resetAt,
+            weekly: weekly
         )
         if let onDemand { limits.append(onDemand) }
 
@@ -95,22 +104,33 @@ public enum CursorUsageParser {
             allowed: !limitReached,
             limitReached: limitReached,
             fiveHour: nil,
-            weekly: nil,
-            monthly: plan,
+            weekly: weekly ? plan : nil,
+            monthly: weekly ? nil : plan,
             additionalLimits: limits,
             fetchedAt: fetchedAt
         )
     }
 
-    /// Usage-based ("on-demand") spending past the included plan. A personal cap wins over a
-    /// team pool; no cap means unlimited or disabled, which has nothing to meter.
-    static func onDemand(_ spend: [String: Any]?, cycleSeconds: Int64, resetAt: Date?) -> UsageLimit? {
+    /// A cycle of up to ten days is the weekly refresh of a current plan.
+    public static func isWeeklyCycle(_ cycleSeconds: Int64) -> Bool {
+        cycleSeconds > 0 && cycleSeconds <= 10 * 24 * 60 * 60
+    }
+
+    /// Paid usage past the included plan: "Additional usage" on current plans, "On-demand" on
+    /// legacy ones. A personal cap wins over a team pool; no cap means unlimited or disabled,
+    /// which has nothing to meter.
+    static func onDemand(
+        _ spend: [String: Any]?,
+        cycleSeconds: Int64,
+        resetAt: Date?,
+        weekly: Bool = false
+    ) -> UsageLimit? {
         guard let spend else { return nil }
-        var name = "On-demand"
+        var name = weekly ? "Additional usage" : "On-demand"
         var limit = number(spend["individualLimit"]) ?? 0
         var used = number(spend["individualUsed"]) ?? 0
         if limit <= 0 {
-            name = "Team on-demand"
+            name = weekly ? "Team additional usage" : "Team on-demand"
             limit = number(spend["pooledLimit"]) ?? 0
             used = number(spend["pooledUsed"]) ?? 0
         }

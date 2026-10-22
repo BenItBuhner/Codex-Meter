@@ -33,7 +33,7 @@ struct ClaudeDashboardView: View {
 
                     if let usage = claude.usage {
                         ClaudeStatusStrip(usage: usage, isCached: claude.isUsingCachedData)
-                        ClaudeMeters(usage: usage, isRegular: horizontalSizeClass == .regular)
+                        ProviderDashboardCards(provider: .claudeCode, usage: usage)
                     } else {
                         ClaudeEmptyUsageCard()
                     }
@@ -50,6 +50,12 @@ struct ClaudeDashboardView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if claude.phase != .signedOut {
+                    NavigationLink {
+                        DashboardEditView(provider: .claudeCode)
+                    } label: {
+                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                    }
+
                     Button {
                         Task { await model.claude.refresh() }
                     } label: {
@@ -120,49 +126,6 @@ private struct ClaudeStatusStrip: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
-    }
-}
-
-private struct ClaudeMeters: View {
-    let usage: UsageSnapshot
-    let isRegular: Bool
-
-    var body: some View {
-        VStack(spacing: AppChrome.sectionSpacing) {
-            if isRegular, usage.fiveHour != nil, usage.weekly != nil {
-                HStack(alignment: .top, spacing: AppChrome.sectionSpacing) {
-                    fiveHourCard
-                    weeklyCard
-                }
-            } else {
-                if usage.fiveHour != nil { fiveHourCard }
-                if usage.weekly != nil { weeklyCard }
-            }
-
-            ForEach(usage.additionalLimits) { limit in
-                AdditionalLimitCards(limit: limit, fetchedAt: usage.fetchedAt)
-            }
-        }
-    }
-
-    private var fiveHourCard: some View {
-        UsageMeterCard(
-            title: "5-hour",
-            systemImage: "clock",
-            window: usage.fiveHour,
-            accent: .orange,
-            fetchedAt: usage.fetchedAt
-        )
-    }
-
-    private var weeklyCard: some View {
-        UsageMeterCard(
-            title: "Weekly",
-            systemImage: "calendar",
-            window: usage.weekly,
-            accent: .brown,
-            fetchedAt: usage.fetchedAt
-        )
     }
 }
 

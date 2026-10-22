@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed
+
+- The Codex tab's title now reads "Codex", like the Claude Code and Cursor tabs.
+- Edit dashboard is per provider: each tab keeps its own card order and hidden cards, and the editor lists only the cards that provider reports (Codex keeps its existing layout).
+- Cursor limits follow Cursor's current plans. Current plans show one "Included usage · Weekly" card plus any "Additional usage" cap. Legacy monthly plans (Pro, Pro+, Ultra) show "Included usage · Monthly", the "Cursor models" and "Other models" pools, and on-demand spend. The outdated "Auto + Composer" and "API models" labels are gone, and Cursor card titles no longer truncate.
+
+### Development
+
+- Self-tests cover Cursor weekly vs legacy plans and the per-provider dashboard sections.
+
 ## 2.9.0-alpha.3 — 2026-10-21
 
 ### Changed
