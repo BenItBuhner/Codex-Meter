@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added
+
+- Apple Watch app (watchOS 26) with complications. It shows every provider the iPhone app tracks, one page per provider, with a ring, per-limit bars and the next reset. Circular, corner, rectangular and inline complications show the followed provider's main limit, plus a next-reset complication. Data comes from the iPhone over WatchConnectivity; tokens never leave the phone.
+
+### Changed
+
+- Wear OS follows all 24 providers, not only Codex. The phone sends every enabled or signed-in provider's latest usage to the watch. The watch app lists them with their logos, and tapping one makes tiles, complications and the live monitor follow it. By default the watch follows the phone's selected tab.
+- Wear tiles and complications are named by role (Usage overview, Main limit, Second limit, Next reset, Live monitor, Both limits) and use each provider's own windows: 5h and weekly for Codex, monthly for Cursor, named extra limits for Claude Code and Copilot.
+- "Refresh on phone" from the watch refreshes Claude Code, Cursor and the other providers too.
+
+### Development
+
+- `WatchProvidersSelfTest` covers watch meter ordering, the provider payload round trip and which provider the watch follows. `WatchSyncTests` covers the same on iOS.
+- iOS CI builds the watch app on a watch simulator and uploads a `watch-gallery` artifact of screenshots.
+
 ## 2.9.0-alpha.4 — 2026-10-22
 
 ### Added

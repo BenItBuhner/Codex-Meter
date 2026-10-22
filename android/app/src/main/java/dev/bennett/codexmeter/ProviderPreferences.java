@@ -3,6 +3,7 @@ package dev.bennett.codexmeter;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
+import dev.bennett.codexmeter.wear.PhoneWearSync;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -71,6 +72,7 @@ public final class ProviderPreferences {
     public static void setEnabledProviders(Context context, List<UsageProvider> providers) {
         if (providers == null || providers.isEmpty()) return;
         prefs(context).edit().putString(KEY_ENABLED, ids(providers)).apply();
+        PhoneWearSync.pushProviders(context);
     }
 
     /** Every provider in the user's tab order (Settings → Providers). Enum order by default. */
@@ -82,6 +84,7 @@ public final class ProviderPreferences {
 
     public static void setOrder(Context context, List<UsageProvider> order) {
         prefs(context).edit().putString(KEY_ORDER, ids(order)).apply();
+        PhoneWearSync.pushProviders(context);
     }
 
     private static String ids(List<UsageProvider> providers) {
@@ -104,6 +107,7 @@ public final class ProviderPreferences {
             return false;
         }
         prefs(context).edit().putString(KEY_ENABLED, ids(updated)).apply();
+        PhoneWearSync.pushProviders(context);
         return true;
     }
 
@@ -213,8 +217,9 @@ public final class ProviderPreferences {
         if (provider == UsageProvider.CODEX) {
             return AppPreferences.saveSnapshot(context, snapshot);
         }
+        boolean saved;
         try {
-            return prefs(context).edit()
+            saved = prefs(context).edit()
                     .putString(provider.id + SUFFIX_SNAPSHOT, snapshot.toJson().toString())
                     .remove(provider.id + SUFFIX_ERROR)
                     .remove(provider.id + SUFFIX_ERROR_AT)
@@ -222,6 +227,8 @@ public final class ProviderPreferences {
         } catch (Exception ignored) {
             return false;
         }
+        if (saved) PhoneWearSync.pushProviders(context);
+        return saved;
     }
 
     public static String getLastError(Context context, UsageProvider provider) {
@@ -240,6 +247,7 @@ public final class ProviderPreferences {
                 .putString(provider.id + SUFFIX_ERROR, message == null ? "" : message)
                 .putLong(provider.id + SUFFIX_ERROR_AT, System.currentTimeMillis())
                 .apply();
+        PhoneWearSync.pushProviders(context);
     }
 
     public static String getEmail(Context context, UsageProvider provider) {
@@ -403,5 +411,6 @@ public final class ProviderPreferences {
                 .remove(provider.id + SUFFIX_EMAIL)
                 .remove(provider.id + SUFFIX_RATE_LIMITED_AT)
                 .commit();
+        PhoneWearSync.pushProviders(context);
     }
 }
