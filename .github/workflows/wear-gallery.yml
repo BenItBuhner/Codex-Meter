@@ -1,0 +1,81 @@
+name: Wear OS gallery
+
+on:
+  pull_request:
+    branches: [main, alpha]
+    paths:
+      - 'android/wear/**'
+      - 'android/shared/**'
+      - 'android/ci/record-wear-gallery.sh'
+      - 'android/ci/wear-demo-prefs.py'
+      - '.github/workflows/wear-gallery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wear-gallery-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  wear-gallery:
+    name: Wear OS emulator gallery
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+
+      - name: Install Wear toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Build debug Wear app
+        shell: bash
+        working-directory: android
+        run: ./gradlew --no-daemon :wear:assembleDebug
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Record gallery on Wear OS emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: android-wear
+          arch: x86_64
+          profile: wearos_large_round
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: ./android/ci/record-wear-gallery.sh android/wear/build/outputs/apk/debug/wear-debug.apk wear-gallery
+
+      - name: Upload Wear gallery
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wear-gallery
+          path: wear-gallery/
+          if-no-files-found: warn
+          retention-days: 14

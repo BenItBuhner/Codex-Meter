@@ -59,6 +59,18 @@ struct ContentView: View {
         }
         .preferredColorScheme(model.settings.appearance.colorScheme)
         .onOpenURL { model.handle(url: $0) }
+        // Keeps the Apple Watch app and its complications on the same providers and usage.
+        .task {
+            WatchSyncCoordinator.shared.start { await model.refreshForWatch() }
+        }
+        .onChange(of: model.watchProviders, initial: true) { _, providers in
+            WatchSyncCoordinator.shared.publish(providers: providers,
+                                                selectedID: model.selectedProvider.rawValue)
+        }
+        .onChange(of: model.selectedProvider) { _, selected in
+            WatchSyncCoordinator.shared.publish(providers: model.watchProviders,
+                                                selectedID: selected.rawValue)
+        }
     }
 }
 

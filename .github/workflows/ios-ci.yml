@@ -285,3 +285,48 @@ jobs:
           path: ios/iPad*.xcresult
           if-no-files-found: ignore
           retention-days: 3
+
+  watch-build-and-gallery:
+    name: Apple Watch build and gallery
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show Xcode version
+        shell: bash
+        run: xcodebuild -version
+
+      - name: Build watch app and record gallery
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./ci/record-watch-gallery.sh "$PWD/watch-gallery" DerivedDataWatch
+
+      - name: Summarize watch gallery
+        if: success() || failure()
+        shell: bash
+        run: |
+          {
+            echo "## Apple Watch gallery"
+            echo
+            echo "Download the **watch-gallery** artifact: one PNG per watch screen, using the app's built-in demo data."
+            if [[ -d watch-gallery ]]; then
+              echo '```'
+              ls -1 watch-gallery
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload watch gallery
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: watch-gallery
+          path: ios/watch-gallery/
+          if-no-files-found: warn
+          retention-days: 14

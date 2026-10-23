@@ -12,7 +12,6 @@ import androidx.wear.protolayout.ModifiersBuilders;
 import androidx.wear.protolayout.ProtoLayoutScope;
 import androidx.wear.protolayout.ResourceBuilders;
 import dev.bennett.codexmeter.wear.WearSettingsState;
-import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /** One UI Watch tile layouts shared by the full-screen and Samsung modular hosts. */
@@ -36,49 +35,75 @@ final class CodexTileLayouts {
             ProtoLayoutScope scope) {
         OneUiTileText text = new OneUiTileText(context, scope);
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
-        UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow longWindow = WearGlanceFormat.currentLongWindow(snapshot);
-        String longLabel = WearGlanceFormat.longWindowLabel(snapshot);
-        long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
         long now = System.currentTimeMillis();
+        WatchMeters.Meter first = WatchMeters.primary(snapshot, now);
+        WatchMeters.Meter second = WatchMeters.secondary(snapshot, now);
+        UsageWindow firstWindow = WatchMeters.window(first);
+        UsageWindow secondWindow = WatchMeters.window(second);
+        String firstLabel = designLabel(first, "5hr");
+        String secondLabel = designLabel(second, WearGlanceFormat.longWindowLabel(snapshot));
+        long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
         boolean stale = snapshot != null && isStale(context);
-        String fiveReset = stale ? "Stale phone data" : resetCopy(fiveHour, observedAt, now);
-        String weekReset = stale ? "Stale phone data" : resetCopy(longWindow, observedAt, now);
-        LayoutElement content = new LayoutElementBuilders.Column.Builder()
+        String firstReset = stale ? "Stale phone data" : resetCopy(firstWindow, observedAt, now);
+        String secondReset = stale ? "Stale phone data"
+                : resetCopy(secondWindow, observedAt, now);
+        String provider = WearPreferences.selectedProviderName(context);
+        LayoutElementBuilders.Column.Builder content = new LayoutElementBuilders.Column.Builder()
                 .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.wrap())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
-                .addContent(metricRow(context, fiveHour, "5hr", false, fiveReset, 9f, text, scope))
-                .addContent(verticalSpacer(6.5f))
-                .addContent(metricRow(context, longWindow, longLabel, true, weekReset, 9f, text,
-                        scope))
-                .build();
-        String description = "Five hour usage, "
-                + WearGlanceFormat.remainingPercentText(fiveHour) + " remaining, " + fiveReset
-                + ". " + longLabel + " usage, "
-                + WearGlanceFormat.remainingPercentText(longWindow)
-                + " remaining, " + weekReset + ". Open Codex Meter.";
-        return card(context, "overview", leadingInset(content, 12f), 0f, 72f, 176f,
+                .addContent(providerHeader(context, text, scope))
+                .addContent(verticalSpacer(5f))
+                .addContent(metricRow(context, firstWindow, firstLabel,
+                        first != null && first.longCadence(), firstReset, 9f, text, scope));
+        if (second != null || first == null) {
+            content.addContent(verticalSpacer(6.5f))
+                    .addContent(metricRow(context, secondWindow, secondLabel,
+                            second == null || second.longCadence(), secondReset, 9f, text,
+                            scope));
+        }
+        String description = provider + ". " + firstLabel + " usage, "
+                + WearGlanceFormat.remainingPercentText(firstWindow) + " remaining, " + firstReset
+                + (second == null ? "" : ". " + secondLabel + " usage, "
+                + WearGlanceFormat.remainingPercentText(secondWindow)
+                + " remaining, " + secondReset) + ". Open Codex Meter.";
+        return card(context, "overview", leadingInset(content.build(), 12f), 0f, 72f, 176f,
                 description);
     }
 
+    /**
+     * A single-meter tile. {@code slot} 0 is the provider's first meter (5-hour for Codex),
+     * 1 its second (weekly or monthly for Codex).
+     */
+    static LayoutElement meter(Context context, DeviceParameters deviceParameters, int slot,
+            ProtoLayoutScope scope) {
+        UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
+        long now = System.currentTimeMillis();
+        WatchMeters.Meter meter = slot == 0 ? WatchMeters.primary(snapshot, now)
+                : WatchMeters.secondary(snapshot, now);
+        String fallback = slot == 0 ? "5-hour" : WearGlanceFormat.longWindowLabel(snapshot);
+        return progress(context, deviceParameters,
+                meter == null ? fallback : meter.label,
+                WatchMeters.window(meter), meter == null ? slot == 1 : meter.longCadence(),
+                scope);
+    }
+
     static LayoutElement progress(Context context, DeviceParameters deviceParameters,
-            String label, UsageWindow window, ProtoLayoutScope scope) {
+            String label, UsageWindow window, boolean longCadence, ProtoLayoutScope scope) {
         OneUiTileText text = new OneUiTileText(context, scope);
-        String lowered = label.toLowerCase(Locale.ROOT);
-        boolean weekly = lowered.contains("week") || lowered.contains("month");
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         long observedAt = snapshot == null ? 0L : snapshot.fetchedAtMillis;
         String reset = snapshot != null && isStale(context)
                 ? "Stale phone data"
                 : resetCopy(window, observedAt, System.currentTimeMillis());
-        String designLabel = lowered.contains("month") ? "Monthly" : weekly ? "Weekly" : "5hr";
+        String designLabel = "5-hour".equals(label) ? "5hr" : label;
         boolean compact = isCompactViewport(deviceParameters);
         float gap = compact ? 9f : 14f;
         float inset = compact ? 8f : 14f;
-        LayoutElement content = metricRow(context, window, designLabel, weekly, reset, gap, text,
-                scope);
-        String description = label + ", " + WearGlanceFormat.remainingPercentText(window)
+        LayoutElement content = metricRow(context, window, designLabel, longCadence, reset, gap,
+                text, scope);
+        String description = WearPreferences.selectedProviderName(context) + " " + label + ", "
+                + WearGlanceFormat.remainingPercentText(window)
                 + " remaining, " + reset + ". Open Codex Meter.";
         return card(context, label, leadingInset(content, inset), 0f, 46f, 92f, description);
     }
@@ -88,15 +113,13 @@ final class CodexTileLayouts {
         OneUiTileText text = new OneUiTileText(context, scope);
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
         long now = System.currentTimeMillis();
-        String windowLabel = WearGlanceFormat.nextResetWindowLabel(snapshot, now);
-        String relative = WearGlanceFormat.nextResetRelativeText(snapshot, now);
-        String loweredLabel = windowLabel.toLowerCase(Locale.ROOT);
-        boolean weekly = loweredLabel.contains("week") || loweredLabel.contains("month");
-        UsageWindow dialWindow = loweredLabel.contains("month")
-                ? WearGlanceFormat.currentMonthly(snapshot)
-                : weekly
-                ? WearGlanceFormat.currentWeekly(snapshot)
-                : WearGlanceFormat.currentFiveHour(snapshot);
+        WatchMeters.Meter next = WatchMeters.nextReset(snapshot, now);
+        String windowLabel = next == null ? "--" : next.shortLabel + " reset";
+        String relative = next == null ? "--"
+                : resetCopy(next.window, snapshot.fetchedAtMillis, now)
+                        .replace("Resets in ", "");
+        boolean weekly = next != null && next.longCadence();
+        UsageWindow dialWindow = WatchMeters.window(next);
         String credits = WearGlanceFormat.resetCreditsText(snapshot);
 
         LayoutElementBuilders.Column.Builder copy = new LayoutElementBuilders.Column.Builder()
@@ -114,7 +137,8 @@ final class CodexTileLayouts {
             copy.addContent(text.element(credits, 9f, TEXT_SECONDARY,
                     LayoutElementBuilders.FONT_WEIGHT_NORMAL));
         }
-        String description = "Next reset, " + relative + ", " + windowLabel
+        String description = WearPreferences.selectedProviderName(context)
+                + " next reset, " + relative + ", " + windowLabel
                 + (credits.isEmpty() ? "" : ", " + credits) + ". Open Codex Meter.";
         return card(context, "reset", compactRow(
                 usageDial(context, dialWindow, weekly, scope),
@@ -125,10 +149,13 @@ final class CodexTileLayouts {
             ProtoLayoutScope scope) {
         OneUiTileText text = new OneUiTileText(context, scope);
         UsageSnapshot snapshot = WearPreferences.loadSnapshot(context);
-        UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow longWindow = WearGlanceFormat.currentLongWindow(snapshot);
-        UsageWindow focus = lowerRemaining(fiveHour, longWindow);
-        boolean focusWeekly = focus != null && focus == longWindow;
+        long now = System.currentTimeMillis();
+        WatchMeters.Meter first = WatchMeters.primary(snapshot, now);
+        WatchMeters.Meter second = WatchMeters.secondary(snapshot, now);
+        UsageWindow focus = lowerRemaining(WatchMeters.window(first), WatchMeters.window(second));
+        boolean focusWeekly = focus != null && second != null && focus == second.window
+                ? second.longCadence() : first != null && first.longCadence();
+        String summary = WatchMeters.pairLongText(snapshot, now);
         boolean active = WearOngoingMonitor.isActive(context);
         int accent = active ? MONITOR_ACCENT : DIAL_PROGRESS;
 
@@ -141,26 +168,39 @@ final class CodexTileLayouts {
                 .addContent(verticalSpacer(2f))
                 .addContent(text.element(active ? "Active" : "Off", 14f, accent,
                         LayoutElementBuilders.FONT_WEIGHT_BOLD))
-                .addContent(text.element(WearGlanceFormat.focusSummary(snapshot), 9f, TEXT_TERTIARY,
+                .addContent(text.element(summary, 9f, TEXT_TERTIARY,
                         LayoutElementBuilders.FONT_WEIGHT_NORMAL))
                 .build();
         String description = "Live monitor " + (active ? "active" : "off") + ". "
-                + WearGlanceFormat.focusSummary(snapshot) + ". Open Codex Meter.";
+                + WearPreferences.selectedProviderName(context) + ", " + summary
+                + ". Open Codex Meter.";
         return card(context, "monitor", compactRow(
                 usageDial(context, focus, focusWeekly, scope), copy),
                 10f, 46f, 92f, description);
     }
 
-    static UsageWindow fiveHour(Context context) {
-        return WearGlanceFormat.currentFiveHour(WearPreferences.loadSnapshot(context));
+    /** Tile copy for a meter: Codex keeps its "5hr" design label, others use their own. */
+    private static String designLabel(WatchMeters.Meter meter, String fallback) {
+        if (meter == null) return fallback;
+        if (WatchMeters.KIND_SHORT.equals(meter.kind) && "5h".equals(meter.shortLabel)) {
+            return "5hr";
+        }
+        return WatchMeters.KIND_LIMIT.equals(meter.kind) ? meter.shortLabel : meter.label;
     }
 
-    static UsageWindow longWindow(Context context) {
-        return WearGlanceFormat.currentLongWindow(WearPreferences.loadSnapshot(context));
-    }
-
-    static String longWindowLabel(Context context) {
-        return WearGlanceFormat.longWindowLabel(WearPreferences.loadSnapshot(context));
+    /** Provider mark and name, so a glance says whose limits these are. */
+    private static LayoutElement providerHeader(Context context, OneUiTileText text,
+            ProtoLayoutScope scope) {
+        String id = WearPreferences.selectedProviderId(context);
+        return new LayoutElementBuilders.Row.Builder()
+                .setWidth(DimensionBuilders.wrap())
+                .setHeight(DimensionBuilders.wrap())
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                .addContent(image(WearProviderIcons.forId(id), "provider_" + id, 14f, scope))
+                .addContent(horizontalSpacer(5f))
+                .addContent(text.element(WearPreferences.selectedProviderName(context), 12f,
+                        TEXT_PRIMARY, LayoutElementBuilders.FONT_WEIGHT_BOLD))
+                .build();
     }
 
     private static LayoutElement card(Context context, String idSuffix, LayoutElement content,
@@ -299,6 +339,11 @@ final class CodexTileLayouts {
     private static LayoutElement dialIcon(boolean weekly, ProtoLayoutScope scope) {
         int resourceId = weekly ? R.drawable.tile_icon_weekly : R.drawable.tile_icon_time;
         String key = weekly ? "tile_icon_weekly" : "tile_icon_time";
+        return image(resourceId, key, 24f, scope);
+    }
+
+    private static LayoutElement image(int resourceId, String key, float sizeDp,
+            ProtoLayoutScope scope) {
         ResourceBuilders.AndroidImageResourceByResId androidResource =
                 new ResourceBuilders.AndroidImageResourceByResId.Builder()
                         .setResourceId(resourceId)
@@ -309,8 +354,8 @@ final class CodexTileLayouts {
                         .build();
         return new LayoutElementBuilders.Image.Builder(scope)
                 .setImageResource(image, key)
-                .setWidth(DimensionBuilders.dp(24f))
-                .setHeight(DimensionBuilders.dp(24f))
+                .setWidth(DimensionBuilders.dp(sizeDp))
+                .setHeight(DimensionBuilders.dp(sizeDp))
                 .setContentScaleMode(LayoutElementBuilders.CONTENT_SCALE_MODE_FIT)
                 .build();
     }
