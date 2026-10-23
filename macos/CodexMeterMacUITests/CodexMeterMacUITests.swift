@@ -63,8 +63,13 @@ final class CodexMeterMacUITests: XCTestCase {
         XCTAssertTrue(MacUITestSupport.text("5-hour", in: app).waitForExistence(timeout: 10))
 
         MacUITestSupport.openSettings(in: app)
-        XCTAssertTrue(MacUITestSupport.text("Accounts", in: app).waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["Leave Demo"].exists || app.staticTexts["Demo"].exists)
+        // The Accounts row is a navigation link whose title and summary read as one element.
+        let accounts = app.descendants(matching: .any).matching(identifier: "settings-accounts").firstMatch
+        XCTAssertTrue(accounts.waitForExistence(timeout: 8), "Accounts row in Settings")
+        XCTAssertTrue(
+            app.buttons["Leave Demo"].exists
+                || app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Leave Demo' OR value == 'Demo'")).firstMatch.exists
+        )
 
         XCTAssertTrue(MacUITestSupport.click(app.buttons["Menu Bar"]))
         XCTAssertTrue(
@@ -81,7 +86,9 @@ final class CodexMeterMacUITests: XCTestCase {
             XCTAssertTrue(card.waitForExistence(timeout: 10), "menu bar card for \(id)")
         }
         XCTAssertTrue(app.buttons["Open Codex Meter"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS '% left'")).count >= 3)
+        // Each meter row combines its texts into one element, so match on any element type.
+        let meters = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '% left'"))
+        XCTAssertGreaterThanOrEqual(meters.count, 3, "a remaining percentage for every provider")
     }
 
     func testStatusItemIsInstalled() throws {
