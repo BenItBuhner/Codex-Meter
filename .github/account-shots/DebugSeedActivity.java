@@ -80,6 +80,8 @@ public class DebugSeedActivity extends Activity {
             picks.add(UsageProvider.CODEX);
             picks.add(UsageProvider.CLAUDE_CODE);
             AppPreferences.setOnboardingProviders(this, picks);
+            getSharedPreferences("codex_meter_settings_v1", 0).edit()
+                    .putBoolean("onboarding_complete", false).commit();
             AppPreferences.setOnboardingStep(this, OnboardingFlow.FIRST_SIGN_IN_STEP + 1);
             next = new Intent(this, OnboardingActivity.class);
         } else {
