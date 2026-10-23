@@ -46,15 +46,17 @@ extension ToolbarItemPlacement {
 
 // MARK: - Search field placement
 
+/// Stands in for iOS's `NavigationBarDrawerDisplayMode`, which the Mac SDK declares but marks
+/// unavailable (so it can't be redeclared under that name).
+enum SearchDrawerDisplayMode: Sendable {
+    case automatic
+    case always
+}
+
 extension SearchFieldPlacement {
     /// iOS pins a search field in a drawer under the navigation bar; a Mac window puts it in
     /// the toolbar, so the drawer placement maps to the automatic one.
-    enum NavigationBarDrawerDisplayMode: Sendable {
-        case automatic
-        case always
-    }
-
-    static func navigationBarDrawer(displayMode: NavigationBarDrawerDisplayMode) -> SearchFieldPlacement {
+    static func navigationBarDrawer(displayMode: SearchDrawerDisplayMode) -> SearchFieldPlacement {
         .automatic
     }
 }
