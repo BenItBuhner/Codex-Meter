@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Linux desktop app: a native GTK 4 + libadwaita app with a dashboard for Codex, Claude Code and Cursor, accounts, settings, a tray icon with your remaining percentage, desktop notifications, start at login, and credentials protected by the login keyring. It shares the Windows app's C# core. Each release includes a `.deb` and an AppImage for x86-64 and ARM64.
+
 ### Changed
 
 - iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.
