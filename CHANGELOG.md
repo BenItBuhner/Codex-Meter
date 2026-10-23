@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.9 — 2026-10-23
+
 ### Added
 
 - **Show in AI apps** (Settings → Now Bar → Show while an AI app is open, off by default): the live notification appears on its own while ChatGPT, Claude, GitHub, Grok or Kimi is open, showing that app's own provider (ChatGPT shows Codex, Claude shows Claude Code, GitHub shows Copilot), and goes away about a second after you leave. Each connected provider lists its official apps with a switch, and **Add an app** matches any other installed app. It finds the app in front through an Android accessibility service that only reads the app's name: no screen content, no taps or typing, and nothing leaves the phone. A monitor you started yourself or one started by a low allowance is never replaced, and dismissing it hides it until you leave that app.
