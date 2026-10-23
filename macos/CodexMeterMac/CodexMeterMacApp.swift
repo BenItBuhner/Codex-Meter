@@ -75,8 +75,18 @@ struct CodexMeterMacApp: App {
 
     private var model: AppModel { appDelegate.model }
 
+    /// MenuBarExtra writes its isInserted binding back on every scene update. Writing an
+    /// unchanged value to @AppStorage still posts a defaults change, which re-evaluates the
+    /// scene and loops at full CPU, so only real changes are stored.
     private var menuBarExtraInserted: Binding<Bool> {
-        MacLaunchOptions.diagnosticDisables("menubar") ? .constant(false) : $showsMenuBarExtra
+        if MacLaunchOptions.diagnosticDisables("menubar") { return .constant(false) }
+        let stored = showsMenuBarExtra
+        return Binding(
+            get: { stored },
+            set: { newValue in
+                if newValue != stored { showsMenuBarExtra = newValue }
+            }
+        )
     }
 
     var body: some Scene {
