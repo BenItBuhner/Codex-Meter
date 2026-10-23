@@ -1,0 +1,141 @@
+         1792771604.132  3061  3061 I CodexHarness: step 1 shown Cold open Claude
+         1792771608.480  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=572 post_ms=1742
+         1792771611.133  3271  3271 I CodexHarness: step 2 hidden Home
+         1792771613.449  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=284
+         1792771614.239  3326  3326 I CodexHarness: step 3 shown Reopen Claude from Recents (warm)
+         1792771618.278  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1914 post_ms=188
+         1792771620.014  3557  3557 I CodexHarness: step 4 hidden Home
+         1792771620.273  3579  3579 I CodexHarness: step 5 shown Reopen Claude from its icon (warm)
+         1792771622.399  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1173 post_ms=221
+         1792771622.550  3645  3645 I CodexHarness: step 6 shown Switch straight to ChatGPT
+         1792771625.320  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=603 post_ms=914
+         1792771628.849  3875  3875 I CodexHarness: step 8 shown Pull down shade over ChatGPT (stays)
+         1792771629.975  3926  3926 I CodexHarness: step 9 hidden Home
+         1792771631.303  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=2
+         1792771631.965  4011  4011 I CodexHarness: step 10 shown Loop 1: Claude from Recents
+         1792771634.706  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=528 post_ms=447
+         1792771634.837  4088  4088 I CodexHarness: step 11 hidden Loop 1: Home
+         1792771636.557  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=1
+         1792771637.588  4134  4134 I CodexHarness: step 12 shown Loop 1: Claude from icon
+         1792771639.545  4177  4177 I CodexHarness: step 13 hidden Loop 1: Back out to home
+         1792771639.675  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=844 post_ms=661
+         1792771641.855  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=16
+         1792771642.103  4256  4256 I CodexHarness: step 14 shown Loop 2: Claude from Recents
+         1792771645.290  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=582 post_ms=657
+         1792771645.766  4308  4308 I CodexHarness: step 15 hidden Loop 2: Home
+         1792771647.224  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=169
+         1792771647.854  4436  4436 I CodexHarness: step 16 shown Loop 2: Claude from icon
+         1792771650.550  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=835 post_ms=635
+         1792771651.015  4569  4569 I CodexHarness: step 17 hidden Loop 2: Back out to home
+         1792771652.665  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=276
+         1792771652.895  4623  4623 I CodexHarness: step 18 shown Loop 3: Claude from Recents
+         1792771657.113  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1940 post_ms=297
+         1792771657.236  4732  4732 I CodexHarness: step 19 hidden Loop 3: Home
+         1792771658.917  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=8
+         1792771659.227  4800  4800 I CodexHarness: step 20 shown Loop 3: Claude from icon
+         1792771660.943  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1252 post_ms=221
+         1792771661.292  4885  4885 I CodexHarness: step 21 hidden Loop 3: Back out to home
+         1792771663.299  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=12
+         1792771663.780  4959  4959 I CodexHarness: step 22 shown Loop 4: Claude from Recents
+         1792771667.380  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1523 post_ms=293
+         1792771667.514  5048  5048 I CodexHarness: step 23 hidden Loop 4: Home
+         1792771668.983  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=184
+         1792771669.270  5090  5090 I CodexHarness: step 24 shown Loop 4: Claude from icon
+         1792771670.732  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=750 post_ms=558
+         1792771671.032  5146  5146 I CodexHarness: step 25 hidden Loop 4: Back out to home
+         1792771673.453  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=2
+         1792771673.896  5227  5227 I CodexHarness: step 26 shown Loop 5: Claude from Recents
+         1792771677.006  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=540 post_ms=883
+         1792771677.706  5313  5313 I CodexHarness: step 27 hidden Loop 5: Home
+         1792771678.942  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=41
+         1792771679.567  5349  5349 I CodexHarness: step 28 shown Loop 5: Claude from icon
+         1792771681.260  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=576 post_ms=793
+         1792771681.358  5382  5382 I CodexHarness: step 29 hidden Loop 5: Back out to home
+         1792771682.392  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=6
+         1792771682.837  5415  5415 I CodexHarness: step 30 shown Loop 6: Claude from Recents
+         1792771686.020  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=574 post_ms=990
+         1792771686.323  5477  5477 I CodexHarness: step 31 hidden Loop 6: Home
+         1792771687.663  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=91
+         1792771687.809  5508  5508 I CodexHarness: step 32 shown Loop 6: Claude from icon
+         1792771688.555  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=59 post_ms=72
+         1792771688.958  5537  5537 I CodexHarness: step 33 hidden Loop 6: Back out to home
+         1792771690.406  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=50
+         1792771691.956  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=580 post_ms=184
+         1792771693.322  5628  5628 I CodexHarness: step 34 hidden Press Stop while in Claude
+         1792771695.701  5704  5704 I CodexHarness: step 36 hidden Home
+         1792771696.825  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=0
+         1792771697.634  5744  5744 I CodexHarness: step 37 shown Reopen Claude (shows again)
+         1792771698.423  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=382 post_ms=358
+         1792771700.029  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=23
+         1792771702.857  5815  5815 I CodexHarness: step 38 shown Quiet 1: Claude from icon
+         1792771703.435  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=465 post_ms=20
+         1792771703.864  5830  5830 I CodexHarness: step 39 hidden Quiet 1: Home
+         1792771704.881  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=1
+         1792771705.085  5852  5852 I CodexHarness: step 40 shown Quiet 1: Claude from Recents
+         1792771706.948  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=249 post_ms=277
+         1792771707.152  5879  5879 I CodexHarness: step 41 hidden Quiet 1: Home
+         1792771708.317  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=54
+         1792771708.442  5903  5903 I CodexHarness: step 42 shown Quiet 1: ChatGPT from icon
+         1792771709.538  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=641 post_ms=277
+         1792771709.572  5919  5919 I CodexHarness: step 43 hidden Quiet 1: Back out to home
+         1792771710.926  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=50
+         1792771711.072  5937  5937 I CodexHarness: step 44 shown Quiet 2: Claude from icon
+         1792771711.993  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=271 post_ms=30
+         1792771712.467  5954  5954 I CodexHarness: step 45 hidden Quiet 2: Home
+         1792771713.667  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=3
+         1792771713.838  5975  5975 I CodexHarness: step 46 shown Quiet 2: Claude from Recents
+         1792771715.694  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=403 post_ms=42
+         1792771715.998  5999  5999 I CodexHarness: step 47 hidden Quiet 2: Home
+         1792771717.103  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=3
+         1792771717.352  6022  6022 I CodexHarness: step 48 shown Quiet 2: ChatGPT from icon
+         1792771718.813  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=532 post_ms=13
+         1792771719.215  6038  6038 I CodexHarness: step 49 hidden Quiet 2: Back out to home
+         1792771720.533  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=178
+         1792771721.119  6059  6059 I CodexHarness: step 50 shown Quiet 3: Claude from icon
+         1792771722.023  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=457 post_ms=55
+         1792771722.373  6074  6074 I CodexHarness: step 51 hidden Quiet 3: Home
+         1792771723.464  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=3
+         1792771723.634  6096  6096 I CodexHarness: step 52 shown Quiet 3: Claude from Recents
+         1792771725.195  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=119 post_ms=105
+         1792771725.540  6122  6122 I CodexHarness: step 53 hidden Quiet 3: Home
+         1792771726.768  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=1
+         1792771726.825  6146  6146 I CodexHarness: step 54 shown Quiet 3: ChatGPT from icon
+         1792771728.087  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=603 post_ms=65
+         1792771728.496  6163  6163 I CodexHarness: step 55 hidden Quiet 3: Back out to home
+         1792771730.301  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=67
+         1792771730.491  6180  6180 I CodexHarness: step 56 shown Quiet 4: Claude from icon
+         1792771731.747  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=200 post_ms=40
+         1792771732.191  6195  6195 I CodexHarness: step 57 hidden Quiet 4: Home
+         1792771733.263  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=4
+         1792771733.361  6217  6217 I CodexHarness: step 58 shown Quiet 4: Claude from Recents
+         1792771735.162  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=120 post_ms=143
+         1792771735.421  6240  6240 I CodexHarness: step 59 hidden Quiet 4: Home
+         1792771736.440  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=13
+         1792771736.616  6261  6261 I CodexHarness: step 60 shown Quiet 4: ChatGPT from icon
+         1792771737.815  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=576 post_ms=16
+         1792771738.120  6281  6281 I CodexHarness: step 61 hidden Quiet 4: Back out to home
+         1792771739.855  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=81
+         1792771740.332  6302  6302 I CodexHarness: step 62 shown Quiet 5: Claude from icon
+         1792771741.032  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=302 post_ms=27
+         1792771741.670  6317  6317 I CodexHarness: step 63 hidden Quiet 5: Home
+         1792771742.726  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=6
+         1792771742.961  6341  6341 I CodexHarness: step 64 shown Quiet 5: Claude from Recents
+         1792771744.749  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=34 post_ms=173
+         1792771745.005  6366  6366 I CodexHarness: step 65 hidden Quiet 5: Home
+         1792771746.252  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=1
+         1792771746.295  6387  6387 I CodexHarness: step 66 shown Quiet 5: ChatGPT from icon
+         1792771747.381  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=595 post_ms=82
+         1792771747.593  6403  6403 I CodexHarness: step 67 hidden Quiet 5: Back out to home
+         1792771749.252  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=3
+         1792771749.399  6424  6424 I CodexHarness: step 68 shown Quiet 6: Claude from icon
+         1792771750.389  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=290 post_ms=26
+         1792771750.969  6439  6439 I CodexHarness: step 69 hidden Quiet 6: Home
+         1792771752.030  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=0
+         1792771752.133  6460  6460 I CodexHarness: step 70 shown Quiet 6: Claude from Recents
+         1792771753.958  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=323 post_ms=35
+         1792771754.294  6485  6485 I CodexHarness: step 71 hidden Quiet 6: Home
+         1792771755.420  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=5
+         1792771755.726  6506  6506 I CodexHarness: step 72 shown Quiet 6: ChatGPT from icon
+         1792771756.856  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=561 post_ms=21
+         1792771756.954  6526  6526 I CodexHarness: step 73 hidden Quiet 6: Back out to home
+         1792771758.346  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=41

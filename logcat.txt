@@ -1,0 +1,145 @@
+10-23 16:05:53.425  1077  1077 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+10-23 16:06:30.618  1183  1183 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+10-23 16:06:36.888  2546  2546 I CodexAppSession: App detection connected
+10-23 16:06:48.440  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:06:48.480  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=572 post_ms=1742
+10-23 16:06:49.466  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:06:53.449  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=284
+10-23 16:06:58.124  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:06:58.278  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1914 post_ms=188
+10-23 16:06:59.307  2546  2546 I CodexNowBar: Posted live monitor state: notification not found in active list
+10-23 16:07:02.333  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:02.399  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1173 post_ms=221
+10-23 16:07:03.369  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:04.659  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:07:05.320  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=603 post_ms=914
+10-23 16:07:06.194  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:11.303  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=2
+10-23 16:07:14.455  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:07:14.706  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=528 post_ms=447
+10-23 16:07:15.798  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:16.557  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=1
+10-23 16:07:19.162  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:19.675  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=844 post_ms=661
+10-23 16:07:20.390  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:21.855  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=16
+10-23 16:07:24.803  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:25.290  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=582 post_ms=657
+10-23 16:07:26.321  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:27.224  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=169
+10-23 16:07:30.174  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:30.550  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=835 post_ms=635
+10-23 16:07:31.635  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:32.665  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=276
+10-23 16:07:36.923  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:37.113  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1940 post_ms=297
+10-23 16:07:38.111  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:38.917  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=8
+10-23 16:07:40.725  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:40.943  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1252 post_ms=221
+10-23 16:07:41.976  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:43.299  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=12
+10-23 16:07:47.197  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:47.380  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=1523 post_ms=293
+10-23 16:07:48.495  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:48.983  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=184
+10-23 16:07:50.301  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:50.732  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=750 post_ms=558
+10-23 16:07:51.960  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:53.453  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=2
+10-23 16:07:56.260  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:07:57.006  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=540 post_ms=883
+10-23 16:07:57.956  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:07:58.942  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=41
+10-23 16:08:00.805  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:01.260  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=576 post_ms=793
+10-23 16:08:02.196  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:02.392  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=6
+10-23 16:08:05.399  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:06.020  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=574 post_ms=990
+10-23 16:08:07.463  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:07.663  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=91
+10-23 16:08:08.533  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:08.555  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=59 post_ms=72
+10-23 16:08:09.617  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:10.406  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=50
+10-23 16:08:11.780  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:11.956  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=580 post_ms=184
+10-23 16:08:13.086  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:16.825  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=0
+10-23 16:08:18.264  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:18.423  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=382 post_ms=358
+10-23 16:08:19.404  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:20.029  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=23
+10-23 16:08:23.428  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:23.435  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=465 post_ms=20
+10-23 16:08:24.436  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:24.881  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=1
+10-23 16:08:26.751  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:26.948  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=249 post_ms=277
+10-23 16:08:27.887  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:28.317  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=54
+10-23 16:08:29.379  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:08:29.538  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=641 post_ms=277
+10-23 16:08:30.530  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:30.926  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=50
+10-23 16:08:31.983  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:31.993  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=271 post_ms=30
+10-23 16:08:33.057  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:33.667  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=3
+10-23 16:08:35.669  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:35.694  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=403 post_ms=42
+10-23 16:08:36.747  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:37.103  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=3
+10-23 16:08:38.806  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:08:38.813  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=532 post_ms=13
+10-23 16:08:39.875  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:40.533  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=178
+10-23 16:08:41.992  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:42.023  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=457 post_ms=55
+10-23 16:08:43.213  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:43.464  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=3
+10-23 16:08:45.190  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:45.195  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=119 post_ms=105
+10-23 16:08:46.206  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:46.768  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=1
+10-23 16:08:48.039  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:08:48.087  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=603 post_ms=65
+10-23 16:08:49.073  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:50.301  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=67
+10-23 16:08:51.719  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:51.747  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=200 post_ms=40
+10-23 16:08:52.761  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:53.263  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=4
+10-23 16:08:55.021  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:08:55.162  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=120 post_ms=143
+10-23 16:08:56.167  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:56.440  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=13
+10-23 16:08:57.807  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:08:57.815  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=576 post_ms=16
+10-23 16:08:58.840  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:08:59.855  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=81
+10-23 16:09:01.014  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:09:01.032  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=302 post_ms=27
+10-23 16:09:02.033  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:09:02.726  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=6
+10-23 16:09:04.598  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:09:04.749  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=34 post_ms=173
+10-23 16:09:05.766  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:09:06.252  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=1
+10-23 16:09:07.346  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:09:07.381  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=595 post_ms=82
+10-23 16:09:08.372  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:09:09.252  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=3
+10-23 16:09:10.375  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:09:10.389  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=290 post_ms=26
+10-23 16:09:11.399  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:09:12.030  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=0
+10-23 16:09:13.932  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=32 focusCritical=W 32%
+10-23 16:09:13.958  2546  2546 I CodexAppSession: show com.anthropic.claude shown=true source=event wait_ms=323 post_ms=35
+10-23 16:09:14.990  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:09:15.420  2546  2546 I CodexAppSession: hide com.anthropic.claude end_ms=5
+10-23 16:09:16.847  2546  2546 I CodexNowBar: Posting live monitor: mode=android_live_update promotable=true allowed=false legacyColorizedFallback=true preview=false remaining=39 focusCritical=W 39%
+10-23 16:09:16.856  2546  2546 I CodexAppSession: show com.openai.chatgpt shown=true source=event wait_ms=561 post_ms=21
+10-23 16:09:17.866  2546  2546 I CodexNowBar: Posted live monitor state: promotedFlag=false flags=0xa requestExtra=true
+10-23 16:09:18.346  2546  2546 I CodexAppSession: hide com.openai.chatgpt end_ms=41
