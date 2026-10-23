@@ -543,6 +543,24 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
+    /** While adding an account: a way back to the account that was active before. */
+    private void addSwitchBackLink(UsageProvider target) {
+        if (!AccountVault.hasSaved(this, target)) return;
+        TextView back = Ui.text(this, "Cancel and go back to your saved account", 15f,
+                Ui.accent(this, this.dark));
+        back.setGravity(Gravity.CENTER);
+        int pad = Ui.dp(this, 14);
+        back.setPadding(pad, pad, pad, pad);
+        back.setOnClickListener(view -> {
+            AppPreferences.setOAuthPending(this, false, "");
+            AccountVault.cancelAdding(this, target);
+            rebuild();
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, Ui.dp(this, 8), 0, 0);
+        this.content.addView(back, params);
+    }
+
     /** Back from adding an account: keep the new one, or bring the previous one back. */
     private void settleAccountAdd() {
         for (UsageProvider p : UsageProvider.values()) {
@@ -594,6 +612,7 @@ public final class MainActivity extends AppCompatActivity {
                                 ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+                addSwitchBackLink(UsageProvider.CODEX);
                 Ui.addSpacer(this.content, 20);
             }
             if (signedIn && dashboard.getChildCount() == 0) {
@@ -1407,6 +1426,7 @@ public final class MainActivity extends AppCompatActivity {
                             ? "Continue sign-in" : target.signInLabel());
             signIn.setOnClickListener(view -> startOrContinueSignIn(target));
             this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+            addSwitchBackLink(target);
             return;
         }
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, target);

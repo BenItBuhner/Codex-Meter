@@ -79,7 +79,7 @@ jobs:
           shot() { sleep "${2:-3}"; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
           seed() {
             adb shell am force-stop $PKG; sleep 1
-            adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action "${1:-seed}" --es tab "${2:-claude_code}" --es design "${3:-oneui9}"; sleep 4
+            adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action "${1:-seed}" --es tab "${2:-claude_code}" --es design "${3:-oneui9}"; sleep 4
           }
           locate() {
             adb shell uiautomator dump /sdcard/ui.xml >/dev/null
@@ -112,8 +112,9 @@ jobs:
           tap_text "Accounts";              shot light-05-switcher-after 2
           tap_text "sam@acme.dev";          sleep 3
           tap_text "Accounts";              sleep 2
-          tap_text "Add another account";   shot light-06-add-started 4
-          adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action finish_add --es tab claude_code; sleep 4
+          tap_text "Add another account";   shot light-06-add-browser 7
+          adb shell input keyevent BACK;    shot light-06b-adding-empty 3
+          adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action finish_add --es tab claude_code; sleep 4
           shot light-07-after-add 1
           tap_text "Accounts";              shot light-08-three-accounts 2
           adb shell input keyevent BACK; sleep 1
