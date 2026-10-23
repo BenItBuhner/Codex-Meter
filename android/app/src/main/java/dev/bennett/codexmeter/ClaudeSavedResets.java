@@ -479,4 +479,79 @@ public final class ClaudeSavedResets {
     private static String safe(String value) {
         return value == null ? "" : value;
     }
+
+    /** True when the granted scopes are known and lack the Claude Code sign-in scope. */
+    public static boolean needsClaudeCodeSignIn(String grantedScope) {
+        if (grantedScope == null || grantedScope.trim().isEmpty()) return false;
+        for (String scope : grantedScope.trim().split("\\s+")) {
+            if (ClaudeCodeApi.SESSIONS_SCOPE.equals(scope)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Plain report of what Anthropic's usage route said about saved resets, for the "Check with
+     * Anthropic" screen. Shows the raw {@code cedar_ember} block so it can be copied.
+     */
+    public static String describeCheck(int status, String body, String grantedScope,
+            long nowMillis) {
+        StringBuilder out = new StringBuilder();
+        out.append("Anthropic answered: HTTP ").append(status).append('\n');
+        if (grantedScope == null || grantedScope.trim().isEmpty()) {
+            out.append("Sign-in access: not recorded (signed in on an older version)\n");
+        } else {
+            out.append("Sign-in access: ").append(grantedScope.trim()).append('\n');
+        }
+        if (status == 429) {
+            out.append("\nAnthropic is rate limiting usage checks. Try again in a few minutes.");
+            return out.toString();
+        }
+        if (status < 200 || status >= 300) {
+            out.append("\nThe usage check failed, so resets could not be read.");
+            return out.toString();
+        }
+        JSONObject block = null;
+        try {
+            block = new JSONObject(body == null ? "" : body).optJSONObject("cedar_ember");
+        } catch (JSONException ignored) {
+        }
+        if (block == null) {
+            out.append("Reset status: not included in Anthropic's answer\n");
+        } else {
+            ClaudeSavedResets saved = fromApiJson(block, nowMillis);
+            if (saved == null) {
+                out.append("Reset status: included but unreadable\n");
+            } else {
+                out.append("Offered resets: ").append(saved.eligible ? "yes" : "no");
+                if (!saved.ineligibleReason.isEmpty()) {
+                    out.append(" (").append(saved.ineligibleReason).append(')');
+                }
+                out.append('\n');
+                out.append("Resets you can use: ").append(saved.availableCount(nowMillis))
+                        .append('\n');
+                for (Grant grant : saved.grants) {
+                    out.append("\u2022 ").append(grant.title()).append(": ")
+                            .append(grant.resetsLeft).append(" of ")
+                            .append(grant.resetsTotal).append(" left");
+                    if (grant.usableNow) {
+                        out.append(", usable now");
+                    } else if (!grant.unavailableReason.isEmpty()) {
+                        out.append(", held (").append(grant.unavailableReason).append(')');
+                    }
+                    if (grant.endsAtMillis > 0L) {
+                        out.append(", ends ").append(Instant.ofEpochMilli(grant.endsAtMillis));
+                    }
+                    out.append('\n');
+                }
+            }
+        }
+        if (needsClaudeCodeSignIn(grantedScope)) {
+            out.append("\nThis sign-in lacks Claude Code access. Sign out of Claude Code in "
+                    + "Settings > Accounts and sign in again.\n");
+        }
+        String raw = block == null ? "(none)" : block.toString();
+        if (raw.length() > 2000) raw = raw.substring(0, 2000) + "...";
+        out.append("\nRaw: ").append(raw);
+        return out.toString();
+    }
 }

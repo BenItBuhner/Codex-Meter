@@ -153,6 +153,18 @@ public actor CursorService {
                     try? await tokenStore.save(tokens)
                 }
             }
+            // The profile has no email; ask Cursor's auth service, best effort, as Android does.
+            if tokens.email.isEmpty, let email = await fetchEmail(bearer: tokens.accessToken) {
+                tokens = AuthTokens(
+                    accessToken: tokens.accessToken,
+                    refreshToken: tokens.refreshToken,
+                    idToken: tokens.idToken,
+                    expiresAt: tokens.expiresAt,
+                    accountID: tokens.accountID,
+                    email: email
+                )
+                try? await tokenStore.save(tokens)
+            }
             if plan.isEmpty, let previous = try? await cache.load()?.usage {
                 plan = previous.planType
             }
@@ -170,6 +182,15 @@ public actor CursorService {
             await cache.recordUsageError(error.localizedDescription, at: now())
             throw error
         }
+    }
+
+    /// `AuthService/GetEmail`, the call the Cursor editor makes for the signed-in email.
+    private func fetchEmail(bearer: String) async -> String? {
+        guard let payload = try? await post(CursorAPI.emailURL, body: [:], bearer: bearer),
+              (200..<300).contains(payload.statusCode),
+              let object = try? JSONSerialization.jsonObject(with: payload.data) as? [String: Any],
+              let email = object["email"] as? String, email.contains("@") else { return nil }
+        return email
     }
 
     private func usableTokens() async throws -> AuthTokens {

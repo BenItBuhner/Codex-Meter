@@ -109,6 +109,7 @@ final class CursorUsageModel {
         do {
             let snapshot = try await service.refreshUsage()
             usage = snapshot
+            ProviderWidgetPublisher.publish(.cursor, demo: false, usage: snapshot)
             visibleError = nil
             isUsingCachedData = false
             if let tokens = try? await service.currentTokens() {
@@ -181,6 +182,7 @@ final class CursorUsageModel {
         DiagnosticLog.info("process", "cursor_sign_out")
         await service.signOut()
         clearState()
+        ProviderWidgetPublisher.publishSignedOut(.cursor)
     }
 
     // MARK: Demo
@@ -197,6 +199,11 @@ final class CursorUsageModel {
         clearState()
         loadTask = nil
         await loadIfNeeded()
+        if phase == .live {
+            ProviderWidgetPublisher.publish(.cursor, demo: false, usage: usage)
+        } else {
+            ProviderWidgetPublisher.publishSignedOut(.cursor)
+        }
     }
 
     private func showDemo() {
@@ -205,6 +212,7 @@ final class CursorUsageModel {
         visibleError = nil
         isUsingCachedData = false
         usage = Self.demoSnapshot(at: .now, refreshCount: demoRefreshCount)
+        ProviderWidgetPublisher.publish(.cursor, demo: true, usage: usage)
     }
 
     private func clearState() {

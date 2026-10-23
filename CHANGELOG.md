@@ -2,6 +2,76 @@
 
 ## Unreleased
 
+### Added
+
+- Codex Meter for Mac (`macos/`): a native SwiftUI app with a menu bar meter that shows the allowance closest to running out, a panel with every provider's meters, a sidebar window with the same Codex, Claude Code and Cursor dashboards as the iPhone app, a Settings window (⌘,), Usage menu shortcuts (⌘R, ⌘1–⌘9), Open at login, and desktop widgets. It keeps refreshing, alerting, and auto-using expiring resets from the menu bar after its window closes.
+- Codex Meter for Windows (`windows/`): a native WinUI 3 app for Windows 11 on x64 and ARM64, with Mica, a sidebar with Codex, Claude Code and Cursor dashboards, browser sign-in on an Accounts page, a full Settings page, and a notification-area icon that shows your remaining percentage, plus toasts. Run it with `--demo` to see sample data without signing in.
+- iPad: the provider tabs become a sidebar (or a floating top tab bar the sidebar button toggles), with Settings at the bottom of the sidebar, so every connected provider is one tap away instead of behind a More tab.
+- iPad: dashboards lay cards out in one, two or three columns from the width they actually get, so full screen, Split View, Slide Over and Stage Manager windows of any size re-flow live. Cards in a row share one height, the usage history chart keeps a full row, and the signed-out card stays card-sized.
+- iPad keyboard and menu bar: ⌘1–⌘9 jump to a provider tab, ⇧⌘] and ⇧⌘[ move between tabs, ⌘R refreshes the visible tab and ⌘, opens Settings. With a trackpad or mouse, hovering scrubs the usage history charts and picker rows highlight.
+
+### Changed
+
+- iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.
+- iOS Settings → Accounts matches Android: one Accounts row listing the connected services opens an Accounts page with the connected accounts (email · plan, or "API key" / "Signed in") and an Add account row that opens a searchable provider picker. The Cursor row now shows its email. One sign-in screen handles device codes, pasted tokens and API keys, and marks experimental providers.
+- iOS first-run setup uses the same searchable multi-select provider picker as Android, and Settings → Providers lists only tabs that are on and connected accounts.
+- iOS home-screen and lock-screen widgets can each show a chosen provider (Codex, Claude Code, Cursor or any connected provider). Existing widgets keep showing Codex.
+
+### Development
+
+- `DashboardGrid` in CodexMeterCore decides columns and rows, with unit tests. `IPadLayoutTests` checks the columns, sidebar and shortcuts on iPad simulators, and iOS CI runs it on iPad Pro 13-inch (light and dark), iPad Air 11-inch and iPad mini, uploading the stills as `ipad-gallery`. The main UI suite also runs on iPad Pro.
+
+## 2.9.0-alpha.10 — 2026-10-23
+
+### Changed
+
+- Settings cleaned up, with nothing removed. The main list is grouped as Accounts, Live usage and Usage, and **Now Bar** is the first row under Live usage with a summary of what starts it.
+- **Now Bar → Start automatically → While using AI apps** is one switch row: the switch turns it on or off, and tapping the row opens the app list. The on/off subtitle and the long description are gone. The app list is one card, each app naming the dashboard it shows, with a single **Add an app**.
+- **Providers** is now **Dashboard tabs**, with a one-line hint. **Accounts** is one card ending in **Add account**.
+- **Refresh & dashboard**: refresh mode and interval are one list (Automatic, or every 5 minutes to 2 hours). The eight Codex card switches are gone because **Edit dashboard** already has them; it now asks which tab to edit.
+- **Reset credits** has its own page. Follow-up options (when to use a reset, the threshold, the window) only appear once their switch is on.
+
+### Fixed
+
+- Show in AI apps is now reliable and near-instant. It used to guess the app in front from "new screen" events, which launchers don't always send. Reopening an app from Recents or its icon could do nothing, going home could leave the notification stuck, and a 200 ms event batching delay made timing uneven. It now shows the moment a matched app's screen opens, double-checks which app window is actually in front on a background thread every time anything changes, gets each change with no batching delay, and hides about 0.6 s after you leave (was 1.5 s). Switching between matched apps swaps the provider in place, without hiding and re-showing. Because of this change, Android now describes app detection as able to view the screen. Codex Meter still reads only the package name of the app in front.
+
+## 2.9.0-alpha.9 — 2026-10-23
+
+### Added
+
+- **Show in AI apps** (Settings → Now Bar → Show while an AI app is open, off by default): the live notification appears on its own while ChatGPT, Claude, GitHub, Grok or Kimi is open, showing that app's own provider (ChatGPT shows Codex, Claude shows Claude Code, GitHub shows Copilot), and goes away about a second after you leave. Each connected provider lists its official apps with a switch, and **Add an app** matches any other installed app. It finds the app in front through an Android accessibility service that only reads the app's name: no screen content, no taps or typing, and nothing leaves the phone. A monitor you started yourself or one started by a low allowance is never replaced, and dismissing it hides it until you leave that app.
+
+## 2.9.0-alpha.8 — 2026-10-22
+
+### Fixed
+
+- One UI 9 design: the lighter grey band behind the floating back button is gone. SESL fades list edges on Android 16+ by erasing what the list drew there, and SESL's settings list draws its cards as a grey background under black gaps, so the fade uncovered that grey. Every One UI 9 list now fades into the exact page color instead.
+- One UI 9 design: the expanded header is as tall as on classic pages again. It was a status bar's height short, so the large title sat too high.
+
+## 2.9.0-alpha.7 — 2026-10-22
+
+### Fixed
+
+- One UI 9 design rebuilt from scratch on SESL9's own page parts instead of the One UI 8 header. Headers are fully transparent: the large title collapses, then the back and action buttons float in their own pills while content scrolls under them and fades out below the status bar. No filled or rounded header box anywhere. The dashboard's provider tabs are a floating tab bar, and widget settings keep a floating Cancel / Save bar.
+- Classic design is unchanged from alpha.6, with the collapsed header pinned at every scroll depth.
+- Claude Code saved resets: sign-in and token refresh now ask for Claude Code's full scope list, so Anthropic treats the app as Claude Code. Existing sign-ins pick up the new scope on their next refresh. Settings → Refresh & usage → **Check with Anthropic** makes one fresh usage request and shows exactly what came back, with a Copy button.
+
+### Changed
+
+- Lock screen gauges lead with the weekly limit instead of the five-hour one. When a dial can only show one window (two providers on the Gauges widget, or the single Gauge widget), it now shows weekly on the main ring and five-hour as a thinner, lighter ring inside it, so both stay visible. On iOS, the circular lock screen widget puts weekly on the bold outer ring, and the rectangular and inline widgets list weekly first.
+
+## 2.9.0-alpha.6 — 2026-10-22
+
+### Fixed
+
+- One UI 9 design: settings pages no longer wrap scrolled content in a filled box with One UI 8 corners. Content now fades under the floating buttons.
+- Classic design: the collapsed header stays pinned while you scroll instead of scrolling away, and widget settings show the Cancel / Save bar again.
+- Claude Code saved resets now show up for accounts that have them: usage and reset requests now identify as Claude Code, since Anthropic decides reset eligibility per client. Settings → Refresh & usage has a new **Your resets** row for Codex and Claude Code that shows the count and next expiry, or why no resets are offered.
+
+### Changed
+
+- Turning the One UI 9 design on or off restarts the app and reopens Settings → Appearance, so every page is rebuilt cleanly.
+
 ## 2.9.0-alpha.5 — 2026-10-22
 
 ### Added

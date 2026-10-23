@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SESL9 floating Cancel / Save bar for One UI 9 widget settings. -->
+<com.google.android.material.oneui.floatingactioncontainer.FloatingBottomLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/oneui9_config_actions"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom|center_horizontal"
+    app:showFloatingItemBackground="true">
+
+    <com.google.android.material.oneui.dividerbuttonlayout.DividerButtonLayout
+        android:id="@+id/oneui9_config_buttons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        app:menu="@menu/oneui9_config_actions" />
+</com.google.android.material.oneui.floatingactioncontainer.FloatingBottomLayout>

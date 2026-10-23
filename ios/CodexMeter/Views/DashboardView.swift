@@ -16,6 +16,8 @@ struct DashboardView: View {
                 ClaudeDashboardView()
             case .cursor:
                 CursorDashboardView()
+            default:
+                AddedProviderDashboardView(provider: provider)
             }
         }
         .task {
@@ -28,6 +30,7 @@ struct DashboardView: View {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if model.mode == .signedOut {
                     SignedOutView()
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if model.mode == .demo {
                         StatusBanner(
@@ -58,6 +61,7 @@ struct DashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }
@@ -99,7 +103,7 @@ struct DashboardView: View {
     }
 }
 
-/// A provider's mark (OpenAI, Claude, Cursor) from the asset catalog, drawn as a template so
+/// A provider's mark (OpenAI, Claude, Cursor, GitHub…) from the asset catalog, drawn as a template so
 /// it tints like an SF Symbol in tab bars and settings rows.
 struct ProviderMark: View {
     let provider: UsageProvider
@@ -120,6 +124,7 @@ extension UsageProvider {
         case .codex: "ProviderCodex"
         case .claudeCode: "ProviderClaude"
         case .cursor: "ProviderCursor"
+        default: "Provider-\(rawValue)"
         }
     }
 }

@@ -371,7 +371,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
             text.append("A credit is also used when your ").append(window)
                     .append(" limit reaches ").append(threshold).append("% remaining.");
         }
-        if (text.length() > 0) text.append(" Change this in Settings > Refresh & usage.");
+        if (text.length() > 0) text.append(" Change this in Settings > Reset credits.");
         return text.toString();
     }
 }

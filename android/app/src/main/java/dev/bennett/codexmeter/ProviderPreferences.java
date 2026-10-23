@@ -30,6 +30,8 @@ public final class ProviderPreferences {
     private static final String SUFFIX_RATE_LIMITED_AT = "_rate_limited_at";
     private static final String SUFFIX_SAVED_RESETS = "_saved_resets";
     private static final String SUFFIX_ORGANIZATION = "_organization";
+    private static final String SUFFIX_GRANTED_SCOPE = "_granted_scope";
+    private static final String SUFFIX_SCOPE_UPGRADE_AT = "_scope_upgrade_at";
     private static final String SUFFIX_SAVED_RESET_ATTEMPT = "_saved_reset_attempt_";
     private static final String KEY_WIDGET_PROVIDER = "widget_provider_";
     private static final String SUFFIX_DASHBOARD_ORDER = "_dashboard_order";
@@ -216,8 +218,9 @@ public final class ProviderPreferences {
         if (provider == UsageProvider.CODEX) {
             return AppPreferences.saveSnapshot(context, snapshot);
         }
+        boolean saved;
         try {
-            return prefs(context).edit()
+            saved = prefs(context).edit()
                     .putString(provider.id + SUFFIX_SNAPSHOT, snapshot.toJson().toString())
                     .remove(provider.id + SUFFIX_ERROR)
                     .remove(provider.id + SUFFIX_ERROR_AT)
@@ -225,6 +228,10 @@ public final class ProviderPreferences {
         } catch (Exception ignored) {
             return false;
         }
+        // Codex reaches the live monitor through UsageApi; other providers only show there
+        // while their app is open.
+        if (saved) NowBarManager.onProviderUsageUpdated(context, provider, snapshot);
+        return saved;
     }
 
     public static String getLastError(Context context, UsageProvider provider) {
@@ -278,6 +285,25 @@ public final class ProviderPreferences {
             editor.remove(provider.id + SUFFIX_SAVED_RESETS);
         }
         editor.apply();
+    }
+
+    /** Scopes the provider granted at sign-in; empty when signed in before this was saved. */
+    public static String getGrantedScope(Context context, UsageProvider provider) {
+        return prefs(context).getString(provider.id + SUFFIX_GRANTED_SCOPE, "");
+    }
+
+    public static void setGrantedScope(Context context, UsageProvider provider, String scope) {
+        if (scope == null || scope.trim().isEmpty()) return;
+        prefs(context).edit().putString(provider.id + SUFFIX_GRANTED_SCOPE, scope.trim())
+                .apply();
+    }
+
+    public static long getScopeUpgradeTriedAt(Context context, UsageProvider provider) {
+        return prefs(context).getLong(provider.id + SUFFIX_SCOPE_UPGRADE_AT, 0L);
+    }
+
+    public static void setScopeUpgradeTriedAt(Context context, UsageProvider provider, long at) {
+        prefs(context).edit().putLong(provider.id + SUFFIX_SCOPE_UPGRADE_AT, at).apply();
     }
 
     public static String getOrganization(Context context, UsageProvider provider) {
@@ -457,6 +483,8 @@ public final class ProviderPreferences {
                 .remove(provider.id + SUFFIX_RATE_LIMITED_AT)
                 .remove(provider.id + SUFFIX_SAVED_RESETS)
                 .remove(provider.id + SUFFIX_ORGANIZATION)
+                .remove(provider.id + SUFFIX_GRANTED_SCOPE)
+                .remove(provider.id + SUFFIX_SCOPE_UPGRADE_AT)
                 .remove(provider.id + SUFFIX_SAVED_RESET_ATTEMPT + "expiry")
                 .remove(provider.id + SUFFIX_SAVED_RESET_ATTEMPT + "low_usage")
                 .commit();

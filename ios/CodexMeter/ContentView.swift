@@ -8,7 +8,9 @@ struct ContentView: View {
         @Bindable var model = model
 
         // Stock tab bar with each provider's mark. Only providers turned on in Settings get a
-        // tab, and with just one on the bar is hidden.
+        // tab, and with just one on the bar is hidden. On iPad the same tabs become a sidebar
+        // (or the floating top tab bar, which the sidebar button toggles), so every provider
+        // stays one tap away instead of collapsing into a More tab.
         TabView(selection: Binding(
             get: { model.selectedProvider },
             set: { model.select(provider: $0) }
@@ -21,6 +23,19 @@ struct ContentView: View {
                     .toolbar(model.enabledProviders.count > 1 ? .visible : .hidden, for: .tabBar)
                 }
             }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        .tabViewSidebarBottomBar {
+            Button {
+                model.isShowingSettings = true
+            } label: {
+                Label("Settings", systemImage: "gearshape")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.borderless)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .accessibilityIdentifier("sidebar-settings")
         }
         .sheet(isPresented: $model.isShowingSettings) {
             NavigationStack {
