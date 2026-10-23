@@ -1,0 +1,67 @@
+--------- beginning of crash
+10-23 18:57:23.004   355   355 F libc    : Fatal signal 6 (SIGABRT), code -1 (SI_QUEUE) in tid 355 (android.hardwar), pid 355 (android.hardwar)
+10-23 18:57:23.087  1054  1054 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+10-23 18:57:23.087  1054  1054 F DEBUG   : Build fingerprint: 'google/sdk_gwear_x86_64/emu64xa:14/AW2A.240422.007.E8/12230326:userdebug/dev-keys'
+10-23 18:57:23.087  1054  1054 F DEBUG   : Revision: '0'
+10-23 18:57:23.088  1054  1054 F DEBUG   : ABI: 'x86_64'
+10-23 18:57:23.088  1054  1054 F DEBUG   : Timestamp: 2026-10-23 18:57:23.055391555+0000
+10-23 18:57:23.088  1054  1054 F DEBUG   : Process uptime: 0s
+10-23 18:57:23.088  1054  1054 F DEBUG   : Cmdline: /vendor/bin/hw/android.hardware.sensors-service.multihal
+10-23 18:57:23.088  1054  1054 F DEBUG   : pid: 355, tid: 355, name: android.hardwar  >>> /vendor/bin/hw/android.hardware.sensors-service.multihal <<<
+10-23 18:57:23.088  1054  1054 F DEBUG   : uid: 1000
+10-23 18:57:23.088  1054  1054 F DEBUG   : signal 6 (SIGABRT), code -1 (SI_QUEUE), fault addr --------
+10-23 18:57:23.088  1054  1054 F DEBUG   : Abort message: 'activationOnChangeSensorEvent:231: unexpected sensor type: 26'
+10-23 18:57:23.088  1054  1054 F DEBUG   :     rax 0000000000000000  rbx 00007ffd5e8a5b48  rcx 00007672ef4b8c10  rdx 0000000000000006
+10-23 18:57:23.088  1054  1054 F DEBUG   :     r8  00007ffd5e8a5cf0  r9  00007ffd5e8a5cf0  r10 00007ffd5e8a5b50  r11 0000000000000207
+10-23 18:57:23.088  1054  1054 F DEBUG   :     r12 00007672f1ffca70  r13 000076722f469070  r14 0000000000000163  r15 0000000000000163
+10-23 18:57:23.088  1054  1054 F DEBUG   :     rdi 0000000000000163  rsi 0000000000000163
+10-23 18:57:23.088  1054  1054 F DEBUG   :     rbp 0000000000000010  rsp 00007ffd5e8a5b40  rip 00007672ef4b8c10
+10-23 18:57:23.088  1054  1054 F DEBUG   : 14 total frames
+10-23 18:57:23.088  1054  1054 F DEBUG   : backtrace:
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #00 pc 0000000000059c10  /apex/com.android.runtime/lib64/bionic/libc.so (abort+192) (BuildId: 086aece9db6cefe18f63d77a1cc11dc3)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #01 pc 0000000000006c8a  /system/lib64/liblog.so (__android_log_default_aborter+10) (BuildId: 642f3a4411a5fbfa704caf443550e6b8)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #02 pc 00000000000079b8  /system/lib64/liblog.so (__android_log_assert+328) (BuildId: 642f3a4411a5fbfa704caf443550e6b8)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #03 pc 000000000000a249  /vendor/lib64/hw/android.hardware.sensors@2.1-impl.ranchu.so (goldfish::MultihalSensors::activationOnChangeSensorEvent(int, android::hardware::sensors::V2_1::SensorInfo const&) const+201) (BuildId: 4e2c5e0740adec450b5f88011319dd20)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #04 pc 0000000000009e06  /vendor/lib64/hw/android.hardware.sensors@2.1-impl.ranchu.so (goldfish::MultihalSensors::activate(int, bool)+166) (BuildId: 4e2c5e0740adec450b5f88011319dd20)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #05 pc 00000000000171fd  /vendor/bin/hw/android.hardware.sensors-service.multihal (android::hardware::sensors::V2_1::implementation::SubHalWrapperBase<android::hardware::sensors::V2_0::implementation::ISensorsSubHal>::activate(int, bool)+13) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #06 pc 0000000000012b8a  /vendor/bin/hw/android.hardware.sensors-service.multihal (android::hardware::sensors::V2_1::implementation::HalProxy::activate(int, bool)+74) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #07 pc 000000000000be6b  /vendor/bin/hw/android.hardware.sensors-service.multihal (non-virtual thunk to aidl::android::hardware::sensors::implementation::HalProxyAidl::activate(int, bool)+43) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #08 pc 000000000000d83c  /vendor/lib64/android.hardware.sensors-V2-ndk.so (aidl::android::hardware::sensors::_aidl_android_hardware_sensors_ISensors_onTransact(AIBinder*, unsigned int, AParcel const*, AParcel*)+252) (BuildId: 71c6e4a57bf13d1216d12bcbfbd33ce7)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #09 pc 00000000000102d0  /system/lib64/libbinder_ndk.so (ABBinder::onTransact(unsigned int, android::Parcel const&, android::Parcel*, unsigned int)+144) (BuildId: 159345c4eb2ad7b788d9b1eb3ceb1fbb)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #10 pc 00000000000520cc  /system/lib64/libbinder.so (android::IPCThreadState::executeCommand(int)+1660) (BuildId: 8e2442e61dce37f4776e1161b0a0ff62)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #11 pc 0000000000050ce5  /system/lib64/libbinder.so (android::IPCThreadState::joinThreadPool(bool)+917) (BuildId: 8e2442e61dce37f4776e1161b0a0ff62)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #12 pc 000000000000b591  /vendor/bin/hw/android.hardware.sensors-service.multihal (main+369) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.088  1054  1054 F DEBUG   :       #13 pc 0000000000054df2  /apex/com.android.runtime/lib64/bionic/libc.so (__libc_init+114) (BuildId: 086aece9db6cefe18f63d77a1cc11dc3)
+10-23 18:57:23.205  1065  1065 F libc    : Fatal signal 6 (SIGABRT), code -1 (SI_QUEUE) in tid 1065 (android.hardwar), pid 1065 (android.hardwar)
+10-23 18:57:23.281  1078  1078 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+10-23 18:57:23.281  1078  1078 F DEBUG   : Build fingerprint: 'google/sdk_gwear_x86_64/emu64xa:14/AW2A.240422.007.E8/12230326:userdebug/dev-keys'
+10-23 18:57:23.281  1078  1078 F DEBUG   : Revision: '0'
+10-23 18:57:23.281  1078  1078 F DEBUG   : ABI: 'x86_64'
+10-23 18:57:23.281  1078  1078 F DEBUG   : Timestamp: 2026-10-23 18:57:23.237629597+0000
+10-23 18:57:23.281  1078  1078 F DEBUG   : Process uptime: 0s
+10-23 18:57:23.281  1078  1078 F DEBUG   : Cmdline: /vendor/bin/hw/android.hardware.sensors-service.multihal
+10-23 18:57:23.281  1078  1078 F DEBUG   : pid: 1065, tid: 1065, name: android.hardwar  >>> /vendor/bin/hw/android.hardware.sensors-service.multihal <<<
+10-23 18:57:23.281  1078  1078 F DEBUG   : uid: 1000
+10-23 18:57:23.281  1078  1078 F DEBUG   : signal 6 (SIGABRT), code -1 (SI_QUEUE), fault addr --------
+10-23 18:57:23.281  1078  1078 F DEBUG   : Abort message: 'activationOnChangeSensorEvent:231: unexpected sensor type: 26'
+10-23 18:57:23.281  1078  1078 F DEBUG   :     rax 0000000000000000  rbx 00007ffc1b96dd88  rcx 000072be09c99c10  rdx 0000000000000006
+10-23 18:57:23.281  1078  1078 F DEBUG   :     r8  00007ffc1b96df30  r9  00007ffc1b96df30  r10 00007ffc1b96dd90  r11 0000000000000207
+10-23 18:57:23.281  1078  1078 F DEBUG   :     r12 000072bb78b9ca70  r13 000072bd296b89c0  r14 0000000000000429  r15 0000000000000429
+10-23 18:57:23.281  1078  1078 F DEBUG   :     rdi 0000000000000429  rsi 0000000000000429
+10-23 18:57:23.281  1078  1078 F DEBUG   :     rbp 0000000000000010  rsp 00007ffc1b96dd80  rip 000072be09c99c10
+10-23 18:57:23.281  1078  1078 F DEBUG   : 14 total frames
+10-23 18:57:23.281  1078  1078 F DEBUG   : backtrace:
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #00 pc 0000000000059c10  /apex/com.android.runtime/lib64/bionic/libc.so (abort+192) (BuildId: 086aece9db6cefe18f63d77a1cc11dc3)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #01 pc 0000000000006c8a  /system/lib64/liblog.so (__android_log_default_aborter+10) (BuildId: 642f3a4411a5fbfa704caf443550e6b8)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #02 pc 00000000000079b8  /system/lib64/liblog.so (__android_log_assert+328) (BuildId: 642f3a4411a5fbfa704caf443550e6b8)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #03 pc 000000000000a249  /vendor/lib64/hw/android.hardware.sensors@2.1-impl.ranchu.so (goldfish::MultihalSensors::activationOnChangeSensorEvent(int, android::hardware::sensors::V2_1::SensorInfo const&) const+201) (BuildId: 4e2c5e0740adec450b5f88011319dd20)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #04 pc 0000000000009e06  /vendor/lib64/hw/android.hardware.sensors@2.1-impl.ranchu.so (goldfish::MultihalSensors::activate(int, bool)+166) (BuildId: 4e2c5e0740adec450b5f88011319dd20)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #05 pc 00000000000171fd  /vendor/bin/hw/android.hardware.sensors-service.multihal (android::hardware::sensors::V2_1::implementation::SubHalWrapperBase<android::hardware::sensors::V2_0::implementation::ISensorsSubHal>::activate(int, bool)+13) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #06 pc 0000000000012b8a  /vendor/bin/hw/android.hardware.sensors-service.multihal (android::hardware::sensors::V2_1::implementation::HalProxy::activate(int, bool)+74) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #07 pc 000000000000be6b  /vendor/bin/hw/android.hardware.sensors-service.multihal (non-virtual thunk to aidl::android::hardware::sensors::implementation::HalProxyAidl::activate(int, bool)+43) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #08 pc 000000000000d83c  /vendor/lib64/android.hardware.sensors-V2-ndk.so (aidl::android::hardware::sensors::_aidl_android_hardware_sensors_ISensors_onTransact(AIBinder*, unsigned int, AParcel const*, AParcel*)+252) (BuildId: 71c6e4a57bf13d1216d12bcbfbd33ce7)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #09 pc 00000000000102d0  /system/lib64/libbinder_ndk.so (ABBinder::onTransact(unsigned int, android::Parcel const&, android::Parcel*, unsigned int)+144) (BuildId: 159345c4eb2ad7b788d9b1eb3ceb1fbb)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #10 pc 00000000000520cc  /system/lib64/libbinder.so (android::IPCThreadState::executeCommand(int)+1660) (BuildId: 8e2442e61dce37f4776e1161b0a0ff62)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #11 pc 0000000000050ce5  /system/lib64/libbinder.so (android::IPCThreadState::joinThreadPool(bool)+917) (BuildId: 8e2442e61dce37f4776e1161b0a0ff62)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #12 pc 000000000000b591  /vendor/bin/hw/android.hardware.sensors-service.multihal (main+369) (BuildId: cadfb83c32f08d5cd62183e714544f76)
+10-23 18:57:23.281  1078  1078 F DEBUG   :       #13 pc 0000000000054df2  /apex/com.android.runtime/lib64/bionic/libc.so (__libc_init+114) (BuildId: 086aece9db6cefe18f63d77a1cc11dc3)
