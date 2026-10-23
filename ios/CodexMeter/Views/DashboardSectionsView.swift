@@ -524,7 +524,7 @@ private struct ResetCreditsDashboardCard: View {
     }
 }
 
-/// Claude Code and Cursor cards, in the order and visibility chosen in that provider's own
+/// Claude Code, Cursor and added providers' cards, in the order and visibility chosen in that provider's own
 /// Edit dashboard.
 struct ProviderDashboardCards: View {
     let provider: UsageProvider
@@ -603,7 +603,10 @@ struct ProviderDashboardCards: View {
         switch key {
         case DashboardSections.fiveHour:
             UsageMeterCard(
-                title: "5-hour",
+                // Added providers' short window isn't always five hours.
+                title: provider.isBuiltIn
+                    ? "5-hour"
+                    : LocalizedStringKey(ProviderUsageParsers.durationName(usage.fiveHour?.windowSeconds ?? 0)),
                 systemImage: "clock",
                 window: usage.fiveHour,
                 accent: .orange,

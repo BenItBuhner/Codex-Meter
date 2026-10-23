@@ -43,6 +43,27 @@ struct WidgetDisplaySnapshot: Sendable, Equatable {
     let longWindowIsMonthly: Bool
     let creditCount: Int
     let freshness: WidgetSnapshotFreshness
+    var provider: UsageProvider = .codex
+
+    /// The short window's name: "5 hours" for Codex and Claude, otherwise from its length.
+    var shortWindowTitle: String {
+        let seconds = Int64(fiveHour.durationSeconds ?? 18_000)
+        if seconds == 18_000 { return "5 hours" }
+        return ProviderUsageParsers.durationName(seconds)
+    }
+
+    /// Compact form for accessory widgets: "5h", "1d", "3h".
+    var shortWindowShortTitle: String {
+        let seconds = Int64(fiveHour.durationSeconds ?? 18_000)
+        if seconds >= 86_400, seconds % 86_400 == 0 { return "\(seconds / 86_400)d" }
+        if seconds >= 3_600 { return "\(seconds / 3_600)h" }
+        return "\(max(1, seconds / 60))m"
+    }
+
+    /// Header name: the product for Codex, otherwise the provider.
+    var headerTitle: String {
+        provider == .codex ? "Codex Meter" : provider.displayName
+    }
 
     var longWindowTitle: String {
         longWindowIsMonthly ? "Monthly" : "Weekly"
@@ -131,14 +152,43 @@ struct WidgetSnapshotStore: Sendable {
     static let snapshotFilename = SharedWidgetSnapshot.defaultFileName
     static let staleAfter: TimeInterval = 2 * 60 * 60
 
-    func load(now: Date = .now) -> WidgetDisplaySnapshot {
+    func load(provider: UsageProvider = .codex, now: Date = .now) -> WidgetDisplaySnapshot {
+        var snapshot = loadShared(provider: provider, now: now)
+        snapshot.provider = provider
+        return snapshot
+    }
+
+    /// Codex, then every other provider the app has published live or demo data for.
+    func availableProviders() -> [UsageProvider] {
+        let others = UsageProvider.allCases.filter { provider in
+            guard provider != .codex, let shared = decoded(provider) else { return false }
+            return shared.mode != .signedOut
+        }
+        return [.codex] + others
+    }
+
+    private func decoded(_ provider: UsageProvider) -> SharedWidgetSnapshot? {
+        guard
+            let container = FileManager.default.containerURL(
+                forSecurityApplicationGroupIdentifier: Self.appGroupIdentifier
+            ),
+            let data = try? Data(
+                contentsOf: container.appending(path: SharedWidgetSnapshot.fileName(for: provider)),
+                options: [.mappedIfSafe, .uncached]
+            ),
+            data.count <= 256 * 1_024
+        else { return nil }
+        return decodeSharedSnapshot(from: data)
+    }
+
+    private func loadShared(provider: UsageProvider, now: Date) -> WidgetDisplaySnapshot {
         let fileManager = FileManager.default
         guard
             let container = fileManager.containerURL(
                 forSecurityApplicationGroupIdentifier: Self.appGroupIdentifier
             ),
             let data = try? Data(
-                contentsOf: container.appending(path: Self.snapshotFilename),
+                contentsOf: container.appending(path: SharedWidgetSnapshot.fileName(for: provider)),
                 options: [.mappedIfSafe, .uncached]
             ),
             data.count <= 256 * 1_024,
