@@ -20,6 +20,8 @@ public class DebugSeedActivity extends Activity {
         String action = getIntent().getStringExtra("action");
         String design = getIntent().getStringExtra("design");
         String tab = getIntent().getStringExtra("tab");
+        String open = getIntent().getStringExtra("open");
+        boolean singleClaude = "yes".equals(getIntent().getStringExtra("single_claude"));
         long now = System.currentTimeMillis();
         long s = now / 1000L;
         try {
@@ -49,8 +51,10 @@ public class DebugSeedActivity extends Activity {
                 seed(UsageProvider.CODEX, "sam@acme.dev", "pro", 8, 22, now, s);
                 AccountVault.finishAdding(this, UsageProvider.CODEX);
                 // Claude Code: a personal Pro account saved, a work Max account active.
-                seed(UsageProvider.CLAUDE_CODE, "sam.lee@gmail.com", "Pro", 81, 74, now, s);
-                AccountVault.prepareToAdd(this, UsageProvider.CLAUDE_CODE);
+                if (!singleClaude) {
+                    seed(UsageProvider.CLAUDE_CODE, "sam.lee@gmail.com", "Pro", 81, 74, now, s);
+                    AccountVault.prepareToAdd(this, UsageProvider.CLAUDE_CODE);
+                }
                 seed(UsageProvider.CLAUDE_CODE, "sam@acme.dev", "Max 5x", 42, 68, now, s);
                 AccountVault.finishAdding(this, UsageProvider.CLAUDE_CODE);
                 // Cursor: one account only.
@@ -66,7 +70,22 @@ public class DebugSeedActivity extends Activity {
         } catch (Exception e) {
             Log.e("DebugSeed", "seed failed", e);
         }
-        startActivity(new Intent(this, MainActivity.class).addFlags(
+        Intent next;
+        if ("settings".equals(open)) {
+            next = new Intent(this, SettingsActivity.class);
+        } else if ("providers".equals(open)) {
+            next = new Intent(this, ProvidersActivity.class);
+        } else if ("onboarding".equals(open)) {
+            List<UsageProvider> picks = new ArrayList<>();
+            picks.add(UsageProvider.CODEX);
+            picks.add(UsageProvider.CLAUDE_CODE);
+            AppPreferences.setOnboardingProviders(this, picks);
+            AppPreferences.setOnboardingStep(this, OnboardingFlow.FIRST_SIGN_IN_STEP + 1);
+            next = new Intent(this, OnboardingActivity.class);
+        } else {
+            next = new Intent(this, MainActivity.class);
+        }
+        startActivity(next.addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
         finish();
     }

@@ -292,7 +292,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 Ui.startSecondaryActivity(requireActivity(), ProvidersActivity.class);
                 return true;
             });
-            bindPageLink("settings_accounts", PAGE_ACCOUNTS);
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_reset_credits", PAGE_RESET_CREDITS);
@@ -414,26 +413,26 @@ public final class SettingsActivity extends AppCompatActivity {
             }
         }
 
+        /** "Codex, Claude Code + 1 more · 5 accounts", or "None connected". */
+        private static String providersSummary(Context context) {
+            List<String> names = new ArrayList<>();
+            int accounts = 0;
+            for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+                int count = AccountVault.count(context, provider);
+                if (count == 0) continue;
+                names.add(provider.displayName);
+                accounts += count;
+            }
+            if (names.isEmpty()) return "None connected";
+            String who = names.size() <= 2 ? String.join(", ", names)
+                    : names.get(0) + ", " + names.get(1) + " + " + (names.size() - 2) + " more";
+            return who + " · " + accounts + (accounts == 1 ? " account" : " accounts");
+        }
+
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
             Context context = requireContext();
-            int connected = 0;
-            for (UsageProvider provider : UsageProvider.values()) {
-                if (ProviderAccounts.isSignedIn(context, provider)) connected++;
-            }
-            findPreference("settings_accounts").setSummary(connected == 0 ? "None connected"
-                    : connected == 1 ? "1 connected" : connected + " connected");
-            List<UsageProvider> enabled = ProviderPreferences.getEnabled(context);
-            StringBuilder providers = new StringBuilder();
-            int named = enabled.size() > 3 ? 2 : enabled.size();
-            for (int i = 0; i < named; i++) {
-                if (providers.length() > 0) providers.append(", ");
-                providers.append(enabled.get(i).displayName);
-            }
-            if (enabled.size() > named) {
-                providers.append(" + ").append(enabled.size() - named).append(" more");
-            }
-            findPreference("settings_providers").setSummary(providers.toString());
+            findPreference("settings_providers").setSummary(providersSummary(context));
             String theme = AppPreferences.getAppTheme(context);
             String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
                     ? "System default"

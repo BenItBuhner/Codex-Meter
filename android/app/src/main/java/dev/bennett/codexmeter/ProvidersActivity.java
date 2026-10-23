@@ -22,10 +22,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Settings → Providers: which providers get a dashboard tab and in what order. Same One UI
- * edit list as {@link DashboardReorderActivity}: drag the handle (or long-press a row) to
- * reorder, and use the switch to show or hide a provider's tab. Changes save immediately and
- * the dashboard picks them up on return.
+ * Settings → Providers & accounts: every connected provider with its accounts underneath.
+ * Drag the handle to reorder tabs, use the switch to show or hide a tab, tap a saved account to
+ * make it active, tap the active one to sign out, and add another account per provider.
+ * "Add a provider" connects a new one.
  */
 public final class ProvidersActivity extends AppCompatActivity {
     @Override
@@ -36,32 +36,44 @@ public final class ProvidersActivity extends AppCompatActivity {
     private final List<UsageProvider> items = new ArrayList<>();
     private RecyclerView recycler;
     private boolean dark;
+    private UsageProvider adding;
+    private androidx.activity.result.ActivityResultLauncher<android.content.Intent> signIn;
 
     @Override
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
         this.dark = Ui.isDark(this);
-        LinearLayout content = Ui.installPage(this, "Dashboard tabs", true).content;
+        signIn = registerForActivityResult(
+                new androidx.activity.result.contract.ActivityResultContracts
+                        .StartActivityForResult(),
+                result -> {
+                    if (adding != null) {
+                        if (ProviderAccounts.isSignedIn(this, adding)) {
+                            AccountVault.finishAdding(this, adding);
+                        } else if (!ProviderPreferences.isSignInPending(this, adding)) {
+                            AccountVault.cancelAdding(this, adding);
+                        }
+                        adding = null;
+                    }
+                    reload();
+                });
+        LinearLayout content = Ui.installPage(this, "Providers & accounts", true).content;
         // Pull-to-refresh would swallow downward drag gestures while rearranging rows.
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =
                 findViewById(R.id.dashboard_refresh);
         refresh.setEnabled(false);
 
         TextView hint = Ui.text(this,
-                "Drag to reorder. Switch off to hide a tab.",
+                "Each provider is a dashboard tab. Drag to reorder, switch off to hide one. "
+                        + "Tap an account to switch to it.",
                 14.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));
         content.addView(hint, hintParams);
 
         // Connected accounts and tabs that are on; the rest live in Add account.
-        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
-        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
-            if (enabled.contains(provider) || ProviderAccounts.isSignedIn(this, provider)) {
-                items.add(provider);
-            }
-        }
+        collectItems();
 
         RoundedLinearLayout listCard = Ui.cardGroup(this, dark);
         recycler = new RecyclerView(this);
@@ -75,12 +87,163 @@ public final class ProvidersActivity extends AppCompatActivity {
         listCard.addView(recycler, new LinearLayout.LayoutParams(-1, -2));
         content.addView(listCard);
 
+        Ui.addSpacer(content, 16);
+        RoundedLinearLayout addCard = Ui.cardGroup(this, dark);
+        android.view.View addProvider = Ui.actionRow(this, "Add a provider",
+                "Codex, Claude Code, Cursor, Copilot and more", R.drawable.ic_oui_add, v -> {
+                    DiagnosticLog.info(this, "user", "add_account_opened");
+                    Ui.startSecondaryActivity(this, AddAccountActivity.class);
+                });
+        addCard.addView(addProvider, new LinearLayout.LayoutParams(-1, -2));
+        content.addView(addCard);
+
         TextView note = Ui.text(this,
                 "With five or more on, the first three get tabs and the rest go under More.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
         content.addView(note, noteParams);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        reload();
+    }
+
+    private void collectItems() {
+        items.clear();
+        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
+        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+            if (enabled.contains(provider) || ProviderAccounts.isSignedIn(this, provider)
+                    || AccountVault.hasSaved(this, provider)) {
+                items.add(provider);
+            }
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private void reload() {
+        if (recycler == null || recycler.getAdapter() == null) return;
+        collectItems();
+        recycler.getAdapter().notifyDataSetChanged();
+    }
+
+    private void addAccount(UsageProvider provider) {
+        DiagnosticLog.info(this, "user", "add_account_picked", "provider", provider.id);
+        if (ProviderAccounts.isSignedIn(this, provider)) {
+            AccountVault.prepareToAdd(this, provider);
+            adding = provider;
+        }
+        signIn.launch(SignInActivity.intent(this, provider));
+    }
+
+    private void onAccountTapped(UsageProvider provider, AccountVault.Account account,
+            String label) {
+        if (!account.active) {
+            if (AccountVault.switchTo(this, provider, account.id)) {
+                Toast.makeText(this, "Switched to " + label, Toast.LENGTH_SHORT).show();
+            }
+            reload();
+            return;
+        }
+        int others = AccountVault.count(this, provider) - 1;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Sign out of " + label + "?")
+                .setMessage("This removes its encrypted sign-in and cached usage from this "
+                        + "device." + (others > 0 ? " Your other " + provider.displayName
+                        + " account takes over." : ""))
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Sign out", (d, w) -> {
+                    ProviderAccounts.signOut(this, provider);
+                    reload();
+                })
+                .show();
+    }
+
+    private void onAccountHeld(UsageProvider provider, AccountVault.Account account,
+            String label) {
+        if (account.active) {
+            onAccountTapped(provider, account, label);
+            return;
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Remove " + label + "?")
+                .setMessage("Its saved sign-in and usage are removed from this device.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Remove", (d, w) -> {
+                    AccountVault.remove(this, provider, account.id);
+                    reload();
+                })
+                .show();
+    }
+
+    /** Indented account rows under a provider, then "Add account". */
+    private void bindAccounts(LinearLayout container, UsageProvider provider) {
+        container.removeAllViews();
+        List<AccountVault.Account> accounts = AccountVault.list(this, provider);
+        for (int i = 0; i < accounts.size(); i++) {
+            AccountVault.Account account = accounts.get(i);
+            String label = account.label(i);
+            View row = accountRow(new AccountSwitcher.AvatarDrawable(this,
+                            AccountSwitcher.initial(label), AccountSwitcher.colorFor(label), 32, 0),
+                    label, AccountSwitcher.summary(account), account.active);
+            row.setOnClickListener(v -> onAccountTapped(provider, account, label));
+            row.setOnLongClickListener(v -> {
+                onAccountHeld(provider, account, label);
+                return true;
+            });
+            container.addView(row);
+        }
+        android.graphics.drawable.Drawable plus = getDrawable(R.drawable.ic_oui_add);
+        if (plus != null) {
+            plus = plus.mutate();
+            plus.setTint(Ui.accent(this, dark));
+        }
+        View add = accountRow(plus, accounts.isEmpty() ? "Sign in"
+                : "Add another account", "", false);
+        ((TextView) add.findViewWithTag("title")).setTextColor(Ui.accent(this, dark));
+        add.setOnClickListener(v -> addAccount(provider));
+        container.addView(add);
+    }
+
+    private View accountRow(android.graphics.drawable.Drawable icon, String title,
+            String summary, boolean active) {
+        LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        row.setPadding(Ui.dp(this, 66), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 8));
+        android.util.TypedValue ripple = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
+        row.setBackgroundResource(ripple.resourceId);
+        ImageView avatar = new ImageView(this);
+        avatar.setImageDrawable(icon);
+        avatar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        int size = Ui.dp(this, 32);
+        int pad = icon instanceof AccountSwitcher.AvatarDrawable ? 0 : Ui.dp(this, 4);
+        avatar.setPadding(pad, pad, pad, pad);
+        row.addView(avatar, new LinearLayout.LayoutParams(size, size));
+        LinearLayout labels = new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        TextView name = Ui.text(this, title, 15.0f, Ui.mainText(dark));
+        name.setTag("title");
+        name.setSingleLine(true);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        if (active) name.setTypeface(Ui.mediumTypeface(this));
+        labels.addView(name);
+        if (!summary.isEmpty()) {
+            TextView sub = Ui.text(this, summary, 12.5f, Ui.secondaryText(dark));
+            sub.setSingleLine(true);
+            sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            labels.addView(sub);
+        }
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);
+        lp.setMargins(Ui.dp(this, 14), 0, Ui.dp(this, 8), 0);
+        row.addView(labels, lp);
+        if (active) {
+            TextView mark = Ui.text(this, "\u2713", 18f, Ui.accent(this, dark));
+            mark.setContentDescription("Active account");
+            row.addView(mark);
+        }
+        return row;
     }
 
     @Override
@@ -156,12 +319,19 @@ public final class ProvidersActivity extends AppCompatActivity {
         @Override
         public ProviderHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             AppCompatActivity context = ProvidersActivity.this;
+            LinearLayout block = new LinearLayout(context);
+            block.setOrientation(LinearLayout.VERTICAL);
+            block.setBackgroundColor(Ui.cardColor(context, dark));
+            block.setLayoutParams(new RecyclerView.LayoutParams(-1, -2));
+            block.setPadding(0, 0, 0, Ui.dp(context, 8));
             LinearLayout row = Ui.horizontal(context, Gravity.CENTER_VERTICAL);
-            row.setMinimumHeight(Ui.dp(context, 72));
-            row.setPadding(Ui.dp(context, 22), Ui.dp(context, 12), Ui.dp(context, 16),
-                    Ui.dp(context, 12));
-            row.setBackgroundColor(Ui.cardColor(context, dark));
-            row.setLayoutParams(new RecyclerView.LayoutParams(-1, -2));
+            row.setMinimumHeight(Ui.dp(context, 64));
+            row.setPadding(Ui.dp(context, 22), Ui.dp(context, 8), Ui.dp(context, 16),
+                    Ui.dp(context, 2));
+            block.addView(row, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout accountsBox = new LinearLayout(context);
+            accountsBox.setOrientation(LinearLayout.VERTICAL);
+            block.addView(accountsBox, new LinearLayout.LayoutParams(-1, -2));
 
             ImageView icon = new ImageView(context);
             icon.setImageTintList(ColorStateList.valueOf(Ui.mainText(dark)));
@@ -195,7 +365,8 @@ public final class ProvidersActivity extends AppCompatActivity {
             row.addView(handle, new LinearLayout.LayoutParams(Ui.dp(context, 48),
                     Ui.dp(context, 48)));
 
-            ProviderHolder holder = new ProviderHolder(row, icon, title, summary, toggle, handle);
+            ProviderHolder holder = new ProviderHolder(block, icon, title, summary, toggle, handle,
+                    accountsBox);
             bindDragHandle(holder);
             return holder;
         }
@@ -217,10 +388,9 @@ public final class ProvidersActivity extends AppCompatActivity {
             UsageProvider provider = items.get(position);
             holder.icon.setImageResource(iconRes(provider));
             holder.title.setText(provider.displayName);
-            // Accounts already shows who is signed in; here only say when a tab has no account.
-            boolean signedIn = ProviderAccounts.isSignedIn(ProvidersActivity.this, provider);
-            holder.summary.setText(signedIn ? "" : "Not signed in");
-            holder.summary.setVisibility(signedIn ? View.GONE : View.VISIBLE);
+            // The account rows underneath say who is signed in.
+            holder.summary.setVisibility(View.GONE);
+            bindAccounts(holder.accounts, provider);
             holder.toggle.setContentDescription("Show " + provider.displayName + " tab");
             holder.toggle.setOnCheckedChangeListener(null);
             boolean on = ProviderPreferences.getEnabled(ProvidersActivity.this)
@@ -245,6 +415,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             holder.icon.setAlpha(alpha);
             holder.title.setAlpha(alpha);
             holder.summary.setAlpha(alpha);
+            holder.accounts.setAlpha(on ? 1.0f : 0.6f);
         }
 
         @Override
@@ -259,10 +430,12 @@ public final class ProvidersActivity extends AppCompatActivity {
         final TextView summary;
         final SwitchCompat toggle;
         final ImageView handle;
+        final LinearLayout accounts;
 
         ProviderHolder(View row, ImageView icon, TextView title, TextView summary,
-                SwitchCompat toggle, ImageView handle) {
+                SwitchCompat toggle, ImageView handle, LinearLayout accounts) {
             super(row);
+            this.accounts = accounts;
             this.icon = icon;
             this.title = title;
             this.summary = summary;

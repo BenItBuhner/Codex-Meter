@@ -1,7 +1,7 @@
 name: Multiple accounts screenshots (temporary)
 
 # One-off: installs this branch with sample accounts and records the account switcher.
-# Output goes to refs/ci-screenshots/multi-account. Removed before the PR merges.
+# Output goes to refs/ci-screenshots/multi-account-settings. Removed before the PR merges.
 on:
   push:
     branches: [claude/project-thread-rk4s0k]
@@ -99,50 +99,50 @@ jobs:
           tap_text() { local xy; xy=$(locate "$1") && adb shell input tap $xy; }
           dumpui() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml "$OUT/$1.xml" >/dev/null; }
 
+          seedopen() {
+            adb shell am force-stop $PKG; sleep 1
+            adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action "$1" --es open "$2" --es single_claude "${3:-no}"; sleep 4
+          }
+          drag() { adb shell input swipe 540 1700 540 $((1700 - $1)) 1000; }
+
+          for mode in light dark; do
+            [[ $mode == dark ]] && adb shell cmd uimode night yes || adb shell cmd uimode night no
+            seedopen seed settings;         shot $mode-30-settings-root 2
+            tap_text "Providers & accounts"; shot $mode-31-providers-accounts 3
+            drag 900;                       shot $mode-32-providers-scrolled 2
+          done
           adb shell cmd uimode night no
-          seed; sleep 2
-          adb shell "screenrecord --time-limit 90 --size 540x1200 /sdcard/switch-light.mp4" & REC=$!
+
+          # Settings: switch the Codex account from the list, then sign-out prompt on the active one.
+          seedopen seed providers
+          adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/settings-light.mp4" & REC=$!
           sleep 2
-          shot light-01-claude-dashboard 2
-          dumpui light-01
-          tap_text "Accounts";              shot light-02-switcher 2
-          dumpui light-02
-          tap_text "sam.lee@gmail.com";     shot light-03-switched-toast 1
-          shot light-04-switched-dashboard 3
-          tap_text "Accounts";              shot light-05-switcher-after 2
-          tap_text "sam@acme.dev";          sleep 3
-          tap_text "Accounts";              sleep 2
-          tap_text "Add another account";   shot light-06-add-browser 7
-          adb shell input keyevent BACK;    shot light-06b-adding-empty 3
-          adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action finish_add --es tab claude_code; sleep 4
-          shot light-07-after-add 1
-          tap_text "Accounts";              shot light-08-three-accounts 2
+          shot light-33-before-switch 1
+          tap_text "sam.lee@gmail.com";     shot light-34-after-switch 2
+          tap_text "sam.lee@gmail.com";     shot light-35-sign-out-prompt 2
           adb shell input keyevent BACK; sleep 1
-          tap_text "Codex";                 shot light-09-codex 3
-          tap_text "Accounts";              shot light-10-codex-switcher 2
-          adb shell input keyevent BACK; sleep 1
-          tap_text "Cursor";                shot light-11-cursor-single 3
-          tap_text "Accounts";              shot light-12-cursor-switcher 2
+          drag 900; sleep 1
+          tap_text "Add a provider";        shot light-36-add-provider 3
           adb shell input keyevent BACK; sleep 2
           adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
-          adb pull /sdcard/switch-light.mp4 "$OUT/switch-light.mp4" >/dev/null
+          adb pull /sdcard/settings-light.mp4 "$OUT/settings-light.mp4" >/dev/null
+
+          # Onboarding: Claude connected with one account, add a second.
+          seedopen seed onboarding yes
+          adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/onboarding-light.mp4" & REC=$!
+          sleep 2
+          shot light-40-onboarding-one 1
+          tap_text "Add another account";   shot light-41-onboarding-browser 7
+          adb shell input keyevent BACK;    shot light-42-onboarding-adding 3
+          adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action finish_add --es open onboarding; sleep 4
+          shot light-43-onboarding-two 1
+          tap_text "Continue";              shot light-44-onboarding-done 3
+          adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
+          adb pull /sdcard/onboarding-light.mp4 "$OUT/onboarding-light.mp4" >/dev/null
 
           adb shell cmd uimode night yes
-          seed
-          adb shell "screenrecord --time-limit 40 --size 540x1200 /sdcard/switch-dark.mp4" & REC=$!
-          sleep 2
-          shot dark-01-claude-dashboard 2
-          tap_text "Accounts";              shot dark-02-switcher 2
-          tap_text "sam.lee@gmail.com";     shot dark-04-switched-dashboard 4
-          tap_text "Accounts";              shot dark-05-switcher-after 2
-          adb shell input keyevent BACK; sleep 2
-          adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
-          adb pull /sdcard/switch-dark.mp4 "$OUT/switch-dark.mp4" >/dev/null
-
+          seedopen seed onboarding;         shot dark-43-onboarding-two 2
           adb shell cmd uimode night no
-          seed seed claude_code classic
-          shot light-20-classic-dashboard 3
-          tap_text "Accounts";              shot light-21-classic-switcher 2
           adb logcat -d | grep -iE "DebugSeed|FATAL|AndroidRuntime|accounts|codexmeter" > "$OUT/logcat.txt" || true
           SH
           chmod +x "$RUNNER_TEMP/capture.sh"
@@ -183,4 +183,4 @@ jobs:
           git init -q
           git add -A
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Multiple accounts screenshots"
-          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/multi-account
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/multi-account-settings

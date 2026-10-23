@@ -133,7 +133,7 @@ final class AccountSwitcher {
         parts.add(name + " " + window.remainingPercent() + "% left");
     }
 
-    private static View row(Context context, boolean dark, Drawable icon, String title,
+    static View row(Context context, boolean dark, Drawable icon, String title,
             String summary, boolean checked) {
         LinearLayout row = Ui.horizontal(context, Gravity.CENTER_VERTICAL);
         int h = Ui.dp(context, 24);
@@ -170,7 +170,7 @@ final class AccountSwitcher {
         return row;
     }
 
-    private static Drawable addIcon(Context context, boolean dark) {
+    static Drawable addIcon(Context context, boolean dark) {
         GradientDrawable circle = new GradientDrawable();
         circle.setShape(GradientDrawable.OVAL);
         circle.setColor(Ui.controlSurface(context, dark));
