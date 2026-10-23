@@ -43,6 +43,7 @@ public final class AppSessionService extends AccessibilityService {
         super.onServiceConnected();
         running = this;
         DiagnosticLog.info(this, "app_session", "detector_connected");
+        android.util.Log.i("CodexAppSession", "App detection connected");
     }
 
     @Override

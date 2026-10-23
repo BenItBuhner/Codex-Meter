@@ -105,8 +105,13 @@ jobs:
           shade() { adb shell cmd statusbar expand-notifications; }
           noshade() { adb shell cmd statusbar collapse; }
           a11y_on() {
+            # Sideloaded apps need "Allow restricted settings" before accessibility can be on.
+            adb shell appops set $PKG ACCESS_RESTRICTED_SETTINGS allow || true
             adb shell settings put secure enabled_accessibility_services $PKG/dev.bennett.codexmeter.AppSessionService
             adb shell settings put secure accessibility_enabled 1
+            sleep 3
+            echo "enabled: $(adb shell settings get secure enabled_accessibility_services)" >> "$OUT/a11y.txt"
+            adb shell dumpsys accessibility | head -80 >> "$OUT/a11y.txt" || true
           }
           a11y_off() {
             adb shell settings delete secure enabled_accessibility_services || true
@@ -152,7 +157,8 @@ jobs:
           done
           adb shell cmd uimode night no
           adb shell dumpsys notification --noredact | grep -A3 "pkg=$PKG" > "$OUT/notifications.txt" || true
-          adb logcat -d | grep -iE "app_session|CodexNowBar|DebugSeed|FATAL|AndroidRuntime" > "$OUT/logcat.txt" || true
+          echo "after walk: $(adb shell settings get secure enabled_accessibility_services)" >> "$OUT/a11y.txt"
+          adb logcat -d | grep -iE "app_session|CodexNowBar|DebugSeed|FATAL|AndroidRuntime|ccessibility|codexmeter|EnhancedConfirmation|restricted" > "$OUT/logcat.txt" || true
           SH
           chmod +x "$RUNNER_TEMP/capture.sh"
 
