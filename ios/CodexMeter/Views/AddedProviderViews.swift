@@ -1,6 +1,8 @@
 import CodexMeterCore
 import SwiftUI
+#if os(iOS)
 import UIKit
+#endif
 
 // The tab, sign-in screen and Add account picker for providers added through Settings →
 // Accounts (Copilot, Kimi, Z.ai and the rest). Codex, Claude Code and Cursor keep their own.
@@ -34,6 +36,7 @@ struct AddedProviderDashboardView: View {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if state.phase == .signedOut {
                     AddedProviderSignedOutView(provider: provider) { isShowingSignIn = true }
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if state.phase == .demo {
                         StatusBanner(
@@ -58,6 +61,7 @@ struct AddedProviderDashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }
