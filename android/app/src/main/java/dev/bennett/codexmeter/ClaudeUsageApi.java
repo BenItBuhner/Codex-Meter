@@ -21,7 +21,7 @@ public final class ClaudeUsageApi {
     private static final UsageProvider PROVIDER = UsageProvider.CLAUDE_CODE;
     /** Opening the tab only re-fetches when the cached data is older than this. */
     public static final long STALE_AFTER_MILLIS = 5L * 60L * 1000L;
-    private static final Object LOCK = new Object();
+    static final Object LOCK = new Object();
 
     private ClaudeUsageApi() {
     }
@@ -57,17 +57,39 @@ public final class ClaudeUsageApi {
     }
 
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
+        return refreshAndCache(context, true);
+    }
+
+    /**
+     * @param autoUse whether to check the saved-reset auto-use rules afterwards; false for the
+     *     refresh that follows spending a reset
+     */
+    static UsageSnapshot refreshAndCache(Context context, boolean autoUse) throws Exception {
+        UsageSnapshot fresh = refreshAndCacheLocked(context);
+        if (autoUse) ClaudeResetApi.autoUseIfDue(context);
+        try {
+            ClaudeResetExpiryReceiver.schedule(context);
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warn(context, "reset", "claude_reset_expiry_schedule_failed",
+                    "error", exception.getClass().getSimpleName());
+        }
+        return fresh;
+    }
+
+    private static UsageSnapshot refreshAndCacheLocked(Context context) throws Exception {
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(context, "refresh", "claude_usage_refresh_started");
         try {
             synchronized (LOCK) {
                 AuthTokens tokens = usableTokens(context);
-                Response usage = get(context, "claude_usage", ClaudeCodeApi.USAGE_URL, tokens);
+                Response usage = get(context, "claude_usage",
+                        ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
                 if (usage.status == 401) {
                     DiagnosticLog.warn(context, "auth", "claude_token_rejected_refreshing");
                     tokens = refresh(context, tokens);
                     SecureTokenStore.save(context, PROVIDER, tokens);
-                    usage = get(context, "claude_usage", ClaudeCodeApi.USAGE_URL, tokens);
+                    usage = get(context, "claude_usage",
+                            ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
                 }
                 if (usage.status == 429) {
                     ProviderPreferences.setRateLimitedAt(context, PROVIDER,
@@ -84,6 +106,8 @@ public final class ClaudeUsageApi {
                         plan = ClaudeUsageParser.planLabel(profile.body);
                         ProviderPreferences.setEmail(context, PROVIDER,
                                 ClaudeUsageParser.email(profile.body));
+                        ProviderPreferences.setOrganization(context, PROVIDER,
+                                ClaudeUsageParser.organizationUuid(profile.body));
                     }
                 } catch (Exception profileError) {
                     DiagnosticLog.warn(context, "refresh", "claude_profile_failed",
@@ -103,11 +127,21 @@ public final class ClaudeUsageApi {
                     throw new Exception("Usage was received, but it could not be saved on this device.");
                 }
                 UsageHistoryRecorder.record(context, PROVIDER, snapshot);
+                ClaudeSavedResets savedResets = ClaudeSavedResets.fromUsageBody(usage.body,
+                        snapshot.fetchedAtMillis);
+                ProviderPreferences.saveSavedResets(context, PROVIDER, savedResets);
                 DiagnosticLog.info(context, "refresh", "claude_usage_refresh_succeeded",
                         "duration_ms", SystemClock.elapsedRealtime() - started,
                         "five_hour", snapshot.fiveHour != null,
                         "weekly", snapshot.weekly != null,
-                        "additional_limits", snapshot.additionalLimits.size());
+                        "additional_limits", snapshot.additionalLimits.size(),
+                        "saved_resets", savedResets == null ? -1
+                                : savedResets.availableCount(System.currentTimeMillis()),
+                        "saved_resets_eligible", savedResets != null && savedResets.eligible,
+                        "saved_resets_reason", savedResets == null ? "absent"
+                                : savedResets.ineligibleReason,
+                        "saved_reset_grants", savedResets == null ? 0
+                                : savedResets.grants.size());
                 return snapshot;
             }
         } catch (Exception exception) {
@@ -140,7 +174,8 @@ public final class ClaudeUsageApi {
         if (tokens == null) {
             throw new Exception("Sign in with Claude first.");
         }
-        if (tokens.shouldRefresh(System.currentTimeMillis())) {
+        long now = System.currentTimeMillis();
+        if (tokens.shouldRefresh(now) || wantsScopeUpgrade(context, now)) {
             DiagnosticLog.info(context, "auth", "claude_token_refresh_due");
             tokens = refresh(context, tokens);
             SecureTokenStore.save(context, PROVIDER, tokens);
@@ -158,16 +193,52 @@ public final class ClaudeUsageApi {
         }
         AuthTokens tokens = parseTokens(response, null);
         ProviderPreferences.setEmail(context, PROVIDER, tokens.email);
+        ProviderPreferences.setGrantedScope(context, PROVIDER, grantedScope(response));
         return tokens;
     }
 
     static AuthTokens refresh(Context context, AuthTokens current) throws Exception {
-        Map<String, String> body = ClaudeCodeApi.refreshBody(current.refreshToken);
+        ProviderPreferences.setScopeUpgradeTriedAt(context, PROVIDER, System.currentTimeMillis());
+        Response response = postRefresh(context,
+                ClaudeCodeApi.refreshBody(current.refreshToken, ClaudeCodeApi.SCOPE));
+        if (response.status == 400
+                && !OAuthClient.readError(response.body, "").contains("invalid_grant")) {
+            // Same fallback as Claude Code: keep the scopes this sign-in already has.
+            DiagnosticLog.warn(context, "auth", "claude_scope_upgrade_rejected");
+            response = postRefresh(context, ClaudeCodeApi.refreshBody(current.refreshToken));
+        }
+        AuthTokens tokens = current.mergeRefresh(parseTokens(response, current));
+        ProviderPreferences.setGrantedScope(context, PROVIDER, grantedScope(response));
+        return tokens;
+    }
+
+    private static Response postRefresh(Context context, Map<String, String> body)
+            throws Exception {
         Response response = postForm(context, "claude_token_refresh", body);
         if (shouldRetryAsJson(response)) {
             response = postJson(context, "claude_token_refresh", body);
         }
-        return current.mergeRefresh(parseTokens(response, current));
+        return response;
+    }
+
+    /**
+     * A sign-in without Claude Code's scope gets one early refresh a day to pick it up, since
+     * Anthropic only reports saved resets to Claude Code sign-ins.
+     */
+    private static boolean wantsScopeUpgrade(Context context, long now) {
+        String granted = ProviderPreferences.getGrantedScope(context, PROVIDER);
+        boolean missing = granted.isEmpty() || ClaudeSavedResets.needsClaudeCodeSignIn(granted);
+        return missing && now - ProviderPreferences.getScopeUpgradeTriedAt(context, PROVIDER)
+                > 24L * 60L * 60L * 1000L;
+    }
+
+    /** The token response's space-separated {@code scope}, or empty. */
+    static String grantedScope(Response response) {
+        try {
+            return new JSONObject(response.body).optString("scope", "");
+        } catch (Exception exception) {
+            return "";
+        }
     }
 
     /**
@@ -203,7 +274,7 @@ public final class ClaudeUsageApi {
         return tokens;
     }
 
-    private static Response get(Context context, String operation, String url, AuthTokens tokens)
+    static Response get(Context context, String operation, String url, AuthTokens tokens)
             throws Exception {
         HttpsURLConnection connection =
                 (HttpsURLConnection) URI.create(url).toURL().openConnection();
@@ -218,7 +289,8 @@ public final class ClaudeUsageApi {
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("Authorization", "Bearer " + tokens.accessToken);
             connection.setRequestProperty("anthropic-beta", ClaudeCodeApi.OAUTH_BETA);
-            connection.setRequestProperty("User-Agent", AppConstants.userAgent());
+            connection.setRequestProperty("User-Agent", ClaudeCodeApi.CLI_USER_AGENT);
+            connection.setRequestProperty("x-app", ClaudeCodeApi.CLI_APP);
             int status = connection.getResponseCode();
             String body = OAuthClient.readBody(connection, status);
             DiagnosticLog.info(context, "network", "request_finished", "operation", operation,

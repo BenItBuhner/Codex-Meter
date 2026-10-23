@@ -34,6 +34,11 @@ import java.util.concurrent.Executors;
  * {@link OAuthService} so they survive leaving the app; paste and key sign-ins finish here.
  */
 public final class SignInActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     public static final String EXTRA_PROVIDER = "provider";
 
     /** The paste sign-in in progress, kept across screen rotation and trips to the browser. */

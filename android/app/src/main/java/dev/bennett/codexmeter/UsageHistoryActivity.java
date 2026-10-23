@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.app.AlertDialog;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -23,6 +24,11 @@ import java.util.Locale;
  * customizable so the page can stay as minimal as the user likes.
  */
 public final class UsageHistoryActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final int MAX_BREAKDOWN_WINDOWS = 5;
     private static final int MENU_CUSTOMIZE = 8201;
 

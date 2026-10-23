@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
@@ -27,6 +28,11 @@ import java.util.List;
  * the dashboard picks them up on return.
  */
 public final class ProvidersActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private final List<UsageProvider> items = new ArrayList<>();
     private RecyclerView recycler;
     private boolean dark;
@@ -36,16 +42,14 @@ public final class ProvidersActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
         this.dark = Ui.isDark(this);
-        LinearLayout content = Ui.installPage(this, "Providers", true).content;
+        LinearLayout content = Ui.installPage(this, "Dashboard tabs", true).content;
         // Pull-to-refresh would swallow downward drag gestures while rearranging rows.
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =
                 findViewById(R.id.dashboard_refresh);
         refresh.setEnabled(false);
 
         TextView hint = Ui.text(this,
-                "Drag the handles to set the order of the tabs at the bottom of the dashboard, "
-                        + "and use the switches to choose which providers appear. Add more "
-                        + "from Settings → Accounts.",
+                "Drag to reorder. Switch off to hide a tab.",
                 14.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));
@@ -72,10 +76,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         content.addView(listCard);
 
         TextView note = Ui.text(this,
-                "With two to four providers on, each gets a tab at the bottom of the dashboard. "
-                        + "With five or more, the first three get tabs and the rest are under "
-                        + "More. With one on, the tabs are hidden. At least one provider stays "
-                        + "on.",
+                "With five or more on, the first three get tabs and the rest go under More.",
                 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
@@ -216,11 +217,10 @@ public final class ProvidersActivity extends AppCompatActivity {
             UsageProvider provider = items.get(position);
             holder.icon.setImageResource(iconRes(provider));
             holder.title.setText(provider.displayName);
-            String email = ProviderAccounts.isSignedIn(ProvidersActivity.this, provider)
-                    ? ProviderAccounts.email(ProvidersActivity.this, provider) : "";
-            holder.summary.setText(ProviderAccounts.isSignedIn(ProvidersActivity.this, provider)
-                    ? (email.isEmpty() ? "Signed in" : "Signed in as " + email)
-                    : "Signs in with " + provider.accountName);
+            // Accounts already shows who is signed in; here only say when a tab has no account.
+            boolean signedIn = ProviderAccounts.isSignedIn(ProvidersActivity.this, provider);
+            holder.summary.setText(signedIn ? "" : "Not signed in");
+            holder.summary.setVisibility(signedIn ? View.GONE : View.VISIBLE);
             holder.toggle.setContentDescription("Show " + provider.displayName + " tab");
             holder.toggle.setOnCheckedChangeListener(null);
             boolean on = ProviderPreferences.getEnabled(ProvidersActivity.this)

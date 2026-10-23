@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Selected-tab pill inside the One UI 9 floating tab bar. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight">
+    <item>
+        <selector>
+            <item android:state_checked="true">
+                <inset android:inset="4dp">
+                    <shape android:shape="rectangle">
+                        <solid android:color="@color/oneui9_nav_checked" />
+                        <corners android:radius="100dp" />
+                    </shape>
+                </inset>
+            </item>
+            <item android:drawable="@android:color/transparent" />
+        </selector>
+    </item>
+    <item android:id="@android:id/mask" android:drawable="@drawable/sesl_bottom_navigation_ripple_mask_icon" />
+</ripple>

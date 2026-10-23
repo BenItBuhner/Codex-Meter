@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.content.Intent;
 import android.appwidget.AppWidgetManager;
 import android.os.Bundle;
@@ -20,6 +21,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 public final class LockWidgetConfigActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private int appWidgetId = 0;
     private boolean dark;
     private ImageView preview;
@@ -175,8 +181,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         this.showResetCredits.setOnCheckedChangeListener(previewCheckListener);
         this.showResetAction.setOnCheckedChangeListener(previewCheckListener);
 
-        page.cancel.setOnClickListener(view -> finish());
-        page.save.setOnClickListener(view -> save());
+        page.onCancel(this::finish);
+        page.onSave(this::save);
         updateMetersHint();
         updatePreview();
     }
