@@ -7,24 +7,18 @@
         app:iconSpaceReserved="false">
         <SwitchPreferenceCompat
             android:key="app_sessions_enabled_ui"
-            android:summary="The live notification appears while a matched app is open and goes away when you leave it"
-            android:title="Show while an AI app is open"
+            android:title="Show while using AI apps"
             app:iconSpaceReserved="false" />
+        <!-- Summary is "Allowed" or "Needs access"; the dialog explains what it can see. -->
         <Preference
             android:key="app_sessions_access"
             android:title="App detection"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
+    <!-- One "Apps" card with every matched app; filled in by SettingsActivity. -->
     <PreferenceCategory
-        android:key="app_sessions_about"
-        android:order="10000"
-        android:title="Privacy">
-        <Preference
-            android:key="app_sessions_privacy"
-            android:selectable="false"
-            android:summary="App detection uses an Android accessibility service only to see which app is in front. It cannot read the screen, never taps or types, and nothing leaves your phone. A monitor you started yourself or one started by a low allowance is never replaced."
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
-
+        android:key="app_sessions_apps"
+        android:order="100"
+        android:title="Apps" />
 </PreferenceScreen>
