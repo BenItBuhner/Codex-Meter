@@ -145,8 +145,9 @@ grep -q 'DashboardSections.USAGE_HISTORY.equals(key)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'setDashboardSectionHidden' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
-grep -q 'dashboard_usage_history' \
-  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+# Card visibility lives in Edit dashboard, which writes the same preference.
+grep -q 'DashboardSections.USAGE_HISTORY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderPreferences.java"
 grep -q 'dashboard_hidden_sections' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'hidden-section keys round-trip' "$ROOT/tests/ParserSelfTest.java"
@@ -213,8 +214,9 @@ grep -q 'usage_history_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'dashboard_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
-grep -q 'dashboard_monthly' \
-  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+# Card visibility lives in Edit dashboard, which writes the same preference.
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderPreferences.java"
 grep -q 'WINDOW_MONTHLY' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 grep -q 'longWindowIsMonthly' \
@@ -254,8 +256,9 @@ grep -q 'dashboard_spend_control' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'dashboard_spend_control' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
-grep -q 'dashboard_spend_control' \
-  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+# Card visibility lives in Edit dashboard, which writes the same preference.
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderPreferences.java"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.
 grep -q 'snapshot.usageCredits.shouldDisplay()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
@@ -562,6 +565,15 @@ grep -q 'maybeAutoStart' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'now_bar_auto_start_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
+# AI app sessions are one switch-with-arrow row on the Now Bar page.
+grep -q 'SeslSwitchPreferenceScreen' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
+grep -q 'refresh_schedule_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'reset_credit_low_usage_auto_use_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_reset_credits.xml"
+grep -q 'claude_saved_reset_check_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_reset_credits.xml"
 grep -q 'now_bar_threshold_ui' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'NowBarPreferences.isAutoStartEnabled' \
