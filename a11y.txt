@@ -1,0 +1,51 @@
+enabled: dev.bennett.codexmeter/dev.bennett.codexmeter.AppSessionService
+ACCESSIBILITY MANAGER (dumpsys accessibility)
+
+currentUserId=0
+hasMagnificationConnection=false
+Magnifier on display#0
+    MagnificationConfig[mode: 1, activated: false, scale: 1.0, centerX: 0.0, centerY: 0.0] 
+    Magnification region=SkRegion((0,0,1080,2337))
+    IdOfLastServiceToMagnify=-1
+    SupportWindowMagnification=true
+    WindowMagnificationConnectionState=DISCONNECTED
+User state[
+     attributes:{id=0, touchExplorationEnabled=false, serviceHandlesDoubleTap=false, requestMultiFingerGestures=false, requestTwoFingerPassthrough=false, sendMotionEventsEnabledfalse, displayMagnificationEnabled=false, autoclickEnabled=false, nonInteractiveUiTimeout=0, interactiveUiTimeout=0, installedServiceCount=6, magnificationModes={0=1}, magnificationCapabilities=3, audioDescriptionByDefaultEnabled=false, magnificationFollowTypingEnabled=true, alwaysOnMagnificationEnabled=true}
+     button mode: 1
+     shortcut key:{}
+     button:{}
+     button target:{null}
+     gesture:{}
+     qs shortcut targets:{}
+     a11y tiles in QS panel:{}
+     Bound services:{Service[label=Codex Meter app detection, feedbackType[FEEDBACK_GENERIC], capabilities=0, eventTypes=TYPE_WINDOW_STATE_CHANGED, notificationTimeout=200, requestA11yBtn=false]}
+     Enabled services:{{dev.bennett.codexmeter/dev.bennett.codexmeter.AppSessionService}}
+     Binding services:{}
+     Crashed services:{}
+     Client list info:{
+          Client list callbacks: 9
+          Client list killed: false
+          Client list broadcasts count: -1
+          Registered clients:{
+[dev.bennett.codexmeter][com.google.android.tts][com.google.android.apps.messaging][com.google.android.googlequicksearchbox][com.google.android.inputmethod.latin][com.google.android.apps.nexuslauncher][com.google.android.apps.wellbeing][com.google.android.googlequicksearchbox][com.google.android.as]}]
+Global Info [ Top focused display Id = 0
+     Active Window Id = -1
+     Top Focused Window Id = 0
+     Accessibility Focused Window Id = -1 ]
+
+
+Window attributes:[{10=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Codex MetermLocales=[en_US]}, 11=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[en_US]}, 12=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[en_US]}, 13=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[en_US]}, 14=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[en_US]}, 15=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[en_US]}, 16=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[en_US]}, 17=AccessibilityWindowAttributes{mAccessibilityWindowTitle=HomemLocales=[en_US]}, 18=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Navigation bar Edge PanelmLocales=[en_US]}, 19=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Navigation barmLocales=[en_US]}}]
+Global client list info:{
+    Client list callbacks: 8
+    Client list killed: false
+    Client list broadcasts count: -1
+    Registered clients:{
+[com.android.systemui][com.google.android.googlesdksetup][com.android.dynsystem, com.android.server.telecom, com.android.providers.settings, com.android.inputdevices, com.android.emulator.multidisplay, android, com.android.settings, com.android.DeviceAsWebcam, com.android.location.fused, com.android.keychain, com.android.localtransport][com.google.android.permissioncontroller][com.google.android.gms][com.google.android.settings.intelligence][com.android.server.telecom, com.android.location.fused, com.android.dynsystem, com.android.localtransport, android, com.android.settings, com.android.keychain, com.android.providers.settings, com.android.inputdevices, com.android.DeviceAsWebcam, com.android.emulator.multidisplay][com.google.android.documentsui]
+
+Proxy manager state:
+    Number of proxy connections: 0
+    Registered proxy connections:
+Accessibility Display Listener:
+    SystemUI uid: 10185
+    1 valid display: 0
+after walk: null
