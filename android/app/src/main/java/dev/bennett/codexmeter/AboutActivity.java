@@ -22,6 +22,9 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.google.android.material.appbar.AppBarLayout;
+import com.google.android.material.oneui.floatingactioncontainer.FloatingToolbarLayout;
+import androidx.core.widget.NestedScrollView;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
@@ -45,8 +48,12 @@ public final class AboutActivity extends AppCompatActivity {
         super.onCreate(bundle);
         dark = Ui.isDark(this);
         EdgeToEdge.apply(this, () -> new kotlin.Pair<>(dark, dark));
-        setContentView(R.layout.activity_about);
+        boolean oneUi9 = OneUi9Page.isOn(this);
+        setContentView(oneUi9 ? R.layout.activity_about_oneui9 : R.layout.activity_about);
         applySystemBarInsets();
+        if (oneUi9) {
+            setUpOneUi9();
+        }
         setupToolbar();
         setupCollapsingContent();
         TextView version = findViewById(R.id.about_header_version);
@@ -179,6 +186,37 @@ public final class AboutActivity extends AppCompatActivity {
             return insets;
         });
         ViewCompat.requestApplyInsets(root);
+    }
+
+    /**
+     * One UI 9: the back button floats in SESL9's toolbar once the header scrolls away, and the
+     * content fades under it with the native fading edge.
+     */
+    private void setUpOneUi9() {
+        FloatingToolbarLayout floating = findViewById(R.id.about_floating_toolbar);
+        NestedScrollView scroll = findViewById(R.id.about_scroll);
+        AppBarLayout appBar = findViewById(R.id.about_app_bar);
+        Toolbar toolbar = findViewById(R.id.about_toolbar);
+        float baseCollapsed = Math.max(appBar.seslGetCollapsedHeight(),
+                toolbar.getLayoutParams().height);
+        floating.enableScrollTransition(false, true);
+        floating.enableToolbarItemBackgroundTransition(true);
+        scroll.seslSetFadingEdgeEnabled(true);
+        // Fade into the page color instead of erasing; see OneUi9Page.bindScroller.
+        scroll.seslSetFadingEdgeColor(getColor(R.color.oui_des_round_and_bgcolor));
+        floating.setNestedScrollView(scroll);
+        ViewCompat.setOnApplyWindowInsetsListener(floating, (view, insets) -> {
+            int top = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
+            CoordinatorLayout.LayoutParams params =
+                    (CoordinatorLayout.LayoutParams) view.getLayoutParams();
+            if (params.topMargin != top) {
+                params.topMargin = top;
+                view.setLayoutParams(params);
+                appBar.seslSetCollapsedHeight(baseCollapsed + top);
+                appBar.requestLayout();
+            }
+            return insets;
+        });
     }
 
     private void setupCollapsingContent() {

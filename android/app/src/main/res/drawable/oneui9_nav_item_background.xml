@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Selected-tab pill inside the floating tab bar (adapted from Twidget, MIT). -->
+<!-- Selected-tab pill inside the One UI 9 floating tab bar. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="?attr/colorControlHighlight">
     <item>
@@ -7,7 +7,7 @@
             <item android:state_checked="true">
                 <inset android:inset="4dp">
                     <shape android:shape="rectangle">
-                        <solid android:color="@color/design_floating_navigation_checked" />
+                        <solid android:color="@color/oneui9_nav_checked" />
                         <corners android:radius="100dp" />
                     </shape>
                 </inset>

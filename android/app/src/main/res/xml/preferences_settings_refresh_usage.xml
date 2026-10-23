@@ -3,142 +3,32 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory android:title="Refresh">
+        <!-- One list for both the mode and the manual interval; summary set in code. -->
+        <ListPreference
+            android:entries="@array/settings_refresh_combined_entries"
+            android:entryValues="@array/settings_refresh_combined_values"
+            android:key="refresh_schedule_ui"
+            android:title="Refresh usage" />
         <SwitchPreferenceCompat
             android:key="refresh_on_launch"
-            android:title="Refresh on launch" />
-        <ListPreference
-            android:entries="@array/settings_refresh_mode_entries"
-            android:entryValues="@array/settings_refresh_mode_values"
-            android:key="refresh_mode_ui"
-            android:summary="Adapts to remaining usage, app attention, reset timing, and recent failures"
-            android:title="Refresh mode" />
-        <ListPreference
-            android:entries="@array/settings_refresh_entries"
-            android:entryValues="@array/settings_refresh_values"
-            android:key="refresh_interval_ui"
-            android:title="Manual interval"
-            app:useSimpleSummaryProvider="true" />
+            android:title="Refresh when opening the app" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Dashboard">
+        <!-- Which cards appear, and their order, per dashboard tab. -->
         <Preference
             android:key="dashboard_reorder_ui"
-            android:summary="Arrange the selected tab\'s cards and choose which ones appear"
+            android:summary="Choose and arrange each tab's cards"
             android:title="Edit dashboard" />
         <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_five_hour"
-            android:summary="Shown only when OpenAI returns this window"
-            android:title="5-hour limit" />
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_weekly"
-            android:summary="Shown only when OpenAI returns this window"
-            android:title="Weekly limit" />
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_monthly"
-            android:summary="Shown only when OpenAI returns this window (free tier)"
-            android:title="Monthly limit" />
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_spend_control"
-            android:summary="Workspace spend limit · shown only when OpenAI reports one"
-            android:title="Monthly credit limit" />
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_additional_limits"
-            android:summary="Model-specific limits such as GPT-5.3-Codex-Spark"
-            android:title="Additional limits" />
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_usage_credits"
-            android:summary="Hidden automatically at a zero or negative balance"
-            android:title="Usage-credit balance" />
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_usage_history"
-            android:summary="Shown only when a 5-hour or weekly window is available"
-            android:title="Usage history" />
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="dashboard_reset_credits"
-            android:summary="Hidden automatically when no resets are available"
-            android:title="Reset credits" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        android:key="reset_credit_auto_use_category"
-        android:title="Codex reset credits">
-        <SwitchPreferenceCompat
-            android:key="reset_credit_expiry_auto_apply_ui"
-            android:summary="Use a banked reset before it expires instead of losing it"
-            android:title="Use resets before they expire" />
-        <ListPreference
-            android:entries="@array/settings_reset_auto_lead_entries"
-            android:entryValues="@array/settings_reset_auto_lead_values"
-            android:key="reset_credit_expiry_auto_apply_lead_ui"
-            android:title="When to use it"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            android:key="reset_credit_low_usage_auto_use_ui"
-            android:summary="Use a banked reset when your remaining usage gets low"
-            android:title="Use a reset when running low" />
-        <ListPreference
-            android:entries="@array/settings_reset_auto_threshold_entries"
-            android:entryValues="@array/settings_reset_auto_threshold_values"
-            android:key="reset_credit_low_usage_threshold_ui"
-            android:title="Use when remaining reaches"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/settings_reset_auto_metric_entries"
-            android:entryValues="@array/settings_reset_auto_metric_values"
-            android:key="reset_credit_low_usage_metric_ui"
-            android:title="Watch"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        android:key="claude_saved_reset_category"
-        android:title="Claude Code reset credits">
-        <SwitchPreferenceCompat
-            android:key="claude_saved_reset_expiry_ui"
-            android:summary="Use a banked reset before it expires instead of losing it"
-            android:title="Use resets before they expire" />
-        <ListPreference
-            android:entries="@array/settings_reset_auto_lead_entries"
-            android:entryValues="@array/settings_reset_auto_lead_values"
-            android:key="claude_saved_reset_expiry_lead_ui"
-            android:title="When to use it"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            android:key="claude_saved_reset_low_usage_ui"
-            android:summary="Use a banked reset when your remaining usage gets low"
-            android:title="Use a reset when running low" />
-        <ListPreference
-            android:entries="@array/settings_reset_auto_threshold_entries"
-            android:entryValues="@array/settings_reset_auto_threshold_values"
-            android:key="claude_saved_reset_threshold_ui"
-            android:title="Use when remaining reaches"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/settings_reset_auto_metric_entries"
-            android:entryValues="@array/settings_reset_auto_metric_values"
-            android:key="claude_saved_reset_metric_ui"
-            android:title="Watch"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Usage estimates">
-        <SwitchPreferenceCompat
             android:key="usage_pace_enabled_ui"
-            android:summary="Project how long the current allowance may last"
-            android:title="Estimated usage time" />
+            android:summary="How long your current allowance may last"
+            android:title="Usage estimates" />
         <ListPreference
             android:entries="@array/usage_pace_sensitivity_entries"
             android:entryValues="@array/usage_pace_sensitivity_values"
             android:key="usage_pace_sensitivity_ui"
-            android:title="Warning sensitivity"
+            android:title="Fast-usage warnings"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 

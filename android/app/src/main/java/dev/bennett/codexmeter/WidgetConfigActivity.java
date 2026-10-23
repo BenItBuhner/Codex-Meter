@@ -245,8 +245,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeslSeekBar seekBar) {
             }
         });
-        page.cancel.setOnClickListener(view -> finish());
-        page.save.setOnClickListener(view -> save());
+        page.onCancel(this::finish);
+        page.onSave(this::save);
         updateSliderVisuals();
         updateRowSummaries();
         updateMetersHint();

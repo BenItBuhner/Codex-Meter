@@ -43,30 +43,71 @@ import dev.oneuiproject.oneui.widget.Separator;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class Ui {
-    public static final class Page {
-        public final ToolbarLayout toolbar;
-        public final LinearLayout content;
+    /** The page header: large title, back button. Classic and One UI 9 pages implement it. */
+    public interface Header {
+        void setTitle(CharSequence title);
 
-        private Page(ToolbarLayout toolbar, LinearLayout content) {
+        CharSequence getTitle();
+
+        void setBack(boolean back);
+    }
+
+    /** Classic header: oneui-design's One UI 8 ToolbarLayout. */
+    private static final class ClassicHeader implements Header {
+        private final ToolbarLayout toolbar;
+
+        ClassicHeader(ToolbarLayout toolbar) {
             this.toolbar = toolbar;
+        }
+
+        @Override
+        public void setTitle(CharSequence title) {
+            toolbar.setTitle(title);
+        }
+
+        @Override
+        public CharSequence getTitle() {
+            return toolbar.getExpandedTitle();
+        }
+
+        @Override
+        public void setBack(boolean back) {
+            toolbar.setShowNavigationButtonAsBack(back);
+        }
+    }
+
+    public static final class Page {
+        public final Header header;
+        public final LinearLayout content;
+        /** Set only on One UI 9 pages. */
+        public final OneUi9Page oneUi9;
+
+        private Page(Header header, LinearLayout content, OneUi9Page oneUi9) {
+            this.header = header;
             this.content = content;
+            this.oneUi9 = oneUi9;
         }
     }
 
     public static final class ConfigPage {
-        public final ToolbarLayout toolbar;
+        public final Header header;
         public final LinearLayout content;
         public final FrameLayout preview;
-        public final TextView cancel;
-        public final TextView save;
+        private Runnable cancel = () -> { };
+        private Runnable save = () -> { };
 
-        private ConfigPage(ToolbarLayout toolbar, LinearLayout content, FrameLayout preview,
-                TextView cancel, TextView save) {
-            this.toolbar = toolbar;
+        private ConfigPage(Header header, LinearLayout content, FrameLayout preview) {
+            this.header = header;
             this.content = content;
             this.preview = preview;
-            this.cancel = cancel;
-            this.save = save;
+        }
+
+        public void onCancel(Runnable action) {
+            this.cancel = action;
+        }
+
+        public void onSave(Runnable action) {
+            this.save = action;
         }
     }
 
@@ -93,16 +134,36 @@ public final class Ui {
         return installPage(activity, title, back, R.layout.activity_oneui_dashboard);
     }
 
-    /** Same page shell with a different layout, e.g. the dashboard with provider tabs. */
+    /**
+     * Same page shell with a different classic layout, e.g. the dashboard with provider tabs.
+     * The One UI 9 design always uses its own shell ({@link OneUi9Page}); the dashboard adds its
+     * floating tab bar itself.
+     */
     public static Page installPage(AppCompatActivity activity, String title, boolean back,
             int layout) {
+        if (OneUi9Page.isOn(activity)) {
+            OneUi9Page page = OneUi9Page.install(activity, R.layout.oneui9_body_scroll, title,
+                    back, true);
+            return new Page(page, page.body.findViewById(R.id.dashboard_content), page);
+        }
         ViewGroup parent = activity.findViewById(android.R.id.content);
         View root = LayoutInflater.from(activity).inflate(layout, parent, false);
         ToolbarLayout toolbar = root.findViewById(R.id.toolbar_layout);
         LinearLayout content = root.findViewById(R.id.dashboard_content);
         configureReachToolbar(toolbar, title, back);
         activity.setContentView(root);
-        return new Page(toolbar, content);
+        return new Page(new ClassicHeader(toolbar), content, null);
+    }
+
+    /** Settings pages: a page shell around the preference fragment container. */
+    public static Header installSettingsPage(AppCompatActivity activity, String title) {
+        if (OneUi9Page.isOn(activity)) {
+            return OneUi9Page.install(activity, R.layout.oneui9_body_settings, title, true, true);
+        }
+        activity.setContentView(R.layout.activity_settings);
+        ToolbarLayout toolbar = activity.findViewById(R.id.settings_toolbar_layout);
+        configureReachToolbar(toolbar, title, true);
+        return new ClassicHeader(toolbar);
     }
 
     public static void configureReachToolbar(ToolbarLayout toolbar, String title, boolean back) {
@@ -142,18 +203,71 @@ public final class Ui {
     }
 
     public static ConfigPage installConfigPage(AppCompatActivity activity, String title) {
+        if (OneUi9Page.isOn(activity)) {
+            return installOneUi9ConfigPage(activity, title);
+        }
         ViewGroup parent = activity.findViewById(android.R.id.content);
         View root = LayoutInflater.from(activity).inflate(R.layout.activity_widget_settings, parent, false);
         ToolbarLayout toolbar = root.findViewById(R.id.widget_settings_root);
         LinearLayout content = root.findViewById(R.id.widget_settings_content);
         FrameLayout preview = root.findViewById(R.id.widget_preview_container);
-        TextView cancel = root.findViewById(R.id.config_cancel);
-        TextView save = root.findViewById(R.id.config_save);
         toolbar.setTitle(title);
         toolbar.setShowNavigationButtonAsBack(true);
         activity.setContentView(root);
         configureSystemBars(activity, root, isDark(activity));
-        return new ConfigPage(toolbar, content, preview, cancel, save);
+        ConfigPage page = new ConfigPage(new ClassicHeader(toolbar), content, preview);
+        root.findViewById(R.id.config_cancel).setOnClickListener(view -> page.cancel.run());
+        root.findViewById(R.id.config_save).setOnClickListener(view -> page.save.run());
+        return page;
+    }
+
+    /**
+     * One UI 9 widget settings: a fixed header and SESL9's floating Cancel / Save bar
+     * ({@code FloatingBottomLayout} + {@code DividerButtonLayout}) over the scrolling settings.
+     */
+    private static ConfigPage installOneUi9ConfigPage(AppCompatActivity activity, String title) {
+        OneUi9Page shell = OneUi9Page.install(activity, R.layout.oneui9_body_widget_config,
+                title, true, false);
+        ConfigPage page = new ConfigPage(shell,
+                shell.body.findViewById(R.id.widget_settings_content),
+                shell.body.findViewById(R.id.widget_preview_container));
+        com.google.android.material.oneui.floatingactioncontainer.FloatingBottomLayout actions =
+                (com.google.android.material.oneui.floatingactioncontainer.FloatingBottomLayout)
+                        LayoutInflater.from(activity).inflate(R.layout.oneui9_config_actions,
+                                shell.root, false);
+        shell.root.addView(actions);
+        com.google.android.material.oneui.dividerbuttonlayout.DividerButtonLayout buttons =
+                actions.findViewById(R.id.oneui9_config_buttons);
+        buttons.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.oneui9_config_cancel) {
+                page.cancel.run();
+                return true;
+            }
+            if (item.getItemId() == R.id.oneui9_config_save) {
+                page.save.run();
+                return true;
+            }
+            return false;
+        });
+        androidx.core.widget.NestedScrollView scroll =
+                shell.body.findViewById(R.id.widget_settings_scroll);
+        actions.enableScrollTransition(false, true);
+        actions.setNestedScrollView(scroll);
+        // The bar floats above the navigation bar, and the last settings row stays clear of it.
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(actions, (view, insets) -> {
+            int bottom = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                    .bottom;
+            ViewGroup.MarginLayoutParams params =
+                    (ViewGroup.MarginLayoutParams) view.getLayoutParams();
+            if (params.bottomMargin != bottom) {
+                params.bottomMargin = bottom;
+                view.setLayoutParams(params);
+            }
+            return insets;
+        });
+        actions.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
+                shell.setBottomReserve(Math.max(0, b - t) + dp(activity, 8.0f)));
+        return page;
     }
 
     public static boolean isDark(Context context) {

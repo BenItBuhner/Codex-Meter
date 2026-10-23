@@ -1561,6 +1561,27 @@ public final class ParserSelfTest {
         check(parsed != null && parsed.eligible && !parsed.atLimit,
                 "cedar_ember block parses");
         check(parsed.grants.size() == 2, "grants with malformed ids are dropped");
+        check(ClaudeSavedResets.needsClaudeCodeSignIn("user:profile user:inference")
+                && !ClaudeSavedResets.needsClaudeCodeSignIn(ClaudeCodeApi.SCOPE)
+                && !ClaudeSavedResets.needsClaudeCodeSignIn(""),
+                "sign-ins without the Claude Code scope are flagged; unknown is not");
+        check(ClaudeCodeApi.SCOPE.contains("user:sessions:claude_code")
+                && "user:sessions:claude_code".equals(ClaudeCodeApi.refreshBody("r",
+                        "user:sessions:claude_code").get("scope"))
+                && !ClaudeCodeApi.refreshBody("r").containsKey("scope"),
+                "Claude sign-in and refresh ask for Claude Code's scopes");
+        String report = ClaudeSavedResets.describeCheck(200,
+                claudeUsageBody(false, true, "\"2070-06-03T00:00:00Z\"", 2),
+                "user:profile user:inference", now);
+        check(report.contains("HTTP 200") && report.contains("Offered resets: yes")
+                && report.contains("Resets you can use: 3") && report.contains("Sign out")
+                && report.contains("Raw: {"), "reset check report shows the server's answer");
+        check(ClaudeSavedResets.describeCheck(200,
+                "{\"cedar_ember\":{\"eligible\":false,\"ineligible_reason\":\"surface\"}}",
+                ClaudeCodeApi.SCOPE, now).contains("Offered resets: no (surface)")
+                && ClaudeSavedResets.describeCheck(200, "{}", "", now)
+                        .contains("not included"),
+                "reset check report explains an ineligible or missing block");
         check(parsed.availableCount(now) == 3 && parsed.shouldDisplay(now),
                 "available resets add up across grants");
         check("grant_soon".equals(parsed.nextGrant(now).id), "server's next grant comes first");

@@ -36,7 +36,6 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
-import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
@@ -78,7 +77,9 @@ public final class MainActivity extends AppCompatActivity {
     private List<UsageProvider> tabProviders = new ArrayList<>();
     /** Slots still in the tab menu; the layout inflates all of them. */
     private int menuSlots = TAB_SLOTS.length;
-    private ToolbarLayout toolbarLayout;
+    private Ui.Header header;
+    /** One UI 9 design: SESL9's floating tab bar instead of the stock tabs. */
+    private OneUi9ProviderBar oneUi9Bar;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -127,7 +128,10 @@ public final class MainActivity extends AppCompatActivity {
         Ui.Page page = Ui.installPage(this, "Codex Meter", false,
                 R.layout.activity_main_dashboard);
         this.content = page.content;
-        this.toolbarLayout = page.toolbar;
+        this.header = page.header;
+        if (page.oneUi9 != null) {
+            this.oneUi9Bar = new OneUi9ProviderBar(page.oneUi9, this::selectProvider);
+        }
         this.provider = ProviderPreferences.getSelected(this);
         setUpProviderTabs();
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
@@ -272,6 +276,9 @@ public final class MainActivity extends AppCompatActivity {
                 if (this.providerTabs != null) {
                     this.providerTabs.setSelectedItem(tabId(requested));
                 }
+                if (this.oneUi9Bar != null) {
+                    this.oneUi9Bar.update(ProviderPreferences.getEnabled(this), requested);
+                }
             }
         }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
@@ -370,6 +377,10 @@ public final class MainActivity extends AppCompatActivity {
             this.provider = visible;
             ProviderPreferences.setSelected(this, visible);
         }
+        if (this.oneUi9Bar != null) {
+            this.oneUi9Bar.update(enabled, this.provider);
+            return;
+        }
         if (this.providerTabs == null) {
             return;
         }
@@ -463,13 +474,13 @@ public final class MainActivity extends AppCompatActivity {
 
     /** The large title names the selected provider ("Codex", "Cursor"), matching iOS. */
     private void applyProviderTitle() {
-        if (this.toolbarLayout == null) {
+        if (this.header == null) {
             return;
         }
         String title = this.provider.displayName;
-        CharSequence current = this.toolbarLayout.getExpandedTitle();
+        CharSequence current = this.header.getTitle();
         if (current == null || !title.contentEquals(current)) {
-            this.toolbarLayout.setTitle(title);
+            this.header.setTitle(title);
         }
     }
 
@@ -504,7 +515,7 @@ public final class MainActivity extends AppCompatActivity {
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
-                                + "Settings → Refresh & usage.",
+                                + "Settings → Refresh & dashboard → Edit dashboard.",
                         14.0f, Ui.secondaryText(this.dark));
                 empty.setGravity(Gravity.CENTER);
                 this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
