@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.10 — 2026-10-23
+
 ### Changed
 
 - Settings cleaned up, with nothing removed. The main list is grouped as Accounts, Live usage and Usage, and **Now Bar** is the first row under Live usage with a summary of what starts it.
