@@ -117,7 +117,7 @@ jobs:
           step() { # step "label" want command...
             local label="$1" want="$2"; shift 2
             N=$((N + 1))
-            adb shell log -t CodexHarness "step $N $want $label"
+            adb shell log -t CodexHarness "'step $N $want $label'"
             "$@"
             local ms; ms=$(await "$want")
             local ok=PASS; [[ "$ms" == TIMEOUT ]] && ok=FAIL
@@ -131,7 +131,7 @@ jobs:
             adb shell input tap 540 1100
           }
           back_out() { adb shell input keyevent BACK; }
-          adb shell "screenrecord --time-limit 170 --size 540x1200 /sdcard/robustness.mp4" & REC=$!
+          adb shell "screenrecord --time-limit 180 --size 540x1200 /sdcard/robustness.mp4" & REC=$!
           sleep 2
           step "Cold open Claude" shown open_claude
           shot r01-claude-cold
@@ -152,42 +152,30 @@ jobs:
             step "Loop $i: Claude from icon" shown open_claude
             step "Loop $i: Back out to home" hidden back_out
           done
-          # Swipe-away while in the app keeps it hidden until the user leaves.
-          open_claude; await shown >/dev/null
-          adb shell cmd statusbar expand-notifications; sleep 1.5
-          find_node() { # find_node regex -> "x y" of the first node whose text or description matches
-            adb shell uiautomator dump /sdcard/ui.xml >/dev/null
-            adb pull /sdcard/ui.xml "$OUT/shade-ui.xml" >/dev/null
-            python3 - "$OUT/shade-ui.xml" "$1" <<'PY'
-          import re, sys, xml.etree.ElementTree as ET
-          pat = re.compile(sys.argv[2], re.I)
-          for n in ET.parse(sys.argv[1]).iter('node'):
-              if pat.fullmatch(n.get('text') or '') or pat.fullmatch(n.get('content-desc') or ''):
-                  a, b, c, d = map(int, re.findall(r'\d+', n.get('bounds')))
-                  print((a + c) // 2, (b + d) // 2); break
-          PY
-          }
-          STOP=$(find_node 'stop')
-          if [[ -z "$STOP" ]]; then
-            # Actions only show on an expanded notification: expand ours, then look again.
-            EXP=$(find_node '(expand|.*usage.*)')
-            [[ -n "$EXP" ]] && adb shell input tap $EXP && sleep 1.5
-            STOP=$(find_node 'stop')
-          fi
-          adb exec-out screencap -p > "$OUT/r04-shade-before-stop.png"
-          if [[ -n "$STOP" ]]; then
-            step "Tap Stop while in Claude" hidden adb shell input tap $STOP
-            adb shell cmd statusbar collapse; sleep 2
-            N=$((N + 1)); if present; then r=FAIL; else r=PASS; fi
-            echo "| $N | Still in Claude 2 s later (stays dismissed) | hidden | $r | |" | tee -a "$RESULTS"
-            step "Home" hidden home
-            step "Reopen Claude (shows again)" shown from_recents
-          else
-            echo "| - | Stop button not found in shade | | SKIP | |" >> "$RESULTS"
-            adb shell cmd statusbar collapse
-          fi
+          # Stop button while in the app: hidden until the user leaves, then back on the next open.
+          # (uiautomator would rebind accessibility services, so the button's broadcast is sent
+          # by the debug helper instead.)
+          open_claude; await shown >/dev/null; sleep 1
+          press_stop() { adb shell am start -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es stop yes >/dev/null; }
+          step "Press Stop while in Claude" hidden press_stop
+          sleep 2
+          N=$((N + 1)); if present; then r=FAIL; else r=PASS; fi
+          echo "| $N | Still in Claude 2 s later (stays dismissed) | hidden | $r | |" | tee -a "$RESULTS"
+          step "Home" hidden home
+          step "Reopen Claude (shows again)" shown open_claude
           home; sleep 2
-          wait $REC
+          adb shell pkill -INT screenrecord; wait $REC 2>/dev/null; sleep 2
+          # Same loop with the screen recorder off, which otherwise eats the emulator's CPU.
+          for i in 1 2 3 4 5 6; do
+            step "Quiet $i: Claude from icon" shown open_claude
+            step "Quiet $i: Home" hidden home
+            step "Quiet $i: Claude from Recents" shown from_recents
+            step "Quiet $i: Home" hidden home
+            step "Quiet $i: ChatGPT from icon" shown open_chatgpt
+            step "Quiet $i: Back out to home" hidden back_out
+          done
+          home; sleep 2
+          wait $REC 2>/dev/null; sleep 1
           adb pull /sdcard/robustness.mp4 "$OUT/robustness.mp4" >/dev/null
           adb logcat -d -v threadtime | grep -E "CodexAppSession|CodexNowBar|FATAL|AndroidRuntime" > "$OUT/logcat.txt" || true
           adb logcat -d -v epoch | grep -E "CodexHarness|CodexAppSession: (show|hide)" > "$OUT/timings.txt" || true
@@ -210,6 +198,11 @@ jobs:
           print('\n### On-device: step start to show/hide (includes the input tool and, for hides, the 0.6 s grace)\n')
           print('| # | Step | ms |\n|---|---|---|')
           for r in rows: print('| %s | %s | %s |' % r)
+          import statistics
+          for name, key in (('Opens, recorder off', lambda l: l.startswith('Quiet') and 'Home' not in l and 'Back' not in l),
+                            ('Leaves, recorder off', lambda l: l.startswith('Quiet') and ('Home' in l or 'Back' in l))):
+              v = [int(r[2].split()[0]) for r in rows if key(r[1]) and r[2].endswith(' ms')]
+              if v: print('\n%s: median %d ms, max %d ms over %d steps' % (name, statistics.median(v), max(v), len(v)))
           PY
           cat "$RESULTS"
           SH

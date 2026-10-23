@@ -17,6 +17,13 @@ public class DebugSeedActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        if ("yes".equals(getIntent().getStringExtra("stop"))) {
+            // Same broadcast the notification's Stop button sends.
+            sendBroadcast(new Intent(this, NowBarActionReceiver.class)
+                    .setAction(NowBarManager.ACTION_STOP));
+            finish();
+            return;
+        }
         String open = getIntent().getStringExtra("open");
         String design = getIntent().getStringExtra("design");
         boolean reseed = !"no".equals(getIntent().getStringExtra("reseed"));
