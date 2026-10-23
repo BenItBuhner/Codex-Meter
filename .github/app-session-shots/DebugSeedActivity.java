@@ -19,7 +19,9 @@ public class DebugSeedActivity extends Activity {
         super.onCreate(state);
         String open = getIntent().getStringExtra("open");
         String design = getIntent().getStringExtra("design");
+        boolean reseed = !"no".equals(getIntent().getStringExtra("reseed"));
         try {
+            if (!reseed) throw new SkipSeed();
             long now = System.currentTimeMillis();
             long s = now / 1000L;
             AppPreferences.completeOnboarding(this);
@@ -44,6 +46,8 @@ public class DebugSeedActivity extends Activity {
             ProviderPreferences.setSelected(this, UsageProvider.CODEX);
             AppSessionPreferences.setEnabled(this, !"off".equals(
                     getIntent().getStringExtra("sessions")));
+        } catch (SkipSeed skip) {
+            // Only open the screen.
         } catch (Exception e) {
             Log.e("DebugSeed", "seed failed", e);
         }
@@ -86,5 +90,8 @@ public class DebugSeedActivity extends Activity {
                         Collections.emptyList(), null, -1, now);
         ProviderPreferences.saveSnapshot(this, provider, snapshot);
         ProviderPreferences.setEmail(this, provider, "demo@example.com");
+    }
+
+    private static final class SkipSeed extends Exception {
     }
 }
