@@ -515,7 +515,7 @@ public final class MainActivity extends AppCompatActivity {
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
-                                + "Settings → Refresh & usage.",
+                                + "Settings → Refresh & dashboard → Edit dashboard.",
                         14.0f, Ui.secondaryText(this.dark));
                 empty.setGravity(Gravity.CENTER);
                 this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));

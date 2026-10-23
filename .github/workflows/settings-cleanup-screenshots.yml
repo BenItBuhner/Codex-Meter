@@ -1,0 +1,177 @@
+name: Settings cleanup screenshots (temporary)
+
+# One-off: builds alpha (before) and this branch (after), seeds sample accounts, and captures
+# every reworked Settings page in both designs, light and dark. Output goes to
+# refs/ci-screenshots/settings-cleanup. Removed before the PR merges.
+on:
+  push:
+    branches: [claude/project-thread-rmfeb1]
+    paths: ['.github/workflows/settings-cleanup-screenshots.yml', '.github/settings-shots/**',
+            'android/app/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android SDK platforms
+        shell: bash
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Check out the before tree (alpha)
+        run: git worktree add "$RUNNER_TEMP/before" origin/alpha
+
+      - name: Add the debug-only sample-data seeder to both trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ROOT in "$GITHUB_WORKSPACE" "$RUNNER_TEMP/before"; do
+            DBG="$ROOT/android/app/src/debug"
+            cp .github/settings-shots/DebugSeedActivity.java "$DBG/java/dev/bennett/codexmeter/"
+            python3 - "$DBG/AndroidManifest.xml" <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p).read()
+          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.DebugSeedActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay"/>\n    </application>')
+          open(p, 'w').write(s)
+          PY
+          done
+
+      - name: Build before/after debug APKs and stand-in apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          bash .github/settings-shots/make-stub.sh com.anthropic.claude "Claude" "$RUNNER_TEMP/claude.apk"
+          bash .github/settings-shots/make-stub.sh com.openai.chatgpt "ChatGPT" "$RUNNER_TEMP/chatgpt.apk"
+          build() {
+            for i in 1 2 3; do
+              (cd "$1/android" && ./gradlew --no-daemon :app:assembleDebug) && return 0
+              sleep $((i * 15))
+            done
+            return 1
+          }
+          build "$RUNNER_TEMP/before"
+          cp "$RUNNER_TEMP/before/android/app/build/outputs/apk/debug/app-debug.apk" "$RUNNER_TEMP/before.apk"
+          build "$GITHUB_WORKSPACE"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/after.apk"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Write capture script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/capture.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          PKG=dev.bennett.codexmeter
+          OUT="$GITHUB_WORKSPACE/shots"
+          mkdir -p "$OUT"
+          adb install -r "$RUNNER_TEMP/claude.apk"
+          adb install -r "$RUNNER_TEMP/chatgpt.apk"
+          adb shell cmd connectivity airplane-mode enable || true
+          adb shell settings put global hide_error_dialogs 1 || true
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          shot() { sleep "${2:-3}"; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
+          a11y_on() {
+            adb shell appops set $PKG ACCESS_RESTRICTED_SETTINGS allow || true
+            adb shell settings put secure enabled_accessibility_services $PKG/dev.bennett.codexmeter.AppSessionService
+            adb shell settings put secure accessibility_enabled 1
+            sleep 2
+          }
+          # seed PAGE DESIGN SESSIONS
+          seed() {
+            adb shell am force-stop $PKG; sleep 1
+            adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es open none --es design "$2" --es sessions "${3:-on}"; sleep 2
+            a11y_on
+            adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es open "$1" --es reseed no; sleep 3
+          }
+          drag() { adb shell input swipe 540 1900 540 $((1900 - $1)) 900; }
+          page() {  # page VERSION DESIGN MODE NAME OPEN [SESSIONS] [SCROLLS]
+            local v=$1 d=$2 m=$3 name=$4 open=$5 sessions=${6:-on} scrolls=${7:-1}
+            seed "$open" "$d" "$sessions"
+            shot "$v-$d-$m-$name-1"
+            for i in $(seq 2 $((scrolls + 1))); do drag 1300; shot "$v-$d-$m-$name-$i" 2; done
+          }
+          for v in before after; do
+            adb install -r "$RUNNER_TEMP/$v.apk"
+            adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
+            for d in oneui9 classic; do
+              for m in light dark; do
+                [[ $m == dark ]] && adb shell cmd uimode night yes || adb shell cmd uimode night no
+                page $v $d $m root root on 1
+                page $v $d $m accounts accounts on 0
+                page $v $d $m providers providers on 0
+                page $v $d $m refresh refresh_usage on 3
+                [[ $v == after ]] && page $v $d $m resets reset_credits on 1
+                page $v $d $m nowbar-off now_bar off 1
+                page $v $d $m nowbar-on now_bar on 1
+                page $v $d $m aiapps app_sessions on 1
+              done
+            done
+          done
+          adb shell cmd uimode night no
+          adb logcat -d | grep -iE "DebugSeed|FATAL|AndroidRuntime" > "$OUT/logcat.txt" || true
+          SH
+          chmod +x "$RUNNER_TEMP/capture.sh"
+
+      - name: Capture screenshots on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash ${{ runner.temp }}/capture.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shots
+          path: shots/
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: [android]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: shots
+          path: shots
+      - name: Publish to refs/ci-screenshots/settings-cleanup
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd shots
+          git init -q
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Settings cleanup screenshots"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/settings-cleanup
