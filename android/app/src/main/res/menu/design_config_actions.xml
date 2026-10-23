@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/design_config_cancel" android:title="@string/widget_config_cancel" />
-    <item android:id="@+id/design_config_save" android:title="@string/widget_config_save" />
-</menu>

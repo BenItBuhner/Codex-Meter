@@ -38,7 +38,6 @@ public final class CodexMeterApplication extends Application
 
     @Override
     public void onActivityResumed(Activity activity) {
-        DesignChrome.syncOnResume(activity);
         DiagnosticLog.info(this, "screen", "resumed",
                 "activity", activity.getClass().getSimpleName());
     }

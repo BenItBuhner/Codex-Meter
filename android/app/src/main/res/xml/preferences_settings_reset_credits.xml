@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Rows that only matter once their switch is on are hidden until then. -->
+    <PreferenceCategory
+        android:key="reset_credit_auto_use_category"
+        android:title="Codex">
+        <Preference
+            android:key="reset_credit_status_ui"
+            android:title="Your resets" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_expiry_auto_apply_ui"
+            android:title="Use before they expire" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_lead_entries"
+            android:entryValues="@array/settings_reset_auto_lead_values"
+            android:key="reset_credit_expiry_auto_apply_lead_ui"
+            android:title="When to use it"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="reset_credit_low_usage_auto_use_ui"
+            android:title="Use when running low" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_threshold_entries"
+            android:entryValues="@array/settings_reset_auto_threshold_values"
+            android:key="reset_credit_low_usage_threshold_ui"
+            android:title="Use when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_metric_entries"
+            android:entryValues="@array/settings_reset_auto_metric_values"
+            android:key="reset_credit_low_usage_metric_ui"
+            android:title="Watch"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="claude_saved_reset_category"
+        android:title="Claude Code">
+        <Preference
+            android:key="claude_saved_reset_status_ui"
+            android:title="Your resets" />
+        <SwitchPreferenceCompat
+            android:key="claude_saved_reset_expiry_ui"
+            android:title="Use before they expire" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_lead_entries"
+            android:entryValues="@array/settings_reset_auto_lead_values"
+            android:key="claude_saved_reset_expiry_lead_ui"
+            android:title="When to use it"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="claude_saved_reset_low_usage_ui"
+            android:title="Use when running low" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_threshold_entries"
+            android:entryValues="@array/settings_reset_auto_threshold_values"
+            android:key="claude_saved_reset_threshold_ui"
+            android:title="Use when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_reset_auto_metric_entries"
+            android:entryValues="@array/settings_reset_auto_metric_values"
+            android:key="claude_saved_reset_metric_ui"
+            android:title="Watch"
+            app:useSimpleSummaryProvider="true" />
+        <Preference
+            android:key="claude_saved_reset_check_ui"
+            android:summary="Ask Anthropic now and show what it reports"
+            android:title="Check with Anthropic" />
+    </PreferenceCategory>
+
+</PreferenceScreen>
