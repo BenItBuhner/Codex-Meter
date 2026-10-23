@@ -44,6 +44,21 @@ extension ToolbarItemPlacement {
     static var topBarLeading: ToolbarItemPlacement { .navigation }
 }
 
+// MARK: - Search field placement
+
+extension SearchFieldPlacement {
+    /// iOS pins a search field in a drawer under the navigation bar; a Mac window puts it in
+    /// the toolbar, so the drawer placement maps to the automatic one.
+    enum NavigationBarDrawerDisplayMode: Sendable {
+        case automatic
+        case always
+    }
+
+    static func navigationBarDrawer(displayMode: NavigationBarDrawerDisplayMode) -> SearchFieldPlacement {
+        .automatic
+    }
+}
+
 // MARK: - Size class and edit mode
 
 /// A Mac window is always laid out as a regular-width page; the dashboard's two-column card
