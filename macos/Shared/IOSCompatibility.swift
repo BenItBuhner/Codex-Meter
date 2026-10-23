@@ -110,6 +110,10 @@ extension NSColor {
         dynamic(light: (1, 1, 1), dark: (0.173, 0.173, 0.180))
     }
 
+    /// iOS label tiers map to AppKit's label colors.
+    static var secondaryLabel: NSColor { .secondaryLabelColor }
+    static var tertiaryLabel: NSColor { .tertiaryLabelColor }
+
     static var systemBackground: NSColor {
         dynamic(light: (1, 1, 1), dark: (0.110, 0.110, 0.118))
     }
