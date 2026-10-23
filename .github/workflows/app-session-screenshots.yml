@@ -117,6 +117,7 @@ jobs:
           step() { # step "label" want command...
             local label="$1" want="$2"; shift 2
             N=$((N + 1))
+            adb shell log -t CodexHarness "step $N $want $label"
             "$@"
             local ms; ms=$(await "$want")
             local ok=PASS; [[ "$ms" == TIMEOUT ]] && ok=FAIL
@@ -154,14 +155,26 @@ jobs:
           # Swipe-away while in the app keeps it hidden until the user leaves.
           open_claude; await shown >/dev/null
           adb shell cmd statusbar expand-notifications; sleep 1.5
-          STOP=$(adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml "$RUNNER_TEMP/ui.xml" >/dev/null; python3 - "$RUNNER_TEMP/ui.xml" <<'PY'
+          find_node() { # find_node regex -> "x y" of the first node whose text or description matches
+            adb shell uiautomator dump /sdcard/ui.xml >/dev/null
+            adb pull /sdcard/ui.xml "$OUT/shade-ui.xml" >/dev/null
+            python3 - "$OUT/shade-ui.xml" "$1" <<'PY'
           import re, sys, xml.etree.ElementTree as ET
+          pat = re.compile(sys.argv[2], re.I)
           for n in ET.parse(sys.argv[1]).iter('node'):
-              if n.get('text') == 'Stop':
+              if pat.fullmatch(n.get('text') or '') or pat.fullmatch(n.get('content-desc') or ''):
                   a, b, c, d = map(int, re.findall(r'\d+', n.get('bounds')))
                   print((a + c) // 2, (b + d) // 2); break
           PY
-          )
+          }
+          STOP=$(find_node 'stop')
+          if [[ -z "$STOP" ]]; then
+            # Actions only show on an expanded notification: expand ours, then look again.
+            EXP=$(find_node '(expand|.*usage.*)')
+            [[ -n "$EXP" ]] && adb shell input tap $EXP && sleep 1.5
+            STOP=$(find_node 'stop')
+          fi
+          adb exec-out screencap -p > "$OUT/r04-shade-before-stop.png"
           if [[ -n "$STOP" ]]; then
             step "Tap Stop while in Claude" hidden adb shell input tap $STOP
             adb shell cmd statusbar collapse; sleep 2
@@ -177,7 +190,27 @@ jobs:
           wait $REC
           adb pull /sdcard/robustness.mp4 "$OUT/robustness.mp4" >/dev/null
           adb logcat -d -v threadtime | grep -E "CodexAppSession|CodexNowBar|FATAL|AndroidRuntime" > "$OUT/logcat.txt" || true
-          grep -E "CodexAppSession: (show|hide)" "$OUT/logcat.txt" > "$OUT/timings.txt" || true
+          adb logcat -d -v epoch | grep -E "CodexHarness|CodexAppSession: (show|hide)" > "$OUT/timings.txt" || true
+          python3 - "$OUT/timings.txt" >> "$RESULTS" <<'PY'
+          # On-device time from the harness starting each step to the app's own show or hide.
+          import re, sys
+          lines = open(sys.argv[1]).read().splitlines()
+          rows, pending = [], None
+          for line in lines:
+              t = float(line.split()[0])
+              m = re.search(r'CodexHarness: step (\d+) (shown|hidden) (.*)', line)
+              if m:
+                  if pending: rows.append((pending[0], pending[2], 'no change logged'))
+                  pending = (m.group(1), m.group(2), m.group(3), t)
+                  continue
+              if pending and ((' show ' in line and pending[1] == 'shown') or (' hide ' in line and pending[1] == 'hidden')):
+                  rows.append((pending[0], pending[2], '%d ms' % round((t - pending[3]) * 1000)))
+                  pending = None
+          if pending: rows.append((pending[0], pending[2], 'no change logged'))
+          print('\n### On-device: step start to show/hide (includes the input tool and, for hides, the 0.6 s grace)\n')
+          print('| # | Step | ms |\n|---|---|---|')
+          for r in rows: print('| %s | %s | %s |' % r)
+          PY
           cat "$RESULTS"
           SH
           chmod +x "$RUNNER_TEMP/capture.sh"
