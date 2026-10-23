@@ -162,6 +162,7 @@ jobs:
           N=$((N + 1)); if present; then r=FAIL; else r=PASS; fi
           echo "| $N | Still in Claude 2 s later (stays dismissed) | hidden | $r | |" | tee -a "$RESULTS"
           step "Home" hidden home
+          sleep 1.5  # a return within the 0.6 s grace counts as never having left
           step "Reopen Claude (shows again)" shown open_claude
           home; sleep 2
           adb shell pkill -INT screenrecord; wait $REC 2>/dev/null; sleep 2
