@@ -13,6 +13,33 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Start automatically">
+        <!-- Tapping the row opens the app list; the switch turns it on or off. -->
+        <androidx.preference.SeslSwitchPreferenceScreen
+            android:key="now_bar_app_sessions"
+            android:title="While using AI apps"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="now_bar_auto_start_ui"
+            android:title="When allowance is low" />
+        <ListPreference
+            android:entries="@array/settings_metric_entries"
+            android:entryValues="@array/settings_metric_values"
+            android:key="now_bar_metric_ui"
+            android:title="Watch"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:entries="@array/settings_threshold_entries"
+            android:entryValues="@array/settings_threshold_values"
+            android:key="now_bar_threshold_ui"
+            android:title="Start when remaining reaches"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="now_bar_accelerated_ui"
+            android:summary="When usage is on pace to run out early"
+            android:title="When usage is fast" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Display">
         <ListPreference
             android:entries="@array/now_bar_display_mode_entries"
@@ -26,36 +53,6 @@
             android:key="now_bar_percent_mode_ui"
             android:title="Percentage shown"
             app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Automatic start">
-        <SwitchPreferenceCompat
-            android:key="now_bar_auto_start_ui"
-            android:summary="Start the monitor when remaining allowance is low"
-            android:title="Start when allowance is low" />
-        <ListPreference
-            android:entries="@array/settings_metric_entries"
-            android:entryValues="@array/settings_metric_values"
-            android:key="now_bar_metric_ui"
-            android:title="Monitor"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/settings_threshold_entries"
-            android:entryValues="@array/settings_threshold_values"
-            android:key="now_bar_threshold_ui"
-            android:title="Start when remaining reaches"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            android:key="now_bar_accelerated_ui"
-            android:summary="Start while usage is projected to run out early"
-            android:title="Start for accelerated usage" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Show in AI apps">
-        <Preference
-            android:key="now_bar_app_sessions"
-            android:title="Show while an AI app is open"
-            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Troubleshooting">

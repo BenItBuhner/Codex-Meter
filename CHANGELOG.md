@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- Settings cleaned up, with nothing removed. The main list is grouped as Accounts, Live usage and Usage, and **Now Bar** is the first row under Live usage with a summary of what starts it.
+- **Now Bar → Start automatically → While using AI apps** is one switch row: the switch turns it on or off, and tapping the row opens the app list. The on/off subtitle and the long description are gone. The app list is one card, each app naming the dashboard it shows, with a single **Add an app**.
+- **Providers** is now **Dashboard tabs**, with a one-line hint. **Accounts** is one card ending in **Add account**.
+- **Refresh & dashboard**: refresh mode and interval are one list (Automatic, or every 5 minutes to 2 hours). The eight Codex card switches are gone because **Edit dashboard** already has them; it now asks which tab to edit.
+- **Reset credits** has its own page. Follow-up options (when to use a reset, the threshold, the window) only appear once their switch is on.
+
 ## 2.9.0-alpha.9 — 2026-10-23
 
 ### Added
