@@ -37,6 +37,7 @@ public final class ProviderParsersSelfTest {
         testAmp();
         testBalances();
         testKeyQuota();
+        testAppSessionRules();
         System.out.println("Provider catalog, tabs, device sign-in, and 21 usage parsers verified.");
     }
 
@@ -418,5 +419,52 @@ public final class ProviderParsersSelfTest {
     @SuppressWarnings("unused")
     private static List<UsageProvider> list(UsageProvider... providers) {
         return new ArrayList<>(Arrays.asList(providers));
+    }
+
+    private static void testAppSessionRules() {
+        java.util.Map<String, UsageProvider> defaults =
+                AppSessionRules.resolve(null, null);
+        check(defaults.get("com.openai.chatgpt") == UsageProvider.CODEX, "ChatGPT shows Codex");
+        check(defaults.get("com.anthropic.claude") == UsageProvider.CLAUDE_CODE,
+                "Claude shows Claude Code");
+        check(defaults.get("com.android.chrome") == null, "unmatched apps stay unmatched");
+
+        java.util.Map<String, String> added = new java.util.HashMap<>();
+        added.put("com.termux", "claude_code");
+        added.put("com.openai.chatgpt", "cursor");
+        java.util.Map<String, UsageProvider> custom = AppSessionRules.resolve(added,
+                java.util.Collections.singleton("com.anthropic.claude"));
+        check(custom.get("com.termux") == UsageProvider.CLAUDE_CODE, "added app maps");
+        check(custom.get("com.openai.chatgpt") == UsageProvider.CURSOR, "added app re-points");
+        check(custom.get("com.anthropic.claude") == null, "switched-off app is ignored");
+
+        AppSessionRules.Decision enter = AppSessionRules.decide("com.anthropic.claude", true,
+                defaults, null);
+        check(enter.action == AppSessionRules.Action.ENTER
+                && enter.provider == UsageProvider.CLAUDE_CODE, "opening Claude shows Claude");
+        check(AppSessionRules.decide("com.anthropic.claude", true, defaults,
+                "com.anthropic.claude").action == AppSessionRules.Action.STAY,
+                "moving within the app keeps it");
+        AppSessionRules.Decision swap = AppSessionRules.decide("com.openai.chatgpt", true,
+                defaults, "com.anthropic.claude");
+        check(swap.action == AppSessionRules.Action.ENTER
+                && swap.provider == UsageProvider.CODEX, "switching apps switches provider");
+        check(AppSessionRules.decide("com.sec.android.app.launcher", true, defaults,
+                "com.anthropic.claude").action == AppSessionRules.Action.LEAVE,
+                "going home leaves");
+        check(AppSessionRules.decide("com.android.systemui", false, defaults,
+                "com.anthropic.claude").action == AppSessionRules.Action.NONE,
+                "pulling down the shade is not leaving");
+        check(AppSessionRules.decide("com.android.chrome", true, defaults, null).action
+                == AppSessionRules.Action.NONE, "unmatched app without a session does nothing");
+        AppSessionRules.Decision warm = AppSessionRules.decide("com.anthropic.claude", false,
+                defaults, null);
+        check(warm.action == AppSessionRules.Action.ENTER
+                && warm.provider == UsageProvider.CLAUDE_CODE,
+                "reopening Claude from Recents shows Claude even without an activity name");
+        check(AppSessionRules.decide("com.samsung.android.honeyboard", false, defaults,
+                "com.openai.chatgpt").action == AppSessionRules.Action.NONE,
+                "the keyboard opening is not leaving");
+        check(AppSessionRules.knownApps(UsageProvider.CODEX).size() == 1, "Codex official apps");
     }
 }
