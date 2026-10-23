@@ -9,6 +9,7 @@ Codex Meter is a **monorepo** with native clients and no backend:
 | Repository root | Shared docs, license, changelog, CI entrypoints | — |
 | `android/` | Android (Gradle `:app`, `:shared`, `:wear`) | `dev.bennett.codexmeter` (+ Wear companion) |
 | `ios/` | SwiftUI / WidgetKit (Xcode) | `CodexMeter` app + widgets + `CodexMeterCore` package |
+| `macos/` | SwiftUI / WidgetKit for macOS (Xcode) | `Codex Meter.app` + desktop widgets; compiles the `ios/` app, widget, and test sources |
 
 Clients talk directly to OpenAI/ChatGPT remote endpoints. Tokens stay on-device (Android Keystore / iOS Keychain).
 
@@ -35,7 +36,7 @@ Convenience wrappers at the repo root forward into the Android project:
 - `./build.sh` → `android/build.sh`
 - `./lint.sh` → `android/lint.sh`
 
-iOS build instructions are in `ios/README.md`.
+iOS build instructions are in `ios/README.md`. Windows (WinUI 3, C#/.NET 10) instructions are in `windows/README.md`; `dotnet test windows/tests/CodexMeter.Core.Tests` runs the shared C# core tests on any OS.
 
 ## Cursor Cloud specific instructions (Android)
 
@@ -60,3 +61,9 @@ iOS build instructions are in `ios/README.md`.
 - Core pure logic for the iOS app lives in `ios/CodexMeterCore`.
 - Fast checks: `swift test --package-path ios/CodexMeterCore` (from repo root) or from `ios/` as documented in `ios/README.md`.
 - Full Xcode builds need a macOS host; Linux cloud VMs typically cannot build the iOS target.
+
+## macOS notes for agents
+
+- The Mac app lives in `macos/CodexMeterMac.xcodeproj`. It compiles `ios/CodexMeter`, `ios/CodexMeterWidgets`, and `ios/CodexMeterTests` through synchronized folders, so new iOS files join the Mac build automatically.
+- Keep shared iOS views free of iOS-only APIs where a Mac equivalent exists. iOS-only modifiers and colors the shared views already use are mapped in `macos/Shared/IOSCompatibility.swift`; UIKit/Safari stand-ins live in `macos/CodexMeterMac/Platform/`. Use `#if os(iOS)` only for code with no Mac meaning.
+- `.github/workflows/macos-ci.yml` builds the Mac app, runs the shared iOS unit tests on macOS plus the Mac UI tests, and uploads a screenshot gallery. It also runs on PRs that only touch the shared `ios/` sources.

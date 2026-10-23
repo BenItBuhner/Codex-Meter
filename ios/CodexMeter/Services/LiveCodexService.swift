@@ -1,4 +1,6 @@
+#if canImport(BackgroundTasks) && os(iOS)
 import BackgroundTasks
+#endif
 import CodexMeterCore
 import Foundation
 import UserNotifications
@@ -243,7 +245,9 @@ public actor LiveCodexService: CodexService {
         let notificationCenter = UNUserNotificationCenter.current()
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
+#if os(iOS)
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: "com.bukovinafilip.CodexMeter.refresh")
+#endif
         WidgetCenter.shared.reloadAllTimelines()
     }
 

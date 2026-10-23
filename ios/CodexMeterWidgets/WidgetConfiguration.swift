@@ -1,6 +1,49 @@
 import AppIntents
+import CodexMeterCore
 import Foundation
 import SwiftUI
+
+/// The provider a widget shows. Offers Codex plus every provider the app has published widget
+/// data for (connected accounts), like Android's per-widget provider choice.
+struct WidgetProviderEntity: AppEntity, Sendable {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Provider")
+    static let defaultQuery = WidgetProviderQuery()
+
+    let id: String
+
+    var provider: UsageProvider {
+        UsageProvider.resolve(id)
+    }
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(provider.displayName)")
+    }
+
+    static let codex = WidgetProviderEntity(id: UsageProvider.codex.rawValue)
+}
+
+struct WidgetProviderQuery: EntityQuery, Sendable {
+    func entities(for identifiers: [WidgetProviderEntity.ID]) async throws -> [WidgetProviderEntity] {
+        identifiers.compactMap { id in
+            UsageProvider(rawValue: id).map { WidgetProviderEntity(id: $0.rawValue) }
+        }
+    }
+
+    func suggestedEntities() async throws -> [WidgetProviderEntity] {
+        WidgetSnapshotStore().availableProviders().map { WidgetProviderEntity(id: $0.rawValue) }
+    }
+
+    func defaultResult() async -> WidgetProviderEntity? {
+        .codex
+    }
+}
+
+extension Optional where Wrapped == WidgetProviderEntity {
+    /// The chosen provider; widgets placed before the choice existed show Codex.
+    var resolvedProvider: UsageProvider {
+        self?.provider ?? .codex
+    }
+}
 
 enum WidgetAppearance: String, AppEnum, Sendable {
     case system
@@ -94,7 +137,7 @@ enum WidgetAllowance: String, AppEnum, Sendable {
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Allowance")
     static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
         .both: "Both windows",
-        .fiveHour: "5-hour only",
+        .fiveHour: "Short window only",
         .weekly: "Weekly / Monthly only"
     ]
 
@@ -129,7 +172,10 @@ enum WidgetTapAction: String, AppEnum, Sendable {
 
 struct MeterWidgetConfigurationIntent: WidgetConfigurationIntent, Sendable {
     static let title: LocalizedStringResource = "Configure Codex Meter"
-    static let description = IntentDescription("Choose which allowance appears, how the widget looks, and what happens when you tap it.")
+    static let description = IntentDescription("Choose the provider and allowance that appear, how the widget looks, and what happens when you tap it.")
+
+    @Parameter(title: "Provider")
+    var provider: WidgetProviderEntity?
 
     @Parameter(title: "Allowance", default: .both)
     var allowance: WidgetAllowance
@@ -163,6 +209,7 @@ struct MeterWidgetConfigurationIntent: WidgetConfigurationIntent, Sendable {
         showsPercentSymbol: Bool = true,
         tapAction: WidgetTapAction = .open
     ) {
+        self.provider = nil
         self.allowance = allowance
         self.appearance = appearance
         self.accent = accent
@@ -179,7 +226,10 @@ extension MeterWidgetConfigurationIntent {
 
 struct FiveHourAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
     static let title: LocalizedStringResource = "Configure five-hour allowance"
-    static let description = IntentDescription("Choose which Codex allowance this circular widget shows.")
+    static let description = IntentDescription("Choose the provider and allowance this circular widget shows.")
+
+    @Parameter(title: "Provider")
+    var provider: WidgetProviderEntity?
 
     @Parameter(title: "Allowance", default: .fiveHour)
     var allowance: WidgetAllowance
@@ -187,13 +237,17 @@ struct FiveHourAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable
     init() {}
 
     init(allowance: WidgetAllowance = .fiveHour) {
+        self.provider = nil
         self.allowance = allowance
     }
 }
 
 struct WeeklyAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
     static let title: LocalizedStringResource = "Configure weekly allowance"
-    static let description = IntentDescription("Choose which Codex allowance this circular widget shows.")
+    static let description = IntentDescription("Choose the provider and allowance this circular widget shows.")
+
+    @Parameter(title: "Provider")
+    var provider: WidgetProviderEntity?
 
     @Parameter(title: "Allowance", default: .weekly)
     var allowance: WidgetAllowance
@@ -201,13 +255,17 @@ struct WeeklyAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
     init() {}
 
     init(allowance: WidgetAllowance = .weekly) {
+        self.provider = nil
         self.allowance = allowance
     }
 }
 
 struct DualAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
-    static let title: LocalizedStringResource = "Configure Codex allowances"
-    static let description = IntentDescription("Show both allowance windows or focus this accessory widget on one.")
+    static let title: LocalizedStringResource = "Configure allowances"
+    static let description = IntentDescription("Choose a provider, then show both allowance windows or focus this accessory widget on one.")
+
+    @Parameter(title: "Provider")
+    var provider: WidgetProviderEntity?
 
     @Parameter(title: "Allowance", default: .both)
     var allowance: WidgetAllowance
@@ -215,6 +273,7 @@ struct DualAccessoryConfigurationIntent: WidgetConfigurationIntent, Sendable {
     init() {}
 
     init(allowance: WidgetAllowance = .both) {
+        self.provider = nil
         self.allowance = allowance
     }
 }
