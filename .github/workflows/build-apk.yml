@@ -3,13 +3,20 @@ name: Build Codex Meter APK
 on:
   pull_request:
     branches: [main, alpha]
+    paths-ignore: ['ios/**']
   push:
+    branches: [main, alpha]
     tags: ['v*']
+    paths-ignore: ['ios/**']
   workflow_dispatch:
 
 permissions:
   contents: read
   packages: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
