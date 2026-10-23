@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Codex Meter
+GenericName=Usage Meter
+Comment=See your Codex, Claude Code and Cursor usage limits
+Exec=codex-meter
+Icon=io.github.benitbuhner.CodexMeter
+Terminal=false
+Categories=Utility;
+Keywords=codex;claude;cursor;usage;limits;quota;ai;
+StartupNotify=true
+StartupWMClass=io.github.benitbuhner.CodexMeter
+SingleMainWindow=true

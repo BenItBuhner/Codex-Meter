@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodexMeter.Linux/CodexMeter.Linux.csproj" />
+    <Project Path="../windows/src/CodexMeter.Core/CodexMeter.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodexMeter.Linux.Tests/CodexMeter.Linux.Tests.csproj" />
+  </Folder>
+</Solution>
