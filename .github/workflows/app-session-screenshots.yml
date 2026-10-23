@@ -141,6 +141,13 @@ jobs:
           step "Home" hidden home
           step "Reopen Claude from its icon (warm)" shown open_claude
           step "Switch straight to ChatGPT" shown open_chatgpt
+          # The Claude monitor stays up until ChatGPT's replaces it; wait for that swap.
+          t0=$(date +%s%3N); swapped=FAIL
+          for i in $(seq 1 80); do
+            if adb shell dumpsys notification --noredact | grep -q "android.title=String (Codex usage)"; then swapped=PASS; break; fi
+            sleep 0.1
+          done
+          N=$((N + 1)); echo "| $N | Monitor swaps to Codex for ChatGPT | Codex usage | $swapped | $(( $(date +%s%3N) - t0 )) |" | tee -a "$RESULTS"
           adb shell cmd statusbar expand-notifications; shot r03-chatgpt-shade 1.5
           adb shell cmd statusbar collapse; sleep 0.5
           step "Pull down shade over ChatGPT (stays)" shown adb shell cmd statusbar expand-notifications
