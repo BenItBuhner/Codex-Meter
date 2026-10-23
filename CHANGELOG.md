@@ -10,6 +10,10 @@
 - **Refresh & dashboard**: refresh mode and interval are one list (Automatic, or every 5 minutes to 2 hours). The eight Codex card switches are gone because **Edit dashboard** already has them; it now asks which tab to edit.
 - **Reset credits** has its own page. Follow-up options (when to use a reset, the threshold, the window) only appear once their switch is on.
 
+### Fixed
+
+- Show in AI apps is now reliable and near-instant. It used to guess the app in front from "new screen" events, which launchers don't always send. Reopening an app from Recents or its icon could do nothing, going home could leave the notification stuck, and a 200 ms event batching delay made timing uneven. It now shows the moment a matched app's screen opens, double-checks which app window is actually in front on a background thread every time anything changes, gets each change with no batching delay, and hides about 0.6 s after you leave (was 1.5 s). Switching between matched apps swaps the provider in place, without hiding and re-showing. Because of this change, Android now describes app detection as able to view the screen. Codex Meter still reads only the package name of the app in front.
+
 ## 2.9.0-alpha.9 — 2026-10-23
 
 ### Added

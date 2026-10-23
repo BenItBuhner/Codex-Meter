@@ -457,6 +457,14 @@ public final class ProviderParsersSelfTest {
                 "pulling down the shade is not leaving");
         check(AppSessionRules.decide("com.android.chrome", true, defaults, null).action
                 == AppSessionRules.Action.NONE, "unmatched app without a session does nothing");
+        AppSessionRules.Decision warm = AppSessionRules.decide("com.anthropic.claude", false,
+                defaults, null);
+        check(warm.action == AppSessionRules.Action.ENTER
+                && warm.provider == UsageProvider.CLAUDE_CODE,
+                "reopening Claude from Recents shows Claude even without an activity name");
+        check(AppSessionRules.decide("com.samsung.android.honeyboard", false, defaults,
+                "com.openai.chatgpt").action == AppSessionRules.Action.NONE,
+                "the keyboard opening is not leaving");
         check(AppSessionRules.knownApps(UsageProvider.CODEX).size() == 1, "Codex official apps");
     }
 }
