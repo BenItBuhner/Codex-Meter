@@ -38,7 +38,7 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings-providers")
             } footer: {
-                Text("Choose which providers get a tab at the bottom of the dashboard, and their order.")
+                Text("Choose which providers get a tab on the dashboard, and their order.")
             }
 
             // Edit dashboard follows the selected tab; each provider keeps its own layout.

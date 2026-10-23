@@ -34,6 +34,7 @@ struct AddedProviderDashboardView: View {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if state.phase == .signedOut {
                     AddedProviderSignedOutView(provider: provider) { isShowingSignIn = true }
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if state.phase == .demo {
                         StatusBanner(
@@ -58,6 +59,7 @@ struct AddedProviderDashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }

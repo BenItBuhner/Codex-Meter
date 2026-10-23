@@ -161,6 +161,7 @@ struct OnboardingView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .pointerHighlight()
                     .padding(.vertical, 10)
                     .accessibilityAddTraits(picked ? .isSelected : [])
                     .accessibilityIdentifier("onboarding-provider-\(provider.rawValue)")
