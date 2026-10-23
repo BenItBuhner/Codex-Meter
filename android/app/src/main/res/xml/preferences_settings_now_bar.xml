@@ -51,6 +51,13 @@
             android:title="Start for accelerated usage" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Show in AI apps">
+        <Preference
+            android:key="now_bar_app_sessions"
+            android:title="Show while an AI app is open"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Troubleshooting">
         <Preference
             android:key="now_bar_setup_help"

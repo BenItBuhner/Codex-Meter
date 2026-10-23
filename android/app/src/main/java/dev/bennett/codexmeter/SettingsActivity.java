@@ -52,6 +52,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String PAGE_REFRESH_USAGE = "refresh_usage";
     private static final String PAGE_NOTIFICATIONS = "notifications";
     private static final String PAGE_NOW_BAR = "now_bar";
+    private static final String PAGE_APP_SESSIONS = "app_sessions";
     private static final String PAGE_UPDATES = "updates";
     private static final String PAGE_TRANSFER = "transfer";
     private static final String PAGE_PRIVACY = "privacy";
@@ -82,6 +83,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 || PAGE_REFRESH_USAGE.equals(page)
                 || PAGE_NOTIFICATIONS.equals(page)
                 || PAGE_NOW_BAR.equals(page)
+                || PAGE_APP_SESSIONS.equals(page)
                 || PAGE_UPDATES.equals(page)
                 || PAGE_TRANSFER.equals(page)
                 || PAGE_PRIVACY.equals(page)
@@ -103,6 +105,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 return "Notifications";
             case PAGE_NOW_BAR:
                 return "Now Bar";
+            case PAGE_APP_SESSIONS:
+                return "Show in AI apps";
             case PAGE_UPDATES:
                 return "Updates";
             case PAGE_TRANSFER:
@@ -192,6 +196,10 @@ public final class SettingsActivity extends AppCompatActivity {
                     addPreferencesFromResource(R.xml.preferences_settings_now_bar);
                     bindNowBar();
                     break;
+                case PAGE_APP_SESSIONS:
+                    addPreferencesFromResource(R.xml.preferences_settings_app_sessions);
+                    bindAppSessions();
+                    break;
                 case PAGE_UPDATES:
                     addPreferencesFromResource(R.xml.preferences_settings_updates);
                     bindUpdates();
@@ -261,6 +269,8 @@ public final class SettingsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
+            } else if (PAGE_APP_SESSIONS.equals(page)) {
+                updateAppSessions();
             } else if (PAGE_UPDATES.equals(page)) {
                 updateUpdateSummary();
             } else if (PAGE_DIAGNOSTICS.equals(page)) {
@@ -1551,8 +1561,292 @@ public final class SettingsActivity extends AppCompatActivity {
                 showSamsungNowBarHelp();
                 return true;
             });
+            bindPageLink("now_bar_app_sessions", PAGE_APP_SESSIONS);
             updateNowBarAutoStartEnabledState();
             updateNowBarSummary();
+        }
+
+        static String appSessionsSummary(Context context) {
+            if (!AppSessionPreferences.isEnabled(context)) {
+                return "Off · show usage automatically while ChatGPT, Claude and other apps are open";
+            }
+            if (!AppSessionPreferences.isDetectionAllowed(context)) {
+                return "On · app detection needs access";
+            }
+            List<String> names = new ArrayList<>();
+            for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+                if (!ProviderAccounts.isSignedIn(context, provider)) continue;
+                for (String packageName : appsFor(context, provider)) {
+                    if (AppSessionPreferences.isAppOn(context, packageName)
+                            && isInstalled(context, packageName)) {
+                        names.add(appLabel(context, packageName));
+                    }
+                }
+            }
+            return names.isEmpty() ? "On · no matched apps installed"
+                    : "On · " + android.text.TextUtils.join(", ", names);
+        }
+
+        private void bindAppSessions() {
+            Context context = requireContext();
+            SwitchPreferenceCompat enabled = findPreference("app_sessions_enabled_ui");
+            enabled.setPersistent(false);
+            enabled.setOnPreferenceChangeListener((preference, value) -> {
+                boolean on = (Boolean) value;
+                if (on && !ensureNotificationPermission()) return false;
+                AppSessionPreferences.setEnabled(requireContext(), on);
+                DiagnosticLog.info(requireContext(), "user", "app_sessions_toggled", "on", on);
+                if (on) {
+                    if (!AppSessionPreferences.isDetectionAllowed(requireContext())) {
+                        showAppDetectionDisclosure();
+                    }
+                } else {
+                    NowBarManager.endAppSession(requireContext());
+                    // Off means off: stop listening too, not just ignore what arrives.
+                    AppSessionService.disableIfRunning();
+                }
+                enabled.setChecked(on);
+                updateAppSessions();
+                return true;
+            });
+            findPreference("app_sessions_access").setOnPreferenceClickListener(preference -> {
+                showAppDetectionDisclosure();
+                return true;
+            });
+            updateAppSessions();
+        }
+
+        private void updateAppSessions() {
+            if (getContext() == null) return;
+            Context context = requireContext();
+            boolean on = AppSessionPreferences.isEnabled(context);
+            boolean allowed = AppSessionPreferences.isDetectionAllowed(context);
+            SwitchPreferenceCompat enabled = findPreference("app_sessions_enabled_ui");
+            if (enabled == null) return;
+            enabled.setChecked(on);
+            Preference access = findPreference("app_sessions_access");
+            access.setSummary(allowed
+                    ? "Allowed · only checks which app is in front"
+                    : on ? "Not allowed yet · tap to turn on in Accessibility settings"
+                    : "Turn on in Accessibility settings after switching this on");
+            access.setEnabled(on || allowed);
+            androidx.preference.PreferenceScreen screen = getPreferenceScreen();
+            for (int i = screen.getPreferenceCount() - 1; i >= 0; i--) {
+                Preference child = screen.getPreference(i);
+                if (child.getKey() != null && child.getKey().startsWith("app_sessions_provider_")) {
+                    screen.removePreference(child);
+                }
+            }
+            boolean dark = Ui.isDark(context);
+            int order = 100;
+            boolean any = false;
+            for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+                if (!ProviderAccounts.isSignedIn(context, provider)) continue;
+                any = true;
+                PreferenceCategory category = new PreferenceCategory(context);
+                category.setKey("app_sessions_provider_" + provider.id);
+                category.setTitle(provider.displayName);
+                category.setOrder(order++);
+                screen.addPreference(category);
+                UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
+                if (snapshot != null && snapshot.fiveHour == null
+                        && snapshot.longWindow() == null) {
+                    Preference note = new Preference(context);
+                    note.setSelectable(false);
+                    note.setIconSpaceReserved(false);
+                    note.setSummary(provider.displayName + " reports no percentage limits, so the "
+                            + "live notification has nothing to show for it yet.");
+                    category.addPreference(note);
+                }
+                for (String packageName : appsFor(context, provider)) {
+                    SwitchPreferenceCompat row = new SwitchPreferenceCompat(context);
+                    row.setKey("app_sessions_app_" + packageName);
+                    row.setPersistent(false);
+                    row.setTitle(appLabel(context, packageName));
+                    boolean installed = isInstalled(context, packageName);
+                    boolean added = AppSessionPreferences.getAdded(context)
+                            .containsKey(packageName);
+                    row.setSummary((installed ? "" : "Not installed · ")
+                            + (added ? "Added by you" : "Official app"));
+                    row.setIcon(appIcon(context, packageName, provider, dark));
+                    row.setChecked(AppSessionPreferences.isAppOn(context, packageName));
+                    row.setEnabled(on);
+                    row.setOnPreferenceChangeListener((preference, value) -> {
+                        AppSessionPreferences.setAppOn(requireContext(), packageName,
+                                (Boolean) value);
+                        return true;
+                    });
+                    category.addPreference(row);
+                }
+                Preference add = new Preference(context);
+                add.setKey("app_sessions_add_" + provider.id);
+                add.setTitle("Add an app");
+                add.setSummary("Match another installed app to " + provider.displayName);
+                add.setIcon(tinted(context, R.drawable.ic_oui_add, dark));
+                add.setEnabled(on);
+                add.setOnPreferenceClickListener(preference -> {
+                    pickAppFor(provider);
+                    return true;
+                });
+                category.addPreference(add);
+            }
+            if (!any) {
+                PreferenceCategory category = new PreferenceCategory(context);
+                category.setKey("app_sessions_provider_none");
+                category.setOrder(order);
+                screen.addPreference(category);
+                Preference none = new Preference(context);
+                none.setIconSpaceReserved(false);
+                none.setTitle("No accounts connected");
+                none.setSummary("Sign in to Codex, Claude Code or another service first.");
+                none.setSelectable(false);
+                category.addPreference(none);
+            }
+        }
+
+        /** Packages that show {@code provider}: its official apps, then ones the user added. */
+        static List<String> appsFor(Context context, UsageProvider provider) {
+            List<String> packages = new ArrayList<>();
+            java.util.Map<String, String> added = AppSessionPreferences.getAdded(context);
+            for (AppSessionRules.KnownApp app : AppSessionRules.knownApps(provider)) {
+                String addedTo = added.get(app.packageName);
+                if (addedTo == null || provider.id.equals(addedTo)) {
+                    packages.add(app.packageName);
+                }
+            }
+            for (java.util.Map.Entry<String, String> entry : added.entrySet()) {
+                if (provider.id.equals(entry.getValue()) && !packages.contains(entry.getKey())) {
+                    packages.add(entry.getKey());
+                }
+            }
+            return packages;
+        }
+
+        private static boolean isInstalled(Context context, String packageName) {
+            try {
+                context.getPackageManager().getApplicationInfo(packageName, 0);
+                return true;
+            } catch (PackageManager.NameNotFoundException notInstalled) {
+                return false;
+            }
+        }
+
+        private static String appLabel(Context context, String packageName) {
+            PackageManager pm = context.getPackageManager();
+            try {
+                return pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString();
+            } catch (PackageManager.NameNotFoundException notInstalled) {
+                AppSessionRules.KnownApp known = AppSessionRules.known(packageName);
+                return known == null ? packageName : known.label;
+            }
+        }
+
+        private static android.graphics.drawable.Drawable appIcon(Context context,
+                String packageName, UsageProvider provider, boolean dark) {
+            try {
+                return context.getPackageManager().getApplicationIcon(packageName);
+            } catch (PackageManager.NameNotFoundException notInstalled) {
+                return tinted(context, ProvidersActivity.iconRes(provider), dark);
+            }
+        }
+
+        private void pickAppFor(UsageProvider provider) {
+            Context context = requireContext();
+            PackageManager pm = context.getPackageManager();
+            Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            List<android.content.pm.ResolveInfo> found = pm.queryIntentActivities(launcher, 0);
+            List<String> packages = new ArrayList<>();
+            List<String> labels = new ArrayList<>();
+            List<android.graphics.drawable.Drawable> icons = new ArrayList<>();
+            java.util.TreeMap<String, android.content.pm.ResolveInfo> sorted =
+                    new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+            for (android.content.pm.ResolveInfo info : found) {
+                String packageName = info.activityInfo.packageName;
+                if (packageName.equals(context.getPackageName())) continue;
+                if (appsFor(context, provider).contains(packageName)) continue;
+                sorted.put(info.loadLabel(pm) + "\u0000" + packageName, info);
+            }
+            for (android.content.pm.ResolveInfo info : sorted.values()) {
+                if (packages.contains(info.activityInfo.packageName)) continue;
+                packages.add(info.activityInfo.packageName);
+                labels.add(info.loadLabel(pm).toString());
+                icons.add(info.loadIcon(pm));
+            }
+            if (packages.isEmpty()) {
+                Toast.makeText(context, "No other apps to add.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            int iconSize = Math.round(32 * context.getResources().getDisplayMetrics().density);
+            int pad = Math.round(16 * context.getResources().getDisplayMetrics().density);
+            android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
+                    context, android.R.layout.simple_list_item_1, labels) {
+                @Override
+                public View getView(int position, View convertView,
+                        android.view.ViewGroup parent) {
+                    TextView view = (TextView) super.getView(position, convertView, parent);
+                    android.graphics.drawable.Drawable icon = icons.get(position);
+                    icon.setBounds(0, 0, iconSize, iconSize);
+                    view.setCompoundDrawablesRelative(icon, null, null, null);
+                    view.setCompoundDrawablePadding(pad);
+                    return view;
+                }
+            };
+            new AlertDialog.Builder(context)
+                    .setTitle("Show " + provider.displayName + " in")
+                    .setAdapter(adapter, (dialog, which) -> {
+                        AppSessionPreferences.addApp(requireContext(), packages.get(which),
+                                provider);
+                        DiagnosticLog.info(requireContext(), "user", "app_session_app_added",
+                                "provider", provider.id);
+                        updateAppSessions();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
+
+        private void showAppDetectionDisclosure() {
+            Context context = requireContext();
+            boolean allowed = AppSessionPreferences.isDetectionAllowed(context);
+            String message = "To show your usage while ChatGPT, Claude or another matched app is "
+                    + "open, Codex Meter needs to know which app is in front. Android only offers "
+                    + "that through an accessibility service.\n\n"
+                    + "Codex Meter app detection only reads the name of the app in front. It "
+                    + "cannot see what is on the screen, never taps or types, and nothing "
+                    + "leaves your phone.\n\n"
+                    + "In Accessibility, open Installed apps → Codex Meter app detection and "
+                    + "turn it on. If the switch is greyed out, go back, open App info → ⋮ → "
+                    + "Allow restricted settings, then try again.";
+            new AlertDialog.Builder(context)
+                    .setTitle(allowed ? "App detection is on" : "Allow app detection")
+                    .setMessage(allowed ? "Codex Meter app detection only reads the name of the "
+                            + "app in front. It cannot see what is on the screen, never taps or "
+                            + "types, and nothing leaves your phone. You can turn it off in "
+                            + "Accessibility settings at any time." : message)
+                    .setPositiveButton("Open settings",
+                            (dialog, which) -> openAccessibilitySettings())
+                    .setNeutralButton("App info", (dialog, which) -> {
+                        startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", requireContext().getPackageName(),
+                                        null)));
+                    })
+                    .setNegativeButton(allowed ? "Done" : "Not now", null)
+                    .show();
+        }
+
+        private void openAccessibilitySettings() {
+            Context context = requireContext();
+            if (Build.VERSION.SDK_INT >= 33) {
+                // Opens our own row directly where the firmware supports it.
+                Intent details = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                        .putExtra(Intent.EXTRA_COMPONENT_NAME, new android.content.ComponentName(
+                                context, AppSessionService.class).flattenToString());
+                try {
+                    startActivity(details);
+                    return;
+                } catch (RuntimeException ignored) {
+                }
+            }
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
         }
 
         private void showSamsungNowBarHelp() {
@@ -1635,7 +1929,11 @@ public final class SettingsActivity extends AppCompatActivity {
             boolean active = NowBarManager.isActive(requireContext());
             nowBarMonitorPreference.setChecked(active);
             if (active) {
-                String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview" : "Live monitor";
+                String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview"
+                        : NowBarManager.isAppSession(requireContext())
+                        ? NowBarManager.activeProvider(requireContext()).displayName
+                        + " app session"
+                        : "Live monitor";
                 boolean samsungCompatibility = NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarManager.postedDisplayMode(requireContext()));
                 String state = samsungCompatibility
@@ -1657,6 +1955,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarMonitorPreference.setSummary(
                         "Show remaining Codex allowance until the next available usage reset");
             }
+            Preference appSessions = findPreference("now_bar_app_sessions");
+            if (appSessions != null) appSessions.setSummary(appSessionsSummary(requireContext()));
             if (nowBarAutoStartPreference != null) {
                 nowBarAutoStartPreference.setChecked(
                         NowBarPreferences.isAutoStartEnabled(requireContext()));
