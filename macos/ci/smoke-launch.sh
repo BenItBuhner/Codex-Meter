@@ -15,7 +15,7 @@ healthy_baseline=false
 for name in "${NAMES[@]}"; do
   extra=()
   [[ "$name" != baseline ]] && extra=("-mac-diag-$name")
-  "$APP_BIN" "${BASE[@]}" "${extra[@]}" >"$OUT_DIR/$name.stdout.log" 2>&1 &
+  "$APP_BIN" "${BASE[@]}" ${extra[@]+"${extra[@]}"} >"$OUT_DIR/$name.stdout.log" 2>&1 &
   pid=$!
   sleep 8
   rss1=$(ps -o rss= -p "$pid" 2>/dev/null | tr -d ' ')
