@@ -62,9 +62,14 @@ final class CodexMeterMacUITests: XCTestCase {
         let app = MacUITestSupport.launch(MacUITestSupport.demo)
         XCTAssertTrue(MacUITestSupport.text("5-hour", in: app).waitForExistence(timeout: 10))
 
-        MacUITestSupport.openSettings(in: app)
         // The Accounts row is a navigation link whose title and summary read as one element.
+        // ⌘, can arrive before the window is key on a cold runner, so press it again once.
         let accounts = app.descendants(matching: .any).matching(identifier: "settings-accounts").firstMatch
+        MacUITestSupport.openSettings(in: app)
+        if !accounts.waitForExistence(timeout: 6) {
+            app.activate()
+            MacUITestSupport.openSettings(in: app)
+        }
         XCTAssertTrue(accounts.waitForExistence(timeout: 8), "Accounts row in Settings")
         XCTAssertTrue(
             app.buttons["Leave Demo"].exists
@@ -72,10 +77,8 @@ final class CodexMeterMacUITests: XCTestCase {
         )
 
         XCTAssertTrue(MacUITestSupport.click(app.buttons["Menu Bar"]))
-        XCTAssertTrue(
-            app.checkBoxes["Show Codex Meter in the menu bar"].waitForExistence(timeout: 5)
-                || app.switches["Show Codex Meter in the menu bar"].waitForExistence(timeout: 2)
-        )
+        let menuBarToggle = app.descendants(matching: .any).matching(identifier: "settings-show-menu-bar").firstMatch
+        XCTAssertTrue(menuBarToggle.waitForExistence(timeout: 5), "Show in the menu bar toggle")
     }
 
     func testMenuBarPanelSummarizesEveryProvider() throws {
