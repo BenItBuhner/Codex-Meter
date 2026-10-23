@@ -51,6 +51,7 @@ seed() { # seed OPEN [extra am args...]
 }
 open_page() { # open_page OPEN [extra]: same as seed but keeps data
   local open=$1; shift
+  adb shell am force-stop $PKG; sleep 1
   adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es open "$open" --es reseed no "$@" >/dev/null
   sleep 3
 }
@@ -80,8 +81,8 @@ scroll_up 2100 900 1.6
 tap_text "Claude Code" && sleep 2.6; snap claude
 scroll 700 1100 2; scroll_up 700 900 1.2
 tap_text "Cursor" && sleep 2.4; snap cursor
-tap_text "Copilot" && sleep 2.4; snap copilot
-tap_text "Grok" && sleep 2.2; snap grok
+tap_text "More" && sleep 1.6 && snap more && tap_text "Copilot" && sleep 2.4; snap copilot
+tap_text "More" && sleep 1.4 && tap_text "Grok" && sleep 2.2; snap grok
 tap_text "Codex" && sleep 2; snap codex-again
 stop
 
