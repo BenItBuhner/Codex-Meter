@@ -218,8 +218,9 @@ public final class ProviderPreferences {
         if (provider == UsageProvider.CODEX) {
             return AppPreferences.saveSnapshot(context, snapshot);
         }
+        boolean saved;
         try {
-            return prefs(context).edit()
+            saved = prefs(context).edit()
                     .putString(provider.id + SUFFIX_SNAPSHOT, snapshot.toJson().toString())
                     .remove(provider.id + SUFFIX_ERROR)
                     .remove(provider.id + SUFFIX_ERROR_AT)
@@ -227,6 +228,10 @@ public final class ProviderPreferences {
         } catch (Exception ignored) {
             return false;
         }
+        // Codex reaches the live monitor through UsageApi; other providers only show there
+        // while their app is open.
+        if (saved) NowBarManager.onProviderUsageUpdated(context, provider, snapshot);
+        return saved;
     }
 
     public static String getLastError(Context context, UsageProvider provider) {
