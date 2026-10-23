@@ -4,7 +4,7 @@
 
     <PreferenceCategory
         android:key="app_sessions_main"
-        android:title="Show in AI apps">
+        app:iconSpaceReserved="false">
         <SwitchPreferenceCompat
             android:key="app_sessions_enabled_ui"
             android:summary="The live notification appears while a matched app is open and goes away when you leave it"

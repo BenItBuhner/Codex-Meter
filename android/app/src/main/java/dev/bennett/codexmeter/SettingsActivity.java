@@ -1822,7 +1822,7 @@ public final class SettingsActivity extends AppCompatActivity {
                             + "app in front. It cannot see what is on the screen, never taps or "
                             + "types, and nothing leaves your phone. You can turn it off in "
                             + "Accessibility settings at any time." : message)
-                    .setPositiveButton(allowed ? "Accessibility settings" : "Open Accessibility",
+                    .setPositiveButton("Open settings",
                             (dialog, which) -> openAccessibilitySettings())
                     .setNeutralButton("App info", (dialog, which) -> {
                         startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
