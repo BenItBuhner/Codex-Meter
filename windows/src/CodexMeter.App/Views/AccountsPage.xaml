@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="CodexMeter.App.Views.AccountsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent">
+    <ScrollViewer x:Name="PageScroller" VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="1000" Padding="36,28,36,36" Spacing="4">
+            <TextBlock Text="Accounts" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.AutomationId="AccountsTitle" />
+            <TextBlock Style="{StaticResource SecondaryTextStyle}" Margin="0,4,0,16" TextWrapping="WrapWholeWords"
+                       Text="Connect the services you use. Each account signs in through your browser, and its credentials are encrypted with your Windows account on this PC only." />
+            <InfoBar x:Name="StatusBar" IsClosable="True" IsOpen="False" Margin="0,0,0,8" />
+            <TextBlock x:Name="ConnectedHeader" Text="Connected" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="1,8,0,6" />
+            <StackPanel x:Name="ConnectedList" Spacing="4" />
+            <TextBlock x:Name="AvailableHeader" Text="Add an account" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="1,20,0,6" />
+            <StackPanel x:Name="AvailableList" Spacing="4" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>
