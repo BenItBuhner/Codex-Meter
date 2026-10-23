@@ -1,4 +1,6 @@
+#if canImport(BackgroundTasks) && os(iOS)
 import BackgroundTasks
+#endif
 import CodexMeterCore
 import Observation
 import SwiftUI

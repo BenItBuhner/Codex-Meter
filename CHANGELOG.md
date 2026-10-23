@@ -4,6 +4,7 @@
 
 ### Added
 
+- Codex Meter for Mac (`macos/`): a native SwiftUI app with a menu bar meter that shows the allowance closest to running out, a panel with every provider's meters, a sidebar window with the same Codex, Claude Code and Cursor dashboards as the iPhone app, a Settings window (⌘,), Usage menu shortcuts (⌘R, ⌘1–⌘9), Open at login, and desktop widgets. It keeps refreshing, alerting, and auto-using expiring resets from the menu bar after its window closes.
 - iPad: the provider tabs become a sidebar (or a floating top tab bar the sidebar button toggles), with Settings at the bottom of the sidebar, so every connected provider is one tap away instead of behind a More tab.
 - iPad: dashboards lay cards out in one, two or three columns from the width they actually get, so full screen, Split View, Slide Over and Stage Manager windows of any size re-flow live. Cards in a row share one height, the usage history chart keeps a full row, and the signed-out card stays card-sized.
 - iPad keyboard and menu bar: ⌘1–⌘9 jump to a provider tab, ⇧⌘] and ⇧⌘[ move between tabs, ⌘R refreshes the visible tab and ⌘, opens Settings. With a trackpad or mouse, hovering scrubs the usage history charts and picker rows highlight.

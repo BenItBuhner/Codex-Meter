@@ -1,5 +1,7 @@
 import SwiftUI
+#if os(iOS)
 import SafariServices
+#endif
 
 struct SignInView: View {
     @Environment(AppModel.self) private var model
@@ -157,6 +159,8 @@ struct SignInView: View {
     }
 }
 
+// The Mac app defines its own SafariView that hands the page to the default browser.
+#if os(iOS)
 struct SafariView: UIViewControllerRepresentable {
     let url: URL
 
@@ -168,3 +172,4 @@ struct SafariView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
 }
+#endif
