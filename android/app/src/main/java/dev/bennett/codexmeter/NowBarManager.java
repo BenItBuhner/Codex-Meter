@@ -201,6 +201,10 @@ public final class NowBarManager {
     public static synchronized boolean startForApp(Context context, UsageProvider provider,
             String packageName) {
         if (context == null || provider == null) return false;
+        if (isAppSessionFor(context, packageName)
+                && activeProvider(context) == provider) {
+            return true;
+        }
         if (isActive(context) && !isAppSession(context)) return false;
         if (!canPostNotifications(context)) return false;
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
@@ -227,7 +231,7 @@ public final class NowBarManager {
             // Opening the app is a good moment to catch up on usage that moved since.
             RefreshScheduler.scheduleImmediate(context);
         }
-        PhoneWearSync.pushSettings(context);
+        // App sessions are not mirrored to the watch: they come and go with every app switch.
         return true;
     }
 
@@ -252,6 +256,12 @@ public final class NowBarManager {
         long until = appSessionUntil(snapshot, System.currentTimeMillis());
         state(context).edit().putLong(KEY_UNTIL, until).apply();
         if (!post(context, snapshot, until, false)) stop(context, false);
+    }
+
+    /** True while an app session for {@code packageName} is showing. */
+    public static boolean isAppSessionFor(Context context, String packageName) {
+        return isAppSession(context) && isActive(context) && packageName != null
+                && packageName.equals(state(context).getString(KEY_APP_PACKAGE, null));
     }
 
     /** True while the monitor is up because a matched app is open. */
@@ -426,6 +436,7 @@ public final class NowBarManager {
         // Dismissing an app session hides it until the user leaves that app; it must not
         // also hold back the low-allowance monitor.
         boolean wasAppSession = isAppSession(context);
+        String appPackage = wasAppSession ? state(context).getString(KEY_APP_PACKAGE, null) : null;
         DiagnosticLog.info(context, "now_bar", "stop_requested",
                 "was_active", wasActive,
                 "suppress_auto_restart", suppressAutoRestart);
@@ -453,6 +464,11 @@ public final class NowBarManager {
                 DiagnosticLog.error(context, "now_bar", "expiry_cancel_failed", exception);
                 Log.w(TAG, "Could not cancel live monitor expiry", exception);
             }
+        }
+        if (wasAppSession) {
+            // Stop or swipe-away while the app is open: stay hidden until the user leaves it.
+            if (suppressAutoRestart) AppSessionPreferences.setDismissed(context, appPackage);
+            return;
         }
         PhoneWearSync.pushMonitorState(context);
         PhoneWearSync.pushSettings(context);
@@ -688,7 +704,7 @@ public final class NowBarManager {
                     "until", until);
             Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
-        PhoneWearSync.pushMonitorState(context);
+        if (!START_APP.equals(sessionStartReason(context))) PhoneWearSync.pushMonitorState(context);
         return true;
     }
 
@@ -767,7 +783,18 @@ public final class NowBarManager {
      * A provider's mark as a solid-color bitmap. The marks tint themselves from the app theme,
      * which SystemUI cannot resolve, so they are drawn here in a fixed color instead.
      */
+    private static final java.util.Map<String, Icon> MARKS = new java.util.HashMap<>();
+
     private static Icon providerMark(Context context, UsageProvider provider, int color) {
+        String key = provider.id + "/" + color;
+        Icon cached = MARKS.get(key);
+        if (cached != null) return cached;
+        Icon mark = drawProviderMark(context, provider, color);
+        MARKS.put(key, mark);
+        return mark;
+    }
+
+    private static Icon drawProviderMark(Context context, UsageProvider provider, int color) {
         int size = Math.round(24f * context.getResources().getDisplayMetrics().density);
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Drawable mark = context.getDrawable(ProvidersActivity.iconRes(provider));

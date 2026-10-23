@@ -10,7 +10,7 @@
     <string name="widget_sample_reset_count">2</string>
     <string name="app_name">Codex Meter</string>
     <string name="app_session_service_label">Codex Meter app detection</string>
-    <string name="app_session_service_description">Shows your usage live notification while ChatGPT, Claude or another app you matched is open, and hides it when you leave. Codex Meter only checks which app is in front. It cannot see what is on the screen, never taps or types, and nothing leaves your phone.</string>
+    <string name="app_session_service_description">Shows your usage live notification while ChatGPT, Claude or another app you matched is open, and hides it when you leave. Codex Meter only reads the package name of the app in front. It never reads text on the screen, never taps or types, and nothing leaves your phone.</string>
     <string name="five_hour">5-hour</string>
     <string name="lock_widget_bars_square_description">Compact horizontal Codex allowance bars for supported Samsung lock screens</string>
     <string name="lock_widget_bars_square_name">Codex · Bars · Square</string>
