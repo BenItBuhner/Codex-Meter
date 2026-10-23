@@ -1,6 +1,8 @@
 import CodexMeterCore
 import SwiftUI
+#if os(iOS)
 import UIKit
+#endif
 
 // The tab, sign-in screen and Add account picker for providers added through Settings →
 // Accounts (Copilot, Kimi, Z.ai and the rest). Codex, Claude Code and Cursor keep their own.
