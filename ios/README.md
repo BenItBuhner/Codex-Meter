@@ -18,6 +18,27 @@ scrubbable on-device burn charts with insights and plan-value estimates,
 usage-history customize, usage-credit and reset-credit auto-hiding, diagnostic
 log export, and widgets that follow the weekly or monthly long window.
 
+## iPad
+
+The app is universal and adapts to the window it gets rather than to the device:
+
+- **Sidebar.** The provider tabs use `.sidebarAdaptable`: on iPad they appear as a sidebar
+  or a floating top tab bar (the sidebar button switches), with Settings at the bottom of
+  the sidebar. iPhone keeps the bottom tab bar.
+- **Columns.** Each dashboard measures the width its cards get and `DashboardGrid`
+  (CodexMeterCore) picks one column below 600 pt, two from 600 pt and three from 980 pt
+  (accessibility text sizes keep one fewer). Content stops widening at 1,240 pt and
+  centers. Extra model limits split into one card per window so they can fill columns;
+  the usage history chart keeps a full row. Because the choice follows width, Split View,
+  Slide Over and Stage Manager windows re-flow live while being resized.
+- **Keyboard and pointer.** ⌘1–⌘9 jump to a tab, ⇧⌘] / ⇧⌘[ move between tabs, ⌘R
+  refreshes the visible tab and ⌘, opens Settings; they show in the iPadOS menu bar and
+  the ⌘ shortcut overlay. Hovering with a trackpad scrubs the history charts.
+- The app keeps one window (`UIApplicationSupportsMultipleScenes` is off): sheets and
+  the selected tab live on the shared `AppModel`, so a second window would mirror them.
+- `IPadLayoutTests` (skipped on iPhone) checks the columns, sidebar and shortcuts. CI runs
+  it with `ci/record-ipad-gallery.sh` on several iPad sizes and uploads `ipad-gallery`.
+
 ## Claude Code tab
 
 Like the Android app, the dashboard has bottom provider tabs: **Codex** (the

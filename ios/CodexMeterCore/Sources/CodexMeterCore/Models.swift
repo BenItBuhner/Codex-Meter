@@ -736,6 +736,12 @@ public struct SharedWidgetSnapshot: Codable, Sendable, Equatable {
     public static let currentVersion = 1
     public static let defaultFileName = "widget-snapshot.json"
 
+    /// The App Group file for one provider's widget data. Codex keeps the original name so
+    /// widgets placed before provider choice existed keep working.
+    public static func fileName(for provider: UsageProvider) -> String {
+        provider == .codex ? defaultFileName : "widget-snapshot-\(provider.rawValue).json"
+    }
+
     public let version: Int
     public let mode: WidgetSnapshotMode
     public let fetchedAt: Date?

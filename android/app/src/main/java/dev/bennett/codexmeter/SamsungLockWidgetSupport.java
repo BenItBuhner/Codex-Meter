@@ -238,15 +238,15 @@ final class SamsungLockWidgetSupport {
         }
         String name = multi ? "Usage" : provider.displayName;
         if (metric != Metric.BOTH) {
-            String key = metric == Metric.WEEKLY ? WidgetMeters.WEEKLY
-                    : WidgetProviders.metersFor(
-                            WidgetMeters.parse(
+            List<String> keys = metric == Metric.WEEKLY
+                    ? java.util.Collections.singletonList(WidgetMeters.WEEKLY)
+                    : dialKeys(WidgetMeters.parse(
                                     lockWidgetOptionsLoadLockWidgetOptions.effectiveVisibleMeters()),
-                            usageSnapshotLoadSnapshot != null
-                                    && usageSnapshotLoadSnapshot.fiveHour != null,
-                            usageSnapshotLoadSnapshot != null
-                                    && usageSnapshotLoadSnapshot.longWindow() != null,
-                            1).get(0);
+                            usageSnapshotLoadSnapshot);
+            String key = keys.get(0);
+            int inner = keys.size() > 1
+                    ? remaining(WidgetMeters.meterWindow(keys.get(1), usageSnapshotLoadSnapshot))
+                    : -1;
             boolean fiveHour = WidgetMeters.FIVE_HOUR.equals(key);
             boolean monthlyFallback = !fiveHour
                     && usageSnapshotLoadSnapshot != null
@@ -260,12 +260,13 @@ final class SamsungLockWidgetSupport {
                     : ProvidersActivity.iconRes(provider);
             RemoteViews single = new RemoteViews(context.getPackageName(), R.layout.widget_lock_dial_single);
             single.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.renderSingle(context, value, zIsSignedIn,
+                    SamsungLockGraphics.renderSingle(context, value, inner, zIsSignedIn,
                             size[0], size[1], icon));
             String metricName = fiveHour ? "five hour"
                     : monthlyFallback ? "monthly" : "weekly";
             single.setContentDescription(R.id.lock_graphic_root, zIsSignedIn
                     ? name + " " + metricName + " " + value(value) + " remaining"
+                            + (keys.size() > 1 ? ", five hour " + value(inner) + " remaining" : "")
                     : name + ", sign in required");
             applyOpenIntent(context, single, R.id.lock_graphic_root, i, shape, style,
                     lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3, provider);
@@ -303,17 +304,18 @@ final class SamsungLockWidgetSupport {
                 ? UsageProvider.CODEX : providers.get(0);
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
         if (slots <= 1) {
-            String key = WidgetProviders.metersFor(WidgetMeters.parse(
-                            options.effectiveVisibleMeters()),
-                    snapshot != null && snapshot.fiveHour != null,
-                    snapshot != null && snapshot.longWindow() != null, 1).get(0);
+            List<String> keys = dialKeys(WidgetMeters.parse(options.effectiveVisibleMeters()),
+                    snapshot);
+            String key = keys.get(0);
             int value = remaining(WidgetMeters.meterWindow(key, snapshot));
+            int inner = keys.size() > 1
+                    ? remaining(WidgetMeters.meterWindow(keys.get(1), snapshot)) : -1;
             int icon = provider == UsageProvider.CODEX
                     ? (WidgetMeters.FIVE_HOUR.equals(key)
                             ? R.drawable.ic_oui_time : R.drawable.ic_oui_calendar_week)
                     : ProvidersActivity.iconRes(provider);
-            return SamsungLockGraphics.renderSingle(context, value < 0 ? 73 : value, true, 82,
-                    82, icon);
+            return SamsungLockGraphics.renderSingle(context, value < 0 ? 73 : value,
+                    keys.size() > 1 ? (inner < 0 ? 44 : inner) : -1, true, 82, 82, icon);
         }
         LockMeterBinding binding = providers != null && providers.size() > 1
                 ? bindProviders(context, providers, options)
@@ -321,8 +323,12 @@ final class SamsungLockWidgetSupport {
         int primary = binding.primaryRemaining < 0 ? 73 : binding.primaryRemaining;
         int secondary = !binding.showSecondary ? -1
                 : binding.secondaryRemaining < 0 ? 44 : binding.secondaryRemaining;
-        return SamsungLockGraphics.render(context, Shape.WIDE, Style.DIALS, primary, secondary,
-                true, 180, 82, options, 0,
+        int primaryInner = binding.primary == null || !binding.primary.nested() ? -1
+                : binding.primary.inner < 0 ? 44 : binding.primary.inner;
+        int secondaryInner = binding.secondary == null || !binding.secondary.nested() ? -1
+                : binding.secondary.inner < 0 ? 44 : binding.secondary.inner;
+        return SamsungLockGraphics.render(context, Shape.WIDE, Style.DIALS, primary,
+                primaryInner, secondary, secondaryInner, true, 180, 82, options, 0,
                 binding.primary == null ? R.drawable.ic_oui_time : binding.primary.iconRes,
                 binding.secondary == null ? 0 : binding.secondary.iconRes);
     }
@@ -354,6 +360,7 @@ final class SamsungLockWidgetSupport {
             }
             usageKeys = reported;
         }
+        usageKeys = weeklyFirst(usageKeys);
         usageKeys = new ArrayList<>(WidgetMeters.cap(usageKeys, WidgetMeters.lockSlotCapacity()));
         if (usageKeys.isEmpty()) {
             usageKeys.add(WidgetMeters.FIVE_HOUR);
@@ -363,7 +370,10 @@ final class SamsungLockWidgetSupport {
         return new LockMeterBinding(primary, secondary);
     }
 
-    /** One slot per provider: its first visible meter it reports, labeled with its name. */
+    /**
+     * One slot per provider, labeled with its mark. The dial leads with the weekly window; when
+     * the five-hour window is visible too, it rides inside the same dial as a lighter ring.
+     */
     private static LockMeterBinding bindProviders(Context context, List<UsageProvider> providers,
             LockWidgetOptions options) {
         List<String> visible = WidgetMeters.parse(options == null ? ""
@@ -376,12 +386,14 @@ final class SamsungLockWidgetSupport {
             anySignedIn |= signedIn;
             UsageSnapshot snapshot = signedIn
                     ? ProviderPreferences.loadSnapshot(context, provider) : null;
-            String key = WidgetProviders.metersFor(visible,
-                    snapshot != null && snapshot.fiveHour != null,
-                    snapshot != null && snapshot.longWindow() != null, 1).get(0);
+            List<String> keys = dialKeys(visible, snapshot);
+            String key = keys.get(0);
             UsageWindow window = WidgetMeters.meterWindow(key, snapshot);
+            UsageWindow innerWindow = keys.size() > 1
+                    ? WidgetMeters.meterWindow(keys.get(1), snapshot) : null;
             slots.add(new LockMeterSlot(key, WidgetProviders.shortTag(provider),
-                    remaining(window), window, ProvidersActivity.iconRes(provider)));
+                    remaining(window), window, ProvidersActivity.iconRes(provider),
+                    keys.size() > 1 ? remaining(innerWindow) : -1, keys.size() > 1));
         }
         LockMeterBinding binding = new LockMeterBinding(slots.get(0),
                 slots.size() > 1 ? slots.get(1) : null);
@@ -400,7 +412,8 @@ final class SamsungLockWidgetSupport {
         }
         LockMeterSlot p = binding.primary;
         LockMeterBinding marked = new LockMeterBinding(new LockMeterSlot(p.key, p.label,
-                p.remaining, p.window, ProvidersActivity.iconRes(provider)), binding.secondary);
+                p.remaining, p.window, ProvidersActivity.iconRes(provider), p.inner,
+                p.nested()), binding.secondary);
         marked.anySignedIn = binding.anySignedIn;
         return marked;
     }
@@ -431,19 +444,57 @@ final class SamsungLockWidgetSupport {
                         ? R.drawable.ic_oui_time : R.drawable.ic_oui_calendar_week);
     }
 
+    /**
+     * The usage keys one dial shows, main window first: weekly (or the monthly long window)
+     * leads, and the five-hour window follows as the dial's lighter inner ring when it is
+     * visible and reported. Providers without one of the windows get a single key.
+     */
+    static List<String> dialKeys(List<String> visible, UsageSnapshot snapshot) {
+        // No data yet keeps the full dial shape so it doesn't jump once data lands.
+        boolean hasFiveHour = snapshot == null || snapshot.fiveHour != null;
+        boolean hasLongWindow = snapshot == null || snapshot.longWindow() != null;
+        return weeklyFirst(WidgetProviders.metersFor(visible, hasFiveHour, hasLongWindow, 2));
+    }
+
+    /** Moves the weekly meter ahead of the five-hour meter; other keys keep their order. */
+    static ArrayList<String> weeklyFirst(List<String> keys) {
+        ArrayList<String> ordered = new ArrayList<>(keys);
+        int fiveHour = ordered.indexOf(WidgetMeters.FIVE_HOUR);
+        int weekly = ordered.indexOf(WidgetMeters.WEEKLY);
+        if (fiveHour >= 0 && weekly > fiveHour) {
+            ordered.set(fiveHour, WidgetMeters.WEEKLY);
+            ordered.set(weekly, WidgetMeters.FIVE_HOUR);
+        }
+        return ordered;
+    }
+
     private static final class LockMeterSlot {
         final String key;
         final String label;
         final int remaining;
         final UsageWindow window;
         final int iconRes;
+        /** Five-hour percent left for the lighter inner ring, -1 when unknown. */
+        final int inner;
+        private final boolean nested;
 
         LockMeterSlot(String key, String label, int remaining, UsageWindow window, int iconRes) {
+            this(key, label, remaining, window, iconRes, -1, false);
+        }
+
+        LockMeterSlot(String key, String label, int remaining, UsageWindow window, int iconRes,
+                int inner, boolean nested) {
             this.key = key;
             this.label = label;
             this.remaining = remaining;
             this.window = window;
             this.iconRes = iconRes;
+            this.inner = inner;
+            this.nested = nested;
+        }
+
+        boolean nested() {
+            return nested;
         }
     }
 
@@ -539,11 +590,16 @@ final class SamsungLockWidgetSupport {
                 ? R.drawable.ic_oui_time : binding.primary.iconRes;
         // 0 tells the renderer there is no second meter, so it centers one dial.
         int secondaryIconRes = binding.secondary == null ? 0 : binding.secondary.iconRes;
+        int primaryInner = binding.primary != null && binding.primary.nested()
+                ? binding.primary.inner : -1;
+        int secondaryInner = binding.secondary != null && binding.secondary.nested()
+                ? binding.secondary.inner : -1;
         if (shape == Shape.WIDE) {
             int[] size = grantedSize(appWidgetManager, i, shape);
             remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.render(context, shape, style, i2, i3, z, size[0], size[1],
-                            lockWidgetOptions, i4, primaryIconRes, secondaryIconRes));
+                    SamsungLockGraphics.render(context, shape, style, i2, primaryInner, i3,
+                            secondaryInner, z, size[0], size[1], lockWidgetOptions, i4,
+                            primaryIconRes, secondaryIconRes));
             if (!z) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
                 remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
@@ -559,9 +615,9 @@ final class SamsungLockWidgetSupport {
         }
         int[] iArrGrantedSize = grantedSize(appWidgetManager, i, shape);
         remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
-                SamsungLockGraphics.render(context, shape, style, i2, i3, z,
-                        iArrGrantedSize[0], iArrGrantedSize[1], lockWidgetOptions, i4,
-                        primaryIconRes, secondaryIconRes));
+                SamsungLockGraphics.render(context, shape, style, i2, primaryInner, i3,
+                        secondaryInner, z, iArrGrantedSize[0], iArrGrantedSize[1],
+                        lockWidgetOptions, i4, primaryIconRes, secondaryIconRes));
         if (z) {
             if (shape == Shape.SQUARE) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_center_value, View.GONE);
@@ -766,6 +822,7 @@ final class SamsungLockWidgetSupport {
             String label = binding.primary == null ? "primary" : binding.primary.label;
             sbAppend.append(label).append(' ').append(value(binding.primaryRemaining))
                     .append(" remaining");
+            appendInner(sbAppend, binding.primary);
         }
         if (binding.showPrimary && binding.showSecondary) {
             sbAppend.append(", ");
@@ -774,6 +831,7 @@ final class SamsungLockWidgetSupport {
             String label = binding.secondary == null ? "secondary" : binding.secondary.label;
             sbAppend.append(label).append(' ').append(value(binding.secondaryRemaining))
                     .append(" remaining");
+            appendInner(sbAppend, binding.secondary);
         }
         if (lockWidgetOptions.showCountdown) {
             sbAppend.append(", live reset countdown");
@@ -785,6 +843,12 @@ final class SamsungLockWidgetSupport {
             sbAppend.append("; tap to open reset confirmation");
         }
         return sbAppend.toString();
+    }
+
+    private static void appendInner(StringBuilder sb, LockMeterSlot slot) {
+        if (slot != null && slot.nested()) {
+            sb.append(", five hour ").append(value(slot.inner)).append(" remaining");
+        }
     }
 
     public static String styleLabel(Style style) {

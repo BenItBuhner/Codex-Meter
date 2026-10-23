@@ -36,11 +36,15 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
-import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final int MENU_SETTINGS = 8101;
     private static final int MENU_REORDER = 8102;
     /** {@link UsageProvider#id} of the tab to open, e.g. from a Claude Code widget. */
@@ -73,7 +77,9 @@ public final class MainActivity extends AppCompatActivity {
     private List<UsageProvider> tabProviders = new ArrayList<>();
     /** Slots still in the tab menu; the layout inflates all of them. */
     private int menuSlots = TAB_SLOTS.length;
-    private ToolbarLayout toolbarLayout;
+    private Ui.Header header;
+    /** One UI 9 design: SESL9's floating tab bar instead of the stock tabs. */
+    private OneUi9ProviderBar oneUi9Bar;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -122,7 +128,10 @@ public final class MainActivity extends AppCompatActivity {
         Ui.Page page = Ui.installPage(this, "Codex Meter", false,
                 R.layout.activity_main_dashboard);
         this.content = page.content;
-        this.toolbarLayout = page.toolbar;
+        this.header = page.header;
+        if (page.oneUi9 != null) {
+            this.oneUi9Bar = new OneUi9ProviderBar(page.oneUi9, this::selectProvider);
+        }
         this.provider = ProviderPreferences.getSelected(this);
         setUpProviderTabs();
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
@@ -267,6 +276,9 @@ public final class MainActivity extends AppCompatActivity {
                 if (this.providerTabs != null) {
                     this.providerTabs.setSelectedItem(tabId(requested));
                 }
+                if (this.oneUi9Bar != null) {
+                    this.oneUi9Bar.update(ProviderPreferences.getEnabled(this), requested);
+                }
             }
         }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
@@ -365,6 +377,10 @@ public final class MainActivity extends AppCompatActivity {
             this.provider = visible;
             ProviderPreferences.setSelected(this, visible);
         }
+        if (this.oneUi9Bar != null) {
+            this.oneUi9Bar.update(enabled, this.provider);
+            return;
+        }
         if (this.providerTabs == null) {
             return;
         }
@@ -458,13 +474,13 @@ public final class MainActivity extends AppCompatActivity {
 
     /** The large title names the selected provider ("Codex", "Cursor"), matching iOS. */
     private void applyProviderTitle() {
-        if (this.toolbarLayout == null) {
+        if (this.header == null) {
             return;
         }
         String title = this.provider.displayName;
-        CharSequence current = this.toolbarLayout.getExpandedTitle();
+        CharSequence current = this.header.getTitle();
         if (current == null || !title.contentEquals(current)) {
-            this.toolbarLayout.setTitle(title);
+            this.header.setTitle(title);
         }
     }
 
@@ -499,7 +515,7 @@ public final class MainActivity extends AppCompatActivity {
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
-                                + "Settings → Refresh & usage.",
+                                + "Settings → Refresh & dashboard → Edit dashboard.",
                         14.0f, Ui.secondaryText(this.dark));
                 empty.setGravity(Gravity.CENTER);
                 this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
@@ -623,7 +639,7 @@ public final class MainActivity extends AppCompatActivity {
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard(UsageProvider.CODEX));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                addDashboardCard(column, buildResetCreditsCard());
+                addDashboardCard(column, buildResetCreditsCard(UsageProvider.CODEX));
             } else {
                 List<UsageLimit> group = limitsByKey.get(key);
                 if (group == null) {
@@ -1003,12 +1019,20 @@ public final class MainActivity extends AppCompatActivity {
         linearLayout.addView(viewText, layoutParams2);
     }
 
-    private LinearLayout buildResetCreditsCard() {
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
-        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
-        int available = credits == null ? 0 : credits.availableCount;
+    /** The Reset credits card, shared by Codex reset credits and Claude Code saved resets. */
+    private LinearLayout buildResetCreditsCard(UsageProvider target) {
+        boolean claude = target == UsageProvider.CLAUDE_CODE;
+        boolean signedIn = SecureTokenStore.isSignedIn(this, target);
         long now = System.currentTimeMillis();
+        ClaudeSavedResets saved = claude ? ProviderPreferences.loadSavedResets(this, target)
+                : null;
+        ResetCreditsSnapshot credits = claude
+                ? (saved == null ? null : saved.toResetCreditsSnapshot(now))
+                : AppPreferences.loadResetCredits(this);
+        int available = credits == null ? 0 : credits.availableCount;
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
+        // Claude only: Anthropic can hold a reset until you reach a usage limit.
+        boolean usableNow = !claude || (saved != null && saved.usableGrant(now) != null);
 
         LinearLayout card = Ui.card(this, this.dark);
         TextView title = Ui.text(this, "Reset credits", 18, Ui.mainText(this.dark));
@@ -1019,11 +1043,11 @@ public final class MainActivity extends AppCompatActivity {
                 resetCreditsSummary(signedIn, available, nextExpiry, now)));
 
         if (signedIn) {
-            card.setOnClickListener(view -> openResetCredits());
+            card.setOnClickListener(view -> openResetCredits(target));
             Button button = Ui.nativePrimaryButton(this,
                     available > 0 ? "Use 1 reset" : "No resets available");
-            button.setEnabled(available > 0);
-            button.setOnClickListener(view -> openResetCredits());
+            button.setEnabled(available > 0 && usableNow);
+            button.setOnClickListener(view -> openResetCredits(target));
             LinearLayout.LayoutParams buttonParams =
                     new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
             buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
@@ -1060,8 +1084,8 @@ public final class MainActivity extends AppCompatActivity {
         return "Earn credits from ChatGPT Codex";
     }
 
-    private void openResetCredits() {
-        Ui.startSecondaryActivity(this, ResetCreditActivity.class);
+    private void openResetCredits(UsageProvider target) {
+        Ui.startSecondaryActivity(this, ResetCreditActivity.intent(this, target));
     }
 
     /**
@@ -1319,7 +1343,15 @@ public final class MainActivity extends AppCompatActivity {
                 limitsByKey.put(DashboardSections.limitKey(limit), limit);
             }
             List<String> available = new ArrayList<>();
-            for (String key : DashboardSections.providerSections(snapshot, null)) {
+            List<String> sections = new ArrayList<>(
+                    DashboardSections.providerSections(snapshot, null));
+            // Saved resets hide whenever none are left, like Codex reset credits.
+            ClaudeSavedResets savedResets = target == UsageProvider.CLAUDE_CODE
+                    ? ProviderPreferences.loadSavedResets(this, target) : null;
+            if (savedResets != null && savedResets.shouldDisplay(System.currentTimeMillis())) {
+                sections.add(DashboardSections.RESET_CREDITS);
+            }
+            for (String key : sections) {
                 if (DashboardSections.USAGE_HISTORY.equals(key)
                         && (snapshot.fetchedAtMillis <= 0L || (snapshot.fiveHour == null
                                 && snapshot.weekly == null && snapshot.monthly == null))) {
@@ -1351,6 +1383,8 @@ public final class MainActivity extends AppCompatActivity {
                     inverted = !inverted;
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                     addDashboardCard(column, buildUsageHistoryCard(target));
+                } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+                    addDashboardCard(column, buildResetCreditsCard(target));
                 } else {
                     UsageLimit limit = limitsByKey.get(key);
                     if (limit == null) continue;

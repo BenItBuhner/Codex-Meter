@@ -233,4 +233,15 @@ public final class ClaudeUsageParser {
             return "";
         }
     }
+
+    /** Organization UUID from the profile, needed to spend a saved reset. */
+    public static String organizationUuid(String profileBody) {
+        if (profileBody == null || profileBody.isEmpty()) return "";
+        try {
+            JSONObject organization = new JSONObject(profileBody).optJSONObject("organization");
+            return organization == null ? "" : organization.optString("uuid", "");
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
 }

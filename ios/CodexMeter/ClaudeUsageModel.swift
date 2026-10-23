@@ -110,6 +110,7 @@ final class ClaudeUsageModel {
         do {
             let snapshot = try await service.refreshUsage()
             usage = snapshot
+            ProviderWidgetPublisher.publish(.claudeCode, demo: false, usage: snapshot)
             visibleError = nil
             isUsingCachedData = false
             if let tokens = try? await service.currentTokens() {
@@ -178,6 +179,7 @@ final class ClaudeUsageModel {
         DiagnosticLog.info("process", "claude_sign_out")
         await service.signOut()
         clearState()
+        ProviderWidgetPublisher.publishSignedOut(.claudeCode)
     }
 
     // MARK: Demo
@@ -194,6 +196,11 @@ final class ClaudeUsageModel {
         clearState()
         loadTask = nil
         await loadIfNeeded()
+        if phase == .live {
+            ProviderWidgetPublisher.publish(.claudeCode, demo: false, usage: usage)
+        } else {
+            ProviderWidgetPublisher.publishSignedOut(.claudeCode)
+        }
     }
 
     private func showDemo() {
@@ -202,6 +209,7 @@ final class ClaudeUsageModel {
         visibleError = nil
         isUsingCachedData = false
         usage = Self.demoSnapshot(at: .now, refreshCount: demoRefreshCount)
+        ProviderWidgetPublisher.publish(.claudeCode, demo: true, usage: usage)
     }
 
     private func clearState() {

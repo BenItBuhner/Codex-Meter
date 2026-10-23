@@ -88,7 +88,8 @@ struct UsageMeterCard: View {
             }
         }
         .padding(AppChrome.cardPadding)
-        .frame(maxWidth: .infinity, minHeight: 138, alignment: .leading)
+        // Fills the row height on iPad, where cards beside each other share one height.
+        .frame(maxWidth: .infinity, minHeight: 138, maxHeight: .infinity, alignment: .leading)
         .cardSurface()
     }
 
