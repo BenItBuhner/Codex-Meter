@@ -10,6 +10,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.Menu;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -49,6 +50,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private boolean oauthRequested;
     private String authMessage = "";
     private String lastLaunchedAuthUrl = "";
+    private ProviderPicker picker;
 
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() {
         @Override
@@ -187,6 +189,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void render() {
         if (this.content == null) return;
         this.content.removeAllViews();
+        this.picker = null;
         this.page.header.setTitle("Codex Meter");
         this.page.header.setBack(this.step > OnboardingFlow.STEP_WELCOME);
 
@@ -203,6 +206,16 @@ public final class OnboardingActivity extends AppCompatActivity {
         }
         NestedScrollView scroll = findViewById(R.id.dashboard_scroll);
         scroll.post(() -> scroll.scrollTo(0, 0));
+        invalidateOptionsMenu();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        if (step == OnboardingFlow.STEP_PROVIDERS && picker != null) {
+            Ui.installHeaderSearch(this, menu, "Search providers", query -> picker.filter(query));
+            return true;
+        }
+        return false;
     }
 
     private void addProgress() {
@@ -256,7 +269,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                 R.drawable.ic_oui_samsung_account);
 
         Button next = Ui.nativePrimaryButton(this, "Continue");
-        ProviderPicker picker = new ProviderPicker(this, this.dark, null, this.picked,
+        picker = new ProviderPicker(this, this.dark, null, this.picked,
                 provider -> {
                     next.setEnabled(!this.picked.isEmpty());
                     next.setAlpha(this.picked.isEmpty() ? 0.45f : 1.0f);

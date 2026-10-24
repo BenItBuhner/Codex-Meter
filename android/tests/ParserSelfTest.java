@@ -2989,6 +2989,12 @@ public final class ParserSelfTest {
                 "Cursor Pro+ plan");
         check("Ultra".equals(CursorUsageParser.planLabel("{\"membershipType\":\"ultra\"}")),
                 "Cursor Ultra plan");
+        check("Plus".equals(CursorUsageParser.planLabel("{\"membershipType\":\"plus\"}"))
+                        && "Premium".equals(CursorUsageParser.planLabel(
+                                "{\"membershipType\":\"premium\"}"))
+                        && "Super".equals(CursorUsageParser.planLabel(
+                                "{\"membershipType\":\"super\"}")),
+                "X Subscription Cursor plan names");
         check("Hobby".equals(CursorUsageParser.planLabel("{\"membershipType\":\"free\"}")),
                 "Cursor free plan is Hobby");
         check("Teams".equals(CursorUsageParser.planLabel("{\"membership_type\":\"team\"}")),

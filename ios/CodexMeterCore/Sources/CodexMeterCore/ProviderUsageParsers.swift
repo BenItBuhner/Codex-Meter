@@ -509,9 +509,13 @@ public enum ProviderUsageParsers {
         let value = (tier ?? "").uppercased()
         if value.isEmpty { return "" }
         if value.contains("HEAVY") { return "SuperGrok Heavy" }
-        if value.contains("SUPER") { return "SuperGrok" }
+        // Old SuperGrok before The X Subscription. Check before a bare SUPER (X Super).
+        if value.contains("SUPER_GROK") || value.contains("SUPERGROK") { return "SuperGrok" }
+        if value.contains("ULTRA") { return "Ultra" }
+        if value.contains("SUPER") { return "Super" }
         if value.contains("PREMIUM_PLUS") || value.contains("PREMIUMPLUS") { return "Premium+" }
         if value.contains("PREMIUM") { return "Premium" }
+        if value.contains("PLUS") { return "Plus" }
         if value.contains("FREE") { return "Free" }
         return titleCase(value.replacingOccurrences(of: "^SUBSCRIPTION_TIER_", with: "", options: .regularExpression))
     }

@@ -500,7 +500,7 @@ struct AddAccountView: View {
                 .accessibilityIdentifier("add-account-\(provider.rawValue)")
             }
         }
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search providers")
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search providers")
         .navigationTitle("Add account")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

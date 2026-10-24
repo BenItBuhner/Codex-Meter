@@ -1,13 +1,14 @@
 package dev.bennett.codexmeter;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import android.content.Intent;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +24,7 @@ public final class AddAccountActivity extends AppCompatActivity {
     }
 
     private ActivityResultLauncher<Intent> signIn;
+    private ProviderPicker picker;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -51,12 +53,20 @@ public final class AddAccountActivity extends AppCompatActivity {
         for (UsageProvider provider : UsageProvider.values()) {
             if (ProviderAccounts.isSignedIn(this, provider)) connected.add(provider);
         }
-        ProviderPicker picker = new ProviderPicker(this, dark, connected, null, provider -> {
+        picker = new ProviderPicker(this, dark, connected, null, provider -> {
             DiagnosticLog.info(this, "user", "add_account_picked", "provider", provider.id);
             signIn.launch(SignInActivity.intent(this, provider));
         });
         content.addView(picker.view());
         Ui.addSpacer(content, 24);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        if (picker != null) {
+            Ui.installHeaderSearch(this, menu, "Search providers", query -> picker.filter(query));
+        }
+        return true;
     }
 
     @Override

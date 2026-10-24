@@ -57,6 +57,7 @@ struct OnboardingView: View {
                     }
                 }
             }
+            .modifier(OnboardingProviderSearch(query: $query, enabled: step == .providers))
         }
         .providerSignInSheet($signingIn)
         .interactiveDismissDisabled()
@@ -127,18 +128,6 @@ struct OnboardingView: View {
                 title: "Choose your providers",
                 message: "Pick every service you want to track. Each one gets a tab on the dashboard, and you can add more later in Settings → Accounts."
             )
-
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search providers", text: $query)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("onboarding-search")
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .cardSurface()
 
             let listed = ProviderCatalog.pickerProviders(connected: [UsageProvider](), query: query)
             VStack(spacing: 0) {
@@ -291,6 +280,21 @@ private struct OnboardingHeader: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.top, 8)
+    }
+}
+
+/// Header search on the provider step only, matching Android's toolbar search button.
+private struct OnboardingProviderSearch: ViewModifier {
+    @Binding var query: String
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic),
+                               prompt: "Search providers")
+        } else {
+            content
+        }
     }
 }
 

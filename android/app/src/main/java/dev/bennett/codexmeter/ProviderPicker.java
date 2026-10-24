@@ -3,14 +3,9 @@ package dev.bennett.codexmeter;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
-import android.text.Editable;
-import android.text.InputType;
-import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
 import android.widget.CheckBox;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -20,10 +15,11 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * The provider list shared by Settings → Accounts → Add account and the setup screen: a search
- * field over every provider not yet connected, in recommended order. Each row shows the
- * provider's mark, what it meters and how it signs in, and flags experimental providers.
- * Single-select mode reports a tap; multi-select mode shows checkboxes.
+ * The provider list shared by Settings → Accounts → Add account and the setup screen: every
+ * provider not yet connected, in recommended order. Search lives in the page header, the same
+ * as other One UI action buttons. Each row shows the provider's mark, what it meters and how
+ * it signs in, and flags experimental providers. Single-select mode reports a tap; multi-select
+ * mode shows checkboxes.
  */
 public final class ProviderPicker {
     public interface Listener {
@@ -54,8 +50,6 @@ public final class ProviderPicker {
         this.listener = listener;
         this.root = new LinearLayout(context);
         this.root.setOrientation(LinearLayout.VERTICAL);
-        this.root.addView(buildSearch());
-        Ui.addSpacer(this.root, 16);
         this.list = Ui.seslRowCard(context, dark);
         this.root.addView(this.list);
         this.empty = Ui.text(context, "No providers match.", 14.0f, Ui.secondaryText(dark));
@@ -68,52 +62,8 @@ public final class ProviderPicker {
         return root;
     }
 
-    private View buildSearch() {
-        LinearLayout box = Ui.horizontal(context, Gravity.CENTER_VERTICAL);
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Ui.cardColor(context, dark));
-        background.setCornerRadius(Ui.dp(context, 26));
-        box.setBackground(background);
-        box.setPadding(Ui.dp(context, 18), 0, Ui.dp(context, 14), 0);
-        box.setMinimumHeight(Ui.dp(context, 52));
-
-        ImageView icon = new ImageView(context);
-        icon.setImageResource(R.drawable.ic_oui_search);
-        icon.setImageTintList(ColorStateList.valueOf(Ui.secondaryText(dark)));
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        box.addView(icon, new LinearLayout.LayoutParams(Ui.dp(context, 22), Ui.dp(context, 22)));
-
-        EditText field = new EditText(context);
-        field.setHint("Search providers");
-        field.setSingleLine(true);
-        field.setBackground(null);
-        field.setTextSize(16.0f);
-        field.setTextColor(Ui.mainText(dark));
-        field.setHintTextColor(Ui.secondaryText(dark));
-        field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        field.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        field.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence text, int start, int before, int count) {
-                filter(text.toString());
-            }
-
-            @Override
-            public void afterTextChanged(Editable text) {
-            }
-        });
-        LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
-        fieldParams.setMargins(Ui.dp(context, 10), 0, 0, 0);
-        box.addView(field, fieldParams);
-        box.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
-        return box;
-    }
-
-    private void filter(String query) {
+    /** Narrows the list; the page header search calls this as the query changes. */
+    public void filter(String query) {
         list.removeAllViews();
         List<UsageProvider> providers = ProviderCatalog.pickerProviders(hidden, query);
         if (providers.isEmpty()) {
