@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.12 — 2026-10-24
+
 ### Fixed
 
 - One UI 9 design: the floating provider tab bar's blur now follows the content as it scrolls underneath, instead of sometimes keeping the blur from when the page loaded.
