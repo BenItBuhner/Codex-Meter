@@ -22,13 +22,16 @@ import org.json.JSONObject;
  *   "enabled": true
  * }
  * </pre>
- * Cursor sells two kinds of plan, and both answer with this shape:
+ * Cursor sells more than one kind of plan, and they answer with this shape:
  * <ul>
  *   <li>Current plans have one included pool for Cursor models that refreshes weekly. It
  *       becomes the weekly window, and spend past it is "Additional usage".
  *   <li>Legacy plans (Pro, Pro+, Ultra, Teams Standard) keep a monthly cycle with two pools,
  *       "Cursor models" and "Other models". The included total becomes the monthly window,
  *       each pool a named limit, and spend past it is "On-demand".
+ *   <li>The X Subscription (Plus, Premium, Super, Ultra) is optional and shares a usage pool
+ *       with Grok. Older Cursor plans keep working until the account unifies. Sign-in stays
+ *       on Cursor; Grok stays its own xAI sign-in.
  * </ul>
  * The cycle length tells them apart: Cursor reports the weekly refresh as the cycle.
  */
@@ -184,6 +187,9 @@ public final class CursorUsageParser {
                 case "free_trial": return "Pro trial";
                 case "pro": return "Pro";
                 case "pro_plus": return "Pro+";
+                case "plus": return "Plus";
+                case "premium": return "Premium";
+                case "super": return "Super";
                 case "ultra": return "Ultra";
                 case "team": case "business": return "Teams";
                 case "enterprise": return "Enterprise";

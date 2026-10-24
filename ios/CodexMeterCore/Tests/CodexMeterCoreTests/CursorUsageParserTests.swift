@@ -119,6 +119,9 @@ final class CursorUsageParserTests: XCTestCase {
     func testPlanLabelsAndEmail() {
         XCTAssertEqual(CursorUsageParser.planLabel(profile: #"{"membershipType":"pro_plus"}"#), "Pro+")
         XCTAssertEqual(CursorUsageParser.planLabel(profile: #"{"membershipType":"ultra"}"#), "Ultra")
+        XCTAssertEqual(CursorUsageParser.planLabel(profile: #"{"membershipType":"plus"}"#), "Plus")
+        XCTAssertEqual(CursorUsageParser.planLabel(profile: #"{"membershipType":"premium"}"#), "Premium")
+        XCTAssertEqual(CursorUsageParser.planLabel(profile: #"{"membershipType":"super"}"#), "Super")
         XCTAssertEqual(CursorUsageParser.planLabel(profile: #"{"membershipType":"free"}"#), "Hobby")
         XCTAssertEqual(CursorUsageParser.planLabel(profile: #"{"membership_type":"team"}"#), "Teams")
         XCTAssertEqual(CursorUsageParser.planLabel(profile: "nope"), "")

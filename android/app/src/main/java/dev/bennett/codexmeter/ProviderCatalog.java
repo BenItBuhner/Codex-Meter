@@ -72,7 +72,8 @@ public final class ProviderCatalog {
             new Entry(UsageProvider.CLAUDE_CODE, SignIn.BROWSER,
                     "5-hour and weekly limits", "Claude sign-in", "", false, false),
             new Entry(UsageProvider.CURSOR, SignIn.BROWSER,
-                    "Included usage and extra spend", "Cursor sign-in", "", false, false),
+                    "Cursor usage, or the shared X Subscription pool", "Cursor sign-in", "",
+                    false, false),
             new Entry(UsageProvider.COPILOT, SignIn.DEVICE_CODE,
                     "Monthly premium requests and chat", "GitHub sign-in", "", false, false),
             new Entry(UsageProvider.KIMI, SignIn.DEVICE_CODE,
@@ -81,7 +82,8 @@ public final class ProviderCatalog {
             new Entry(UsageProvider.FACTORY, SignIn.DEVICE_CODE,
                     "5-hour, weekly and monthly limits", "Factory sign-in", "", false, false),
             new Entry(UsageProvider.GROK, SignIn.DEVICE_CODE,
-                    "SuperGrok credits for the billing period", "xAI sign-in", "", false, true),
+                    "Grok credits, or the shared X Subscription pool", "xAI sign-in", "", false,
+                    true),
             new Entry(UsageProvider.ANTIGRAVITY, SignIn.LOOPBACK,
                     "Gemini and Claude model limits, 5-hour and weekly", "Google sign-in", "",
                     false, false),
@@ -168,8 +170,15 @@ public final class ProviderCatalog {
 
     static boolean matches(UsageProvider provider, String needle) {
         Entry entry = get(provider);
+        String extra = "";
+        if (provider == UsageProvider.CURSOR || provider == UsageProvider.GROK) {
+            extra = " x subscription the x subscription shared pool";
+        }
+        if (provider == UsageProvider.GROK) {
+            extra += " supergrok";
+        }
         String haystack = (provider.displayName + " " + provider.accountName + " "
-                + provider.vendorName + " " + entry.meters + " " + entry.signInSummary)
+                + provider.vendorName + " " + entry.meters + " " + entry.signInSummary + extra)
                 .toLowerCase(Locale.ROOT);
         return haystack.contains(needle);
     }

@@ -80,6 +80,16 @@ public final class ProviderParsersSelfTest {
         check(ProviderCatalog.pickerProviders(null, "cognition").containsAll(Arrays.asList(
                 UsageProvider.DEVIN, UsageProvider.WINDSURF)), "search matches the company");
         check(ProviderCatalog.pickerProviders(null, "zzzz").isEmpty(), "no match -> empty");
+        List<UsageProvider> xSub = ProviderCatalog.pickerProviders(null, "x subscription");
+        check(xSub.contains(UsageProvider.CURSOR) && xSub.contains(UsageProvider.GROK)
+                        && xSub.size() == 2,
+                "X Subscription search finds Cursor and Grok");
+        check(ProviderCatalog.pickerProviders(null, "supergrok").equals(
+                Collections.singletonList(UsageProvider.GROK)),
+                "old SuperGrok name still finds Grok");
+        check(ProviderCatalog.get(UsageProvider.CURSOR).meters.contains("X Subscription")
+                        && ProviderCatalog.get(UsageProvider.GROK).meters.contains("X Subscription"),
+                "Cursor and Grok picker copy names the shared pool");
     }
 
     private static void testProviderTabs() {
@@ -256,6 +266,15 @@ public final class ProviderParsersSelfTest {
         check(snapshot.additionalLimits.size() == 1
                 && "Grok Code".equals(snapshot.additionalLimits.get(0).name), "Grok products");
         check("$5.00".equals(snapshot.usageCredits.balance), "Grok prepaid balance");
+        check("Plus".equals(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_PLUS"))
+                        && "Premium".equals(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_PREMIUM"))
+                        && "Super".equals(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_SUPER"))
+                        && "Ultra".equals(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_ULTRA")),
+                "X Subscription Grok plan names");
+        check("SuperGrok".equals(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_SUPER_GROK_PRO"))
+                        && "SuperGrok Heavy".equals(ProviderUsageParsers.grokPlan(
+                                "SUBSCRIPTION_TIER_SUPER_GROK_HEAVY")),
+                "older SuperGrok plan names still parse");
     }
 
     private static void testAntigravity() {

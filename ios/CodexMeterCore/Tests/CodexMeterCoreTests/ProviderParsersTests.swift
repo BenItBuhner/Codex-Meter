@@ -55,6 +55,11 @@ final class ProviderParsersTests: XCTestCase {
         let cognition = ProviderCatalog.pickerProviders(connected: [UsageProvider](), query: "cognition")
         XCTAssertTrue(cognition.contains(.devin) && cognition.contains(.windsurf))
         XCTAssertTrue(ProviderCatalog.pickerProviders(connected: [UsageProvider](), query: "zzzz").isEmpty)
+        let xSub = ProviderCatalog.pickerProviders(connected: [UsageProvider](), query: "x subscription")
+        XCTAssertTrue(xSub.contains(.cursor) && xSub.contains(.grok) && xSub.count == 2)
+        XCTAssertEqual(ProviderCatalog.pickerProviders(connected: [UsageProvider](), query: "supergrok"), [.grok])
+        XCTAssertTrue(ProviderCatalog.entry(for: .cursor).meters.contains("X Subscription"))
+        XCTAssertTrue(ProviderCatalog.entry(for: .grok).meters.contains("X Subscription"))
     }
 
     func testIOSSignInFallsBackToKeys() {
@@ -183,6 +188,12 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(snapshot.monthly?.usedPercent, 38)
         XCTAssertEqual(snapshot.additionalLimits.map(\.name), ["Grok Code"])
         XCTAssertEqual(snapshot.usageCredits?.balance, "$5.00")
+        XCTAssertEqual(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_PLUS"), "Plus")
+        XCTAssertEqual(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_PREMIUM"), "Premium")
+        XCTAssertEqual(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_SUPER"), "Super")
+        XCTAssertEqual(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_ULTRA"), "Ultra")
+        XCTAssertEqual(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_SUPER_GROK_PRO"), "SuperGrok")
+        XCTAssertEqual(ProviderUsageParsers.grokPlan("SUBSCRIPTION_TIER_SUPER_GROK_HEAVY"), "SuperGrok Heavy")
     }
 
     func testAntigravity() throws {

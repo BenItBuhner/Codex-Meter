@@ -12,6 +12,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -33,6 +35,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.AppCompatCheckBox;
 import androidx.appcompat.widget.AppCompatSpinner;
+import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.SeslProgressBar;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.ktx.ActivityKt;
@@ -40,6 +43,7 @@ import dev.oneuiproject.oneui.popover.PopOverOptions;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.Separator;
+import java.util.function.Consumer;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class Ui {
@@ -173,6 +177,48 @@ public final class Ui {
         toolbar.setExpandable(false);
         toolbar.setExpandable(true);
         toolbar.setExpanded(true, false);
+    }
+
+    /**
+     * Official header search: a search button on the right of the app bar that expands into
+     * the toolbar. Same pattern as the dashboard's Edit / Settings and About's GitHub / App info.
+     */
+    public static void installHeaderSearch(Context context, Menu menu, String hint,
+            Consumer<String> onQuery) {
+        MenuItem item = menu.add(Menu.NONE, Menu.NONE, 0, "Search");
+        item.setIcon(R.drawable.ic_oui_search);
+        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS
+                | MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
+        SearchView search = new SearchView(context);
+        search.setQueryHint(hint);
+        search.setIconifiedByDefault(false);
+        search.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                onQuery.accept(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String query) {
+                onQuery.accept(query);
+                return true;
+            }
+        });
+        item.setActionView(search);
+        item.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
+            @Override
+            public boolean onMenuItemActionExpand(MenuItem ignored) {
+                return true;
+            }
+
+            @Override
+            public boolean onMenuItemActionCollapse(MenuItem ignored) {
+                search.setQuery("", false);
+                onQuery.accept("");
+                return true;
+            }
+        });
     }
 
     public static void startSecondaryActivity(Activity activity, Class<? extends Activity> activityClass) {

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed
+
+- Add account and first-run setup put Search in the header (the same top-right button as Edit, Settings and About) instead of a search field above the list.
+- Cursor and Grok stay separate sign-ins. The picker now says usage is a shared pool on The X Subscription, and still supports older SuperGrok and Cursor plans. Searching "X Subscription" finds both.
+
 ## 2.9.0-alpha.12 — 2026-10-24
 
 ### Fixed

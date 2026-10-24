@@ -50,7 +50,7 @@ public enum ProviderCatalog {
               signInSummary: "ChatGPT sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .claudeCode, signIn: .browser, meters: "5-hour and weekly limits",
               signInSummary: "Claude sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
-        Entry(provider: .cursor, signIn: .browser, meters: "Included usage and on-demand spend",
+        Entry(provider: .cursor, signIn: .browser, meters: "Cursor usage, or the shared X Subscription pool",
               signInSummary: "Cursor sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .copilot, signIn: .deviceCode, meters: "Monthly premium requests and chat",
               signInSummary: "GitHub sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
@@ -58,7 +58,7 @@ public enum ProviderCatalog {
               signInSummary: "Kimi sign-in", keyURL: "https://www.kimi.com/code/console", acceptsAPIKey: true, inferred: false),
         Entry(provider: .factory, signIn: .deviceCode, meters: "5-hour, weekly and monthly limits",
               signInSummary: "Factory sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
-        Entry(provider: .grok, signIn: .deviceCode, meters: "SuperGrok credits for the billing period",
+        Entry(provider: .grok, signIn: .deviceCode, meters: "Grok credits, or the shared X Subscription pool",
               signInSummary: "xAI sign-in", keyURL: "", acceptsAPIKey: false, inferred: true),
         Entry(provider: .antigravity, signIn: .loopback, meters: "Gemini and Claude model limits, 5-hour and weekly",
               signInSummary: "Google sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
@@ -140,10 +140,14 @@ public enum ProviderCatalog {
 
     static func matches(_ provider: UsageProvider, _ needle: String) -> Bool {
         let entry = iOSEntry(for: provider)
-        let haystack = [provider.displayName, provider.accountName, provider.vendorName, entry.meters, entry.signInSummary]
-            .joined(separator: " ")
-            .lowercased()
-        return haystack.contains(needle)
+        var tokens = [provider.displayName, provider.accountName, provider.vendorName, entry.meters, entry.signInSummary]
+        if provider == .cursor || provider == .grok {
+            tokens.append("x subscription the x subscription shared pool")
+        }
+        if provider == .grok {
+            tokens.append("supergrok")
+        }
+        return tokens.joined(separator: " ").lowercased().contains(needle)
     }
 }
 
