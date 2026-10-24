@@ -113,6 +113,26 @@ public final class SecureTokenStore {
         }
     }
 
+    /** Encrypts any text with its own Keystore key (saved accounts in {@link AccountVault}). */
+    static String encrypt(String alias, String plain) throws Exception {
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        cipher.init(1, getOrCreateKey(alias));
+        byte[] ct = cipher.doFinal(plain.getBytes(StandardCharsets.UTF_8));
+        JSONObject blob = new JSONObject();
+        blob.put("iv", Base64.getEncoder().encodeToString(cipher.getIV()));
+        blob.put("ct", Base64.getEncoder().encodeToString(ct));
+        return blob.toString();
+    }
+
+    static String decrypt(String alias, String blobText) throws Exception {
+        JSONObject blob = new JSONObject(blobText);
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        cipher.init(2, getOrCreateKey(alias), new GCMParameterSpec(128,
+                Base64.getDecoder().decode(blob.getString("iv"))));
+        return new String(cipher.doFinal(Base64.getDecoder().decode(blob.getString("ct"))),
+                StandardCharsets.UTF_8);
+    }
+
     private static SecretKey getOrCreateKey(String alias) throws Exception {
         KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
         keyStore.load(null);
