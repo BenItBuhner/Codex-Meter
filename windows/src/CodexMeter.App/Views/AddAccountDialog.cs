@@ -4,7 +4,6 @@ using CodexMeter.Core.Providers;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Data;
 
 namespace CodexMeter.App.Views;
 
@@ -98,9 +97,7 @@ public static class AddAccountDialog
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var name = new TextBlock { Text = provider.DisplayName, Style = Cards.Style("BodyStrongTextBlockStyle") };
-        var icon = ProviderIcons.Create(provider.Id, 24);
-        // List items don't pass their text color down to path icons, so follow the name's color.
-        icon.SetBinding(IconElement.ForegroundProperty, new Binding { Source = name, Path = new PropertyPath("Foreground") });
+        var icon = ProviderIcons.CreateShape(provider.Id, 24, Cards.Brush("TextFillColorPrimaryBrush"));
         row.Children.Add(new Border { Width = 28, Height = 28, Child = icon, VerticalAlignment = VerticalAlignment.Center });
 
         var text = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
