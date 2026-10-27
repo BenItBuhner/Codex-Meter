@@ -644,9 +644,14 @@ public final class WidgetRenderer {
                 applyOverlapBar(remoteViews, progressIds[index], slot.progress,
                         slot.longProgress, accent, track);
             } else {
+                // Set every bar's back fill too, so a plain bar never keeps an overlap's state.
+                remoteViews.setInt(progressIds[index], "setSecondaryProgress", 0);
+                if (Build.VERSION.SDK_INT >= 31) {
+                    remoteViews.setColorStateList(progressIds[index],
+                            "setSecondaryProgressTintList", ColorStateList.valueOf(track));
+                }
                 remoteViews.setProgressBar(progressIds[index], max,
                         Math.max(GRAPHIC_STANDARD, slot.progress), false);
-                remoteViews.setInt(progressIds[index], "setSecondaryProgress", 0);
             }
             remoteViews.setTextViewText(valueIds[index], slot.valueText);
             remoteViews.setTextColor(valueIds[index], textColor);
