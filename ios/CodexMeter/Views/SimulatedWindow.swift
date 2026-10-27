@@ -62,10 +62,10 @@ struct SimulatedWindow: ViewModifier {
                 .environment(\.verticalSizeClass, .regular)
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                // Centered on the whole screen, so CI can crop the stills around the window.
+                // Centered, so CI can crop the stills around the window. (Ignoring the safe
+                // area here would also drop the navigation bar's margins.)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGray4))
-                .ignoresSafeArea()
+                .background(Color(.systemGray4).ignoresSafeArea())
                 .animation(.smooth(duration: 0.35), value: duo.isOpen)
         } else if let width = Self.width {
             content

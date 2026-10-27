@@ -31,8 +31,13 @@ final class WindowRegistry {
         if presenterID == id { presenterID = nil }
     }
 
-    func windowBecameKey(_ id: UUID) {
+    /// Records that window `id` is in front. Returns true when that is a change, so the
+    /// window's tab should take over the model's selection.
+    @discardableResult
+    func windowBecameKey(_ id: UUID) -> Bool {
+        guard keyWindowID != id else { return false }
         keyWindowID = id
+        return true
     }
 
     /// Called when the model's sheet state changes: the first sheet to open is pinned to the

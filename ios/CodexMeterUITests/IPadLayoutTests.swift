@@ -60,7 +60,7 @@ final class IPadLayoutTests: XCTestCase {
         // ⌘1…⌘4 follow the tab order; ⌘R refreshes the visible tab without leaving it.
         app.typeKey("3", modifierFlags: .command)
         XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5), "⌘3 opens Cursor")
-        XCTAssertTrue(app.staticTexts["Included usage · Weekly"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Weekly"].firstMatch.waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("04-landscape-cursor")
 

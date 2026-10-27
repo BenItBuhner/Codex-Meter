@@ -87,9 +87,12 @@ struct ContentView: View {
             OnboardingView()
         }
         .background {
+            // Only a switch between windows hands over the selection. The first key event
+            // also makes the window key, and re-selecting then would undo the ⌘3 it carries.
             KeyWindowObserver {
-                windows.windowBecameKey(windowID)
-                model.select(provider: currentSelection)
+                if windows.windowBecameKey(windowID) {
+                    model.select(provider: currentSelection)
+                }
             }
         }
         .onAppear {
