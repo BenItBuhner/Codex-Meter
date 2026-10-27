@@ -152,6 +152,40 @@ public final class ClaudeUsageApi {
         }
     }
 
+    /**
+     * Fetches usage for a saved (not active) account without touching the active account's
+     * cache or scope bookkeeping. {@code tokens[0]} is replaced when it is renewed;
+     * {@code resets[0]} receives the account's saved resets.
+     */
+    static UsageSnapshot fetchDetached(Context context, AuthTokens[] tokens, String plan,
+            ClaudeSavedResets[] resets) throws Exception {
+        synchronized (LOCK) {
+            if (tokens[0].shouldRefresh(System.currentTimeMillis())) {
+                tokens[0] = refreshDetached(context, tokens[0]);
+            }
+            Response usage = get(context, "claude_usage_saved_account",
+                    ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens[0]);
+            if (usage.status == 401) {
+                tokens[0] = refreshDetached(context, tokens[0]);
+                usage = get(context, "claude_usage_saved_account",
+                        ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens[0]);
+            }
+            if (usage.status < 200 || usage.status >= 300) {
+                throw new Exception(usageError(usage));
+            }
+            UsageSnapshot snapshot = ClaudeUsageParser.parse(usage.body, plan,
+                    System.currentTimeMillis());
+            resets[0] = ClaudeSavedResets.fromUsageBody(usage.body, snapshot.fetchedAtMillis);
+            return snapshot;
+        }
+    }
+
+    private static AuthTokens refreshDetached(Context context, AuthTokens current)
+            throws Exception {
+        Response response = postRefresh(context, ClaudeCodeApi.refreshBody(current.refreshToken));
+        return current.mergeRefresh(parseTokens(response, current));
+    }
+
     private static String usageError(Response response) {
         switch (response.status) {
             case 401:

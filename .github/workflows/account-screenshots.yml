@@ -1,0 +1,194 @@
+name: Multiple accounts screenshots (temporary)
+
+# One-off: installs this branch with sample accounts and records combined vs per-account views.
+# Output goes to refs/ci-screenshots/multi-account-combined. Removed before the PR merges.
+on:
+  push:
+    branches: [claude/project-thread-rk4s0k]
+    paths: ['.github/workflows/account-screenshots.yml', '.github/account-shots/**',
+            'android/app/**']
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android SDK platforms
+        shell: bash
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Add the debug-only sample-data seeder
+        shell: bash
+        run: |
+          set -euo pipefail
+          DBG=android/app/src/debug
+          mkdir -p "$DBG/java/dev/bennett/codexmeter"
+          cp .github/account-shots/Debug*.java "$DBG/java/dev/bennett/codexmeter/"
+          python3 - "$DBG/AndroidManifest.xml" <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p).read()
+          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.DebugSeedActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay"/>\n        <activity android:name="dev.bennett.codexmeter.DebugWidgetsActivity" android:exported="true" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"/>\n    </application>')
+          open(p, 'w').write(s)
+          PY
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd android
+          for i in 1 2 3; do
+            ./gradlew --no-daemon :app:assembleDebug && exit 0
+            sleep $((i * 15))
+          done
+          exit 1
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Write capture script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/capture.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          PKG=dev.bennett.codexmeter
+          OUT="$GITHUB_WORKSPACE/shots"
+          mkdir -p "$OUT"
+          adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+          adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
+          adb shell cmd connectivity airplane-mode enable || true
+          adb shell settings put global hide_error_dialogs 1 || true
+          shot() { sleep "${2:-3}"; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
+          seed() {
+            adb shell am force-stop $PKG; sleep 1
+            adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action "${1:-seed}" --es tab "${2:-claude_code}" --es design "${3:-oneui9}"; sleep 4
+          }
+          locate() {
+            adb shell uiautomator dump /sdcard/ui.xml >/dev/null
+            adb pull /sdcard/ui.xml "$RUNNER_TEMP/ui.xml" >/dev/null
+            python3 - "$RUNNER_TEMP/ui.xml" "$1" <<'PY'
+          import re, sys, xml.etree.ElementTree as ET
+          want = sys.argv[2]
+          for n in ET.parse(sys.argv[1]).iter('node'):
+              t, d = n.get('text') or '', n.get('content-desc') or ''
+              if t == want or d == want or d.startswith(want + ':'):
+                  a, b, c, e = map(int, re.findall(r'\d+', n.get('bounds')))
+                  print((a + c) // 2, (b + e) // 2)
+                  sys.exit(0)
+          sys.exit("no node named " + want)
+          PY
+          }
+          tap_text() { local xy; xy=$(locate "$1") && adb shell input tap $xy; }
+          dumpui() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml "$OUT/$1.xml" >/dev/null; }
+
+          seedopen() {
+            adb shell am force-stop $PKG; sleep 1
+            adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action "$1" --es open "$2" --es single_claude "${3:-no}" --es mode "${4:-home}" --es tab claude_code; sleep 4
+          }
+          drag() { adb shell input swipe 540 1700 540 $((1700 - $1)) 1000; }
+
+          # Dashboard: every Claude Code account combined, then one on its own.
+          adb shell cmd uimode night no
+          seed; sleep 2
+          adb shell "screenrecord --time-limit 80 --size 540x1200 /sdcard/combined-dashboard.mp4" & REC=$!
+          sleep 2
+          shot light-01-combined-top 2
+          drag 1000;                        shot light-02-combined-accounts 2
+          tap_text "sam.lee@gmail.com";     shot light-03-one-account 3
+          tap_text "Accounts";              shot light-04-switcher 2
+          tap_text "All accounts";          shot light-05-back-to-combined 3
+          drag 1000; sleep 2
+          adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
+          adb pull /sdcard/combined-dashboard.mp4 "$OUT/combined-dashboard.mp4" >/dev/null
+
+          adb shell cmd uimode night yes
+          seed
+          shot dark-01-combined-top 2
+          drag 1000;                        shot dark-02-combined-accounts 2
+          tap_text "Accounts";              shot dark-04-switcher 2
+          adb shell input keyevent BACK; sleep 1
+
+          # Widgets drawn as on a home screen and a lock screen.
+          for mode in light dark; do
+            [[ $mode == dark ]] && adb shell cmd uimode night yes || adb shell cmd uimode night no
+            seedopen seed widgets no home;   shot $mode-10-home-widgets 4
+          done
+          adb shell cmd uimode night no
+          seedopen seed widgets no lock;     shot light-20-lock-widgets 4
+
+          # Widget settings: pick combined or one account.
+          seedopen seed widget_config
+          adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/widget-settings.mp4" & REC=$!
+          sleep 2
+          shot light-11-widget-config 2
+          drag 500; dumpui widget-config
+          shot light-12-widget-config-accounts 2
+          tap_text "sam.lee@gmail.com";     shot light-13-widget-config-one 3
+          tap_text "All accounts";          shot light-14-widget-config-all 3
+          adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
+          adb pull /sdcard/widget-settings.mp4 "$OUT/widget-settings.mp4" >/dev/null
+
+          seedopen seed lock_config;         shot light-21-lock-config 3
+          drag 400; tap_text "sam.lee@gmail.com"
+          shot light-22-lock-config-one 3
+          adb shell cmd uimode night no
+          adb logcat -d | grep -iE "DebugSeed|FATAL|AndroidRuntime|accounts|codexmeter" > "$OUT/logcat.txt" || true
+          SH
+          chmod +x "$RUNNER_TEMP/capture.sh"
+
+      - name: Capture screenshots on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          script: bash ${{ runner.temp }}/capture.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shots
+          path: shots/
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: [android]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: shots
+          path: shots
+      - name: Publish to refs/ci-screenshots/multi-account
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd shots
+          find . -type f | sort
+          git init -q
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Multiple accounts screenshots"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/multi-account-combined

@@ -39,6 +39,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             new java.util.EnumMap<>(UsageProvider.class);
     /** 1 for the single-gauge widget, 2 for the wide ones. */
     private int slots = 2;
+    private LinearLayout accountsSection;
 
     @Override
     protected void onCreate(Bundle bundle) {
@@ -85,6 +86,10 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             this.selectedMeters.add(WidgetMeters.FIVE_HOUR);
         }
 
+        // Accounts come first: the providers list below can be long.
+        this.accountsSection = new LinearLayout(this);
+        this.accountsSection.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.addView(this.accountsSection);
         linearLayout.addView(Ui.separator(this, this.slots > 1 ? "Providers" : "Provider"));
         RoundedLinearLayout providersCard = Ui.seslCard(this, this.dark);
         TextView providersHint = Ui.text(this, this.slots > 1
@@ -105,6 +110,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                     checked));
         }
         linearLayout.addView(providersCard);
+        refreshAccountsSection();
 
         linearLayout.addView(Ui.separator(this, "Meters"));
         RoundedLinearLayout metersCard = Ui.seslCard(this, this.dark);
@@ -184,7 +190,25 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         page.onCancel(this::finish);
         page.onSave(this::save);
         updateMetersHint();
+        refreshAccountsSection();
         updatePreview();
+    }
+
+    /** One provider with several accounts: show them combined, or follow one account. */
+    private void refreshAccountsSection() {
+        if (this.accountsSection == null) return;
+        this.accountsSection.removeAllViews();
+        if (this.providers.size() != 1) return;
+        UsageProvider provider = this.providers.get(0);
+        if (AccountVault.count(this, provider) < 2) return;
+        this.accountsSection.addView(Ui.separator(this, "Accounts"));
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        card.addView(AccountSwitcher.scopePicker(this, provider, this.dark,
+                AccountVault.widgetScope(this, this.appWidgetId), scope -> {
+                    AccountVault.setWidgetScope(this, this.appWidgetId, scope);
+                    updatePreview();
+                }));
+        this.accountsSection.addView(card);
     }
 
     private LinearLayout buildSwitchRow(String title, SwitchCompat toggle, boolean topDivider) {
@@ -282,8 +306,13 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         if (this.preview == null || this.showCountdown == null) {
             return;
         }
-        this.preview.setImageBitmap(SamsungLockWidgetSupport.previewBitmap(this, this.slots,
-                this.providers, currentOptions()));
+        AccountVault.beginWidgetRender(this, this.appWidgetId);
+        try {
+            this.preview.setImageBitmap(SamsungLockWidgetSupport.previewBitmap(this, this.slots,
+                    this.providers, currentOptions()));
+        } finally {
+            AccountVault.endWidgetRender();
+        }
     }
 
     public void save() {

@@ -84,8 +84,11 @@ public final class ProviderAccounts {
         if (pending || provider == UsageProvider.CODEX) {
             AppPreferences.setOAuthPending(app, false, "");
         }
-        // A removed account's tab goes too, unless it is the last tab left.
-        ProviderPreferences.setEnabled(app, provider, false);
+        // Another saved account for this provider takes over; otherwise the tab goes too,
+        // unless it is the last tab left.
+        if (!AccountVault.promoteNext(app, provider)) {
+            ProviderPreferences.setEnabled(app, provider, false);
+        }
         // Keeps background refresh alive for the providers that are still signed in.
         RefreshScheduler.schedulePeriodic(app);
         WidgetRenderer.updateAll(app);

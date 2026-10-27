@@ -18,6 +18,7 @@ import org.json.JSONObject;
 public final class ParserSelfTest {
     public static void main(String[] args) throws Exception {
         testStandardUsage();
+        testAccountTotals();
         testMonthlyWindow();
         testWindowIdentification();
         testAdditionalLimits();
@@ -3081,6 +3082,37 @@ public final class ParserSelfTest {
         check(CursorApi.isRefreshDue(100 * minute, 80 * minute,
                 CursorApi.BACKGROUND_INTERVAL_MILLIS), "Cursor background refresh runs");
         System.out.println("Cursor auth: PKCE poll login, JWT expiry, refresh verified.");
+    }
+
+    private static void testAccountTotals() {
+        long now = 1_800_000_000_000L;
+        long nowSec = now / 1000L;
+        UsageSnapshot full = new UsageSnapshot("Pro", true, false,
+                new UsageWindow(0, 18_000L, 0L, nowSec + 3_600L),
+                new UsageWindow(20, 604_800L, 0L, nowSec + 86_400L), now);
+        UsageSnapshot half = new UsageSnapshot("Max", true, false,
+                new UsageWindow(60, 18_000L, 0L, nowSec + 600L),
+                new UsageWindow(40, 604_800L, 0L, nowSec + 172_800L), now - 60_000L);
+        UsageSnapshot spentButReset = new UsageSnapshot("Pro", true, true,
+                new UsageWindow(100, 18_000L, 0L, nowSec - 60L),
+                new UsageWindow(90, 604_800L, 0L, nowSec + 7_200L), now - 120_000L);
+        UsageSnapshot combined = AccountTotals.combine(
+                Arrays.asList(full, half, spentButReset), now);
+        check("3 accounts".equals(combined.planType), "combined plan label");
+        // 5-hour: 0, 60, and a window that already reset (0) -> 20% used.
+        check(combined.fiveHour.usedPercent == 20, "combined five-hour average");
+        check(combined.fiveHour.resetAtEpochSeconds == nowSec + 600L,
+                "combined five-hour resets at the earliest upcoming reset");
+        // Weekly: 20, 40, 90 -> 50% used, next reset in two hours.
+        check(combined.weekly.usedPercent == 50, "combined weekly average");
+        check(combined.weekly.resetAtEpochSeconds == nowSec + 7_200L, "combined weekly reset");
+        check(combined.monthly == null, "combined keeps absent windows absent");
+        check(!combined.limitReached, "combined limit reached only when all are");
+        check(combined.fetchedAtMillis == now - 120_000L, "combined uses the oldest refresh");
+        check(AccountTotals.combine(Arrays.asList(full), now) == full,
+                "one account is shown as-is");
+        check(AccountTotals.combine(Arrays.asList(null, null), now) == null,
+                "no usage combines to nothing");
     }
 
     private static void check(boolean condition, String name) {
