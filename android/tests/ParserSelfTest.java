@@ -189,6 +189,17 @@ public final class ParserSelfTest {
         check(sustainable.available && !sustainable.accelerated,
                 "same consumption rate lasts beyond a five-hour reset");
 
+        // 15% used in the first hour of a 5-hour window, same pace: 30% at the 2h mark and
+        // 75% at reset. The chart projects toward that instead of a flat line.
+        check(Math.abs(UsagePace.projectedUsedPercent(sustainable, now, 15d, now + hour) - 30d)
+                        < 0.5d,
+                "projection climbs at the estimated burn rate");
+        check(Math.abs(UsagePace.projectedUsedPercent(sustainable, now, 15d,
+                        sustainable.resetAtMillis) - 75d) < 0.5d,
+                "projection lands at the reset level when it will not run out");
+        check(UsagePace.projectedUsedPercent(fast, now, 15d, now + week) == 100d,
+                "projection never passes 100%");
+
         UsageWindow pausedWeekly = new UsageWindow(15, TimeUnit.DAYS.toSeconds(7), 0L,
                 (now + TimeUnit.DAYS.toMillis(3) + TimeUnit.HOURS.toMillis(12)) / 1000L);
         UsagePace.Assessment paused = UsagePace.assess(
@@ -684,6 +695,32 @@ public final class ParserSelfTest {
         check("5-hour: unavailable".equals(
                         NowBarCopy.limitText("5-hour", null, observed, now)),
                 "missing window stays unavailable");
+
+        check("Weekly · 60% left".equals(NowBarCopy.headline("Weekly", remaining)),
+                "live notification headline names the window and what is left");
+        check("5-hour · used up".equals(NowBarCopy.headline("5-hour", exhaustedHours)),
+                "live notification headline says used up at 0%");
+        java.util.TimeZone utc = java.util.TimeZone.getTimeZone("UTC");
+        // now is Tue Nov 14 2023 22:13 UTC.
+        UsageWindow laterToday = new UsageWindow(40, 18_000L, 0L,
+                (now + TimeUnit.MINUTES.toMillis(47)) / 1000L);
+        check("Resets 11:00 PM".equals(NowBarCopy.resetClockText(laterToday, observed, now,
+                        false, utc, java.util.Locale.US)),
+                "same-day reset shows only the time");
+        check("Resets 23:00".equals(NowBarCopy.resetClockText(laterToday, observed, now,
+                        true, utc, java.util.Locale.US)),
+                "24-hour reset clock");
+        UsageWindow tomorrow = new UsageWindow(40, 18_000L, 0L,
+                (now + TimeUnit.HOURS.toMillis(3)) / 1000L);
+        check(NowBarCopy.resetClockText(tomorrow, observed, now, false, utc,
+                        java.util.Locale.US).startsWith("Resets tomorrow "),
+                "next-day reset says tomorrow");
+        check("Resets Fri 2:13 AM".equals(NowBarCopy.resetClockText(exhaustedDays, observed,
+                        now, false, utc, java.util.Locale.US)),
+                "reset within the week shows weekday and time");
+        check(NowBarCopy.resetClockText(exhaustedNoReset, observed, now, false, utc,
+                        java.util.Locale.US) == null,
+                "unknown reset has no reset line");
 
         check("5h 60%".equals(NowBarCopy.wearLimitText("5h", remaining, observed, now)),
                 "Wear limit text keeps remaining percentage");

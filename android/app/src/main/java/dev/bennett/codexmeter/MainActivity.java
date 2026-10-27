@@ -709,39 +709,16 @@ public final class MainActivity extends AppCompatActivity {
         card.addView(detail, detailParams);
 
         // Windows still waiting for usage data would only render a blank "Waiting for usage
-        // data" chart, so they are dropped from the card until OpenAI reports them.
+        // data" chart, so they are dropped from the card until the provider reports them.
+        // Longer windows come first and the 5-hour chart sits at the bottom.
         boolean hasCharts = false;
-        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
-        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView fiveChart = new UsageBurnChartView(this);
-            fiveChart.setData("5-hour", fiveWindow,
-                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.FIVE_HOUR),
-                    snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, target, snapshot, fiveWindow, now));
-            card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
-            hasCharts = true;
-        }
-
-        UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
-        if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
-            weeklyChart.setData("Weekly", weeklyWindow,
-                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.WEEKLY),
-                    snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, target, snapshot, weeklyWindow, now));
-            card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
-            hasCharts = true;
-        }
-
-        UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
-        if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
-            monthlyChart.setData("Monthly", monthlyWindow,
-                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.MONTHLY),
-                    snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, target, snapshot, monthlyWindow, now));
-            card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
-            hasCharts = true;
+        if (snapshot != null && snapshot.fetchedAtMillis > 0L) {
+            hasCharts |= addBurnChart(card, target, snapshot, "Weekly", snapshot.weekly,
+                    UsageHistory.WEEKLY, now);
+            hasCharts |= addBurnChart(card, target, snapshot, "Monthly", snapshot.monthly,
+                    UsageHistory.MONTHLY, now);
+            hasCharts |= addBurnChart(card, target, snapshot, "5-hour", snapshot.fiveHour,
+                    UsageHistory.FIVE_HOUR, now);
         }
 
         if (!hasCharts) {
@@ -761,6 +738,19 @@ public final class MainActivity extends AppCompatActivity {
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
         return card;
+    }
+
+    private boolean addBurnChart(LinearLayout card, UsageProvider target,
+            UsageSnapshot snapshot, String label, UsageWindow window, String historyKind,
+            long now) {
+        if (window == null) return false;
+        UsageBurnChartView chart = new UsageBurnChartView(this);
+        chart.setData(label, window,
+                ProviderPreferences.loadUsageHistory(this, target, historyKind),
+                snapshot.fetchedAtMillis,
+                UsagePacePreferences.assess(this, target, snapshot, window, now));
+        card.addView(chart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+        return true;
     }
 
     private LinearLayout buildUsageCreditsCard(UsageCredits credits) {
@@ -1371,14 +1361,11 @@ public final class MainActivity extends AppCompatActivity {
                             snapshot, snapshot.fiveHour, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.WEEKLY.equals(key)) {
-                    addDashboardCard(column, buildMetricCard(
-                            target == UsageProvider.CURSOR ? "Included usage · Weekly" : "Weekly",
+                    addDashboardCard(column, buildMetricCard("Weekly",
                             snapshot, snapshot.weekly, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.MONTHLY.equals(key)) {
-                    addDashboardCard(column, buildMetricCard(
-                            target == UsageProvider.CURSOR ? "Included usage · Monthly"
-                                    : "Monthly",
+                    addDashboardCard(column, buildMetricCard("Monthly",
                             snapshot, snapshot.monthly, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
@@ -1440,8 +1427,7 @@ public final class MainActivity extends AppCompatActivity {
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         String limits = target == UsageProvider.CURSOR
-                ? " included usage and when it refreshes, plus any extra spend on top of "
-                        + "your plan."
+                ? " usage and when it refreshes, plus any extra spend on top of your plan."
                 : target == UsageProvider.CLAUDE_CODE
                         ? " 5-hour and weekly limits, plus any model-only allocation your plan "
                                 + "has."

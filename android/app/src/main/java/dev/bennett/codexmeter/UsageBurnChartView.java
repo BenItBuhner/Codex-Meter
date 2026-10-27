@@ -285,18 +285,24 @@ public final class UsageBurnChartView extends View {
 
         if (pace != null && pace.available && !samples.isEmpty() && !historicalSelection()) {
             UsageSample latest = samples.get(samples.size() - 1);
-            float fromX = x(latest.observedAtMillis, startAt, resetAt, left, right);
-            float fromY = y(latest.usedPercent, top, bottom);
-            float toX = x(Math.min(resetAt, pace.estimatedExhaustionAtMillis),
-                    startAt, resetAt, left, right);
-            float toY = y(pace.estimatedExhaustionAtMillis <= resetAt ? 100 : latest.usedPercent,
-                    top, bottom);
-            paint.setColor(pace.accelerated ? Ui.warning(dark)
-                    : Ui.desaturatedAccent(getContext(), dark));
-            paint.setStrokeWidth(2f * density);
-            paint.setPathEffect(projectionDash);
-            canvas.drawLine(fromX, fromY, toX, toY, paint);
-            paint.setPathEffect(null);
+            // Project at the estimated burn rate up to whichever comes first: running out or
+            // the reset. A window that will not run out still climbs toward its projected
+            // reset level instead of drawing a flat line.
+            long endAt = Math.min(resetAt, pace.estimatedExhaustionAtMillis);
+            if (latest.usedPercent < 100 && endAt > latest.observedAtMillis) {
+                double endPercent = UsagePace.projectedUsedPercent(pace,
+                        latest.observedAtMillis, latest.usedPercent, endAt);
+                float fromX = x(latest.observedAtMillis, startAt, resetAt, left, right);
+                float fromY = y(latest.usedPercent, top, bottom);
+                float toX = x(endAt, startAt, resetAt, left, right);
+                float toY = y(endPercent, top, bottom);
+                paint.setColor(pace.accelerated ? Ui.warning(dark)
+                        : Ui.desaturatedAccent(getContext(), dark));
+                paint.setStrokeWidth(2f * density);
+                paint.setPathEffect(projectionDash);
+                canvas.drawLine(fromX, fromY, toX, toY, paint);
+                paint.setPathEffect(null);
+            }
         }
 
         if (scrubbing && scrubPercent >= 0d) {
@@ -375,6 +381,11 @@ public final class UsageBurnChartView extends View {
     }
 
     private static float y(int usedPercent, float top, float bottom) {
-        return bottom - Math.max(0, Math.min(100, usedPercent)) / 100f * (bottom - top);
+        return y((double) usedPercent, top, bottom);
+    }
+
+    private static float y(double usedPercent, float top, float bottom) {
+        return bottom - (float) (Math.max(0d, Math.min(100d, usedPercent)) / 100d)
+                * (bottom - top);
     }
 }

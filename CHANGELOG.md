@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Changed
+
+- Usage history shows the Weekly chart first and the 5-hour chart below it, on the dashboard card and the full history page.
+- The live notification is simpler: the title says what is left in the focused window ("Weekly · 48% left"), and the line under it says when that window resets, then the other window. The estimate only appears when usage is running fast.
+- Cursor cards say "Weekly" or "Monthly" instead of "Included usage · Weekly".
+
+### Fixed
+
+- The dashed projection on usage charts now climbs at your current pace up to the reset when you will not run out first, instead of drawing a flat line.
+- Usage cards no longer show "Est. depleted" next to a limit that is already at 0%.
+
 ## 2.9.0-alpha.12 — 2026-10-24
 
 ### Fixed

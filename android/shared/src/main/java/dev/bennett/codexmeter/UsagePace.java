@@ -93,6 +93,25 @@ public final class UsagePace {
                 baseline.observedDurationMillis, window.usedPercent);
     }
 
+    /**
+     * Where the projected burn line lands at {@code atMillis}, starting from a known point and
+     * heading for the estimated exhaustion time at a constant rate. Used by the burn chart so a
+     * window that will not run out before reset still shows its projected climb instead of a
+     * flat line. Returns {@code fromPercent} when no projection is available, and never more
+     * than 100.
+     */
+    public static double projectedUsedPercent(Assessment assessment, long fromMillis,
+            double fromPercent, long atMillis) {
+        double start = Math.max(0d, Math.min(100d, fromPercent));
+        if (assessment == null || !assessment.available || atMillis <= fromMillis) {
+            return start;
+        }
+        long toExhaustion = assessment.estimatedExhaustionAtMillis - fromMillis;
+        if (toExhaustion <= 0L) return 100d;
+        double ratio = (atMillis - fromMillis) / (double) toExhaustion;
+        return Math.min(100d, start + (100d - start) * ratio);
+    }
+
     public static int mostAcceleratedWindow(UsageSnapshot snapshot, long nowMillis,
             String sensitivity) {
         if (snapshot == null || !warningsEnabled(sensitivity)) return WINDOW_NONE;

@@ -126,12 +126,8 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         }
 
         // Windows still waiting for usage data are skipped instead of rendering blank charts.
+        // Longer windows first, matching the dashboard card; the 5-hour chart is last.
         boolean hasCharts = false;
-        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
-        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
-            addWindowSection("5-hour", fiveWindow, snapshot, five, pricing);
-            hasCharts = true;
-        }
         UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
         if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
             addWindowSection("Weekly", weeklyWindow, snapshot, weekly, pricing);
@@ -140,6 +136,11 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
         if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
             addWindowSection("Monthly", monthlyWindow, snapshot, monthly, pricing);
+            hasCharts = true;
+        }
+        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
+        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
+            addWindowSection("5-hour", fiveWindow, snapshot, five, pricing);
             hasCharts = true;
         }
         if (!hasCharts) {
