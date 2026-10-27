@@ -18,7 +18,34 @@ public static class Cards
 {
     public static Style Style(string key) => (Style)Application.Current.Resources[key];
 
-    public static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
+    /// <summary>
+    /// A theme brush for the theme the app is showing. A plain resource lookup in code returns the
+    /// brush for Windows' theme, which is wrong when Settings picks the other one.
+    /// </summary>
+    public static Brush Brush(string key)
+    {
+        var resources = Application.Current.Resources;
+        var dark = App.Current?.State?.Settings.Current.Theme switch
+        {
+            Core.Services.AppTheme.Dark => true,
+            Core.Services.AppTheme.Light => false,
+            _ => Application.Current.RequestedTheme == ApplicationTheme.Dark,
+        };
+        foreach (var themeKey in dark ? new[] { "Dark", "Default" } : ["Light"])
+            if (FindThemed(resources, themeKey, key, 0) is Brush brush) return brush;
+        return (Brush)resources[key];
+    }
+
+    private static object? FindThemed(ResourceDictionary dictionary, string themeKey, string key, int depth)
+    {
+        if (dictionary.ThemeDictionaries.TryGetValue(themeKey, out var theme) && theme is ResourceDictionary themed
+            && themed.TryGetValue(key, out var value))
+            return value;
+        if (depth > 4) return null;
+        foreach (var merged in dictionary.MergedDictionaries)
+            if (FindThemed(merged, themeKey, key, depth + 1) is { } found) return found;
+        return null;
+    }
 
     public static MeterLevel Level(int remainingPercent) =>
         remainingPercent <= 15 ? MeterLevel.Critical : remainingPercent <= 35 ? MeterLevel.Caution : MeterLevel.Normal;

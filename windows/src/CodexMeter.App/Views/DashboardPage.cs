@@ -37,7 +37,7 @@ public sealed class DashboardPage : PageBase
     private DispatcherTimer? ticker;
     private string? transientMessage;
     private InfoBarSeverity transientSeverity;
-    private (ProviderHistory History, IReadOnlyList<string> Overrides, bool Clock, HistoryCard Card)? historyCard;
+    private (ProviderHistory History, IReadOnlyList<string> Overrides, bool Clock, AppTheme Theme, HistoryCard Card)? historyCard;
 
     public DashboardPage(UsageProvider provider) : base(1240)
     {
@@ -46,14 +46,12 @@ public sealed class DashboardPage : PageBase
 
         planBadge = new Border
         {
-            Background = Cards.Brush("AccentFillColorDefaultBrush"),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(8, 1, 8, 3),
             VerticalAlignment = VerticalAlignment.Center,
             Visibility = Visibility.Collapsed,
             Child = planText,
         };
-        planText.Foreground = Cards.Brush("TextOnAccentFillColorPrimaryBrush");
         planText.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         AutomationProperties.SetAutomationId(planText, "PlanBadge");
         AutomationProperties.SetAutomationId(title, "DashboardTitle");
@@ -160,6 +158,8 @@ public sealed class DashboardPage : PageBase
         title.Text = provider.DisplayName;
         var plan = usage is null ? "" : provider == UsageProvider.Codex ? UsageFormat.PlanLabel(usage.PlanType) : usage.PlanType;
         planText.Text = plan;
+        planBadge.Background = Cards.Brush("AccentFillColorDefaultBrush");
+        planText.Foreground = Cards.Brush("TextOnAccentFillColorPrimaryBrush");
         planBadge.Visibility = plan.Length > 0 && entry.SignedIn ? Visibility.Visible : Visibility.Collapsed;
         refreshing.IsActive = entry.Refreshing;
         refreshButton.IsEnabled = entry.SignedIn && !entry.Refreshing;
@@ -233,7 +233,7 @@ public sealed class DashboardPage : PageBase
     private HistoryCard History(ProviderEntry entry, AppSettings settings)
     {
         if (historyCard is { } cached && ReferenceEquals(cached.History, entry.History) && ReferenceEquals(cached.Overrides, settings.HistoryOverrides)
-            && cached.Clock == settings.Use24HourClock)
+            && cached.Clock == settings.Use24HourClock && cached.Theme == settings.Theme)
         {
             if (cached.Card.Root.Parent is Panel parent) parent.Children.Remove(cached.Card.Root);
             return cached.Card;
@@ -241,7 +241,7 @@ public sealed class DashboardPage : PageBase
         var card = new HistoryCard(entry.History, settings.HistoryOverrides, settings.Use24HourClock,
             (key, on) => State.Settings.Update(s => s with { HistoryOverrides = HistorySections.SetVisible(s.HistoryOverrides, key, on) }),
             () => _ = ConfirmClearHistoryAsync());
-        historyCard = (entry.History, settings.HistoryOverrides, settings.Use24HourClock, card);
+        historyCard = (entry.History, settings.HistoryOverrides, settings.Use24HourClock, settings.Theme, card);
         return card;
     }
 
