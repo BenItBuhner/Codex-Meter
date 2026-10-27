@@ -1,5 +1,6 @@
 using CodexMeter.App.Assets;
 using CodexMeter.Core.Formatting;
+using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
 using CodexMeter.Linux.Services;
@@ -15,6 +16,8 @@ public sealed class SettingsPage : IPage
     private readonly Adw.PreferencesGroup providersGroup;
     private readonly List<Gtk.Widget> providerRows = [];
     private readonly Action onProvidersChanged;
+    private readonly Action<UsageProvider> onProviderChanged;
+    private bool providersDirty;
     private readonly Adw.SwitchRow closeToTray;
     private bool loading;
 
@@ -37,7 +40,7 @@ public sealed class SettingsPage : IPage
             ["Follow System", "Light", "Dark"], (uint)s.Theme, i => state.Settings.Update(x => x with { Theme = (AppTheme)i }), "ThemeRow"));
 
         // Providers
-        providersGroup = Group("Providers in the sidebar", "Choose which services get a page and the order they appear in.");
+        providersGroup = Group("Sidebar", "Choose which connected services get a page, and their order.");
         BuildProviders();
 
         // Dashboard
@@ -50,11 +53,75 @@ public sealed class SettingsPage : IPage
         dashboard.Add(Switch("24-hour clock", null, s.Use24HourClock, on => state.Settings.Update(x => x with { Use24HourClock = on })));
         dashboard.Add(Switch("Pace estimates", "Warn when a window would run out before it resets at your current pace.", s.ShowPace,
             on => state.Settings.Update(x => x with { ShowPace = on })));
+        var cards = Adw.ActionRow.New();
+        cards.SetTitle("Cards on each dashboard");
+        cards.SetSubtitle("Use Edit Dashboard in a service's header bar to hide or reorder its cards.");
+        cards.AddPrefix(Gtk.Image.NewFromIconName("document-edit-symbolic"));
+        dashboard.Add(cards);
+
+        // Usage history
+        var historyGroup = Group("Usage history");
+        var highlights = Adw.ExpanderRow.New();
+        highlights.SetTitle("Chart highlights");
+        highlights.SetSubtitle("What appears under the usage history chart.");
+        highlights.SetName("HistoryHighlights");
+        foreach (var key in HistorySections.All)
+        {
+            highlights.AddRow(Switch(HistorySections.Label(key), null, HistorySections.IsVisible(s.HistoryOverrides, key),
+                on => state.Settings.Update(x => x with { HistoryOverrides = HistorySections.SetVisible(x.HistoryOverrides, key, on) }),
+                "Highlight_" + key));
+        }
+        historyGroup.Add(highlights);
+        var recorded = Adw.ActionRow.New();
+        recorded.SetTitle("Recorded history");
+        recorded.SetSubtitle("Saved on this computer each time usage refreshes, and cleared when you sign out.");
+        var clear = Gtk.Button.NewWithLabel("Clear All…");
+        clear.SetValign(Gtk.Align.Center);
+        clear.SetName("ClearAllHistory");
+        clear.OnClicked += (_, _) =>
+        {
+            var confirm = Adw.AlertDialog.New("Clear all usage history?",
+                "Every chart starts over from the next refresh. Accounts and current usage aren't affected.");
+            confirm.AddResponse("cancel", "_Cancel");
+            confirm.AddResponse("clear", "_Clear History");
+            confirm.SetResponseAppearance("clear", Adw.ResponseAppearance.Destructive);
+            confirm.SetDefaultResponse("cancel");
+            confirm.SetCloseResponse("cancel");
+            confirm.OnResponse += async (_, args) =>
+            {
+                if (args.Response == "clear") await state.ClearHistoryAsync();
+            };
+            confirm.Present(window.Window);
+        };
+        recorded.AddSuffix(clear);
+        historyGroup.Add(recorded);
+
+        // Codex reset credits
+        if (state.Supports(UsageProvider.Codex))
+        {
+            var resets = Group("Codex reset credits", "Spend banked resets automatically so they don't go to waste.");
+            var leads = CreditExpiryAutoApply.LeadMinuteOptions;
+            var expiring = Expander("Use resets before they expire", "Spend a banked reset shortly before it would expire unused.",
+                s.AutoUseExpiringResets, on => state.Settings.Update(x => x with { AutoUseExpiringResets = on }), "AutoUseExpiringSwitch");
+            expiring.AddRow(Combo("How early", null, leads.Select(CreditExpiryAutoApply.LeadLabel).ToArray(),
+                (uint)Math.Max(0, leads.ToList().IndexOf(CreditExpiryAutoApply.NormalizedLeadMinutes(s.AutoUseLeadMinutes))),
+                i => state.Settings.Update(x => x with { AutoUseLeadMinutes = leads[i] }), "AutoUseLeadRow"));
+            resets.Add(expiring);
+            var thresholds = LowUsageAutoUse.ThresholdOptions;
+            var low = Expander("Use a reset when running low", "Spend a banked reset when a limit is nearly used up, unless it resets soon anyway.",
+                s.AutoUseWhenLow, on => state.Settings.Update(x => x with { AutoUseWhenLow = on }), "AutoUseLowSwitch");
+            low.AddRow(Combo("Watch", null, ["5-hour or weekly", "Weekly", "5-hour"], (uint)s.AutoUseMetric,
+                i => state.Settings.Update(x => x with { AutoUseMetric = (LowUsageAutoUseMetric)i }), "AutoUseMetricRow"));
+            low.AddRow(Combo("When it falls to", null, thresholds.Select(t => $"{t}% left").ToArray(),
+                (uint)Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(s.AutoUseThreshold))),
+                i => state.Settings.Update(x => x with { AutoUseThreshold = thresholds[i] }), "AutoUseThresholdRow"));
+            resets.Add(low);
+        }
 
         // Updates and alerts
         var updates = Group("Updates and alerts");
         updates.Add(Combo("Check usage every",
-            "While Codex Meter runs. Claude Code is checked at most every 30 minutes because Anthropic limits polling.",
+            "While Codex Meter runs. Some services allow fewer checks.",
             ["5 minutes", "15 minutes", "30 minutes", "1 hour"],
             (uint)Math.Max(0, Array.IndexOf(AppSettings.RefreshChoices, s.RefreshMinutes)),
             i => state.Settings.Update(x => x with { RefreshMinutes = AppSettings.RefreshChoices[i] })));
@@ -122,8 +189,10 @@ public sealed class SettingsPage : IPage
         about.Add(source);
 
         scroller = AccountsPage.FindScroller(preferences) ?? Gtk.ScrolledWindow.New();
-        onProvidersChanged = BuildProviders;
+        onProvidersChanged = QueueProviders;
+        onProviderChanged = _ => QueueProviders();
         state.ProvidersChanged += onProvidersChanged;
+        state.ProviderChanged += onProviderChanged;
         loading = false;
     }
 
@@ -133,7 +202,24 @@ public sealed class SettingsPage : IPage
     public Adw.NavigationPage Page { get; }
     public Gtk.ScrolledWindow Scroller => scroller;
 
-    public void Detach() => state.ProvidersChanged -= onProvidersChanged;
+    public void Detach()
+    {
+        state.ProvidersChanged -= onProvidersChanged;
+        state.ProviderChanged -= onProviderChanged;
+    }
+
+    /// <summary>Rebuilds once after a burst of changes, not inside the switch that caused them.</summary>
+    private void QueueProviders()
+    {
+        if (providersDirty) return;
+        providersDirty = true;
+        GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
+        {
+            providersDirty = false;
+            BuildProviders();
+            return false;
+        });
+    }
 
     public static string VersionText()
     {
@@ -172,6 +258,24 @@ public sealed class SettingsPage : IPage
         return row;
     }
 
+    /// <summary>An expander whose switch turns the feature on; its options sit inside.</summary>
+    private Adw.ExpanderRow Expander(string title, string subtitle, bool active, Action<bool> changed, string name)
+    {
+        var row = Adw.ExpanderRow.New();
+        row.SetTitle(title);
+        row.SetSubtitle(subtitle);
+        row.SetShowEnableSwitch(true);
+        row.SetEnableExpansion(active);
+        row.SetExpanded(active);
+        row.SetName(name);
+        row.OnNotify += (_, args) =>
+        {
+            if (loading || args.Pspec.GetName() != "enable-expansion") return;
+            changed(row.GetEnableExpansion());
+        };
+        return row;
+    }
+
     private Adw.SwitchRow Switch(string title, string? subtitle, bool active, Action<bool> changed, string? name = null)
     {
         var row = Adw.SwitchRow.New();
@@ -192,7 +296,7 @@ public sealed class SettingsPage : IPage
         foreach (var row in providerRows) providersGroup.Remove(row);
         providerRows.Clear();
         var enabled = state.EnabledProviders;
-        var order = UsageProvider.OrderFromIds(state.Settings.Current.ProviderOrder).Where(p => p.IsBuiltIn).ToList();
+        var order = state.SidebarCandidates;
         for (var index = 0; index < order.Count; index++)
         {
             var provider = order[index];

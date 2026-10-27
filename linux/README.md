@@ -10,17 +10,20 @@ KDE Plasma, Cinnamon, Xfce and other desktops.
 
 ## What it does
 
-- **A dashboard per provider**: Codex, Claude Code and Cursor, each with its own page in the sidebar,
-  showing the same meters as the other apps: 5-hour, weekly and monthly windows, Claude's per-model
-  weekly limits and extra usage, Cursor's included usage, model pools and on-demand spend. Each meter
-  has a ring, the reset time (countdown, date or both) and an optional pace estimate.
-- **Codex banked resets and credits**: see how many resets you have and when they expire, and use one
-  (with a confirmation).
-- **Accounts**: sign in to each provider in your browser (OAuth + PKCE with a localhost callback for
-  Codex and Claude Code, the editor's browser login for Cursor) and sign out again.
-- **Settings**: style, which providers appear and their order, used vs. remaining, reset format,
-  24-hour clock, pace, refresh interval, reset and low-allowance notifications, tray icon, keep
-  running when closed, start when you log in.
+- **A dashboard per service**: 24 services, the same list as the phone apps (Codex, Claude Code,
+  Cursor, Copilot, Kimi, Z.ai, OpenRouter and others), each with its own page in the sidebar. Meters
+  show 5-hour, weekly and monthly windows, per-model limits, included usage and spend, each with a
+  ring, the reset time (countdown, date or both) and an optional pace estimate.
+- **Usage history**: a chart of the current window against your typical path, with pace vs. typical,
+  projected run-out, average window, peak burn rate and previous windows.
+- **Edit dashboard**: hide cards and change their order, per service.
+- **Codex reset credits**: see how many resets you have and when they expire, use one, or let the app
+  use them automatically before they expire or when a limit runs low.
+- **Accounts**: Add Account lists every service with search. Sign-in follows each service: browser
+  login, a code to approve on the service's site, a token to paste back, or an API key.
+- **Settings**: style, which services appear and their order, used vs. remaining, reset format,
+  24-hour clock, pace, chart highlights, reset auto-use, refresh interval, reset and low-allowance
+  notifications, tray icon, keep running when closed, start when you log in.
 - **Tray icon** (StatusNotifierItem, so KDE, GNOME with the AppIndicator extension, Cinnamon, Xfce and
   others): shows your remaining percentage (turning amber, then red), a tooltip with every provider,
   and a menu to open, refresh or quit. Desktop notifications announce resets and low allowance.

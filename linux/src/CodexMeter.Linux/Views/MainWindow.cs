@@ -13,6 +13,7 @@ namespace CodexMeter.Linux.Views;
 /// </summary>
 public sealed class MainWindow
 {
+    private const string AddTag = "add";
     private readonly AppState state;
     private readonly Adw.NavigationSplitView split;
     private readonly Gtk.ListBox providerList;
@@ -103,7 +104,7 @@ public sealed class MainWindow
         BuildProviderRows();
         state.ProvidersChanged += OnProvidersChanged;
         state.ProviderChanged += provider => UpdateRowValue(provider);
-        state.Settings.Changed += (_, _) => { foreach (var p in UsageProvider.BuiltIns) UpdateRowValue(p); };
+        state.Settings.Changed += (_, _) => { foreach (var p in state.EnabledProviders) UpdateRowValue(p); };
 
         Window.OnCloseRequest += (_, _) =>
         {
@@ -148,6 +149,7 @@ public sealed class MainWindow
         if (ids == shownProviders) return;
         BuildProviderRows();
         var tag = CurrentTag;
+        if (tag == "welcome" && state.SignedIn.Count == 0) return;
         if (tag is "accounts" or "settings" || state.EnabledProviders.Any(p => p.Id == tag)) Select(tag);
         else Navigate(state.EnabledProviders.FirstOrDefault()?.Id ?? "accounts");
     }
@@ -182,6 +184,8 @@ public sealed class MainWindow
 
     private void BuildAppRows()
     {
+        var add = Gtk.Image.NewFromIconName("list-add-symbolic");
+        appList.Append(Row(AddTag, add, "Add Account", false, out _));
         var accounts = Gtk.Image.NewFromIconName("system-users-symbolic");
         appList.Append(Row("accounts", accounts, "Accounts", false, out _));
         var settings = Gtk.Image.NewFromIconName("emblem-system-symbolic");
@@ -195,7 +199,7 @@ public sealed class MainWindow
         try
         {
             while (providerList.GetFirstChild() is { } child) providerList.Remove(child);
-            foreach (var provider in UsageProvider.BuiltIns) rows.Remove(provider.Id);
+            foreach (var tag in rows.Keys.Where(t => t is not (AddTag or "accounts" or "settings")).ToList()) rows.Remove(tag);
             shownProviders = string.Join(",", state.EnabledProviders.Select(p => p.Id).Concat(state.SignedIn.Select(p => "+" + p.Id)));
             foreach (var provider in state.EnabledProviders)
             {
@@ -223,11 +227,18 @@ public sealed class MainWindow
         label.AddCssClass(Cards.LevelClass(Cards.Level(window.RemainingPercent)));
     }
 
-    private void OnRowActivated(Gtk.ListBoxRow row)
+    private async void OnRowActivated(Gtk.ListBoxRow row)
     {
         if (selecting) return;
         var tag = rows.FirstOrDefault(pair => pair.Value.Row == row).Key;
         if (tag is null) return;
+        if (tag == AddTag)
+        {
+            // Add Account is an action, not a page: put the selection back and open the picker.
+            Select(CurrentTag);
+            if (await AddAccountAsync() is { } error) ShowToast(error);
+            return;
+        }
         Navigate(tag);
         split.SetShowContent(true);
     }
@@ -247,10 +258,24 @@ public sealed class MainWindow
         finally { selecting = false; }
     }
 
-    /// <summary>Opens a provider dashboard ("codex", "claude_code", "cursor"), "accounts" or "settings".</summary>
+    /// <summary>Picks a service, runs its sign-in, and opens its page once connected. Returns an error to show.</summary>
+    public async Task<string?> AddAccountAsync(Action<Adw.Dialog>? opened = null)
+    {
+        var provider = await AddAccountDialog.PickAsync(state, Window, opened);
+        if (provider is null) return null;
+        var error = await SignInDialog.RunAsync(state, provider, Window);
+        if (error is null && state[provider].SignedIn) Navigate(provider.Id);
+        return error;
+    }
+
+    /// <summary>Opens Edit dashboard for the page on screen.</summary>
+    public Adw.Dialog? EditDashboard() =>
+        current is DashboardPage page ? EditDashboardDialog.Present(state, page.Provider, Window) : null;
+
+    /// <summary>Opens a service dashboard ("codex", "cursor", ...), "accounts", "settings" or "welcome".</summary>
     public void Navigate(string tag)
     {
-        if (tag is not ("accounts" or "settings") && state.EnabledProviders.All(p => p.Id != tag))
+        if (tag is not ("accounts" or "settings" or "welcome") && state.EnabledProviders.All(p => p.Id != tag))
         {
             if (UsageProvider.Find(tag) is null) return;
             // A provider that isn't in the sidebar still opens (e.g. from --page), like the phone apps.
@@ -262,18 +287,24 @@ public sealed class MainWindow
         {
             "accounts" => new AccountsPage(state, this),
             "settings" => new SettingsPage(state, this),
+            "welcome" => new WelcomePage(state, this),
             _ => new DashboardPage(state, this, UsageProvider.Resolve(tag)),
         };
         split.SetContent(current.Page);
-        if (state.Settings.Current.SelectedProvider != tag)
+        if (tag != "welcome" && state.Settings.Current.SelectedProvider != tag)
             state.Settings.Update(s => s with { SelectedProvider = tag });
     }
 
     /// <summary>Shows the saved page (or the first enabled provider).</summary>
     public void ShowInitialPage(string? requested)
     {
+        if (requested is null && !state.Settings.Current.OnboardingDone && state.SignedIn.Count == 0)
+        {
+            Navigate("welcome");
+            return;
+        }
         var target = requested ?? state.Settings.Current.SelectedProvider;
-        if (target is "accounts" or "settings")
+        if (target is "accounts" or "settings" or "welcome")
         {
             Navigate(target);
             return;

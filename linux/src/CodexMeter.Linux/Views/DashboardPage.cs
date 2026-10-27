@@ -17,6 +17,8 @@ public sealed class DashboardPage : IPage
     private readonly PageScaffold scaffold;
     private readonly Gtk.Button refreshButton;
     private readonly Gtk.Spinner spinner;
+    private readonly Gtk.Button editButton;
+    private (ProviderHistory History, IReadOnlyList<string> Overrides, bool Clock, HistoryCard Card)? historyCard;
     private readonly uint ticker;
     private readonly Action<UsageProvider> onProviderChanged;
     private readonly EventHandler<AppSettings> onSettingsChanged;
@@ -40,6 +42,11 @@ public sealed class DashboardPage : IPage
             await state.RefreshAsync(provider, force: true);
         };
         spinner = Gtk.Spinner.New();
+        editButton = Gtk.Button.NewFromIconName("document-edit-symbolic");
+        editButton.SetTooltipText("Edit Dashboard");
+        editButton.SetName("EditDashboardButton");
+        editButton.OnClicked += (_, _) => EditDashboardDialog.Present(state, provider, window.Window);
+        scaffold.Header.PackEnd(editButton);
         scaffold.Header.PackEnd(refreshButton);
         scaffold.Header.PackEnd(spinner);
 
@@ -59,6 +66,7 @@ public sealed class DashboardPage : IPage
     }
 
     public string Tag => provider.Id;
+    public UsageProvider Provider => provider;
     public Adw.NavigationPage Page => scaffold.Page;
     public Gtk.ScrolledWindow Scroller => scaffold.Scroller;
 
@@ -91,6 +99,7 @@ public sealed class DashboardPage : IPage
         spinner.SetVisible(entry.Refreshing);
         refreshButton.SetSensitive(entry.SignedIn && !entry.Refreshing);
         refreshButton.SetVisible(entry.SignedIn);
+        editButton.SetVisible(entry.SignedIn);
 
         // Header: mark, name, plan badge, then account and freshness.
         var hero = Gtk.Box.New(Gtk.Orientation.Horizontal, 14);
@@ -136,72 +145,117 @@ public sealed class DashboardPage : IPage
         if (usage is null) return;
 
         var options = new Cards.MeterOptions(settings.DisplayMode, settings.ResetDisplay, settings.Use24HourClock, settings.ShowPace);
-        var meters = Gtk.FlowBox.New();
-        meters.SetSelectionMode(Gtk.SelectionMode.None);
-        meters.SetHomogeneous(true);
-        meters.SetMinChildrenPerLine(1);
-        meters.SetMaxChildrenPerLine(2);
-        meters.SetColumnSpacing(12);
-        meters.SetRowSpacing(12);
-        meters.SetName("MeterCards");
-        void AddMeter(string text, UsageWindow? usageWindow, string id, bool reached = false)
+        // Cards in the order chosen in Edit dashboard. Meter-sized cards flow two to a row; the
+        // history chart takes the full width.
+        Gtk.FlowBox? flow = null;
+        var flows = 0;
+        void Add(Gtk.Widget card, bool wide = false)
         {
-            if (usageWindow is null) return;
-            var card = Cards.Meter(text, Cards.Icon(usageWindow.WindowSeconds), usageWindow, usage.FetchedAt, options, reached, id);
+            if (wide)
+            {
+                flow = null;
+                // Line up with the flow boxes' cards, which sit inside 3 px of child padding.
+                card.SetMarginTop(4);
+                card.SetMarginStart(3);
+                card.SetMarginEnd(3);
+                body.Append(card);
+                return;
+            }
+            if (flow is null)
+            {
+                flow = Gtk.FlowBox.New();
+                flow.SetSelectionMode(Gtk.SelectionMode.None);
+                flow.SetHomogeneous(true);
+                flow.SetMinChildrenPerLine(1);
+                flow.SetMaxChildrenPerLine(2);
+                flow.SetColumnSpacing(12);
+                flow.SetRowSpacing(12);
+                flow.SetName(flows++ == 0 ? "MeterCards" : "MeterCards" + flows);
+                body.Append(flow);
+            }
             card.SetSizeRequest(280, -1);
             var child = Gtk.FlowBoxChild.New();
             child.SetChild(card);
             child.SetFocusable(false);
-            meters.Append(child);
+            flow.Append(child);
+        }
+        void AddMeter(string text, UsageWindow? usageWindow, string id, bool reached = false)
+        {
+            if (usageWindow is null) return;
+            Add(Cards.Meter(text, Cards.Icon(usageWindow.WindowSeconds), usageWindow, usage.FetchedAt, options, reached, id));
         }
 
-        AddMeter("5-hour", usage.FiveHour, "Meter_fiveHour");
-        AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
-        AddMeter(provider == UsageProvider.Cursor ? "Included usage · monthly" : "Monthly", usage.Monthly, "Meter_monthly");
-        foreach (var limit in usage.AdditionalLimits)
+        foreach (var key in state.VisibleSections(provider))
         {
-            var both = limit.Primary is not null && limit.Secondary is not null;
-            AddMeter(both ? $"{limit.DisplayName} · {UsageFormat.WindowName(limit.Primary!.WindowSeconds)}" : limit.DisplayName,
-                limit.Primary, "Meter_" + limit.Id + "_primary", limit.LimitReached);
-            AddMeter(both ? $"{limit.DisplayName} · {UsageFormat.WindowName(limit.Secondary!.WindowSeconds)}" : limit.DisplayName,
-                limit.Secondary, "Meter_" + limit.Id + "_secondary", limit.LimitReached);
-        }
-        if (usage.SpendControlLimit is { } spend)
-        {
-            var spendWindow = new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt);
-            AddMeter("Monthly credit limit", spendWindow, "Meter_spendControl", usage.SpendControl!.Reached);
-        }
-        body.Append(meters);
-
-        var extras = new List<Gtk.Widget>();
-        if (provider == UsageProvider.Codex)
-        {
-            if (entry.Cache?.Credits is not null || usage.ResetCreditsAvailable is not null)
-                extras.Add(ResetCreditsCard(entry.Cache?.Credits, usage.ResetCreditsAvailable ?? 0));
-            if (usage.UsageCredits is { ShouldDisplay: true } purchased)
-                extras.Add(PurchasedCreditsCard(purchased));
-        }
-        if (extras.Count > 0)
-        {
-            var header = Cards.Label("Credits", "heading");
-            header.SetMarginTop(12);
-            body.Append(header);
-            var flow = Gtk.FlowBox.New();
-            flow.SetSelectionMode(Gtk.SelectionMode.None);
-            flow.SetHomogeneous(true);
-            flow.SetMinChildrenPerLine(1);
-            flow.SetMaxChildrenPerLine(2);
-            flow.SetColumnSpacing(12);
-            flow.SetRowSpacing(12);
-            foreach (var extra in extras)
+            switch (key)
             {
-                var child = Gtk.FlowBoxChild.New();
-                child.SetChild(extra);
-                child.SetFocusable(false);
-                flow.Append(child);
+                case DashboardSections.FiveHour:
+                    AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour");
+                    break;
+                case DashboardSections.Weekly:
+                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
+                    break;
+                case DashboardSections.Monthly:
+                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · monthly" : "Monthly", usage.Monthly, "Meter_monthly");
+                    break;
+                case DashboardSections.SpendControl when usage.SpendControlLimit is { } spend:
+                    AddMeter("Monthly credit limit", new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt),
+                        "Meter_spendControl", usage.SpendControl!.Reached);
+                    break;
+                case DashboardSections.UsageCredits when usage.UsageCredits is { } credits:
+                    Add(PurchasedCreditsCard(credits));
+                    break;
+                case DashboardSections.UsageHistory:
+                    Add(History(entry, settings).Root, wide: true);
+                    break;
+                case DashboardSections.ResetCredits:
+                    Add(ResetCreditsCard(entry.Cache?.Credits, usage.ResetCreditsAvailable ?? 0));
+                    break;
+                default:
+                    if (!DashboardSections.IsLimitKey(key)) break;
+                    foreach (var limit in usage.AdditionalLimits.Where(l => DashboardSections.LimitKey(l) == key))
+                    {
+                        var both = limit.Primary is not null && limit.Secondary is not null;
+                        AddMeter(both ? $"{limit.DisplayName} · {UsageFormat.WindowName(limit.Primary!.WindowSeconds)}" : limit.DisplayName,
+                            limit.Primary, "Meter_" + limit.Id + "_primary", limit.LimitReached);
+                        AddMeter(both ? $"{limit.DisplayName} · {UsageFormat.WindowName(limit.Secondary!.WindowSeconds)}" : limit.DisplayName,
+                            limit.Secondary, "Meter_" + limit.Id + "_secondary", limit.LimitReached);
+                    }
+                    break;
             }
-            body.Append(flow);
         }
+    }
+
+    /// <summary>The chart keeps its selected window while nothing it shows has changed.</summary>
+    private HistoryCard History(ProviderEntry entry, AppSettings settings)
+    {
+        if (historyCard is { } cached && ReferenceEquals(cached.History, entry.History)
+            && ReferenceEquals(cached.Overrides, settings.HistoryOverrides) && cached.Clock == settings.Use24HourClock)
+        {
+            (cached.Card.Root.GetParent() as Gtk.Box)?.Remove(cached.Card.Root);
+            return cached.Card;
+        }
+        var card = new HistoryCard(entry.History, settings.HistoryOverrides, settings.Use24HourClock,
+            (key, on) => state.Settings.Update(s => s with { HistoryOverrides = HistorySections.SetVisible(s.HistoryOverrides, key, on) }),
+            ConfirmClearHistory);
+        historyCard = (entry.History, settings.HistoryOverrides, settings.Use24HourClock, card);
+        return card;
+    }
+
+    private void ConfirmClearHistory()
+    {
+        var confirm = Adw.AlertDialog.New($"Clear {provider.DisplayName} history?",
+            "The chart starts over from the next refresh. Your current usage isn't affected.");
+        confirm.AddResponse("cancel", "_Cancel");
+        confirm.AddResponse("clear", "_Clear History");
+        confirm.SetResponseAppearance("clear", Adw.ResponseAppearance.Destructive);
+        confirm.SetDefaultResponse("cancel");
+        confirm.SetCloseResponse("cancel");
+        confirm.OnResponse += async (_, args) =>
+        {
+            if (args.Response == "clear") await state.ClearHistoryAsync(provider);
+        };
+        confirm.Present(window.Window);
     }
 
     private Gtk.Widget? StatusNotice(ProviderEntry entry)
@@ -243,7 +297,7 @@ public sealed class DashboardPage : IPage
         title.SetJustify(Gtk.Justification.Center);
         box.Append(title);
         var description = Gtk.Label.New(
-            $"See your {provider.DisplayName} limits here: {provider.Meters.ToLowerInvariant()}. Codex Meter reads the same usage {provider.VendorName} shows in {provider.DisplayName}.");
+            $"See your {provider.DisplayName} limits here: {provider.Meters.ToLowerInvariant()}. Codex Meter reads the same usage {provider.VendorName} shows you.");
         description.SetWrap(true);
         description.SetJustify(Gtk.Justification.Center);
         description.SetMaxWidthChars(52);
@@ -261,7 +315,7 @@ public sealed class DashboardPage : IPage
             if (error is not null) ShowMessage(error, "error");
         };
         box.Append(button);
-        var hint = Gtk.Label.New("Sign-in opens in your default browser.");
+        var hint = Gtk.Label.New(provider.SignInSummary);
         hint.AddCssClass("caption");
         hint.AddCssClass("dim-label");
         box.Append(hint);
@@ -275,7 +329,7 @@ public sealed class DashboardPage : IPage
         var panel = Gtk.Box.New(Gtk.Orientation.Vertical, 6);
         var header = Gtk.Box.New(Gtk.Orientation.Horizontal, 8);
         header.Append(Gtk.Image.NewFromIconName("emblem-synchronizing-symbolic"));
-        header.Append(Cards.Label("Banked resets", "heading"));
+        header.Append(Cards.Label("Reset credits", "heading"));
         panel.Append(header);
         var countText = Cards.Label(count == 1 ? "1 reset available" : $"{count} resets available", "title-3");
         countText.SetName("ResetCreditCount");
@@ -288,6 +342,16 @@ public sealed class DashboardPage : IPage
                 ? $"expires {UsageFormat.Absolute(at, now, state.Settings.Current.Use24HourClock)} ({UsageFormat.Relative(at, now)})"
                 : "no expiry";
             panel.Append(Cards.Label($"• {(credit.Title.Length > 0 ? credit.Title : "Reset")}, {expiry}", "caption", "dim-label"));
+        }
+        var settings = state.Settings.Current;
+        if (settings.AutoUseExpiringResets || settings.AutoUseWhenLow)
+        {
+            var rules = new List<string>();
+            if (settings.AutoUseExpiringResets) rules.Add($"before one expires ({CreditExpiryAutoApply.LeadLabel(settings.AutoUseLeadMinutes)})");
+            if (settings.AutoUseWhenLow) rules.Add($"when a limit falls to {settings.AutoUseThreshold}% left");
+            var auto = Cards.Label("Auto-use is on: " + string.Join(" and ", rules) + ".", "caption", "accent");
+            auto.SetName("AutoUseStatus");
+            panel.Append(auto);
         }
         var button = Gtk.Button.NewWithLabel("Use a Reset");
         button.AddCssClass("suggested-action");
@@ -336,7 +400,7 @@ public sealed class DashboardPage : IPage
         var panel = Gtk.Box.New(Gtk.Orientation.Vertical, 6);
         var header = Gtk.Box.New(Gtk.Orientation.Horizontal, 8);
         header.Append(Gtk.Image.NewFromIconName("starred-symbolic"));
-        header.Append(Cards.Label("Usage credits", "heading"));
+        header.Append(Cards.Label("Credits", "heading"));
         panel.Append(header);
         var amount = credits.Unlimited ? "Unlimited"
             : credits.NumericBalance is { } value ? UsageFormat.CreditAmount(value) + " credits"
