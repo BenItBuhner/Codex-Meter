@@ -8,13 +8,14 @@ iPhone app (Codex, Claude Code, and Cursor) in a Mac shape:
   meters, reset countdowns, Refresh All (⌘R), sign-in shortcuts, and Open Codex Meter.
   Settings → Menu Bar picks the provider it follows, hides the percentage, or removes
   the item.
-- **Main window.** A sidebar of providers (each with its headroom ring) and the
-  selected provider's dashboard. The dashboards, Edit dashboard, usage history, reset
+- **Main window.** A sidebar of providers (each with its headroom ring), a + button at
+  its foot for Add Account (also File → Add Account…, ⌘N), and the selected provider's
+  dashboard. The dashboards, Edit dashboard, usage history, reset
   credits, sign-in, and first-run setup are the iOS views, unchanged.
 - **Settings window (⌘,).** General is the iOS settings page as a grouped Mac form
   (accounts, providers, dashboard, refresh, reset credits, estimates, notifications,
   data, about). Menu Bar holds the Mac-only options and Open at login.
-- **Usage menu.** Refresh (⌘R), Refresh All Providers (⇧⌘R), switch provider
+- **File and Usage menus.** Add Account… (⌘N); Refresh (⌘R), Refresh All Providers (⇧⌘R), switch provider
   (⌘1–⌘9), Use a Reset Credit…, Explore Demo.
 - **Desktop and Notification Center widgets.** The iOS home-screen widget (small,
   medium, large, extra large) with the same configuration options. Lock Screen

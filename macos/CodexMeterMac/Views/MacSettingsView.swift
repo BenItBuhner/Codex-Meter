@@ -89,12 +89,17 @@ struct MacMenuBarSettingsView: View {
     }
 }
 
-/// The Usage menu: refresh, provider switching (⌘1–⌘9), and resets.
+/// File → Add Account… (⌘N) and the Usage menu: refresh, provider switching (⌘1–⌘9), and resets.
 struct MacCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
-        CommandGroup(replacing: .newItem) {}
+        CommandGroup(replacing: .newItem) {
+            Button("Add Account…") {
+                NotificationCenter.default.post(name: .codexMeterAddAccount, object: nil)
+            }
+            .keyboardShortcut("n")
+        }
 
         CommandMenu("Usage") {
             if !MacLaunchOptions.diagnosticDisables("commands") {

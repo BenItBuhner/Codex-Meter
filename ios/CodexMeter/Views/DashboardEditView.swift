@@ -40,8 +40,10 @@ struct DashboardEditView: View {
             } footer: {
                 if provider == .codex {
                     Text("Drag the handles to arrange cards and use the switches to hide cards you do not need. Model-specific limits appear automatically when OpenAI reports them.")
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("Drag the handles to arrange your \(provider.displayName) cards and use the switches to hide cards you do not need. Each provider keeps its own layout.")
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
