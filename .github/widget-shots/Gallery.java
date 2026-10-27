@@ -41,7 +41,11 @@ final class Gallery {
                 + "\"reset_at\":" + (s + 5400) + "},\"secondary_window\":"
                 + "{\"used_percent\":" + (100 - week) + ",\"limit_window_seconds\":604800,"
                 + "\"reset_after_seconds\":200000,\"reset_at\":" + (s + 200000) + "}}}";
-        AppPreferences.saveSnapshot(a, UsageParser.parse(json, now));
+        try {
+            AppPreferences.saveSnapshot(a, UsageParser.parse(json, now));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static final int[][] EDGES = {{63, 39}, {50, 50}, {50, 47}, {20, 70}, {0, 45}, {100, 100}};
