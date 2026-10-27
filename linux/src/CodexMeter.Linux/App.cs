@@ -154,7 +154,7 @@ public sealed class App
         if (options.Demo)
         {
             var context = new ProviderContext(CreateHttpClient(), new MemoryTokenStore(), new ProviderCacheStore(null));
-            var signedOut = options.SignedOutDemo ? UsageProvider.All.Select(p => p.Id) : null;
+            var signedOut = options.SignedOutDemo ? UsageProvider.BuiltIns.Select(p => p.Id) : null;
             var hub = await ProviderHub.DemoAsync(context, signedOut);
             var settings = new SettingsStore(null);
             settings.Update(s => s with { CloseToTray = false });

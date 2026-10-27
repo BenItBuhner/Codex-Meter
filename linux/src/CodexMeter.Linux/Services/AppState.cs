@@ -32,7 +32,7 @@ public sealed class AppState
     {
         Hub = hub;
         Settings = settings;
-        entries = UsageProvider.All.ToDictionary(p => p.Id, p => new ProviderEntry(p));
+        entries = UsageProvider.BuiltIns.ToDictionary(p => p.Id, p => new ProviderEntry(p));
         Settings.Changed += (_, _) => ProvidersChanged?.Invoke();
     }
 
@@ -51,7 +51,7 @@ public sealed class AppState
 
     public ProviderEntry this[UsageProvider provider] => entries[provider.Id];
 
-    public IEnumerable<ProviderEntry> Entries => UsageProvider.All.Select(p => entries[p.Id]);
+    public IEnumerable<ProviderEntry> Entries => UsageProvider.BuiltIns.Select(p => entries[p.Id]);
 
     public IReadOnlyList<UsageProvider> SignedIn => Entries.Where(e => e.SignedIn).Select(e => e.Provider).ToList();
 
@@ -61,7 +61,7 @@ public sealed class AppState
         get
         {
             var settings = Settings.Current;
-            var enabled = UsageProvider.EnabledFromIds(settings.EnabledProviders, SignedIn.ToHashSet());
+            var enabled = UsageProvider.EnabledFromIds(settings.EnabledProviders, SignedIn.ToHashSet()).Where(p => p.IsBuiltIn).ToList();
             return UsageProvider.OrderFromIds(settings.ProviderOrder).Where(enabled.Contains).ToList();
         }
     }
@@ -191,7 +191,7 @@ public sealed class AppState
     {
         Settings.Update(s =>
         {
-            var order = UsageProvider.OrderFromIds(s.ProviderOrder);
+            var order = UsageProvider.OrderFromIds(s.ProviderOrder).Where(p => p.IsBuiltIn).ToList();
             var index = order.IndexOf(provider);
             var target = Math.Clamp(index + delta, 0, order.Count - 1);
             if (index == target) return s;

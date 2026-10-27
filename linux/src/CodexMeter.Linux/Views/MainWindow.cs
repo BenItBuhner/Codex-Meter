@@ -103,7 +103,7 @@ public sealed class MainWindow
         BuildProviderRows();
         state.ProvidersChanged += OnProvidersChanged;
         state.ProviderChanged += provider => UpdateRowValue(provider);
-        state.Settings.Changed += (_, _) => { foreach (var p in UsageProvider.All) UpdateRowValue(p); };
+        state.Settings.Changed += (_, _) => { foreach (var p in UsageProvider.BuiltIns) UpdateRowValue(p); };
 
         Window.OnCloseRequest += (_, _) =>
         {
@@ -195,7 +195,7 @@ public sealed class MainWindow
         try
         {
             while (providerList.GetFirstChild() is { } child) providerList.Remove(child);
-            foreach (var provider in UsageProvider.All) rows.Remove(provider.Id);
+            foreach (var provider in UsageProvider.BuiltIns) rows.Remove(provider.Id);
             shownProviders = string.Join(",", state.EnabledProviders.Select(p => p.Id).Concat(state.SignedIn.Select(p => "+" + p.Id)));
             foreach (var provider in state.EnabledProviders)
             {

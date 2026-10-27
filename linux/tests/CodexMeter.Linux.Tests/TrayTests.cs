@@ -15,7 +15,7 @@ public class TrayTests
         var hub = await ProviderHub.DemoAsync(context, signedOut);
         var state = new AppState(hub, new SettingsStore(null));
         await state.InitializeAsync();
-        foreach (var provider in UsageProvider.All) await state.RefreshAsync(provider, force: true);
+        foreach (var provider in UsageProvider.BuiltIns) await state.RefreshAsync(provider, force: true);
         return state;
     }
 
@@ -33,7 +33,7 @@ public class TrayTests
     [Fact]
     public async Task SummarySkipsSignedOutProviders()
     {
-        var state = await DemoStateAsync(UsageProvider.All.Select(p => p.Id));
+        var state = await DemoStateAsync(UsageProvider.BuiltIns.Select(p => p.Id));
         Assert.Empty(TrayIcon.SummaryLines(state));
     }
 

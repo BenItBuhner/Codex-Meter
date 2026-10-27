@@ -192,7 +192,7 @@ public sealed class SettingsPage : IPage
         foreach (var row in providerRows) providersGroup.Remove(row);
         providerRows.Clear();
         var enabled = state.EnabledProviders;
-        var order = UsageProvider.OrderFromIds(state.Settings.Current.ProviderOrder);
+        var order = UsageProvider.OrderFromIds(state.Settings.Current.ProviderOrder).Where(p => p.IsBuiltIn).ToList();
         for (var index = 0; index < order.Count; index++)
         {
             var provider = order[index];
