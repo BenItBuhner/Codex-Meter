@@ -157,6 +157,7 @@ extension DashboardEditView {
         case .codex: model.usage
         case .claudeCode: model.claude.usage
         case .cursor: model.cursor.usage
+        default: model.addedProviders[provider]?.usage
         }
         let available = DashboardSections.providerSections(
             snapshot: usage,

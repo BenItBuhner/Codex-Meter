@@ -180,7 +180,7 @@ final class CursorUsageParserTests: XCTestCase {
     func testProviderEntry() {
         XCTAssertEqual(UsageProvider.resolve("cursor"), .cursor)
         XCTAssertEqual(UsageProvider.cursor.signInLabel, "Sign in with Cursor")
-        XCTAssertEqual(UsageProvider.allCases, [.codex, .claudeCode, .cursor])
+        XCTAssertEqual(Array(UsageProvider.allCases.prefix(3)), [.codex, .claudeCode, .cursor])
     }
 
     func testEnabledProviderTabs() {
@@ -191,7 +191,7 @@ final class CursorUsageParserTests: XCTestCase {
         XCTAssertEqual(UsageProvider.migrationDefault(signedIn: [.codex]), [.codex])
         XCTAssertEqual(
             UsageProvider.migrationDefault(signedIn: [.cursor, .claudeCode]),
-            UsageProvider.allCases
+            [.codex, .claudeCode, .cursor]
         )
         XCTAssertEqual(UsageProvider.enabled(from: ["cursor", " CODEX "]), [.codex, .cursor])
         XCTAssertEqual(
@@ -202,7 +202,7 @@ final class CursorUsageParserTests: XCTestCase {
         XCTAssertEqual(UsageProvider.chosen([.cursor, .codex]), [.codex, .cursor])
         XCTAssertEqual(UsageProvider.chosen([]), [])
 
-        let two = UsageProvider.enabled(UsageProvider.allCases, setting: .claudeCode, on: false)
+        let two = UsageProvider.enabled([.codex, .claudeCode, .cursor], setting: .claudeCode, on: false)
         XCTAssertEqual(two, [.codex, .cursor])
         let one = UsageProvider.enabled(
             UsageProvider.enabled(two, setting: .codex, on: false),
@@ -217,7 +217,8 @@ final class CursorUsageParserTests: XCTestCase {
 
         XCTAssertEqual(UsageProvider.order(from: nil), UsageProvider.allCases)
         let custom = UsageProvider.order(from: ["cursor", "bogus", "CURSOR", " codex "])
-        XCTAssertEqual(custom, [.cursor, .codex, .claudeCode])
+        XCTAssertEqual(Array(custom.prefix(4)), [.cursor, .codex, .claudeCode, .copilot])
+        XCTAssertEqual(custom.count, UsageProvider.allCases.count)
         XCTAssertEqual(UsageProvider.inOrder(two, order: custom), [.cursor, .codex])
     }
 

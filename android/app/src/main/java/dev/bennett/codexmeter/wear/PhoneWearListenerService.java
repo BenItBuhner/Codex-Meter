@@ -9,8 +9,12 @@ import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.WearableListenerService;
 import dev.bennett.codexmeter.AppPreferences;
+import dev.bennett.codexmeter.ClaudeUsageApi;
+import dev.bennett.codexmeter.CursorUsageApi;
 import dev.bennett.codexmeter.DiagnosticLog;
 import dev.bennett.codexmeter.NowBarManager;
+import dev.bennett.codexmeter.ProviderUsageApi;
+import dev.bennett.codexmeter.SecureTokenStore;
 import dev.bennett.codexmeter.UsageApi;
 import org.json.JSONObject;
 
@@ -85,6 +89,16 @@ public final class PhoneWearListenerService extends WearableListenerService {
         new Thread(() -> {
             DiagnosticLog.info(app, "wear", "wear_refresh_started");
             PhoneWearSync.pushStatus(app, true, "");
+            // The watch can follow any provider, so a watch refresh covers all of them. These
+            // never throw and skip providers refreshed in the last few minutes.
+            ClaudeUsageApi.refreshInBackgroundIfDue(app, true);
+            CursorUsageApi.refreshInBackgroundIfDue(app, true);
+            ProviderUsageApi.refreshAllInBackgroundIfDue(app, true);
+            PhoneWearSync.pushProviders(app);
+            if (!SecureTokenStore.isSignedIn(app)) {
+                PhoneWearSync.pushStatus(app, false, "");
+                return;
+            }
             try {
                 UsageApi.refreshAndCache(app);
             } catch (Exception exception) {

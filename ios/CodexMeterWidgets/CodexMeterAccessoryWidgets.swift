@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import WidgetKit
 
@@ -7,7 +8,7 @@ private enum AccessoryMetric {
 
     func title(in snapshot: WidgetDisplaySnapshot) -> LocalizedStringKey {
         switch self {
-        case .fiveHour: "5h"
+        case .fiveHour: LocalizedStringKey(snapshot.shortWindowShortTitle)
         case .weekly: LocalizedStringKey(snapshot.longWindowIsMonthly ? "Month" : "Week")
         }
     }
@@ -33,7 +34,7 @@ struct FiveHourAccessoryWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Five-hour allowance")
-        .description("A configurable circular Codex allowance dial.")
+        .description("A configurable circular allowance dial for Codex or another connected provider.")
         .supportedFamilies([.accessoryCircular])
     }
 }
@@ -51,7 +52,7 @@ struct WeeklyAccessoryWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Weekly allowance")
-        .description("A configurable circular Codex allowance dial.")
+        .description("A configurable circular allowance dial for Codex or another connected provider.")
         .supportedFamilies([.accessoryCircular])
     }
 }
@@ -68,7 +69,7 @@ struct DualAllowanceAccessoryWidget: Widget {
             ConfiguredAccessoryUsageView(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
-        .configurationDisplayName("Codex allowances")
+        .configurationDisplayName("Allowances")
         .description("Both allowance windows or one focused metric with locally updating reset timers.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
@@ -175,7 +176,7 @@ private struct DualAccessoryCircularUsageView: View {
 
                 VStack(spacing: -1) {
                     Text("\(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(snapshot.weekly.usedPercent, symbol: false))")
-                    Text("5h \(percentText(snapshot.fiveHour.usedPercent, symbol: false))")
+                    Text("\(snapshot.shortWindowShortTitle) \(percentText(snapshot.fiveHour.usedPercent, symbol: false))")
                         .foregroundStyle(.secondary)
                 }
                 .font(.system(size: 8, weight: .bold, design: .rounded))
@@ -187,7 +188,7 @@ private struct DualAccessoryCircularUsageView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Both allowance windows")
             .accessibilityValue(
-                "\(snapshot.longWindowTitle.lowercased()) \(percentText(snapshot.weekly.usedPercent, symbol: true)) used, 5-hour \(percentText(snapshot.fiveHour.usedPercent, symbol: true)) used"
+                "\(snapshot.longWindowTitle) \(percentText(snapshot.weekly.usedPercent, symbol: true)) used, \(snapshot.shortWindowTitle.lowercased()) \(percentText(snapshot.fiveHour.usedPercent, symbol: true)) used"
             )
         }
     }
@@ -224,7 +225,7 @@ private struct DualAccessoryUsageView: View {
                     if let reset = snapshot.weekly.resetsAt, reset > .now {
                         Text(reset, style: .timer).monospacedDigit()
                     }
-                    Text("· 5h \(percentText(snapshot.fiveHour.usedPercent, symbol: true))")
+                    Text("· \(snapshot.shortWindowShortTitle) \(percentText(snapshot.fiveHour.usedPercent, symbol: true))")
                     if let reset = snapshot.fiveHour.resetsAt, reset > .now {
                         Text(reset, style: .timer).monospacedDigit()
                     }
@@ -247,10 +248,10 @@ private struct DualAccessoryUsageView: View {
             case .both:
                 VStack(alignment: .leading, spacing: 5) {
                     accessoryRow(title: LocalizedStringKey(snapshot.longWindowTitle), window: snapshot.weekly)
-                    accessoryRow(title: "5 hours", window: snapshot.fiveHour)
+                    accessoryRow(title: LocalizedStringKey(snapshot.shortWindowTitle), window: snapshot.fiveHour)
                 }
             case .fiveHour:
-                accessoryRow(title: "5 hours", window: snapshot.fiveHour)
+                accessoryRow(title: LocalizedStringKey(snapshot.shortWindowTitle), window: snapshot.fiveHour)
                     .frame(maxHeight: .infinity, alignment: .center)
             case .weekly:
                 accessoryRow(title: LocalizedStringKey(snapshot.longWindowTitle), window: snapshot.weekly)
@@ -266,7 +267,7 @@ private struct DualAccessoryUsageView: View {
             Image(systemName: "gauge.with.dots.needle.33percent")
             switch metric {
             case .fiveHour:
-                Text("5h \(percentText(window.usedPercent, symbol: true))")
+                Text("\(snapshot.shortWindowShortTitle) \(percentText(window.usedPercent, symbol: true))")
             case .weekly:
                 Text("\(snapshot.longWindowIsMonthly ? "M" : "W") \(percentText(window.usedPercent, symbol: true))")
             }

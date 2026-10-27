@@ -51,6 +51,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WatchMeters.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearProvidersState.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
@@ -89,21 +91,23 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DeviceAuth.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java" \
   "$ROOT/tests/ParserSelfTest.java" \
-  "$ROOT/tests/ProviderParsersSelfTest.java"
+  "$ROOT/tests/ProviderParsersSelfTest.java" \
+  "$ROOT/tests/WatchProvidersSelfTest.java"
 
 java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.WatchProvidersSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.9.0-alpha.9"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME = "2.9.0-alpha.12"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.9.0-alpha.9"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.12"' "$ROOT/app/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.9.0-alpha.9"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.12"' "$ROOT/wear/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.9.0-alpha.9' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.9.0-alpha.9"' "$ROOT/build.sh"
+grep -q 'codex-meter-android/2.9.0-alpha.12' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.9.0-alpha.12"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"

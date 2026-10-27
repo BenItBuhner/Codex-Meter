@@ -18,6 +18,11 @@ public final class AppSessionPreferences {
     private static final String KEY_ENABLED = "enabled";
     private static final String KEY_ADDED = "added";
     private static final String KEY_OFF = "off";
+    private static final String KEY_DISMISSED = "dismissed";
+
+    private static String cachedAddedJson;
+    private static Set<String> cachedOff;
+    private static Map<String, UsageProvider> cachedMapping;
 
     private AppSessionPreferences() {
     }
@@ -86,8 +91,31 @@ public final class AppSessionPreferences {
     }
 
     /** The app-to-provider map the detector uses right now. */
-    public static Map<String, UsageProvider> mapping(Context context) {
-        return AppSessionRules.resolve(getAdded(context), getOff(context));
+    public static synchronized Map<String, UsageProvider> mapping(Context context) {
+        // Called on every app switch, so only rebuild when the stored values changed.
+        SharedPreferences prefs = prefs(context);
+        String addedJson = prefs.getString(KEY_ADDED, null);
+        Set<String> off = prefs.getStringSet(KEY_OFF, null);
+        if (cachedMapping == null || !java.util.Objects.equals(addedJson, cachedAddedJson)
+                || !java.util.Objects.equals(off, cachedOff)) {
+            cachedAddedJson = addedJson;
+            cachedOff = off == null ? null : new HashSet<>(off);
+            cachedMapping = AppSessionRules.resolve(getAdded(context), getOff(context));
+        }
+        return cachedMapping;
+    }
+
+    /** The app whose monitor the user dismissed; it stays hidden until they leave that app. */
+    public static String getDismissed(Context context) {
+        return prefs(context).getString(KEY_DISMISSED, null);
+    }
+
+    public static void setDismissed(Context context, String packageName) {
+        if (packageName == null) {
+            prefs(context).edit().remove(KEY_DISMISSED).apply();
+        } else {
+            prefs(context).edit().putString(KEY_DISMISSED, packageName).apply();
+        }
     }
 
     /** Whether the user turned on Codex Meter's app detection in Accessibility settings. */

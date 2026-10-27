@@ -1876,18 +1876,18 @@ public final class SettingsActivity extends AppCompatActivity {
             String message = "To show your usage while ChatGPT, Claude or another matched app is "
                     + "open, Codex Meter needs to know which app is in front. Android only offers "
                     + "that through an accessibility service.\n\n"
-                    + "Codex Meter app detection only reads the name of the app in front. It "
-                    + "cannot see what is on the screen, never taps or types, and nothing "
-                    + "leaves your phone.\n\n"
+                    + "Android describes this access as being able to view the screen. Codex "
+                    + "Meter only reads the package name of the app in front: no text, no "
+                    + "taps or typing, and nothing leaves your phone.\n\n"
                     + "In Accessibility, open Installed apps → Codex Meter app detection and "
                     + "turn it on. If the switch is greyed out, go back, open App info → ⋮ → "
                     + "Allow restricted settings, then try again.";
             new AlertDialog.Builder(context)
                     .setTitle(allowed ? "App detection is on" : "Allow app detection")
-                    .setMessage(allowed ? "Codex Meter app detection only reads the name of the "
-                            + "app in front. It cannot see what is on the screen, never taps or "
-                            + "types, and nothing leaves your phone. You can turn it off in "
-                            + "Accessibility settings at any time." : message)
+                    .setMessage(allowed ? "Codex Meter app detection only reads the package "
+                            + "name of the app in front: no text, no taps or typing, and nothing "
+                            + "leaves your phone. You can turn it off in Accessibility settings "
+                            + "at any time." : message)
                     .setPositiveButton("Open settings",
                             (dialog, which) -> openAccessibilitySettings())
                     .setNeutralButton("App info", (dialog, which) -> {

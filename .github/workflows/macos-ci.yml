@@ -1,0 +1,171 @@
+name: macOS CI
+
+on:
+  pull_request:
+    branches: [main, alpha]
+    paths:
+      - 'macos/**'
+      - 'ios/CodexMeter/**'
+      - 'ios/CodexMeterCore/**'
+      - 'ios/CodexMeterTests/**'
+      - 'ios/CodexMeterWidgets/**'
+      - '.github/workflows/macos-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # CI has no Apple signing identity: sign ad hoc and drop the sandbox/App Group
+  # entitlements, which need a provisioning profile to launch. Hardened runtime is off so
+  # the ad hoc signed test bundles can load into the app.
+  SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
+
+jobs:
+  mac-app:
+    name: Mac app build, tests, and gallery
+    runs-on: macos-26
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show Xcode version
+        shell: bash
+        run: |
+          xcodebuild -version
+          sw_vers
+          system_profiler SPDisplaysDataType | grep -E 'Resolution|Display Type' || true
+
+      - name: Build app, widgets, and tests (Debug)
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          xcodebuild build-for-testing \
+            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -destination 'platform=macOS' \
+            -derivedDataPath DerivedData \
+            $SIGNING_ARGS
+
+      - name: Check app bundle contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="DerivedData/Build/Products/Debug/Codex Meter.app"
+          test -x "$APP/Contents/MacOS/Codex Meter"
+          test -d "$APP/Contents/PlugIns/CodexMeterMacWidgets.appex"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' \
+            "$APP/Contents/PlugIns/CodexMeterMacWidgets.appex/Contents/Info.plist"
+          codesign --verify --deep --strict "$APP"
+          echo "Bundle OK"
+
+      - name: Smoke-launch the app
+        id: smoke
+        shell: bash
+        run: ./ci/smoke-launch.sh "DerivedData/Build/Products/Debug/Codex Meter.app/Contents/MacOS/Codex Meter" smoke
+
+      - name: Upload smoke diagnostics
+        if: always() && steps.smoke.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-smoke
+          path: macos/smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop when the app does not settle
+        if: steps.smoke.outputs.healthy != 'true'
+        shell: bash
+        run: |
+          cat smoke/summary.txt
+          echo "::error::The app did not settle after launch; see the smoke summary above"
+          exit 1
+
+      - name: Run unit and UI tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          xcodebuild test-without-building \
+            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -destination 'platform=macOS' \
+            -derivedDataPath DerivedData \
+            -resultBundlePath TestResults.xcresult \
+            -skip-testing:CodexMeterMacUITests/MacGalleryTests \
+            -retry-tests-on-failure -test-iterations 2 \
+            $SIGNING_ARGS
+
+      - name: Record Mac gallery
+        id: gallery
+        if: (success() || failure()) && steps.build.outcome == 'success' && steps.smoke.outputs.healthy == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          ./ci/record-mac-gallery.sh "$PWD/ci-gallery" DerivedData $SIGNING_ARGS
+
+      - name: Summarize gallery
+        if: steps.gallery.outcome == 'success'
+        shell: bash
+        run: |
+          {
+            echo "## macOS demo gallery"
+            echo
+            echo "Download the **macos-demo-gallery** artifact for window and full-screen stills of the offline demo in Light and Dark Mode."
+            echo
+            echo '```'
+            ls -1 ci-gallery || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload gallery
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-demo-gallery
+          path: macos/ci-gallery/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build Release app
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          xcodebuild build \
+            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath DerivedData \
+            $SIGNING_ARGS
+          cd "DerivedData/Build/Products/Release"
+          ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
+
+      - name: Upload Release app
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-app-unsigned
+          path: macos/CodexMeter-macOS-unsigned.zip
+          retention-days: 14
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-test-results
+          path: |
+            macos/TestResults.xcresult
+            macos/MacGalleryResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 3

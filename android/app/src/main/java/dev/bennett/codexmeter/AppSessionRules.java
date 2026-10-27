@@ -104,13 +104,17 @@ public final class AppSessionRules {
      *
      * @param packageName the package that owns the new window
      * @param isAppWindow true only for a full app screen (an activity), false for the
-     *        keyboard, the notification shade, dialogs and other overlays
+     *        keyboard, the notification shade, dialogs and other overlays. Only unmatched
+     *        packages need it: an overlay from another app must not count as leaving.
      * @param currentPackage the matched app the session is tracking, or null
      */
     public static Decision decide(String packageName, boolean isAppWindow,
             Map<String, UsageProvider> mapping, String currentPackage) {
-        if (packageName == null || !isAppWindow) return new Decision(Action.NONE, null);
+        if (packageName == null) return new Decision(Action.NONE, null);
         UsageProvider provider = mapping == null ? null : mapping.get(packageName);
+        // A matched app counts from any of its windows: reopening it from Recents or the home
+        // screen often reports the app's window class rather than an activity name.
+        if (provider == null && !isAppWindow) return new Decision(Action.NONE, null);
         if (provider != null) {
             return packageName.equals(currentPackage)
                     ? new Decision(Action.STAY, null)

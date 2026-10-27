@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.12 — 2026-10-24
+
+### Fixed
+
+- One UI 9 design: the floating provider tab bar's blur now follows the content as it scrolls underneath, instead of sometimes keeping the blur from when the page loaded.
+
+## 2.9.0-alpha.11 — 2026-10-23
+
+### Added
+
+- Codex Meter for Mac (`macos/`): a native SwiftUI app with a menu bar meter that shows the allowance closest to running out, a panel with every provider's meters, a sidebar window with the same Codex, Claude Code and Cursor dashboards as the iPhone app, a Settings window (⌘,), Usage menu shortcuts (⌘R, ⌘1–⌘9), Open at login, and desktop widgets. It keeps refreshing, alerting, and auto-using expiring resets from the menu bar after its window closes.
+- Codex Meter for Windows (`windows/`): a native WinUI 3 app for Windows 11 on x64 and ARM64, with Mica, a sidebar with Codex, Claude Code and Cursor dashboards, browser sign-in on an Accounts page, a full Settings page, and a notification-area icon that shows your remaining percentage, plus toasts. Run it with `--demo` to see sample data without signing in.
+- Linux desktop app: a native GTK 4 + libadwaita app with a dashboard for Codex, Claude Code and Cursor, accounts, settings, a tray icon with your remaining percentage, desktop notifications, start at login, and credentials protected by the login keyring. It shares the Windows app's C# core. Each release includes a `.deb` and an AppImage for x86-64 and ARM64.
+- iPad: the provider tabs become a sidebar (or a floating top tab bar the sidebar button toggles), with Settings at the bottom of the sidebar, so every connected provider is one tap away instead of behind a More tab.
+- iPad: dashboards lay cards out in one, two or three columns from the width they actually get, so full screen, Split View, Slide Over and Stage Manager windows of any size re-flow live. Cards in a row share one height, the usage history chart keeps a full row, and the signed-out card stays card-sized.
+- iPad keyboard and menu bar: ⌘1–⌘9 jump to a provider tab, ⇧⌘] and ⇧⌘[ move between tabs, ⌘R refreshes the visible tab and ⌘, opens Settings. With a trackpad or mouse, hovering scrubs the usage history charts and picker rows highlight.
+- Apple Watch app (watchOS 26) with complications. It shows every provider the iPhone app tracks, one page per provider, with a ring, per-limit bars and the next reset. Circular, corner, rectangular and inline complications show the followed provider's main limit, plus a next-reset complication. Data comes from the iPhone over WatchConnectivity; tokens never leave the phone.
+
+### Changed
+
+- iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.
+- iOS Settings → Accounts matches Android: one Accounts row listing the connected services opens an Accounts page with the connected accounts (email · plan, or "API key" / "Signed in") and an Add account row that opens a searchable provider picker. The Cursor row now shows its email. One sign-in screen handles device codes, pasted tokens and API keys, and marks experimental providers.
+- iOS first-run setup uses the same searchable multi-select provider picker as Android, and Settings → Providers lists only tabs that are on and connected accounts.
+- iOS home-screen and lock-screen widgets can each show a chosen provider (Codex, Claude Code, Cursor or any connected provider). Existing widgets keep showing Codex.
+- Wear OS follows all 24 providers, not only Codex. The phone sends every enabled or signed-in provider's latest usage to the watch. The watch app lists them with their logos, and tapping one makes tiles, complications and the live monitor follow it. By default the watch follows the phone's selected tab.
+- Wear tiles and complications are named by role (Usage overview, Main limit, Second limit, Next reset, Live monitor, Both limits) and use each provider's own windows: 5h and weekly for Codex, monthly for Cursor, named extra limits for Claude Code and Copilot.
+- "Refresh on phone" from the watch refreshes Claude Code, Cursor and the other providers too.
+
+### Development
+
+- `DashboardGrid` in CodexMeterCore decides columns and rows, with unit tests. `IPadLayoutTests` checks the columns, sidebar and shortcuts on iPad simulators, and iOS CI runs it on iPad Pro 13-inch (light and dark), iPad Air 11-inch and iPad mini, uploading the stills as `ipad-gallery`. The main UI suite also runs on iPad Pro.
+- `WatchProvidersSelfTest` covers watch meter ordering, the provider payload round trip and which provider the watch follows. `WatchSyncTests` covers the same on iOS.
+- iOS CI builds the watch app on a watch simulator and uploads a `watch-gallery` artifact of screenshots.
+
+## 2.9.0-alpha.10 — 2026-10-23
+
 ### Changed
 
 - Settings cleaned up, with nothing removed. The main list is grouped as Accounts, Live usage and Usage, and **Now Bar** is the first row under Live usage with a summary of what starts it.
@@ -9,6 +45,10 @@
 - **Providers** is now **Dashboard tabs**, with a one-line hint. **Accounts** is one card ending in **Add account**.
 - **Refresh & dashboard**: refresh mode and interval are one list (Automatic, or every 5 minutes to 2 hours). The eight Codex card switches are gone because **Edit dashboard** already has them; it now asks which tab to edit.
 - **Reset credits** has its own page. Follow-up options (when to use a reset, the threshold, the window) only appear once their switch is on.
+
+### Fixed
+
+- Show in AI apps is now reliable and near-instant. It used to guess the app in front from "new screen" events, which launchers don't always send. Reopening an app from Recents or its icon could do nothing, going home could leave the notification stuck, and a 200 ms event batching delay made timing uneven. It now shows the moment a matched app's screen opens, double-checks which app window is actually in front on a background thread every time anything changes, gets each change with no batching delay, and hides about 0.6 s after you leave (was 1.5 s). Switching between matched apps swaps the provider in place, without hiding and re-showing. Because of this change, Android now describes app detection as able to view the screen. Codex Meter still reads only the package name of the app in front.
 
 ## 2.9.0-alpha.9 — 2026-10-23
 
