@@ -1,8 +1,13 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using CodexMeter.App.Views;
+using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -26,26 +31,88 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             state.Settings.Update(s => s with { Theme = theme });
             FitWindow(1180, 820);
             var name = theme.ToString().ToLowerInvariant();
-            for (var i = 0; i < pages.Count; i++)
+            var shot = 0;
+            string File(string label) => $"{name}-{++shot:00}-{label}.png";
+            foreach (var page in pages)
             {
-                window.Navigate(pages[i]);
+                window.Navigate(page);
                 await Task.Delay(1200);
-                var expected = pages[i] switch { "settings" => "SettingsPage", "accounts" => "AccountsPage", _ => "DashboardPage" };
+                var expected = page switch { "settings" => "SettingsPage", "accounts" => "AccountsPage", _ => "DashboardPage" };
                 if (window.CurrentPageType?.Name != expected)
                 {
-                    App.Log($"Expected {expected} for {pages[i]} but the window shows {window.CurrentPageType?.Name ?? "nothing"}.");
+                    App.Log($"Expected {expected} for {page} but the window shows {window.CurrentPageType?.Name ?? "nothing"}.");
                     failures++;
                 }
-                failures += await CaptureAsync($"{name}-{i + 1:00}-{pages[i]}.png") ? 0 : 1;
+                failures += await CaptureAsync(File(page)) ? 0 : 1;
             }
-            // Narrow window: the pane collapses and the meter cards stack.
+
+            // The usage history chart, scrolled into view.
+            window.Navigate(pages[0]);
+            await Task.Delay(1000);
+            if (window.CurrentScrollViewer is { } scroller && Find(scroller, "HistoryCard") is FrameworkElement chart)
+            {
+                var top = chart.TransformToVisual((UIElement)scroller.Content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+                scroller.ChangeView(null, Math.Max(0, top - 12), null, true);
+                await Task.Delay(800);
+                failures += await CaptureAsync(File("history")) ? 0 : 1;
+                scroller.ChangeView(null, 0, null, true);
+            }
+
+            // Dialogs: Add account, Edit dashboard and a device-code sign-in.
+            failures += await CaptureDialogAsync(File("add-account"), opened => window.AddAccountAsync(opened));
+            failures += await CaptureDialogAsync(File("edit-dashboard"), opened => window.EditDashboardAsync(opened));
+            if (state.Entries.FirstOrDefault(e => !e.SignedIn && e.Provider.SignIn == SignInStyle.DeviceCode)?.Provider is { } device
+                && window.Content.XamlRoot is { } xamlRoot)
+            {
+                var signIn = SignInFlow.RunAsync(device, xamlRoot);
+                await Task.Delay(1500);
+                failures += await CaptureAsync(File("sign-in-code")) ? 0 : 1;
+                CloseDialogs();
+                await signIn;
+            }
+
+            // Narrow window: the pane collapses behind the title bar's menu button and cards stack.
             FitWindow(560, 820);
             window.Navigate(pages[0]);
             await Task.Delay(1200);
-            failures += await CaptureAsync($"{name}-{pages.Count + 1:00}-compact.png") ? 0 : 1;
+            failures += await CaptureAsync(File("compact")) ? 0 : 1;
         }
         SaveTrayIcons();
         return failures == 0 ? 0 : 4;
+    }
+
+    private async Task<int> CaptureDialogAsync(string file, Func<Action<ContentDialog>, Task> show)
+    {
+        var opened = new TaskCompletionSource<ContentDialog>();
+        var task = show(dialog => opened.TrySetResult(dialog));
+        var first = await Task.WhenAny(opened.Task, Task.Delay(5000));
+        if (first != opened.Task)
+        {
+            App.Log($"No dialog opened for {file}.");
+            return 1;
+        }
+        await Task.Delay(800);
+        var ok = await CaptureAsync(file);
+        opened.Task.Result.Hide();
+        await task;
+        return ok ? 0 : 1;
+    }
+
+    private void CloseDialogs()
+    {
+        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(window.Content.XamlRoot))
+            if (popup.Child is ContentDialog dialog) dialog.Hide();
+    }
+
+    private static DependencyObject? Find(DependencyObject parent, string automationId)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (AutomationProperties.GetAutomationId(child) == automationId) return child;
+            if (Find(child, automationId) is { } found) return found;
+        }
+        return null;
     }
 
     private void FitWindow(int width, int height)

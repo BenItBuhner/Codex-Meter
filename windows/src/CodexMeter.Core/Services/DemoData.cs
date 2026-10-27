@@ -134,6 +134,17 @@ public sealed class DemoProviderService(UsageProvider provider, ProviderContext 
 {
     public override bool SupportsResetCredits => Provider == UsageProvider.Codex;
 
+    /// <summary>Device-code providers show a sample code first, so the sign-in dialog can be seen in demo mode.</summary>
+    protected override async Task<AuthTokens> RunSignInAsync(SignInPrompt prompt, CancellationToken cancellationToken)
+    {
+        if (Provider.SignIn == SignInStyle.DeviceCode && prompt.ShowDeviceCode is { } show)
+        {
+            await show(new Auth.DeviceCode("demo-device", "WDJB-MJHT", "https://example.com/device", "", 5, 900)).ConfigureAwait(false);
+            await Task.Delay(6000, cancellationToken).ConfigureAwait(false);
+        }
+        return await RunSignInAsync(prompt.OpenBrowser, cancellationToken).ConfigureAwait(false);
+    }
+
     protected override async Task<AuthTokens> RunSignInAsync(Func<Uri, Task> openBrowser, CancellationToken cancellationToken)
     {
         await Task.Delay(600, cancellationToken).ConfigureAwait(false);
