@@ -54,6 +54,10 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private SeslSeekBar opacitySlider;
     private SwitchCompat backgroundSwitch;
     private SwitchCompat percentSymbolSwitch;
+    private SwitchCompat overlapSwitch;
+    /** Auto until the overlap switch is touched, then on or off. */
+    private String overlapMode = MeterOverlap.AUTO;
+    private boolean syncingOverlap;
     private View opacityControl;
     private View backgroundRow;
     private FrameLayout previewContainer;
@@ -203,6 +207,14 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         this.percentSymbolSwitch = new SwitchCompat(this);
         this.percentSymbolSwitch.setChecked(saved.showPercentSymbol);
         contentCard.addView(buildSwitchRow("Show % symbol", this.percentSymbolSwitch, false));
+        View overlapDivider = new View(this);
+        overlapDivider.setBackgroundColor(Ui.divider(this.dark));
+        contentCard.addView(overlapDivider, new LinearLayout.LayoutParams(dividerParams));
+        this.overlapSwitch = new SwitchCompat(this);
+        this.overlapMode = saved.overlapMode;
+        this.overlapSwitch.setChecked(saved.overlaps(this.widgetProviders.size()));
+        contentCard.addView(buildSwitchRow("Overlap 5-hour and weekly", this.overlapSwitch,
+                false));
         content.addView(contentCard);
 
         content.addView(Ui.separator(this, "Widget tap action"));
@@ -225,6 +237,12 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         this.accentSpinner.setOnItemSelectedListener(selectionListener);
         this.displaySpinner.setOnItemSelectedListener(selectionListener);
         this.percentSymbolSwitch.setOnCheckedChangeListener((button, checked) -> renderPreview());
+        this.overlapSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!this.syncingOverlap) {
+                this.overlapMode = checked ? MeterOverlap.ON : MeterOverlap.OFF;
+            }
+            renderPreview();
+        });
         this.backgroundSwitch.setOnCheckedChangeListener((button, checked) -> {
             applyBackgroundEnabled(checked);
             updateSliderVisuals();
@@ -272,6 +290,15 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                     return;
                 }
                 this.widgetProviders = updated;
+                if (this.overlapSwitch != null) {
+                    // Show what Auto means for the providers now picked.
+                    boolean on = MeterOverlap.enabled(this.overlapMode, updated.size());
+                    if (this.overlapSwitch.isChecked() != on) {
+                        this.syncingOverlap = true;
+                        this.overlapSwitch.setChecked(on);
+                        this.syncingOverlap = false;
+                    }
+                }
                 renderPreview();
             });
         }
@@ -411,7 +438,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 false, false, false, false, false, false)
                 .withPercentSymbol(this.percentSymbolSwitch == null
                         || this.percentSymbolSwitch.isChecked())
-                .withVisibleMeters(WidgetMeters.serialize(orderedSelectedMeters()));
+                .withVisibleMeters(WidgetMeters.serialize(orderedSelectedMeters()))
+                .withOverlapMode(this.overlapMode);
     }
 
     private void loadMeterSelection(WidgetOptions saved, UsageSnapshot snapshot) {

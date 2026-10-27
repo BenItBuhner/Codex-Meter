@@ -1,0 +1,162 @@
+name: Widget screenshots (temporary)
+
+# One-off: renders widgets before (alpha) and after (this branch) on an Android emulator with
+# sample data; stills go to refs/ci-screenshots/widgets. Removed before the PR merges.
+on:
+  push:
+    branches: [claude/project-thread-n34ce2]
+    paths: ['.github/workflows/widget-screenshots.yml', '.github/widget-shots/**']
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  android:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [after]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_USERNAME: ${{ github.actor }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: branch
+
+      - uses: actions/checkout@v7
+        if: matrix.variant == 'before'
+        with:
+          ref: alpha
+          path: base
+
+      - name: Pick source tree
+        shell: bash
+        run: |
+          if [[ "${{ matrix.variant }}" == "before" ]]; then
+            echo "SRC=$GITHUB_WORKSPACE/base" >> "$GITHUB_ENV"
+          else
+            echo "SRC=$GITHUB_WORKSPACE/branch" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android platforms
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Add the debug-only widget gallery
+        shell: bash
+        run: |
+          set -euo pipefail
+          DBG="$SRC/android/app/src/debug"
+          mkdir -p "$DBG/java/dev/bennett/codexmeter"
+          rm -f "$DBG/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java"
+          cp branch/.github/widget-shots/WidgetGalleryActivity.java "$DBG/java/dev/bennett/codexmeter/"
+          cp branch/.github/widget-shots/Gallery.java "$DBG/java/dev/bennett/codexmeter/Gallery.java"
+          cat > "$DBG/AndroidManifest.xml" <<'XML'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application>
+                  <activity android:name=".WidgetGalleryActivity" android:exported="true"
+                      android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"/>
+              </application>
+          </manifest>
+          XML
+
+      - name: Build debug APK
+        working-directory: ${{ env.SRC }}/android
+        run: |
+          for i in 1 2 3; do
+            ./gradlew --no-daemon :app:assembleDebug && exit 0
+            sleep $((i * 15))
+          done
+          exit 1
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Write capture script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/capture.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          PKG=dev.bennett.codexmeter
+          V="$1"
+          OUT="$GITHUB_WORKSPACE/shots/$V"
+          mkdir -p "$OUT"
+          adb install -r "$SRC/android/app/build/outputs/apk/debug/app-debug.apk"
+          adb shell appwidget grantbind --package $PKG || true
+          adb shell cmd connectivity airplane-mode enable || true
+          adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
+          adb shell settings put secure anr_show_background 0 || true
+          shot() { sleep 6; adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true; sleep 1; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
+          open() { adb shell am force-stop $PKG; sleep 1; adb shell am start -W -n $PKG/.WidgetGalleryActivity --es page "$1" --ez dark "${2:-false}"; }
+          scroll_down() { adb shell input swipe 540 1900 540 700 400; }
+          open home-bars;          shot 01-home-bars-light
+          open home-bars true;     shot 02-home-bars-dark
+          open home-dials;         shot 03-home-dials-light
+          open home-dials true;    shot 04-home-dials-dark
+          open edge-bars;          shot 05-edge-bars-light
+          open edge-bars true;     shot 06-edge-bars-dark
+          open edge-dials;         shot 07-edge-dials-light
+          open edge-dials true;    shot 08-edge-dials-dark
+          open lock;               shot 09-lock-screen-in-alpha
+          open config-home;        for i in 1 2 3 4; do scroll_down; done; shot 10-widget-settings-a
+          scroll_down; scroll_down; shot 11-widget-settings-b
+          adb logcat -d -s WidgetGallery:* AndroidRuntime:E > "$OUT/logcat.txt" || true
+          SH
+          chmod +x "$RUNNER_TEMP/capture.sh"
+
+      - name: Capture screenshots on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash ${{ runner.temp }}/capture.sh ${{ matrix.variant }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shots-${{ matrix.variant }}
+          path: shots/
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: [android]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: 'shots-*'
+          merge-multiple: true
+          path: shots
+      - name: Publish to refs/ci-screenshots/widgets
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd shots
+          find . -type f | sort
+          git init -q
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Widget screenshots"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/widgets-overlap

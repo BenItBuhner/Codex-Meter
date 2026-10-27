@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Home-screen widgets can overlap a provider's 5-hour and weekly limits in one bar or dial, the weekly one in a lighter shade, so every provider shows both limits in one row. Widgets that show two or more providers do this by default; a switch in widget settings turns it on or off.
+
 ## 2.9.0-alpha.12 — 2026-10-24
 
 ### Fixed
