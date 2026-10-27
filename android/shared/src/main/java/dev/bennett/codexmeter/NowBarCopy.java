@@ -1,5 +1,10 @@
 package dev.bennett.codexmeter;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -89,6 +94,61 @@ public final class NowBarCopy {
         return duration == null
                 ? label + " 0%"
                 : label + " resets " + duration;
+    }
+
+    /**
+     * Live notification title for the focused window: {@code Weekly · 48% left}, or
+     * {@code Weekly · used up} once nothing is left.
+     */
+    public static String headline(String label, UsageWindow window) {
+        if (window == null) {
+            return label + " · unavailable";
+        }
+        int remaining = window.remainingPercent();
+        return remaining > 0 ? label + " · " + remaining + "% left" : label + " · used up";
+    }
+
+    /**
+     * When the window resets, as a wall-clock time that stays true between refreshes:
+     * {@code Resets 4:14 PM}, {@code Resets tomorrow 9:00 AM}, {@code Resets Fri 2:37 PM}, or
+     * {@code Resets Nov 3} when it is a week or more away. Null when the reset is unknown.
+     */
+    public static String resetClockText(UsageWindow window, long observedAtMillis,
+            long nowMillis, boolean is24Hour, TimeZone zone, Locale locale) {
+        if (window == null) return null;
+        long resetAt = window.effectiveResetAtMillis(observedAtMillis);
+        if (resetAt <= nowMillis) return null;
+        TimeZone tz = zone == null ? TimeZone.getDefault() : zone;
+        Locale loc = locale == null ? Locale.getDefault() : locale;
+        Calendar reset = Calendar.getInstance(tz, loc);
+        reset.setTimeInMillis(resetAt);
+        Calendar today = Calendar.getInstance(tz, loc);
+        today.setTimeInMillis(nowMillis);
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+        Calendar resetDay = (Calendar) reset.clone();
+        resetDay.set(Calendar.HOUR_OF_DAY, 0);
+        resetDay.set(Calendar.MINUTE, 0);
+        resetDay.set(Calendar.SECOND, 0);
+        resetDay.set(Calendar.MILLISECOND, 0);
+        long days = Math.round((resetDay.getTimeInMillis() - today.getTimeInMillis())
+                / (double) TimeUnit.DAYS.toMillis(1));
+        String clock = is24Hour ? "HH:mm" : "h:mm a";
+        String pattern;
+        if (days <= 0L) {
+            pattern = clock;
+        } else if (days == 1L) {
+            pattern = "'tomorrow' " + clock;
+        } else if (days < 7L) {
+            pattern = "EEE " + clock;
+        } else {
+            pattern = "MMM d";
+        }
+        SimpleDateFormat format = new SimpleDateFormat(pattern, loc);
+        format.setTimeZone(tz);
+        return "Resets " + format.format(new Date(resetAt));
     }
 
     /**
