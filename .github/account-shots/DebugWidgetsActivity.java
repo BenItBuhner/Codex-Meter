@@ -102,7 +102,12 @@ public class DebugWidgetsActivity extends Activity {
         RemoteViews views = WidgetRenderer.buildPreview(this, id, options, size);
         FrameLayout surface = new FrameLayout(this);
         GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.argb(Math.round(options.opacity * 2.55f), 255, 255, 255));
+        boolean dark = (getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        int alpha = Math.round(options.opacity * 2.55f);
+        background.setColor(dark ? Color.argb(alpha, 0, 0, 0)
+                : Color.argb(alpha, 255, 255, 255));
         background.setCornerRadius(dp(28));
         surface.setBackground(background);
         surface.setClipToOutline(true);

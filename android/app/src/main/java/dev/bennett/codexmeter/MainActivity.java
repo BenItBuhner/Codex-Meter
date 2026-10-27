@@ -614,6 +614,28 @@ public final class MainActivity extends AppCompatActivity {
             buildCombinedDashboard(this.provider);
             return;
         }
+        rebuildDashboard();
+        addAccountLine();
+    }
+
+    /** With several accounts: which one this dashboard shows, above its cards. */
+    private void addAccountLine() {
+        if (this.content == null || !ProviderAccounts.isSignedIn(this, this.provider)
+                || AccountVault.count(this, this.provider) < 2) {
+            return;
+        }
+        String email = ProviderAccounts.email(this, this.provider);
+        String plan = ProviderAccounts.plan(this, this.provider);
+        TextView line = Ui.text(this, (email.isEmpty() ? "This account" : email)
+                + (plan.isEmpty() ? "" : " · " + plan) + " only", 14.0f,
+                Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 12));
+        int index = UpdatePreferences.availableUpdate(this) != null ? 2 : 0;
+        this.content.addView(line, Math.min(index, this.content.getChildCount()), params);
+    }
+
+    private void rebuildDashboard() {
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
             buildProviderDashboard(this.provider);

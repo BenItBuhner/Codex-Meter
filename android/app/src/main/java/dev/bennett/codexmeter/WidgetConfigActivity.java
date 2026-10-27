@@ -116,6 +116,10 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         loadMeterSelection(saved, snapshot);
 
+        // Accounts come first: the providers list below can be long.
+        this.accountsSection = new LinearLayout(this);
+        this.accountsSection.setOrientation(LinearLayout.VERTICAL);
+        content.addView(this.accountsSection);
         content.addView(Ui.separator(this, "Providers"));
         content.addView(buildProvidersCard());
         TextView providersHint = Ui.text(this, "Turn on more than one to stack them, one row "
@@ -123,9 +127,6 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 Ui.secondaryText(this.dark));
         providersHint.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), Ui.dp(this, 24), 0);
         content.addView(providersHint);
-        this.accountsSection = new LinearLayout(this);
-        this.accountsSection.setOrientation(LinearLayout.VERTICAL);
-        content.addView(this.accountsSection);
         refreshAccountsSection();
 
         content.addView(Ui.separator(this, "Appearance"));

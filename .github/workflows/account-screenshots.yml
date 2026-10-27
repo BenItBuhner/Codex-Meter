@@ -140,8 +140,7 @@ jobs:
           adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/widget-settings.mp4" & REC=$!
           sleep 2
           shot light-11-widget-config 2
-          tap_text "All accounts" >/dev/null 2>&1 || drag 700
-          dumpui widget-config
+          drag 500; dumpui widget-config
           shot light-12-widget-config-accounts 2
           tap_text "sam.lee@gmail.com";     shot light-13-widget-config-one 3
           tap_text "All accounts";          shot light-14-widget-config-all 3
@@ -149,7 +148,7 @@ jobs:
           adb pull /sdcard/widget-settings.mp4 "$OUT/widget-settings.mp4" >/dev/null
 
           seedopen seed lock_config;         shot light-21-lock-config 3
-          tap_text "sam.lee@gmail.com" || { drag 700; tap_text "sam.lee@gmail.com"; }
+          drag 400; tap_text "sam.lee@gmail.com"
           shot light-22-lock-config-one 3
           adb shell cmd uimode night no
           adb logcat -d | grep -iE "DebugSeed|FATAL|AndroidRuntime|accounts|codexmeter" > "$OUT/logcat.txt" || true

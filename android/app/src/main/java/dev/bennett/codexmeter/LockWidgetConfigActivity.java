@@ -86,6 +86,10 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             this.selectedMeters.add(WidgetMeters.FIVE_HOUR);
         }
 
+        // Accounts come first: the providers list below can be long.
+        this.accountsSection = new LinearLayout(this);
+        this.accountsSection.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.addView(this.accountsSection);
         linearLayout.addView(Ui.separator(this, this.slots > 1 ? "Providers" : "Provider"));
         RoundedLinearLayout providersCard = Ui.seslCard(this, this.dark);
         TextView providersHint = Ui.text(this, this.slots > 1
@@ -106,9 +110,6 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                     checked));
         }
         linearLayout.addView(providersCard);
-        this.accountsSection = new LinearLayout(this);
-        this.accountsSection.setOrientation(LinearLayout.VERTICAL);
-        linearLayout.addView(this.accountsSection);
         refreshAccountsSection();
 
         linearLayout.addView(Ui.separator(this, "Meters"));
