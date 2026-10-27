@@ -138,29 +138,6 @@ public class WidgetGalleryActivity extends Activity {
         finish();
     }
 
-    /** Diagnostic: progress values and drawable identity for every bar in a widget. */
-    private static void logBars(String caption, View v) {
-        if (v instanceof android.widget.ProgressBar) {
-            android.widget.ProgressBar bar = (android.widget.ProgressBar) v;
-            android.graphics.drawable.Drawable d = bar.getProgressDrawable();
-            String layers = "";
-            if (d instanceof android.graphics.drawable.LayerDrawable) {
-                android.graphics.drawable.LayerDrawable ld = (android.graphics.drawable.LayerDrawable) d;
-                android.graphics.drawable.Drawable p = ld.findDrawableByLayerId(android.R.id.progress);
-                android.graphics.drawable.Drawable sp = ld.findDrawableByLayerId(android.R.id.secondaryProgress);
-                layers = " p@" + System.identityHashCode(p) + " lvl=" + (p == null ? -1 : p.getLevel())
-                        + " s@" + System.identityHashCode(sp) + " lvl=" + (sp == null ? -1 : sp.getLevel());
-            }
-            Log.i("WidgetGallery", "bar [" + caption + "] id=" + v.getId() + " progress="
-                    + bar.getProgress() + " secondary=" + bar.getSecondaryProgress()
-                    + " d@" + System.identityHashCode(d) + layers);
-        }
-        if (v instanceof android.view.ViewGroup) {
-            android.view.ViewGroup g = (android.view.ViewGroup) v;
-            for (int i = 0; i < g.getChildCount(); i++) logBars(caption, g.getChildAt(i));
-        }
-    }
-
     void heading(String text) {
         TextView view = new TextView(this);
         view.setText(text);
@@ -203,11 +180,12 @@ public class WidgetGalleryActivity extends Activity {
         FrameLayout outer = new FrameLayout(this);
         outer.setBackground(bg);
         FrameLayout frame = new FrameLayout(this);
+        // Every widget reuses the same view ids, so keep the activity from restoring one
+        // widget's saved progress into all of them when it is recreated.
+        frame.setSaveFromParentEnabled(false);
         try {
             View widget = views.apply(getApplicationContext(), frame);
             frame.addView(widget, new FrameLayout.LayoutParams(-1, -1));
-            final View root = widget;
-            root.postDelayed(() -> logBars(caption, root), 2500);
         } catch (RuntimeException e) {
             Log.e("WidgetGallery", "apply failed: " + caption, e);
             TextView error = new TextView(this);
