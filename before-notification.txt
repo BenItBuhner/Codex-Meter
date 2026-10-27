@@ -1,0 +1,82 @@
+Current Notification Manager state:
+  Notification List:
+    NotificationRecord(0x06d85064: pkg=dev.bennett.codexmeter user=UserHandle{0} id=8610 tag=null importance=3 key=0|dev.bennett.codexmeter|8610|null|10216: Notification(channel=codex_live_monitor_v2 shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|ONLY_ALERT_ONCE color=0xff0381fe category=progress actions=2 vis=PUBLIC))
+      uid=10216 userId=0
+      opPkg=dev.bennett.codexmeter
+      icon=Icon(typ=BITMAP size=63x63)
+      flags=ONGOING_EVENT|ONLY_ALERT_ONCE
+      originalFlags=ONGOING_EVENT|ONLY_ALERT_ONCE
+      pri=0
+      key=0|dev.bennett.codexmeter|8610|null|10216
+      seen=true
+      groupKey=0|dev.bennett.codexmeter|8610|null|10216
+      notification=
+            fullscreenIntent=null
+            contentIntent=PendingIntent{3f0e2cd: PendingIntentRecord{82fadbc dev.bennett.codexmeter startActivity (allowlist: 6e5709a:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+            deleteIntent=PendingIntent{a393782: PendingIntentRecord{80a498e dev.bennett.codexmeter broadcastIntent (allowlist: 6e5709a:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+            number=0
+            groupAlertBehavior=0
+            when=1793134817419/1793134817419
+            tickerText=null
+            vis=1
+            contentView=null
+            bigContentView=null
+            headsUpContentView=null
+            color=0xff0381fe
+            timeout=PT72H
+            actions={
+                [0] "Stop" -> PendingIntent{9d26e93: PendingIntentRecord{80a498e dev.bennett.codexmeter broadcastIntent (allowlist: 6e5709a:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+                [1] "Refresh" -> PendingIntent{4fc0ed0: PendingIntentRecord{9ec5af dev.bennett.codexmeter broadcastIntent (allowlist: 6e5709a:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+              }
+            extras={
+                android.title=String (Claude Code usage)
+                android.reduced.images=Boolean (true)
+                android.progressPoints=ArrayList ([])
+                android.template=String (android.app.Notification$ProgressStyle)
+                android.text=String (5-hour: 48% left · Weekly: 50% left · Est. 3h 20m)
+                android.progress=Integer (52)
+                android.progressMax=Integer (100)
+                android.appInfo=ApplicationInfo (ApplicationInfo{b5dec9 dev.bennett.codexmeter})
+                android.showWhen=Boolean (false)
+                android.progressSegments=ArrayList ([Bundle[{length=100, colorInt=-16547330, id=0}]])
+                android.progressTrackerIcon=Icon (Icon(typ=RESOURCE pkg=dev.bennett.codexmeter id=0x7f0800ff))
+                android.styledByProgress=Boolean (true)
+                android.progressIndeterminate=Boolean (false)
+                android.colorized=Boolean (true)
+                android.requestPromotedOngoing=Boolean (true)
+                android.shortCriticalText=String (48%)
+            }
+      publicNotification=
+            None
+      stats=SingleNotificationStats{posttimeElapsedMs=117309, posttimeToFirstClickMs=-1, posttimeToDismissMs=-1, airtimeCount=1, airtimeMs=3619, currentAirtimeStartElapsedMs=-1, airtimeExpandedMs=3423, posttimeToFirstVisibleExpansionMs=9641, currentAirtimeExpandedStartElapsedMs=-1, requestedImportance=3, naturalImportance=3, isNoisy=false}
+      mContactAffinity=0.0
+      mRecentlyIntrusive=false
+      mPackagePriority=0
+      mPackageVisibility=-1000
+      mSystemImportance=UNSPECIFIED
+      mAsstImportance=UNSPECIFIED
+      mImportance=DEFAULT
+      mImportanceExplanation=app
+      mProposedImportance=UNSPECIFIED
+      mIsAppImportanceLocked=false
+      mSensitiveContent=false
+      mCanceledAfterLifetimeExtension=false
+      mIntercept=false
+      mHidden==false
+      mGlobalSortKey=crtcl=0x0002:intrsv=2:grnk=0x0000:gsmry=1:nsk:rnk=0x0000
+      mRankingTimeMs=1793134817428
+      mCreationTimeMs=1793134817428
+      mVisibleSinceMs=1793134827095
+      mUpdateTimeMs=1793134817428
+      mInterruptionTimeMs=1793134827095
+      mSuppressedVisualEffects= 0
+      mSound= null
+      mVibration= null
+      mAttributes= AudioAttributes: usage=USAGE_NOTIFICATION content=CONTENT_TYPE_SONIFICATION flags=0x800 tags= bundle=null
+      mLight= null
+      mShowBadge=true
+      mColorized=false
+      mAllowBubble=false
+      isBubble=false
+      mIsInterruptive=true
+      effectiveNotificationChannel=NotificationChannel{mId='codex_live_monitor_v2', mName=Codex live monitor, mDescription=hasDescription , mImportance=3, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=null, mLights=false, mLightColor=0, mVibrationPattern=null, mVibrationEffect=null, mUserLockedFields=0, mUserVisibleTaskShown=false, mVibrationEnabled=false, mShowBadge=true, mDeleted=false, mDeletedTimeMs=-1, mGroup='null', mAudioAttributes=null, mBlockableSystem=false, mAllowBubbles=-1, mImportanceLockedDefaultApp=false, mOriginalImp=3, mParent=null, mConversationId=null, mDemoted=false, mImportantConvo=false, mLastNotificationUpdateTimeMs=0}
