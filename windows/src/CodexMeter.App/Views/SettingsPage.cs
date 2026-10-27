@@ -22,6 +22,8 @@ public sealed class SettingsPage : PageBase
 {
     private static readonly int[] Thresholds = [10, 15, 25];
     private readonly SettingsExpander sidebar;
+    // Rows go through an observable ItemsSource: the expander doesn't notice later changes to Items.
+    private readonly System.Collections.ObjectModel.ObservableCollection<SettingsCard> sidebarRows = [];
     private bool sidebarDirty;
 
     public SettingsPage() : base(1000)
@@ -44,6 +46,8 @@ public sealed class SettingsPage : PageBase
             IsExpanded = true,
         };
         AutomationProperties.SetAutomationId(sidebar, "ProvidersExpander");
+        BuildSidebar();
+        sidebar.ItemsSource = sidebarRows;
         Body.Children.Add(sidebar);
 
         Body.Children.Add(SectionHeader("Dashboard"));
@@ -209,7 +213,7 @@ public sealed class SettingsPage : PageBase
 
     private void BuildSidebar()
     {
-        sidebar.Items.Clear();
+        sidebarRows.Clear();
         var enabled = State.EnabledProviders;
         var order = State.SidebarCandidates;
         for (var index = 0; index < order.Count; index++)
@@ -225,7 +229,7 @@ public sealed class SettingsPage : PageBase
             controls.Children.Add(MoveButton("", $"Move {provider.DisplayName} up", index > 0, () => State.Move(provider, -1)));
             controls.Children.Add(MoveButton("", $"Move {provider.DisplayName} down", index < order.Count - 1, () => State.Move(provider, 1)));
             controls.Children.Add(toggle);
-            sidebar.Items.Add(new SettingsCard
+            sidebarRows.Add(new SettingsCard
             {
                 Header = provider.DisplayName,
                 Description = entry.SignedIn ? $"Connected · {provider.Meters}" : $"Not connected · {provider.Meters}",
