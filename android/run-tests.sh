@@ -34,6 +34,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/AccountTotals.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java" \

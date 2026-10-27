@@ -94,6 +94,14 @@ public final class UsageRefreshJobService extends JobService {
                     CursorUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
                     ProviderUsageApi.refreshAllInBackgroundIfDue(app,
                             "immediate".equals(this.reason));
+                    // Saved accounts feed combined totals and per-account widgets.
+                    for (UsageProvider provider : UsageProvider.values()) {
+                        if (AccountVault.hasSaved(app, provider)) {
+                            AccountVault.refreshSaved(app, provider,
+                                    "immediate".equals(this.reason)
+                                            ? 5L * 60L * 1000L : 15L * 60L * 1000L);
+                        }
+                    }
                     if (SecureTokenStore.isSignedIn(app)) {
                         RefreshScheduler.scheduleAtNextReset(app, UsageApi.refreshAndCache(app));
                         AppPreferences.recordRefreshSuccess(app);

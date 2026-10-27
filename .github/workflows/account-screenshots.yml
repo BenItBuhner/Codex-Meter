@@ -1,7 +1,7 @@
 name: Multiple accounts screenshots (temporary)
 
-# One-off: installs this branch with sample accounts and records the account switcher.
-# Output goes to refs/ci-screenshots/multi-account-review. Removed before the PR merges.
+# One-off: installs this branch with sample accounts and records combined vs per-account views.
+# Output goes to refs/ci-screenshots/multi-account-combined. Removed before the PR merges.
 on:
   push:
     branches: [claude/project-thread-rk4s0k]
@@ -37,12 +37,13 @@ jobs:
         run: |
           set -euo pipefail
           DBG=android/app/src/debug
-          cp .github/account-shots/DebugSeedActivity.java "$DBG/java/dev/bennett/codexmeter/"
+          mkdir -p "$DBG/java/dev/bennett/codexmeter"
+          cp .github/account-shots/Debug*.java "$DBG/java/dev/bennett/codexmeter/"
           python3 - "$DBG/AndroidManifest.xml" <<'PY'
           import sys
           p = sys.argv[1]
           s = open(p).read()
-          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.DebugSeedActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay"/>\n    </application>')
+          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.DebugSeedActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay"/>\n        <activity android:name="dev.bennett.codexmeter.DebugWidgetsActivity" android:exported="true" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"/>\n    </application>')
           open(p, 'w').write(s)
           PY
 
@@ -101,72 +102,55 @@ jobs:
 
           seedopen() {
             adb shell am force-stop $PKG; sleep 1
-            adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action "$1" --es open "$2" --es single_claude "${3:-no}"; sleep 4
+            adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action "$1" --es open "$2" --es single_claude "${3:-no}" --es mode "${4:-home}" --es tab claude_code; sleep 4
           }
           drag() { adb shell input swipe 540 1700 540 $((1700 - $1)) 1000; }
 
-          # Dashboard: the account button and switcher.
+          # Dashboard: every Claude Code account combined, then one on its own.
           adb shell cmd uimode night no
           seed; sleep 2
-          adb shell "screenrecord --time-limit 70 --size 540x1200 /sdcard/dashboard-light.mp4" & REC=$!
+          adb shell "screenrecord --time-limit 80 --size 540x1200 /sdcard/combined-dashboard.mp4" & REC=$!
           sleep 2
-          shot light-01-claude-dashboard 2
-          tap_text "Accounts";              shot light-02-switcher 2
-          tap_text "sam.lee@gmail.com";     shot light-03-switched-toast 1
-          shot light-04-switched-dashboard 3
-          tap_text "Accounts";              shot light-05-switcher-after 2
-          tap_text "sam@acme.dev";          sleep 3
-          tap_text "Accounts";              sleep 2
-          tap_text "Add another account";   shot light-06-add-browser 7
-          adb shell input keyevent BACK;    shot light-06b-adding-empty 3
-          adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action finish_add --es tab claude_code; sleep 4
-          shot light-07-after-add 1
-          tap_text "Accounts";              shot light-08-three-accounts 2
-          adb shell input keyevent BACK; sleep 2
+          shot light-01-combined-top 2
+          drag 1000;                        shot light-02-combined-accounts 2
+          tap_text "sam.lee@gmail.com";     shot light-03-one-account 3
+          tap_text "Accounts";              shot light-04-switcher 2
+          tap_text "All accounts";          shot light-05-back-to-combined 3
+          drag 1000; sleep 2
           adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
-          adb pull /sdcard/dashboard-light.mp4 "$OUT/dashboard-light.mp4" >/dev/null
+          adb pull /sdcard/combined-dashboard.mp4 "$OUT/combined-dashboard.mp4" >/dev/null
 
           adb shell cmd uimode night yes
           seed
-          shot dark-01-claude-dashboard 2
-          tap_text "Accounts";              shot dark-02-switcher 2
+          shot dark-01-combined-top 2
+          drag 1000;                        shot dark-02-combined-accounts 2
+          tap_text "Accounts";              shot dark-04-switcher 2
           adb shell input keyevent BACK; sleep 1
 
-          # Settings: one Providers & accounts page.
+          # Widgets drawn as on a home screen and a lock screen.
           for mode in light dark; do
             [[ $mode == dark ]] && adb shell cmd uimode night yes || adb shell cmd uimode night no
-            seedopen seed settings;          shot $mode-30-settings-root 2
-            tap_text "Providers & accounts"; shot $mode-31-providers-accounts 3
-            drag 900;                        shot $mode-32-providers-scrolled 2
+            seedopen seed widgets no home;   shot $mode-10-home-widgets 4
           done
           adb shell cmd uimode night no
-          seedopen seed providers
-          adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/settings-light.mp4" & REC=$!
-          sleep 2
-          tap_text "sam.lee@gmail.com";     shot light-34-after-switch 2
-          tap_text "sam.lee@gmail.com";     shot light-35-sign-out-prompt 2
-          adb shell input keyevent BACK; sleep 1
-          drag 900; sleep 1
-          tap_text "Add a provider";        shot light-36-add-provider 3
-          adb shell input keyevent BACK; sleep 2
-          adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
-          adb pull /sdcard/settings-light.mp4 "$OUT/settings-light.mp4" >/dev/null
+          seedopen seed widgets no lock;     shot light-20-lock-widgets 4
 
-          # Onboarding: Claude connected with one account, add a second.
-          seedopen seed onboarding yes
-          adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/onboarding-light.mp4" & REC=$!
+          # Widget settings: pick combined or one account.
+          seedopen seed widget_config
+          adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/widget-settings.mp4" & REC=$!
           sleep 2
-          shot light-40-onboarding-one 1
-          tap_text "Add another account";   shot light-41-onboarding-browser 7
-          adb shell input keyevent BACK;    shot light-42-onboarding-adding 3
-          adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action finish_add --es open onboarding; sleep 4
-          shot light-43-onboarding-two 1
-          tap_text "Continue";              shot light-44-onboarding-done 3
+          shot light-11-widget-config 2
+          tap_text "All accounts" >/dev/null 2>&1 || drag 700
+          dumpui widget-config
+          shot light-12-widget-config-accounts 2
+          tap_text "sam.lee@gmail.com";     shot light-13-widget-config-one 3
+          tap_text "All accounts";          shot light-14-widget-config-all 3
           adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
-          adb pull /sdcard/onboarding-light.mp4 "$OUT/onboarding-light.mp4" >/dev/null
+          adb pull /sdcard/widget-settings.mp4 "$OUT/widget-settings.mp4" >/dev/null
 
-          adb shell cmd uimode night yes
-          seedopen seed onboarding;         shot dark-43-onboarding-two 2
+          seedopen seed lock_config;         shot light-21-lock-config 3
+          tap_text "sam.lee@gmail.com" || { drag 700; tap_text "sam.lee@gmail.com"; }
+          shot light-22-lock-config-one 3
           adb shell cmd uimode night no
           adb logcat -d | grep -iE "DebugSeed|FATAL|AndroidRuntime|accounts|codexmeter" > "$OUT/logcat.txt" || true
           SH
@@ -208,4 +192,4 @@ jobs:
           git init -q
           git add -A
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Multiple accounts screenshots"
-          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/multi-account-review
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/multi-account-combined

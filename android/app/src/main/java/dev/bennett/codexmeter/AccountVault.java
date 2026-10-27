@@ -184,6 +184,156 @@ public final class AccountVault {
         return switchTo(context, provider, saved.get(0).optString("id"));
     }
 
+    /**
+     * Refreshes usage for every saved (not active) account whose numbers are older than
+     * {@code maxAgeMillis}, so combined totals and per-account widgets stay current. Never
+     * throws; a failing account keeps its last numbers.
+     */
+    public static void refreshSaved(Context context, UsageProvider provider, long maxAgeMillis) {
+        Context app = context.getApplicationContext();
+        long now = System.currentTimeMillis();
+        for (JSONObject entry : saved(app, provider)) {
+            String id = entry.optString("id");
+            UsageSnapshot previous = null;
+            try {
+                previous = UsageSnapshot.fromJson(entry.optJSONObject("snapshot"));
+            } catch (Exception ignored) {
+                previous = null;
+            }
+            if (previous != null && now - previous.fetchedAtMillis < maxAgeMillis) continue;
+            try {
+                AuthTokens[] tokens = {AuthTokens.fromJson(new JSONObject(
+                        SecureTokenStore.decrypt(KEY_ALIAS, entry.getString("tokens"))))};
+                String plan = previous == null ? "" : previous.planType;
+                ClaudeSavedResets[] resets = {null};
+                UsageSnapshot fresh;
+                if (provider == UsageProvider.CODEX) {
+                    fresh = UsageApi.fetchDetached(app, tokens);
+                } else if (provider == UsageProvider.CLAUDE_CODE) {
+                    fresh = ClaudeUsageApi.fetchDetached(app, tokens, plan, resets);
+                } else if (provider == UsageProvider.CURSOR) {
+                    fresh = CursorUsageApi.fetchDetached(app, tokens, plan);
+                } else if (ProviderUsageApi.handles(provider)) {
+                    fresh = ProviderUsageApi.fetchDetached(app, provider, tokens);
+                } else {
+                    continue;
+                }
+                synchronized (LOCK) {
+                    List<JSONObject> current = saved(app, provider);
+                    for (JSONObject candidate : current) {
+                        if (!id.equals(candidate.optString("id"))) continue;
+                        candidate.put("tokens", SecureTokenStore.encrypt(KEY_ALIAS,
+                                tokens[0].toJson().toString()));
+                        candidate.put("snapshot", fresh.toJson());
+                        if (resets[0] != null) candidate.put("saved_resets", resets[0].toJson());
+                        candidate.remove("error");
+                    }
+                    write(app, provider, current);
+                }
+                DiagnosticLog.info(app, "refresh", "saved_account_refreshed",
+                        "provider", provider.id);
+            } catch (Exception e) {
+                DiagnosticLog.warn(app, "refresh", "saved_account_refresh_failed",
+                        "provider", provider.id, "error", e.getClass().getSimpleName());
+            }
+        }
+    }
+
+    // --- which accounts the dashboard and each widget show ---
+
+    /** Widget and dashboard value meaning "every account of this provider, combined". */
+    public static final String SCOPE_ALL = "all";
+    private static final String SUFFIX_COMBINED = "_combined";
+    private static final String WIDGET_SCOPE = "widget_scope_";
+
+    /** Whether the dashboard shows this provider's accounts combined (needs 2+ accounts). */
+    public static boolean dashboardCombined(Context context, UsageProvider provider) {
+        return prefs(context).getBoolean(provider.id + SUFFIX_COMBINED, true)
+                && count(context, provider) > 1;
+    }
+
+    public static void setDashboardCombined(Context context, UsageProvider provider,
+            boolean combined) {
+        prefs(context).edit().putBoolean(provider.id + SUFFIX_COMBINED, combined).apply();
+    }
+
+    /** {@link #SCOPE_ALL} or the email of the one account a widget follows. */
+    public static String widgetScope(Context context, int appWidgetId) {
+        return prefs(context).getString(WIDGET_SCOPE + appWidgetId, SCOPE_ALL);
+    }
+
+    public static void setWidgetScope(Context context, int appWidgetId, String scope) {
+        prefs(context).edit().putString(WIDGET_SCOPE + appWidgetId,
+                scope == null || scope.isEmpty() ? SCOPE_ALL : scope).apply();
+    }
+
+    /** Every account's numbers merged; the single account's own numbers when there is one. */
+    public static UsageSnapshot combinedSnapshot(Context context, UsageProvider provider) {
+        List<UsageSnapshot> snapshots = new ArrayList<>();
+        for (Account account : list(context, provider)) snapshots.add(account.snapshot);
+        return AccountTotals.combine(snapshots, System.currentTimeMillis());
+    }
+
+    /**
+     * The numbers a surface following {@code scope} shows: one account's when the scope names
+     * an account of this provider, otherwise all of them combined.
+     */
+    public static UsageSnapshot snapshotFor(Context context, UsageProvider provider,
+            String scope) {
+        List<Account> accounts = list(context, provider);
+        if (accounts.size() <= 1) {
+            return ProviderAccounts.isSignedIn(context, provider)
+                    ? ProviderPreferences.loadSnapshot(context, provider)
+                    : accounts.isEmpty() ? null : accounts.get(0).snapshot;
+        }
+        if (scope != null && !SCOPE_ALL.equals(scope)) {
+            for (Account account : accounts) {
+                if (!account.email.isEmpty() && account.email.equalsIgnoreCase(scope)) {
+                    return account.snapshot;
+                }
+            }
+        }
+        List<UsageSnapshot> snapshots = new ArrayList<>();
+        for (Account account : accounts) snapshots.add(account.snapshot);
+        return AccountTotals.combine(snapshots, System.currentTimeMillis());
+    }
+
+    /**
+     * Short label for what the widget being drawn shows when the provider has several
+     * accounts: "All 3" for combined or the account's name before the @; empty otherwise.
+     */
+    public static String widgetAccountLabel(Context context, UsageProvider provider) {
+        List<Account> accounts = list(context, provider);
+        if (accounts.size() <= 1) return "";
+        String scope = RENDER_SCOPE.get();
+        if (scope != null && !SCOPE_ALL.equals(scope)) {
+            for (Account account : accounts) {
+                if (!account.email.isEmpty() && account.email.equalsIgnoreCase(scope)) {
+                    int at = account.email.indexOf('@');
+                    return at > 0 ? account.email.substring(0, at) : account.email;
+                }
+            }
+        }
+        return "All " + accounts.size();
+    }
+
+    /** The scope widgets are drawing right now; set around each widget's render. */
+    private static final ThreadLocal<String> RENDER_SCOPE = new ThreadLocal<>();
+
+    public static void beginWidgetRender(Context context, int appWidgetId) {
+        RENDER_SCOPE.set(widgetScope(context, appWidgetId));
+    }
+
+    public static void endWidgetRender() {
+        RENDER_SCOPE.remove();
+    }
+
+    /** What the widget being drawn on this thread shows for {@code provider}. */
+    public static UsageSnapshot widgetSnapshot(Context context, UsageProvider provider) {
+        String scope = RENDER_SCOPE.get();
+        return snapshotFor(context, provider, scope == null ? SCOPE_ALL : scope);
+    }
+
     // --- storage ---
 
     private static List<JSONObject> saved(Context context, UsageProvider provider) {

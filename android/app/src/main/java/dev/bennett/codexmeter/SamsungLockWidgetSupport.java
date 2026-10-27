@@ -188,8 +188,13 @@ final class SamsungLockWidgetSupport {
     static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, Metric metric) {
         List<UsageProvider> providers = new ArrayList<>(ProviderPreferences.getLockWidgetProviders(
                 context, i, metric == Metric.BOTH ? WidgetProviders.MAX_LOCK_WIDE : 1));
-        return buildViews(context, appWidgetManager, i, shape, style, metric, providers,
-                AppPreferences.loadLockWidgetOptions(context, i));
+        AccountVault.beginWidgetRender(context, i);
+        try {
+            return buildViews(context, appWidgetManager, i, shape, style, metric, providers,
+                    AppPreferences.loadLockWidgetOptions(context, i));
+        } finally {
+            AccountVault.endWidgetRender();
+        }
     }
 
     /** Which lock widget an id belongs to: one gauge (tiny) or two slots (wide and square). */
@@ -217,7 +222,7 @@ final class SamsungLockWidgetSupport {
         boolean multi = metric == Metric.BOTH && providers != null && providers.size() > 1;
         boolean zIsSignedIn = SecureTokenStore.isSignedIn(context, provider);
         UsageSnapshot usageSnapshotLoadSnapshot = zIsSignedIn
-                ? ProviderPreferences.loadSnapshot(context, provider) : null;
+                ? AccountVault.widgetSnapshot(context, provider) : null;
         // Reset credits are a Codex feature.
         boolean codexOnly = provider == UsageProvider.CODEX && !multi;
         ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = codexOnly
@@ -302,7 +307,7 @@ final class SamsungLockWidgetSupport {
             List<UsageProvider> providers, LockWidgetOptions options) {
         UsageProvider provider = providers == null || providers.isEmpty()
                 ? UsageProvider.CODEX : providers.get(0);
-        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
+        UsageSnapshot snapshot = AccountVault.widgetSnapshot(context, provider);
         if (slots <= 1) {
             List<String> keys = dialKeys(WidgetMeters.parse(options.effectiveVisibleMeters()),
                     snapshot);
@@ -385,7 +390,7 @@ final class SamsungLockWidgetSupport {
             boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
             anySignedIn |= signedIn;
             UsageSnapshot snapshot = signedIn
-                    ? ProviderPreferences.loadSnapshot(context, provider) : null;
+                    ? AccountVault.widgetSnapshot(context, provider) : null;
             List<String> keys = dialKeys(visible, snapshot);
             String key = keys.get(0);
             UsageWindow window = WidgetMeters.meterWindow(key, snapshot);

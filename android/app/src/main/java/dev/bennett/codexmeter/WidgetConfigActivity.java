@@ -67,6 +67,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private String tapAction = WidgetOptions.TAP_OPEN_APP;
     private List<UsageProvider> widgetProviders = new ArrayList<>();
+    private LinearLayout accountsSection;
     private final java.util.Map<UsageProvider, SwitchCompat> providerSwitches =
             new java.util.EnumMap<>(UsageProvider.class);
     private final int tapOpenId = View.generateViewId();
@@ -122,6 +123,10 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 Ui.secondaryText(this.dark));
         providersHint.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), Ui.dp(this, 24), 0);
         content.addView(providersHint);
+        this.accountsSection = new LinearLayout(this);
+        this.accountsSection.setOrientation(LinearLayout.VERTICAL);
+        content.addView(this.accountsSection);
+        refreshAccountsSection();
 
         content.addView(Ui.separator(this, "Appearance"));
         RoundedLinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
@@ -253,6 +258,26 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         renderPreview();
     }
 
+    /**
+     * With one provider that has several accounts: whether the widget shows them combined or
+     * follows one account.
+     */
+    private void refreshAccountsSection() {
+        if (this.accountsSection == null) return;
+        this.accountsSection.removeAllViews();
+        if (this.widgetProviders.size() != 1) return;
+        UsageProvider provider = this.widgetProviders.get(0);
+        if (AccountVault.count(this, provider) < 2) return;
+        this.accountsSection.addView(Ui.separator(this, "Accounts"));
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        card.addView(AccountSwitcher.scopePicker(this, provider, this.dark,
+                AccountVault.widgetScope(this, this.appWidgetId), scope -> {
+                    AccountVault.setWidgetScope(this, this.appWidgetId, scope);
+                    renderPreview();
+                }));
+        this.accountsSection.addView(card);
+    }
+
     private RoundedLinearLayout buildProvidersCard() {
         RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
         boolean first = true;
@@ -272,6 +297,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                     return;
                 }
                 this.widgetProviders = updated;
+                refreshAccountsSection();
                 renderPreview();
             });
         }

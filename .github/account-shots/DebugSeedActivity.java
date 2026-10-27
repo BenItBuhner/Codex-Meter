@@ -50,9 +50,12 @@ public class DebugSeedActivity extends Activity {
                 AccountVault.prepareToAdd(this, UsageProvider.CODEX);
                 seed(UsageProvider.CODEX, "sam@acme.dev", "pro", 8, 22, now, s);
                 AccountVault.finishAdding(this, UsageProvider.CODEX);
-                // Claude Code: a personal Pro account saved, a work Max account active.
+                // Claude Code: two personal Pro accounts saved, a work Max account active.
                 if (!singleClaude) {
                     seed(UsageProvider.CLAUDE_CODE, "sam.lee@gmail.com", "Pro", 81, 74, now, s);
+                    AccountVault.prepareToAdd(this, UsageProvider.CLAUDE_CODE);
+                    seed(UsageProvider.CLAUDE_CODE, "sam@side-project.dev", "Pro", 12, 30, now,
+                            s);
                     AccountVault.prepareToAdd(this, UsageProvider.CLAUDE_CODE);
                 }
                 seed(UsageProvider.CLAUDE_CODE, "sam@acme.dev", "Max 5x", 42, 68, now, s);
@@ -75,6 +78,19 @@ public class DebugSeedActivity extends Activity {
             next = new Intent(this, SettingsActivity.class);
         } else if ("providers".equals(open)) {
             next = new Intent(this, ProvidersActivity.class);
+        } else if ("widgets".equals(open)) {
+            next = new Intent(this, DebugWidgetsActivity.class)
+                    .putExtra("mode", getIntent().getStringExtra("mode"));
+        } else if ("widget_config".equals(open)) {
+            ProviderPreferences.setWidgetProviders(this, 900_021,
+                    Collections.singletonList(UsageProvider.CLAUDE_CODE));
+            next = new Intent(this, WidgetConfigActivity.class)
+                    .putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, 900_021);
+        } else if ("lock_config".equals(open)) {
+            ProviderPreferences.setWidgetProviders(this, 900_022,
+                    Collections.singletonList(UsageProvider.CLAUDE_CODE));
+            next = new Intent(this, LockWidgetConfigActivity.class)
+                    .putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, 900_022);
         } else if ("onboarding".equals(open)) {
             List<UsageProvider> picks = new ArrayList<>();
             picks.add(UsageProvider.CODEX);

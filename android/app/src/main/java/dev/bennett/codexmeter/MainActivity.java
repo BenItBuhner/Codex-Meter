@@ -169,7 +169,11 @@ public final class MainActivity extends AppCompatActivity {
         if (accounts != null) {
             boolean signedIn = ProviderAccounts.isSignedIn(this, this.provider);
             accounts.setVisible(signedIn || AccountVault.hasSaved(this, this.provider));
-            if (signedIn) {
+            if (signedIn && AccountVault.dashboardCombined(this, this.provider)) {
+                accounts.setIcon(AccountSwitcher.combinedToolbarIcon(this,
+                        AccountVault.list(this, this.provider), this.dark));
+                accounts.setTitle("Accounts: all combined");
+            } else if (signedIn) {
                 String email = ProviderAccounts.email(this, this.provider);
                 accounts.setIcon(AccountSwitcher.toolbarIcon(this,
                         email.isEmpty() ? this.provider.displayName : email,
@@ -189,6 +193,11 @@ public final class MainActivity extends AppCompatActivity {
         AccountSwitcher.show(this, target, this.dark, new AccountSwitcher.Listener() {
             @Override
             public void onSwitch(String accountId) {
+                AccountVault.setDashboardCombined(MainActivity.this, target, false);
+                if ("active".equals(accountId)) {
+                    rebuild();
+                    return;
+                }
                 if (!AccountVault.switchTo(MainActivity.this, target, accountId)) {
                     Toast.makeText(MainActivity.this, "Could not switch accounts.",
                             Toast.LENGTH_LONG).show();
@@ -207,6 +216,12 @@ public final class MainActivity extends AppCompatActivity {
                     }
                     refreshFromPull();
                 }
+            }
+
+            @Override
+            public void onCombined() {
+                AccountVault.setDashboardCombined(MainActivity.this, target, true);
+                rebuild();
             }
 
             @Override
@@ -588,6 +603,17 @@ public final class MainActivity extends AppCompatActivity {
     public void rebuild() {
         applyProviderTitle();
         invalidateOptionsMenu();
+        if (this.content != null && ProviderAccounts.isSignedIn(this, this.provider)
+                && AccountVault.dashboardCombined(this, this.provider)) {
+            this.content.removeAllViews();
+            GitHubRelease update = UpdatePreferences.availableUpdate(this);
+            if (update != null) {
+                this.content.addView(buildUpdateCard(update));
+                Ui.addSpacer(this.content, 20);
+            }
+            buildCombinedDashboard(this.provider);
+            return;
+        }
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
             buildProviderDashboard(this.provider);
@@ -1371,6 +1397,9 @@ public final class MainActivity extends AppCompatActivity {
         this.executor.execute(() -> {
             try {
                 RefreshScheduler.scheduleAtNextReset(applicationContext, UsageApi.refreshAndCache(applicationContext));
+                if (AccountVault.hasSaved(applicationContext, UsageProvider.CODEX)) {
+                    AccountVault.refreshSaved(applicationContext, UsageProvider.CODEX, 60_000L);
+                }
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
                     DiagnosticLog.info(applicationContext, "user",
@@ -1411,6 +1440,81 @@ public final class MainActivity extends AppCompatActivity {
      * Dashboard for providers other than Codex. It reuses the Codex metric cards; widgets,
      * Now Bar, Wear, alerts, and burn history remain Codex-only for now.
      */
+    /**
+     * Every account of {@code target} at once: the combined meters on top, then each account
+     * with its own bars. Tapping an account shows it alone.
+     */
+    private void buildCombinedDashboard(UsageProvider target) {
+        List<AccountVault.Account> accounts = AccountVault.list(this, target);
+        UsageSnapshot combined = AccountVault.combinedSnapshot(this, target);
+        TextView intro = Ui.text(this, "All " + accounts.size() + " " + target.displayName
+                + " accounts combined", 14.0f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams introParams = new LinearLayout.LayoutParams(-1, -2);
+        introParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 12));
+        this.content.addView(intro, introParams);
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        boolean inverted = false;
+        if (combined != null) {
+            if (combined.fiveHour != null) {
+                addDashboardCard(column, buildCombinedMetricCard(cadenceLabel(combined.fiveHour),
+                        combined, combined.fiveHour, inverted));
+                inverted = !inverted;
+            }
+            if (combined.weekly != null) {
+                addDashboardCard(column, buildCombinedMetricCard("Weekly", combined,
+                        combined.weekly, inverted));
+                inverted = !inverted;
+            }
+            if (combined.monthly != null) {
+                addDashboardCard(column, buildCombinedMetricCard("Monthly", combined,
+                        combined.monthly, inverted));
+            }
+        }
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 6));
+        TextView title = Ui.text(this, "Accounts", 17.0f, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        title.setPadding(Ui.dp(this, 18), 0, Ui.dp(this, 18), Ui.dp(this, 2));
+        card.addView(title);
+        TextView hint = Ui.text(this, "Tap an account to see it on its own.", 13.0f,
+                Ui.secondaryText(this.dark));
+        hint.setPadding(Ui.dp(this, 18), 0, Ui.dp(this, 18), Ui.dp(this, 4));
+        card.addView(hint);
+        for (int i = 0; i < accounts.size(); i++) {
+            AccountVault.Account account = accounts.get(i);
+            View row = AccountSwitcher.usageRow(this, this.dark, account, i);
+            row.setOnClickListener(view -> {
+                AccountVault.setDashboardCombined(this, target, false);
+                if (!account.active && !AccountVault.switchTo(this, target, account.id)) {
+                    Toast.makeText(this, "Could not switch accounts.", Toast.LENGTH_LONG).show();
+                }
+                rebuild();
+            });
+            card.addView(row);
+        }
+        addDashboardCard(column, card);
+        this.content.addView(column);
+    }
+
+    /** A meter card without a pace estimate, which only makes sense for one account. */
+    private LinearLayout buildCombinedMetricCard(String label, UsageSnapshot snapshot,
+            UsageWindow window, boolean invertedWave) {
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setPadding(0, 0, 0, 0);
+        card.setMinimumHeight(Ui.dp(this, 103.0f));
+        String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
+                snapshot.fetchedAtMillis, System.currentTimeMillis());
+        UsageWaveView wave = new UsageWaveView(this);
+        wave.setUsage(label, reset.replaceFirst("^Resets ", "Next reset "), "",
+                window.remainingPercent(),
+                window.windowSeconds >= 86_400L
+                        ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
+                invertedWave, false);
+        card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
+        return card;
+    }
+
     private void buildProviderDashboard(UsageProvider target) {
         GitHubRelease update = UpdatePreferences.availableUpdate(this);
         if (update != null) {
@@ -1574,6 +1678,9 @@ public final class MainActivity extends AppCompatActivity {
                     CursorUsageApi.refreshAndCache(applicationContext);
                 } else if (ProviderUsageApi.handles(target)) {
                     ProviderUsageApi.refreshAndCache(applicationContext, target);
+                }
+                if (!"tab".equals(source) && AccountVault.hasSaved(applicationContext, target)) {
+                    AccountVault.refreshSaved(applicationContext, target, 60_000L);
                 }
                 WidgetRenderer.updateAll(applicationContext);
             } catch (Exception e) {
