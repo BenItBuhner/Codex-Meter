@@ -297,6 +297,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         boolean adding = !signedIn && AccountVault.hasSaved(this, provider);
         int accounts = AccountVault.count(this, provider);
         addIntro(adding ? "Add another " + provider.displayName + " account"
+                        : signedIn ? provider.displayName + " connected"
                         : "Connect " + provider.displayName,
                 signedIn
                         ? (accounts > 1 ? accounts + " " + provider.accountName

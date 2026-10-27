@@ -1,7 +1,7 @@
 name: Multiple accounts screenshots (temporary)
 
 # One-off: installs this branch with sample accounts and records the account switcher.
-# Output goes to refs/ci-screenshots/multi-account-onboarding. Removed before the PR merges.
+# Output goes to refs/ci-screenshots/multi-account-review. Removed before the PR merges.
 on:
   push:
     branches: [claude/project-thread-rk4s0k]
@@ -105,6 +105,53 @@ jobs:
           }
           drag() { adb shell input swipe 540 1700 540 $((1700 - $1)) 1000; }
 
+          # Dashboard: the account button and switcher.
+          adb shell cmd uimode night no
+          seed; sleep 2
+          adb shell "screenrecord --time-limit 70 --size 540x1200 /sdcard/dashboard-light.mp4" & REC=$!
+          sleep 2
+          shot light-01-claude-dashboard 2
+          tap_text "Accounts";              shot light-02-switcher 2
+          tap_text "sam.lee@gmail.com";     shot light-03-switched-toast 1
+          shot light-04-switched-dashboard 3
+          tap_text "Accounts";              shot light-05-switcher-after 2
+          tap_text "sam@acme.dev";          sleep 3
+          tap_text "Accounts";              sleep 2
+          tap_text "Add another account";   shot light-06-add-browser 7
+          adb shell input keyevent BACK;    shot light-06b-adding-empty 3
+          adb shell am start -W --activity-clear-task -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es action finish_add --es tab claude_code; sleep 4
+          shot light-07-after-add 1
+          tap_text "Accounts";              shot light-08-three-accounts 2
+          adb shell input keyevent BACK; sleep 2
+          adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
+          adb pull /sdcard/dashboard-light.mp4 "$OUT/dashboard-light.mp4" >/dev/null
+
+          adb shell cmd uimode night yes
+          seed
+          shot dark-01-claude-dashboard 2
+          tap_text "Accounts";              shot dark-02-switcher 2
+          adb shell input keyevent BACK; sleep 1
+
+          # Settings: one Providers & accounts page.
+          for mode in light dark; do
+            [[ $mode == dark ]] && adb shell cmd uimode night yes || adb shell cmd uimode night no
+            seedopen seed settings;          shot $mode-30-settings-root 2
+            tap_text "Providers & accounts"; shot $mode-31-providers-accounts 3
+            drag 900;                        shot $mode-32-providers-scrolled 2
+          done
+          adb shell cmd uimode night no
+          seedopen seed providers
+          adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/settings-light.mp4" & REC=$!
+          sleep 2
+          tap_text "sam.lee@gmail.com";     shot light-34-after-switch 2
+          tap_text "sam.lee@gmail.com";     shot light-35-sign-out-prompt 2
+          adb shell input keyevent BACK; sleep 1
+          drag 900; sleep 1
+          tap_text "Add a provider";        shot light-36-add-provider 3
+          adb shell input keyevent BACK; sleep 2
+          adb shell pkill -INT screenrecord; sleep 3; wait $REC 2>/dev/null
+          adb pull /sdcard/settings-light.mp4 "$OUT/settings-light.mp4" >/dev/null
+
           # Onboarding: Claude connected with one account, add a second.
           seedopen seed onboarding yes
           adb shell "screenrecord --time-limit 60 --size 540x1200 /sdcard/onboarding-light.mp4" & REC=$!
@@ -161,4 +208,4 @@ jobs:
           git init -q
           git add -A
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Multiple accounts screenshots"
-          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/multi-account-onboarding
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci-screenshots/multi-account-review
