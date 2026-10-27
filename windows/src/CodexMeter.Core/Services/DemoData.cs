@@ -76,6 +76,48 @@ public static class DemoData
         };
     }
 
+    /// <summary>
+    /// A few past windows plus the current one for each window the demo snapshot has, so the
+    /// usage history chart has something to show. Ends at the snapshot's current value.
+    /// </summary>
+    public static ProviderHistory History(UsageProvider provider, DateTimeOffset now)
+    {
+        var snapshot = Snapshot(provider, now);
+        var seed = provider.Id.Aggregate(3, (sum, c) => (sum * 17 + c) % 101);
+        UsageHistory Build(UsageHistoryKind kind, UsageWindow? current, int pastWindows, TimeSpan step)
+        {
+            var history = UsageHistory.Empty(kind);
+            if (current?.ResetAt is not { } reset) return history;
+            var length = TimeSpan.FromSeconds(current.WindowSeconds);
+            var samples = new List<UsageSample>();
+            for (var back = pastWindows; back >= 0; back--)
+            {
+                var windowReset = reset - length * back;
+                var start = windowReset - length;
+                var end = back == 0 ? now : windowReset - step;
+                // Past windows finish between 55% and 100%; the current one ends at today's value.
+                var final = back == 0 ? current.UsedPercent : 55 + (seed * (back + 3)) % 46;
+                var count = Math.Max(2, (int)((end - start) / step));
+                for (var i = 0; i <= count; i++)
+                {
+                    var at = start + (end - start) * i / count;
+                    if (at <= start) at = start + TimeSpan.FromMinutes(1);
+                    // A burst early in the window, a quiet stretch, then steady use.
+                    var t = (double)i / count;
+                    var shape = t < 0.25 ? t * 1.8 : t < 0.5 ? 0.45 + (t - 0.25) * 0.4 : 0.55 + (t - 0.5) * 0.9;
+                    samples.Add(new UsageSample(at, (int)Math.Round(final * Math.Min(1, shape)), windowReset, current.WindowSeconds));
+                }
+            }
+            return new UsageHistory(kind, samples);
+        }
+        return new ProviderHistory
+        {
+            FiveHour = Build(UsageHistoryKind.FiveHour, snapshot.FiveHour, 5, TimeSpan.FromMinutes(20)),
+            Weekly = Build(UsageHistoryKind.Weekly, snapshot.Weekly, 3, TimeSpan.FromHours(6)),
+            Monthly = Build(UsageHistoryKind.Monthly, snapshot.Monthly, 2, TimeSpan.FromDays(1)),
+        };
+    }
+
     public static ResetCreditsSnapshot Credits(DateTimeOffset now) => new(2,
     [
         new RateLimitResetCredit("demo-credit-1", "full", "available", now.AddDays(-9), now.AddDays(5), "Full reset", "Resets your 5-hour and weekly limits."),
