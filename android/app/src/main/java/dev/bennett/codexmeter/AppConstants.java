@@ -12,6 +12,8 @@ public final class AppConstants {
     public static final String ACTION_RESET_ALERT = "dev.bennett.codexmeter.action.RESET_ALERT";
     public static final String ACTION_RESET_CREDIT_EXPIRY_ALERT =
             "dev.bennett.codexmeter.action.RESET_CREDIT_EXPIRY_ALERT";
+    public static final String ACTION_RESET_CREDIT_EXPIRY_APPLY =
+            "dev.bennett.codexmeter.action.RESET_CREDIT_EXPIRY_APPLY";
     public static final String ACTION_RESET_CREDITS_UPDATED = "dev.bennett.codexmeter.action.RESET_CREDITS_UPDATED";
     public static final String ACTION_USAGE_UPDATED = "dev.bennett.codexmeter.action.USAGE_UPDATED";
     public static final String APP_LINK = "codexmeter://auth/complete";
@@ -34,14 +36,14 @@ public final class AppConstants {
     public static final String REVOKE_URL = "https://auth.openai.com/oauth/revoke";
     public static final String TOKEN_URL = "https://auth.openai.com/oauth/token";
     public static final String USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
-    public static final int VERSION_CODE = 30;
-    public static final String VERSION_NAME = "2.8.0";
+    public static final int VERSION_CODE = 31;
+    public static final String VERSION_NAME = "3.0.0";
 
     private AppConstants() {
     }
 
     public static String userAgent() {
-        return "codex-meter-android/2.8.0 (Android " + (Build.VERSION.RELEASE == null ? "unknown" : Build.VERSION.RELEASE) + "; " + (Build.MODEL == null ? "Android" : Build.MODEL) + ")";
+        return "codex-meter-android/3.0.0 (Android " + (Build.VERSION.RELEASE == null ? "unknown" : Build.VERSION.RELEASE) + "; " + (Build.MODEL == null ? "Android" : Build.MODEL) + ")";
     }
 
     public static String updaterUserAgent() {

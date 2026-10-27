@@ -9,49 +9,39 @@ public final class NextResetComplicationService extends CodexComplicationService
     protected ComplicationData dataForType(ComplicationType type, boolean preview) {
         UsageSnapshot snapshot = snapshot(preview);
         long now = System.currentTimeMillis();
-        String shortText = surfaceText(preview,
-                WearGlanceFormat.nextResetRelativeText(snapshot, now));
-        String longText = surfaceText(preview,
-                WearGlanceFormat.nextResetLongText(snapshot, now));
-        float progress = resetProgress(snapshot, now);
+        WatchMeters.Meter next = WatchMeters.nextReset(snapshot, now);
+        String relative = next == null ? "--" : durationUntil(next, snapshot, now);
+        String shortText = surfaceText(preview, relative);
+        String longText = surfaceText(preview, next == null ? "No reset yet"
+                : next.shortLabel + " resets in " + relative);
+        float progress = resetProgress(next, snapshot, now);
+        String description = providerName(preview) + " next reset";
         if (type == ComplicationType.RANGED_VALUE) {
-            return rangedValue(progress, shortText, "Reset", "Codex next reset");
+            return rangedValue(progress, shortText, "Reset", description);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && type == ComplicationType.GOAL_PROGRESS) {
-            return goalProgress(progress, shortText, "Reset", "Codex next reset");
+            return goalProgress(progress, shortText, "Reset", description);
         } else if (type == ComplicationType.SHORT_TEXT) {
-            return shortText(shortText, "Reset", "Codex next reset");
+            return shortText(shortText, "Reset", description);
         } else if (type == ComplicationType.LONG_TEXT) {
-            return longText(longText, "Codex next reset");
+            return longText(longText, description);
         }
-        return imageForType(type, "Codex next reset");
+        return imageForType(type, description);
     }
 
-    private static float resetProgress(UsageSnapshot snapshot, long nowMillis) {
-        if (snapshot == null) return 0f;
-        UsageWindow fiveHour = WearGlanceFormat.currentFiveHour(snapshot);
-        UsageWindow weekly = WearGlanceFormat.currentLongWindow(snapshot);
-        UsageWindow next = earlierReset(fiveHour, weekly, snapshot.fetchedAtMillis, nowMillis);
-        if (next == null || next.windowSeconds <= 0L) return 0f;
-        long resetAt = next.effectiveResetAtMillis(snapshot.fetchedAtMillis);
-        long totalMillis = next.windowSeconds * 1000L;
+    private static String durationUntil(WatchMeters.Meter meter, UsageSnapshot snapshot,
+            long nowMillis) {
+        long resetAt = meter.window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+        return NowBarCopy.compactDuration(Math.max(0L, resetAt - nowMillis));
+    }
+
+    private static float resetProgress(WatchMeters.Meter next, UsageSnapshot snapshot,
+            long nowMillis) {
+        if (next == null || snapshot == null || next.window.windowSeconds <= 0L) return 0f;
+        long resetAt = next.window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+        long totalMillis = next.window.windowSeconds * 1000L;
         long remainingMillis = Math.max(0L, resetAt - nowMillis);
         return Math.max(0f, Math.min(100f,
                 100f * (1f - (float) remainingMillis / (float) totalMillis)));
-    }
-
-    private static UsageWindow earlierReset(UsageWindow first, UsageWindow second,
-            long observedAtMillis, long nowMillis) {
-        long firstAt = futureReset(first, observedAtMillis, nowMillis);
-        long secondAt = futureReset(second, observedAtMillis, nowMillis);
-        if (firstAt == Long.MAX_VALUE) return secondAt == Long.MAX_VALUE ? null : second;
-        if (secondAt == Long.MAX_VALUE) return first;
-        return firstAt <= secondAt ? first : second;
-    }
-
-    private static long futureReset(UsageWindow window, long observedAtMillis, long nowMillis) {
-        if (window == null) return Long.MAX_VALUE;
-        long resetAt = window.effectiveResetAtMillis(observedAtMillis);
-        return resetAt > nowMillis ? resetAt : Long.MAX_VALUE;
     }
 }

@@ -376,10 +376,10 @@ public final class WidgetMeters {
     /** Config-row title for a meter key. */
     public static String configLabel(String key, UsageSnapshot snapshot) {
         if (FIVE_HOUR.equals(key)) {
-            return "Codex · 5 hours";
+            return "5 hours";
         }
         if (WEEKLY.equals(key)) {
-            return weeklyMeterIsMonthly(snapshot) ? "Codex · Monthly" : "Codex · Weekly";
+            return weeklyMeterIsMonthly(snapshot) ? "Monthly" : "Weekly";
         }
         if (NEXT_RESET.equals(key)) {
             return "Next reset";

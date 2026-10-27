@@ -15,6 +15,9 @@ import android.util.DisplayMetrics;
 final class SamsungLockGraphics {
     private static final int TRACK = Color.argb(51, 0, 0, 0);
     private static final int FOREGROUND = Color.BLACK;
+    /** The five-hour ring inside a weekly dial: the same ink, a lighter shade. */
+    private static final int INNER = Color.argb(140, 0, 0, 0);
+    private static final int INNER_TRACK = Color.argb(31, 0, 0, 0);
 
     private SamsungLockGraphics() {
     }
@@ -31,6 +34,21 @@ final class SamsungLockGraphics {
             SamsungLockWidgetSupport.Style style, int fiveHour, int weekly, boolean signedIn,
             int requestedWidth, int requestedHeight, LockWidgetOptions options, int resetCredits,
             int primaryIconRes, int secondaryIconRes) {
+        return render(context, shape, style, fiveHour, -1, weekly, -1, signedIn, requestedWidth,
+                requestedHeight, options, resetCredits, primaryIconRes, secondaryIconRes);
+    }
+
+    /**
+     * Two dials. {@code primaryInner} and {@code secondaryInner} are the optional lighter
+     * five-hour rings drawn inside a weekly dial (-1 for none).
+     */
+    static Bitmap render(Context context, SamsungLockWidgetSupport.Shape shape,
+            SamsungLockWidgetSupport.Style style, int primary, int primaryInner, int secondary,
+            int secondaryInner, boolean signedIn, int requestedWidth, int requestedHeight,
+            LockWidgetOptions options, int resetCredits, int primaryIconRes,
+            int secondaryIconRes) {
+        int fiveHour = primary;
+        int weekly = secondary;
         int width = clamp(requestedWidth, 44, shape == SamsungLockWidgetSupport.Shape.SQUARE ? 96 : 200,
                 shape == SamsungLockWidgetSupport.Shape.SQUARE ? 56 : 124);
         int height = clamp(requestedHeight, 44, 96, 56);
@@ -49,18 +67,39 @@ final class SamsungLockGraphics {
         }
         float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 124.0f));
         float top = (height - (56.0f * dialScale)) / 2.0f;
-        float spacer = (width - (92.0f * dialScale)) / 3.0f;
         Drawable primaryIcon = context == null ? null : context.getDrawable(primaryIconRes);
+        if (secondaryIconRes == 0) {
+            // Only one meter to show: one centered dial instead of a blank second one.
+            drawDial(canvas, paint, width / 2.0f, top, dialScale, fiveHour, primaryInner,
+                    primaryIcon);
+            return bitmap;
+        }
+        float spacer = (width - (92.0f * dialScale)) / 3.0f;
         Drawable secondaryIcon = context == null ? null : context.getDrawable(secondaryIconRes);
         drawDial(canvas, paint, spacer + (23.0f * dialScale), top, dialScale,
-                fiveHour, primaryIcon);
+                fiveHour, primaryInner, primaryIcon);
         drawDial(canvas, paint, (2.0f * spacer) + (69.0f * dialScale), top, dialScale,
-                weekly, secondaryIcon);
+                weekly, secondaryInner, secondaryIcon);
         return bitmap;
     }
 
     static Bitmap renderSingle(Context context, SamsungLockWidgetSupport.Metric metric, int value,
             boolean signedIn, int requestedWidth, int requestedHeight) {
+        return renderSingle(context, value, signedIn, requestedWidth, requestedHeight,
+                metric == SamsungLockWidgetSupport.Metric.FIVE_HOUR
+                        ? R.drawable.ic_oui_time : R.drawable.ic_oui_calendar_week);
+    }
+
+    /** One gauge with {@code iconRes} (a meter icon or a provider mark) in its center. */
+    static Bitmap renderSingle(Context context, int value, boolean signedIn, int requestedWidth,
+            int requestedHeight, int iconRes) {
+        return renderSingle(context, value, -1, signedIn, requestedWidth, requestedHeight,
+                iconRes);
+    }
+
+    /** One gauge; {@code inner} >= 0 adds the lighter five-hour ring inside it. */
+    static Bitmap renderSingle(Context context, int value, int inner, boolean signedIn,
+            int requestedWidth, int requestedHeight, int iconRes) {
         int width = clamp(requestedWidth, 44, 96, 56);
         int height = clamp(requestedHeight, 44, 96, 56);
         DisplayMetrics metrics = context == null ? null : context.getResources().getDisplayMetrics();
@@ -79,11 +118,8 @@ final class SamsungLockGraphics {
         }
         float dialScale = Math.min(1.0f, Math.min(height / 56.0f, width / 46.0f));
         float top = (height - (56.0f * dialScale)) / 2.0f;
-        Drawable icon = context == null ? null : context.getDrawable(
-                metric == SamsungLockWidgetSupport.Metric.FIVE_HOUR
-                        ? R.drawable.ic_oui_time
-                        : R.drawable.ic_oui_calendar_week);
-        drawDial(canvas, paint, width / 2.0f, top, dialScale, value, icon);
+        Drawable icon = context == null ? null : context.getDrawable(iconRes);
+        drawDial(canvas, paint, width / 2.0f, top, dialScale, value, inner, icon);
         return bitmap;
     }
 
@@ -101,7 +137,7 @@ final class SamsungLockGraphics {
     }
 
     private static void drawDial(Canvas canvas, Paint paint, float cx, float top, float scale,
-            int value, Drawable icon) {
+            int value, int inner, Drawable icon) {
         float graphicTop = top + (3.0f * scale);
         float cy = graphicTop + (23.0f * scale);
         float radius = 20.0f * scale;
@@ -116,11 +152,24 @@ final class SamsungLockGraphics {
             paint.setColor(FOREGROUND);
             canvas.drawArc(arc, 156.43f, clampPercent(value) * 2.2714f, false, paint);
         }
+        boolean nested = inner >= 0;
+        if (nested) {
+            // Both windows in one dial: weekly on the outer ring, five-hour as a thinner,
+            // lighter ring just inside it.
+            float innerRadius = 13.0f * scale;
+            RectF innerArc = new RectF(cx - innerRadius, cy - innerRadius, cx + innerRadius,
+                    cy + innerRadius);
+            paint.setStrokeWidth(3.0f * scale);
+            paint.setColor(INNER_TRACK);
+            canvas.drawArc(innerArc, 156.43f, 227.14f, false, paint);
+            paint.setColor(INNER);
+            canvas.drawArc(innerArc, 156.43f, clampPercent(inner) * 2.2714f, false, paint);
+        }
 
         if (icon != null) {
-            int size = Math.max(7, Math.round(20.0f * scale));
+            int size = Math.max(7, Math.round((nested ? 13.0f : 20.0f) * scale));
             int left = Math.round(cx - (size / 2.0f));
-            int iconTop = Math.round(graphicTop + (12.0f * scale));
+            int iconTop = Math.round(cy - (scale) - (size / 2.0f));
             icon.setBounds(left, iconTop, left + size, iconTop + size);
             icon.setTint(FOREGROUND);
             icon.draw(canvas);

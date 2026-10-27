@@ -1,4 +1,6 @@
+#if canImport(BackgroundTasks) && os(iOS)
 import BackgroundTasks
+#endif
 import CodexMeterCore
 import Foundation
 import UserNotifications
@@ -115,7 +117,7 @@ public actor LiveCodexService: CodexService {
         }
     }
 
-    public func consumeReset() async throws -> ResetConsumeResult {
+    public func consumeReset(creditID: String?) async throws -> ResetConsumeResult {
         if let activeRefresh {
             _ = try? await activeRefresh.value
             self.activeRefresh = nil
@@ -154,8 +156,12 @@ public actor LiveCodexService: CodexService {
         }
 
         var object: [String: Any] = ["redeem_request_id": UUID().uuidString]
-        if let creditID = credits.preferredCreditID(at: now()), !creditID.isEmpty {
-            object["credit_id"] = creditID
+        let preferred = preferredCreditID(requested: creditID, credits: credits, now: now())
+        if let requested = creditID, !requested.isEmpty, preferred == nil {
+            return ResetConsumeResult(outcome: .noCredit, windowsReset: 0)
+        }
+        if let preferred, !preferred.isEmpty {
+            object["credit_id"] = preferred
         }
         let body = try JSONSerialization.data(withJSONObject: object)
         let payload = try await authenticatedRequest(
@@ -207,6 +213,24 @@ public actor LiveCodexService: CodexService {
         )
     }
 
+    private func preferredCreditID(
+        requested: String?,
+        credits: ResetCreditsSnapshot,
+        now: Date
+    ) -> String? {
+        if let requested, !requested.isEmpty {
+            if credits.credits.contains(where: { credit in
+                credit.id == requested
+                    && credit.isAvailable
+                    && (credit.expiresAt == nil || credit.expiresAt! > now)
+            }) {
+                return requested
+            }
+            return nil
+        }
+        return credits.preferredCreditID(at: now)
+    }
+
     public func currentTokens() async throws -> AuthTokens? {
         try await authSession.currentTokens()
     }
@@ -221,7 +245,9 @@ public actor LiveCodexService: CodexService {
         let notificationCenter = UNUserNotificationCenter.current()
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
+#if os(iOS)
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: "com.bukovinafilip.CodexMeter.refresh")
+#endif
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -307,6 +333,7 @@ public actor LiveCodexService: CodexService {
                 )
             },
             usageCredits: parsed.usageCredits,
+            spendControl: resolvingResetDate(in: parsed.spendControl, relativeTo: fetchedAt),
             fetchedAt: fetchedAt
         )
         guard usage.hasDisplayableData else {
@@ -328,6 +355,25 @@ public actor LiveCodexService: CodexService {
         )
     }
 
+    private func resolvingResetDate(
+        in control: SpendControl?,
+        relativeTo fetchedAt: Date
+    ) -> SpendControl? {
+        guard let control, let limit = control.individualLimit else { return control }
+        return SpendControl(
+            reached: control.reached,
+            individualLimit: SpendControlLimit(
+                source: limit.source,
+                limit: limit.limit,
+                used: limit.used,
+                remaining: limit.remaining,
+                usedPercent: limit.usedPercent,
+                resetAfterSeconds: limit.resetAfterSeconds,
+                resetAt: limit.effectiveResetDate(relativeTo: fetchedAt)
+            )
+        )
+    }
+
     private func usageWithCreditCount(_ usage: UsageSnapshot, _ count: Int) -> UsageSnapshot {
         UsageSnapshot(
             planType: usage.planType,
@@ -339,6 +385,7 @@ public actor LiveCodexService: CodexService {
             resetCreditsAvailable: count,
             additionalLimits: usage.additionalLimits,
             usageCredits: usage.usageCredits,
+            spendControl: usage.spendControl,
             fetchedAt: usage.fetchedAt
         )
     }

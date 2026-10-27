@@ -44,7 +44,7 @@ public final class WearOngoingMonitor {
         // Desire first; only mark posted-active after notify() succeeds inside post().
         // localChange=false: UI/settings callers already stamp desire when the user acts.
         WearPreferences.setMonitorDesired(context, true, false);
-        if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
+        if (WatchMeters.primary(snapshot, System.currentTimeMillis()) == null) {
             return false;
         }
         if (post(context, snapshot)) {
@@ -77,10 +77,8 @@ public final class WearOngoingMonitor {
         WearSettingsState settings = WearPreferences.settingsState(context, 0L,
                 WearSettingsState.SOURCE_WEAR);
         long now = System.currentTimeMillis();
-        UsageWindow fiveHour = UsageSnapshot.currentWindow(snapshot.fiveHour,
-                snapshot.fetchedAtMillis, now);
-        UsageWindow weekly = UsageSnapshot.currentWindow(snapshot.longWindow(),
-                snapshot.fetchedAtMillis, now);
+        UsageWindow fiveHour = WatchMeters.window(WatchMeters.primary(snapshot, now));
+        UsageWindow weekly = WatchMeters.window(WatchMeters.secondary(snapshot, now));
         if (isActive(context)) {
             post(context, snapshot);
         } else if (WearPreferences.isMonitorDesired(context)
@@ -135,16 +133,22 @@ public final class WearOngoingMonitor {
 
         long now = System.currentTimeMillis();
         long until = snapshot.nextResetMillis(now);
+        WatchMeters.Meter nextReset = WatchMeters.nextReset(snapshot, now);
+        if (until <= now && nextReset != null) {
+            // Providers that report only named limits still have a reset to count down to.
+            until = nextReset.window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+        }
         if (until <= now) {
             WearPreferences.clearMonitorPosted(context);
             return false;
         }
 
-        UsageWindow fiveHour = UsageSnapshot.currentWindow(
-                snapshot.fiveHour, snapshot.fetchedAtMillis, now);
-        UsageWindow weekly = UsageSnapshot.currentWindow(
-                snapshot.longWindow(), snapshot.fetchedAtMillis, now);
-        boolean longIsMonthly = snapshot.longWindowIsMonthly();
+        // The watch follows one provider; its first two meters stand in for 5-hour/weekly.
+        WatchMeters.Meter first = WatchMeters.primary(snapshot, now);
+        WatchMeters.Meter second = WatchMeters.secondary(snapshot, now);
+        UsageWindow fiveHour = WatchMeters.window(first);
+        UsageWindow weekly = WatchMeters.window(second);
+        String providerName = WearPreferences.selectedProviderName(context);
         WearSettingsState settings = WearPreferences.settingsState(context, 0L,
                 WearSettingsState.SOURCE_WEAR);
         String focus = NowBarPercentMode.resolveFocus(settings.percentMode, fiveHour, weekly,
@@ -154,11 +158,14 @@ public final class WearOngoingMonitor {
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
         long observedAt = snapshot.fetchedAtMillis;
         String criticalText = NowBarCopy.focusCriticalText(
-                weeklyFocus ? (longIsMonthly ? "M " : "W ") : "",
+                weeklyFocus && second != null ? second.shortLabel.substring(0, 1) + " " : "",
                 progressWindow, observedAt, now);
-        String contentText = NowBarCopy.wearLimitText("5h", fiveHour, observedAt, now)
-                + " · " + NowBarCopy.wearLimitText(longIsMonthly ? "Month" : "Week",
-                        weekly, observedAt, now);
+        String contentText = first == null ? "No usage yet"
+                : NowBarCopy.wearLimitText(first.shortLabel, fiveHour, observedAt, now);
+        if (second != null) {
+            contentText += " · " + NowBarCopy.wearLimitText(second.shortLabel, weekly,
+                    observedAt, now);
+        }
         PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT,
                 new Intent(context, WearMainActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -172,7 +179,7 @@ public final class WearOngoingMonitor {
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Codex usage")
+                .setContentTitle(providerName + " usage")
                 .setContentText(contentText)
                 .setContentIntent(contentIntent)
                 .setDeleteIntent(stopIntent)
@@ -190,7 +197,7 @@ public final class WearOngoingMonitor {
                         R.drawable.ic_refresh, "Refresh", refreshIntent).build());
 
         Status status = new Status.Builder()
-                .addTemplate("Codex #remaining# · #timer#")
+                .addTemplate(providerName + " #remaining# · #timer#")
                 .addPart("remaining", new Status.TextPart(criticalText))
                 .addPart("timer", new Status.TimerPart(elapsedTimeZero(until, now)))
                 .build();

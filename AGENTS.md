@@ -9,6 +9,7 @@ Codex Meter is a **monorepo** with native clients and no backend:
 | Repository root | Shared docs, license, changelog, CI entrypoints | — |
 | `android/` | Android (Gradle `:app`, `:shared`, `:wear`) | `dev.bennett.codexmeter` (+ Wear companion) |
 | `ios/` | SwiftUI / WidgetKit (Xcode) | `CodexMeter` app + widgets + `CodexMeterCore` package |
+| `macos/` | SwiftUI / WidgetKit for macOS (Xcode) | `Codex Meter.app` + desktop widgets; compiles the `ios/` app, widget, and test sources |
 
 Clients talk directly to OpenAI/ChatGPT remote endpoints. Tokens stay on-device (Android Keystore / iOS Keychain).
 
@@ -35,13 +36,13 @@ Convenience wrappers at the repo root forward into the Android project:
 - `./build.sh` → `android/build.sh`
 - `./lint.sh` → `android/lint.sh`
 
-iOS build instructions are in `ios/README.md`.
+iOS build instructions are in `ios/README.md`. Windows (WinUI 3, C#/.NET 10) instructions are in `windows/README.md`; `dotnet test windows/tests/CodexMeter.Core.Tests` runs the shared C# core tests on any OS. Linux (GTK 4 + libadwaita, sharing that C# core) instructions are in `linux/README.md`; `dotnet test linux/tests/CodexMeter.Linux.Tests` runs its tests.
 
 ## Cursor Cloud specific instructions (Android)
 
 ### Toolchain (pre-installed in the VM snapshot)
 - JDK 21 at `/usr/lib/jvm/java-21-openjdk-amd64` (project targets Java 17; JDK 21 builds fine with Gradle 9.6.1).
-- Android SDK at `~/android-sdk` with `platforms;android-36` + `build-tools;36.0.0` + `platform-tools`.
+- Android SDK at `~/android-sdk` with `platforms;android-37.1` (phone) + `platforms;android-37.0` (Wear) + `build-tools;36.0.0` + `platform-tools`.
 - Gradle 9.6.1 via the committed wrapper (`android/gradlew`); no system Gradle needed.
 - `JAVA_HOME`, `ANDROID_SDK_ROOT`, `ANDROID_HOME`, and `PATH` are exported from `~/.bashrc`. `android/build.sh` / `android/lint.sh` only auto-detect these on macOS paths, so on this Linux VM they rely on those env vars being present. In a non-login/non-interactive shell that did not source `~/.bashrc`, export them first:
   `export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ANDROID_SDK_ROOT=$HOME/android-sdk ANDROID_HOME=$HOME/android-sdk`.
@@ -60,3 +61,9 @@ iOS build instructions are in `ios/README.md`.
 - Core pure logic for the iOS app lives in `ios/CodexMeterCore`.
 - Fast checks: `swift test --package-path ios/CodexMeterCore` (from repo root) or from `ios/` as documented in `ios/README.md`.
 - Full Xcode builds need a macOS host; Linux cloud VMs typically cannot build the iOS target.
+
+## macOS notes for agents
+
+- The Mac app lives in `macos/CodexMeterMac.xcodeproj`. It compiles `ios/CodexMeter`, `ios/CodexMeterWidgets`, and `ios/CodexMeterTests` through synchronized folders, so new iOS files join the Mac build automatically.
+- Keep shared iOS views free of iOS-only APIs where a Mac equivalent exists. iOS-only modifiers and colors the shared views already use are mapped in `macos/Shared/IOSCompatibility.swift`; UIKit/Safari stand-ins live in `macos/CodexMeterMac/Platform/`. Use `#if os(iOS)` only for code with no Mac meaning.
+- `.github/workflows/macos-ci.yml` builds the Mac app, runs the shared iOS unit tests on macOS plus the Mac UI tests, and uploads a screenshot gallery. It also runs on PRs that only touch the shared `ios/` sources.

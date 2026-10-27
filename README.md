@@ -1,20 +1,23 @@
 # Codex Meter
 
-Codex Meter is an unofficial open-source client for viewing the Codex allowance
-attached to a signed-in ChatGPT account. This repository is a **monorepo**:
+Codex Meter is an unofficial open-source client for viewing your AI coding
+allowances: Codex, Claude Code, Cursor and 21 more providers. This repository is a **monorepo**:
 
 | Path | Platform | Notes |
 |------|----------|--------|
 | Repository root | Shared | Docs, license, changelog, CI, convenience script wrappers |
-| [`android/`](android/) | **Android** | Phone app + Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
-| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable 2.8.0 behavior (meters, monthly Free-tier windows, history analytics, diagnostics, widgets) |
+| [`android/`](android/) | **Android** | Phone app + Wear companion: One UI 8 and One UI 9 designs, 24 providers, live usage inside AI apps, One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
+| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client for iPhone, iPad (sidebar and adaptive columns) and Apple Watch, with the same providers as Android |
+| [`macos/`](macos/) | **Mac** | Native SwiftUI app: menu bar meter, sidebar window with the shared dashboards, Settings window, and desktop widgets. Reuses the iOS sources |
+| [`windows/`](windows/) | **Windows** | Native WinUI 3 app: Mica, per-provider dashboards (Codex, Claude Code, Cursor), accounts, settings, notification-area icon and toasts |
+| [`linux/`](linux/) | **Linux** | Native GTK 4 + libadwaita app: adaptive layout, per-provider dashboards (Codex, Claude Code, Cursor), accounts, settings, tray icon, keyring storage; `.deb` and AppImage for x86-64 and ARM64 |
 
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.8.0
+## Version 3.0.0
 
-Version 2.8.0 adapts to Free-tier monthly Codex limits when a paid plan expires, adds opt-in diagnostic log tracing/export, and declutters usage-history analytics with customizable highlights. This stable release consolidates the 2.8.0-alpha.1 channel build; alpha remains opt-in under Settings → Updates → Update channel.
+Codex Meter 3.0 tracks 24 AI coding providers, adds a One UI 9 design, shows your usage as a live notification while ChatGPT, Claude, GitHub, Grok or Kimi is open, can use banked resets for you before they expire, and shows workspace monthly credit limits. It also adds native apps for Mac, Windows, Linux, iPad and Apple Watch, and Wear OS now follows every provider. This stable release consolidates the 2.9.0-alpha.1 through 2.9.0-alpha.12 channel builds; alpha remains opt-in under Settings → Updates → Update channel. See [CHANGELOG.md](CHANGELOG.md) for everything that changed.
 
 On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
 
@@ -29,6 +32,10 @@ Settings includes an optional, user-started live usage monitor that runs only un
 ### Reset alerts
 
 Users can choose silent, notification-sound, or alarm-sound alerts for the five-hour limit, weekly limit, or both. Alerts can be conditional on the most recently observed allowance being below a selected threshold. Android schedules the notification for the cached reset time and performs a normal background refresh after the alert fires.
+
+### Provider switcher (alpha)
+
+One UI bottom tabs (the stock `BottomTabLayout` from oneui-design) under the dashboard switch between usage providers. **Codex** is the default and is unchanged. **Claude Code** signs in with your Claude account (the same OAuth flow and loopback callback the Claude Code CLI uses) and shows exactly the limits Claude Code reports in `/usage`: normally the 5-hour and weekly limits, plus a model-only weekly allocation (such as Fable) when your account has one, and extra usage when it is enabled. Claude keeps its own usage history and burn-rate estimates, and any home-screen widget can show it (widget settings → Provider). Because Anthropic's usage route rate-limits polling, Claude refreshes when you open its tab (if older than 5 minutes), pull to refresh, or tap a Claude widget's refresh, and in the background at most every 30 minutes, backing off for an hour after a 429. Now Bar, Wear, lock-screen widgets, and reset alerts remain Codex-only. **Cursor** signs in through the browser login the Cursor editor uses and shows included usage for the billing cycle, plus the Auto + Composer and API model pools and on-demand spend when Cursor reports them; it refreshes when you open its tab and in the background at most every 15 minutes. First-run setup asks which providers you use and signs you in to each; upgrades start with Codex only. **Settings → Providers** changes which providers appear and drags them into your preferred tab order (with one on, the tabs are hidden), and **Settings → Accounts** signs each provider in or out. Each tab uses the service's own mark: most come from [Simple Icons](https://simpleicons.org) (CC0) or [Lobe Icons](https://github.com/lobehub/lobe-icons) (MIT), and Augment, Factory, Synthetic and Codebuff are redrawn from their official site icons. The marks are their owners' trademarks. New providers plug in through `UsageProvider` and a tab in `res/menu/provider_tabs.xml`.
 
 ### Widget surfaces
 
@@ -49,12 +56,14 @@ The app includes:
 - Access-token refresh with refresh-token rotation preservation.
 - Android Keystore AES-GCM encryption for locally stored tokens.
 - Usage and reset-credit retrieval from the ChatGPT backend routes used by Codex.
+- Optional Claude Code sign-in (Claude OAuth + PKCE, loopback callback) and usage from `api.anthropic.com/api/oauth/usage`, the route Claude Code's `/usage` reads. Claude tokens use their own Keystore key and are removed independently on sign-out.
+- Optional Cursor sign-in (the editor's PKCE `loginDeepControl` + `auth/poll` flow, no callback server) and usage from `api2.cursor.sh` `DashboardService/GetCurrentPeriodUsage`. Cursor tokens use their own Keystore key and are removed independently on sign-out.
 - No analytics, advertisements, WebView, or application-level relay server.
 
 ## Compatibility
 
 - Phone minimum Android 8.0 (API 26); Wear companion minimum API 30
-- Phone compile SDK Android 16 (API 36); Wear compile SDK Android 17 (API 37.0)
+- Phone compile SDK Android 17 (API 37.1); Wear compile SDK Android 17 (API 37.0)
 - Phone and Wear target Android 16 (API 36)
 - Universal DEX APK with no native ABI libraries
 - Standard Android home-screen widgets

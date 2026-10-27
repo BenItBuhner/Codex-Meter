@@ -36,11 +36,21 @@ import java.util.concurrent.Executors;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
+import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final int MENU_SETTINGS = 8101;
     private static final int MENU_REORDER = 8102;
+    /** {@link UsageProvider#id} of the tab to open, e.g. from a Claude Code widget. */
+    public static final String EXTRA_PROVIDER = "provider";
+    /** With {@code start_sign_in}: which provider to sign in to (Settings → Accounts). */
+    public static final String EXTRA_SIGN_IN_PROVIDER = "sign_in_provider";
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -50,6 +60,26 @@ public final class MainActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String lastLaunchedAuthUrl = "";
     private boolean launchSignInRequested;
+    private UsageProvider launchSignInProvider = UsageProvider.CODEX;
+    /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
+    private UsageProvider provider = UsageProvider.DEFAULT;
+    private BottomTabLayout providerTabs;
+    /** Menu slots in {@code res/menu/provider_tabs.xml}, filled in tab order. */
+    private static final int[] TAB_SLOTS = {
+            R.id.provider_tab_0, R.id.provider_tab_1, R.id.provider_tab_2, R.id.provider_tab_3,
+            R.id.provider_tab_4, R.id.provider_tab_5, R.id.provider_tab_6, R.id.provider_tab_7,
+            R.id.provider_tab_8, R.id.provider_tab_9, R.id.provider_tab_10, R.id.provider_tab_11,
+            R.id.provider_tab_12, R.id.provider_tab_13, R.id.provider_tab_14,
+            R.id.provider_tab_15, R.id.provider_tab_16, R.id.provider_tab_17,
+            R.id.provider_tab_18, R.id.provider_tab_19, R.id.provider_tab_20,
+            R.id.provider_tab_21, R.id.provider_tab_22, R.id.provider_tab_23};
+    /** Providers currently shown in the tab slots, in order. */
+    private List<UsageProvider> tabProviders = new ArrayList<>();
+    /** Slots still in the tab menu; the layout inflates all of them. */
+    private int menuSlots = TAB_SLOTS.length;
+    private Ui.Header header;
+    /** One UI 9 design: SESL9's floating tab bar instead of the stock tabs. */
+    private OneUi9ProviderBar oneUi9Bar;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -69,7 +99,7 @@ public final class MainActivity extends AppCompatActivity {
                 if (stringExtra2 == null) {
                     stringExtra2 = booleanExtra ? "Signed in." : "Sign-in failed.";
                 }
-                Toast.makeText(mainActivity, stringExtra2, 1).show();
+                Toast.makeText(mainActivity, stringExtra2, Toast.LENGTH_LONG).show();
                 PhoneWearSync.pushAll(MainActivity.this);
                 MainActivity.this.rebuild();
                 return;
@@ -95,8 +125,15 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        Ui.Page page = Ui.installPage(this, "Codex Meter", false);
+        Ui.Page page = Ui.installPage(this, "Codex Meter", false,
+                R.layout.activity_main_dashboard);
         this.content = page.content;
+        this.header = page.header;
+        if (page.oneUi9 != null) {
+            this.oneUi9Bar = new OneUi9ProviderBar(page.oneUi9, this::selectProvider);
+        }
+        this.provider = ProviderPreferences.getSelected(this);
+        setUpProviderTabs();
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
         int refreshAccent = Ui.accent(this, this.dark);
         // OneUI's four-dot SwipeRefresh drawable indexes two palette entries while drawing.
@@ -130,7 +167,8 @@ public final class MainActivity extends AppCompatActivity {
         }
         if (item.getItemId() == MENU_REORDER) {
             DiagnosticLog.info(this, "user", "dashboard_editor_opened");
-            Ui.startSecondaryActivity(this, DashboardReorderActivity.class);
+            Ui.startSecondaryActivity(this, new Intent(this, DashboardReorderActivity.class)
+                    .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, this.provider.id));
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -157,6 +195,7 @@ public final class MainActivity extends AppCompatActivity {
                 || materialYou != this.appliedMaterialYou) {
             recreate();
         } else {
+            applyEnabledProviders();
             handleLaunchIntent(getIntent());
             rebuild();
         }
@@ -175,7 +214,7 @@ public final class MainActivity extends AppCompatActivity {
         intentFilter.addAction(AppConstants.ACTION_RELEASES_UPDATED);
         try {
             if (Build.VERSION.SDK_INT >= 33) {
-                registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null, 4);
+                registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null, Context.RECEIVER_NOT_EXPORTED);
             } else {
                 registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null);
             }
@@ -187,10 +226,13 @@ public final class MainActivity extends AppCompatActivity {
         rebuild();
         if (this.launchSignInRequested) {
             this.launchSignInRequested = false;
-            startOrContinueSignIn();
+            startOrContinueSignIn(this.launchSignInProvider);
         }
+        refreshSelectedProviderIfStale();
         if (SecureTokenStore.isSignedIn(this)) {
-            AppPreferences.setOAuthPending(this, false, "");
+            if (ProviderPreferences.getPendingSignIn(this) == UsageProvider.CODEX) {
+                AppPreferences.setOAuthPending(this, false, "");
+            }
             UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(this);
             if (AppPreferences.getRefreshOnLaunch(this)
                     && (usageSnapshotLoadSnapshot == null || System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis > 300000)) {
@@ -222,9 +264,29 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void handleLaunchIntent(Intent intent) {
+        String requestedProvider = intent == null ? null
+                : intent.getStringExtra(EXTRA_PROVIDER);
+        if (requestedProvider != null) {
+            intent.removeExtra(EXTRA_PROVIDER);
+            UsageProvider requested = UsageProvider.fromId(requestedProvider);
+            if (requested != this.provider
+                    && ProviderPreferences.getEnabled(this).contains(requested)) {
+                this.provider = requested;
+                ProviderPreferences.setSelected(this, requested);
+                if (this.providerTabs != null) {
+                    this.providerTabs.setSelectedItem(tabId(requested));
+                }
+                if (this.oneUi9Bar != null) {
+                    this.oneUi9Bar.update(ProviderPreferences.getEnabled(this), requested);
+                }
+            }
+        }
         if (intent != null && intent.getBooleanExtra("start_sign_in", false)) {
             this.launchSignInRequested = true;
+            this.launchSignInProvider = UsageProvider.fromId(
+                    intent.getStringExtra(EXTRA_SIGN_IN_PROVIDER));
             intent.removeExtra("start_sign_in");
+            intent.removeExtra(EXTRA_SIGN_IN_PROVIDER);
         }
         Uri data = intent == null ? null : intent.getData();
         if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
@@ -238,10 +300,15 @@ public final class MainActivity extends AppCompatActivity {
 
     private boolean routeToOnboarding(Intent intent) {
         boolean oauthReturn = isOAuthReturnIntent(intent);
+        boolean anySignedIn = false;
+        for (UsageProvider candidate : UsageProvider.values()) {
+            anySignedIn |= SecureTokenStore.isSignedIn(this, candidate);
+        }
         int action = OnboardingFlow.launchAction(
                 AppPreferences.isOnboardingComplete(this),
-                SecureTokenStore.isSignedIn(this),
-                oauthReturn);
+                anySignedIn,
+                oauthReturn,
+                AppPreferences.getOnboardingStep(this) > OnboardingFlow.STEP_WELCOME);
         if (action == OnboardingFlow.LAUNCH_MAIN_AND_COMPLETE) {
             // Existing signed-in installs predate onboarding and should not be interrupted.
             AppPreferences.completeOnboarding(this);
@@ -272,7 +339,158 @@ public final class MainActivity extends AppCompatActivity {
                 && data.getPath().startsWith("/complete");
     }
 
+    private void setUpProviderTabs() {
+        this.providerTabs = findViewById(R.id.provider_tabs);
+        if (this.providerTabs == null) {
+            return;
+        }
+        applyEnabledProviders();
+        this.providerTabs.setOnMenuItemClickListener(this::onProviderTabClicked);
+    }
+
+    /** Tabs and the "More" grid both land here. */
+    private boolean onProviderTabClicked(MenuItem item) {
+        UsageProvider selected = providerForTab(item.getItemId());
+        if (selected != null) {
+            selectProvider(selected);
+            if (this.providerTabs != null) {
+                this.providerTabs.setSelectedItem(item.getItemId());
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Fills the tab slots with the providers turned on in Settings → Providers, in the order
+     * chosen there, and hides the tabs entirely when only one is on. A tab turned off while
+     * selected falls back to the first provider still on.
+     *
+     * <p>Up to four providers get a tab each. With five or more, One UI's BottomTabLayout keeps
+     * the first three as tabs and moves the rest into its stock "More" grid
+     * ({@link ProviderTabs}). It counts hidden menu items when deciding, so unused slots are
+     * removed from the menu, and the menu is re-inflated when the set of providers changes.
+     */
+    private void applyEnabledProviders() {
+        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
+        UsageProvider visible = UsageProvider.visibleSelection(this.provider, enabled);
+        if (visible != this.provider) {
+            this.provider = visible;
+            ProviderPreferences.setSelected(this, visible);
+        }
+        if (this.oneUi9Bar != null) {
+            this.oneUi9Bar.update(enabled, this.provider);
+            return;
+        }
+        if (this.providerTabs == null) {
+            return;
+        }
+        if (!enabled.equals(this.tabProviders)) {
+            this.tabProviders = new ArrayList<>(enabled);
+            int needed = Math.min(enabled.size(), TAB_SLOTS.length);
+            if (this.menuSlots < needed) {
+                // Removed slots can't come back one by one, so start from a full menu again.
+                for (int slot = 0; slot < this.menuSlots; slot++) {
+                    this.providerTabs.removeMenuItem(TAB_SLOTS[slot]);
+                }
+                this.providerTabs.inflateMenu(R.menu.provider_tabs, this::onProviderTabClicked);
+                this.menuSlots = TAB_SLOTS.length;
+            }
+            for (int slot = 0; slot < needed; slot++) {
+                MenuItem item = this.providerTabs.findMenuItem(TAB_SLOTS[slot]);
+                UsageProvider tabProvider = enabled.get(slot);
+                item.setTitle(tabProvider.displayName);
+                item.setIcon(ProvidersActivity.iconRes(tabProvider));
+            }
+            for (int slot = this.menuSlots - 1; slot >= needed; slot--) {
+                this.providerTabs.removeMenuItem(TAB_SLOTS[slot]);
+            }
+            this.menuSlots = needed;
+        }
+        this.providerTabs.setSelectedItem(tabId(this.provider));
+        this.providerTabs.setVisibility(ProviderTabs.showsBar(enabled.size())
+                ? View.VISIBLE : View.GONE);
+    }
+
+    /** Tab slot showing {@code provider}; slots follow the order from Settings → Providers. */
+    private int tabId(UsageProvider provider) {
+        int index = this.tabProviders.indexOf(provider);
+        return TAB_SLOTS[Math.max(0, Math.min(index, TAB_SLOTS.length - 1))];
+    }
+
+    private UsageProvider providerForTab(int itemId) {
+        for (int slot = 0; slot < TAB_SLOTS.length && slot < this.tabProviders.size(); slot++) {
+            if (TAB_SLOTS[slot] == itemId) {
+                return this.tabProviders.get(slot);
+            }
+        }
+        return null;
+    }
+
+    private void selectProvider(UsageProvider selected) {
+        if (selected == this.provider) {
+            return;
+        }
+        DiagnosticLog.info(this, "user", "provider_selected", "provider", selected.id);
+        this.provider = selected;
+        ProviderPreferences.setSelected(this, selected);
+        if (this.swipeRefresh != null) {
+            this.swipeRefresh.setRefreshing(false);
+        }
+        rebuild();
+        refreshSelectedProviderIfStale();
+    }
+
+    /**
+     * Claude usage is never fetched in the background (its usage route rate-limits hard), so the
+     * tab refreshes itself when opened with data older than a few minutes.
+     */
+    private void refreshSelectedProviderIfStale() {
+        if (this.provider == UsageProvider.CLAUDE_CODE
+                && SecureTokenStore.isSignedIn(this, UsageProvider.CLAUDE_CODE)
+                && AppPreferences.getRefreshOnLaunch(this)
+                && ClaudeUsageApi.isStale(this)) {
+            if (this.swipeRefresh != null) {
+                this.swipeRefresh.setRefreshing(true);
+            }
+            refreshProvider(UsageProvider.CLAUDE_CODE, "tab");
+        } else if (this.provider == UsageProvider.CURSOR
+                && SecureTokenStore.isSignedIn(this, UsageProvider.CURSOR)
+                && AppPreferences.getRefreshOnLaunch(this)
+                && CursorUsageApi.isStale(this)) {
+            if (this.swipeRefresh != null) {
+                this.swipeRefresh.setRefreshing(true);
+            }
+            refreshProvider(UsageProvider.CURSOR, "tab");
+        } else if (ProviderUsageApi.handles(this.provider)
+                && SecureTokenStore.isSignedIn(this, this.provider)
+                && AppPreferences.getRefreshOnLaunch(this)
+                && ProviderUsageApi.isStale(this, this.provider)) {
+            if (this.swipeRefresh != null) {
+                this.swipeRefresh.setRefreshing(true);
+            }
+            refreshProvider(this.provider, "tab");
+        }
+    }
+
+    /** The large title names the selected provider ("Codex", "Cursor"), matching iOS. */
+    private void applyProviderTitle() {
+        if (this.header == null) {
+            return;
+        }
+        String title = this.provider.displayName;
+        CharSequence current = this.header.getTitle();
+        if (current == null || !title.contentEquals(current)) {
+            this.header.setTitle(title);
+        }
+    }
+
     public void rebuild() {
+        applyProviderTitle();
+        if (this.content != null && this.provider != UsageProvider.CODEX) {
+            this.content.removeAllViews();
+            buildProviderDashboard(this.provider);
+            return;
+        }
         if (this.content != null) {
             this.content.removeAllViews();
             GitHubRelease update = UpdatePreferences.availableUpdate(this);
@@ -288,7 +506,8 @@ public final class MainActivity extends AppCompatActivity {
             boolean signedIn = SecureTokenStore.isSignedIn(this);
             if (!signedIn) {
                 Button signIn = Ui.nativePrimaryButton(this,
-                        AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
+                        ProviderPreferences.isSignInPending(this, UsageProvider.CODEX)
+                                ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
@@ -296,7 +515,7 @@ public final class MainActivity extends AppCompatActivity {
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
-                                + "Settings → Refresh & usage.",
+                                + "Settings → Refresh & dashboard → Edit dashboard.",
                         14.0f, Ui.secondaryText(this.dark));
                 empty.setGravity(Gravity.CENTER);
                 this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
@@ -370,6 +589,10 @@ public final class MainActivity extends AppCompatActivity {
             if (AppPreferences.showDashboardMonthly(this) && snapshot.monthly != null) {
                 available.add(DashboardSections.MONTHLY);
             }
+            // Accounts without workspace spend controls never see this card.
+            if (AppPreferences.showDashboardSpendControl(this) && snapshot.spendControl != null) {
+                available.add(DashboardSections.SPEND_CONTROL);
+            }
             if (AppPreferences.showDashboardAdditionalLimits(this)) {
                 for (String key : limitsByKey.keySet()) {
                     if (!AppPreferences.isDashboardSectionHidden(this, key)) {
@@ -409,12 +632,14 @@ public final class MainActivity extends AppCompatActivity {
                 addDashboardCard(column, buildMetricCard(
                         "Monthly", snapshot, snapshot.monthly, inverted));
                 inverted = !inverted;
+            } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
+                addDashboardCard(column, buildSpendControlCard(snapshot));
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
-                addDashboardCard(column, buildUsageHistoryCard());
+                addDashboardCard(column, buildUsageHistoryCard(UsageProvider.CODEX));
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                addDashboardCard(column, buildResetCreditsCard());
+                addDashboardCard(column, buildResetCreditsCard(UsageProvider.CODEX));
             } else {
                 List<UsageLimit> group = limitsByKey.get(key);
                 if (group == null) {
@@ -454,7 +679,8 @@ public final class MainActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
                 snapshot.fetchedAtMillis, now);
-        UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
+        UsagePace.Assessment pace = UsagePacePreferences.assess(this, this.provider, snapshot,
+                window, now);
         UsageWaveView wave = new UsageWaveView(this);
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
                 window.remainingPercent(),
@@ -465,10 +691,10 @@ public final class MainActivity extends AppCompatActivity {
         return card;
     }
 
-    private LinearLayout buildUsageHistoryCard() {
+    private LinearLayout buildUsageHistoryCard(UsageProvider target) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 12));
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, target);
         long now = System.currentTimeMillis();
         TextView title = Ui.text(this, "Usage history", 18, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
@@ -489,9 +715,9 @@ public final class MainActivity extends AppCompatActivity {
         if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView fiveChart = new UsageBurnChartView(this);
             fiveChart.setData("5-hour", fiveWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.FIVE_HOUR),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, fiveWindow, now));
             card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
@@ -500,9 +726,9 @@ public final class MainActivity extends AppCompatActivity {
         if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
             weeklyChart.setData("Weekly", weeklyWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.WEEKLY),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, weeklyWindow, now));
             card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
@@ -511,16 +737,17 @@ public final class MainActivity extends AppCompatActivity {
         if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
             UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
             monthlyChart.setData("Monthly", monthlyWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY),
+                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.MONTHLY),
                     snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, monthlyWindow, now));
+                    UsagePacePreferences.assess(this, target, snapshot, monthlyWindow, now));
             card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
         if (!hasCharts) {
             TextView waiting = Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage windows.",
+                    "Charts appear once " + target.vendorName
+                            + " reports your 5-hour, weekly, or monthly usage windows.",
                     12, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams waitingParams = new LinearLayout.LayoutParams(-1, -2);
             waitingParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 8),
@@ -529,7 +756,7 @@ public final class MainActivity extends AppCompatActivity {
         }
 
         Button open = Ui.button(this, "View history", false, this.dark);
-        open.setOnClickListener(view -> Ui.startSecondaryActivity(this, UsageHistoryActivity.class));
+        open.setOnClickListener(view -> UsageHistoryActivity.open(this, target));
         LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
@@ -546,8 +773,66 @@ public final class MainActivity extends AppCompatActivity {
         return card;
     }
 
+    /**
+     * Workspace spend-control card: the per-member monthly credit allocation OpenAI reports under
+     * {@code spend_control.individual_limit}. Distinct from purchased usage credits and banked
+     * reset credits, and only built when the snapshot carries one.
+     */
+    private LinearLayout buildSpendControlCard(UsageSnapshot snapshot) {
+        SpendControl control = snapshot.spendControl;
+        long now = System.currentTimeMillis();
+        LinearLayout card = Ui.card(this, this.dark);
+        LinearLayout header = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        TextView title = Ui.text(this, "Monthly credit limit", 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        String percentUsed = UsageFormat.spendControlPercentUsed(control);
+        if (!percentUsed.isEmpty()) {
+            TextView percent = Ui.text(this, percentUsed, 14.0f, Ui.secondaryText(this.dark));
+            percent.setTypeface(Ui.mediumTypeface(this));
+            LinearLayout.LayoutParams percentParams = new LinearLayout.LayoutParams(-2, -2);
+            percentParams.setMargins(Ui.dp(this, 12), 0, 0, 0);
+            header.addView(percent, percentParams);
+        }
+        card.addView(header, new LinearLayout.LayoutParams(-1, -2));
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_calendar_month,
+                UsageFormat.spendControlUsage(this, control),
+                UsageFormat.spendControlRemaining(this, control),
+                control.reached ? Ui.danger(this.dark) : Ui.secondaryText(this.dark)));
+
+        int remaining = control.effectiveRemainingPercent();
+        if (remaining >= 0) {
+            ProgressBar bar = Ui.progress(this, this.dark);
+            bar.setProgress(remaining);
+            if (control.reached) {
+                bar.setProgressTintList(ColorStateList.valueOf(Ui.danger(this.dark)));
+            }
+            LinearLayout.LayoutParams barParams =
+                    (LinearLayout.LayoutParams) bar.getLayoutParams();
+            barParams.setMargins(0, Ui.dp(this, 14), 0, 0);
+            card.addView(bar, barParams);
+        }
+
+        String footer = control.sourceLabel();
+        if (control.showsResetCountdown()) {
+            footer += " · " + UsageFormat.resetAt(this,
+                    control.effectiveResetAtMillis(snapshot.fetchedAtMillis),
+                    WidgetOptions.RESET_BOTH, now);
+        }
+        TextView note = Ui.text(this, footer, 12, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
+        noteParams.setMargins(0, Ui.dp(this, 10), 0, 0);
+        card.addView(note, noteParams);
+        return card;
+    }
+
     /** Left-aligned icon + value + summary row used inside the credit dashboard cards. */
     private LinearLayout buildIconDetailRow(int icon, String value, String summary) {
+        return buildIconDetailRow(icon, value, summary, Ui.secondaryText(this.dark));
+    }
+
+    private LinearLayout buildIconDetailRow(int icon, String value, String summary,
+            int summaryColor) {
         LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         ImageView image = new ImageView(this);
         image.setImageResource(icon);
@@ -559,10 +844,12 @@ public final class MainActivity extends AppCompatActivity {
         TextView valueText = Ui.text(this, value, 17.0f, Ui.mainText(this.dark));
         valueText.setTypeface(Ui.mediumTypeface(this));
         labels.addView(valueText);
-        TextView summaryText = Ui.text(this, summary, 13.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-2, -2);
-        summaryParams.setMargins(0, Ui.dp(this, 2), 0, 0);
-        labels.addView(summaryText, summaryParams);
+        if (summary != null && !summary.isEmpty()) {
+            TextView summaryText = Ui.text(this, summary, 13.0f, summaryColor);
+            LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-2, -2);
+            summaryParams.setMargins(0, Ui.dp(this, 2), 0, 0);
+            labels.addView(summaryText, summaryParams);
+        }
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
         labelParams.setMargins(Ui.dp(this, 16), 0, 0, 0);
         row.addView(labels, labelParams);
@@ -605,9 +892,15 @@ public final class MainActivity extends AppCompatActivity {
         if (seconds >= 432_000L && seconds <= 777_600L) {
             return "Weekly";
         }
+        if (seconds >= 2_419_200L && seconds <= 2_678_400L) {
+            return "Monthly";
+        }
         if (seconds >= 10_800L && seconds <= 28_800L) {
             long hours = Math.max(1L, Math.round(seconds / 3600.0d));
             return hours + "-hour";
+        }
+        if (seconds == 86_400L) {
+            return "Daily";
         }
         if (seconds % 86_400L == 0L) {
             long days = seconds / 86_400L;
@@ -726,12 +1019,20 @@ public final class MainActivity extends AppCompatActivity {
         linearLayout.addView(viewText, layoutParams2);
     }
 
-    private LinearLayout buildResetCreditsCard() {
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
-        ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
-        int available = credits == null ? 0 : credits.availableCount;
+    /** The Reset credits card, shared by Codex reset credits and Claude Code saved resets. */
+    private LinearLayout buildResetCreditsCard(UsageProvider target) {
+        boolean claude = target == UsageProvider.CLAUDE_CODE;
+        boolean signedIn = SecureTokenStore.isSignedIn(this, target);
         long now = System.currentTimeMillis();
+        ClaudeSavedResets saved = claude ? ProviderPreferences.loadSavedResets(this, target)
+                : null;
+        ResetCreditsSnapshot credits = claude
+                ? (saved == null ? null : saved.toResetCreditsSnapshot(now))
+                : AppPreferences.loadResetCredits(this);
+        int available = credits == null ? 0 : credits.availableCount;
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
+        // Claude only: Anthropic can hold a reset until you reach a usage limit.
+        boolean usableNow = !claude || (saved != null && saved.usableGrant(now) != null);
 
         LinearLayout card = Ui.card(this, this.dark);
         TextView title = Ui.text(this, "Reset credits", 18, Ui.mainText(this.dark));
@@ -742,11 +1043,11 @@ public final class MainActivity extends AppCompatActivity {
                 resetCreditsSummary(signedIn, available, nextExpiry, now)));
 
         if (signedIn) {
-            card.setOnClickListener(view -> openResetCredits());
+            card.setOnClickListener(view -> openResetCredits(target));
             Button button = Ui.nativePrimaryButton(this,
                     available > 0 ? "Use 1 reset" : "No resets available");
-            button.setEnabled(available > 0);
-            button.setOnClickListener(view -> openResetCredits());
+            button.setEnabled(available > 0 && usableNow);
+            button.setOnClickListener(view -> openResetCredits(target));
             LinearLayout.LayoutParams buttonParams =
                     new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
             buttonParams.setMargins(0, Ui.dp(this, 16.0f), 0, 0);
@@ -783,8 +1084,8 @@ public final class MainActivity extends AppCompatActivity {
         return "Earn credits from ChatGPT Codex";
     }
 
-    private void openResetCredits() {
-        Ui.startSecondaryActivity(this, ResetCreditActivity.class);
+    private void openResetCredits(UsageProvider target) {
+        Ui.startSecondaryActivity(this, ResetCreditActivity.intent(this, target));
     }
 
     /**
@@ -859,26 +1160,39 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void startOrContinueSignIn() {
+        startOrContinueSignIn(UsageProvider.CODEX);
+    }
+
+    public void startOrContinueSignIn(UsageProvider target) {
         String str;
         DiagnosticLog.info(this, "user", "sign_in_requested",
-                "already_signed_in", SecureTokenStore.isSignedIn(this));
-        if (SecureTokenStore.isSignedIn(this)) {
-            AppPreferences.setOAuthPending(this, false, "");
+                "provider", target.id,
+                "already_signed_in", SecureTokenStore.isSignedIn(this, target));
+        if (SecureTokenStore.isSignedIn(this, target)) {
+            if (ProviderPreferences.isSignInPending(this, target)) {
+                AppPreferences.setOAuthPending(this, false, "");
+            }
             rebuild();
             return;
         }
+        if (ProviderCatalog.get(target).usesSignInScreen()) {
+            SignInActivity.start(this, target);
+            return;
+        }
         try {
-            startForegroundService(new Intent(this, (Class<?>) OAuthService.class).setAction(OAuthService.ACTION_START));
-            if (AppPreferences.isOAuthPending(this)) {
-                str = "Resuming secure OpenAI sign-in…";
+            startForegroundService(new Intent(this, (Class<?>) OAuthService.class)
+                    .setAction(OAuthService.ACTION_START)
+                    .putExtra(OAuthService.EXTRA_PROVIDER, target.id));
+            if (ProviderPreferences.isSignInPending(this, target)) {
+                str = "Resuming secure " + target.vendorName + " sign-in…";
             } else {
-                str = "Opening secure OpenAI sign-in…";
+                str = "Opening secure " + target.vendorName + " sign-in…";
             }
-            Toast.makeText(this, str, 0).show();
+            Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
         } catch (RuntimeException e) {
             DiagnosticLog.error(this, "auth", "sign_in_service_start_failed", e);
             AppPreferences.setOAuthPending(this, false, "");
-            Toast.makeText(this, "Could not start sign-in: " + safeMessage(e), 1).show();
+            Toast.makeText(this, "Could not start sign-in: " + safeMessage(e), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -888,7 +1202,7 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 startActivity(new Intent("android.intent.action.VIEW", Uri.parse(str)));
             } catch (RuntimeException e) {
-                Toast.makeText(this, "No browser is available to complete sign-in.", 1).show();
+                Toast.makeText(this, "No browser is available to complete sign-in.", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -909,7 +1223,7 @@ public final class MainActivity extends AppCompatActivity {
                         public void run() {
                             DiagnosticLog.info(applicationContext, "user",
                                     "manual_refresh_finished", "source", "button");
-                            Toast.makeText(MainActivity.this, "Usage updated.", 0).show();
+                            Toast.makeText(MainActivity.this, "Usage updated.", Toast.LENGTH_SHORT).show();
                             MainActivity.this.rebuild();
                         }
                     });
@@ -921,7 +1235,7 @@ public final class MainActivity extends AppCompatActivity {
                     MainActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.9.2
                         @Override // java.lang.Runnable
                         public void run() {
-                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), 1).show();
+                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), Toast.LENGTH_LONG).show();
                             MainActivity.this.rebuild();
                         }
                     });
@@ -931,6 +1245,16 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void refreshFromPull() {
+        if (this.provider != UsageProvider.CODEX) {
+            if (!SecureTokenStore.isSignedIn(this, this.provider)) {
+                this.swipeRefresh.setRefreshing(false);
+                Toast.makeText(this, this.provider.signInLabel() + " to refresh usage.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            refreshProvider(this.provider, "pull");
+            return;
+        }
         DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", "pull");
         if (!SecureTokenStore.isSignedIn(this)) {
             DiagnosticLog.warn(this, "user", "manual_refresh_rejected",
@@ -976,21 +1300,191 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void signOut() {
-        DiagnosticLog.info(this, "user", "sign_out_confirmed");
-        final AuthTokens authTokensLoad = SecureTokenStore.load(this);
-        SecureTokenStore.clear(this);
-        AppPreferences.clearSnapshot(this);
-        AppPreferences.setOAuthPending(this, false, "");
-        RefreshScheduler.cancelAll(this);
-        ResetAlertScheduler.cancelAll(this);
-        WidgetRenderer.updateAll(this);
+        ProviderAccounts.signOut(this, UsageProvider.CODEX);
         rebuild();
-        this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.11
-            @Override // java.lang.Runnable
-            public void run() {
-                OAuthClient.revokeBestEffort(MainActivity.this.getApplicationContext(),
-                        authTokensLoad);
+    }
+
+    /**
+     * Dashboard for providers other than Codex. It reuses the Codex metric cards; widgets,
+     * Now Bar, Wear, alerts, and burn history remain Codex-only for now.
+     */
+    private void buildProviderDashboard(UsageProvider target) {
+        GitHubRelease update = UpdatePreferences.availableUpdate(this);
+        if (update != null) {
+            this.content.addView(buildUpdateCard(update));
+            Ui.addSpacer(this.content, 20);
+        }
+        boolean signedIn = SecureTokenStore.isSignedIn(this, target);
+        if (!signedIn) {
+            this.content.addView(buildProviderIntroCard(target));
+            Ui.addSpacer(this.content, 20);
+            Button signIn = Ui.nativePrimaryButton(this,
+                    ProviderPreferences.isSignInPending(this, target)
+                            ? "Continue sign-in" : target.signInLabel());
+            signIn.setOnClickListener(view -> startOrContinueSignIn(target));
+            this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+            return;
+        }
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, target);
+        String error = ProviderPreferences.getLastError(this, target);
+        if (!error.isEmpty()) {
+            TextView errorText = Ui.text(this, error, 13.0f, Ui.danger(this.dark));
+            LinearLayout.LayoutParams errorParams = new LinearLayout.LayoutParams(-1, -2);
+            errorParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 14));
+            this.content.addView(errorText, errorParams);
+        }
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        boolean inverted = false;
+        boolean anyUsage = false;
+        if (snapshot != null) {
+            Map<String, UsageLimit> limitsByKey = new LinkedHashMap<>();
+            for (UsageLimit limit : snapshot.additionalLimits) {
+                limitsByKey.put(DashboardSections.limitKey(limit), limit);
             }
+            List<String> available = new ArrayList<>();
+            List<String> sections = new ArrayList<>(
+                    DashboardSections.providerSections(snapshot, null));
+            // Saved resets hide whenever none are left, like Codex reset credits.
+            ClaudeSavedResets savedResets = target == UsageProvider.CLAUDE_CODE
+                    ? ProviderPreferences.loadSavedResets(this, target) : null;
+            if (savedResets != null && savedResets.shouldDisplay(System.currentTimeMillis())) {
+                sections.add(DashboardSections.RESET_CREDITS);
+            }
+            for (String key : sections) {
+                if (DashboardSections.USAGE_HISTORY.equals(key)
+                        && (snapshot.fetchedAtMillis <= 0L || (snapshot.fiveHour == null
+                                && snapshot.weekly == null && snapshot.monthly == null))) {
+                    continue;
+                }
+                if (ProviderPreferences.isDashboardSectionVisible(this, target, key)) {
+                    available.add(key);
+                }
+            }
+            anyUsage = snapshot.fiveHour != null || snapshot.weekly != null
+                    || snapshot.monthly != null || !snapshot.additionalLimits.isEmpty()
+                    || (snapshot.usageCredits != null && snapshot.usageCredits.shouldDisplay());
+            for (String key : DashboardSections.resolveOrder(
+                    ProviderPreferences.getDashboardOrder(this, target), available)) {
+                if (DashboardSections.FIVE_HOUR.equals(key)) {
+                    addDashboardCard(column, buildMetricCard(cadenceLabel(snapshot.fiveHour),
+                            snapshot, snapshot.fiveHour, inverted));
+                    inverted = !inverted;
+                } else if (DashboardSections.WEEKLY.equals(key)) {
+                    addDashboardCard(column, buildMetricCard(
+                            target == UsageProvider.CURSOR ? "Included usage · Weekly" : "Weekly",
+                            snapshot, snapshot.weekly, inverted));
+                    inverted = !inverted;
+                } else if (DashboardSections.MONTHLY.equals(key)) {
+                    addDashboardCard(column, buildMetricCard(
+                            target == UsageProvider.CURSOR ? "Included usage · Monthly"
+                                    : "Monthly",
+                            snapshot, snapshot.monthly, inverted));
+                    inverted = !inverted;
+                } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
+                    addDashboardCard(column, buildUsageHistoryCard(target));
+                } else if (DashboardSections.RESET_CREDITS.equals(key)) {
+                    addDashboardCard(column, buildResetCreditsCard(target));
+                } else {
+                    UsageLimit limit = limitsByKey.get(key);
+                    if (limit == null) continue;
+                    // Cursor's pools all share the billing cycle, so the name says enough.
+                    boolean cadence = target != UsageProvider.CURSOR;
+                    if (limit.primary != null) {
+                        addDashboardCard(column, buildMetricCard(cadence
+                                        ? limitTitle(limit) + " · " + cadenceLabel(limit.primary)
+                                        : limit.displayName(),
+                                snapshot, limit.primary, inverted));
+                        inverted = !inverted;
+                    }
+                    if (limit.secondary != null) {
+                        addDashboardCard(column, buildMetricCard(cadence
+                                        ? limitTitle(limit) + " · " + cadenceLabel(limit.secondary)
+                                        : limit.displayName(),
+                                snapshot, limit.secondary, inverted));
+                        inverted = !inverted;
+                    }
+                }
+            }
+        }
+        if (!anyUsage) {
+            TextView empty = Ui.text(this, "Pull down to load your " + target.displayName
+                    + " usage.", 14.0f, Ui.secondaryText(this.dark));
+            empty.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(-1, -2);
+            emptyParams.setMargins(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
+            column.addView(empty, emptyParams);
+        }
+        if (snapshot != null && snapshot.usageCredits != null
+                && snapshot.usageCredits.shouldDisplay()) {
+            addDashboardCard(column, buildProviderBalanceCard(target, snapshot.usageCredits));
+        }
+        this.content.addView(column);
+    }
+
+    /** Balance card for providers that report credits or a dollar balance. */
+    private LinearLayout buildProviderBalanceCard(UsageProvider target, UsageCredits credits) {
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "Balance", 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_credit_card_outline,
+                credits.unlimited ? "Unlimited" : credits.balance,
+                "Credit balance on your " + target.vendorName + " account"));
+        return card;
+    }
+
+    private LinearLayout buildProviderIntroCard(UsageProvider target) {
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, target.displayName, 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        String limits = target == UsageProvider.CURSOR
+                ? " included usage and when it refreshes, plus any extra spend on top of "
+                        + "your plan."
+                : target == UsageProvider.CLAUDE_CODE
+                        ? " 5-hour and weekly limits, plus any model-only allocation your plan "
+                                + "has."
+                        : ": " + ProviderCatalog.get(target).meters.toLowerCase(Locale.ROOT) + ".";
+        TextView summary = Ui.text(this, "See your " + target.displayName
+                        + limits + " Sign in with the "
+                        + target.accountName + " account you use in " + target.displayName
+                        + ". Your tokens stay encrypted on this device.",
+                13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
+        summaryParams.setMargins(0, Ui.dp(this, 7), 0, 0);
+        card.addView(summary, summaryParams);
+        return card;
+    }
+
+    private void refreshProvider(UsageProvider target, String source) {
+        DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", source,
+                "provider", target.id);
+        final Context applicationContext = getApplicationContext();
+        this.executor.execute(() -> {
+            String failure = null;
+            try {
+                if (target == UsageProvider.CLAUDE_CODE) {
+                    ClaudeUsageApi.refreshAndCache(applicationContext);
+                } else if (target == UsageProvider.CURSOR) {
+                    CursorUsageApi.refreshAndCache(applicationContext);
+                } else if (ProviderUsageApi.handles(target)) {
+                    ProviderUsageApi.refreshAndCache(applicationContext, target);
+                }
+                WidgetRenderer.updateAll(applicationContext);
+            } catch (Exception e) {
+                failure = safeMessage(e);
+            }
+            final String message = failure;
+            runOnUiThread(() -> {
+                if (this.swipeRefresh != null) {
+                    this.swipeRefresh.setRefreshing(false);
+                }
+                if (message != null && !"tab".equals(source)) {
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                }
+                rebuild();
+            });
         });
     }
 
@@ -999,7 +1493,7 @@ public final class MainActivity extends AppCompatActivity {
         ComponentName componentName = new ComponentName(this, (Class<?>) CodexUsageWidget.class);
         if (appWidgetManager.isRequestPinAppWidgetSupported()) {
             appWidgetManager.requestPinAppWidget(componentName, null, null);
-            Toast.makeText(this, "Choose a size and place the widget on your home screen.", 1).show();
+            Toast.makeText(this, "Choose a size and place the widget on your home screen.", Toast.LENGTH_LONG).show();
         } else {
             AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
             dialog.show();

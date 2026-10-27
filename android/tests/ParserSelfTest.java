@@ -4,12 +4,16 @@ import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
 import dev.bennett.codexmeter.wear.WearUsageState;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 
 public final class ParserSelfTest {
     public static void main(String[] args) throws Exception {
@@ -20,6 +24,8 @@ public final class ParserSelfTest {
         testPrimaryLimitWinsOverAdditional();
         testOptionalUsageSections();
         testUsageCredits();
+        testSpendControl();
+        testSpendControlLivePayload();
         testUsageCreditsAutoHide();
         testResetCreditsAutoHide();
         testDashboardSectionOrder();
@@ -30,6 +36,10 @@ public final class ParserSelfTest {
         testResetCreditExpiryReminders();
         testResetCreditExpiryOrdering();
         testResetCountdownFollowsApiTimeline();
+        testResetCreditExpiryAutoApply();
+        testResetCreditLowUsageAutoUse();
+        testClaudeSavedResets();
+        testClaudeResetAutoUse();
         testLowUsageAlertDedup();
         testUsageHistory();
         testUsagePace();
@@ -60,6 +70,12 @@ public final class ParserSelfTest {
         testUpdateCheckFrequency();
         testDiagnosticSanitizer();
         testSettingsTransfer();
+        testUsageProviders();
+        testWidgetProviders();
+        testClaudeUsageParsing();
+        testClaudeOAuthRequests();
+        testCursorUsageParsing();
+        testCursorAuth();
         System.out.println("All parser, updater, OAuth, onboarding, and widget-option self-tests passed.");
     }
 
@@ -756,7 +772,7 @@ public final class ParserSelfTest {
                 "weekly widget meter falls back to the monthly window");
         check("Mo".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, snapshot)),
                 "weekly widget meter relabels to Mo on the free tier");
-        check("Codex · Monthly".equals(
+        check("Monthly".equals(
                         WidgetMeters.configLabel(WidgetMeters.WEEKLY, snapshot)),
                 "widget config row names the monthly window");
         check("Wk".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, pro)),
@@ -876,6 +892,235 @@ public final class ParserSelfTest {
                 "zero balance for an account without purchased credits is not standalone data");
     }
 
+    /**
+     * Workspace spend controls (#98): {@code spend_control.individual_limit} parses into its own
+     * slot beside the windows and credits, survives the cache and Wear round trips, accepts
+     * string-or-number field types, and stays null for accounts without one so their dashboards
+     * do not change.
+     */
+    /**
+     * The sanitized live payload from #98: amounts as strings with a long fractional {@code used},
+     * {@code remaining_percent} as the only percentage, an epoch-seconds {@code reset_at}, and no
+     * {@code source}, {@code remaining}, {@code used_percent}, or {@code reset_after_seconds}.
+     */
+    private static void testSpendControlLivePayload() throws Exception {
+        long resetAt = 1_790_812_801L;
+        long now = resetAt * 1000L - TimeUnit.DAYS.toMillis(10);
+        SpendControl control = UsageParser.parse(fixture("usage-spend-control-live.json"), now)
+                .spendControl;
+        check(control != null, "live spend control parses");
+        check(!control.reached, "live reached flag preserved");
+        check(control.source.isEmpty() && "Workspace spend limit".equals(control.sourceLabel()),
+                "a missing source still reads as the workspace limit");
+        check("1000".equals(control.limit) && "426.10000133514404".equals(control.used)
+                        && control.remaining.isEmpty(),
+                "live amount strings preserved verbatim");
+        check(control.usedPercent == -1 && control.remainingPercent == 57,
+                "only remaining_percent is reported");
+        check(control.effectiveRemainingPercent() == 57 && control.effectiveUsedPercent() == 43,
+                "the used share is the complement of remaining_percent");
+        check(new BigDecimal("573.89999866485596").compareTo(control.numericRemaining()) == 0,
+                "the remainder is derived from limit minus used");
+        check(SpendControl.pluralQuantity(control.numericRemaining()) != 1,
+                "a fractional remainder never takes the singular form");
+        check(control.resetAfterSeconds == 0L && control.showsResetCountdown()
+                        && control.effectiveResetAtMillis(now) == resetAt * 1000L,
+                "reset_at alone drives the reset instant");
+        UsageSnapshot restored = UsageSnapshot.fromJson(
+                UsageParser.parse(fixture("usage-spend-control-live.json"), now).toJson());
+        check(restored != null && restored.spendControl != null
+                        && "426.10000133514404".equals(restored.spendControl.used)
+                        && restored.spendControl.remainingPercent == 57
+                        && restored.spendControl.usedPercent == -1
+                        && restored.spendControl.resetAtEpochSeconds == resetAt,
+                "live spend control survives the cache round trip");
+    }
+
+    private static void testSpendControl() throws Exception {
+        long resetAt = 1_735_689_720L;
+        long now = resetAt * 1000L - TimeUnit.HOURS.toMillis(12);
+        UsageSnapshot snapshot = UsageParser.parse(fixture("usage-spend-control.json"), now);
+        SpendControl control = snapshot.spendControl;
+        check(control != null, "spend control parsed from the usage response");
+        check(!control.reached, "reached flag preserved");
+        check(SpendControl.SOURCE_WORKSPACE.equals(control.source), "source preserved");
+        check("25000".equals(control.limit) && "8000".equals(control.used)
+                        && "17000".equals(control.remaining),
+                "amount strings preserved verbatim");
+        check(control.usedPercent == 32 && control.remainingPercent == 68,
+                "percentages preserved");
+        check(control.effectiveRemainingPercent() == 68 && control.effectiveUsedPercent() == 32,
+                "explicit percentages win over derived ones");
+        check(control.resetAfterSeconds == 43_200L && control.resetAtEpochSeconds == resetAt,
+                "reset timeline preserved");
+        check(control.showsResetCountdown()
+                        && control.effectiveResetAtMillis(now) == resetAt * 1000L,
+                "explicit reset_at drives the reset instant");
+        check(new BigDecimal("25000").compareTo(control.numericLimit()) == 0
+                        && new BigDecimal("8000").compareTo(control.numericUsed()) == 0
+                        && new BigDecimal("17000").compareTo(control.numericRemaining()) == 0,
+                "amounts parse as numbers");
+        check("Workspace spend limit".equals(control.sourceLabel()),
+                "workspace source gets a human label");
+        check(SpendControl.pluralQuantity(new BigDecimal("17000")) == 17_000
+                        && SpendControl.pluralQuantity(new BigDecimal("25000")) == 25_000
+                        && SpendControl.pluralQuantity(BigDecimal.ZERO) == 0,
+                "integral amounts select their own plurals quantity");
+        check(SpendControl.pluralQuantity(BigDecimal.ONE) == 1
+                        && SpendControl.pluralQuantity(new BigDecimal("1.00")) == 1,
+                "exactly one credit is singular");
+        check(SpendControl.pluralQuantity(new BigDecimal("1.5")) != 1
+                        && SpendControl.pluralQuantity(new BigDecimal("2500.5")) != 1
+                        && SpendControl.pluralQuantity(new BigDecimal("99999999999")) != 1
+                        && SpendControl.pluralQuantity(null) != 1,
+                "fractional, oversized, and missing amounts never take the singular form");
+
+        // Everything else in the response is untouched and stays a separate concept.
+        check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 42
+                        && snapshot.weekly != null && snapshot.weekly.usedPercent == 5,
+                "rate-limit windows still parse beside the spend control");
+        check(snapshot.usageCredits != null && "2500.5".equals(snapshot.usageCredits.balance),
+                "purchased usage credits stay separate from the spend control");
+        check(snapshot.resetCreditsAvailable == 3,
+                "banked reset credits stay separate from the spend control");
+        check(snapshot.additionalLimits.size() == 1, "additional limits still parse");
+        check(snapshot.nextResetMillis(now) == 1_735_647_120_000L,
+                "the earliest rate-limit reset, not the spend-control reset, drives the "
+                        + "next-reset selection");
+        check(snapshot.hasDisplayableData(), "response remains displayable");
+
+        UsageSnapshot restored = UsageSnapshot.fromJson(snapshot.toJson());
+        check(restored != null && restored.spendControl != null
+                        && !restored.spendControl.reached
+                        && "8000".equals(restored.spendControl.used)
+                        && "25000".equals(restored.spendControl.limit)
+                        && restored.spendControl.usedPercent == 32
+                        && restored.spendControl.remainingPercent == 68
+                        && restored.spendControl.resetAtEpochSeconds == resetAt
+                        && restored.spendControl.resetAfterSeconds == 43_200L
+                        && SpendControl.SOURCE_WORKSPACE.equals(restored.spendControl.source),
+                "spend control survives the cache round trip");
+        WearUsageState wear = WearUsageState.fromJson(
+                new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE).toJson());
+        check(wear != null && wear.snapshot != null && wear.snapshot.spendControl != null
+                        && "8000".equals(wear.snapshot.spendControl.used)
+                        && "25000".equals(wear.snapshot.spendControl.limit)
+                        && wear.snapshot.spendControl.usedPercent == 32,
+                "spend control rides along in the Wear Data Layer payload");
+
+        // Absent, null, or empty spend controls leave the slot empty: no card, no change.
+        String windowsOnly = "\"rate_limit\":{\"primary_window\":{\"used_percent\":10,"
+                + "\"limit_window_seconds\":18000}}";
+        check(UsageParser.parse("{" + windowsOnly + "}", now).spendControl == null,
+                "responses without spend_control leave the slot empty");
+        check(UsageParser.parse("{\"spend_control\":null," + windowsOnly + "}", now)
+                        .spendControl == null,
+                "null spend_control is tolerated");
+        check(UsageParser.parse("{\"spend_control\":{\"reached\":true}," + windowsOnly + "}",
+                        now).spendControl == null,
+                "reached without an individual_limit has nothing to show");
+        check(UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                        + "\"individual_limit\":null}," + windowsOnly + "}", now)
+                        .spendControl == null,
+                "null individual_limit is tolerated");
+        check(UsageParser.parse("{\"spend_control\":{\"individual_limit\":{}}," + windowsOnly
+                        + "}", now).spendControl == null,
+                "empty individual_limit is not displayable");
+        UsageSnapshot sourceOnly = UsageParser.parse(
+                "{\"spend_control\":{\"individual_limit\":{\"source\":\"x\"}}}", now);
+        check(sourceOnly.spendControl == null && !sourceOnly.hasDisplayableData(),
+                "individual_limit without amounts or percentages is ignored");
+        UsageSnapshot spendOnly = UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                + "\"individual_limit\":{\"limit\":\"100\",\"used\":\"1\"}}}", now);
+        check(spendOnly.spendControl != null && spendOnly.hasDisplayableData(),
+                "a spend-control-only response is still recognizable usage data");
+
+        // Field types are not trusted: numbers where strings are documented and vice versa.
+        SpendControl typed = UsageParser.parse("{\"spend_control\":{\"reached\":false,"
+                + "\"individual_limit\":{\"limit\":25000,\"used\":8000.0,\"remaining\":17000,"
+                + "\"used_percent\":\"32\",\"remaining_percent\":\"68%\","
+                + "\"reset_after_seconds\":\"43200\",\"reset_at\":\"" + resetAt + "\"}}}", now)
+                .spendControl;
+        check(typed != null && "25000".equals(typed.limit) && "8000".equals(typed.used)
+                        && "17000".equals(typed.remaining),
+                "numeric amounts normalize to plain strings");
+        check(typed.usedPercent == 32 && typed.remainingPercent == 68,
+                "string percentages parse, with or without a percent sign");
+        check(typed.resetAfterSeconds == 43_200L && typed.resetAtEpochSeconds == resetAt,
+                "string reset fields parse");
+        check(new BigDecimal("8000").compareTo(typed.numericUsed()) == 0
+                        && new BigDecimal("25000").compareTo(typed.numericLimit()) == 0,
+                "typed variant yields the same amounts");
+
+        // Missing fields are derived from whatever was reported.
+        SpendControl amountsOnly = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"25000\",\"used\":\"8000\"}}"));
+        check(amountsOnly != null
+                        && new BigDecimal("17000").compareTo(amountsOnly.numericRemaining()) == 0
+                        && amountsOnly.effectiveRemainingPercent() == 68
+                        && amountsOnly.effectiveUsedPercent() == 32,
+                "remainder and percentages derive from limit and used");
+        SpendControl percentOnly = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"used_percent\":32}}"));
+        check(percentOnly != null && percentOnly.numericLimit() == null
+                        && percentOnly.numericUsed() == null
+                        && percentOnly.numericRemaining() == null
+                        && percentOnly.effectiveUsedPercent() == 32
+                        && percentOnly.effectiveRemainingPercent() == 68,
+                "percent-only payloads keep the percentages and no amounts");
+        SpendControl restoredPercentOnly = SpendControl.fromJson(percentOnly.toJson());
+        check(restoredPercentOnly != null && restoredPercentOnly.limit.isEmpty()
+                        && restoredPercentOnly.usedPercent == 32
+                        && restoredPercentOnly.remainingPercent == -1
+                        && !restoredPercentOnly.showsResetCountdown(),
+                "unknown fields stay unknown through the round trip");
+
+        // Reached, overspent, clamped, and garbage payloads.
+        SpendControl reached = SpendControl.fromJson(new JSONObject("{\"reached\":true,"
+                + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"25000\","
+                + "\"remaining\":\"0\",\"used_percent\":100,\"remaining_percent\":0}}"));
+        check(reached != null && reached.reached && reached.effectiveRemainingPercent() == 0
+                        && reached.numericRemaining().signum() == 0,
+                "exhausted allocation reports the reached state");
+        SpendControl reachedEarly = SpendControl.fromJson(new JSONObject("{\"reached\":true,"
+                + "\"individual_limit\":{\"limit\":\"25000\",\"used\":\"8000\","
+                + "\"remaining\":\"17000\"}}"));
+        check(reachedEarly != null && reachedEarly.reached
+                        && new BigDecimal("17000").compareTo(reachedEarly.numericRemaining()) == 0,
+                "workspace reached flag is preserved even when a remainder is still reported");
+        SpendControl overspent = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"100\",\"used\":\"120\",\"remaining\":\"-20\"}}"));
+        check(overspent != null && overspent.effectiveRemainingPercent() == 0
+                        && overspent.numericRemaining().signum() < 0,
+                "negative remainders report zero percent remaining");
+        SpendControl clamped = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"used_percent\":150,\"remaining_percent\":-5}}"));
+        check(clamped != null && clamped.usedPercent == 100 && clamped.remainingPercent == -1
+                        && clamped.effectiveRemainingPercent() == 0,
+                "out-of-range percentages clamp or become unknown");
+        check(SpendControl.fromJson(new JSONObject("{\"individual_limit\":{\"limit\":\"lots\","
+                        + "\"used\":\"some\",\"used_percent\":\"forty\"}}")) == null,
+                "non-numeric payloads are ignored rather than rendered");
+        SpendControl relative = SpendControl.fromJson(new JSONObject(
+                "{\"individual_limit\":{\"limit\":\"1\",\"used\":\"0\","
+                        + "\"reset_after_seconds\":3600}}"));
+        check(relative != null && relative.showsResetCountdown() && relative.resetAtMillis() == 0L
+                        && relative.effectiveResetAtMillis(now) == now + TimeUnit.HOURS.toMillis(1),
+                "reset_after_seconds falls back to a fetch-relative reset instant");
+        check(!SpendControl.fromJson(new JSONObject(
+                        "{\"individual_limit\":{\"limit\":\"1\",\"used\":\"0\"}}"))
+                        .showsResetCountdown(),
+                "no reset fields means no countdown");
+        System.out.println("Spend control: monthly credit limit parses beside the windows and "
+                + "credits, round-trips, tolerates field types, and hides when absent.");
+    }
+
+    private static String fixture(String name) throws Exception {
+        return new String(Files.readAllBytes(Paths.get(
+                System.getProperty("codex.fixtures", "tests/fixtures")).resolve(name)),
+                StandardCharsets.UTF_8);
+    }
+
     private static void testUsageCreditsAutoHide() {
         check(new UsageCredits(true, false, "2500").shouldDisplay(),
                 "positive usage-credit balance stays visible");
@@ -930,6 +1175,16 @@ public final class ParserSelfTest {
     }
 
     private static void testDashboardSectionOrder() {
+        // Providers other than Codex list only what they report, then usage history.
+        check(DashboardSections.providerSections(null, UsageProvider.CURSOR.usualDashboardSections())
+                        .equals(Arrays.asList(DashboardSections.WEEKLY,
+                                DashboardSections.USAGE_HISTORY)),
+                "Cursor's editor lists included usage and history before any data");
+        check(DashboardSections.providerSections(null,
+                        UsageProvider.CLAUDE_CODE.usualDashboardSections())
+                        .equals(Arrays.asList(DashboardSections.FIVE_HOUR,
+                                DashboardSections.WEEKLY, DashboardSections.USAGE_HISTORY)),
+                "Claude Code's editor lists 5-hour, weekly, and history before any data");
         UsageLimit spark = new UsageLimit("codex-spark", "GPT-5.3-Codex-Spark",
                 "codex_bengalfox", true, false,
                 new UsageWindow(24, 18000L, 0L, 2_000_000_000L), null);
@@ -942,11 +1197,11 @@ public final class ParserSelfTest {
         List<String> defaults = DashboardSections.defaultOrder(Arrays.asList(spark));
         check(defaults.equals(Arrays.asList(
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
-                        DashboardSections.MONTHLY, sparkKey,
+                        DashboardSections.MONTHLY, DashboardSections.SPEND_CONTROL, sparkKey,
                         DashboardSections.USAGE_CREDITS, DashboardSections.USAGE_HISTORY,
                         DashboardSections.RESET_CREDITS)),
-                "default order is 5-hour, weekly, monthly, detected limits, credits, "
-                        + "history, resets");
+                "default order is 5-hour, weekly, monthly, monthly credit limit, detected "
+                        + "limits, credits, history, resets");
 
         check(DashboardSections.resolveOrder("", defaults).equals(defaults),
                 "no saved order keeps the defaults");
@@ -954,15 +1209,17 @@ public final class ParserSelfTest {
                 "usage_credits, limit:codex-spark ,five_hour,weekly", defaults);
         check(saved.equals(Arrays.asList(DashboardSections.USAGE_CREDITS, sparkKey,
                         DashboardSections.FIVE_HOUR, DashboardSections.WEEKLY,
-                        DashboardSections.MONTHLY,
+                        DashboardSections.MONTHLY, DashboardSections.SPEND_CONTROL,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
-                "saved order is applied with whitespace tolerated and the new monthly, history, "
-                        + "and reset-credit sections slot in at their default positions");
+                "saved order is applied with whitespace tolerated and the new monthly, spend "
+                        + "control, history, and reset-credit sections slot in at their default "
+                        + "positions");
         List<String> withoutSpark = DashboardSections.resolveOrder(
                 "weekly,five_hour,usage_credits",
                 DashboardSections.defaultOrder(Arrays.asList(spark)));
         check(withoutSpark.equals(Arrays.asList(DashboardSections.WEEKLY,
-                        DashboardSections.FIVE_HOUR, DashboardSections.MONTHLY, sparkKey,
+                        DashboardSections.FIVE_HOUR, DashboardSections.MONTHLY,
+                        DashboardSections.SPEND_CONTROL, sparkKey,
                         DashboardSections.USAGE_CREDITS,
                         DashboardSections.USAGE_HISTORY, DashboardSections.RESET_CREDITS)),
                 "newly detected Spark limit slots in before credits, not at the end");
@@ -974,7 +1231,7 @@ public final class ParserSelfTest {
                 "keys for limits no longer reported are dropped");
         check(DashboardSections.serialize(saved)
                         .equals("usage_credits,limit:codex-spark,five_hour,weekly,monthly,"
-                                + "usage_history,reset_credits"),
+                                + "spend_control,usage_history,reset_credits"),
                 "order round-trips through the stored CSV form");
         check(DashboardSections.resolveOrder(null,
                         Arrays.asList(DashboardSections.FIVE_HOUR))
@@ -1177,6 +1434,281 @@ public final class ParserSelfTest {
         System.out.println("Reset-credit inventory demo: available credits sort by expiry.");
     }
 
+    private static void testResetCreditExpiryAutoApply() {
+        long now = 3_000_000_000L;
+        long minute = TimeUnit.MINUTES.toMillis(1);
+        long lead = ResetCreditExpiryApply.DEFAULT_LEAD_MS;
+        check(lead == TimeUnit.MINUTES.toMillis(30), "default auto-use lead is 30 minutes");
+        RateLimitResetCredit due = new RateLimitResetCredit("due", "both", "available",
+                now - 1, now + 20 * minute, "", "");
+        RateLimitResetCredit later = new RateLimitResetCredit("later", "both", "available",
+                now - 1, now + 90 * minute, "", "");
+        RateLimitResetCredit redeemed = new RateLimitResetCredit("used", "both", "redeemed",
+                now - 1, now + 10 * minute, "", "");
+        RateLimitResetCredit expired = new RateLimitResetCredit("expired", "both", "available",
+                now - 1, now - 1, "", "");
+        RateLimitResetCredit noExpiry = new RateLimitResetCredit("none", "both", "available",
+                now - 1, 0L, "", "");
+        List<ResetCreditExpiryApply> planned = ResetCreditExpiryApply.plan(
+                Arrays.asList(later, redeemed, expired, noExpiry, due), now, lead);
+        check(planned.size() == 2, "only unexpired available credits are scheduled to auto-apply");
+        check("due".equals(planned.get(0).creditId), "soonest expiry is scheduled first");
+        check(planned.get(0).triggerAtMillis == due.expiresAtMillis - lead,
+                "auto-apply triggers the chosen lead time before expiry");
+        List<ResetCreditExpiryApply> dueNow = ResetCreditExpiryApply.due(
+                Arrays.asList(due, later, expired), now, lead);
+        check(dueNow.size() == 1 && "due".equals(dueNow.get(0).creditId),
+                "only credits inside the lead window are due now");
+        check(ResetCreditExpiryApply.isDue(now + 30 * minute, now, lead),
+                "exactly the lead time remaining is inside the apply window");
+        check(!ResetCreditExpiryApply.isDue(now + 31 * minute, now, lead),
+                "just outside the lead time is not applied yet");
+        check(ResetCreditExpiryApply.isDue(later.expiresAtMillis, now,
+                        TimeUnit.HOURS.toMillis(2)),
+                "a 2-hour lead picks up a credit expiring in 90 minutes");
+        check(!ResetCreditExpiryApply.isDue(due.expiresAtMillis, now, minute),
+                "the last-minute option waits until the final minute");
+        check(!ResetCreditExpiryApply.isDue(expired.expiresAtMillis, now, lead),
+                "already-expired credits are not applied");
+        check(ResetCreditExpiryApply.normalizeLead(0L) == lead,
+                "missing lead falls back to the default");
+        check(ResetCreditExpiryApply.normalizeLead(TimeUnit.MINUTES.toMillis(50))
+                        == TimeUnit.HOURS.toMillis(1),
+                "an off-menu lead snaps to the nearest option");
+        check("30 minutes".equals(ResetCreditExpiryApply.leadLabel(lead))
+                        && "1 hour".equals(ResetCreditExpiryApply.leadLabel(60 * minute))
+                        && "1 minute".equals(ResetCreditExpiryApply.leadLabel(minute)),
+                "lead labels read naturally");
+        RateLimitResetCredit alsoDue = new RateLimitResetCredit("also-due", "both", "available",
+                now - 1, now + 5 * minute, "", "");
+        List<ResetCreditExpiryApply> twoDue = ResetCreditExpiryApply.due(
+                Arrays.asList(alsoDue, due, later), now, lead);
+        check(twoDue.size() == 2
+                        && "also-due".equals(twoDue.get(0).creditId)
+                        && "due".equals(twoDue.get(1).creditId),
+                "several due credits apply soonest first");
+        System.out.println("Reset-credit auto-apply demo: credits inside the chosen lead window "
+                + "apply, later and expired credits do not.");
+    }
+
+    private static void testResetCreditLowUsageAutoUse() {
+        long now = 3_000_000_000L;
+        long hour = 3600L;
+        // 5-hour at 1% remaining, weekly at 40%, both resetting in an hour.
+        UsageSnapshot low = snapshot(99, 60, hour, now);
+        ResetCreditLowUsageAutoUse fire = ResetCreditLowUsageAutoUse.evaluate(low,
+                ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 2, "", now);
+        check(fire.fires() && "5-hour".equals(fire.windowLabel) && fire.remainingPercent == 1,
+                "1% remaining on the 5-hour limit fires at a 1% threshold");
+        check(!ResetCreditLowUsageAutoUse.evaluate(low,
+                        ResetCreditLowUsageAutoUse.METRIC_WEEKLY, 1, 2, "", now).fires(),
+                "weekly-only rule ignores a low 5-hour limit");
+        check(!ResetCreditLowUsageAutoUse.evaluate(snapshot(97, 60, hour, now),
+                        ResetCreditLowUsageAutoUse.METRIC_BOTH, 2, 2, "", now).fires(),
+                "3% remaining waits at a 2% threshold");
+        check(ResetCreditLowUsageAutoUse.evaluate(snapshot(98, 60, hour, now),
+                        ResetCreditLowUsageAutoUse.METRIC_BOTH, 2, 2, "", now).fires(),
+                "2% remaining fires at a 2% threshold");
+        ResetCreditLowUsageAutoUse again = ResetCreditLowUsageAutoUse.evaluate(
+                snapshot(100, 60, hour - 60, now + 60_000L),
+                ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 1, fire.windowToken, now + 60_000L);
+        check(ResetCreditLowUsageAutoUse.SKIP_ALREADY_USED.equals(again.outcome),
+                "a rule fires once per usage window");
+        check(ResetCreditLowUsageAutoUse.SKIP_NO_CREDIT.equals(ResetCreditLowUsageAutoUse
+                        .evaluate(low, ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 0, "", now)
+                        .outcome),
+                "no credit means no attempt");
+        check(ResetCreditLowUsageAutoUse.SKIP_RESET_IMMINENT.equals(ResetCreditLowUsageAutoUse
+                        .evaluate(snapshot(100, 60, 600L, now),
+                                ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 1, "", now).outcome),
+                "a window refilling within 15 minutes is not worth a credit");
+        check(ResetCreditLowUsageAutoUse.WAIT.equals(ResetCreditLowUsageAutoUse.evaluate(low,
+                        ResetCreditLowUsageAutoUse.METRIC_BOTH, 1, 1, "",
+                        now + TimeUnit.MINUTES.toMillis(5)).outcome),
+                "a stale snapshot never spends a credit");
+        ResetCreditLowUsageAutoUse monthly = ResetCreditLowUsageAutoUse.evaluate(
+                monthlySnapshot(100, 86_400L, now),
+                ResetCreditLowUsageAutoUse.METRIC_WEEKLY, 0, 1, "", now);
+        check(monthly.fires() && "monthly".equals(monthly.windowLabel),
+                "the weekly rule covers a free-tier monthly window");
+        check(ResetCreditLowUsageAutoUse.normalizeThreshold(7)
+                        == ResetCreditLowUsageAutoUse.DEFAULT_THRESHOLD,
+                "an off-menu threshold falls back to 1%");
+        System.out.println("Reset-credit low-usage demo: one credit fires per window at the "
+                + "threshold, never from stale data or right before a natural refill.");
+    }
+
+    private static String claudeUsageBody(boolean atLimit, boolean usableNow, String endsAt,
+            int resetsLeft) {
+        return "{\"five_hour\":{\"utilization\":100,\"resets_at\":\"2070-01-01T00:00:00Z\"},"
+                + "\"cedar_ember\":{\"eligible\":true,\"at_limit\":" + atLimit + ","
+                + "\"grants\":[{\"id\":\"grant_late\",\"label\":\"Reset\",\"resets_total\":1,"
+                + "\"resets_left\":1,\"ends_at\":\"2071-01-01T00:00:00Z\",\"clears\":[\"seven_day\"],"
+                + "\"usable_now\":" + usableNow + ",\"type\":\"weekly\"},"
+                + "{\"id\":\"grant_soon\",\"label\":\"Reset\",\"resets_total\":2,"
+                + "\"resets_left\":" + resetsLeft + ",\"ends_at\":" + endsAt + ","
+                + "\"clears\":[\"five_hour\"],\"paused\":false,\"usable_now\":" + usableNow + ","
+                + "\"use_requires_limit\":true,\"type\":\"session\","
+                + "\"unavailable_reason\":" + (usableNow ? "null" : "\"needs_limit\"") + "},"
+                + "{\"id\":\"BAD ID\",\"resets_left\":5}],"
+                + "\"next_grant_id\":\"grant_soon\",\"cooldown_until\":null}}";
+    }
+
+    private static void testClaudeSavedResets() throws Exception {
+        long now = java.time.Instant.parse("2070-06-01T00:00:00Z").toEpochMilli();
+        ClaudeSavedResets parsed = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, false, "\"2070-06-03T00:00:00Z\"", 2), now);
+        check(parsed != null && parsed.eligible && !parsed.atLimit,
+                "cedar_ember block parses");
+        check(parsed.grants.size() == 2, "grants with malformed ids are dropped");
+        check(ClaudeSavedResets.needsClaudeCodeSignIn("user:profile user:inference")
+                && !ClaudeSavedResets.needsClaudeCodeSignIn(ClaudeCodeApi.SCOPE)
+                && !ClaudeSavedResets.needsClaudeCodeSignIn(""),
+                "sign-ins without the Claude Code scope are flagged; unknown is not");
+        check(ClaudeCodeApi.SCOPE.contains("user:sessions:claude_code")
+                && "user:sessions:claude_code".equals(ClaudeCodeApi.refreshBody("r",
+                        "user:sessions:claude_code").get("scope"))
+                && !ClaudeCodeApi.refreshBody("r").containsKey("scope"),
+                "Claude sign-in and refresh ask for Claude Code's scopes");
+        String report = ClaudeSavedResets.describeCheck(200,
+                claudeUsageBody(false, true, "\"2070-06-03T00:00:00Z\"", 2),
+                "user:profile user:inference", now);
+        check(report.contains("HTTP 200") && report.contains("Offered resets: yes")
+                && report.contains("Resets you can use: 3") && report.contains("Sign out")
+                && report.contains("Raw: {"), "reset check report shows the server's answer");
+        check(ClaudeSavedResets.describeCheck(200,
+                "{\"cedar_ember\":{\"eligible\":false,\"ineligible_reason\":\"surface\"}}",
+                ClaudeCodeApi.SCOPE, now).contains("Offered resets: no (surface)")
+                && ClaudeSavedResets.describeCheck(200, "{}", "", now)
+                        .contains("not included"),
+                "reset check report explains an ineligible or missing block");
+        check(parsed.availableCount(now) == 3 && parsed.shouldDisplay(now),
+                "available resets add up across grants");
+        check("grant_soon".equals(parsed.nextGrant(now).id), "server's next grant comes first");
+        check("5-hour limit".equals(parsed.nextGrant(now).clearsLabel()),
+                "session grant clears the 5-hour limit");
+        check(parsed.usableGrant(now) == null
+                        && "Works once you hit a usage limit".equals(
+                                parsed.unavailableMessage(now)),
+                "a grant the server marks needs_limit waits for a limit");
+        check("Session reset".equals(parsed.nextGrant(now).title())
+                        && parsed.grants.get(0).clearsWeekly(),
+                "grant titles and cleared limits read from type and clears");
+        ClaudeSavedResets roundTrip = ClaudeSavedResets.fromJson(
+                new org.json.JSONObject(parsed.toJson().toString()));
+        check(roundTrip.availableCount(now) == 3 && "grant_soon".equals(roundTrip.nextGrantId)
+                        && roundTrip.grants.get(1).endsAtMillis == parsed.grants.get(1).endsAtMillis,
+                "saved resets survive the on-device cache");
+        ClaudeSavedResets usable = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(true, true, "\"2070-06-03T00:00:00Z\"", 2), now);
+        check("grant_soon".equals(usable.usableGrant(now).id), "usable grant is picked at a limit");
+        check(usable.afterUse("grant_soon").availableCount(now) == 2,
+                "using a reset takes one off the card right away");
+        check(ClaudeSavedResets.fromUsageBody("{\"five_hour\":{}}", now) == null,
+                "no cedar_ember block means no saved resets");
+        check(ClaudeSavedResets.fromUsageBody("not json", now) == null,
+                "unreadable body means no saved resets");
+        ClaudeSavedResets none = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, false, "\"2070-05-01T00:00:00Z\"", 0), now);
+        check(none.availableCount(now) == 1, "expired or empty grants don't count");
+
+        org.json.JSONObject body = ClaudeSavedResets.claimBody("grant_soon", "req-123");
+        check("cedar_ember".equals(body.getString("program"))
+                        && "grant_soon".equals(body.getString("grant_id"))
+                        && "req-123".equals(body.getString("request_id")),
+                "claim body matches Claude Code's request");
+        boolean rejected = false;
+        try {
+            ClaudeSavedResets.claimBody("../evil", "req");
+        } catch (IllegalArgumentException expected) {
+            rejected = true;
+        }
+        check(rejected, "malformed grant ids are never sent");
+        check(ClaudeCodeApi.resetRateLimitsUrl("0f1e2d3c-aaaa-bbbb-cccc-1234567890ab").equals(
+                        "https://api.anthropic.com/api/organizations/"
+                                + "0f1e2d3c-aaaa-bbbb-cccc-1234567890ab/reset_rate_limits"),
+                "claim URL targets the organization");
+        check(ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL.endsWith("/api/oauth/usage?cedar_ember=1"),
+                "usage refresh asks for saved resets");
+
+        ClaudeSavedResets.ClaimResult reset = ClaudeSavedResets.ClaimResult.parse(
+                "{\"result\":\"reset\",\"resets_left\":1,\"cleared\":[\"five_hour\"]}");
+        check(reset.applied() && reset.resetsLeft == 1 && reset.cleared.contains("five_hour"),
+                "successful claim parses");
+        check("Reset applied to 1 usage window.".equals(reset.userMessage()),
+                "success uses the Codex wording");
+        ClaudeSavedResets.ClaimResult notLimited = ClaudeSavedResets.ClaimResult.parse(
+                "{\"result\":\"not_limited\"}");
+        check(!notLimited.applied() && !notLimited.retryable()
+                        && notLimited.userMessage().contains("no used Claude Code allowance"),
+                "not_limited is final, worded like Codex's nothing-to-reset");
+        check(ClaudeSavedResets.ClaimResult.UNAVAILABLE.equals(
+                        ClaudeSavedResets.ClaimResult.parse("{\"result\":\"surprise\"}").result),
+                "unknown results read as unavailable");
+        check(ClaudeSavedResets.ClaimResult.parse("<html>").retryable(),
+                "unreadable claim responses retry");
+        System.out.println("Claude saved resets: status, cache, claim body, and results parse.");
+    }
+
+    private static ClaudeResetAutoUse claudeAuto(ClaudeSavedResets status, UsageSnapshot usage,
+            boolean expiry, boolean lowUsage, String lastExpiry, String lastLow, long now) {
+        return ClaudeResetAutoUse.evaluate(status, usage, expiry, TimeUnit.HOURS.toMillis(2),
+                lowUsage, 1, ResetCreditLowUsageAutoUse.METRIC_BOTH, lastExpiry, lastLow, now);
+    }
+
+    private static void testClaudeResetAutoUse() {
+        long now = java.time.Instant.parse("2070-06-01T00:00:00Z").toEpochMilli();
+        long hour = 3600L;
+        UsageSnapshot healthy = snapshot(19, 49, hour, now);
+        UsageSnapshot low = snapshot(99, 49, hour, now);
+        // A full reset works any time, like claude.ai's "Reset for free".
+        ClaudeSavedResets usableLater = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, true, "\"2070-06-20T00:00:00Z\"", 1), now);
+        ClaudeSavedResets usableSoon = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, true, "\"2070-06-01T01:30:00Z\"", 1), now);
+        ClaudeSavedResets heldBack = ClaudeSavedResets.fromUsageBody(
+                claudeUsageBody(false, false, "\"2070-06-01T01:30:00Z\"", 1), now);
+
+        check(!claudeAuto(usableLater, healthy, true, true, "", "", now).fires(),
+                "nothing fires with plenty left and no reset expiring");
+        ClaudeResetAutoUse expiring = claudeAuto(usableSoon, healthy, true, false, "", "", now);
+        check(ClaudeResetAutoUse.FIRE_EXPIRING.equals(expiring.outcome)
+                        && "grant_soon".equals(expiring.grant.id),
+                "a reset inside the lead time is used before it expires");
+        check(!claudeAuto(usableSoon, healthy, false, false, "", "", now).fires(),
+                "both rules off means nothing fires");
+        check(!claudeAuto(heldBack, healthy, true, true, "", "", now).fires(),
+                "a grant the server holds back is never spent");
+        check(ClaudeResetAutoUse.SKIP_ALREADY_TRIED.equals(claudeAuto(usableSoon, healthy, true,
+                        false, expiring.attemptKey, "", now).outcome),
+                "an expiring reset is tried once");
+        ClaudeResetAutoUse lowFire = claudeAuto(usableLater, low, false, true, "", "", now);
+        check(ClaudeResetAutoUse.FIRE_LOW_USAGE.equals(lowFire.outcome)
+                        && "grant_soon".equals(lowFire.grant.id)
+                        && "5-hour".equals(lowFire.windowLabel),
+                "running low on the 5-hour limit uses a reset that refills it");
+        check(ClaudeResetAutoUse.SKIP_ALREADY_TRIED.equals(claudeAuto(usableLater, low, false,
+                        true, "", lowFire.attemptKey, now).outcome),
+                "running-low rule fires once per window");
+        UsageSnapshot weeklyLow = snapshot(19, 100, 2 * hour, now);
+        ClaudeResetAutoUse weekly = claudeAuto(usableLater, weeklyLow, false, true, "", "", now);
+        check(weekly.fires() && "grant_late".equals(weekly.grant.id),
+                "a low weekly limit picks the reset that refills the weekly limit");
+        check(ClaudeResetAutoUse.WAIT.equals(claudeAuto(usableLater, snapshot(100, 49, 600L, now),
+                        false, true, "", "", now).outcome),
+                "a limit that refills within 15 minutes is not worth a reset");
+        check(!claudeAuto(usableSoon, low, true, true, "", "",
+                        now + TimeUnit.MINUTES.toMillis(5)).fires(),
+                "a stale status never spends a reset");
+        ResetCreditsSnapshot shared = usableLater.toResetCreditsSnapshot(now);
+        check(shared.availableCount == 2 && "Session reset".equals(
+                        shared.nextExpiringAvailable(now).title),
+                "Claude resets feed the shared Reset credits inventory");
+        check(shared.nextExpiryMillis(now) == usableLater.nextExpiryMillis(now),
+                "shared inventory keeps the next expiry");
+        System.out.println("Claude saved-reset auto-use: expiry lead time and running-low rules.");
+    }
+
     private static UsageSnapshot snapshot(int fiveHourUsed, int weeklyUsed,
             long resetAfterSeconds, long fetchedAtMillis) {
         return new UsageSnapshot("pro", true, false,
@@ -1236,6 +1768,11 @@ public final class ParserSelfTest {
                 .put("unexpected_refills", false)
                 .put("reset_credit_increases", true)
                 .put("reset_credit_expiry", true)
+                .put("reset_credit_expiry_auto_apply", true)
+                .put("reset_credit_expiry_auto_apply_lead_ms", 3_600_000L)
+                .put("reset_credit_low_usage_auto_use", true)
+                .put("reset_credit_low_usage_threshold", 2)
+                .put("reset_credit_low_usage_metric", "weekly")
                 .put("reset_credit_expiry_lead_times",
                         SettingsTransfer.leadTimesToJson(Arrays.asList(
                                 TimeUnit.HOURS.toMillis(1),
@@ -1278,6 +1815,16 @@ public final class ParserSelfTest {
                 "usage pace sensitivity preserved");
         check(!restored.showPercentSymbol, "percent symbol flag restored");
         check(parsed.notifications.getInt("threshold") == 50, "notification threshold restored");
+        check(parsed.notifications.getBoolean("reset_credit_expiry_auto_apply"),
+                "expiry auto-apply preference restored");
+        check(parsed.notifications.getLong("reset_credit_expiry_auto_apply_lead_ms")
+                        == 3_600_000L,
+                "expiry auto-apply lead time restored");
+        check(parsed.notifications.getBoolean("reset_credit_low_usage_auto_use")
+                        && parsed.notifications.getInt("reset_credit_low_usage_threshold") == 2
+                        && "weekly".equals(parsed.notifications.getString(
+                                "reset_credit_low_usage_metric")),
+                "low-usage auto-use preferences restored");
         check(SettingsTransfer.leadTimesFromJson(
                 parsed.notifications.getJSONArray("reset_credit_expiry_lead_times")).size() == 2,
                 "lead times restored");
@@ -1586,34 +2133,44 @@ public final class ParserSelfTest {
     }
 
     private static void testOnboardingFlow() {
-        check(OnboardingFlow.launchAction(false, false, false)
+        check(OnboardingFlow.launchAction(false, false, false, false)
                         == OnboardingFlow.LAUNCH_ONBOARDING,
                 "fresh install opens onboarding");
-        check(OnboardingFlow.launchAction(false, true, false)
+        check(OnboardingFlow.launchAction(false, true, false, false)
                         == OnboardingFlow.LAUNCH_MAIN_AND_COMPLETE,
                 "signed-in upgrade is not interrupted");
-        check(OnboardingFlow.launchAction(false, true, true)
+        check(OnboardingFlow.launchAction(false, true, true, false)
                         == OnboardingFlow.LAUNCH_ONBOARDING,
-                "OAuth return reaches onboarding completion");
-        check(OnboardingFlow.launchAction(true, false, false)
+                "OAuth return resumes onboarding");
+        check(OnboardingFlow.launchAction(false, true, false, true)
+                        == OnboardingFlow.LAUNCH_ONBOARDING,
+                "a setup in progress resumes after a sign-in");
+        check(OnboardingFlow.launchAction(true, false, false, false)
                         == OnboardingFlow.LAUNCH_MAIN,
                 "completed onboarding stays completed after sign-out");
-        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_USAGE, false, false)
-                        == OnboardingFlow.STEP_USAGE,
-                "incomplete onboarding resumes saved page");
-        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_WELCOME, true, true)
-                        == OnboardingFlow.STEP_COMPLETE,
-                "successful OAuth opens completion page");
-        check(OnboardingFlow.initialStep(OnboardingFlow.STEP_WELCOME, false, true)
-                        == OnboardingFlow.STEP_ACCOUNT,
-                "failed OAuth returns to account page");
-        check(OnboardingFlow.nextStep(OnboardingFlow.STEP_COMPLETE)
-                        == OnboardingFlow.STEP_COMPLETE,
+        check(OnboardingFlow.stepCount(2) == 5, "two providers: welcome, pick, two sign-ins, done");
+        check(OnboardingFlow.completeStep(1) == 3, "one provider finishes on step four");
+        check(OnboardingFlow.signInIndex(2, 2) == 0 && OnboardingFlow.signInIndex(3, 2) == 1,
+                "sign-in steps map to the chosen providers in order");
+        check(OnboardingFlow.signInIndex(4, 2) == -1
+                        && OnboardingFlow.signInIndex(OnboardingFlow.STEP_PROVIDERS, 2) == -1,
+                "other steps are not sign-in steps");
+        check(OnboardingFlow.initialStep(3, 2) == 3,
+                "a saved sign-in step survives the browser round trip");
+        check(OnboardingFlow.initialStep(4, 0) == OnboardingFlow.STEP_WELCOME,
+                "a saved step past the end resets safely");
+        check(OnboardingFlow.normalizeStep(2, 0) == OnboardingFlow.STEP_PROVIDERS,
+                "no providers chosen keeps the picker open");
+        check(OnboardingFlow.nextStep(OnboardingFlow.STEP_PROVIDERS, 0)
+                        == OnboardingFlow.STEP_PROVIDERS,
+                "the picker needs at least one provider");
+        check(OnboardingFlow.nextStep(OnboardingFlow.completeStep(3), 3)
+                        == OnboardingFlow.completeStep(3),
                 "next step clamps at completion");
-        check(OnboardingFlow.previousStep(OnboardingFlow.STEP_WELCOME)
+        check(OnboardingFlow.previousStep(OnboardingFlow.STEP_WELCOME, 1)
                         == OnboardingFlow.STEP_WELCOME,
                 "previous step clamps at welcome");
-        check(OnboardingFlow.normalizeStep(99) == OnboardingFlow.STEP_WELCOME,
+        check(OnboardingFlow.normalizeStep(99, 1) == OnboardingFlow.STEP_WELCOME,
                 "invalid persisted page resets safely");
     }
 
@@ -2047,6 +2604,446 @@ public final class ParserSelfTest {
                     "minimal mode hides every optional highlight");
         }
         System.out.println("History highlights: minimal defaults + per-insight overrides verified.");
+    }
+
+    private static void testWidgetProviders() {
+        java.util.List<UsageProvider> order = java.util.Arrays.asList(UsageProvider.CURSOR,
+                UsageProvider.CODEX, UsageProvider.CLAUDE_CODE);
+        check(WidgetProviders.parse("claude_code").equals(
+                java.util.Arrays.asList(UsageProvider.CLAUDE_CODE)),
+                "a single saved widget provider parses as one item");
+        check(WidgetProviders.parse(" cursor,codex,cursor,bogus ").equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "widget providers keep order and skip duplicates and unknown ids");
+        check(WidgetProviders.parse(null).isEmpty() && WidgetProviders.parse(" ").isEmpty(),
+                "no saved widget providers parses empty");
+        check("codex,claude_code".equals(WidgetProviders.serialize(java.util.Arrays.asList(
+                UsageProvider.CODEX, UsageProvider.CLAUDE_CODE))),
+                "widget providers serialize as csv");
+        java.util.List<UsageProvider> one = java.util.Arrays.asList(UsageProvider.CODEX);
+        check(WidgetProviders.toggled(one, UsageProvider.CODEX, false, order, 3).equals(one),
+                "the last widget provider can't be turned off");
+        check(WidgetProviders.toggled(one, UsageProvider.CURSOR, true, order, 3).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "turning a widget provider on follows tab order");
+        java.util.List<UsageProvider> two = java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE);
+        check(WidgetProviders.toggled(two, UsageProvider.CURSOR, true, order, 2).equals(two),
+                "wide lock widgets refuse a third provider");
+        check(WidgetProviders.fallback(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR)) == UsageProvider.CODEX,
+                "unsaved widgets stay on Codex while it's signed in");
+        check(WidgetProviders.fallback(order, java.util.Arrays.asList(UsageProvider.CLAUDE_CODE,
+                UsageProvider.CURSOR)) == UsageProvider.CURSOR,
+                "unsaved widgets without Codex follow tab order");
+        check(WidgetProviders.fallback(order, java.util.Collections.emptyList())
+                == UsageProvider.CODEX, "unsaved widgets with nobody signed in show Codex");
+        java.util.List<String> both = java.util.Arrays.asList(WidgetMeters.FIVE_HOUR,
+                WidgetMeters.WEEKLY, WidgetMeters.NEXT_RESET);
+        check(WidgetProviders.metersFor(both, true, true, 2).equals(java.util.Arrays.asList(
+                WidgetMeters.FIVE_HOUR, WidgetMeters.WEEKLY)),
+                "multi-provider rows take both usage meters when they fit");
+        check(WidgetProviders.metersFor(both, false, true, 1).equals(java.util.Arrays.asList(
+                WidgetMeters.WEEKLY)), "Cursor rows skip the missing five-hour window");
+        check(WidgetProviders.metersFor(java.util.Arrays.asList(WidgetMeters.FIVE_HOUR), false,
+                true, 1).equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
+                "a provider without the chosen meter falls back to its long window");
+        check(WidgetProviders.metersFor(both, false, false, 1).equals(java.util.Arrays.asList(
+                WidgetMeters.FIVE_HOUR)), "signed-out providers keep a placeholder meter");
+        check(WidgetProviders.metersPerProvider(2, 4) == 2
+                && WidgetProviders.metersPerProvider(3, 4) == 1
+                && WidgetProviders.metersPerProvider(2, 2) == 1,
+                "providers get two rows only when all of them fit twice");
+        check("Codex + Claude Code".equals(WidgetProviders.summary(two))
+                && "Cursor + 2 more".equals(WidgetProviders.summary(order)),
+                "widget provider summary");
+        check("CLAUDE".equals(WidgetProviders.shortTag(UsageProvider.CLAUDE_CODE)),
+                "lock labels use short provider tags");
+        for (UsageProvider provider : UsageProvider.values()) {
+            String tag = WidgetProviders.shortTag(provider);
+            check(!tag.isEmpty() && tag.length() <= 6, "every provider has a short lock tag");
+        }
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR, UsageProvider.CLAUDE_CODE), 2).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "unsaved wide lock widgets show the first two signed-in tabs");
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CLAUDE_CODE),
+                2).equals(java.util.Arrays.asList(UsageProvider.CLAUDE_CODE)),
+                "unsaved lock widgets show only signed-in providers");
+        check(WidgetProviders.lockDefault(order, java.util.Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR), 1).equals(java.util.Arrays.asList(UsageProvider.CURSOR)),
+                "unsaved tiny lock widgets show the first signed-in tab");
+        check(WidgetProviders.lockDefault(order, java.util.Collections.emptyList(), 2).equals(
+                java.util.Arrays.asList(UsageProvider.CURSOR)),
+                "unsaved lock widgets with nobody signed in show the first tab");
+        check(WidgetProviders.metersFor(java.util.Arrays.asList(WidgetMeters.FIVE_HOUR),
+                false, true, 1).equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
+                "Cursor lock gauges show the long window instead of an empty 5-hour dial");
+    }
+
+    private static void testUsageProviders() {
+        check(UsageProvider.DEFAULT == UsageProvider.CODEX, "Codex stays the default provider");
+        check(UsageProvider.fromId(null) == UsageProvider.CODEX, "missing provider -> Codex");
+        check(UsageProvider.fromId("unknown") == UsageProvider.CODEX, "unknown provider -> Codex");
+        check(UsageProvider.fromId(" CLAUDE_CODE ") == UsageProvider.CLAUDE_CODE,
+                "provider ids are case-insensitive");
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            check(ids.add(provider.id), "provider ids are unique");
+            check(UsageProvider.fromId(provider.id) == provider, "provider id round-trips");
+        }
+        check("Sign in with Claude".equals(UsageProvider.CLAUDE_CODE.signInLabel()),
+                "Claude sign-in label");
+
+        List<UsageProvider> all = Arrays.asList(UsageProvider.values());
+        List<UsageProvider> codexOnly = Arrays.asList(UsageProvider.CODEX);
+        check(UsageProvider.migrationDefault(null).equals(codexOnly),
+                "an upgrade with no saved choice shows only Codex");
+        check(UsageProvider.migrationDefault(Arrays.asList(UsageProvider.CURSOR,
+                UsageProvider.CODEX)).equals(Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CURSOR)), "an upgrade keeps providers it already signed in to");
+        check(UsageProvider.enabledFromIds(null, codexOnly).equals(codexOnly),
+                "no saved choice -> the fallback");
+        check(UsageProvider.enabledFromIds(Arrays.asList("", "bogus"), codexOnly)
+                .equals(codexOnly), "unreadable choice -> the fallback");
+        check(UsageProvider.enabledFromIds(Arrays.asList("cursor", " CODEX "), codexOnly)
+                .equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
+                "enabled tabs keep enum order");
+        List<UsageProvider> firstThree = Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR);
+        List<UsageProvider> two = UsageProvider.withEnabled(firstThree, UsageProvider.CLAUDE_CODE,
+                false);
+        check(two.equals(Arrays.asList(UsageProvider.CODEX, UsageProvider.CURSOR)),
+                "turning a provider off removes only its tab");
+        List<UsageProvider> one = UsageProvider.withEnabled(
+                UsageProvider.withEnabled(two, UsageProvider.CODEX, false),
+                UsageProvider.CURSOR, false);
+        check(one.equals(Arrays.asList(UsageProvider.CURSOR)),
+                "the last provider can't be turned off");
+        check(UsageProvider.withEnabled(one, UsageProvider.CLAUDE_CODE, true)
+                .equals(Arrays.asList(UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR)),
+                "turning a provider back on restores its place");
+        check(UsageProvider.visibleSelection(UsageProvider.CLAUDE_CODE, two)
+                == UsageProvider.CODEX, "a hidden selected tab falls back to the first one on");
+        check(UsageProvider.visibleSelection(UsageProvider.CURSOR, two) == UsageProvider.CURSOR,
+                "a visible selected tab stays selected");
+        check(UsageProvider.orderFromIds(null).equals(all), "default tab order is enum order");
+        List<UsageProvider> custom = UsageProvider.orderFromIds(
+                Arrays.asList("cursor", "bogus", "CURSOR", " codex "));
+        check(custom.subList(0, 3).equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE)) && custom.size() == all.size()
+                && custom.get(3) == UsageProvider.COPILOT,
+                "saved order first, duplicates and unknown ids skipped, the rest appended");
+        check(UsageProvider.inOrder(two, custom)
+                .equals(Arrays.asList(UsageProvider.CURSOR, UsageProvider.CODEX)),
+                "enabled tabs follow the chosen order");
+        System.out.println("Usage providers: Codex default, stable ids, and enabled tabs verified.");
+    }
+
+    private static void testClaudeUsageParsing() throws Exception {
+        // Legacy-only shape: five_hour / seven_day objects. Per-model and codename keys are
+        // ignored because Claude Code no longer shows them.
+        String legacy = "{"
+                + "\"five_hour\":{\"utilization\":6.0,\"resets_at\":\"2026-10-19T18:59:59.943648+00:00\"},"
+                + "\"seven_day\":{\"utilization\":35.4,\"resets_at\":\"2026-10-23T03:00:00Z\"},"
+                + "\"seven_day_oauth_apps\":null,"
+                + "\"seven_day_opus\":{\"utilization\":0.0,\"resets_at\":null},"
+                + "\"seven_day_sonnet\":{\"utilization\":100,\"resets_at\":\"2026-10-23T03:00:00+00:00\"},"
+                + "\"seven_day_omelette\":{\"utilization\":3.0,\"resets_at\":null},"
+                + "\"iguana_necktie\":null,"
+                + "\"extra_usage\":{\"is_enabled\":true,\"monthly_limit\":5000,"
+                + "\"used_credits\":1200,\"utilization\":24.0}"
+                + "}";
+        UsageSnapshot snapshot = ClaudeUsageParser.parse(legacy, "Max 20x", 1_000L);
+        check(snapshot.fiveHour != null && snapshot.fiveHour.usedPercent == 6,
+                "Claude five_hour utilization is percent used");
+        check(snapshot.fiveHour.windowSeconds == 18_000L, "Claude five_hour is a 5-hour window");
+        check(snapshot.fiveHour.resetAtEpochSeconds
+                        == java.time.OffsetDateTime.parse("2026-10-19T18:59:59Z").toEpochSecond(),
+                "Claude resets_at with fractional seconds parses");
+        check(snapshot.weekly != null && snapshot.weekly.usedPercent == 35
+                        && snapshot.weekly.windowSeconds == 604_800L,
+                "Claude seven_day maps to weekly");
+        check(snapshot.weekly.remainingPercent() == 65, "Claude weekly remaining");
+        check(snapshot.monthly == null, "Claude has no monthly window");
+        check("Max 20x".equals(snapshot.planType), "Claude plan label kept");
+        check(snapshot.additionalLimits.size() == 1,
+                "legacy Opus, Sonnet, and codename keys are not shown");
+        UsageLimit extra = snapshot.additionalLimits.get(0);
+        check("Extra usage".equals(extra.displayName()) && extra.primary.usedPercent == 24,
+                "Claude extra usage maps to a monthly cap");
+        check(!snapshot.limitReached && snapshot.allowed,
+                "ignored legacy keys never mark the snapshot limited");
+
+        // Current shape: the server-built limits[] list drives the cards.
+        String current = "{"
+                + "\"five_hour\":{\"utilization\":40.0,\"resets_at\":\"2026-10-19T14:59:59+00:00\"},"
+                + "\"seven_day\":{\"utilization\":19.0,\"resets_at\":\"2026-10-23T03:00:00+00:00\"},"
+                + "\"seven_day_sonnet\":{\"utilization\":2.0,\"resets_at\":null},"
+                + "\"limits\":["
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":41,\"severity\":\"normal\","
+                + "\"resets_at\":\"2026-10-19T14:59:59.729061+00:00\",\"scope\":null,\"is_active\":true},"
+                + "{\"kind\":\"weekly_all\",\"group\":\"weekly\",\"percent\":20,\"severity\":\"normal\","
+                + "\"resets_at\":\"2026-10-23T03:00:00+00:00\",\"scope\":null,\"is_active\":false},"
+                + "{\"kind\":\"weekly_scoped\",\"group\":\"weekly\",\"percent\":100,"
+                + "\"severity\":\"critical\",\"resets_at\":\"2026-10-23T03:00:00+00:00\","
+                + "\"scope\":{\"model\":{\"id\":null,\"display_name\":\"Fable\"},\"surface\":null},"
+                + "\"is_active\":false},"
+                + "{\"kind\":\"weekly_scoped\",\"group\":\"weekly\",\"percent\":5,"
+                + "\"scope\":{\"model\":{\"id\":null,\"display_name\":\"All models\"}}},"
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":null}"
+                + "],"
+                + "\"extra_usage\":{\"is_enabled\":null,\"utilization\":null}"
+                + "}";
+        UsageSnapshot fromLimits = ClaudeUsageParser.parse(current, "Max 5x", 2_000L);
+        check(fromLimits.fiveHour.usedPercent == 41 && fromLimits.fiveHour.windowSeconds == 18_000L,
+                "limits[] session row is the 5-hour meter");
+        check(fromLimits.weekly.usedPercent == 20 && fromLimits.weekly.windowSeconds == 604_800L,
+                "limits[] weekly_all row is the weekly meter");
+        check(fromLimits.additionalLimits.size() == 1,
+                "only server-listed meters are shown; legacy Sonnet and All models are not");
+        UsageLimit fable = fromLimits.additionalLimits.get(0);
+        check("Fable only".equals(fable.displayName()) && fable.limitReached
+                        && fable.primary.windowSeconds == 604_800L,
+                "model-scoped weekly row becomes a Fable-only card");
+        check(DashboardSections.limitKey(fable).equals("limit:claude_weekly_scoped_fable"),
+                "Claude limits get stable dashboard keys");
+        check(fromLimits.limitReached && !fromLimits.allowed,
+                "an exhausted scoped meter marks the snapshot limited");
+
+        String plain = "{\"limits\":["
+                + "{\"kind\":\"session\",\"group\":\"session\",\"percent\":7,\"resets_at\":null},"
+                + "{\"kind\":\"weekly_all\",\"group\":\"weekly\",\"percent\":3,\"resets_at\":null}]}";
+        UsageSnapshot unified = ClaudeUsageParser.parse(plain, "Pro", 3L);
+        check(unified.fiveHour.usedPercent == 7 && unified.weekly.usedPercent == 3
+                        && unified.additionalLimits.isEmpty(),
+                "a unified plan shows only the 5-hour and weekly meters");
+
+        UsageSnapshot legacyFable = ClaudeUsageParser.parse(
+                "{\"seven_day_fable\":{\"utilization\":12,\"resets_at\":null}}", "", 4L);
+        check(legacyFable.additionalLimits.size() == 1
+                        && "Fable only".equals(legacyFable.additionalLimits.get(0).displayName()),
+                "older top-level Fable keys still show a Fable-only card");
+
+        UsageSnapshot roundTrip = UsageSnapshot.fromJson(fromLimits.toJson());
+        check(roundTrip.weekly.usedPercent == 20 && roundTrip.additionalLimits.size() == 1,
+                "Claude snapshot survives the cache round-trip");
+
+        UsageSnapshot minimal = ClaudeUsageParser.parse(
+                "{\"five_hour\":null,\"seven_day\":{\"utilization\":12.6,\"resets_at\":null},"
+                        + "\"extra_usage\":{\"is_enabled\":false,\"utilization\":null}}",
+                "", 1L);
+        check(minimal.fiveHour == null && minimal.weekly.usedPercent == 13
+                        && minimal.additionalLimits.isEmpty() && !minimal.limitReached,
+                "Claude null windows and disabled extra usage are skipped");
+        check(ClaudeUsageParser.parseResetSeconds("not a date") == 0L,
+                "bad Claude reset timestamps are ignored");
+
+        check("Max 20x".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_max\","
+                        + "\"rate_limit_tier\":\"default_claude_max_20x\"}}")),
+                "Claude Max 20x from rate-limit tier");
+        check("Max 5x".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"rate_limit_tier\":\"default_claude_max_5x\"}}")),
+                "Claude Max 5x from rate-limit tier");
+        check("Pro".equals(ClaudeUsageParser.planLabel(
+                "{\"account\":{\"has_claude_pro\":true},\"organization\":{}}")),
+                "Claude Pro from account flags");
+        check("Team".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_team\"}}")),
+                "Claude Team from organization type");
+        check("".equals(ClaudeUsageParser.planLabel("not json")), "bad profile -> no badge");
+        check("me@example.com".equals(ClaudeUsageParser.email(
+                "{\"account\":{\"email_address\":\"me@example.com\"}}")),
+                "Claude profile email");
+        System.out.println("Claude Code usage: limits list, legacy windows, extra usage, plans verified.");
+    }
+
+    private static void testClaudeOAuthRequests() throws Exception {
+        String redirect = ClaudeCodeApi.redirectUri(54545);
+        check("http://localhost:54545/callback".equals(redirect), "Claude loopback redirect");
+        String url = ClaudeCodeApi.authorizeUrl(redirect, "challenge-value", "state-value");
+        check(url.startsWith("https://claude.ai/oauth/authorize?code=true&client_id="
+                + ClaudeCodeApi.CLIENT_ID + "&response_type=code&"), "Claude authorize URL");
+        check(url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A54545%2Fcallback"),
+                "Claude authorize redirect encoded");
+        check(url.contains("scope=user%3Aprofile+user%3Ainference"), "Claude read-only scopes");
+        check(url.contains("code_challenge=challenge-value&code_challenge_method=S256"),
+                "Claude PKCE S256");
+        check(url.endsWith("&state=state-value"), "Claude state param");
+        java.util.Map<String, String> exchange = ClaudeCodeApi.codeExchangeBody(
+                "auth-code#state-value", redirect, "verifier", "state-value");
+        check("auth-code".equals(exchange.get("code")), "Claude strips #state from the code");
+        check("authorization_code".equals(exchange.get("grant_type"))
+                        && redirect.equals(exchange.get("redirect_uri"))
+                        && "verifier".equals(exchange.get("code_verifier"))
+                        && "state-value".equals(exchange.get("state")),
+                "Claude code exchange body");
+        java.util.Map<String, String> refresh = ClaudeCodeApi.refreshBody("refresh-token");
+        check("refresh_token".equals(refresh.get("grant_type"))
+                        && ClaudeCodeApi.CLIENT_ID.equals(refresh.get("client_id")),
+                "Claude refresh body");
+        long minute = 60_000L;
+        long interval = ClaudeCodeApi.BACKGROUND_INTERVAL_MILLIS;
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 0L, 0L, interval),
+                "Claude refresh due with no cached data");
+        check(!ClaudeCodeApi.isRefreshDue(100 * minute, 90 * minute, 0L, interval),
+                "Claude background refresh waits 30 minutes");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 70 * minute, 0L, interval),
+                "Claude background refresh runs after 30 minutes");
+        check(!ClaudeCodeApi.isRefreshDue(100 * minute, 0L, 70 * minute, interval),
+                "Claude backs off for an hour after a 429");
+        check(ClaudeCodeApi.isRefreshDue(200 * minute, 0L, 70 * minute, interval),
+                "Claude retries once the 429 back-off ends");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 94 * minute, 0L, 5 * minute),
+                "widget refresh taps use the 5-minute spacing");
+        check(ClaudeCodeApi.isRefreshDue(100 * minute, 200 * minute, 0L, interval),
+                "a cache from the future (clock change) does not block refresh");
+        System.out.println("Claude Code OAuth: authorize URL, code exchange, refresh verified.");
+    }
+
+    private static void testCursorUsageParsing() throws Exception {
+        check(UsageProvider.fromId("cursor") == UsageProvider.CURSOR, "Cursor provider id");
+        check("Sign in with Cursor".equals(UsageProvider.CURSOR.signInLabel()),
+                "Cursor sign-in label");
+        String body = "{\"billingCycleStart\":\"1791676800000\","
+                + "\"billingCycleEnd\":\"2026-11-11T00:00:00Z\","
+                + "\"planUsage\":{\"totalSpend\":500,\"includedSpend\":400,\"bonusSpend\":100,"
+                + "\"remaining\":1500,\"limit\":2000,\"totalPercentUsed\":25,"
+                + "\"autoPercentUsed\":10,\"apiPercentUsed\":15},"
+                + "\"spendLimitUsage\":{\"totalSpend\":300,\"individualLimit\":1000,"
+                + "\"individualUsed\":300,\"individualRemaining\":700,"
+                + "\"pooledLimit\":\"20000\",\"pooledUsed\":5000,\"limitType\":\"team\"},"
+                + "\"enabled\":true,\"serverTimeOffsetMs\":123}";
+        UsageSnapshot snapshot = CursorUsageParser.parse(body, "Pro", 1_000L);
+        long end = java.time.OffsetDateTime.parse("2026-11-11T00:00:00Z").toEpochSecond();
+        check(snapshot.monthly != null && snapshot.monthly.usedPercent == 25,
+                "Cursor totalPercentUsed is the included-usage window");
+        check(snapshot.monthly.resetAtEpochSeconds == end,
+                "Cursor ISO billingCycleEnd is the reset");
+        check(snapshot.monthly.windowSeconds == end - 1_791_676_800L,
+                "Cursor window spans the billing cycle");
+        check(snapshot.fiveHour == null && snapshot.weekly == null,
+                "Cursor has no 5-hour or weekly window");
+        check(snapshot.longWindowIsMonthly(), "Cursor widgets fall back to the monthly window");
+        check(snapshot.additionalLimits.size() == 3,
+                "Cursor legacy plan: two model pools and on-demand");
+        check("Cursor models".equals(snapshot.additionalLimits.get(0).name)
+                        && snapshot.additionalLimits.get(0).primary.usedPercent == 10,
+                "Cursor models pool percent");
+        check("Other models".equals(snapshot.additionalLimits.get(1).name)
+                        && snapshot.additionalLimits.get(1).primary.usedPercent == 15,
+                "Other models pool percent");
+        UsageLimit onDemand = snapshot.additionalLimits.get(2);
+        check("On-demand ($3 of $10)".equals(onDemand.name)
+                        && onDemand.primary.usedPercent == 30 && !onDemand.limitReached,
+                "Cursor individual on-demand cap wins over the team pool, in dollars");
+        check(!snapshot.limitReached && snapshot.allowed, "Cursor snapshot not limited");
+        check(UsageSnapshot.fromJson(snapshot.toJson()).monthly.usedPercent == 25,
+                "Cursor snapshot survives the cache round-trip");
+
+        UsageSnapshot computed = CursorUsageParser.parse(
+                "{\"billingCycleStart\":1791676800000,\"billingCycleEnd\":\"1794355200000\","
+                        + "\"planUsage\":{\"includedSpend\":2000,\"limit\":2000},"
+                        + "\"spendLimitUsage\":{\"pooledLimit\":\"5000\",\"pooledUsed\":\"5000\"}}",
+                "", 1L);
+        check(computed.monthly.usedPercent == 100 && computed.monthly.resetAtEpochSeconds
+                        == 1_794_355_200L,
+                "Cursor percent from includedSpend/limit with epoch-ms strings");
+        check(computed.additionalLimits.size() == 1
+                        && "Team on-demand ($50 of $50)".equals(computed.additionalLimits.get(0).name)
+                        && computed.additionalLimits.get(0).limitReached,
+                "Cursor team pool on-demand fallback");
+        check(computed.limitReached, "Cursor plan and on-demand both spent -> limited");
+        UsageSnapshot light = CursorUsageParser.parse(
+                "{\"planUsage\":{\"totalPercentUsed\":0.36}}", "", 1L);
+        check(light.monthly.usedPercent == 1
+                        && light.monthly.windowSeconds == CursorUsageParser.DEFAULT_CYCLE_SECONDS,
+                "Cursor fractional usage shows at least 1% and defaults to a 30-day cycle");
+        check(light.additionalLimits.isEmpty(), "Cursor plans without pools show no pool cards");
+        UsageSnapshot oneSided = CursorUsageParser.parse(
+                "{\"planUsage\":{\"limit\":2000,\"autoPercentUsed\":40}}", "", 1L);
+        check(oneSided.monthly.usedPercent == 0 && oneSided.additionalLimits.size() == 2
+                        && oneSided.additionalLimits.get(1).primary.usedPercent == 0,
+                "Cursor omitted zero pool and zero spend still show as 0%");
+        // Current plans: one included pool that refreshes weekly, no pool split.
+        UsageSnapshot weeklyPlan = CursorUsageParser.parse(
+                "{\"billingCycleStart\":\"1791676800000\",\"billingCycleEnd\":\"1792281600000\","
+                        + "\"planUsage\":{\"totalPercentUsed\":100,\"autoPercentUsed\":100},"
+                        + "\"spendLimitUsage\":{\"individualLimit\":2000,\"individualUsed\":500}}",
+                "Premium", 1L);
+        check(weeklyPlan.weekly != null && weeklyPlan.monthly == null
+                        && weeklyPlan.weekly.usedPercent == 100
+                        && weeklyPlan.weekly.windowSeconds == 7L * 24L * 3600L,
+                "Cursor weekly cycle is the weekly window");
+        check(weeklyPlan.additionalLimits.size() == 1
+                        && "Additional usage ($5 of $20)".equals(
+                                weeklyPlan.additionalLimits.get(0).name),
+                "Cursor current plan shows no model pools and calls extra spend additional usage");
+        UsageSnapshot empty = CursorUsageParser.parse("{\"enabled\":false}", "", 1L);
+        check(empty.monthly == null && empty.additionalLimits.isEmpty(),
+                "Cursor response without usage yields no windows");
+        check("$12.50".equals(CursorUsageParser.dollars(1250)), "Cursor cents to dollars");
+
+        check("Pro+".equals(CursorUsageParser.planLabel("{\"membershipType\":\"pro_plus\"}")),
+                "Cursor Pro+ plan");
+        check("Ultra".equals(CursorUsageParser.planLabel("{\"membershipType\":\"ultra\"}")),
+                "Cursor Ultra plan");
+        check("Hobby".equals(CursorUsageParser.planLabel("{\"membershipType\":\"free\"}")),
+                "Cursor free plan is Hobby");
+        check("Teams".equals(CursorUsageParser.planLabel("{\"membership_type\":\"team\"}")),
+                "Cursor team plan");
+        check("".equals(CursorUsageParser.planLabel("nope")), "bad Cursor profile -> no badge");
+        check("me@example.com".equals(CursorUsageParser.email("{\"email\":\"me@example.com\"}")),
+                "Cursor profile email");
+        System.out.println("Cursor usage: billing cycle, model pools, on-demand, plans verified.");
+    }
+
+    private static void testCursorAuth() throws Exception {
+        CursorApi.LoginRequest login = CursorApi.newLoginRequest();
+        check(login.verifier.length() == 43, "Cursor verifier is 32 bytes base64url");
+        check(login.challenge.equals(CursorApi.challengeFor(login.verifier)),
+                "Cursor challenge is SHA-256 of the verifier");
+        // RFC 7636 appendix B test vector.
+        check("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM".equals(
+                        CursorApi.challengeFor("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")),
+                "Cursor S256 challenge matches RFC 7636");
+        check(login.loginUrl().equals("https://cursor.com/loginDeepControl?challenge="
+                        + login.challenge + "&uuid=" + login.uuid + "&mode=login"),
+                "Cursor login URL");
+        check(login.pollUrl().equals("https://api2.cursor.sh/auth/poll?uuid=" + login.uuid
+                + "&verifier=" + login.verifier), "Cursor poll URL");
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "{\"sub\":\"auth0|user_01ABC\",\"exp\":1800000000,\"email\":\"a@b.co\"}"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String jwt = "eyJhbGciOiJIUzI1NiJ9." + payload + ".sig";
+        check(CursorApi.expiresAtMillis(jwt) == 1_800_000_000_000L, "Cursor JWT exp");
+        check("a@b.co".equals(CursorApi.email(jwt)), "Cursor JWT email");
+        check(CursorApi.expiresAtMillis("not-a-jwt") == 0L, "bad Cursor JWT -> no expiry");
+        CursorApi.Tokens polled = CursorApi.parseTokens(
+                "{\"authId\":\"auth0|user_01ABC\",\"accessToken\":\"a\",\"refreshToken\":\"r\"}");
+        check("a".equals(polled.accessToken) && "r".equals(polled.refreshToken)
+                && "auth0|user_01ABC".equals(polled.authId), "Cursor poll tokens");
+        CursorApi.Tokens refreshed = CursorApi.parseTokens("{\"access_token\":\"new\"}");
+        check("new".equals(refreshed.accessToken) && "new".equals(refreshed.refreshToken),
+                "Cursor refresh reuses the access token as refresh token, like the editor");
+        check(CursorApi.parseTokens("{\"shouldLogout\":true}").shouldLogout,
+                "Cursor shouldLogout is read");
+        check(CursorApi.refreshBody("r").contains("\"client_id\":\"" + CursorApi.CLIENT_ID + "\""),
+                "Cursor refresh body carries the client id");
+        check(CursorApi.isUnauthenticated(401, ""), "Cursor 401 is unauthenticated");
+        check(CursorApi.isUnauthenticated(200, "{\"error\":\"not_authenticated\"}"),
+                "Cursor 200 with auth error body is unauthenticated");
+        check(!CursorApi.isUnauthenticated(200, "{\"planUsage\":{}}"), "Cursor usage is not an auth error");
+        check(CursorApi.isBotCheckpoint(403, "<html>Vercel Security Checkpoint</html>")
+                        && !CursorApi.isUnauthenticated(403, "<html>Vercel Security Checkpoint</html>"),
+                "Cursor bot checkpoint is not a sign-in failure");
+        long minute = 60_000L;
+        check(!CursorApi.isRefreshDue(100 * minute, 90 * minute,
+                CursorApi.BACKGROUND_INTERVAL_MILLIS), "Cursor background refresh waits");
+        check(CursorApi.isRefreshDue(100 * minute, 80 * minute,
+                CursorApi.BACKGROUND_INTERVAL_MILLIS), "Cursor background refresh runs");
+        System.out.println("Cursor auth: PKCE poll login, JWT expiry, refresh verified.");
     }
 
     private static void check(boolean condition, String name) {

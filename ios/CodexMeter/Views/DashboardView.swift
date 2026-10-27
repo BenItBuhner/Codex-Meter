@@ -1,15 +1,36 @@
 import CodexMeterCore
 import SwiftUI
 
+/// One provider's dashboard; `ContentView` puts each enabled provider in its own tab.
 struct DashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    var provider: UsageProvider = .codex
 
     var body: some View {
+        Group {
+            switch provider {
+            case .codex:
+                codexDashboard
+            case .claudeCode:
+                ClaudeDashboardView()
+            case .cursor:
+                CursorDashboardView()
+            default:
+                AddedProviderDashboardView(provider: provider)
+            }
+        }
+        .task {
+            await model.startIfNeeded()
+        }
+    }
+
+    private var codexDashboard: some View {
         ScrollView {
             LazyVStack(spacing: AppChrome.sectionSpacing) {
                 if model.mode == .signedOut {
                     SignedOutView()
+                        .frame(maxWidth: AppChrome.signedOutMaxWidth)
                 } else {
                     if model.mode == .demo {
                         StatusBanner(
@@ -40,11 +61,12 @@ struct DashboardView: View {
                 }
             }
             .frame(maxWidth: AppChrome.contentMaxWidth)
+            .dashboardColumnsFromWidth()
             .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
             .padding(.vertical, 18)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Codex Meter")
+        .navigationTitle("Codex")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if model.mode != .signedOut {
@@ -78,8 +100,31 @@ struct DashboardView: View {
             guard model.mode != .signedOut else { return }
             await model.refresh()
         }
-        .task {
-            await model.startIfNeeded()
+    }
+}
+
+/// A provider's mark (OpenAI, Claude, Cursor, GitHub…) from the asset catalog, drawn as a template so
+/// it tints like an SF Symbol in tab bars and settings rows.
+struct ProviderMark: View {
+    let provider: UsageProvider
+
+    var body: some View {
+        Image(provider.markImageName)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
+    }
+}
+
+extension UsageProvider {
+    /// Asset catalog image for this provider's tab and settings row.
+    var markImageName: String {
+        switch self {
+        case .codex: "ProviderCodex"
+        case .claudeCode: "ProviderClaude"
+        case .cursor: "ProviderCursor"
+        default: "Provider-\(rawValue)"
         }
     }
 }
@@ -130,11 +175,12 @@ private struct DashboardStatusStrip: View {
 
 private struct SignedOutView: View {
     @Environment(AppModel.self) private var model
+    @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 58
 
     var body: some View {
         VStack(spacing: 22) {
             Image(systemName: "gauge.with.dots.needle.67percent")
-                .font(.system(size: 58, weight: .medium))
+                .font(.system(size: symbolSize, weight: .medium))
                 .foregroundStyle(.tint)
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityHidden(true)

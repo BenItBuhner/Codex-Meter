@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.content.Intent;
 import android.appwidget.AppWidgetManager;
 import android.os.Bundle;
@@ -20,6 +21,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 public final class LockWidgetConfigActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private int appWidgetId = 0;
     private boolean dark;
     private ImageView preview;
@@ -28,6 +34,11 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
     private CheckBox showResetCredits;
     private TextView metersHint;
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
+    private List<UsageProvider> providers = new ArrayList<>();
+    private final java.util.Map<UsageProvider, SwitchCompat> providerSwitches =
+            new java.util.EnumMap<>(UsageProvider.class);
+    /** 1 for the single-gauge widget, 2 for the wide ones. */
+    private int slots = 2;
 
     @Override
     protected void onCreate(Bundle bundle) {
@@ -40,6 +51,9 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             finish();
         } else {
             this.dark = Ui.isDark(this);
+            this.slots = SamsungLockWidgetSupport.slotCount(this, this.appWidgetId);
+            this.providers = new ArrayList<>(ProviderPreferences.getLockWidgetProviders(this,
+                    this.appWidgetId, maxProviders()));
             build();
         }
     }
@@ -71,6 +85,27 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             this.selectedMeters.add(WidgetMeters.FIVE_HOUR);
         }
 
+        linearLayout.addView(Ui.separator(this, this.slots > 1 ? "Providers" : "Provider"));
+        RoundedLinearLayout providersCard = Ui.seslCard(this, this.dark);
+        TextView providersHint = Ui.text(this, this.slots > 1
+                        ? "Pick one provider for two of its meters, or two providers for one "
+                                + "meter each."
+                        : "This widget shows one provider.",
+                13.0f, Ui.secondaryText(this.dark));
+        providersHint.setPadding(0, 0, 0, Ui.dp(this, 8));
+        providersCard.addView(providersHint);
+        boolean firstProvider = true;
+        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+            SwitchCompat toggle = new SwitchCompat(this);
+            toggle.setChecked(this.providers.contains(provider));
+            this.providerSwitches.put(provider, toggle);
+            providersCard.addView(buildSwitchRow(provider.displayName, toggle, !firstProvider));
+            firstProvider = false;
+            toggle.setOnCheckedChangeListener((button, checked) -> onProviderToggled(provider,
+                    checked));
+        }
+        linearLayout.addView(providersCard);
+
         linearLayout.addView(Ui.separator(this, "Meters"));
         RoundedLinearLayout metersCard = Ui.seslCard(this, this.dark);
         this.metersHint = Ui.text(this,
@@ -78,7 +113,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                 13.0f, Ui.secondaryText(this.dark));
         this.metersHint.setPadding(0, 0, 0, Ui.dp(this, 8));
         metersCard.addView(this.metersHint);
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, this.providers.get(0));
         List<String> available = new ArrayList<>();
         for (String key : WidgetMeters.availableKeys(snapshot)) {
             if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)) {
@@ -146,8 +181,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         this.showResetCredits.setOnCheckedChangeListener(previewCheckListener);
         this.showResetAction.setOnCheckedChangeListener(previewCheckListener);
 
-        page.cancel.setOnClickListener(view -> finish());
-        page.save.setOnClickListener(view -> save());
+        page.onCancel(this::finish);
+        page.onSave(this::save);
         updateMetersHint();
         updatePreview();
     }
@@ -178,9 +213,12 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             return;
         }
         int selected = this.selectedMeters.size();
-        int capacity = WidgetMeters.lockSlotCapacity();
-        String message = "Lock widgets show up to " + capacity + " meters.";
-        if (selected > capacity) {
+        int capacity = this.slots > 1 ? WidgetMeters.lockSlotCapacity() : 1;
+        String message = this.providers.size() > 1
+                ? "With two providers, each shows the first meter it reports."
+                : this.slots > 1 ? "Lock widgets show up to " + capacity + " meters."
+                : "The gauge shows the first meter it can.";
+        if (selected > capacity && this.slots > 1 && this.providers.size() <= 1) {
             message += " " + (selected - capacity)
                     + " extra selection" + (selected - capacity == 1 ? " is" : "s are")
                     + " ignored until you deselect others.";
@@ -208,63 +246,49 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                 this.showResetAction.isChecked(), this.showCountdown.isChecked(), visible);
     }
 
+    private int maxProviders() {
+        return this.slots > 1 ? WidgetProviders.MAX_LOCK_WIDE : 1;
+    }
+
+    private void onProviderToggled(UsageProvider provider, boolean checked) {
+        List<UsageProvider> updated;
+        if (this.slots <= 1 && checked) {
+            // Single gauge: picking a provider replaces the current one.
+            updated = new ArrayList<>();
+            updated.add(provider);
+        } else {
+            updated = WidgetProviders.toggled(this.providers, provider, checked,
+                    ProviderPreferences.getOrder(this), maxProviders());
+        }
+        if (updated.contains(provider) != checked) {
+            if (checked) {
+                Toast.makeText(this, "This widget shows up to " + maxProviders()
+                        + " providers.", Toast.LENGTH_SHORT).show();
+            }
+        }
+        this.providers = updated;
+        for (java.util.Map.Entry<UsageProvider, SwitchCompat> entry
+                : this.providerSwitches.entrySet()) {
+            boolean on = this.providers.contains(entry.getKey());
+            if (entry.getValue().isChecked() != on) {
+                entry.getValue().setChecked(on);
+            }
+        }
+        updateMetersHint();
+        updatePreview();
+    }
+
     private void updatePreview() {
         if (this.preview == null || this.showCountdown == null) {
             return;
         }
-        LockWidgetOptions options = currentOptions();
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
-        List<String> available = WidgetMeters.availableKeys(snapshot);
-        List<String> visible = WidgetMeters.cap(
-                WidgetMeters.resolveVisibleForWidget(options.effectiveVisibleMeters(), available,
-                        options.metricMode),
-                WidgetMeters.lockSlotCapacity());
-        int primary = 73;
-        int secondary = -1;
-        int primaryIcon = R.drawable.ic_oui_time;
-        int secondaryIcon = R.drawable.ic_oui_calendar_week;
-        if (!visible.isEmpty()) {
-            primary = previewRemaining(visible.get(0), snapshot, 73);
-            primaryIcon = previewIcon(visible.get(0));
-        }
-        if (visible.size() > 1) {
-            secondary = previewRemaining(visible.get(1), snapshot, 44);
-            secondaryIcon = previewIcon(visible.get(1));
-        }
-        this.preview.setImageBitmap(SamsungLockGraphics.render(this,
-                SamsungLockWidgetSupport.Shape.WIDE, SamsungLockWidgetSupport.Style.DIALS,
-                primary, secondary, true, 180, 82, options, 2,
-                primaryIcon, secondaryIcon));
-    }
-
-    private static int previewIcon(String key) {
-        if (WidgetMeters.WEEKLY.equals(key)
-                || (WidgetMeters.isLimitKey(key) && !WidgetMeters.isLimitPrimary(key))) {
-            return R.drawable.ic_oui_calendar_week;
-        }
-        return R.drawable.ic_oui_time;
-    }
-
-    private static int previewRemaining(String key, UsageSnapshot snapshot, int fallback) {
-        if (WidgetMeters.FIVE_HOUR.equals(key) && snapshot != null && snapshot.fiveHour != null) {
-            return snapshot.fiveHour.remainingPercent();
-        }
-        if (WidgetMeters.WEEKLY.equals(key) && snapshot != null
-                && WidgetMeters.meterWindow(key, snapshot) != null) {
-            return WidgetMeters.meterWindow(key, snapshot).remainingPercent();
-        }
-        UsageLimit limit = WidgetMeters.findLimit(key, snapshot);
-        if (limit != null) {
-            UsageWindow window = WidgetMeters.isLimitPrimary(key) ? limit.primary : limit.secondary;
-            if (window != null) {
-                return window.remainingPercent();
-            }
-        }
-        return fallback;
+        this.preview.setImageBitmap(SamsungLockWidgetSupport.previewBitmap(this, this.slots,
+                this.providers, currentOptions()));
     }
 
     public void save() {
         AppPreferences.saveLockWidgetOptions(this, this.appWidgetId, currentOptions());
+        ProviderPreferences.setWidgetProviders(this, this.appWidgetId, this.providers);
         SamsungLockWidgetSupport.updateById(this, this.appWidgetId);
         setResult(RESULT_OK, new Intent().putExtra(
                 AppWidgetManager.EXTRA_APPWIDGET_ID, this.appWidgetId));

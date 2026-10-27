@@ -5,6 +5,7 @@ struct ResetCreditView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var confirming = false
+    @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 52
 
     private var count: Int {
         model.credits?.availableCount ?? model.usage?.resetCreditsAvailable ?? 0
@@ -23,7 +24,7 @@ struct ResetCreditView: View {
             VStack(spacing: 22) {
                 VStack(spacing: 16) {
                     Image(systemName: "arrow.counterclockwise.circle.fill")
-                        .font(.system(size: 52))
+                        .font(.system(size: symbolSize))
                         .foregroundStyle(.tint)
                         .symbolRenderingMode(.hierarchical)
                         .accessibilityHidden(true)
@@ -39,6 +40,12 @@ struct ResetCreditView: View {
                         } else if count > 0 {
                             Text("Expiry details are unavailable; OpenAI will choose an eligible credit.")
                                 .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        if let autoUse = autoUseSummary(hasExpiry: nextExpiry != nil) {
+                            Text(autoUse)
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
@@ -113,5 +120,22 @@ struct ResetCreditView: View {
         } message: {
             Text("This action consumes one available reset credit and cannot be undone.")
         }
+    }
+
+    /// One line describing the automatic-use rules that are on, or nil when none are.
+    private func autoUseSummary(hasExpiry: Bool) -> String? {
+        var parts: [String] = []
+        if model.settings.creditExpiryAutoApplyEnabled, hasExpiry {
+            parts.append("Unused credits are used automatically "
+                + CreditExpiryAutoApply.leadLabel(model.settings.creditExpiryAutoApplyLeadMinutes)
+                + " before they expire.")
+        }
+        if model.settings.lowUsageAutoUseEnabled {
+            parts.append("A credit is also used when your "
+                + model.settings.lowUsageAutoUseMetric.shortTitle
+                + " limit reaches \(model.settings.lowUsageAutoUseThreshold)% remaining.")
+        }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " ") + " iOS runs this on the next refresh."
     }
 }

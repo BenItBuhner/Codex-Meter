@@ -2,31 +2,45 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <dev.oneuiproject.oneui.preference.LayoutPreference
-        android:key="account_card"
-        android:layout="@layout/preference_account_card"
-        app:allowDividerAbove="false"
-        app:allowDividerBelow="false" />
-
-    <PreferenceCategory android:title="General">
+    <PreferenceCategory android:title="Accounts">
+        <!-- Summaries for every row here are filled in by SettingsActivity. -->
         <Preference
-            android:key="settings_appearance"
-            android:title="Appearance"
+            android:key="settings_accounts"
+            android:title="Accounts"
             app:iconSpaceReserved="false" />
         <Preference
-            android:key="settings_refresh_usage"
-            android:title="Refresh &amp; usage"
+            android:key="settings_providers"
+            android:title="Dashboard tabs"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Features">
+    <PreferenceCategory android:title="Live usage">
+        <Preference
+            android:key="settings_now_bar"
+            android:title="Now Bar"
+            app:iconSpaceReserved="false" />
         <Preference
             android:key="settings_notifications"
             android:title="Notifications"
             app:iconSpaceReserved="false" />
         <Preference
-            android:key="settings_now_bar"
-            android:title="Now Bar"
+            android:key="settings_lock_widgets"
+            android:title="Lock screen widgets"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Usage">
+        <Preference
+            android:key="settings_refresh_usage"
+            android:title="Refresh &amp; dashboard"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_reset_credits"
+            android:title="Reset credits"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_appearance"
+            android:title="Appearance"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

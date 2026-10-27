@@ -4,6 +4,23 @@ import XCTest
 @testable import CodexMeter
 
 final class SettingsAndHistoryTests: XCTestCase {
+    func testResetAutoUseSettingsDefaultAndRoundTrip() throws {
+        let legacy = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        XCTAssertTrue(legacy.creditExpiryAutoApplyEnabled)
+        XCTAssertEqual(legacy.creditExpiryAutoApplyLeadMinutes, 30)
+        XCTAssertFalse(legacy.lowUsageAutoUseEnabled)
+        XCTAssertEqual(legacy.lowUsageAutoUseThreshold, 1)
+        XCTAssertEqual(legacy.lowUsageAutoUseMetric, .both)
+
+        var custom = AppSettings()
+        custom.creditExpiryAutoApplyLeadMinutes = 60
+        custom.lowUsageAutoUseEnabled = true
+        custom.lowUsageAutoUseThreshold = 2
+        custom.lowUsageAutoUseMetric = .weekly
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(custom))
+        XCTAssertEqual(decoded, custom)
+    }
+
     func testDashboardSettingsOrderVisibilityAndTransferRoundTrip() throws {
         let spark = "limit:codex-spark"
         var settings = AppSettings()
@@ -23,15 +40,112 @@ final class SettingsAndHistoryTests: XCTestCase {
             [DashboardSections.usageHistory, spark, DashboardSections.fiveHour]
         )
 
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.spendControl))
+        settings.setDashboardSectionVisible(DashboardSections.spendControl, visible: false)
+        XCTAssertFalse(settings.showSpendControl)
+        XCTAssertFalse(settings.isDashboardSectionVisible(DashboardSections.spendControl))
+
         let data = try JSONEncoder().encode(settings)
         let decoded = try SettingsTransferDocument.decode(data)
         XCTAssertEqual(decoded, settings)
+        XCTAssertFalse(decoded.showSpendControl)
+        XCTAssertTrue(
+            try SettingsTransferDocument.decode(Data("{\"showWeekly\":false}".utf8)).showSpendControl,
+            "Exports written before the monthly credit limit card keep it enabled"
+        )
 
         var shown = decoded
         shown.setDashboardSectionVisible(spark, visible: true)
         XCTAssertTrue(shown.showAdditionalLimits)
         XCTAssertTrue(shown.isDashboardSectionVisible(spark))
         XCTAssertFalse(shown.dashboardHiddenSections.contains(spark))
+    }
+
+    func testEachProviderKeepsItsOwnDashboardLayout() throws {
+        let spend = "limit:cursor_on_demand"
+        var settings = AppSettings()
+        settings.setDashboardOrder([DashboardSections.weekly, DashboardSections.fiveHour], for: .codex)
+        settings.setDashboardOrder([spend, DashboardSections.weekly], for: .cursor)
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: false, for: .claudeCode)
+
+        // Codex still uses its original fields, so existing layouts carry over.
+        XCTAssertEqual(settings.dashboardOrder, [DashboardSections.weekly, DashboardSections.fiveHour])
+        XCTAssertEqual(settings.savedDashboardOrder(for: .cursor), [spend, DashboardSections.weekly])
+        XCTAssertEqual(settings.savedDashboardOrder(for: .claudeCode), [])
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .codex))
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .cursor))
+        XCTAssertFalse(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .claudeCode))
+        XCTAssertTrue(settings.showWeekly)
+
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: false, for: .codex)
+        XCTAssertFalse(settings.showWeekly)
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .cursor))
+
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded, settings)
+
+        settings.setDashboardSectionVisible(DashboardSections.weekly, visible: true, for: .claudeCode)
+        XCTAssertTrue(settings.isDashboardSectionVisible(DashboardSections.weekly, for: .claudeCode))
+    }
+
+    func testUsagePaceSettingsDefaultRoundTripAndLegacyDecode() throws {
+        XCTAssertTrue(AppSettings.defaults.usagePaceEnabled)
+        XCTAssertEqual(AppSettings.defaults.usagePaceSensitivity, .balanced)
+
+        var settings = AppSettings()
+        settings.usagePaceEnabled = false
+        settings.usagePaceSensitivity = .relaxed
+        let decoded = try SettingsTransferDocument.decode(JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded, settings)
+        XCTAssertFalse(decoded.usagePaceEnabled)
+        XCTAssertEqual(decoded.usagePaceSensitivity, .relaxed)
+
+        let legacy = try SettingsTransferDocument.decode(Data(#"{"refreshMinutes": 15}"#.utf8))
+        XCTAssertEqual(legacy.refreshMinutes, 15)
+        XCTAssertTrue(legacy.usagePaceEnabled)
+        XCTAssertEqual(legacy.usagePaceSensitivity, .balanced)
+    }
+
+    func testPaceEstimateLabelsFollowTheProjection() {
+        let observedAt = Date(timeIntervalSince1970: 2_000_000_000)
+
+        let onPace = UsagePace.assess(
+            window: UsageWindow(
+                usedPercent: 50,
+                windowSeconds: 18_000,
+                resetAt: observedAt.addingTimeInterval(9_000)
+            ),
+            observedAt: observedAt,
+            now: observedAt
+        )
+        XCTAssertTrue(onPace.isAvailable)
+        XCTAssertFalse(onPace.isAccelerated)
+        XCTAssertEqual(onPace.estimateLabel(now: observedAt), "Est. 2h 30m")
+        XCTAssertEqual(
+            onPace.estimateAccessibilityValue(now: observedAt),
+            "estimated 2h 30m left"
+        )
+        XCTAssertEqual(
+            onPace.estimateLabel(now: observedAt.addingTimeInterval(8_970)),
+            "Est. 1m"
+        )
+
+        let later = observedAt.addingTimeInterval(1_800)
+        let exhausted = UsagePace.assess(
+            window: UsageWindow(
+                usedPercent: 90,
+                windowSeconds: 18_000,
+                resetAt: observedAt.addingTimeInterval(10_800)
+            ),
+            observedAt: observedAt,
+            now: later
+        )
+        XCTAssertTrue(exhausted.isAccelerated)
+        XCTAssertEqual(exhausted.estimateLabel(now: later), "Est. depleted")
+        XCTAssertEqual(exhausted.estimateAccessibilityValue(now: later), "estimated depleted")
+
+        XCTAssertNil(UsagePaceAssessment.unavailable.estimateLabel())
+        XCTAssertNil(UsagePaceAssessment.unavailable.estimateAccessibilityValue())
     }
 
     func testUsageHistoryStoreRecordsPersistsAndClearsBoundedSamples() async throws {

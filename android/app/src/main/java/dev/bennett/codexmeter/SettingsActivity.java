@@ -5,9 +5,9 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,7 +15,6 @@ import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -26,13 +25,10 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceListCorners;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
-import dev.oneuiproject.oneui.layout.ToolbarLayout;
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
-import dev.oneuiproject.oneui.preference.LayoutPreference;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
-import dev.oneuiproject.oneui.widget.CardItemView;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
@@ -44,12 +40,20 @@ import java.util.concurrent.TimeUnit;
 
 /** Settings built from the One UI Design Library preference components used by its sample app. */
 public final class SettingsActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
+    private static final String PAGE_ACCOUNTS = "accounts";
     private static final String PAGE_APPEARANCE = "appearance";
     private static final String PAGE_REFRESH_USAGE = "refresh_usage";
+    private static final String PAGE_RESET_CREDITS = "reset_credits";
     private static final String PAGE_NOTIFICATIONS = "notifications";
     private static final String PAGE_NOW_BAR = "now_bar";
+    private static final String PAGE_APP_SESSIONS = "app_sessions";
     private static final String PAGE_UPDATES = "updates";
     private static final String PAGE_TRANSFER = "transfer";
     private static final String PAGE_PRIVACY = "privacy";
@@ -65,10 +69,8 @@ public final class SettingsActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
-        setContentView(R.layout.activity_settings);
         String page = normalizePage(getIntent().getStringExtra(EXTRA_PAGE));
-        ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
-        Ui.configureReachToolbar(toolbar, pageTitle(page), true);
+        Ui.installSettingsPage(this, pageTitle(page));
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, SettingsFragment.newInstance(page))
@@ -77,10 +79,13 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private static String normalizePage(String page) {
-        if (PAGE_APPEARANCE.equals(page)
+        if (PAGE_ACCOUNTS.equals(page)
+                || PAGE_APPEARANCE.equals(page)
                 || PAGE_REFRESH_USAGE.equals(page)
+                || PAGE_RESET_CREDITS.equals(page)
                 || PAGE_NOTIFICATIONS.equals(page)
                 || PAGE_NOW_BAR.equals(page)
+                || PAGE_APP_SESSIONS.equals(page)
                 || PAGE_UPDATES.equals(page)
                 || PAGE_TRANSFER.equals(page)
                 || PAGE_PRIVACY.equals(page)
@@ -92,14 +97,20 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private static String pageTitle(String page) {
         switch (page) {
+            case PAGE_ACCOUNTS:
+                return "Accounts";
             case PAGE_APPEARANCE:
                 return "Appearance";
             case PAGE_REFRESH_USAGE:
-                return "Refresh & usage";
+                return "Refresh & dashboard";
+            case PAGE_RESET_CREDITS:
+                return "Reset credits";
             case PAGE_NOTIFICATIONS:
                 return "Notifications";
             case PAGE_NOW_BAR:
                 return "Now Bar";
+            case PAGE_APP_SESSIONS:
+                return "While using AI apps";
             case PAGE_UPDATES:
                 return "Updates";
             case PAGE_TRANSFER:
@@ -164,6 +175,10 @@ public final class SettingsActivity extends AppCompatActivity {
             page = normalizePage(getArguments() == null
                     ? null : getArguments().getString(ARG_PAGE));
             switch (page) {
+                case PAGE_ACCOUNTS:
+                    addPreferencesFromResource(R.xml.preferences_settings_accounts);
+                    bindAccounts();
+                    break;
                 case PAGE_APPEARANCE:
                     addPreferencesFromResource(R.xml.preferences_settings_appearance);
                     bindAppearance();
@@ -173,6 +188,13 @@ public final class SettingsActivity extends AppCompatActivity {
                     bindRefresh();
                     bindUsagePace();
                     break;
+                case PAGE_RESET_CREDITS:
+                    addPreferencesFromResource(R.xml.preferences_settings_reset_credits);
+                    bindResetCreditAutoUse();
+                    bindClaudeSavedResets();
+                    bindResetStatus();
+                    bindClaudeResetCheck();
+                    break;
                 case PAGE_NOTIFICATIONS:
                     addPreferencesFromResource(R.xml.preferences_settings_notifications);
                     bindNotifications();
@@ -180,6 +202,10 @@ public final class SettingsActivity extends AppCompatActivity {
                 case PAGE_NOW_BAR:
                     addPreferencesFromResource(R.xml.preferences_settings_now_bar);
                     bindNowBar();
+                    break;
+                case PAGE_APP_SESSIONS:
+                    addPreferencesFromResource(R.xml.preferences_settings_app_sessions);
+                    bindAppSessions();
                     break;
                 case PAGE_UPDATES:
                     addPreferencesFromResource(R.xml.preferences_settings_updates);
@@ -223,7 +249,15 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onViewCreated(View view, Bundle bundle) {
             super.onViewCreated(view, bundle);
-            view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
+            if (AppPreferences.isOneUi9Design(requireContext())) {
+                // One UI 9: the list runs edge to edge under the floating toolbar and fades, so
+                // it has no backdrop of its own and no rounded list edges; each row group keeps
+                // its own card.
+                view.setBackgroundColor(Color.TRANSPARENT);
+                PreferenceListCorners.drop(this);
+            } else {
+                view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
+            }
         }
 
         @Override
@@ -231,6 +265,8 @@ public final class SettingsActivity extends AppCompatActivity {
             super.onResume();
             if (PAGE_ROOT.equals(page)) {
                 updateRootSummaries();
+            } else if (PAGE_ACCOUNTS.equals(page)) {
+                bindAccounts();
             } else if (PAGE_NOTIFICATIONS.equals(page)) {
                 updatePermissionSummary();
             } else if (PAGE_NOW_BAR.equals(page)) {
@@ -240,19 +276,32 @@ public final class SettingsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
+            } else if (PAGE_APP_SESSIONS.equals(page)) {
+                updateAppSessions();
             } else if (PAGE_UPDATES.equals(page)) {
                 updateUpdateSummary();
             } else if (PAGE_DIAGNOSTICS.equals(page)) {
                 updateDiagnosticSummary();
+            } else if (PAGE_RESET_CREDITS.equals(page)) {
+                updateResetStatus();
             }
         }
 
         private void bindRoot() {
-            bindAccount();
+            findPreference("settings_providers").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), ProvidersActivity.class);
+                return true;
+            });
+            bindPageLink("settings_accounts", PAGE_ACCOUNTS);
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
+            bindPageLink("settings_reset_credits", PAGE_RESET_CREDITS);
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
             bindPageLink("settings_now_bar", PAGE_NOW_BAR);
+            findPreference("settings_lock_widgets").setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), LockWidgetsActivity.class);
+                return true;
+            });
             bindPageLink("settings_updates", PAGE_UPDATES);
             bindPageLink("settings_transfer", PAGE_TRANSFER);
             bindPageLink("settings_privacy", PAGE_PRIVACY);
@@ -367,50 +416,46 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
-            String theme = AppPreferences.getAppTheme(requireContext());
+            Context context = requireContext();
+            int connected = 0;
+            for (UsageProvider provider : UsageProvider.values()) {
+                if (ProviderAccounts.isSignedIn(context, provider)) connected++;
+            }
+            findPreference("settings_accounts").setSummary(connected == 0 ? "None connected"
+                    : connected == 1 ? "1 connected" : connected + " connected");
+            List<UsageProvider> enabled = ProviderPreferences.getEnabled(context);
+            StringBuilder providers = new StringBuilder();
+            int named = enabled.size() > 3 ? 2 : enabled.size();
+            for (int i = 0; i < named; i++) {
+                if (providers.length() > 0) providers.append(", ");
+                providers.append(enabled.get(i).displayName);
+            }
+            if (enabled.size() > named) {
+                providers.append(" + ").append(enabled.size() - named).append(" more");
+            }
+            findPreference("settings_providers").setSummary(providers.toString());
+            String theme = AppPreferences.getAppTheme(context);
             String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
                     ? "System default"
                     : WidgetOptions.THEME_DARK.equals(theme) ? "Dark" : "Light";
-            findPreference("settings_appearance").setSummary(themeLabel + " · Material You "
-                    + (AppPreferences.isMaterialYouEnabled(requireContext()) ? "on" : "off"));
+            findPreference("settings_appearance").setSummary(themeLabel
+                    + (AppPreferences.isOneUi9Design(context) ? " · One UI 9" : ""));
 
-            int refreshMinutes = AppPreferences.getAutomaticRefresh(requireContext())
-                    ? RefreshScheduler.effectiveRefreshMinutes(requireContext())
-                    : AppPreferences.getRefreshMinutes(requireContext());
-            String refreshLabel = refreshMinutes < 60
-                    ? refreshMinutes + " minutes"
-                    : refreshMinutes == 60 ? "Hourly" : "Every " + (refreshMinutes / 60) + " hours";
-            if (AppPreferences.getAutomaticRefresh(requireContext())) {
-                refreshLabel = "Automatic · currently " + refreshLabel;
-            }
-            String estimatesSummary;
-            if (!UsagePacePreferences.isEnabled(requireContext())) {
-                estimatesSummary = "Estimates off";
-            } else if (!UsagePacePreferences.areWarningsEnabled(requireContext())) {
-                estimatesSummary = "Estimates on · Warnings off";
-            } else {
-                estimatesSummary = "Estimates on";
-            }
-            findPreference("settings_refresh_usage").setSummary(
-                    refreshLabel + " · " + estimatesSummary);
+            findPreference("settings_refresh_usage").setSummary(refreshSummary(context));
+            findPreference("settings_reset_credits").setSummary(resetCreditsSummary(context));
 
             findPreference("settings_notifications").setSummary(
-                    ResetAlertPreferences.enabled(requireContext())
-                            ? "On · "
-                            + metricLabel(ResetAlertPreferences.getMetric(requireContext()))
-                            + " at " + ResetAlertPreferences.getThreshold(requireContext()) + "%"
+                    ResetAlertPreferences.enabled(context)
+                            ? metricLabel(ResetAlertPreferences.getMetric(context))
+                            + " at " + ResetAlertPreferences.getThreshold(context) + "%"
                             : "Off");
+            findPreference("settings_now_bar").setSummary(nowBarRootSummary(context));
 
-            String nowBarSummary;
-            if (NowBarManager.isActive(requireContext())) {
-                nowBarSummary = "Live monitor active";
-            } else if (NowBarPreferences.isAutoStartEnabled(requireContext())) {
-                nowBarSummary = "Automatic · starts at "
-                        + NowBarPreferences.getThreshold(requireContext()) + "%";
-            } else {
-                nowBarSummary = "Manual start";
-            }
-            findPreference("settings_now_bar").setSummary(nowBarSummary);
+            int lockWidgets = SamsungLockWidgetSupport.placedWidgets(requireContext()).size();
+            findPreference("settings_lock_widgets").setSummary(lockWidgets == 0
+                    ? "None placed · choose providers for One UI lock widgets"
+                    : (lockWidgets == 1 ? "1 widget" : lockWidgets + " widgets")
+                            + " · choose providers and meters");
 
             GitHubRelease availableUpdate = UpdatePreferences.availableUpdate(requireContext());
             String channelSuffix = UpdateChannel.isAlpha(
@@ -423,85 +468,126 @@ public final class SettingsActivity extends AppCompatActivity {
                     : "Automatic checks off") + channelSuffix);
         }
 
+        /** "Automatic · every 2 hours now" or "Every 15 minutes". */
+        private static String refreshSummary(Context context) {
+            boolean automatic = AppPreferences.getAutomaticRefresh(context);
+            int minutes = automatic ? RefreshScheduler.effectiveRefreshMinutes(context)
+                    : AppPreferences.getRefreshMinutes(context);
+            String every = minutes < 60 ? "every " + minutes + " minutes"
+                    : minutes == 60 ? "every hour" : "every " + (minutes / 60) + " hours";
+            return automatic ? "Automatic · " + every + " now"
+                    : Character.toUpperCase(every.charAt(0)) + every.substring(1);
+        }
+
+        /** "Codex 2 · Claude Code none", only for the signed-in providers that have resets. */
+        private static String resetCreditsSummary(Context context) {
+            long now = System.currentTimeMillis();
+            List<String> parts = new ArrayList<>();
+            if (SecureTokenStore.isSignedIn(context, UsageProvider.CODEX)) {
+                ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
+                parts.add("Codex " + (credits == null ? "not checked"
+                        : credits.availableCount <= 0 ? "none"
+                        : String.valueOf(credits.availableCount)));
+            }
+            if (SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE)) {
+                ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(context,
+                        UsageProvider.CLAUDE_CODE);
+                int count = saved == null ? -1 : saved.availableCount(now);
+                parts.add("Claude Code " + (saved == null ? "not checked"
+                        : count <= 0 ? "none" : String.valueOf(count)));
+            }
+            return parts.isEmpty() ? "For Codex and Claude Code"
+                    : android.text.TextUtils.join(" · ", parts);
+        }
+
+        /** What starts the Now Bar: "On now", or the automatic triggers that are on. */
+        private static String nowBarRootSummary(Context context) {
+            if (NowBarManager.isActive(context)) return "Showing now";
+            List<String> triggers = new ArrayList<>();
+            if (AppSessionPreferences.isEnabled(context)) triggers.add("in AI apps");
+            if (NowBarPreferences.isAutoStartEnabled(context)) {
+                triggers.add("at " + NowBarPreferences.getThreshold(context) + "%");
+            }
+            if (NowBarPreferences.isAcceleratedStartEnabled(context)) {
+                triggers.add("when usage is fast");
+            }
+            if (triggers.isEmpty()) return "Start it yourself";
+            String joined = triggers.size() == 1 ? triggers.get(0)
+                    : android.text.TextUtils.join(", ", triggers.subList(0, triggers.size() - 1))
+                            + " and " + triggers.get(triggers.size() - 1);
+            return "Starts " + joined;
+        }
+
         private String metricLabel(String metric) {
             if ("five_hour".equals(metric)) return "5-hour";
             if ("weekly".equals(metric)) return "Weekly";
             return "Both limits";
         }
 
-        private void bindAccount() {
-            boolean dark = Ui.isDark(requireContext());
-            LayoutPreference preference = findPreference("account_card");
-            RoundedLinearLayout card = preference.findViewById(R.id.settings_account_card);
-            card.setBackground(Ui.card(requireContext(), dark).getBackground());
-            ImageView avatar = preference.findViewById(R.id.settings_account_avatar);
-            GradientDrawable avatarBackground = new GradientDrawable();
-            avatarBackground.setShape(GradientDrawable.OVAL);
-            avatarBackground.setColor(Ui.controlSurface(requireContext(), dark));
-            avatar.setBackground(avatarBackground);
-            avatar.setPadding(Ui.dp(requireContext(), 10), Ui.dp(requireContext(), 10),
-                    Ui.dp(requireContext(), 10), Ui.dp(requireContext(), 10));
-            avatar.setImageResource(R.drawable.ic_oui_contact_outline);
-            avatar.setColorFilter(Ui.mainText(dark));
-            TextView title = preference.findViewById(R.id.settings_account_title);
-            TextView summary = preference.findViewById(R.id.settings_account_summary);
-            TextView plan = preference.findViewById(R.id.settings_account_plan);
-            CardItemView action = preference.findViewById(R.id.settings_account_action);
-            title.setTextColor(Ui.mainText(dark));
-            summary.setTextColor(Ui.secondaryText(dark));
-            plan.setTextColor(Ui.mainText(dark));
-            plan.setBackground(Ui.pillBackground(requireContext(), dark));
-
-            AuthTokens tokens = SecureTokenStore.load(requireContext());
-            UsageSnapshot snapshot = AppPreferences.loadSnapshot(requireContext());
-            title.setText(tokens == null ? "Not connected" : "ChatGPT account");
-            summary.setText(tokens == null ? "Sign in from the dashboard"
-                    : (tokens.email.isEmpty() ? "Connected" : tokens.email));
-            if (tokens != null && snapshot != null) {
-                String label = UsageFormat.planLabel(snapshot.planType);
-                plan.setText(label.isEmpty() ? "Codex" : label);
-                plan.setVisibility(View.VISIBLE);
-            } else {
-                plan.setVisibility(View.GONE);
+        /**
+         * Settings → Accounts: one card with the connected accounts in tab order, each as
+         * "email · plan", and "Add account" as its last row. Tapping a connected row offers
+         * sign out.
+         */
+        private void bindAccounts() {
+            PreferenceCategory accounts = findPreference("accounts");
+            if (accounts == null) return;
+            Context context = requireContext();
+            boolean dark = Ui.isDark(context);
+            accounts.removeAll();
+            for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+                if (!ProviderAccounts.isSignedIn(context, provider)) continue;
+                Preference row = new Preference(context);
+                row.setKey("account_" + provider.id);
+                row.setTitle(provider.displayName);
+                row.setSummary(ProviderAccounts.summary(context, provider));
+                row.setIcon(tinted(context, ProvidersActivity.iconRes(provider), dark));
+                row.setOnPreferenceClickListener(preference -> {
+                    confirmSignOut(provider);
+                    return true;
+                });
+                accounts.addPreference(row);
             }
-            action.getTitleView().setText(tokens == null ? "Sign in with ChatGPT" : "Sign out");
-            action.getTitleView().setTextColor(tokens == null
-                    ? Ui.accent(requireContext(), dark)
-                    : (dark ? 0xFFFF6B6B : 0xFFFF3B30));
-            action.setOnClickListener(view -> {
-                if (SecureTokenStore.isSignedIn(requireContext())) {
-                    confirmSignOut();
-                } else {
-                    startActivity(new Intent(requireContext(), MainActivity.class)
-                            .putExtra("start_sign_in", true));
-                    requireActivity().finish();
-                }
+            Preference add = new Preference(context);
+            add.setKey("account_add");
+            add.setTitle("Add account");
+            if (accounts.getPreferenceCount() == 0) {
+                add.setSummary("Codex, Claude Code, Cursor, Copilot and more");
+            }
+            add.setIcon(tinted(context, R.drawable.ic_oui_add, dark));
+            add.setOnPreferenceClickListener(preference -> {
+                DiagnosticLog.info(context, "user", "add_account_opened");
+                Ui.startSecondaryActivity(requireActivity(), AddAccountActivity.class);
+                return true;
             });
+            accounts.addPreference(add);
         }
 
-        private void confirmSignOut() {
-            androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    .setTitle("Sign out?")
-                    .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
+        private static android.graphics.drawable.Drawable tinted(Context context, int res,
+                boolean dark) {
+            android.graphics.drawable.Drawable icon = androidx.core.content.ContextCompat
+                    .getDrawable(context, res);
+            if (icon == null) return null;
+            icon = icon.mutate();
+            icon.setTint(Ui.mainText(dark));
+            return icon;
+        }
+
+        private void confirmSignOut(UsageProvider provider) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Sign out of " + provider.accountName + "?")
+                    .setMessage("This removes encrypted " + provider.accountName
+                            + " tokens and cached " + provider.displayName
+                            + " usage from this device. Other accounts stay signed in.")
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Sign out", (dialogInterface, which) -> {
-                        AuthTokens tokens = SecureTokenStore.load(requireContext());
-                        SecureTokenStore.clear(requireContext());
-                        AppPreferences.clearSnapshot(requireContext());
-                        AppPreferences.setOAuthPending(requireContext(), false, "");
-                        RefreshScheduler.cancelAll(requireContext());
-                        ResetAlertScheduler.cancelAll(requireContext());
-                        WidgetRenderer.updateAll(requireContext());
-                        Toast.makeText(requireContext(), "Signed out.", Toast.LENGTH_SHORT).show();
-                        requireActivity().recreate();
-                        if (tokens != null) {
-                            Context app = requireContext().getApplicationContext();
-                            new Thread(() -> OAuthClient.revokeBestEffort(app, tokens),
-                                    "codex-sign-out").start();
-                        }
+                        ProviderAccounts.signOut(requireContext(), provider);
+                        Toast.makeText(requireContext(), "Signed out of " + provider.accountName
+                                + ".", Toast.LENGTH_SHORT).show();
+                        bindAccounts();
                     })
-                    .create();
-            dialog.show();
+                    .create()
+                    .show();
         }
 
         private void bindAppearance() {
@@ -542,11 +628,38 @@ public final class SettingsActivity extends AppCompatActivity {
                 requireActivity().recreate();
                 return true;
             });
+            bindDesign();
+        }
+
+        private void bindDesign() {
+            SwitchPreferenceCompat oneUi9 = findPreference("one_ui_9_design");
+            oneUi9.setPersistent(false);
+            oneUi9.setChecked(AppPreferences.isOneUi9Design(requireContext()));
+            oneUi9.setOnPreferenceChangeListener((preference, value) -> {
+                AppPreferences.setOneUi9Design(requireContext(), (Boolean) value);
+                // Restart the whole app so every page is built fresh with the new design.
+                Activity activity = requireActivity();
+                getListView().postDelayed(() -> restartForDesign(activity), 250);
+                return true;
+            });
+        }
+
+        /** Relaunches the app on Settings → Appearance in a fresh process. */
+        private static void restartForDesign(Activity activity) {
+            Intent main = new Intent(activity, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            Intent settings = new Intent(activity, SettingsActivity.class);
+            Intent appearance = new Intent(activity, SettingsActivity.class)
+                    .putExtra(EXTRA_PAGE, PAGE_APPEARANCE);
+            activity.startActivities(new Intent[] {main, settings, appearance});
+            activity.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            activity.finishAffinity();
+            Runtime.getRuntime().exit(0);
         }
 
         private void bindRefresh() {
             findPreference("dashboard_reorder_ui").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
+                pickDashboardToEdit();
                 return true;
             });
 
@@ -558,27 +671,317 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
-            ListPreference interval = findPreference("refresh_interval_ui");
-            interval.setPersistent(false);
-            interval.setValue(String.valueOf(AppPreferences.getRefreshMinutes(requireContext())));
-            interval.setEnabled(!AppPreferences.getAutomaticRefresh(requireContext()));
-            interval.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setRefreshMinutes(requireContext(), Integer.parseInt(String.valueOf(value)));
+            // One list holds both the mode and the manual interval.
+            ListPreference schedule = findPreference("refresh_schedule_ui");
+            schedule.setPersistent(false);
+            schedule.setValue(AppPreferences.getAutomaticRefresh(requireContext()) ? "automatic"
+                    : String.valueOf(AppPreferences.getRefreshMinutes(requireContext())));
+            schedule.setSummary(refreshSummary(requireContext()));
+            schedule.setOnPreferenceChangeListener((preference, value) -> {
+                String choice = String.valueOf(value);
+                boolean automatic = "automatic".equals(choice);
+                AppPreferences.setAutomaticRefresh(requireContext(), automatic);
+                if (!automatic) {
+                    AppPreferences.setRefreshMinutes(requireContext(), Integer.parseInt(choice));
+                }
                 RefreshScheduler.schedulePeriodic(requireContext());
                 PhoneWearSync.pushSettings(requireContext());
+                schedule.setValue(choice);
+                schedule.setSummary(refreshSummary(requireContext()));
+                return false;
+            });
+        }
+
+        /** Edit dashboard: straight to the only tab, or ask which tab's cards to edit. */
+        private void pickDashboardToEdit() {
+            Context context = requireContext();
+            List<UsageProvider> tabs = ProviderPreferences.getEnabled(context);
+            if (tabs.size() <= 1) {
+                openDashboardEditor(tabs.isEmpty()
+                        ? ProviderPreferences.getSelected(context) : tabs.get(0));
+                return;
+            }
+            String[] names = new String[tabs.size()];
+            for (int i = 0; i < tabs.size(); i++) names[i] = tabs.get(i).displayName;
+            new AlertDialog.Builder(context)
+                    .setTitle("Edit which dashboard?")
+                    .setItems(names, (dialog, which) -> openDashboardEditor(tabs.get(which)))
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
+
+        private void openDashboardEditor(UsageProvider provider) {
+            Ui.startSecondaryActivity(requireActivity(),
+                    new Intent(requireActivity(), DashboardReorderActivity.class).putExtra(
+                            DashboardReorderActivity.EXTRA_PROVIDER, provider.id));
+        }
+
+        private void bindResetCreditAutoUse() {
+            Context context = requireContext();
+            SwitchPreferenceCompat expiry = findPreference("reset_credit_expiry_auto_apply_ui");
+            ListPreference lead = findPreference("reset_credit_expiry_auto_apply_lead_ui");
+            SwitchPreferenceCompat lowUsage = findPreference("reset_credit_low_usage_auto_use_ui");
+            ListPreference threshold = findPreference("reset_credit_low_usage_threshold_ui");
+            ListPreference metric = findPreference("reset_credit_low_usage_metric_ui");
+
+            expiry.setPersistent(false);
+            expiry.setChecked(ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context));
+            lead.setPersistent(false);
+            lead.setValue(String.valueOf(
+                    ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context)));
+            lead.setVisible(expiry.isChecked());
+            expiry.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(requireContext(), enabled);
+                lead.setVisible(enabled);
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
+                return true;
+            });
+            lead.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditExpiryAutoApplyLeadMillis(requireContext(),
+                        Long.parseLong(String.valueOf(value)));
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
                 return true;
             });
 
-            ListPreference mode = findPreference("refresh_mode_ui");
-            mode.setPersistent(false);
-            mode.setValue(AppPreferences.getAutomaticRefresh(requireContext())
-                    ? "automatic" : "manual");
-            mode.setOnPreferenceChangeListener((preference, value) -> {
-                boolean automatic = "automatic".equals(String.valueOf(value));
-                AppPreferences.setAutomaticRefresh(requireContext(), automatic);
-                interval.setEnabled(!automatic);
-                RefreshScheduler.schedulePeriodic(requireContext());
-                PhoneWearSync.pushSettings(requireContext());
+            lowUsage.setPersistent(false);
+            lowUsage.setChecked(ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context));
+            threshold.setPersistent(false);
+            threshold.setValue(String.valueOf(
+                    ResetAlertPreferences.resetCreditLowUsageThreshold(context)));
+            metric.setPersistent(false);
+            metric.setValue(ResetAlertPreferences.resetCreditLowUsageMetric(context));
+            threshold.setVisible(lowUsage.isChecked());
+            metric.setVisible(lowUsage.isChecked());
+            lowUsage.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                if (!enabled) {
+                    ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
+                            requireContext(), false);
+                    threshold.setVisible(false);
+                    metric.setVisible(false);
+                    return true;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Use resets automatically?")
+                        .setMessage("Codex Meter will spend one banked reset when your "
+                                + "remaining usage reaches the level you choose. It checks "
+                                + "after each refresh and skips a limit that refills on its "
+                                + "own within 15 minutes. Used resets cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Turn on", (dialog, which) -> {
+                            ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
+                                    requireContext(), true);
+                            lowUsage.setChecked(true);
+                            threshold.setVisible(true);
+                            metric.setVisible(true);
+                        })
+                        .show();
+                return false;
+            });
+            threshold.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditLowUsageThreshold(requireContext(),
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+            metric.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setResetCreditLowUsageMetric(requireContext(),
+                        String.valueOf(value));
+                return true;
+            });
+        }
+
+        /** "Your resets" rows: what each provider has right now; tap opens its reset screen. */
+        private void bindResetStatus() {
+            bindResetStatusRow("reset_credit_status_ui", UsageProvider.CODEX);
+            bindResetStatusRow("claude_saved_reset_status_ui", UsageProvider.CLAUDE_CODE);
+            updateResetStatus();
+        }
+
+        private void bindResetStatusRow(String key, UsageProvider provider) {
+            Preference row = findPreference(key);
+            if (row == null) return;
+            row.setOnPreferenceClickListener(preference -> {
+                if (!SecureTokenStore.isSignedIn(requireContext(), provider)) return true;
+                Ui.startSecondaryActivity(requireActivity(),
+                        ResetCreditActivity.intent(requireContext(), provider));
+                return true;
+            });
+        }
+
+        private void updateResetStatus() {
+            Context context = requireContext();
+            long now = System.currentTimeMillis();
+            Preference codex = findPreference("reset_credit_status_ui");
+            if (codex != null) {
+                ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
+                codex.setSummary(!SecureTokenStore.isSignedIn(context, UsageProvider.CODEX)
+                        ? "Sign in to view reset credits"
+                        : credits == null ? "Not checked yet. Refresh the Codex tab."
+                        : resetStatus(context, credits.availableCount,
+                                credits.nextExpiryMillis(now), now));
+            }
+            Preference claude = findPreference("claude_saved_reset_status_ui");
+            if (claude != null) {
+                claude.setSummary(claudeResetStatus(context, now));
+            }
+        }
+
+        /** "Check with Anthropic": one fresh request, then the server's answer in a dialog. */
+        private void bindClaudeResetCheck() {
+            Preference check = findPreference("claude_saved_reset_check_ui");
+            if (check == null) return;
+            check.setOnPreferenceClickListener(preference -> {
+                Context context = requireContext().getApplicationContext();
+                if (!SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE)) {
+                    Toast.makeText(context, "Sign in to Claude Code first.",
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                preference.setEnabled(false);
+                preference.setSummary("Checking\u2026");
+                new Thread(() -> {
+                    String report = ClaudeResetApi.check(context);
+                    if (getActivity() == null) return;
+                    requireActivity().runOnUiThread(() -> {
+                        if (!isAdded()) return;
+                        preference.setEnabled(true);
+                        preference.setSummary(CHECK_SUMMARY);
+                        updateResetStatus();
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle("Claude Code resets")
+                                .setMessage(report)
+                                .setPositiveButton("Close", null)
+                                .setNeutralButton("Copy", (dialog, which) -> {
+                                    android.content.ClipboardManager clipboard =
+                                            (android.content.ClipboardManager) requireContext()
+                                                    .getSystemService(Context.CLIPBOARD_SERVICE);
+                                    if (clipboard != null) {
+                                        clipboard.setPrimaryClip(android.content.ClipData
+                                                .newPlainText("Claude Code resets", report));
+                                    }
+                                })
+                                .show();
+                    });
+                }, "claude-reset-check").start();
+                return true;
+            });
+        }
+
+        private static final String CHECK_SUMMARY =
+                "Ask Anthropic now and show what it reports";
+
+        private static String claudeResetStatus(Context context, long now) {
+            if (!SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE)) {
+                return "Sign in to view reset credits";
+            }
+            ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(context,
+                    UsageProvider.CLAUDE_CODE);
+            if (ClaudeSavedResets.needsClaudeCodeSignIn(ProviderPreferences.getGrantedScope(
+                    context, UsageProvider.CLAUDE_CODE))) {
+                return "Sign out of Claude Code and sign in again to turn on resets";
+            }
+            if (saved == null) {
+                return "Not checked yet. Tap Check with Anthropic below.";
+            }
+            if (!saved.eligible && saved.availableCount(now) <= 0) {
+                return "Anthropic is not offering resets to this account here"
+                        + (saved.ineligibleReason.isEmpty() ? ""
+                                : " (" + saved.ineligibleReason.replace('_', ' ') + ")");
+            }
+            ResetCreditsSnapshot credits = saved.toResetCreditsSnapshot(now);
+            String status = resetStatus(context, credits.availableCount,
+                    credits.nextExpiryMillis(now), now);
+            if (credits.availableCount > 0 && saved.usableGrant(now) == null) {
+                status += "\n" + saved.unavailableMessage(now);
+            }
+            return status;
+        }
+
+        private static String resetStatus(Context context, int available, long nextExpiry,
+                long now) {
+            String count = available <= 0 ? "No resets available"
+                    : available == 1 ? "1 reset available" : available + " resets available";
+            if (available <= 0 || nextExpiry <= 0L) return count;
+            return count + " · Next expires " + UsageFormat.absolute(context, nextExpiry, now);
+        }
+
+        private void bindClaudeSavedResets() {
+            Context context = requireContext();
+            SwitchPreferenceCompat expiry = findPreference("claude_saved_reset_expiry_ui");
+            ListPreference lead = findPreference("claude_saved_reset_expiry_lead_ui");
+            SwitchPreferenceCompat lowUsage = findPreference("claude_saved_reset_low_usage_ui");
+            ListPreference threshold = findPreference("claude_saved_reset_threshold_ui");
+            ListPreference metric = findPreference("claude_saved_reset_metric_ui");
+            if (expiry == null || lead == null || lowUsage == null || threshold == null
+                    || metric == null) {
+                return;
+            }
+            expiry.setPersistent(false);
+            expiry.setChecked(ResetAlertPreferences.claudeSavedResetExpiryEnabled(context));
+            lead.setPersistent(false);
+            lead.setValue(String.valueOf(
+                    ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context)));
+            lead.setVisible(expiry.isChecked());
+            expiry.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                ResetAlertPreferences.setClaudeSavedResetExpiryEnabled(requireContext(),
+                        enabled);
+                lead.setVisible(enabled);
+                ClaudeResetExpiryReceiver.schedule(requireContext());
+                return true;
+            });
+            lead.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setClaudeSavedResetExpiryLeadMillis(requireContext(),
+                        Long.parseLong(String.valueOf(value)));
+                ClaudeResetExpiryReceiver.schedule(requireContext());
+                return true;
+            });
+
+            lowUsage.setPersistent(false);
+            lowUsage.setChecked(ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context));
+            threshold.setPersistent(false);
+            threshold.setValue(String.valueOf(
+                    ResetAlertPreferences.claudeSavedResetThreshold(context)));
+            metric.setPersistent(false);
+            metric.setValue(ResetAlertPreferences.claudeSavedResetMetric(context));
+            threshold.setVisible(lowUsage.isChecked());
+            metric.setVisible(lowUsage.isChecked());
+            lowUsage.setOnPreferenceChangeListener((preference, value) -> {
+                if (!(Boolean) value) {
+                    ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(requireContext(),
+                            false);
+                    threshold.setVisible(false);
+                    metric.setVisible(false);
+                    return true;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Use resets automatically?")
+                        .setMessage("Codex Meter will spend one banked reset when your "
+                                + "remaining usage reaches the level you choose. It checks "
+                                + "after each refresh and skips a limit that refills on its "
+                                + "own within 15 minutes. Used resets cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Turn on", (dialog, which) -> {
+                            ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(
+                                    requireContext(), true);
+                            lowUsage.setChecked(true);
+                            threshold.setVisible(true);
+                            metric.setVisible(true);
+                        })
+                        .show();
+                return false;
+            });
+            threshold.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setClaudeSavedResetThreshold(requireContext(),
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+            metric.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setClaudeSavedResetMetric(requireContext(),
+                        String.valueOf(value));
                 return true;
             });
         }
@@ -592,13 +995,13 @@ public final class SettingsActivity extends AppCompatActivity {
             usagePaceSensitivityPreference.setPersistent(false);
             usagePaceSensitivityPreference.setValue(
                     UsagePacePreferences.getSensitivity(requireContext()));
-            usagePaceSensitivityPreference.setEnabled(
+            usagePaceSensitivityPreference.setVisible(
                     UsagePacePreferences.isEnabled(requireContext()));
 
             enabled.setOnPreferenceChangeListener((preference, value) -> {
                 boolean isEnabled = (Boolean) value;
                 UsagePacePreferences.setEnabled(requireContext(), isEnabled);
-                usagePaceSensitivityPreference.setEnabled(isEnabled);
+                usagePaceSensitivityPreference.setVisible(isEnabled);
                 updateNowBarAcceleratedEnabledState();
                 NowBarManager.onPaceSettingsChanged(requireContext());
                 return true;
@@ -1207,8 +1610,310 @@ public final class SettingsActivity extends AppCompatActivity {
                 showSamsungNowBarHelp();
                 return true;
             });
+            bindAppSessionsRow();
             updateNowBarAutoStartEnabledState();
             updateNowBarSummary();
+        }
+
+        /**
+         * Now Bar → "While using AI apps": nothing when off, the matched apps when on, or what
+         * still needs doing.
+         */
+        static String appSessionsSummary(Context context) {
+            if (!AppSessionPreferences.isEnabled(context)) return "";
+            if (!AppSessionPreferences.isDetectionAllowed(context)) {
+                return "Needs app detection access";
+            }
+            List<String> names = new ArrayList<>();
+            for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+                if (!ProviderAccounts.isSignedIn(context, provider)) continue;
+                for (String packageName : appsFor(context, provider)) {
+                    if (AppSessionPreferences.isAppOn(context, packageName)
+                            && isInstalled(context, packageName)) {
+                        names.add(appLabel(context, packageName));
+                    }
+                }
+            }
+            return names.isEmpty() ? "No matched apps installed"
+                    : android.text.TextUtils.join(", ", names);
+        }
+
+        /**
+         * The Now Bar row is a One UI switch-with-arrow: the switch turns AI app sessions on
+         * or off right here, and the rest of the row opens the app list.
+         */
+        private void bindAppSessionsRow() {
+            SwitchPreferenceCompat row = findPreference("now_bar_app_sessions");
+            if (row == null) return;
+            row.setPersistent(false);
+            row.setChecked(AppSessionPreferences.isEnabled(requireContext()));
+            row.setOnPreferenceChangeListener((preference, value) -> {
+                boolean changed = setAppSessionsEnabled((Boolean) value);
+                updateNowBarSummary();
+                return changed;
+            });
+            // SeslSwitchPreferenceScreen does not toggle on a row tap, so the tap only opens.
+            bindPageLink("now_bar_app_sessions", PAGE_APP_SESSIONS);
+        }
+
+        /** Turns AI app sessions on or off; returns false when notifications block it. */
+        private boolean setAppSessionsEnabled(boolean on) {
+            if (on && !ensureNotificationPermission()) return false;
+            AppSessionPreferences.setEnabled(requireContext(), on);
+            DiagnosticLog.info(requireContext(), "user", "app_sessions_toggled", "on", on);
+            if (on) {
+                if (!AppSessionPreferences.isDetectionAllowed(requireContext())) {
+                    showAppDetectionDisclosure();
+                }
+            } else {
+                NowBarManager.endAppSession(requireContext());
+                // Off means off: stop listening too, not just ignore what arrives.
+                AppSessionService.disableIfRunning();
+            }
+            return true;
+        }
+
+        private void bindAppSessions() {
+            SwitchPreferenceCompat enabled = findPreference("app_sessions_enabled_ui");
+            enabled.setPersistent(false);
+            enabled.setOnPreferenceChangeListener((preference, value) -> {
+                boolean on = (Boolean) value;
+                if (!setAppSessionsEnabled(on)) return false;
+                enabled.setChecked(on);
+                updateAppSessions();
+                return true;
+            });
+            findPreference("app_sessions_access").setOnPreferenceClickListener(preference -> {
+                showAppDetectionDisclosure();
+                return true;
+            });
+            updateAppSessions();
+        }
+
+        /**
+         * The AI apps page: the main switch, app detection, then one "Apps" card listing every
+         * matched app (each row names the dashboard it shows) and a single "Add an app" row.
+         */
+        private void updateAppSessions() {
+            if (getContext() == null) return;
+            Context context = requireContext();
+            boolean on = AppSessionPreferences.isEnabled(context);
+            boolean allowed = AppSessionPreferences.isDetectionAllowed(context);
+            SwitchPreferenceCompat enabled = findPreference("app_sessions_enabled_ui");
+            PreferenceCategory apps = findPreference("app_sessions_apps");
+            if (enabled == null || apps == null) return;
+            enabled.setChecked(on);
+            Preference access = findPreference("app_sessions_access");
+            access.setSummary(allowed ? "Allowed" : "Needs access · tap to allow");
+            access.setVisible(on || allowed);
+            apps.removeAll();
+            boolean dark = Ui.isDark(context);
+            List<UsageProvider> signedIn = new ArrayList<>();
+            for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+                if (!ProviderAccounts.isSignedIn(context, provider)) continue;
+                signedIn.add(provider);
+                UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
+                boolean nothingToShow = snapshot != null && snapshot.fiveHour == null
+                        && snapshot.longWindow() == null;
+                for (String packageName : appsFor(context, provider)) {
+                    SwitchPreferenceCompat row = new SwitchPreferenceCompat(context);
+                    row.setKey("app_sessions_app_" + packageName);
+                    row.setPersistent(false);
+                    row.setTitle(appLabel(context, packageName));
+                    StringBuilder summary = new StringBuilder(provider.displayName);
+                    if (!isInstalled(context, packageName)) summary.append(" · Not installed");
+                    if (nothingToShow) summary.append(" · No limits to show yet");
+                    row.setSummary(summary.toString());
+                    row.setIcon(appIcon(context, packageName, provider, dark));
+                    row.setChecked(AppSessionPreferences.isAppOn(context, packageName));
+                    row.setEnabled(on);
+                    row.setOnPreferenceChangeListener((preference, value) -> {
+                        AppSessionPreferences.setAppOn(requireContext(), packageName,
+                                (Boolean) value);
+                        return true;
+                    });
+                    apps.addPreference(row);
+                }
+            }
+            if (signedIn.isEmpty()) {
+                Preference none = new Preference(context);
+                none.setIconSpaceReserved(false);
+                none.setTitle("No accounts connected");
+                none.setSummary("Sign in to Codex, Claude Code or another service first.");
+                none.setSelectable(false);
+                apps.addPreference(none);
+                return;
+            }
+            Preference add = new Preference(context);
+            add.setKey("app_sessions_add");
+            add.setTitle("Add an app");
+            add.setIcon(tinted(context, R.drawable.ic_oui_add, dark));
+            add.setEnabled(on);
+            add.setOnPreferenceClickListener(preference -> {
+                pickProviderForApp(signedIn);
+                return true;
+            });
+            apps.addPreference(add);
+        }
+
+        /** "Add an app": choose which dashboard it shows first when more than one is signed in. */
+        private void pickProviderForApp(List<UsageProvider> providers) {
+            if (providers.size() == 1) {
+                pickAppFor(providers.get(0));
+                return;
+            }
+            String[] names = new String[providers.size()];
+            for (int i = 0; i < providers.size(); i++) names[i] = providers.get(i).displayName;
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Show usage for")
+                    .setItems(names, (dialog, which) -> pickAppFor(providers.get(which)))
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
+
+        /** Packages that show {@code provider}: its official apps, then ones the user added. */
+        static List<String> appsFor(Context context, UsageProvider provider) {
+            List<String> packages = new ArrayList<>();
+            java.util.Map<String, String> added = AppSessionPreferences.getAdded(context);
+            for (AppSessionRules.KnownApp app : AppSessionRules.knownApps(provider)) {
+                String addedTo = added.get(app.packageName);
+                if (addedTo == null || provider.id.equals(addedTo)) {
+                    packages.add(app.packageName);
+                }
+            }
+            for (java.util.Map.Entry<String, String> entry : added.entrySet()) {
+                if (provider.id.equals(entry.getValue()) && !packages.contains(entry.getKey())) {
+                    packages.add(entry.getKey());
+                }
+            }
+            return packages;
+        }
+
+        private static boolean isInstalled(Context context, String packageName) {
+            try {
+                context.getPackageManager().getApplicationInfo(packageName, 0);
+                return true;
+            } catch (PackageManager.NameNotFoundException notInstalled) {
+                return false;
+            }
+        }
+
+        private static String appLabel(Context context, String packageName) {
+            PackageManager pm = context.getPackageManager();
+            try {
+                return pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString();
+            } catch (PackageManager.NameNotFoundException notInstalled) {
+                AppSessionRules.KnownApp known = AppSessionRules.known(packageName);
+                return known == null ? packageName : known.label;
+            }
+        }
+
+        private static android.graphics.drawable.Drawable appIcon(Context context,
+                String packageName, UsageProvider provider, boolean dark) {
+            try {
+                return context.getPackageManager().getApplicationIcon(packageName);
+            } catch (PackageManager.NameNotFoundException notInstalled) {
+                return tinted(context, ProvidersActivity.iconRes(provider), dark);
+            }
+        }
+
+        private void pickAppFor(UsageProvider provider) {
+            Context context = requireContext();
+            PackageManager pm = context.getPackageManager();
+            Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            List<android.content.pm.ResolveInfo> found = pm.queryIntentActivities(launcher, 0);
+            List<String> packages = new ArrayList<>();
+            List<String> labels = new ArrayList<>();
+            List<android.graphics.drawable.Drawable> icons = new ArrayList<>();
+            java.util.TreeMap<String, android.content.pm.ResolveInfo> sorted =
+                    new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+            for (android.content.pm.ResolveInfo info : found) {
+                String packageName = info.activityInfo.packageName;
+                if (packageName.equals(context.getPackageName())) continue;
+                if (appsFor(context, provider).contains(packageName)) continue;
+                sorted.put(info.loadLabel(pm) + "\u0000" + packageName, info);
+            }
+            for (android.content.pm.ResolveInfo info : sorted.values()) {
+                if (packages.contains(info.activityInfo.packageName)) continue;
+                packages.add(info.activityInfo.packageName);
+                labels.add(info.loadLabel(pm).toString());
+                icons.add(info.loadIcon(pm));
+            }
+            if (packages.isEmpty()) {
+                Toast.makeText(context, "No other apps to add.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            int iconSize = Math.round(32 * context.getResources().getDisplayMetrics().density);
+            int pad = Math.round(16 * context.getResources().getDisplayMetrics().density);
+            android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
+                    context, android.R.layout.simple_list_item_1, labels) {
+                @Override
+                public View getView(int position, View convertView,
+                        android.view.ViewGroup parent) {
+                    TextView view = (TextView) super.getView(position, convertView, parent);
+                    android.graphics.drawable.Drawable icon = icons.get(position);
+                    icon.setBounds(0, 0, iconSize, iconSize);
+                    view.setCompoundDrawablesRelative(icon, null, null, null);
+                    view.setCompoundDrawablePadding(pad);
+                    return view;
+                }
+            };
+            new AlertDialog.Builder(context)
+                    .setTitle("Show " + provider.displayName + " in")
+                    .setAdapter(adapter, (dialog, which) -> {
+                        AppSessionPreferences.addApp(requireContext(), packages.get(which),
+                                provider);
+                        DiagnosticLog.info(requireContext(), "user", "app_session_app_added",
+                                "provider", provider.id);
+                        updateAppSessions();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
+
+        private void showAppDetectionDisclosure() {
+            Context context = requireContext();
+            boolean allowed = AppSessionPreferences.isDetectionAllowed(context);
+            String message = "To show your usage while ChatGPT, Claude or another matched app is "
+                    + "open, Codex Meter needs to know which app is in front. Android only offers "
+                    + "that through an accessibility service.\n\n"
+                    + "Android describes this access as being able to view the screen. Codex "
+                    + "Meter only reads the package name of the app in front: no text, no "
+                    + "taps or typing, and nothing leaves your phone.\n\n"
+                    + "In Accessibility, open Installed apps → Codex Meter app detection and "
+                    + "turn it on. If the switch is greyed out, go back, open App info → ⋮ → "
+                    + "Allow restricted settings, then try again.";
+            new AlertDialog.Builder(context)
+                    .setTitle(allowed ? "App detection is on" : "Allow app detection")
+                    .setMessage(allowed ? "Codex Meter app detection only reads the package "
+                            + "name of the app in front: no text, no taps or typing, and nothing "
+                            + "leaves your phone. You can turn it off in Accessibility settings "
+                            + "at any time." : message)
+                    .setPositiveButton("Open settings",
+                            (dialog, which) -> openAccessibilitySettings())
+                    .setNeutralButton("App info", (dialog, which) -> {
+                        startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", requireContext().getPackageName(),
+                                        null)));
+                    })
+                    .setNegativeButton(allowed ? "Done" : "Not now", null)
+                    .show();
+        }
+
+        private void openAccessibilitySettings() {
+            Context context = requireContext();
+            if (Build.VERSION.SDK_INT >= 33) {
+                // Opens our own row directly where the firmware supports it.
+                Intent details = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                        .putExtra(Intent.EXTRA_COMPONENT_NAME, new android.content.ComponentName(
+                                context, AppSessionService.class).flattenToString());
+                try {
+                    startActivity(details);
+                    return;
+                } catch (RuntimeException ignored) {
+                }
+            }
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
         }
 
         private void showSamsungNowBarHelp() {
@@ -1291,7 +1996,11 @@ public final class SettingsActivity extends AppCompatActivity {
             boolean active = NowBarManager.isActive(requireContext());
             nowBarMonitorPreference.setChecked(active);
             if (active) {
-                String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview" : "Live monitor";
+                String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview"
+                        : NowBarManager.isAppSession(requireContext())
+                        ? NowBarManager.activeProvider(requireContext()).displayName
+                        + " app session"
+                        : "Live monitor";
                 boolean samsungCompatibility = NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarManager.postedDisplayMode(requireContext()));
                 String state = samsungCompatibility
@@ -1312,6 +2021,12 @@ public final class SettingsActivity extends AppCompatActivity {
             } else {
                 nowBarMonitorPreference.setSummary(
                         "Show remaining Codex allowance until the next available usage reset");
+            }
+            SwitchPreferenceCompat appSessions = findPreference("now_bar_app_sessions");
+            if (appSessions != null) {
+                appSessions.setChecked(AppSessionPreferences.isEnabled(requireContext()));
+                String summary = appSessionsSummary(requireContext());
+                appSessions.setSummary(summary.isEmpty() ? null : summary);
             }
             if (nowBarAutoStartPreference != null) {
                 nowBarAutoStartPreference.setChecked(

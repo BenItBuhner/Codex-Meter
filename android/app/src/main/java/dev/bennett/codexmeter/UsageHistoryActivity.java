@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.app.AlertDialog;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -23,18 +24,34 @@ import java.util.Locale;
  * customizable so the page can stay as minimal as the user likes.
  */
 public final class UsageHistoryActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private static final int MAX_BREAKDOWN_WINDOWS = 5;
     private static final int MENU_CUSTOMIZE = 8201;
 
+    static final String EXTRA_PROVIDER = "provider";
+
     private LinearLayout content;
     private boolean dark;
+    private UsageProvider provider = UsageProvider.CODEX;
+
+    static void open(android.app.Activity activity, UsageProvider provider) {
+        android.content.Intent intent = new android.content.Intent(activity,
+                UsageHistoryActivity.class).putExtra(EXTRA_PROVIDER, provider.id);
+        Ui.startSecondaryActivity(activity, intent);
+    }
 
     @Override
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
         dark = Ui.isDark(this);
-        content = Ui.installPage(this, "Usage history", true).content;
+        provider = UsageProvider.fromId(getIntent().getStringExtra(EXTRA_PROVIDER));
+        content = Ui.installPage(this, provider == UsageProvider.CODEX ? "Usage history"
+                : provider.displayName + " history", true).content;
         render();
     }
 
@@ -85,10 +102,13 @@ public final class UsageHistoryActivity extends AppCompatActivity {
 
     private void render() {
         content.removeAllViews();
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
-        UsageHistory five = AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR);
-        UsageHistory weekly = AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY);
-        UsageHistory monthly = AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, provider);
+        UsageHistory five = ProviderPreferences.loadUsageHistory(this, provider,
+                UsageHistory.FIVE_HOUR);
+        UsageHistory weekly = ProviderPreferences.loadUsageHistory(this, provider,
+                UsageHistory.WEEKLY);
+        UsageHistory monthly = ProviderPreferences.loadUsageHistory(this, provider,
+                UsageHistory.MONTHLY);
         // Dollar figures ride on the value-estimates highlight; hiding it hides them all.
         PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
                 ? null : PlanPricing.forPlan(snapshot.planType);
@@ -125,7 +145,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         if (!hasCharts) {
             LinearLayout waiting = Ui.card(this, dark);
             waiting.addView(Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage "
+                    "Charts appear once " + provider.vendorName + " reports your 5-hour, weekly, or monthly usage "
                             + "windows. Refresh usage from the dashboard to check again.",
                     13, Ui.secondaryText(dark)));
             content.addView(waiting);
@@ -147,7 +167,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                         + "allowance and account sign-in stay intact.")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Clear", (dialog, which) -> {
-                    AppPreferences.clearUsageHistory(this);
+                    ProviderPreferences.clearUsageHistory(this, provider);
                     render();
                 })
                 .show());
@@ -174,7 +194,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         UsagePace.Assessment pace = snapshot == null
                 ? UsagePace.assess(null, 0L, now, UsagePace.BALANCED)
-                : UsagePacePreferences.assess(this, snapshot, window, now);
+                : UsagePacePreferences.assess(this, provider, snapshot, window, now);
         UsageBurnChartView chart = new UsageBurnChartView(this);
         chart.setScrubEnabled(true);
         chart.setData(label, window, history,
@@ -312,7 +332,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
 
         if (visible(HistorySections.INSIGHT_EXHAUSTION)) {
             UsagePace.Assessment pace = snapshot == null ? null
-                    : UsagePacePreferences.assess(this, snapshot, window, now);
+                    : UsagePacePreferences.assess(this, provider, snapshot, window, now);
             if (pace != null && pace.available) {
                 addStatRow(card, "Projected exhaustion",
                         UsageFormat.relative(pace.estimatedExhaustionAtMillis, now));

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Antigravity mark from Lobe Icons (MIT). The trademark belongs to its owner.
+     Single-color white for the watch's dark surfaces; complications tint it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M21.751 22.553C16.559 19.035 16.894 12.838 12.037 12.838C7.179 12.838 7.514 19.035 2.322 22.552C0.982 23.557 -1.195 23.055 0.815 21.046C6.342 15.686 5.17 0.946 12.037 0.946C18.904 0.946 17.73 15.686 23.259 21.045C25.101 22.888 23.091 23.558 21.751 22.553Z" />
+</vector>

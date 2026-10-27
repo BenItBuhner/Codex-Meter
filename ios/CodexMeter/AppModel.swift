@@ -1,4 +1,6 @@
+#if canImport(BackgroundTasks) && os(iOS)
 import BackgroundTasks
+#endif
 import CodexMeterCore
 import Observation
 import SwiftUI
@@ -37,6 +39,50 @@ extension AlertMetric {
     }
 }
 
+extension UsagePaceSensitivity {
+    var title: String {
+        switch self {
+        case .off: "Off"
+        case .sensitive: "Sensitive"
+        case .balanced: "Balanced"
+        case .relaxed: "Relaxed"
+        }
+    }
+}
+
+extension UsagePaceAssessment {
+    /// Android's meter-card phrasing: "Est. 1h 20m", or "Est. depleted" once the projection
+    /// has passed; nil when no estimate is available.
+    func estimateLabel(now: Date = .now) -> String? {
+        guard isAvailable, let estimatedExhaustionAt else { return nil }
+        let remaining = estimatedExhaustionAt.timeIntervalSince(now)
+        guard remaining > 0 else { return "Est. depleted" }
+        return "Est. \(Self.compactDuration(remaining))"
+    }
+
+    /// Spoken form of `estimateLabel(now:)` for VoiceOver.
+    func estimateAccessibilityValue(now: Date = .now) -> String? {
+        guard isAvailable, let estimatedExhaustionAt else { return nil }
+        let remaining = estimatedExhaustionAt.timeIntervalSince(now)
+        guard remaining > 0 else { return "estimated depleted" }
+        return "estimated \(Self.compactDuration(remaining)) left"
+    }
+
+    private static func compactDuration(_ interval: TimeInterval) -> String {
+        let minutes = max(1, Int(interval / 60))
+        let days = minutes / 1_440
+        let hours = (minutes % 1_440) / 60
+        let remainingMinutes = minutes % 60
+        if days > 0 {
+            return "\(days)d \(hours)h"
+        }
+        if hours > 0 {
+            return "\(hours)h \(remainingMinutes)m"
+        }
+        return "\(minutes)m"
+    }
+}
+
 extension NotificationPermissionState {
     var title: String {
         switch self {
@@ -53,7 +99,26 @@ extension NotificationPermissionState {
 @Observable
 final class AppModel {
     private static let modeDefaultsKey = "codex-meter.session-mode-v1"
+    private static let providerDefaultsKey = "codex-meter.selected-provider-v1"
+    private static let enabledProvidersDefaultsKey = "codex-meter.enabled-providers-v1"
+    private static let providerOrderDefaultsKey = "codex-meter.provider-order-v1"
+    private static let onboardingCompleteDefaultsKey = "codex-meter.onboarding-complete-v1"
 
+    /// Claude Code tab state. Independent of the Codex session below.
+    let claude: ClaudeUsageModel
+    /// Cursor tab state. Independent of the Codex and Claude sessions.
+    let cursor: CursorUsageModel
+    /// Tab and sign-in state for every provider added through Settings → Accounts → Add account
+    /// (Copilot, Kimi, Z.ai and the rest), keyed by provider. Each is independent.
+    let addedProviders: [UsageProvider: ProviderUsageModel]
+    /// The dashboard tab. Codex stays the default; the choice is remembered.
+    var selectedProvider: UsageProvider = .defaultProvider
+    /// Providers shown as dashboard tabs (Settings → Providers), in tab order. Chosen during
+    /// first-run setup; an upgrade that never chose keeps Codex plus providers already signed
+    /// in. With only one on, the tab bar is hidden.
+    private(set) var enabledProviders: [UsageProvider] = [.codex]
+    /// Every provider in the tab order chosen in Settings → Providers.
+    private(set) var providerOrder: [UsageProvider] = UsageProvider.allCases
     var mode: AppMode = .signedOut
     var usage: UsageSnapshot?
     var credits: ResetCreditsSnapshot?
@@ -76,6 +141,10 @@ final class AppModel {
     var isShowingSettings = false
     var isShowingReset = false
     var isShowingSignIn = false
+    /// Settings → Accounts → Add account.
+    var isAddingAccount = false
+    /// First-run setup, shown once on a fresh install.
+    var isShowingOnboarding = false
     var diagnosticsUnlocked = false
 
     private let liveService: LiveCodexService
@@ -94,6 +163,9 @@ final class AppModel {
 #endif
     private var signInTask: Task<Void, Never>?
     private let isPreview: Bool
+    /// True once a provider list was saved (setup or Settings → Providers), or a UI test set
+    /// one; until then the tabs follow `UsageProvider.migrationDefault(signedIn:)`.
+    private var hasProviderChoice: Bool
 
     @ObservationIgnored
     private lazy var backgroundRefreshCoordinator = BackgroundRefreshCoordinator { [weak self] in
@@ -112,8 +184,60 @@ final class AppModel {
         usageHistoryStore: UsageHistoryStore = .shared,
         defaults: UserDefaults = .standard,
         refreshEngagementStore: RefreshEngagementStore? = nil,
+        claude: ClaudeUsageModel? = nil,
+        cursor: CursorUsageModel? = nil,
         preview: Bool = false
     ) {
+        self.claude = claude ?? ClaudeUsageModel(preview: preview)
+        self.cursor = cursor ?? CursorUsageModel(preview: preview)
+        var addedProviders: [UsageProvider: ProviderUsageModel] = [:]
+        for provider in UsageProvider.allCases where !provider.isBuiltIn && ProviderCatalog.isAvailableOnIOS(provider) {
+            addedProviders[provider] = ProviderUsageModel(provider: provider)
+        }
+        self.addedProviders = addedProviders
+        let savedProviders = defaults.stringArray(forKey: Self.enabledProvidersDefaultsKey) ?? []
+        var hasProviderChoice = !savedProviders.isEmpty
+        // Sign-in state isn't known yet; `resolveProviderSetup()` adds signed-in providers to
+        // the migration default once the sessions load.
+        var enabledProviders = UsageProvider.enabled(from: savedProviders)
+        var providerOrder = UsageProvider.order(
+            from: defaults.stringArray(forKey: Self.providerOrderDefaultsKey)
+        )
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-testing-reset-settings") {
+            defaults.removeObject(forKey: Self.enabledProvidersDefaultsKey)
+            defaults.removeObject(forKey: Self.providerOrderDefaultsKey)
+            // The three built-in tabs, in memory only, so the UI tests can walk them.
+            enabledProviders = UsageProvider.builtIns
+            providerOrder = UsageProvider.allCases
+            hasProviderChoice = true
+        }
+        // In memory only, so a test that narrows or reorders the tabs never leaks into the next
+        // one. The listed providers are turned on, in the listed order.
+        if let index = arguments.firstIndex(of: "-ui-testing-providers"), index + 1 < arguments.count {
+            let ids = arguments[index + 1].split(separator: ",").map(String.init)
+            enabledProviders = UsageProvider.enabled(from: ids)
+            providerOrder = UsageProvider.order(from: ids)
+            hasProviderChoice = true
+        }
+        if arguments.contains("-ui-testing-onboarding") {
+            defaults.removeObject(forKey: Self.onboardingCompleteDefaultsKey)
+            defaults.removeObject(forKey: Self.enabledProvidersDefaultsKey)
+            defaults.removeObject(forKey: Self.providerOrderDefaultsKey)
+            enabledProviders = [.codex]
+            providerOrder = UsageProvider.allCases
+            hasProviderChoice = false
+        }
+#endif
+        self.hasProviderChoice = hasProviderChoice
+        enabledProviders = UsageProvider.inOrder(enabledProviders, order: providerOrder)
+        self.providerOrder = providerOrder
+        self.enabledProviders = enabledProviders
+        self.selectedProvider = UsageProvider.visibleSelection(
+            UsageProvider.resolve(defaults.string(forKey: Self.providerDefaultsKey)),
+            enabled: enabledProviders
+        )
         self.liveService = liveService
         self.demoService = demoService
         self.cache = cache
@@ -126,6 +250,11 @@ final class AppModel {
         self.settings = settingsStore.settings
         self.isPreview = preview
         self.diagnosticsUnlocked = DiagnosticLog.isUnlocked(defaults: defaults)
+        for added in addedProviders.values {
+            added.onSignedIn = { [weak self] provider in
+                self?.providerConnected(provider)
+            }
+        }
 
         if preview {
             let now = Date()
@@ -167,6 +296,17 @@ final class AppModel {
                     unlimited: false,
                     balance: "2500"
                 ),
+                spendControl: SpendControl(
+                    reached: false,
+                    individualLimit: SpendControlLimit(
+                        source: "workspace_spend_controls",
+                        limit: "25000",
+                        used: "8000",
+                        remaining: "17000",
+                        usedPercent: 32,
+                        resetAt: now.addingTimeInterval(1_050_000)
+                    )
+                ),
                 fetchedAt: now
             )
             credits = ResetCreditsSnapshot(
@@ -201,11 +341,17 @@ final class AppModel {
             hasFinishedStartup = true
             applyPendingRouteIfNeeded()
         }
+        await startSession()
+        await resolveProviderSetup()
+    }
+
+    private func startSession() async {
         notificationPermissionState = await notificationCoordinator.permissionState()
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") {
             settingsStore.reset()
             settings = settingsStore.settings
+            select(provider: UsageProvider.visibleSelection(.defaultProvider, enabled: enabledProviders))
             try? await usageHistoryStore.clear()
             apply(history: .empty)
         }
@@ -218,6 +364,7 @@ final class AppModel {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-demo") {
             mode = .demo
             defaults.set(AppMode.demo.rawValue, forKey: Self.modeDefaultsKey)
+            await enterProviderDemosIfSignedOut()
             await refresh()
             return
         }
@@ -229,6 +376,7 @@ final class AppModel {
 
         if defaults.string(forKey: Self.modeDefaultsKey) == AppMode.demo.rawValue {
             mode = .demo
+            await enterProviderDemosIfSignedOut()
             if usage == nil {
                 await refresh()
             }
@@ -303,10 +451,16 @@ final class AppModel {
         visibleError = nil
         accountEmail = "demo@local"
         accountPlan = "Plus (Demo)"
+        await enterProviderDemosIfSignedOut()
         await refresh()
     }
 
     func leaveDemo() async {
+        await claude.leaveDemo()
+        await cursor.leaveDemo()
+        for added in addedProviders.values {
+            await added.leaveDemo()
+        }
         await demoService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
@@ -319,6 +473,13 @@ final class AppModel {
         signInTask?.cancel()
         signInTask = nil
         DiagnosticLog.info("process", "sign_out")
+        if mode == .demo {
+            await claude.leaveDemo()
+            await cursor.leaveDemo()
+            for added in addedProviders.values {
+                await added.leaveDemo()
+            }
+        }
         await activeService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
@@ -485,7 +646,9 @@ final class AppModel {
             || previous.creditIncreaseAlertsEnabled != settings.creditIncreaseAlertsEnabled
             || previous.unexpectedRefillAlertsEnabled != settings.unexpectedRefillAlertsEnabled
             || previous.creditExpiryRemindersEnabled != settings.creditExpiryRemindersEnabled
-            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes {
+            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes
+            || previous.creditExpiryAutoApplyEnabled != settings.creditExpiryAutoApplyEnabled
+            || previous.creditExpiryAutoApplyLeadMinutes != settings.creditExpiryAutoApplyLeadMinutes {
             Task { await applyNotificationSettings() }
         }
     }
@@ -551,6 +714,15 @@ final class AppModel {
             await startIfNeeded()
             return
         }
+        if selectedProvider == .claudeCode {
+            // Claude is never refreshed in the background; foregrounding the visible tab
+            // re-checks only when its data is older than five minutes.
+            await claude.tabOpened()
+        } else if selectedProvider == .cursor {
+            await cursor.tabOpened()
+        } else if let added = addedProviders[selectedProvider] {
+            await added.tabOpened()
+        }
         guard mode != .signedOut, settings.refreshOnLaunch else { return }
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
             await refresh()
@@ -568,6 +740,256 @@ final class AppModel {
             apply(history: .empty)
         } catch {
             visibleError = "Local usage history could not be cleared."
+        }
+    }
+
+    func history(for kind: UsageHistoryKind) -> UsageHistory {
+        switch kind {
+        case .fiveHour: fiveHourHistory
+        case .weekly: weeklyHistory
+        case .monthly: monthlyHistory
+        }
+    }
+
+    /// Pace for a window under the usage-estimate settings. Pass the window's history `kind` for
+    /// the Codex 5-hour, weekly, and monthly meters so local samples refine the projection;
+    /// additional model limits have no history and use the window alone. Windows from another
+    /// provider's snapshot pass that snapshot's `observedAt` instead of the Codex fetch time.
+    func usagePace(
+        for window: UsageWindow?,
+        kind: UsageHistoryKind? = nil,
+        observedAt: Date? = nil,
+        now: Date = .now
+    ) -> UsagePaceAssessment {
+        guard settings.usagePaceEnabled, let window,
+              let observed = observedAt ?? usage?.fetchedAt else { return .unavailable }
+        return UsagePace.assess(
+            window: window,
+            history: kind.map(history(for:)),
+            observedAt: observed,
+            now: now,
+            sensitivity: settings.usagePaceSensitivity
+        )
+    }
+
+    // MARK: Provider accounts and first-run setup
+
+    /// A real (not demo) session exists for `provider`.
+    func isSignedIn(_ provider: UsageProvider) -> Bool {
+        switch provider {
+        case .codex: mode == .live
+        case .claudeCode: claude.phase == .live
+        case .cursor: cursor.phase == .live
+        default: addedProviders[provider]?.phase == .live
+        }
+    }
+
+    func accountEmail(for provider: UsageProvider) -> String {
+        switch provider {
+        case .codex: accountEmail
+        case .claudeCode: claude.accountEmail
+        case .cursor: cursor.accountEmail
+        default: addedProviders[provider]?.accountEmail ?? ""
+        }
+    }
+
+    func accountPlan(for provider: UsageProvider) -> String {
+        switch provider {
+        case .codex: accountPlan
+        case .claudeCode: claude.accountPlan
+        case .cursor: cursor.accountPlan
+        default: addedProviders[provider]?.accountPlan ?? ""
+        }
+    }
+
+    /// Signs out of one provider; the others keep their sessions. An added provider's tab goes
+    /// away with its account (unless it is the last tab), as on Android.
+    func signOut(provider: UsageProvider) async {
+        switch provider {
+        case .codex: await signOut()
+        case .claudeCode: await claude.signOut()
+        case .cursor: await cursor.signOut()
+        default:
+            await addedProviders[provider]?.signOut()
+            setProvider(provider, enabled: false)
+        }
+    }
+
+    /// Account row summary, as on Android: "<email> · <plan>", or "API key" / "Signed in" in
+    /// place of a missing email.
+    func accountSummary(for provider: UsageProvider) -> String {
+        let email = accountEmail(for: provider)
+        let plan = accountPlan(for: provider)
+        let identity = !email.isEmpty ? email
+            : (addedProviders[provider]?.usesAPIKey == true ? "API key" : "Signed in")
+        return plan.isEmpty ? identity : "\(identity) · \(plan)"
+    }
+
+    /// The Settings → Accounts row summary: up to three names, then "A, B + N more".
+    var connectedAccountsSummary: String {
+        let names = connectedProviders.map(\.displayName)
+        switch names.count {
+        case 0: return "None connected"
+        case 1 ... 3: return names.joined(separator: ", ")
+        default: return names.prefix(2).joined(separator: ", ") + " + \(names.count - 2) more"
+        }
+    }
+
+    /// Accounts in Settings: providers with a real session, in tab order.
+    var connectedProviders: [UsageProvider] {
+        providerOrder.filter { isSignedIn($0) }
+    }
+
+    /// A new account was connected: give it a tab and show it.
+    func providerConnected(_ provider: UsageProvider) {
+        setProvider(provider, enabled: true)
+        select(provider: provider)
+    }
+
+    private var signedInProviders: Set<UsageProvider> {
+        Set(UsageProvider.allCases.filter { isSignedIn($0) })
+    }
+
+    /// After the sessions load: give an upgrade that never chose providers its migration
+    /// default, then decide whether this is a fresh install that needs first-run setup.
+    private func resolveProviderSetup() async {
+        await claude.loadIfNeeded()
+        await cursor.loadIfNeeded()
+        for added in addedProviders.values {
+            await added.loadIfNeeded()
+        }
+        if !hasProviderChoice {
+            let updated = UsageProvider.inOrder(
+                UsageProvider.migrationDefault(signedIn: signedInProviders),
+                order: providerOrder
+            )
+            if updated != enabledProviders {
+                enabledProviders = updated
+                select(provider: UsageProvider.visibleSelection(selectedProvider, enabled: updated))
+            }
+        }
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-testing-onboarding") {
+            isShowingOnboarding = true
+            return
+        }
+        // Other UI-testing launches go straight to the dashboard they set up.
+        if arguments.contains(where: { $0.hasPrefix("-ui-testing") }) {
+            return
+        }
+#endif
+        let completed = defaults.bool(forKey: Self.onboardingCompleteDefaultsKey)
+        let hasExistingSetup = mode != .signedOut || usage != nil
+            || claude.phase != .signedOut || cursor.phase != .signedOut
+            || addedProviders.values.contains { $0.phase != .signedOut }
+        if OnboardingFlow.shouldShow(completed: completed, hasExistingSetup: hasExistingSetup) {
+            isShowingOnboarding = true
+        } else if !completed {
+            // Installs from before setup existed never see it.
+            defaults.set(true, forKey: Self.onboardingCompleteDefaultsKey)
+        }
+    }
+
+    /// Saves the providers picked during setup as the dashboard tabs.
+    func chooseProviders(_ chosen: [UsageProvider]) {
+        guard !chosen.isEmpty else { return }
+        let updated = UsageProvider.inOrder(chosen, order: providerOrder)
+        enabledProviders = updated
+        hasProviderChoice = true
+        defaults.set(updated.map(\.rawValue), forKey: Self.enabledProvidersDefaultsKey)
+        DiagnosticLog.info("process", "providers_chosen", details: [
+            "providers": updated.map(\.rawValue).joined(separator: ",")
+        ])
+        select(provider: UsageProvider.visibleSelection(selectedProvider, enabled: updated))
+    }
+
+    func finishOnboarding() {
+        defaults.set(true, forKey: Self.onboardingCompleteDefaultsKey)
+        isShowingOnboarding = false
+        DiagnosticLog.info("process", "onboarding_finished")
+    }
+
+    /// "Explore demo" from setup: Codex, Claude Code and Cursor get tabs with local demo data.
+    func finishOnboardingWithDemo() async {
+        if !hasProviderChoice {
+            chooseProviders(UsageProvider.builtIns)
+        }
+        finishOnboarding()
+        await enterDemo()
+    }
+
+    /// Turns a provider's tab on or off. The last provider can't be turned off, and turning off
+    /// the selected tab moves to the first provider still on.
+    func setProvider(_ provider: UsageProvider, enabled on: Bool) {
+        let updated = UsageProvider.inOrder(
+            UsageProvider.enabled(enabledProviders, setting: provider, on: on),
+            order: providerOrder
+        )
+        guard updated != enabledProviders else { return }
+        enabledProviders = updated
+        hasProviderChoice = true
+        defaults.set(updated.map(\.rawValue), forKey: Self.enabledProvidersDefaultsKey)
+        DiagnosticLog.info("process", "provider_enabled_changed", details: [
+            "provider": provider.rawValue,
+            "enabled": on ? "true" : "false"
+        ])
+        select(provider: UsageProvider.visibleSelection(selectedProvider, enabled: updated))
+    }
+
+    /// Moves providers in Settings → Providers; the dashboard tabs follow the new order.
+    func moveProviders(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var order = providerOrder
+        order.move(fromOffsets: source, toOffset: destination)
+        setProviderOrder(order)
+    }
+
+    /// Moves rows of a list that shows only some providers (Settings → Providers lists tabs
+    /// that are on and connected accounts); providers it doesn't show keep their relative order
+    /// after the shown ones.
+    func moveProviders(_ shown: [UsageProvider], fromOffsets source: IndexSet, toOffset destination: Int) {
+        var moved = shown
+        moved.move(fromOffsets: source, toOffset: destination)
+        setProviderOrder(moved + providerOrder.filter { !moved.contains($0) })
+    }
+
+    private func setProviderOrder(_ order: [UsageProvider]) {
+        guard order != providerOrder else { return }
+        providerOrder = order
+        enabledProviders = UsageProvider.inOrder(enabledProviders, order: order)
+        defaults.set(order.map(\.rawValue), forKey: Self.providerOrderDefaultsKey)
+        DiagnosticLog.info("process", "provider_order_changed", details: [
+            "order": order.map(\.rawValue).joined(separator: ",")
+        ])
+    }
+
+    /// Selects and remembers a dashboard tab. Safe to call again for the current tab.
+    func select(provider: UsageProvider) {
+        if selectedProvider != provider {
+            selectedProvider = provider
+        }
+        guard defaults.string(forKey: Self.providerDefaultsKey) != provider.rawValue else { return }
+        defaults.set(provider.rawValue, forKey: Self.providerDefaultsKey)
+        DiagnosticLog.info("process", "provider_selected", details: ["provider": provider.rawValue])
+    }
+
+    /// The Codex demo also shows demo Claude and Cursor data, unless a real session exists there.
+    private func enterProviderDemosIfSignedOut() async {
+        await claude.loadIfNeeded()
+        if claude.phase == .signedOut {
+            claude.enterDemo()
+        }
+        await cursor.loadIfNeeded()
+        if cursor.phase == .signedOut {
+            cursor.enterDemo()
+        }
+        // Added providers only show demo data when their tab is on.
+        for provider in enabledProviders {
+            guard let added = addedProviders[provider] else { continue }
+            await added.loadIfNeeded()
+            if added.phase == .signedOut {
+                added.enterDemo()
+            }
         }
     }
 
@@ -597,6 +1019,138 @@ final class AppModel {
             settings: settings
         )
         scheduleBackgroundRefresh()
+        await autoApplyExpiringCreditsIfNeeded()
+        await autoUseCreditOnLowUsageIfNeeded()
+    }
+
+    private static let handledExpiryTokensKey = "codexMeter.autoUse.handledExpiryTokens"
+    private static let failedExpiryTokensKey = "codexMeter.autoUse.failedExpiryTokens"
+    private static let lowUsageWindowTokenKey = "codexMeter.autoUse.lowUsageWindowToken"
+    private static let lowUsageFailedTokenKey = "codexMeter.autoUse.lowUsageFailedToken"
+
+    /// Uses an unused credit once it is inside the chosen lead time before expiry. Each credit is
+    /// handled once: any answer from OpenAI is final, and only network errors retry (silently
+    /// after the first notice).
+    private func autoApplyExpiringCreditsIfNeeded() async {
+        guard settings.creditExpiryAutoApplyEnabled, mode != .signedOut, !isRedeemingReset else {
+            return
+        }
+        isRedeemingReset = true
+        defer { isRedeemingReset = false }
+        var handled = Set(defaults.stringArray(forKey: Self.handledExpiryTokensKey) ?? [])
+        for _ in 0..<5 {
+            guard let credits else { return }
+            let due = CreditExpiryAutoApply.due(
+                credits: credits.credits,
+                now: .now,
+                leadMinutes: settings.creditExpiryAutoApplyLeadMinutes
+            ).filter { !handled.contains($0.token) }
+            guard let credit = due.first else { return }
+            do {
+                let priorUsage = usage
+                let result = try await activeService.consumeReset(creditID: credit.creditId)
+                handled.insert(credit.token)
+                defaults.set(Self.prunedTokens(handled), forKey: Self.handledExpiryTokensKey)
+                if result.applied, let priorUsage {
+                    await notificationCoordinator.markUserReset(usage: priorUsage)
+                }
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyExpiryAutoApply(
+                        result: result,
+                        expiresAt: credit.expiresAt
+                    )
+                }
+                if let cached = try? await cache.load() {
+                    apply(cache: cached)
+                    if result.applied, let refreshed = cached.usage {
+                        await recordUsageHistory(refreshed)
+                    }
+                }
+            } catch {
+                var failed = Set(defaults.stringArray(forKey: Self.failedExpiryTokensKey) ?? [])
+                if failed.insert(credit.token).inserted {
+                    defaults.set(Self.prunedTokens(failed), forKey: Self.failedExpiryTokensKey)
+                    if settings.notificationsEnabled {
+                        await notificationCoordinator.notifyExpiryAutoApplyFailure(
+                            message: error.localizedDescription
+                        )
+                    }
+                }
+                return
+            }
+        }
+    }
+
+    /// Spends one credit when the watched window reaches the chosen remaining level, at most once
+    /// per usage window. Runs on the snapshot a refresh just returned.
+    private func autoUseCreditOnLowUsageIfNeeded() async {
+        guard settings.lowUsageAutoUseEnabled, mode != .signedOut, !isRedeemingReset else {
+            return
+        }
+        let decision = LowUsageAutoUse.evaluate(
+            snapshot: usage,
+            metric: settings.lowUsageAutoUseMetric,
+            threshold: settings.lowUsageAutoUseThreshold,
+            availableCredits: credits?.availableCount ?? usage?.resetCreditsAvailable,
+            lastFiredToken: defaults.string(forKey: Self.lowUsageWindowTokenKey),
+            now: .now
+        )
+        guard decision.fires else { return }
+        isRedeemingReset = true
+        defer { isRedeemingReset = false }
+        do {
+            let priorUsage = usage
+            let result = try await activeService.consumeReset(creditID: nil)
+            defaults.set(decision.windowToken, forKey: Self.lowUsageWindowTokenKey)
+            if result.applied, let priorUsage {
+                await notificationCoordinator.markUserReset(usage: priorUsage)
+            }
+            if settings.notificationsEnabled {
+                await notificationCoordinator.notifyLowUsageAutoUse(
+                    result: result,
+                    windowLabel: decision.windowLabel,
+                    remainingPercent: decision.remainingPercent
+                )
+            }
+            if let cached = try? await cache.load() {
+                apply(cache: cached)
+                if result.applied, let refreshed = cached.usage {
+                    await recordUsageHistory(refreshed)
+                }
+            }
+        } catch {
+            if defaults.string(forKey: Self.lowUsageFailedTokenKey) != decision.windowToken {
+                defaults.set(decision.windowToken, forKey: Self.lowUsageFailedTokenKey)
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyLowUsageAutoUseFailure(
+                        message: error.localizedDescription
+                    )
+                }
+            }
+        }
+    }
+
+    /// The next time an expiring credit becomes due, so background refresh can aim for it.
+    private func nextAutoUseDate(after date: Date) -> Date? {
+        guard settings.creditExpiryAutoApplyEnabled, let credits else { return nil }
+        return CreditExpiryAutoApply.plan(
+            credits: credits.credits,
+            now: date,
+            leadMinutes: settings.creditExpiryAutoApplyLeadMinutes
+        )
+        .map { max($0.triggerAt, date.addingTimeInterval(60)) }
+        .min()
+    }
+
+    /// Keeps tokens for credits that expired less than a day ago.
+    private static func prunedTokens(_ tokens: Set<String>) -> [String] {
+        let cutoff = Date().addingTimeInterval(-86_400).timeIntervalSince1970
+        return tokens.filter { token in
+            guard let split = token.lastIndex(of: ":"),
+                  let seconds = Double(token[token.index(after: split)...]) else { return false }
+            return seconds > cutoff
+        }
+        .sorted()
     }
 
     private func apply(
@@ -713,9 +1267,12 @@ final class AppModel {
             refreshEngagementStore.recordRefreshSuccess()
             await apply(refresh: refreshed)
             let now = Date()
+            let nextReset = [refreshed.usage.nextReset(after: now), nextAutoUseDate(after: now)]
+                .compactMap { $0 }
+                .min()
             return BackgroundRefreshOutcome(
                 preferredMinutes: effectiveRefreshMinutes(at: now),
-                nextReset: refreshed.usage.nextReset(after: now)
+                nextReset: nextReset
             )
         } catch {
             refreshEngagementStore.recordRefreshFailure()

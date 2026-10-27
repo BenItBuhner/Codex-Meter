@@ -18,6 +18,8 @@ public final class UsageSnapshot {
     public final UsageWindow monthly;
     public final String planType;
     public final int resetCreditsAvailable;
+    /** Workspace spend-control monthly credit limit; null for accounts without one. */
+    public final SpendControl spendControl;
     public final UsageCredits usageCredits;
     public final UsageWindow weekly;
 
@@ -39,6 +41,14 @@ public final class UsageSnapshot {
             UsageWindow usageWindow2, UsageWindow monthlyWindow,
             List<UsageLimit> additionalLimits,
             UsageCredits usageCredits, int i, long j) {
+        this(str, z, z2, usageWindow, usageWindow2, monthlyWindow, additionalLimits,
+                usageCredits, null, i, j);
+    }
+
+    public UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,
+            UsageWindow usageWindow2, UsageWindow monthlyWindow,
+            List<UsageLimit> additionalLimits,
+            UsageCredits usageCredits, SpendControl spendControl, int i, long j) {
         this.planType = str == null ? "" : str;
         this.allowed = z;
         this.limitReached = z2;
@@ -49,6 +59,7 @@ public final class UsageSnapshot {
                 ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(additionalLimits));
         this.usageCredits = usageCredits;
+        this.spendControl = spendControl;
         this.resetCreditsAvailable = i < 0 ? -1 : i;
         this.fetchedAtMillis = j;
     }
@@ -93,6 +104,9 @@ public final class UsageSnapshot {
         if (this.usageCredits != null) {
             jSONObject.put("usage_credits", this.usageCredits.toJson());
         }
+        if (this.spendControl != null) {
+            jSONObject.put("spend_control", this.spendControl.toJson());
+        }
         if (this.resetCreditsAvailable >= 0) {
             jSONObject.put("reset_credits_available", this.resetCreditsAvailable);
         }
@@ -123,6 +137,7 @@ public final class UsageSnapshot {
                 UsageWindow.fromJson(jSONObject.optJSONObject("monthly")),
                 additionalLimits,
                 UsageCredits.fromJson(jSONObject.optJSONObject("usage_credits")),
+                SpendControl.fromJson(jSONObject.optJSONObject("spend_control")),
                 jSONObject.has("reset_credits_available")
                         ? jSONObject.optInt("reset_credits_available", -1) : -1,
                 jSONObject.optLong("fetched_at", 0L));
@@ -155,6 +170,7 @@ public final class UsageSnapshot {
     public boolean hasDisplayableData() {
         return fiveHour != null || weekly != null || monthly != null || !additionalLimits.isEmpty()
                 || (usageCredits != null && usageCredits.shouldDisplay())
+                || spendControl != null
                 || resetCreditsAvailable > 0;
     }
 

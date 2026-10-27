@@ -20,13 +20,23 @@ public final class RefreshScheduler {
     private RefreshScheduler() {
     }
 
+    /** Background refresh runs while Codex or any other provider is signed in. */
+    static boolean anySignedIn(Context context) {
+        for (UsageProvider provider : UsageProvider.values()) {
+            if (SecureTokenStore.isSignedIn(context, provider)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean schedulePeriodic(Context context) {
         boolean zSubmit = false;
         Context contextAppContext = appContext(context);
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!anySignedIn(contextAppContext)) {
             DiagnosticLog.info(contextAppContext, "scheduler",
                     "refresh_schedule_skipped_signed_out");
             cancelAll(contextAppContext);
@@ -76,7 +86,7 @@ public final class RefreshScheduler {
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!anySignedIn(contextAppContext)) {
             return true;
         }
         if (!AppPreferences.getAutomaticRefresh(contextAppContext)
@@ -133,7 +143,7 @@ public final class RefreshScheduler {
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!anySignedIn(contextAppContext)) {
             WidgetRenderer.updateAll(contextAppContext);
             return true;
         }
@@ -197,7 +207,7 @@ public final class RefreshScheduler {
         int result = jobSchedulerScheduler.schedule(jobInfo);
         String reason = jobInfo.getExtras() == null
                 ? "" : jobInfo.getExtras().getString("reason", "");
-        if (result == 1) {
+        if (result == JobScheduler.RESULT_SUCCESS) {
             AppPreferences.setSchedulerError(context, "");
             DiagnosticLog.info(context, "scheduler", "job_scheduled",
                     "job_id", jobInfo.getId(),
@@ -215,11 +225,11 @@ public final class RefreshScheduler {
     private static JobInfo.Builder base(Context context, int i, String str) {
         PersistableBundle persistableBundle = new PersistableBundle();
         persistableBundle.putString("reason", str);
-        return new JobInfo.Builder(i, new ComponentName(context, (Class<?>) UsageRefreshJobService.class)).setRequiredNetworkType(1).setExtras(persistableBundle);
+        return new JobInfo.Builder(i, new ComponentName(context, (Class<?>) UsageRefreshJobService.class)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setExtras(persistableBundle);
     }
 
     private static JobScheduler scheduler(Context context) {
-        return (JobScheduler) context.getSystemService("jobscheduler");
+        return (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
     }
 
     private static Context appContext(Context context) {

@@ -41,7 +41,11 @@ enum UITestSupport {
     ) {
         let target = element.firstMatch
         let anchors: [CGFloat] = [0.85, 0.45]
-        for attempt in 0..<maxAttempts where !isFullyVisible(target, in: app) {
+        // Stop as soon as the target is in view: a `where` clause would keep
+        // re-querying the accessibility tree once per remaining attempt, and on a
+        // starved runner each of those snapshots is a chance to time out.
+        for attempt in 0..<maxAttempts {
+            if isFullyVisible(target, in: app) { return }
             let dy = anchors[attempt % anchors.count]
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy - 0.35))
@@ -49,8 +53,29 @@ enum UITestSupport {
         }
     }
 
+    /// One long drag down the dashboard from `anchor`, covering 60% of the window.
+    static func dragDashboard(in app: XCUIApplication, from anchor: CGFloat) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: anchor))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: anchor - 0.6))
+        start.press(forDuration: 0.05, thenDragTo: end)
+    }
+
+    /// Scrolls the dashboard to its end without asking where it is: at
+    /// accessibility text sizes the page runs to several thousand points, and on
+    /// a starved runner every hierarchy snapshot along the way is a chance to
+    /// time out, while the scroll simply clamps at the last card. A momentum
+    /// swipe alternates with a long drag from a different start point so a
+    /// stroke the history chart swallows is never repeated from the same spot.
+    static func scrollDashboardToBottom(in app: XCUIApplication, passes: Int = 8) {
+        for pass in 0..<passes {
+            app.swipeUp()
+            dragDashboard(in: app, from: pass.isMultiple(of: 2) ? 0.92 : 0.76)
+        }
+    }
+
     /// True when the element exists and sits inside the window, clear of the
-    /// navigation bar at the top and of the bottom edge.
+    /// navigation bar at the top and of the provider switcher pinned to the
+    /// bottom edge.
     static func isFullyVisible(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
         guard element.exists else { return false }
         let frame = element.frame
@@ -60,7 +85,7 @@ enum UITestSupport {
             x: window.minX,
             y: window.minY + 120,
             width: window.width,
-            height: window.height - 120 - 60
+            height: window.height - 120 - 110
         )
         return visibleArea.contains(frame)
     }
@@ -71,9 +96,33 @@ enum UITestSupport {
         maxAttempts: Int = 8
     ) {
         let target = element.firstMatch
-        for _ in 0..<maxAttempts where !target.exists {
+        for _ in 0..<maxAttempts {
+            if target.exists { return }
             app.swipeUp()
         }
+    }
+
+    /// Flips a SwiftUI `Toggle` that shows its label and waits for its value to change.
+    /// The switch element covers the whole form row, so a plain `tap()` lands on the label
+    /// text, which does not toggle; the 51pt control sits about 14pt in from the row's
+    /// trailing edge, so tap its centre from there regardless of the row width.
+    @discardableResult
+    static func flipToggle(
+        labeled label: String,
+        in app: XCUIApplication,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let toggle = app.switches[label].firstMatch
+        guard toggle.waitForExistence(timeout: timeout) else { return false }
+        let expected = (toggle.value as? String) == "1" ? "0" : "1"
+        toggle
+            .coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+            .withOffset(CGVector(dx: -40, dy: 0))
+            .tap()
+        return app.switches
+            .matching(NSPredicate(format: "label == %@ AND value == %@", label, expected))
+            .firstMatch
+            .waitForExistence(timeout: timeout)
     }
 }
 
