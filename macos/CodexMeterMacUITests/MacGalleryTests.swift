@@ -82,6 +82,15 @@ final class MacGalleryTests: XCTestCase {
             MacUITestSupport.settle(0.6)
         }
 
+        // File → Add Account… (⌘N): the service picker as a sheet.
+        app.typeKey("n", modifierFlags: .command)
+        if app.sheets.firstMatch.waitForExistence(timeout: 5) {
+            MacUITestSupport.settle(1.0)
+            capture("\(prefix)-10-add-account", app)
+            app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+            MacUITestSupport.settle(0.6)
+        }
+
         MacUITestSupport.openSettings(in: app)
         if MacUITestSupport.text("Accounts", in: app).waitForExistence(timeout: 8) {
             MacUITestSupport.settle(1.0)

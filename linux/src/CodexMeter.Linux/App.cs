@@ -1,3 +1,4 @@
+using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
 using CodexMeter.Linux.Services;
@@ -149,16 +150,31 @@ public sealed class App
         else if (!keep && held) { application.Release(); held = false; }
     }
 
+    private static readonly string[] DemoConnected = ["codex", "claude_code", "cursor", "copilot", "kimi", "zai"];
+
     private async Task<AppState> CreateStateAsync()
     {
         if (options.Demo)
         {
             var context = new ProviderContext(CreateHttpClient(), new MemoryTokenStore(), new ProviderCacheStore(null));
-            var signedOut = options.SignedOutDemo ? UsageProvider.All.Select(p => p.Id) : null;
+            var signedOut = UsageProvider.All.Select(p => p.Id)
+                .Where(id => options.SignedOutDemo || !DemoConnected.Contains(id));
             var hub = await ProviderHub.DemoAsync(context, signedOut);
             var settings = new SettingsStore(null);
-            settings.Update(s => s with { CloseToTray = false });
-            return new AppState(hub, settings);
+            var connected = options.SignedOutDemo ? new List<string>() : DemoConnected.Where(id => hub.Providers.Any(p => p.Id == id)).ToList();
+            settings.Update(s => s with
+            {
+                CloseToTray = false,
+                OnboardingDone = !options.SignedOutDemo,
+                EnabledProviders = connected.Count > 0 ? connected : s.EnabledProviders,
+                ProviderOrder = connected.Concat(s.ProviderOrder).Distinct().ToList(),
+            });
+            // A few weeks of sample history so the chart and its highlights have something to show.
+            var history = new UsageHistoryStore(null);
+            var now = DateTimeOffset.UtcNow;
+            foreach (var provider in hub.Providers.Where(p => connected.Contains(p.Id)))
+                await history.SetAsync(provider.Id, DemoData.History(provider, now));
+            return new AppState(hub, settings, history);
         }
 
         AppPaths.EnsurePrivate(AppPaths.DataDirectory);
@@ -168,7 +184,8 @@ public sealed class App
         KeyLocation = protector.Location;
         var live = new ProviderContext(CreateHttpClient(), new FileTokenStore(AppPaths.DataDirectory, protector),
             new ProviderCacheStore(AppPaths.CacheDirectory)) { Log = (category, message) => AppLog.Write($"[{category}] {message}") };
-        return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(AppPaths.ConfigDirectory, "settings.json")));
+        return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(AppPaths.ConfigDirectory, "settings.json")),
+            new UsageHistoryStore(AppPaths.DataDirectory));
     }
 
     private static HttpClient CreateHttpClient()

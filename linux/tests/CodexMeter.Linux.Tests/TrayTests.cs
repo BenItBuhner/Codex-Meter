@@ -1,3 +1,4 @@
+using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
 using CodexMeter.Linux.Services;
@@ -13,9 +14,9 @@ public class TrayTests
     {
         var context = new ProviderContext(ProviderHttp.CreateClient(), new MemoryTokenStore(), new ProviderCacheStore(null));
         var hub = await ProviderHub.DemoAsync(context, signedOut);
-        var state = new AppState(hub, new SettingsStore(null));
+        var state = new AppState(hub, new SettingsStore(null), new UsageHistoryStore(null));
         await state.InitializeAsync();
-        foreach (var provider in UsageProvider.All) await state.RefreshAsync(provider, force: true);
+        foreach (var provider in hub.Providers) await state.RefreshAsync(provider, force: true);
         return state;
     }
 

@@ -36,6 +36,23 @@ public static class Style
         .sidebar-value.level-caution { color: @warning_color; }
         .sidebar-value.level-critical { color: @error_color; }
         .provider-hero { margin-bottom: 6px; }
+        .history-chart { color: @accent_color; }
+        progressbar.history-bar > trough { min-height: 6px; }
+        progressbar.history-bar > trough > progress { min-height: 6px; }
+        progressbar.history-bar.level-caution > trough > progress { background-color: @warning_color; }
+        progressbar.history-bar.level-critical > trough > progress { background-color: @error_color; }
+        .device-code { letter-spacing: 4px; margin: 6px 0; }
+        .unconfirmed-tag {
+          background-color: alpha(@warning_color, 0.16);
+          color: @warning_fg_color;
+          border-radius: 6px;
+          padding: 1px 7px 2px 7px;
+          font-size: 0.8em;
+          font-weight: bold;
+        }
+        .sidebar-dot { min-width: 8px; min-height: 8px; border-radius: 999px; }
+        .sidebar-dot.level-caution { background-color: @warning_color; }
+        .sidebar-dot.level-critical { background-color: @error_color; }
         """;
 
     public static void Install()

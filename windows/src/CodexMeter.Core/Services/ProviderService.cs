@@ -16,6 +16,27 @@ public sealed class ProviderContext(HttpClient http, ITokenStore tokens, Provide
 }
 
 /// <summary>
+/// How a sign-in flow talks to the dialog that started it. Browser flows only need
+/// <see cref="OpenBrowser"/>; device-code flows show a code; paste flows ask for text.
+/// </summary>
+public sealed class SignInPrompt(Func<Uri, Task> openBrowser)
+{
+    public Func<Uri, Task> OpenBrowser { get; } = openBrowser;
+
+    /// <summary>
+    /// Shows the code to type on the provider's page (and a button that opens it). Without it the
+    /// page is opened directly.
+    /// </summary>
+    public Func<DeviceCode, Task>? ShowDeviceCode { get; init; }
+
+    /// <summary>
+    /// Asks the user to paste what the provider's page shows: (page to open or null, hint) → text,
+    /// or null when they cancel.
+    /// </summary>
+    public Func<Uri?, string, CancellationToken, Task<string?>>? RequestPaste { get; init; }
+}
+
+/// <summary>
 /// Sign-in, refresh and sign-out for one provider. Each provider keeps its own credentials and
 /// cache, so signing in or out of one never touches the others.
 /// </summary>
@@ -42,18 +63,47 @@ public abstract class ProviderService(UsageProvider provider, ProviderContext co
     public Task<ProviderCacheEntry?> CachedAsync() => Context.Cache.LoadAsync(Provider.Id);
 
     /// <summary>Runs the provider's browser sign-in. <paramref name="openBrowser"/> shows the URL.</summary>
-    public async Task<AuthTokens> SignInAsync(Func<Uri, Task> openBrowser, CancellationToken cancellationToken)
+    public Task<AuthTokens> SignInAsync(Func<Uri, Task> openBrowser, CancellationToken cancellationToken) =>
+        SignInAsync(new SignInPrompt(openBrowser), cancellationToken);
+
+    /// <summary>
+    /// Runs the provider's sign-in: a browser round trip, a device code to approve, or a token to
+    /// paste. <paramref name="prompt"/> is how the flow talks to the dialog.
+    /// </summary>
+    public async Task<AuthTokens> SignInAsync(SignInPrompt prompt, CancellationToken cancellationToken)
     {
         Context.Log?.Invoke("auth", $"{Provider.Id} sign-in started");
-        var tokens = await RunSignInAsync(openBrowser, cancellationToken).ConfigureAwait(false);
-        await Context.Tokens.SaveAsync(Provider.Id, tokens).ConfigureAwait(false);
-        // A different account may have been signed in before; never show its numbers.
-        await Context.Cache.ClearAsync(Provider.Id).ConfigureAwait(false);
+        var tokens = await RunSignInAsync(prompt, cancellationToken).ConfigureAwait(false);
+        await StoreSignInAsync(tokens).ConfigureAwait(false);
         Context.Log?.Invoke("auth", $"{Provider.Id} sign-in finished");
         return tokens;
     }
 
-    protected abstract Task<AuthTokens> RunSignInAsync(Func<Uri, Task> openBrowser, CancellationToken cancellationToken);
+    /// <summary>Connects with a pasted API key, checked against the usage route first.</summary>
+    public async Task<AuthTokens> SignInWithApiKeyAsync(string key, CancellationToken cancellationToken)
+    {
+        var tokens = await RunApiKeySignInAsync(key, cancellationToken).ConfigureAwait(false);
+        await StoreSignInAsync(tokens).ConfigureAwait(false);
+        Context.Log?.Invoke("auth", $"{Provider.Id} API key saved");
+        return tokens;
+    }
+
+    private async Task StoreSignInAsync(AuthTokens tokens)
+    {
+        if (!tokens.IsUsable) throw new ProviderException($"{Provider.DisplayName} didn't return a usable sign-in.");
+        await Context.Tokens.SaveAsync(Provider.Id, tokens).ConfigureAwait(false);
+        // A different account may have been signed in before; never show its numbers.
+        await Context.Cache.ClearAsync(Provider.Id).ConfigureAwait(false);
+    }
+
+    protected virtual Task<AuthTokens> RunSignInAsync(SignInPrompt prompt, CancellationToken cancellationToken) =>
+        RunSignInAsync(prompt.OpenBrowser, cancellationToken);
+
+    protected virtual Task<AuthTokens> RunSignInAsync(Func<Uri, Task> openBrowser, CancellationToken cancellationToken) =>
+        throw new ProviderException($"{Provider.DisplayName} has no browser sign-in.");
+
+    protected virtual Task<AuthTokens> RunApiKeySignInAsync(string key, CancellationToken cancellationToken) =>
+        throw new ProviderException($"{Provider.DisplayName} doesn't take an API key.");
 
     /// <summary>Fetches usage; concurrent callers share one request.</summary>
     public async Task<UsageSnapshot> RefreshAsync(CancellationToken cancellationToken = default)

@@ -8,6 +8,7 @@ struct MacRootView: View {
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var isShowingAddAccount = false
 
     var body: some View {
         @Bindable var model = model
@@ -46,6 +47,14 @@ struct MacRootView: View {
             }
             .frame(minWidth: 520, idealWidth: 560, minHeight: 440, idealHeight: 520)
             .interactiveDismissDisabled(model.isAuthenticating)
+        }
+        // The iOS Add account flow: pick a service, then its sign-in, in one sheet.
+        .sheet(isPresented: $isShowingAddAccount) {
+            AddAccountFlow()
+                .frame(minWidth: 480, idealWidth: 520, minHeight: 520, idealHeight: 620)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .codexMeterAddAccount)) { _ in
+            isShowingAddAccount = true
         }
         .sheet(isPresented: $model.isShowingOnboarding) {
             OnboardingView()
@@ -146,6 +155,17 @@ private struct MacSidebarFooter: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Divider()
+            // Like the + at the foot of Mail's and Finder's sidebars.
+            Button {
+                NotificationCenter.default.post(name: .codexMeterAddAccount, object: nil)
+            } label: {
+                Label("Add Account", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+            .help("Connect another service (⌘N)")
+            .accessibilityIdentifier("sidebar-add-account")
+            .padding(.horizontal, 14)
+            .padding(.top, 2)
             HStack(spacing: 8) {
                 Image(systemName: model.mode == .demo ? "sparkles" : "lock.shield")
                     .foregroundStyle(.secondary)

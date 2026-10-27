@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using CodexMeter.App.Services;
+using CodexMeter.Core.Models;
 using CodexMeter.Core.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -82,23 +83,39 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Services connected in demo mode; the rest show as available to add.</summary>
+    private static readonly string[] DemoConnected = ["codex", "claude_code", "cursor", "copilot", "kimi", "zai"];
+
     private async Task<AppState> CreateStateAsync()
     {
         if (options.Demo)
         {
             var context = new ProviderContext(ProviderHttp.CreateClient(), new MemoryTokenStore(), new ProviderCacheStore(null));
-            var signedOut = options.SignedOutDemo ? Core.Providers.UsageProvider.All.Select(p => p.Id) : null;
+            var signedOut = Core.Providers.UsageProvider.All.Select(p => p.Id)
+                .Where(id => options.SignedOutDemo || !DemoConnected.Contains(id));
             var hub = await ProviderHub.DemoAsync(context, signedOut);
             var settings = new SettingsStore(null);
-            settings.Update(s => s with { CloseToTray = false });
-            return new AppState(hub, settings);
+            var connected = options.SignedOutDemo ? new List<string>() : DemoConnected.Where(id => hub.Providers.Any(p => p.Id == id)).ToList();
+            settings.Update(s => s with
+            {
+                CloseToTray = false,
+                OnboardingDone = !options.SignedOutDemo,
+                EnabledProviders = connected.Count > 0 ? connected : s.EnabledProviders,
+                ProviderOrder = connected.Concat(s.ProviderOrder).Distinct().ToList(),
+            });
+            // A few weeks of sample history so the chart and its highlights have something to show.
+            var history = new UsageHistoryStore(null);
+            var now = DateTimeOffset.UtcNow;
+            foreach (var provider in hub.Providers.Where(p => connected.Contains(p.Id)))
+                await history.SetAsync(provider.Id, DemoData.History(provider, now));
+            return new AppState(hub, settings, history);
         }
 
         var data = AppPaths.DataDirectory;
         Directory.CreateDirectory(data);
         var live = new ProviderContext(ProviderHttp.CreateClient(), new FileTokenStore(data, new DpapiProtector()),
             new ProviderCacheStore(data)) { Log = (category, message) => Debug.WriteLine($"[{category}] {message}") };
-        return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(data, "settings.json")));
+        return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(data, "settings.json")), new UsageHistoryStore(data));
     }
 
     private void ApplyThemeOverride()
