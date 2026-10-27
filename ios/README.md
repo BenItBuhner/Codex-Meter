@@ -47,6 +47,27 @@ The app is universal and adapts to the window it gets rather than to the device:
   CI runs it with `ci/record-ipad-gallery.sh` on several iPad sizes and uploads
   `ipad-gallery`.
 
+## iPhone Duo
+
+Nothing in the app sizes itself from the screen, the device idiom or the orientation, which
+is what Apple's iPhone Duo guide asks for, so the foldable gets the same width-driven layout:
+
+- **Folded** (outer display, about 466 × 678 pt, compact width): one column with the bottom
+  tab bar, like any iPhone.
+- **Open** (inner display, about 951 × 669 pt, regular width and height): two columns, and
+  the tabs can show as a sidebar, as on iPad.
+- **Folding mid-session** resizes the window and the cards re-flow; the tab you are on stays,
+  because the layout follows the measured width instead of a size read at launch.
+- Two windows side by side work on the open display the same way they do on iPad.
+
+`IPadLayoutTests.testDuoFoldsAndUnfoldsWithoutLosingPlace` checks both poses and folds and
+unfolds while running (`-ui-testing-duo folded|open`, then ⌃⌥⌘F), on an iPad simulator
+because GitHub's macOS 26 runners have Xcode 26 only. The stills land in `ipad-gallery`.
+
+To use the whole inner display, release builds must be built with **Xcode 27.1 or later**
+(iOS 27.1 SDK). Built with Xcode 26, iOS shows the app at iPhone size in the middle of the
+open display. Check on the iPhone Duo simulator in Xcode 27.1 before shipping.
+
 ## Claude Code tab
 
 Like the Android app, the dashboard has bottom provider tabs: **Codex** (the

@@ -83,6 +83,16 @@ private struct UsageMenuItems: View {
             Divider()
         }
 #endif
+#if os(iOS) && DEBUG
+        // UI tests only: folds or unfolds the simulated iPhone Duo (see SimulatedWindow).
+        if SimulatedDuo.shared.isEnabled {
+            Button(SimulatedDuo.shared.isOpen ? "Fold" : "Unfold") {
+                SimulatedDuo.shared.toggle()
+            }
+            .keyboardShortcut("f", modifiers: [.command, .option, .control])
+            Divider()
+        }
+#endif
 
         Button("Refresh") {
             Task { await model.refreshSelectedProvider() }

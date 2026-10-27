@@ -5,6 +5,7 @@
 ### Added
 
 - iPad: open more than one Codex Meter window, for example two providers side by side in Split View or Stage Manager. Each window keeps its own tab, and Settings, sign-in and resets open in the window you are using. Usage → Open in New Window (⌥⌘N) opens the tab in front in a new window; the system New Window and App Exposé + work too.
+- iPhone Duo: one column with the bottom tab bar when folded, two columns (and the sidebar) when open, and the cards re-flow without losing your tab when you fold or unfold. Release builds need Xcode 27.1 to fill the open display.
 
 ### Changed
 

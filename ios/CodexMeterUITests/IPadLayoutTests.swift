@@ -141,7 +141,7 @@ final class IPadLayoutTests: XCTestCase {
     // MARK: Window widths
 
     /// Split View, Slide Over and Stage Manager widths, simulated in one column (see
-    /// `SimulatedWindowWidth`): narrow windows stack the cards, wider ones share rows.
+    /// `SimulatedWindow`): narrow windows stack the cards, wider ones share rows.
     func testWindowWidthsReflowColumns() throws {
         XCUIDevice.shared.orientation = .landscapeLeft
         let cases: [(width: Int, sideBySide: Bool, label: String)] = [
@@ -177,6 +177,68 @@ final class IPadLayoutTests: XCTestCase {
             }
             app.terminate()
         }
+    }
+
+    // MARK: iPhone Duo
+
+    /// iPhone Duo's two displays, simulated on an iPad screen (see `SimulatedWindow`): the
+    /// closed outer display stacks the cards under a bottom tab bar, the open inner display
+    /// shares rows, and folding or unfolding mid-session keeps the tab the person was on.
+    func testDuoFoldsAndUnfoldsWithoutLosingPlace() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = UITestSupport.launch(arguments: [
+            "-ui-testing-reset-settings",
+            "-ui-testing-demo",
+            "-ui-testing-providers", "codex,claude_code,cursor,copilot",
+            "-ui-testing-duo", "folded"
+        ])
+        guard app.frame.width >= 1000 else {
+            app.terminate()
+            throw XCTSkip("The simulated iPhone Duo needs a screen at least 1000 pt wide")
+        }
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 10))
+        UITestSupport.settle(1.2)
+        capture("50-landscape-duo-folded-codex")
+        assertStacked(app, "Folded, the outer display stacks the cards")
+
+        // Unfold: same tab, now two columns.
+        app.typeKey("f", modifierFlags: [.command, .option, .control])
+        UITestSupport.settle(1.5)
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5), "Unfolding keeps the tab")
+        capture("51-landscape-duo-open-codex")
+        assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Open, the inner display shares rows")
+
+        app.typeKey("3", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("52-landscape-duo-open-cursor")
+
+        app.typeKey("2", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("53-landscape-duo-open-claude")
+
+        // Fold again mid-session: still on Claude Code, back to one column.
+        app.typeKey("f", modifierFlags: [.command, .option, .control])
+        UITestSupport.settle(1.5)
+        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Folding keeps the tab")
+        capture("54-landscape-duo-folded-claude")
+
+        app.typeKey(",", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("55-landscape-duo-folded-settings")
+        UITestSupport.tap(app.buttons["Done"])
+
+        app.typeKey("f", modifierFlags: [.command, .option, .control])
+        UITestSupport.settle(1.0)
+        app.typeKey("1", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        UITestSupport.settle(1.0)
+        capture("56-landscape-duo-open-codex-scrolled")
+        app.terminate()
     }
 
     // MARK: Multiple windows
@@ -228,6 +290,19 @@ final class IPadLayoutTests: XCTestCase {
         }
         XCTAssertEqual(a.frame.midY, b.frame.midY, accuracy: 6, message, file: file, line: line)
         XCTAssertGreaterThan(abs(a.frame.minX - b.frame.minX), 150, message, file: file, line: line)
+    }
+
+    /// The Codex 5-hour card sits above the Weekly card.
+    private func assertStacked(
+        _ app: XCUIApplication,
+        _ message: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let short = app.staticTexts["5-hour"].firstMatch
+        let weekly = app.staticTexts["Weekly"].firstMatch
+        guard short.waitForExistence(timeout: 5), weekly.waitForExistence(timeout: 5) else { return }
+        XCTAssertGreaterThan(weekly.frame.minY, short.frame.maxY, message, file: file, line: line)
     }
 
     /// Shows the sidebar from the tab bar's sidebar button, if this iPadOS version offers one.

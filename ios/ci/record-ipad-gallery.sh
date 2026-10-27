@@ -68,6 +68,15 @@ for still in "$OUT_DIR"/*landscape*.png "$OUT_DIR"/14-*.png; do
     sips -r 270 "$still" >/dev/null
   fi
 done
+# The iPhone Duo stills show a simulated phone window centered on the iPad screen
+# (466 x 678 pt folded, 951 x 669 pt open, at 2x); crop them to the window plus a
+# 24 pt margin so they read like the phone.
+for still in "$OUT_DIR"/*duo-folded*.png; do
+  [[ -f "$still" ]] && sips -c 1452 1028 "$still" >/dev/null
+done
+for still in "$OUT_DIR"/*duo-open*.png; do
+  [[ -f "$still" ]] && sips -c 1434 1998 "$still" >/dev/null
+done
 xcrun simctl status_bar "$UDID" clear >/dev/null 2>&1 || true
 xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 
