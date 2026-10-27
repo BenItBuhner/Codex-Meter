@@ -11,11 +11,14 @@ import dev.bennett.codexmeter.AppPreferences;
 import dev.bennett.codexmeter.DiagnosticLog;
 import dev.bennett.codexmeter.NowBarManager;
 import dev.bennett.codexmeter.NowBarPreferences;
+import dev.bennett.codexmeter.ProviderPreferences;
 import dev.bennett.codexmeter.RefreshScheduler;
 import dev.bennett.codexmeter.SecureTokenStore;
 import dev.bennett.codexmeter.UsageSnapshot;
 import dev.bennett.codexmeter.UsagePacePreferences;
+import dev.bennett.codexmeter.UsageProvider;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class PhoneWearSync {
@@ -36,6 +39,42 @@ public final class PhoneWearSync {
                 new WearUsageState(snapshot, now, WearSettingsState.SOURCE_PHONE,
                         SecureTokenStore.isSignedIn(context)));
         pushStatus(context, false, "");
+        pushProviders(context);
+    }
+
+    /**
+     * Sends every provider tab with its cached usage so the watch can show any of them. Called
+     * whenever a provider's usage, sign-in, or the tab list changes. Tokens and emails stay on
+     * the phone.
+     */
+    public static void pushProviders(Context context) {
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        try {
+            pushJson(app, WearSyncPaths.PATH_PROVIDERS, providersState(app,
+                    System.currentTimeMillis()));
+        } catch (RuntimeException exception) {
+            DiagnosticLog.error(app, "wear", "providers_state_failed", exception);
+        }
+    }
+
+    static WearProvidersState providersState(Context context, long now) {
+        List<WearProvidersState.Entry> entries = new ArrayList<>();
+        List<UsageProvider> shown = new ArrayList<>(ProviderPreferences.getEnabled(context));
+        // A provider signed in but hidden from the tab bar still belongs on the watch.
+        for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+            if (!shown.contains(provider) && SecureTokenStore.isSignedIn(context, provider)) {
+                shown.add(provider);
+            }
+        }
+        for (UsageProvider provider : shown) {
+            boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
+            entries.add(new WearProvidersState.Entry(provider.id, provider.displayName,
+                    signedIn,
+                    signedIn ? ProviderPreferences.loadSnapshot(context, provider) : null,
+                    signedIn ? ProviderPreferences.getLastError(context, provider) : ""));
+        }
+        return new WearProvidersState(entries, ProviderPreferences.getSelected(context).id, now);
     }
 
     public static void pushSettings(Context context) {
@@ -189,6 +228,8 @@ public final class PhoneWearSync {
                 json = ((WearMonitorState) state).toJson().toString();
             } else if (state instanceof WearSyncStatus) {
                 json = ((WearSyncStatus) state).toJson().toString();
+            } else if (state instanceof WearProvidersState) {
+                json = ((WearProvidersState) state).toJson().toString();
             } else {
                 return;
             }

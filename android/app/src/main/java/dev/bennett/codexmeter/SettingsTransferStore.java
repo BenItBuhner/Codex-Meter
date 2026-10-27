@@ -207,6 +207,26 @@ public final class SettingsTransferStore {
         json.put("reset_credit_increases",
                 ResetAlertPreferences.resetCreditIncreasesEnabled(context));
         json.put("reset_credit_expiry", ResetAlertPreferences.resetCreditExpiryEnabled(context));
+        json.put("reset_credit_expiry_auto_apply",
+                ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context));
+        json.put("reset_credit_expiry_auto_apply_lead_ms",
+                ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context));
+        json.put("reset_credit_low_usage_auto_use",
+                ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context));
+        json.put("reset_credit_low_usage_threshold",
+                ResetAlertPreferences.resetCreditLowUsageThreshold(context));
+        json.put("reset_credit_low_usage_metric",
+                ResetAlertPreferences.resetCreditLowUsageMetric(context));
+        json.put("claude_saved_reset_expiry",
+                ResetAlertPreferences.claudeSavedResetExpiryEnabled(context));
+        json.put("claude_saved_reset_expiry_lead_ms",
+                ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context));
+        json.put("claude_saved_reset_low_usage",
+                ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context));
+        json.put("claude_saved_reset_threshold",
+                ResetAlertPreferences.claudeSavedResetThreshold(context));
+        json.put("claude_saved_reset_metric",
+                ResetAlertPreferences.claudeSavedResetMetric(context));
         json.put("reset_credit_expiry_lead_times", SettingsTransfer.leadTimesToJson(
                 ResetAlertPreferences.getResetCreditExpiryLeadTimes(context)));
         return json;
@@ -304,6 +324,36 @@ public final class SettingsTransferStore {
         ResetAlertPreferences.setResetCreditExpiryEnabled(context,
                 json.optBoolean("reset_credit_expiry",
                         ResetAlertPreferences.resetCreditExpiryEnabled(context)));
+        ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(context,
+                json.optBoolean("reset_credit_expiry_auto_apply",
+                        ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context)));
+        ResetAlertPreferences.setResetCreditExpiryAutoApplyLeadMillis(context,
+                json.optLong("reset_credit_expiry_auto_apply_lead_ms",
+                        ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context)));
+        ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(context,
+                json.optBoolean("reset_credit_low_usage_auto_use",
+                        ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context)));
+        ResetAlertPreferences.setResetCreditLowUsageThreshold(context,
+                json.optInt("reset_credit_low_usage_threshold",
+                        ResetAlertPreferences.resetCreditLowUsageThreshold(context)));
+        ResetAlertPreferences.setResetCreditLowUsageMetric(context,
+                json.optString("reset_credit_low_usage_metric",
+                        ResetAlertPreferences.resetCreditLowUsageMetric(context)));
+        ResetAlertPreferences.setClaudeSavedResetExpiryEnabled(context,
+                json.optBoolean("claude_saved_reset_expiry",
+                        ResetAlertPreferences.claudeSavedResetExpiryEnabled(context)));
+        ResetAlertPreferences.setClaudeSavedResetExpiryLeadMillis(context,
+                json.optLong("claude_saved_reset_expiry_lead_ms",
+                        ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context)));
+        ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(context,
+                json.optBoolean("claude_saved_reset_low_usage",
+                        ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context)));
+        ResetAlertPreferences.setClaudeSavedResetThreshold(context,
+                json.optInt("claude_saved_reset_threshold",
+                        ResetAlertPreferences.claudeSavedResetThreshold(context)));
+        ResetAlertPreferences.setClaudeSavedResetMetric(context,
+                json.optString("claude_saved_reset_metric",
+                        ResetAlertPreferences.claudeSavedResetMetric(context)));
         if (leadTimes != null) {
             ResetAlertPreferences.setResetCreditExpiryLeadTimes(context, leadTimes);
         }
@@ -315,6 +365,8 @@ public final class SettingsTransferStore {
         } else {
             ResetNotificationManager.clearNotificationHistory(context);
         }
+        ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(context,
+                AppPreferences.loadResetCredits(context));
     }
 
     private static void applyNowBar(Context context, JSONObject json) {

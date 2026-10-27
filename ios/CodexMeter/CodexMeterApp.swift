@@ -66,6 +66,9 @@ struct CodexMeterApp: App {
                     }
                 }
         }
+        .commands {
+            CodexMeterCommands(model: model)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task { await model.sceneBecameActive() }

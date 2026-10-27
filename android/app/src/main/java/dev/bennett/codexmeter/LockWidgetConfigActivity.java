@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.content.Intent;
 import android.appwidget.AppWidgetManager;
 import android.os.Bundle;
@@ -20,6 +21,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 public final class LockWidgetConfigActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private int appWidgetId = 0;
     private boolean dark;
     private ImageView preview;
@@ -27,10 +33,6 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
     private CheckBox showResetAction;
     private CheckBox showResetCredits;
     private TextView metersHint;
-    private SwitchCompat overlapSwitch;
-    /** Auto until the overlap switch is touched, then on or off. */
-    private String overlapMode = MeterOverlap.AUTO;
-    private boolean syncingOverlap;
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private List<UsageProvider> providers = new ArrayList<>();
     private final java.util.Map<UsageProvider, SwitchCompat> providerSwitches =
@@ -152,17 +154,6 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                 updatePreview();
             });
         }
-        this.overlapSwitch = new SwitchCompat(this);
-        this.overlapMode = saved.overlapMode;
-        this.overlapSwitch.setChecked(saved.overlaps(this.providers.size()));
-        metersCard.addView(buildSwitchRow("Overlap 5-hour and weekly in one dial",
-                this.overlapSwitch, true));
-        this.overlapSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!this.syncingOverlap) {
-                this.overlapMode = checked ? MeterOverlap.ON : MeterOverlap.OFF;
-            }
-            updatePreview();
-        });
         linearLayout.addView(metersCard);
 
         linearLayout.addView(Ui.separator(this, "Content"));
@@ -190,8 +181,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         this.showResetCredits.setOnCheckedChangeListener(previewCheckListener);
         this.showResetAction.setOnCheckedChangeListener(previewCheckListener);
 
-        page.cancel.setOnClickListener(view -> finish());
-        page.save.setOnClickListener(view -> save());
+        page.onCancel(this::finish);
+        page.onSave(this::save);
         updateMetersHint();
         updatePreview();
     }
@@ -224,9 +215,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
         int selected = this.selectedMeters.size();
         int capacity = this.slots > 1 ? WidgetMeters.lockSlotCapacity() : 1;
         String message = this.providers.size() > 1
-                ? (MeterOverlap.enabled(this.overlapMode, this.providers.size())
-                        ? "With two providers, each dial overlaps its 5-hour and weekly limits."
-                        : "With two providers, each shows the first meter it reports.")
+                ? "With two providers, each shows the first meter it reports."
                 : this.slots > 1 ? "Lock widgets show up to " + capacity + " meters."
                 : "The gauge shows the first meter it can.";
         if (selected > capacity && this.slots > 1 && this.providers.size() <= 1) {
@@ -254,8 +243,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
             metricMode = WidgetOptions.METRIC_WEEKLY;
         }
         return new LockWidgetOptions(metricMode, this.showResetCredits.isChecked(),
-                this.showResetAction.isChecked(), this.showCountdown.isChecked(), visible,
-                this.overlapMode);
+                this.showResetAction.isChecked(), this.showCountdown.isChecked(), visible);
     }
 
     private int maxProviders() {
@@ -286,20 +274,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity {
                 entry.getValue().setChecked(on);
             }
         }
-        syncOverlapSwitch();
         updateMetersHint();
         updatePreview();
-    }
-
-    /** Shows what Auto means for the providers now picked, without fixing the mode. */
-    private void syncOverlapSwitch() {
-        if (this.overlapSwitch == null) return;
-        boolean on = MeterOverlap.enabled(this.overlapMode, this.providers.size());
-        if (this.overlapSwitch.isChecked() != on) {
-            this.syncingOverlap = true;
-            this.overlapSwitch.setChecked(on);
-            this.syncingOverlap = false;
-        }
     }
 
     private void updatePreview() {

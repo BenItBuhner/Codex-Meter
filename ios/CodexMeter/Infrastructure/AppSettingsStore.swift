@@ -63,6 +63,14 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var creditExpiryRemindersEnabled: Bool
     /// Minutes before expiry. Multiple values schedule one reminder each (2.2 parity).
     public var creditExpiryLeadMinutes: [Int]
+    /// Use unused available credits automatically shortly before they expire.
+    public var creditExpiryAutoApplyEnabled: Bool
+    /// How long before expiry to use them; one of `CreditExpiryAutoApply.leadMinuteOptions`.
+    public var creditExpiryAutoApplyLeadMinutes: Int
+    /// Spend one credit when remaining usage drops to `lowUsageAutoUseThreshold`. Off by default.
+    public var lowUsageAutoUseEnabled: Bool
+    public var lowUsageAutoUseThreshold: Int
+    public var lowUsageAutoUseMetric: LowUsageAutoUseMetric
     /// Whether meter cards and history project how long the current allowance may last.
     public var usagePaceEnabled: Bool
     /// `.off` keeps the projection but never flags it as accelerated.
@@ -93,6 +101,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         unexpectedRefillAlertsEnabled: Bool = true,
         creditExpiryRemindersEnabled: Bool = true,
         creditExpiryLeadMinutes: [Int] = AppSettings.defaultCreditExpiryLeadMinutes,
+        creditExpiryAutoApplyEnabled: Bool = true,
+        creditExpiryAutoApplyLeadMinutes: Int = CreditExpiryAutoApply.defaultLeadMinutes,
+        lowUsageAutoUseEnabled: Bool = false,
+        lowUsageAutoUseThreshold: Int = LowUsageAutoUse.defaultThreshold,
+        lowUsageAutoUseMetric: LowUsageAutoUseMetric = .both,
         usagePaceEnabled: Bool = true,
         usagePaceSensitivity: UsagePaceSensitivity = .balanced
     ) {
@@ -124,6 +137,12 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.unexpectedRefillAlertsEnabled = unexpectedRefillAlertsEnabled
         self.creditExpiryRemindersEnabled = creditExpiryRemindersEnabled
         self.creditExpiryLeadMinutes = Self.sanitizedLeadMinutes(creditExpiryLeadMinutes)
+        self.creditExpiryAutoApplyEnabled = creditExpiryAutoApplyEnabled
+        self.creditExpiryAutoApplyLeadMinutes =
+            CreditExpiryAutoApply.normalizedLeadMinutes(creditExpiryAutoApplyLeadMinutes)
+        self.lowUsageAutoUseEnabled = lowUsageAutoUseEnabled
+        self.lowUsageAutoUseThreshold = LowUsageAutoUse.normalizedThreshold(lowUsageAutoUseThreshold)
+        self.lowUsageAutoUseMetric = lowUsageAutoUseMetric
         self.usagePaceEnabled = usagePaceEnabled
         self.usagePaceSensitivity = usagePaceSensitivity
     }
@@ -302,6 +321,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case unexpectedRefillAlertsEnabled
         case creditExpiryRemindersEnabled
         case creditExpiryLeadMinutes
+        case creditExpiryAutoApplyEnabled
+        case creditExpiryAutoApplyLeadMinutes
+        case lowUsageAutoUseEnabled
+        case lowUsageAutoUseThreshold
+        case lowUsageAutoUseMetric
         case usagePaceEnabled
         case usagePaceSensitivity
     }
@@ -338,6 +362,14 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             creditExpiryRemindersEnabled: try container.decodeIfPresent(Bool.self, forKey: .creditExpiryRemindersEnabled) ?? true,
             creditExpiryLeadMinutes: try container.decodeIfPresent([Int].self, forKey: .creditExpiryLeadMinutes)
                 ?? Self.defaultCreditExpiryLeadMinutes,
+            creditExpiryAutoApplyEnabled: try container.decodeIfPresent(Bool.self, forKey: .creditExpiryAutoApplyEnabled) ?? true,
+            creditExpiryAutoApplyLeadMinutes: try container.decodeIfPresent(Int.self, forKey: .creditExpiryAutoApplyLeadMinutes)
+                ?? CreditExpiryAutoApply.defaultLeadMinutes,
+            lowUsageAutoUseEnabled: try container.decodeIfPresent(Bool.self, forKey: .lowUsageAutoUseEnabled) ?? false,
+            lowUsageAutoUseThreshold: try container.decodeIfPresent(Int.self, forKey: .lowUsageAutoUseThreshold)
+                ?? LowUsageAutoUse.defaultThreshold,
+            lowUsageAutoUseMetric: (try? container.decodeIfPresent(LowUsageAutoUseMetric.self, forKey: .lowUsageAutoUseMetric))
+                ?? .both,
             usagePaceEnabled: try container.decodeIfPresent(Bool.self, forKey: .usagePaceEnabled) ?? true,
             usagePaceSensitivity: try container.decodeIfPresent(UsagePaceSensitivity.self, forKey: .usagePaceSensitivity)
                 ?? .balanced

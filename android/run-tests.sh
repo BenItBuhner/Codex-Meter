@@ -51,11 +51,15 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WatchMeters.java" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearProvidersState.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryApply.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditLowUsageAutoUse.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
@@ -77,29 +81,34 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MeterOverlap.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeCodeApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeUsageParser.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeSavedResets.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeResetAutoUse.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorUsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderCatalog.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppSessionRules.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderTabs.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderUsageParsers.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DeviceAuth.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java" \
   "$ROOT/tests/ParserSelfTest.java" \
-  "$ROOT/tests/ProviderParsersSelfTest.java"
+  "$ROOT/tests/ProviderParsersSelfTest.java" \
+  "$ROOT/tests/WatchProvidersSelfTest.java"
 
 java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.WatchProvidersSelfTest
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.9.0-alpha.3"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME = "2.9.0-alpha.12"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.9.0-alpha.3"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.12"' "$ROOT/app/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.9.0-alpha.3"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.12"' "$ROOT/wear/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.9.0-alpha.3' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.9.0-alpha.3"' "$ROOT/build.sh"
+grep -q 'codex-meter-android/2.9.0-alpha.12' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.9.0-alpha.12"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -141,8 +150,9 @@ grep -q 'DashboardSections.USAGE_HISTORY.equals(key)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'setDashboardSectionHidden' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
-grep -q 'dashboard_usage_history' \
-  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+# Card visibility lives in Edit dashboard, which writes the same preference.
+grep -q 'DashboardSections.USAGE_HISTORY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderPreferences.java"
 grep -q 'dashboard_hidden_sections' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
 grep -q 'hidden-section keys round-trip' "$ROOT/tests/ParserSelfTest.java"
@@ -209,8 +219,9 @@ grep -q 'usage_history_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'dashboard_monthly' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
-grep -q 'dashboard_monthly' \
-  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+# Card visibility lives in Edit dashboard, which writes the same preference.
+grep -q 'DashboardSections.MONTHLY.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderPreferences.java"
 grep -q 'WINDOW_MONTHLY' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 grep -q 'longWindowIsMonthly' \
@@ -250,8 +261,9 @@ grep -q 'dashboard_spend_control' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'dashboard_spend_control' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransferStore.java"
-grep -q 'dashboard_spend_control' \
-  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+# Card visibility lives in Edit dashboard, which writes the same preference.
+grep -q 'DashboardSections.SPEND_CONTROL.equals(key)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderPreferences.java"
 # Dashboard auto-hide wiring remains; blank placeholders are widget-only.
 grep -q 'snapshot.usageCredits.shouldDisplay()' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
@@ -446,8 +458,10 @@ grep -q 'com.samsung.android.support.ongoing_activity' "$ROOT/app/src/main/Andro
 
 grep -q 'app:expanded="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
 grep -q 'app:expandable="true"' "$ROOT/app/src/main/res/layout/activity_settings.xml"
-grep -q 'Ui.configureReachToolbar(toolbar, pageTitle(page), true);' \
+grep -q 'Ui.installSettingsPage(this, pageTitle(page));' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+grep -q 'configureReachToolbar(toolbar, title, true);' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'toolbar.setExpandable(false);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'toolbar.setExpandable(true);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
 grep -q 'toolbar.setExpanded(true, false);' "$ROOT/app/src/main/java/dev/bennett/codexmeter/Ui.java"
@@ -556,6 +570,15 @@ grep -q 'maybeAutoStart' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'now_bar_auto_start_ui' \
   "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
+# AI app sessions are one switch-with-arrow row on the Now Bar page.
+grep -q 'SeslSwitchPreferenceScreen' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
+grep -q 'refresh_schedule_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'reset_credit_low_usage_auto_use_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_reset_credits.xml"
+grep -q 'claude_saved_reset_check_ui' \
+  "$ROOT/app/src/main/res/xml/preferences_settings_reset_credits.xml"
 grep -q 'now_bar_threshold_ui' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
 grep -q 'NowBarPreferences.isAutoStartEnabled' \

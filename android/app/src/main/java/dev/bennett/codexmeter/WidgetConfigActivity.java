@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.annotation.SuppressLint;
 import android.appwidget.AppWidgetManager;
 import android.content.Intent;
@@ -37,6 +38,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 public final class WidgetConfigActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private Spinner accentSpinner;
     private CardItemView accentRow;
     private int appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
@@ -257,8 +263,8 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeslSeekBar seekBar) {
             }
         });
-        page.cancel.setOnClickListener(view -> finish());
-        page.save.setOnClickListener(view -> save());
+        page.onCancel(this::finish);
+        page.onSave(this::save);
         updateSliderVisuals();
         updateRowSummaries();
         updateMetersHint();

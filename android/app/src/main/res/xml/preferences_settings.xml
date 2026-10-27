@@ -2,38 +2,45 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <!-- Connected accounts plus an "Add account" row; filled in by SettingsActivity. -->
-    <PreferenceCategory
-        android:key="accounts"
-        android:title="Accounts" />
-
-    <PreferenceCategory android:title="General">
+    <PreferenceCategory android:title="Accounts">
+        <!-- Summaries for every row here are filled in by SettingsActivity. -->
+        <Preference
+            android:key="settings_accounts"
+            android:title="Accounts"
+            app:iconSpaceReserved="false" />
         <Preference
             android:key="settings_providers"
-            android:title="Providers"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="settings_appearance"
-            android:title="Appearance"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="settings_refresh_usage"
-            android:title="Refresh &amp; usage"
+            android:title="Dashboard tabs"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Features">
-        <Preference
-            android:key="settings_notifications"
-            android:title="Notifications"
-            app:iconSpaceReserved="false" />
+    <PreferenceCategory android:title="Live usage">
         <Preference
             android:key="settings_now_bar"
             android:title="Now Bar"
             app:iconSpaceReserved="false" />
         <Preference
+            android:key="settings_notifications"
+            android:title="Notifications"
+            app:iconSpaceReserved="false" />
+        <Preference
             android:key="settings_lock_widgets"
             android:title="Lock screen widgets"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Usage">
+        <Preference
+            android:key="settings_refresh_usage"
+            android:title="Refresh &amp; dashboard"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_reset_credits"
+            android:title="Reset credits"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_appearance"
+            android:title="Appearance"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

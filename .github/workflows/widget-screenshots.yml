@@ -98,13 +98,12 @@ jobs:
           shot() { sleep 6; adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true; sleep 1; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
           open() { adb shell am force-stop $PKG; sleep 1; adb shell am start -W -n $PKG/.WidgetGalleryActivity --es page "$1" --ez dark "${2:-false}"; }
           scroll_down() { adb shell input swipe 540 1900 540 700 400; }
-          open lock;               shot 01-lock-dials
-          open lock-bars;          shot 02-lock-bars-option
-          open home-bars;          shot 03-home-bars
-          open home-bars true;     shot 04-home-bars-dark
-          open home-dials;         shot 05-home-dials
-          open home-dials true;    shot 06-home-dials-dark
-          open config-lock;        scroll_down; shot 07-lock-widget-settings
+          open home-bars;          shot 01-home-bars-light
+          open home-bars true;     shot 02-home-bars-dark
+          open home-dials;         shot 03-home-dials-light
+          open home-dials true;    shot 04-home-dials-dark
+          open config-home;        scroll_down; scroll_down; shot 05-widget-settings-switch
+          open lock;               shot 06-lock-screen-in-alpha
           adb logcat -d -s WidgetGallery:* AndroidRuntime:E > "$OUT/logcat.txt" || true
           SH
           chmod +x "$RUNNER_TEMP/capture.sh"

@@ -14,9 +14,15 @@ nonisolated public protocol CodexService: Sendable {
     func refresh() async throws -> CodexRefreshSnapshot
     func refreshUsage() async throws -> UsageSnapshot
     func refreshResetCredits() async throws -> ResetCreditsSnapshot
-    func consumeReset() async throws -> ResetConsumeResult
+    func consumeReset(creditID: String?) async throws -> ResetConsumeResult
     func currentTokens() async throws -> AuthTokens?
     func signOut() async
+}
+
+extension CodexService {
+    func consumeReset() async throws -> ResetConsumeResult {
+        try await consumeReset(creditID: nil)
+    }
 }
 
 nonisolated public enum CodexServiceError: Error, Sendable, Equatable {

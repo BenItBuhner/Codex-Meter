@@ -19,4 +19,11 @@
             android:title="Material You" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Design">
+        <SwitchPreferenceCompat
+            android:key="one_ui_9_design"
+            android:summary="Floating toolbar and tab bar from Samsung's One UI 9"
+            android:title="One UI 9 design" />
+    </PreferenceCategory>
+
 </PreferenceScreen>

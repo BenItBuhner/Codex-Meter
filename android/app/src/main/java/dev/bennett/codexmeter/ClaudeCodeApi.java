@@ -17,10 +17,31 @@ public final class ClaudeCodeApi {
     public static final String TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
     public static final String USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
     public static final String PROFILE_URL = "https://api.anthropic.com/api/oauth/profile";
+    /**
+     * The usage route with Claude Code's saved-reset status added ({@code cedar_ember} block).
+     * One request keeps the rate-limited usage route at its usual load.
+     */
+    public static final String USAGE_WITH_SAVED_RESETS_URL = USAGE_URL + "?cedar_ember=1";
+    /** Spends a saved reset; {@code %s} is the organization UUID. */
+    public static final String RESET_RATE_LIMITS_URL =
+            "https://api.anthropic.com/api/organizations/%s/reset_rate_limits";
+    /**
+     * Client headers matching the Claude Code CLI. The server decides saved-reset eligibility
+     * per client surface and CLI version, so without these the {@code cedar_ember} block comes
+     * back ineligible or empty for an account that has resets.
+     */
+    public static final String CLI_USER_AGENT = "claude-cli/2.1.307 (external, cli)";
+    public static final String CLI_APP = "cli";
     /** Required beta header for OAuth-token access to api.anthropic.com. */
     public static final String OAUTH_BETA = "oauth-2025-04-20";
-    /** Read-only scopes: profile for the plan badge, inference matches Claude Code's grant. */
-    public static final String SCOPE = "user:profile user:inference";
+    /**
+     * The scopes Claude Code asks for when you sign in with a Claude account. Anthropic tells a
+     * Claude Code sign-in apart by {@link #SESSIONS_SCOPE}; without it the usage route treats the
+     * token as another client and reports no saved resets.
+     */
+    public static final String SESSIONS_SCOPE = "user:sessions:claude_code";
+    public static final String SCOPE = "user:profile user:inference " + SESSIONS_SCOPE
+            + " user:mcp_servers user:file_upload";
     /** Claude Code's loopback callback path; any localhost port is accepted. */
     public static final String CALLBACK_PATH = "/callback";
 
@@ -40,6 +61,14 @@ public final class ClaudeCodeApi {
             return false;
         }
         return fetchedAt <= 0L || now < fetchedAt || now - fetchedAt >= minIntervalMillis;
+    }
+
+    public static String resetRateLimitsUrl(String organizationUuid) {
+        String org = organizationUuid == null ? "" : organizationUuid.trim();
+        if (!org.matches("^[A-Za-z0-9-]{1,64}$")) {
+            throw new IllegalArgumentException("Missing Claude organization.");
+        }
+        return String.format(java.util.Locale.ROOT, RESET_RATE_LIMITS_URL, org);
     }
 
     public static String redirectUri(int port) {
@@ -73,10 +102,19 @@ public final class ClaudeCodeApi {
     }
 
     public static Map<String, String> refreshBody(String refreshToken) {
+        return refreshBody(refreshToken, null);
+    }
+
+    /**
+     * Like Claude Code, a refresh can ask for {@link #SCOPE} so a sign-in from an older version
+     * gains the Claude Code scope without signing in again. A null scope keeps the old grant.
+     */
+    public static Map<String, String> refreshBody(String refreshToken, String scope) {
         Map<String, String> body = new LinkedHashMap<>();
         body.put("grant_type", "refresh_token");
         body.put("refresh_token", refreshToken);
         body.put("client_id", CLIENT_ID);
+        if (scope != null && !scope.isEmpty()) body.put("scope", scope);
         return body;
     }
 

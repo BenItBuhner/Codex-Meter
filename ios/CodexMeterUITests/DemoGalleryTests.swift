@@ -113,6 +113,29 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("10-settings")
 
+        // Codex reset credits: expiry auto-use is on by default; running-low asks first.
+        let expirySwitch = app.switches["Use resets before they expire"]
+        UITestSupport.scrollForm(untilExists: expirySwitch, in: app)
+        if expirySwitch.firstMatch.exists {
+            // Drag the section's first row up near the top so the whole section is in view.
+            let start = expirySwitch.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            start.press(forDuration: 0.1, thenDragTo: end)
+        }
+        UITestSupport.settle(0.8)
+        capture("09b-settings-reset-auto-use")
+        let lowUsageSwitch = app.switches["Use a reset when running low"].firstMatch
+        if lowUsageSwitch.waitForExistence(timeout: 3) {
+            lowUsageSwitch.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        }
+        if app.alerts["Use resets automatically?"].waitForExistence(timeout: 5) {
+            UITestSupport.settle(0.5)
+            capture("09c-reset-auto-use-confirm")
+            UITestSupport.tap(app.alerts["Use resets automatically?"].buttons["Turn on"])
+            UITestSupport.settle(0.8)
+            capture("09d-reset-auto-use-on")
+        }
+
         UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app)
         UITestSupport.settle(0.5)
         capture("11-settings-notifications")
@@ -272,8 +295,8 @@ final class DemoGalleryTests: XCTestCase {
 
         UITestSupport.tap(app.buttons["Get started"])
         XCTAssertTrue(app.staticTexts["Choose your providers"].waitForExistence(timeout: 5))
-        tapToggle(app.switches["onboarding-provider-claude_code"], in: app)
-        tapToggle(app.switches["onboarding-provider-cursor"], in: app)
+        UITestSupport.tap(app.buttons["onboarding-provider-claude_code"])
+        UITestSupport.tap(app.buttons["onboarding-provider-cursor"])
         UITestSupport.settle(0.8)
         capture("21-onboarding-providers")
 
@@ -282,7 +305,8 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("22-onboarding-connect")
 
-        // Accounts live in Settings, one compact row per provider with a tab.
+        // Settings → Accounts opens its own page: connected accounts, then Add account
+        // (nothing is connected on a signed-out install).
         app.terminate()
         app.launchArguments = [
             "-ui-testing-signed-out",
@@ -292,20 +316,49 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 8))
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        _ = app.buttons["account-cursor"].waitForExistence(timeout: 5)
         UITestSupport.settle(0.8)
-        capture("23-settings-accounts")
-    }
+        capture("23-settings-accounts-row")
+        UITestSupport.tap(app.buttons["settings-accounts"])
+        XCTAssertTrue(app.navigationBars["Accounts"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["account-add"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("23b-accounts-page")
 
-    private func tapToggle(_ toggle: XCUIElement, in app: XCUIApplication) {
-        guard toggle.waitForExistence(timeout: 5) else { return }
-        // A SwiftUI Toggle's switch sits at the trailing edge of its row.
-        if toggle.switches.firstMatch.exists {
-            toggle.switches.firstMatch.tap()
-        } else {
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
-        }
-        UITestSupport.settle(0.3)
+        // Add account: the searchable picker of every provider, then each sign-in style.
+        UITestSupport.tap(app.buttons["account-add"])
+        XCTAssertTrue(app.navigationBars["Add account"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("24-add-account")
+
+        UITestSupport.tap(app.buttons["add-account-copilot"])
+        XCTAssertTrue(app.navigationBars["Connect Copilot"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("25-sign-in-device-code")
+        tapBack(in: app, from: "Connect Copilot", to: "Add account")
+
+        if !app.buttons["add-account-windsurf"].exists { app.swipeUp() }
+        UITestSupport.tap(app.buttons["add-account-windsurf"])
+        XCTAssertTrue(app.navigationBars["Connect Windsurf"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("26-sign-in-paste-experimental")
+        tapBack(in: app, from: "Connect Windsurf", to: "Add account")
+
+        if !app.buttons["add-account-zai"].exists { app.swipeUp() }
+        UITestSupport.tap(app.buttons["add-account-zai"])
+        XCTAssertTrue(app.navigationBars["Connect Z.ai"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("27-sign-in-api-key")
+
+        // An added provider's tab, with local demo data.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "codex,copilot,kimi,zai"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Copilot"].waitForExistence(timeout: 8))
+        UITestSupport.tap(app.buttons["Copilot"])
+        XCTAssertTrue(app.navigationBars["Copilot"].waitForExistence(timeout: 5))
+        _ = app.staticTexts["Weekly"].waitForExistence(timeout: 5)
+        UITestSupport.settle(1.0)
+        capture("28-copilot-demo-tab")
     }
 
     private func capture(_ name: String) {

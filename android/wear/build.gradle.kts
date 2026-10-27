@@ -15,7 +15,7 @@ android {
         minSdk = 30
         targetSdk = 36
         versionCode = 30
-        versionName = "2.9.0-alpha.3"
+        versionName = "2.9.0-alpha.12"
     }
 
     signingConfigs {
@@ -51,13 +51,13 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("androidx.wear:wear:1.4.0")
     implementation("androidx.wear:wear-ongoing:1.1.0")
-    implementation("androidx.wear.tiles:tiles:1.6.1")
-    implementation("androidx.wear.protolayout:protolayout:1.4.1")
-    implementation("androidx.wear.protolayout:protolayout-proto:1.4.1")
-    implementation("androidx.wear.protolayout:protolayout-material:1.4.1")
-    implementation("androidx.wear.protolayout:protolayout-expression:1.4.1")
+    implementation("androidx.wear.tiles:tiles:1.6.2")
+    implementation("androidx.wear.protolayout:protolayout:1.4.2")
+    implementation("androidx.wear.protolayout:protolayout-proto:1.4.2")
+    implementation("androidx.wear.protolayout:protolayout-material:1.4.2")
+    implementation("androidx.wear.protolayout:protolayout-expression:1.4.2")
     implementation("androidx.concurrent:concurrent-futures:1.3.0")
-    implementation("androidx.core:core:1.19.0")
-    implementation("com.google.guava:guava:33.6.0-android")
+    implementation("androidx.core:core:1.19.1")
+    implementation("com.google.guava:guava:33.7.2-android")
     implementation("androidx.wear.watchface:watchface-complications-data-source:1.3.0")
 }

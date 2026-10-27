@@ -21,6 +21,7 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
     private static final String KEY_HISTORY_SECTION_OVERRIDES = "history_section_overrides";
     private static final String KEY_MATERIAL_YOU = "material_you";
+    private static final String KEY_ONE_UI_9_DESIGN = "one_ui_9_design";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
@@ -85,6 +86,8 @@ public final class AppPreferences {
         NowBarPreferences.clearSuppression(context);
         ResetNotificationManager.clearState(context);
         ResetCreditExpiryScheduler.cancelAll(context);
+        ResetCreditExpiryApplyScheduler.cancelAll(context);
+        ResetCreditExpiryApplyReceiver.clearState(context);
         PhoneWearSync.pushUsage(context, null);
     }
 
@@ -433,6 +436,15 @@ public final class AppPreferences {
         prefs(context).edit().putBoolean(KEY_MATERIAL_YOU, enabled).commit();
     }
 
+    /** When enabled, pages use the One UI 9 chrome (floating toolbar and tab bar). */
+    public static boolean isOneUi9Design(Context context) {
+        return prefs(context).getBoolean(KEY_ONE_UI_9_DESIGN, false);
+    }
+
+    public static void setOneUi9Design(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_ONE_UI_9_DESIGN, enabled).commit();
+    }
+
     public static String getAppStyle(Context context) {
         return WidgetOptions.SURFACE_ONE_UI;
     }
@@ -633,9 +645,7 @@ public final class AppPreferences {
                 sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", false),
                 sharedPreferencesPrefs.getBoolean(str + "show_reset_action", false),
                 sharedPreferencesPrefs.getBoolean(str + "show_countdown", true),
-                sharedPreferencesPrefs.getString(str + "visible_meters", ""))
-                .withOverlapMode(sharedPreferencesPrefs.getString(str + "overlap_mode",
-                        MeterOverlap.AUTO));
+                sharedPreferencesPrefs.getString(str + "visible_meters", ""));
     }
 
     public static void saveLockWidgetOptions(Context context, int i, LockWidgetOptions lockWidgetOptions) {
@@ -647,7 +657,6 @@ public final class AppPreferences {
                     .putBoolean(str + "show_reset_action", lockWidgetOptions.showResetAction)
                     .putBoolean(str + "show_countdown", lockWidgetOptions.showCountdown)
                     .putString(str + "visible_meters", lockWidgetOptions.visibleMeters)
-                    .putString(str + "overlap_mode", lockWidgetOptions.overlapMode)
                     .apply();
         }
     }
@@ -660,7 +669,6 @@ public final class AppPreferences {
                 .remove(str + "show_reset_action")
                 .remove(str + "show_countdown")
                 .remove(str + "visible_meters")
-                .remove(str + "overlap_mode")
                 .apply();
     }
 

@@ -1,4 +1,6 @@
+#if canImport(BackgroundTasks) && os(iOS)
 import BackgroundTasks
+#endif
 import CodexMeterCore
 import Observation
 import SwiftUI
@@ -106,6 +108,9 @@ final class AppModel {
     let claude: ClaudeUsageModel
     /// Cursor tab state. Independent of the Codex and Claude sessions.
     let cursor: CursorUsageModel
+    /// Tab and sign-in state for every provider added through Settings → Accounts → Add account
+    /// (Copilot, Kimi, Z.ai and the rest), keyed by provider. Each is independent.
+    let addedProviders: [UsageProvider: ProviderUsageModel]
     /// The dashboard tab. Codex stays the default; the choice is remembered.
     var selectedProvider: UsageProvider = .defaultProvider
     /// Providers shown as dashboard tabs (Settings → Providers), in tab order. Chosen during
@@ -136,6 +141,8 @@ final class AppModel {
     var isShowingSettings = false
     var isShowingReset = false
     var isShowingSignIn = false
+    /// Settings → Accounts → Add account.
+    var isAddingAccount = false
     /// First-run setup, shown once on a fresh install.
     var isShowingOnboarding = false
     var diagnosticsUnlocked = false
@@ -183,6 +190,11 @@ final class AppModel {
     ) {
         self.claude = claude ?? ClaudeUsageModel(preview: preview)
         self.cursor = cursor ?? CursorUsageModel(preview: preview)
+        var addedProviders: [UsageProvider: ProviderUsageModel] = [:]
+        for provider in UsageProvider.allCases where !provider.isBuiltIn && ProviderCatalog.isAvailableOnIOS(provider) {
+            addedProviders[provider] = ProviderUsageModel(provider: provider)
+        }
+        self.addedProviders = addedProviders
         let savedProviders = defaults.stringArray(forKey: Self.enabledProvidersDefaultsKey) ?? []
         var hasProviderChoice = !savedProviders.isEmpty
         // Sign-in state isn't known yet; `resolveProviderSetup()` adds signed-in providers to
@@ -196,8 +208,8 @@ final class AppModel {
         if arguments.contains("-ui-testing-reset-settings") {
             defaults.removeObject(forKey: Self.enabledProvidersDefaultsKey)
             defaults.removeObject(forKey: Self.providerOrderDefaultsKey)
-            // Every tab, in memory only, so the UI tests can walk all three.
-            enabledProviders = UsageProvider.allCases
+            // The three built-in tabs, in memory only, so the UI tests can walk them.
+            enabledProviders = UsageProvider.builtIns
             providerOrder = UsageProvider.allCases
             hasProviderChoice = true
         }
@@ -238,6 +250,11 @@ final class AppModel {
         self.settings = settingsStore.settings
         self.isPreview = preview
         self.diagnosticsUnlocked = DiagnosticLog.isUnlocked(defaults: defaults)
+        for added in addedProviders.values {
+            added.onSignedIn = { [weak self] provider in
+                self?.providerConnected(provider)
+            }
+        }
 
         if preview {
             let now = Date()
@@ -441,6 +458,9 @@ final class AppModel {
     func leaveDemo() async {
         await claude.leaveDemo()
         await cursor.leaveDemo()
+        for added in addedProviders.values {
+            await added.leaveDemo()
+        }
         await demoService.signOut()
         await notificationCoordinator.clearAll()
         backgroundRefreshCoordinator.cancel()
@@ -456,6 +476,9 @@ final class AppModel {
         if mode == .demo {
             await claude.leaveDemo()
             await cursor.leaveDemo()
+            for added in addedProviders.values {
+                await added.leaveDemo()
+            }
         }
         await activeService.signOut()
         await notificationCoordinator.clearAll()
@@ -623,7 +646,9 @@ final class AppModel {
             || previous.creditIncreaseAlertsEnabled != settings.creditIncreaseAlertsEnabled
             || previous.unexpectedRefillAlertsEnabled != settings.unexpectedRefillAlertsEnabled
             || previous.creditExpiryRemindersEnabled != settings.creditExpiryRemindersEnabled
-            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes {
+            || previous.creditExpiryLeadMinutes != settings.creditExpiryLeadMinutes
+            || previous.creditExpiryAutoApplyEnabled != settings.creditExpiryAutoApplyEnabled
+            || previous.creditExpiryAutoApplyLeadMinutes != settings.creditExpiryAutoApplyLeadMinutes {
             Task { await applyNotificationSettings() }
         }
     }
@@ -695,6 +720,8 @@ final class AppModel {
             await claude.tabOpened()
         } else if selectedProvider == .cursor {
             await cursor.tabOpened()
+        } else if let added = addedProviders[selectedProvider] {
+            await added.tabOpened()
         }
         guard mode != .signedOut, settings.refreshOnLaunch else { return }
         if usage == nil || usage?.isStale(at: .now, maxAge: 5 * 60) == true {
@@ -753,6 +780,7 @@ final class AppModel {
         case .codex: mode == .live
         case .claudeCode: claude.phase == .live
         case .cursor: cursor.phase == .live
+        default: addedProviders[provider]?.phase == .live
         }
     }
 
@@ -761,6 +789,7 @@ final class AppModel {
         case .codex: accountEmail
         case .claudeCode: claude.accountEmail
         case .cursor: cursor.accountEmail
+        default: addedProviders[provider]?.accountEmail ?? ""
         }
     }
 
@@ -769,16 +798,52 @@ final class AppModel {
         case .codex: accountPlan
         case .claudeCode: claude.accountPlan
         case .cursor: cursor.accountPlan
+        default: addedProviders[provider]?.accountPlan ?? ""
         }
     }
 
-    /// Signs out of one provider; the others keep their sessions.
+    /// Signs out of one provider; the others keep their sessions. An added provider's tab goes
+    /// away with its account (unless it is the last tab), as on Android.
     func signOut(provider: UsageProvider) async {
         switch provider {
         case .codex: await signOut()
         case .claudeCode: await claude.signOut()
         case .cursor: await cursor.signOut()
+        default:
+            await addedProviders[provider]?.signOut()
+            setProvider(provider, enabled: false)
         }
+    }
+
+    /// Account row summary, as on Android: "<email> · <plan>", or "API key" / "Signed in" in
+    /// place of a missing email.
+    func accountSummary(for provider: UsageProvider) -> String {
+        let email = accountEmail(for: provider)
+        let plan = accountPlan(for: provider)
+        let identity = !email.isEmpty ? email
+            : (addedProviders[provider]?.usesAPIKey == true ? "API key" : "Signed in")
+        return plan.isEmpty ? identity : "\(identity) · \(plan)"
+    }
+
+    /// The Settings → Accounts row summary: up to three names, then "A, B + N more".
+    var connectedAccountsSummary: String {
+        let names = connectedProviders.map(\.displayName)
+        switch names.count {
+        case 0: return "None connected"
+        case 1 ... 3: return names.joined(separator: ", ")
+        default: return names.prefix(2).joined(separator: ", ") + " + \(names.count - 2) more"
+        }
+    }
+
+    /// Accounts in Settings: providers with a real session, in tab order.
+    var connectedProviders: [UsageProvider] {
+        providerOrder.filter { isSignedIn($0) }
+    }
+
+    /// A new account was connected: give it a tab and show it.
+    func providerConnected(_ provider: UsageProvider) {
+        setProvider(provider, enabled: true)
+        select(provider: provider)
     }
 
     private var signedInProviders: Set<UsageProvider> {
@@ -790,6 +855,9 @@ final class AppModel {
     private func resolveProviderSetup() async {
         await claude.loadIfNeeded()
         await cursor.loadIfNeeded()
+        for added in addedProviders.values {
+            await added.loadIfNeeded()
+        }
         if !hasProviderChoice {
             let updated = UsageProvider.inOrder(
                 UsageProvider.migrationDefault(signedIn: signedInProviders),
@@ -814,6 +882,7 @@ final class AppModel {
         let completed = defaults.bool(forKey: Self.onboardingCompleteDefaultsKey)
         let hasExistingSetup = mode != .signedOut || usage != nil
             || claude.phase != .signedOut || cursor.phase != .signedOut
+            || addedProviders.values.contains { $0.phase != .signedOut }
         if OnboardingFlow.shouldShow(completed: completed, hasExistingSetup: hasExistingSetup) {
             isShowingOnboarding = true
         } else if !completed {
@@ -841,10 +910,10 @@ final class AppModel {
         DiagnosticLog.info("process", "onboarding_finished")
     }
 
-    /// "Explore demo" from setup: every provider gets a tab with local demo data.
+    /// "Explore demo" from setup: Codex, Claude Code and Cursor get tabs with local demo data.
     func finishOnboardingWithDemo() async {
         if !hasProviderChoice {
-            chooseProviders(UsageProvider.allCases)
+            chooseProviders(UsageProvider.builtIns)
         }
         finishOnboarding()
         await enterDemo()
@@ -872,6 +941,19 @@ final class AppModel {
     func moveProviders(fromOffsets source: IndexSet, toOffset destination: Int) {
         var order = providerOrder
         order.move(fromOffsets: source, toOffset: destination)
+        setProviderOrder(order)
+    }
+
+    /// Moves rows of a list that shows only some providers (Settings → Providers lists tabs
+    /// that are on and connected accounts); providers it doesn't show keep their relative order
+    /// after the shown ones.
+    func moveProviders(_ shown: [UsageProvider], fromOffsets source: IndexSet, toOffset destination: Int) {
+        var moved = shown
+        moved.move(fromOffsets: source, toOffset: destination)
+        setProviderOrder(moved + providerOrder.filter { !moved.contains($0) })
+    }
+
+    private func setProviderOrder(_ order: [UsageProvider]) {
         guard order != providerOrder else { return }
         providerOrder = order
         enabledProviders = UsageProvider.inOrder(enabledProviders, order: order)
@@ -901,6 +983,14 @@ final class AppModel {
         if cursor.phase == .signedOut {
             cursor.enterDemo()
         }
+        // Added providers only show demo data when their tab is on.
+        for provider in enabledProviders {
+            guard let added = addedProviders[provider] else { continue }
+            await added.loadIfNeeded()
+            if added.phase == .signedOut {
+                added.enterDemo()
+            }
+        }
     }
 
     private var activeService: any CodexService {
@@ -929,6 +1019,138 @@ final class AppModel {
             settings: settings
         )
         scheduleBackgroundRefresh()
+        await autoApplyExpiringCreditsIfNeeded()
+        await autoUseCreditOnLowUsageIfNeeded()
+    }
+
+    private static let handledExpiryTokensKey = "codexMeter.autoUse.handledExpiryTokens"
+    private static let failedExpiryTokensKey = "codexMeter.autoUse.failedExpiryTokens"
+    private static let lowUsageWindowTokenKey = "codexMeter.autoUse.lowUsageWindowToken"
+    private static let lowUsageFailedTokenKey = "codexMeter.autoUse.lowUsageFailedToken"
+
+    /// Uses an unused credit once it is inside the chosen lead time before expiry. Each credit is
+    /// handled once: any answer from OpenAI is final, and only network errors retry (silently
+    /// after the first notice).
+    private func autoApplyExpiringCreditsIfNeeded() async {
+        guard settings.creditExpiryAutoApplyEnabled, mode != .signedOut, !isRedeemingReset else {
+            return
+        }
+        isRedeemingReset = true
+        defer { isRedeemingReset = false }
+        var handled = Set(defaults.stringArray(forKey: Self.handledExpiryTokensKey) ?? [])
+        for _ in 0..<5 {
+            guard let credits else { return }
+            let due = CreditExpiryAutoApply.due(
+                credits: credits.credits,
+                now: .now,
+                leadMinutes: settings.creditExpiryAutoApplyLeadMinutes
+            ).filter { !handled.contains($0.token) }
+            guard let credit = due.first else { return }
+            do {
+                let priorUsage = usage
+                let result = try await activeService.consumeReset(creditID: credit.creditId)
+                handled.insert(credit.token)
+                defaults.set(Self.prunedTokens(handled), forKey: Self.handledExpiryTokensKey)
+                if result.applied, let priorUsage {
+                    await notificationCoordinator.markUserReset(usage: priorUsage)
+                }
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyExpiryAutoApply(
+                        result: result,
+                        expiresAt: credit.expiresAt
+                    )
+                }
+                if let cached = try? await cache.load() {
+                    apply(cache: cached)
+                    if result.applied, let refreshed = cached.usage {
+                        await recordUsageHistory(refreshed)
+                    }
+                }
+            } catch {
+                var failed = Set(defaults.stringArray(forKey: Self.failedExpiryTokensKey) ?? [])
+                if failed.insert(credit.token).inserted {
+                    defaults.set(Self.prunedTokens(failed), forKey: Self.failedExpiryTokensKey)
+                    if settings.notificationsEnabled {
+                        await notificationCoordinator.notifyExpiryAutoApplyFailure(
+                            message: error.localizedDescription
+                        )
+                    }
+                }
+                return
+            }
+        }
+    }
+
+    /// Spends one credit when the watched window reaches the chosen remaining level, at most once
+    /// per usage window. Runs on the snapshot a refresh just returned.
+    private func autoUseCreditOnLowUsageIfNeeded() async {
+        guard settings.lowUsageAutoUseEnabled, mode != .signedOut, !isRedeemingReset else {
+            return
+        }
+        let decision = LowUsageAutoUse.evaluate(
+            snapshot: usage,
+            metric: settings.lowUsageAutoUseMetric,
+            threshold: settings.lowUsageAutoUseThreshold,
+            availableCredits: credits?.availableCount ?? usage?.resetCreditsAvailable,
+            lastFiredToken: defaults.string(forKey: Self.lowUsageWindowTokenKey),
+            now: .now
+        )
+        guard decision.fires else { return }
+        isRedeemingReset = true
+        defer { isRedeemingReset = false }
+        do {
+            let priorUsage = usage
+            let result = try await activeService.consumeReset(creditID: nil)
+            defaults.set(decision.windowToken, forKey: Self.lowUsageWindowTokenKey)
+            if result.applied, let priorUsage {
+                await notificationCoordinator.markUserReset(usage: priorUsage)
+            }
+            if settings.notificationsEnabled {
+                await notificationCoordinator.notifyLowUsageAutoUse(
+                    result: result,
+                    windowLabel: decision.windowLabel,
+                    remainingPercent: decision.remainingPercent
+                )
+            }
+            if let cached = try? await cache.load() {
+                apply(cache: cached)
+                if result.applied, let refreshed = cached.usage {
+                    await recordUsageHistory(refreshed)
+                }
+            }
+        } catch {
+            if defaults.string(forKey: Self.lowUsageFailedTokenKey) != decision.windowToken {
+                defaults.set(decision.windowToken, forKey: Self.lowUsageFailedTokenKey)
+                if settings.notificationsEnabled {
+                    await notificationCoordinator.notifyLowUsageAutoUseFailure(
+                        message: error.localizedDescription
+                    )
+                }
+            }
+        }
+    }
+
+    /// The next time an expiring credit becomes due, so background refresh can aim for it.
+    private func nextAutoUseDate(after date: Date) -> Date? {
+        guard settings.creditExpiryAutoApplyEnabled, let credits else { return nil }
+        return CreditExpiryAutoApply.plan(
+            credits: credits.credits,
+            now: date,
+            leadMinutes: settings.creditExpiryAutoApplyLeadMinutes
+        )
+        .map { max($0.triggerAt, date.addingTimeInterval(60)) }
+        .min()
+    }
+
+    /// Keeps tokens for credits that expired less than a day ago.
+    private static func prunedTokens(_ tokens: Set<String>) -> [String] {
+        let cutoff = Date().addingTimeInterval(-86_400).timeIntervalSince1970
+        return tokens.filter { token in
+            guard let split = token.lastIndex(of: ":"),
+                  let seconds = Double(token[token.index(after: split)...]) else { return false }
+            return seconds > cutoff
+        }
+        .sorted()
     }
 
     private func apply(
@@ -1045,9 +1267,12 @@ final class AppModel {
             refreshEngagementStore.recordRefreshSuccess()
             await apply(refresh: refreshed)
             let now = Date()
+            let nextReset = [refreshed.usage.nextReset(after: now), nextAutoUseDate(after: now)]
+                .compactMap { $0 }
+                .min()
             return BackgroundRefreshOutcome(
                 preferredMinutes: effectiveRefreshMinutes(at: now),
-                nextReset: refreshed.usage.nextReset(after: now)
+                nextReset: nextReset
             )
         } catch {
             refreshEngagementStore.recordRefreshFailure()

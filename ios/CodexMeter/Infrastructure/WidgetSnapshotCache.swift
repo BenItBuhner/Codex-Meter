@@ -1,5 +1,6 @@
 import CodexMeterCore
 import Foundation
+import WidgetKit
 
 /// Writes only `SharedWidgetSnapshot`, the deliberately sanitized schema from
 /// CodexMeterCore. This API cannot persist tokens or arbitrary app cache data.
@@ -12,12 +13,13 @@ public actor WidgetSnapshotCache {
 
     public init(
         appGroupIdentifier: String = WidgetSnapshotCache.appGroupIdentifier,
+        provider: UsageProvider = .codex,
         fileManager: FileManager = .default
     ) {
         self.fileManager = fileManager
         self.fileURL = fileManager
             .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
-            .appendingPathComponent(SharedWidgetSnapshot.defaultFileName)
+            .appendingPathComponent(SharedWidgetSnapshot.fileName(for: provider))
     }
 
     public init(fileURL: URL, fileManager: FileManager = .default) {
@@ -86,5 +88,35 @@ public actor WidgetSnapshotCache {
     public func clear() async throws {
         guard let fileURL, fileManager.fileExists(atPath: fileURL.path) else { return }
         try fileManager.removeItem(at: fileURL)
+    }
+}
+
+/// Publishes the Claude Code, Cursor and added providers' usage for widgets set to show them.
+/// Codex publishes from its own services. Only the sanitized widget schema is written.
+@MainActor
+enum ProviderWidgetPublisher {
+    private static var caches: [UsageProvider: WidgetSnapshotCache] = [:]
+
+    private static func cache(for provider: UsageProvider) -> WidgetSnapshotCache {
+        if let cache = caches[provider] { return cache }
+        let cache = WidgetSnapshotCache(provider: provider)
+        caches[provider] = cache
+        return cache
+    }
+
+    static func publish(_ provider: UsageProvider, demo: Bool, usage: UsageSnapshot?) {
+        let cache = cache(for: provider)
+        Task {
+            try? await cache.publish(mode: demo ? .demo : .live, usage: usage, credits: nil)
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    static func publishSignedOut(_ provider: UsageProvider) {
+        let cache = cache(for: provider)
+        Task {
+            try? await cache.publishSignedOut()
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 }

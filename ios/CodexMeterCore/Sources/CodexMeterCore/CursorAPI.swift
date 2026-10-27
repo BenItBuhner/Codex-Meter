@@ -17,6 +17,8 @@ public enum CursorAPI {
         string: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage"
     )!
     public static let profileURL = URL(string: "https://api2.cursor.sh/auth/full_stripe_profile")!
+    /// Returns `{"email": …}` for the signed-in account; the profile above has no email.
+    public static let emailURL = URL(string: "https://api2.cursor.sh/aiserver.v1.AuthService/GetEmail")!
     /// Cursor's production auth client id, used by the editor for token refresh.
     public static let clientID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB"
 
