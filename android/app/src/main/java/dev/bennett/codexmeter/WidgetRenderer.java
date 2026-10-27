@@ -672,23 +672,20 @@ public final class WidgetRenderer {
     }
 
     /**
-     * Native overlapped bar: the larger fill is the secondary progress underneath and the
-     * smaller one the progress on top, each tinted for the limit it shows (short limit in the
-     * accent, long limit in a lighter shade).
+     * Native overlapped bar: the larger fill is the secondary progress behind and the smaller one
+     * the progress in front. The front keeps the accent and the back a shade toward the track.
      */
     private static void applyOverlapBar(RemoteViews views, int viewId, int shortValue,
             int longValue, int accent, int track) {
-        boolean longUnder = MeterOverlap.longUnderneath(shortValue, longValue);
         int under = Math.max(0, MeterOverlap.under(shortValue, longValue));
         int over = Math.max(0, MeterOverlap.over(shortValue, longValue));
-        int light = WidgetGraphics.overlapColor(accent, track);
         views.setProgressBar(viewId, 100, over, false);
         views.setInt(viewId, "setSecondaryProgress", under);
         if (Build.VERSION.SDK_INT >= 31) {
             views.setColorStateList(viewId, "setProgressTintList",
-                    ColorStateList.valueOf(longUnder ? accent : light));
+                    ColorStateList.valueOf(accent));
             views.setColorStateList(viewId, "setSecondaryProgressTintList",
-                    ColorStateList.valueOf(longUnder ? light : accent));
+                    ColorStateList.valueOf(WidgetGraphics.overlapColor(accent, track)));
         }
     }
 

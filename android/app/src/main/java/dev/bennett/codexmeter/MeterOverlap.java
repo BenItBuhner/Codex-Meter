@@ -2,9 +2,9 @@ package dev.bennett.codexmeter;
 
 /**
  * Overlapped meters: a provider's short limit (5-hour) and long limit (weekly or monthly) share
- * one dial or bar. The short limit keeps the full color and the long one a lighter shade; the
- * larger of the two is drawn first so the smaller always shows on top of it. Pure Java so the
- * self-tests cover it.
+ * one dial or bar. The larger of the two is drawn behind in a shade between the accent and the
+ * track, the smaller in front in the full accent, so the fill steps evenly toward the widget.
+ * The label keeps the order "5-hour · weekly". Pure Java so the self-tests cover it.
  */
 public final class MeterOverlap {
     /** Overlap when the widget shows two or more providers (the default). */

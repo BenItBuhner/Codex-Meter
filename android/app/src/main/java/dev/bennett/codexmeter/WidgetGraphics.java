@@ -159,34 +159,42 @@ public final class WidgetGraphics {
         return bitmapCreateBitmap;
     }
 
-    /** Larger fill underneath, smaller on top; short limit in full color, long one lighter. */
+    /**
+     * Larger fill behind, smaller in front. Colors follow position, not the limit: the front fill
+     * keeps the full accent and the one behind it a shade between the accent and the track, so
+     * the meter steps evenly from the front fill to the widget. Equal values show as one fill.
+     */
     static void drawOverlapArcs(Canvas canvas, Paint paint, RectF rect, float start,
-            float sweep, int shortValue, int longValue, int shortColor, int longColor) {
-        boolean longUnder = MeterOverlap.longUnderneath(shortValue, longValue);
+            float sweep, int shortValue, int longValue, int frontColor, int backColor) {
         int under = MeterOverlap.under(shortValue, longValue);
         int over = MeterOverlap.over(shortValue, longValue);
         if (under >= 0) {
-            paint.setColor(longUnder ? longColor : shortColor);
+            paint.setColor(over >= 0 ? backColor : frontColor);
             canvas.drawArc(rect, start, (sweep * under) / 100.0f, false, paint);
         }
         if (over >= 0) {
-            paint.setColor(longUnder ? shortColor : longColor);
+            paint.setColor(frontColor);
             canvas.drawArc(rect, start, (sweep * over) / 100.0f, false, paint);
         }
     }
 
     /**
-     * The long limit's shade: the accent mixed halfway toward the track, kept opaque so it reads
-     * the same on top of the full-color fill as on the track.
+     * The back fill's shade: the accent mixed halfway toward the track as it shows on the widget,
+     * kept opaque. Mixing toward the track keeps the order accent, shade, track in both themes.
      */
     public static int overlapColor(int accent, int track) {
-        boolean darkTrack = Color.red(track) > 128;
-        int toward = darkTrack ? Color.rgb(40, 42, 46) : Color.WHITE;
-        float mix = darkTrack ? 0.5f : 0.55f;
+        // Tracks are translucent: light ink on dark widgets, dark ink on light ones.
+        int base = Color.red(track) > 128 ? Color.BLACK : Color.WHITE;
+        float alpha = Color.alpha(track) / 255.0f;
+        float mix = 0.5f;
         return Color.rgb(
-                Math.round(Color.red(accent) + (Color.red(toward) - Color.red(accent)) * mix),
-                Math.round(Color.green(accent) + (Color.green(toward) - Color.green(accent)) * mix),
-                Math.round(Color.blue(accent) + (Color.blue(toward) - Color.blue(accent)) * mix));
+                blend(Color.red(accent), blend(Color.red(base), Color.red(track), alpha), mix),
+                blend(Color.green(accent), blend(Color.green(base), Color.green(track), alpha), mix),
+                blend(Color.blue(accent), blend(Color.blue(base), Color.blue(track), alpha), mix));
+    }
+
+    private static int blend(int from, int to, float amount) {
+        return Math.round(from + (to - from) * amount);
     }
 
     public static int accentColor(Context context, String str, boolean z) {

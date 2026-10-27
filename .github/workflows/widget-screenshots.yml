@@ -111,8 +111,11 @@ jobs:
           open home-bars true;     shot 02-home-bars-dark
           open home-dials;         shot 03-home-dials-light
           open home-dials true;    shot 04-home-dials-dark
-          open config-home;        scroll_down; scroll_down; shot 05-widget-settings-switch
-          open lock;               shot 06-lock-screen-in-alpha
+          open edge-bars;          shot 05-edge-bars-light
+          open edge-bars true;     shot 06-edge-bars-dark
+          open edge-dials;         shot 07-edge-dials-light
+          open edge-dials true;    shot 08-edge-dials-dark
+          open lock;               shot 09-lock-screen-in-alpha
           adb logcat -d -s WidgetGallery:* AndroidRuntime:E > "$OUT/logcat.txt" || true
           SH
           chmod +x "$RUNNER_TEMP/capture.sh"
