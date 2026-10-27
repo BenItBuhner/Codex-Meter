@@ -138,6 +138,77 @@ final class IPadLayoutTests: XCTestCase {
         onboarding.terminate()
     }
 
+    // MARK: Window widths
+
+    /// Split View, Slide Over and Stage Manager widths, simulated in one column (see
+    /// `SimulatedWindowWidth`): narrow windows stack the cards, wider ones share rows.
+    func testWindowWidthsReflowColumns() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let cases: [(width: Int, sideBySide: Bool, label: String)] = [
+            (320, false, "slide-over"),
+            (375, false, "stage-manager-small"),
+            (507, false, "split-third"),
+            (694, true, "split-half"),
+            (981, true, "split-two-thirds")
+        ]
+        for item in cases {
+            let app = UITestSupport.launch(arguments: [
+                "-ui-testing-reset-settings",
+                "-ui-testing-demo",
+                "-ui-testing-providers", "codex,claude_code,cursor,copilot",
+                "-ui-testing-window-width", String(item.width)
+            ])
+            guard app.frame.width >= CGFloat(item.width) else {
+                app.terminate()
+                continue
+            }
+            XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 10), "\(item.width) pt window")
+            XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 10))
+            UITestSupport.settle(1.2)
+            capture("30-landscape-width-\(item.width)-\(item.label)")
+            let short = app.staticTexts["5-hour"].firstMatch
+            let weekly = app.staticTexts["Weekly"].firstMatch
+            if weekly.waitForExistence(timeout: 3) {
+                if item.sideBySide {
+                    assertSideBySide(short, weekly, "\(item.width) pt window shares rows")
+                } else {
+                    XCTAssertGreaterThan(weekly.frame.minY, short.frame.maxY, "\(item.width) pt window stacks cards")
+                }
+            }
+            app.terminate()
+        }
+    }
+
+    // MARK: Multiple windows
+
+    /// ⌥⌘N opens the tab in front in a second window; that window keeps its own tab and shows
+    /// its own sheets. Named to sort last, so the extra window can't be restored into the other
+    /// tests' launches.
+    func testWindowsOpenProviderInNewWindow() throws {
+        let app = launch(.landscapeLeft)
+        app.typeKey("3", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
+        let windowsBefore = app.windows.count
+
+        app.typeKey("n", modifierFlags: [.command, .option])
+        UITestSupport.settle(2.5)
+        capture("40-landscape-new-window-cursor")
+        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5), "The new window opens on Cursor")
+        XCTAssertGreaterThanOrEqual(app.windows.count, windowsBefore, "A window scene was added")
+
+        // The new window switches tabs on its own.
+        app.typeKey("2", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("41-landscape-new-window-claude")
+
+        app.typeKey(",", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "Settings opens in the window in front")
+        UITestSupport.settle(0.8)
+        capture("42-landscape-new-window-settings")
+        UITestSupport.tap(app.buttons["Done"])
+    }
+
     // MARK: Helpers
 
     /// Two cards are side by side when their titles share a line and start in different

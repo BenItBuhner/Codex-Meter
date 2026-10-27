@@ -3,17 +3,46 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    /// The provider a window was opened for with Open in New Window, if any.
+    var openedProvider: UsageProvider? = nil
+
+    // Each iPad window keeps its own tab; `model.selectedProvider` follows the window in front,
+    // so commands, refresh-on-foreground and the watch act on what the person is looking at.
+    @State private var windowID = UUID()
+    @State private var selection: UsageProvider?
+    @SceneStorage("selectedProvider") private var storedProvider: String?
+    private let windows = WindowRegistry.shared
+
+    private var currentSelection: UsageProvider {
+        UsageProvider.visibleSelection(selection ?? model.selectedProvider, enabled: model.enabledProviders)
+    }
+
+    private var anySheetOpen: Bool {
+        model.isShowingSettings || model.isShowingReset || model.isShowingSignIn || model.isShowingOnboarding
+    }
+
+    /// A model sheet flag, shown only in the window that owns the sheets.
+    private func presented(_ flag: ReferenceWritableKeyPath<AppModel, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { model[keyPath: flag] && windows.presentsSheets(in: windowID) },
+            set: { model[keyPath: flag] = $0 }
+        )
+    }
+
+    private func choose(_ provider: UsageProvider) {
+        selection = provider
+        storedProvider = provider.rawValue
+        model.select(provider: provider)
+    }
 
     var body: some View {
-        @Bindable var model = model
-
         // Stock tab bar with each provider's mark. Only providers turned on in Settings get a
         // tab, and with just one on the bar is hidden. On iPad the same tabs become a sidebar
         // (or the floating top tab bar, which the sidebar button toggles), so every provider
         // stays one tap away instead of collapsing into a More tab.
         TabView(selection: Binding(
-            get: { model.selectedProvider },
-            set: { model.select(provider: $0) }
+            get: { currentSelection },
+            set: { choose($0) }
         )) {
             ForEach(model.enabledProviders) { provider in
                 Tab(provider.displayName, image: provider.markImageName, value: provider) {
@@ -37,25 +66,52 @@ struct ContentView: View {
             .padding(.vertical, 10)
             .accessibilityIdentifier("sidebar-settings")
         }
-        .sheet(isPresented: $model.isShowingSettings) {
+        .sheet(isPresented: presented(\.isShowingSettings)) {
             NavigationStack {
                 SettingsView()
             }
         }
-        .sheet(isPresented: $model.isShowingReset) {
+        .sheet(isPresented: presented(\.isShowingReset)) {
             NavigationStack {
                 ResetCreditView()
             }
             .presentationDetents([.medium, .large])
         }
-        .sheet(isPresented: $model.isShowingSignIn) {
+        .sheet(isPresented: presented(\.isShowingSignIn)) {
             NavigationStack {
                 SignInView()
             }
             .interactiveDismissDisabled(model.isAuthenticating)
         }
-        .fullScreenCover(isPresented: $model.isShowingOnboarding) {
+        .fullScreenCover(isPresented: presented(\.isShowingOnboarding)) {
             OnboardingView()
+        }
+        .background {
+            KeyWindowObserver {
+                windows.windowBecameKey(windowID)
+                model.select(provider: currentSelection)
+            }
+        }
+        .onAppear {
+            windows.windowAppeared(windowID)
+            if selection == nil {
+                selection = openedProvider
+                    ?? storedProvider.flatMap(UsageProvider.init(rawValue:))
+                    ?? model.selectedProvider
+            }
+        }
+        .onDisappear {
+            windows.windowDisappeared(windowID)
+        }
+        // ⌘1–⌘9, notification routes and tabs being turned off change the model's selection;
+        // only the window in front follows.
+        .onChange(of: model.selectedProvider) { _, provider in
+            guard windows.isKey(windowID), provider != selection else { return }
+            selection = provider
+            storedProvider = provider.rawValue
+        }
+        .onChange(of: anySheetOpen, initial: true) { _, open in
+            windows.sheetsChanged(anyOpen: open)
         }
         .preferredColorScheme(model.settings.appearance.colorScheme)
         .onOpenURL { model.handle(url: $0) }

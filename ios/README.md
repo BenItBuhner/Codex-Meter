@@ -34,10 +34,18 @@ The app is universal and adapts to the window it gets rather than to the device:
 - **Keyboard and pointer.** ⌘1–⌘9 jump to a tab, ⇧⌘] / ⇧⌘[ move between tabs, ⌘R
   refreshes the visible tab and ⌘, opens Settings; they show in the iPadOS menu bar and
   the ⌘ shortcut overlay. Hovering with a trackpad scrubs the history charts.
-- The app keeps one window (`UIApplicationSupportsMultipleScenes` is off): sheets and
-  the selected tab live on the shared `AppModel`, so a second window would mirror them.
-- `IPadLayoutTests` (skipped on iPhone) checks the columns, sidebar and shortcuts. CI runs
-  it with `ci/record-ipad-gallery.sh` on several iPad sizes and uploads `ipad-gallery`.
+- **Multiple windows.** `UIApplicationSupportsMultipleScenes` is on and the scene is a
+  `WindowGroup(for: UsageProvider.self)`. Data and settings stay on the shared `AppModel`;
+  each window keeps its own tab (`@SceneStorage`), and `model.selectedProvider` follows the
+  window in front so ⌘R, ⌘1–⌘9 and foreground refreshes act on it. `WindowRegistry` pins the
+  model's sheets (Settings, sign-in, reset, setup) to the window in front when they open, so
+  other windows never mirror them. Usage → Open in New Window (⌥⌘N) opens the front tab in
+  a new window.
+- `IPadLayoutTests` (skipped on iPhone) checks the columns, sidebar, shortcuts, a second
+  window, and Split View / Slide Over / Stage Manager widths from 320 to 981 pt (simulated
+  in DEBUG with `-ui-testing-window-width`, since a test can't drag a simulator window).
+  CI runs it with `ci/record-ipad-gallery.sh` on several iPad sizes and uploads
+  `ipad-gallery`.
 
 ## Claude Code tab
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- iPad: open more than one Codex Meter window, for example two providers side by side in Split View or Stage Manager. Each window keeps its own tab, and Settings, sign-in and resets open in the window you are using. Usage → Open in New Window (⌥⌘N) opens the tab in front in a new window; the system New Window and App Exposé + work too.
+
 ### Changed
 
 - Usage history shows the Weekly chart first and the 5-hour chart below it, on the dashboard card and the full history page.

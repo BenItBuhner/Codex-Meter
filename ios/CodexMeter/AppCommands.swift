@@ -66,8 +66,24 @@ struct CodexMeterCommands: Commands {
 /// or off and sessions start or end.
 private struct UsageMenuItems: View {
     let model: AppModel
+#if os(iOS)
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
+#endif
 
     var body: some View {
+#if os(iOS)
+        // A second iPad window, starting on the tab in front, to keep two providers side by
+        // side in Split View or Stage Manager.
+        if supportsMultipleWindows {
+            Button("Open \(model.selectedProvider.displayName) in New Window") {
+                openWindow(value: model.selectedProvider)
+            }
+            .keyboardShortcut("n", modifiers: [.command, .option])
+            Divider()
+        }
+#endif
+
         Button("Refresh") {
             Task { await model.refreshSelectedProvider() }
         }
