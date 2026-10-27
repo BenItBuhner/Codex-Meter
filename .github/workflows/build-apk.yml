@@ -5,12 +5,17 @@ on:
     branches: [main, alpha]
     types: [opened, synchronize, reopened, labeled]
   push:
+    branches: [main, alpha]
     tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: read
   packages: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:

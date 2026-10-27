@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.benitbuhner.CodexMeter</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <name>Codex Meter</name>
+  <summary>See your coding-agent usage limits</summary>
+  <description>
+    <p>
+      Codex Meter shows the usage limits of your coding agents at a glance: Codex 5-hour and weekly
+      windows and banked resets, Claude Code's 5-hour, weekly and per-model limits, and Cursor's
+      included usage and on-demand spend.
+    </p>
+    <ul>
+      <li>A dashboard per provider with rings, reset times and pace estimates</li>
+      <li>Browser sign-in; credentials are encrypted with a key in your login keyring</li>
+      <li>A tray icon with your remaining allowance, and notifications for resets and low allowance</li>
+      <li>No analytics, no ads, no relay server</li>
+    </ul>
+    <p>Codex Meter is unofficial and not affiliated with OpenAI, Anthropic or Anysphere.</p>
+  </description>
+  <launchable type="desktop-id">io.github.benitbuhner.CodexMeter.desktop</launchable>
+  <url type="homepage">https://github.com/BenItBuhner/Codex-Meter</url>
+  <url type="bugtracker">https://github.com/BenItBuhner/Codex-Meter/issues</url>
+  <developer id="io.github.benitbuhner">
+    <name>Codex Meter contributors</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The Codex dashboard</caption>
+      <image>https://raw.githubusercontent.com/BenItBuhner/Codex-Meter/alpha/linux/screenshots/light-01-codex.png</image>
+    </screenshot>
+  </screenshots>
+</component>

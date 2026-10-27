@@ -1,22 +1,23 @@
 # Codex Meter
 
-Codex Meter is an unofficial open-source client for viewing the Codex allowance
-attached to a signed-in ChatGPT account. This repository is a **monorepo**:
+Codex Meter is an unofficial open-source client for viewing your AI coding
+allowances: Codex, Claude Code, Cursor and 21 more providers. This repository is a **monorepo**:
 
 | Path | Platform | Notes |
 |------|----------|--------|
 | Repository root | Shared | Docs, license, changelog, CI, convenience script wrappers |
-| [`android/`](android/) | **Android** | Phone app + Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
-| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable 2.8.0 behavior (meters, monthly Free-tier windows, history analytics, diagnostics, widgets) |
+| [`android/`](android/) | **Android** | Phone app + Wear companion: One UI 8 and One UI 9 designs, 24 providers, live usage inside AI apps, One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
+| [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client for iPhone, iPad (sidebar and adaptive columns) and Apple Watch, with the same providers as Android |
 | [`macos/`](macos/) | **Mac** | Native SwiftUI app: menu bar meter, sidebar window with the shared dashboards, Settings window, and desktop widgets. Reuses the iOS sources |
 | [`windows/`](windows/) | **Windows** | Native WinUI 3 app: Mica, per-provider dashboards (Codex, Claude Code, Cursor), accounts, settings, notification-area icon and toasts |
+| [`linux/`](linux/) | **Linux** | Native GTK 4 + libadwaita app: adaptive layout, per-provider dashboards (Codex, Claude Code, Cursor), accounts, settings, tray icon, keyring storage; `.deb` and AppImage for x86-64 and ARM64 |
 
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
 directly and stores credentials only on-device.
 
-## Android — Version 2.8.0
+## Version 3.0.0
 
-Version 2.8.0 adapts to Free-tier monthly Codex limits when a paid plan expires, adds opt-in diagnostic log tracing/export, and declutters usage-history analytics with customizable highlights. This stable release consolidates the 2.8.0-alpha.1 channel build; alpha remains opt-in under Settings → Updates → Update channel.
+Codex Meter 3.0 tracks 24 AI coding providers, adds a One UI 9 design, shows your usage as a live notification while ChatGPT, Claude, GitHub, Grok or Kimi is open, can use banked resets for you before they expire, and shows workspace monthly credit limits. It also adds native apps for Mac, Windows, Linux, iPad and Apple Watch, and Wear OS now follows every provider. This stable release consolidates the 2.9.0-alpha.1 through 2.9.0-alpha.12 channel builds; alpha remains opt-in under Settings → Updates → Update channel. See [CHANGELOG.md](CHANGELOG.md) for everything that changed.
 
 On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
 

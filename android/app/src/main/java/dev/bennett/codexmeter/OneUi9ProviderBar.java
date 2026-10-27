@@ -6,11 +6,13 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +25,11 @@ import java.util.function.Consumer;
  * <p>It follows the same rule as the classic tabs ({@link ProviderTabs}): no bar for a single
  * provider, a tab each for up to four, and with five or more the first three plus "More", which
  * lists the rest.
+ *
+ * <p>Its blur is Samsung's per-view background blur, which samples what is behind the bar only
+ * when the bar itself redraws. Scrolling the content underneath does not redraw the bar, so the
+ * blur would keep showing whatever was there when it last drew. SESL's floating toolbar handles
+ * this for its own pills by invalidating them on scroll; the bar does the same here.
  */
 final class OneUi9ProviderBar {
     private static final int MORE_ID = 1000;
@@ -59,6 +66,46 @@ final class OneUi9ProviderBar {
             return insets;
         });
         nav.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> reserveRoom());
+        keepBlurCurrent();
+    }
+
+    /**
+     * Redraws the bar whenever the content under it moves, so its blur samples the new content.
+     * Scrolls of any view on the page count, and so do layout passes (cards refreshing or
+     * resizing) and the large title collapsing, which moves the body without scrolling it.
+     */
+    private void keepBlurCurrent() {
+        ViewTreeObserver.OnScrollChangedListener onScroll = this::refreshBlur;
+        ViewTreeObserver.OnGlobalLayoutListener onLayout = this::refreshBlur;
+        nav.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                ViewTreeObserver observer = view.getViewTreeObserver();
+                observer.addOnScrollChangedListener(onScroll);
+                observer.addOnGlobalLayoutListener(onLayout);
+                refreshBlur();
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                ViewTreeObserver observer = view.getViewTreeObserver();
+                observer.removeOnScrollChangedListener(onScroll);
+                observer.removeOnGlobalLayoutListener(onLayout);
+            }
+        });
+        if (nav.isAttachedToWindow()) {
+            ViewTreeObserver observer = nav.getViewTreeObserver();
+            observer.addOnScrollChangedListener(onScroll);
+            observer.addOnGlobalLayoutListener(onLayout);
+        }
+        page.appBar.addOnOffsetChangedListener(
+                (AppBarLayout.OnOffsetChangedListener) (bar, offset) -> refreshBlur());
+    }
+
+    private void refreshBlur() {
+        if (nav.getVisibility() == View.VISIBLE) {
+            nav.invalidate();
+        }
     }
 
     /** Shows {@code enabled} providers in order with {@code current} selected. */

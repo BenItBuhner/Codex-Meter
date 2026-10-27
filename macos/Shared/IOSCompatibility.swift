@@ -44,6 +44,23 @@ extension ToolbarItemPlacement {
     static var topBarLeading: ToolbarItemPlacement { .navigation }
 }
 
+// MARK: - Search field placement
+
+/// Stands in for iOS's `NavigationBarDrawerDisplayMode`, which the Mac SDK declares but marks
+/// unavailable (so it can't be redeclared under that name).
+enum SearchDrawerDisplayMode: Sendable {
+    case automatic
+    case always
+}
+
+extension SearchFieldPlacement {
+    /// iOS pins a search field in a drawer under the navigation bar; a Mac window puts it in
+    /// the toolbar, so the drawer placement maps to the automatic one.
+    static func navigationBarDrawer(displayMode: SearchDrawerDisplayMode) -> SearchFieldPlacement {
+        .automatic
+    }
+}
+
 // MARK: - Size class and edit mode
 
 /// A Mac window is always laid out as a regular-width page; the dashboard's two-column card
@@ -92,6 +109,10 @@ extension NSColor {
     static var secondarySystemGroupedBackground: NSColor {
         dynamic(light: (1, 1, 1), dark: (0.173, 0.173, 0.180))
     }
+
+    /// iOS label tiers map to AppKit's label colors.
+    static var secondaryLabel: NSColor { .secondaryLabelColor }
+    static var tertiaryLabel: NSColor { .tertiaryLabelColor }
 
     static var systemBackground: NSColor {
         dynamic(light: (1, 1, 1), dark: (0.110, 0.110, 0.118))

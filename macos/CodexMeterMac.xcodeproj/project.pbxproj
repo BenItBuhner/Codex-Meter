@@ -72,6 +72,7 @@
 				"CodexMeterApp.swift",
 				"ContentView.swift",
 				"Info.plist",
+				"Infrastructure/WatchSyncCoordinator.swift",
 			);
 			target = AA0000000000000000000040;
 		};
@@ -587,7 +588,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.8.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter;
 				PRODUCT_MODULE_NAME = CodexMeter;
 				PRODUCT_NAME = "Codex Meter";
@@ -618,7 +619,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.8.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter;
 				PRODUCT_MODULE_NAME = CodexMeter;
 				PRODUCT_NAME = "Codex Meter";
@@ -648,7 +649,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.8.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter.Widgets;
 				PRODUCT_NAME = CodexMeterMacWidgets;
 				SKIP_INSTALL = YES;
@@ -678,7 +679,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.8.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter.Widgets;
 				PRODUCT_NAME = CodexMeterMacWidgets;
 				SKIP_INSTALL = YES;

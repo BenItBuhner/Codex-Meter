@@ -36,7 +36,7 @@ Convenience wrappers at the repo root forward into the Android project:
 - `./build.sh` → `android/build.sh`
 - `./lint.sh` → `android/lint.sh`
 
-iOS build instructions are in `ios/README.md`. Windows (WinUI 3, C#/.NET 10) instructions are in `windows/README.md`; `dotnet test windows/tests/CodexMeter.Core.Tests` runs the shared C# core tests on any OS.
+iOS build instructions are in `ios/README.md`. Windows (WinUI 3, C#/.NET 10) instructions are in `windows/README.md`; `dotnet test windows/tests/CodexMeter.Core.Tests` runs the shared C# core tests on any OS. Linux (GTK 4 + libadwaita, sharing that C# core) instructions are in `linux/README.md`; `dotnet test linux/tests/CodexMeter.Linux.Tests` runs its tests.
 
 ## Cursor Cloud specific instructions (Android)
 

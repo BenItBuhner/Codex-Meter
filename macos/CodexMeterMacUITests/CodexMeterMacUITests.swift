@@ -62,15 +62,23 @@ final class CodexMeterMacUITests: XCTestCase {
         let app = MacUITestSupport.launch(MacUITestSupport.demo)
         XCTAssertTrue(MacUITestSupport.text("5-hour", in: app).waitForExistence(timeout: 10))
 
+        // The Accounts row is a navigation link whose title and summary read as one element.
+        // ⌘, can arrive before the window is key on a cold runner, so press it again once.
+        let accounts = app.descendants(matching: .any).matching(identifier: "settings-accounts").firstMatch
         MacUITestSupport.openSettings(in: app)
-        XCTAssertTrue(MacUITestSupport.text("Accounts", in: app).waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["Leave Demo"].exists || app.staticTexts["Demo"].exists)
+        if !accounts.waitForExistence(timeout: 6) {
+            app.activate()
+            MacUITestSupport.openSettings(in: app)
+        }
+        XCTAssertTrue(accounts.waitForExistence(timeout: 8), "Accounts row in Settings")
+        XCTAssertTrue(
+            app.buttons["Leave Demo"].exists
+                || app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Leave Demo' OR value == 'Demo'")).firstMatch.exists
+        )
 
         XCTAssertTrue(MacUITestSupport.click(app.buttons["Menu Bar"]))
-        XCTAssertTrue(
-            app.checkBoxes["Show Codex Meter in the menu bar"].waitForExistence(timeout: 5)
-                || app.switches["Show Codex Meter in the menu bar"].waitForExistence(timeout: 2)
-        )
+        let menuBarToggle = app.descendants(matching: .any).matching(identifier: "settings-show-menu-bar").firstMatch
+        XCTAssertTrue(menuBarToggle.waitForExistence(timeout: 5), "Show in the menu bar toggle")
     }
 
     func testMenuBarPanelSummarizesEveryProvider() throws {
@@ -81,7 +89,9 @@ final class CodexMeterMacUITests: XCTestCase {
             XCTAssertTrue(card.waitForExistence(timeout: 10), "menu bar card for \(id)")
         }
         XCTAssertTrue(app.buttons["Open Codex Meter"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS '% left'")).count >= 3)
+        // Each meter row combines its texts into one element, so match on any element type.
+        let meters = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '% left'"))
+        XCTAssertGreaterThanOrEqual(meters.count, 3, "a remaining percentage for every provider")
     }
 
     func testStatusItemIsInstalled() throws {

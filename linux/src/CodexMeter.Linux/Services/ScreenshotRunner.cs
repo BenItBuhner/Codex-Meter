@@ -1,0 +1,137 @@
+using CodexMeter.Core.Services;
+using CodexMeter.Linux.Views;
+
+namespace CodexMeter.Linux.Services;
+
+/// <summary>
+/// <c>--screenshots DIR</c>: walks every page in light and dark with demo data, saves a PNG of the
+/// real window (header bars included, rendered by GTK itself) for each, then exits. Used by CI.
+/// </summary>
+public sealed class ScreenshotRunner(MainWindow window, AppState state, string directory, string prefix = "")
+{
+    public async Task<int> RunAsync()
+    {
+        Directory.CreateDirectory(directory);
+        await Delay(1500);
+        var pages = state.EnabledProviders.Select(p => p.Id).Concat(["accounts", "settings"]).ToList();
+        var failures = 0;
+        foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
+        {
+            state.Settings.Update(s => s with { Theme = theme });
+            var name = theme.ToString().ToLowerInvariant();
+            await Resize(1100, 780);
+            for (var i = 0; i < pages.Count; i++)
+            {
+                window.Navigate(pages[i]);
+                await Delay(900);
+                if (window.CurrentTag != pages[i])
+                {
+                    AppLog.Write($"Expected {pages[i]} but the window shows {window.CurrentTag}.");
+                    failures++;
+                }
+                failures += Capture($"{name}-{i + 1:00}-{pages[i]}.png") ? 0 : 1;
+                // The confirmations, as they appear over the page.
+                Adw.AlertDialog? dialog = window.CurrentPage switch
+                {
+                    DashboardPage dashboard when pages[i] == "codex" && state[Core.Providers.UsageProvider.Codex].SignedIn => dashboard.ConfirmUseReset(),
+                    AccountsPage accounts when state.SignedIn.Count > 0 => accounts.ConfirmSignOut(state.SignedIn[0]),
+                    _ => null,
+                };
+                if (dialog is not null)
+                {
+                    await Delay(900);
+                    failures += Capture($"{name}-{i + 1:00}-{pages[i]}-dialog.png") ? 0 : 1;
+                    dialog.ForceClose();
+                    await Delay(500);
+                }
+                if (pages[i] == "settings" && window.CurrentPage is { } page)
+                {
+                    // The rest of Settings, scrolled to the bottom.
+                    var adjustment = page.Scroller.GetVadjustment();
+                    adjustment.SetValue(adjustment.GetUpper());
+                    await Delay(500);
+                    failures += Capture($"{name}-{i + 1:00}-{pages[i]}-more.png") ? 0 : 1;
+                }
+            }
+            // Narrow window: the split view collapses into one pane with a back button.
+            await Resize(400, 760);
+            window.ShowContent(false);
+            await Delay(700);
+            failures += Capture($"{name}-{pages.Count + 1:00}-compact-sidebar.png") ? 0 : 1;
+            window.Navigate(pages[0]);
+            window.ShowContent(true);
+            await Delay(900);
+            failures += Capture($"{name}-{pages.Count + 2:00}-compact.png") ? 0 : 1;
+            window.ShowContent(false);
+        }
+        if (prefix.Length == 0) failures += TrayIcon.SaveSamples(directory) ? 0 : 1;
+        if (state.SignedIn.Count == 0) failures += await SignInAsync();
+        return failures == 0 ? 0 : 4;
+    }
+
+    /// <summary>Signed-out run: the whole sign-in flow with the demo service (dialog, then the filled dashboard).</summary>
+    private async Task<int> SignInAsync()
+    {
+        var failures = 0;
+        state.Settings.Update(s => s with { Theme = AppTheme.Light });
+        await Resize(1100, 780);
+        var provider = Core.Providers.UsageProvider.Codex;
+        window.Navigate(provider.Id);
+        await Delay(500);
+        var signIn = SignInDialog.RunAsync(state, provider, window.Window, KeyLocation.Keyring);
+        await Delay(250);
+        failures += Capture("light-10-signing-in.png") ? 0 : 1;
+        var error = await signIn;
+        if (error is not null || !state[provider].SignedIn)
+        {
+            AppLog.Write("Demo sign-in failed: " + (error ?? "still signed out"));
+            failures++;
+        }
+        await Delay(900);
+        failures += Capture("light-11-after-sign-in.png") ? 0 : 1;
+        return failures;
+    }
+
+    private static Task Delay(int milliseconds)
+    {
+        var done = new TaskCompletionSource();
+        GLib.Functions.TimeoutAdd(GLib.Constants.PRIORITY_DEFAULT, (uint)milliseconds, () =>
+        {
+            done.TrySetResult();
+            return false;
+        });
+        return done.Task;
+    }
+
+    private async Task Resize(int width, int height)
+    {
+        window.Window.SetDefaultSize(width, height);
+        window.ShowAndActivate();
+        await Delay(800);
+    }
+
+    private bool Capture(string file)
+    {
+        var path = Path.Combine(directory, prefix + file);
+        try
+        {
+            var widget = window.Window;
+            int width = widget.GetWidth(), height = widget.GetHeight();
+            if (width <= 0 || height <= 0) return false;
+            var paintable = Gtk.WidgetPaintable.New(widget);
+            var snapshot = Gtk.Snapshot.New();
+            paintable.Snapshot(snapshot, width, height);
+            var node = snapshot.ToNode();
+            if (node is null) return false;
+            var renderer = widget.GetNative()?.GetRenderer();
+            if (renderer is null) return false;
+            var texture = renderer.RenderTexture(node, null);
+            return texture.SaveToPng(path);
+        }
+        catch (Exception error)
+        {
+            AppLog.Write($"Capture of {file} failed: {error.Message}");
+            return false;
+        }
+    }
+}
