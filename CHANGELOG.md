@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Estimates now restart from a Claude Code saved reset. A saved reset sets usage back to zero but keeps the same weekly deadline, and the estimate used to spread the new usage over the whole week (showing "Est. 27d" after using 10% in two hours). It now measures your pace from the reset, so fast use after a reset shows a short estimate and a warning. Resets that restart the week, like Codex's, already worked this way. The "Average burn" figure on Usage history also no longer cancels out usage from before the reset. Android and iPhone/Mac.
+
 ## 2.9.0-alpha.13 — 2026-10-28
 
 ### Changed

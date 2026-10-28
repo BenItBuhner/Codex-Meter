@@ -24,6 +24,16 @@ public final class UsagePace {
 
     public static Assessment assess(UsageWindow window, long observedAtMillis, long nowMillis,
             String sensitivity) {
+        return assessSince(window, 0L, observedAtMillis, nowMillis, sensitivity);
+    }
+
+    /**
+     * Like {@link #assess(UsageWindow, long, long, String)}, but measures the average from
+     * {@code usageStartMillis} when usage was reset partway through the window (0 for the window
+     * start). The reset time and the total window length stay the same.
+     */
+    private static Assessment assessSince(UsageWindow window, long usageStartMillis,
+            long observedAtMillis, long nowMillis, String sensitivity) {
         if (window == null || window.windowSeconds <= 0L || observedAtMillis <= 0L) {
             return Assessment.unavailable();
         }
@@ -33,7 +43,7 @@ public final class UsagePace {
                 || resetAtMillis <= nowMillis) {
             return Assessment.unavailable();
         }
-        long windowStartMillis = resetAtMillis - windowMillis;
+        long windowStartMillis = Math.max(resetAtMillis - windowMillis, usageStartMillis);
         long elapsedMillis = observedAtMillis - windowStartMillis;
         if (elapsedMillis <= 0L || elapsedMillis > windowMillis || window.usedPercent <= 0) {
             return Assessment.unavailable();
@@ -68,8 +78,12 @@ public final class UsagePace {
      */
     public static Assessment assess(UsageWindow window, UsageHistory history,
             long observedAtMillis, long nowMillis, String sensitivity) {
-        Assessment baseline = assess(window, observedAtMillis, nowMillis, sensitivity);
-        if (!baseline.available || history == null) return baseline;
+        boolean sameWindow = historyMatches(window, history, observedAtMillis);
+        long resetAt = sameWindow ? history.inWindowResetAtMillis() : 0L;
+        Assessment baseline = assessSince(window,
+                resetAt > 0L && resetAt < observedAtMillis ? resetAt : 0L,
+                observedAtMillis, nowMillis, sensitivity);
+        if (!baseline.available || !sameWindow) return baseline;
         double observedRate = history.observedBurnRate();
         if (observedRate <= 0d) return baseline;
         double averageRate = window.usedPercent / (double) baseline.observedDurationMillis;
@@ -91,6 +105,15 @@ public final class UsagePace {
         return new Assessment(true, accelerated, estimatedRemainingNow, estimatedTotal,
                 baseline.actualRemainingMillis, exhaustionAt, baseline.resetAtMillis,
                 baseline.observedDurationMillis, window.usedPercent);
+    }
+
+    /** Whether the newest history samples describe {@code window}, not an earlier one. */
+    private static boolean historyMatches(UsageWindow window, UsageHistory history,
+            long observedAtMillis) {
+        if (window == null || history == null || history.samples.isEmpty()) return false;
+        UsageSample latest = history.samples.get(history.samples.size() - 1);
+        return UsageWindow.sameResetWindow(latest.resetAtMillis, latest.windowSeconds,
+                window.effectiveResetAtMillis(observedAtMillis), window.windowSeconds);
     }
 
     /**
