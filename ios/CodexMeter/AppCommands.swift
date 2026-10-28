@@ -35,18 +35,37 @@ extension AppModel {
         }
     }
 
-    /// Selects the tab `offset` places from the current one, wrapping at either end.
-    func selectAdjacentProvider(offset: Int) {
+    /// The tab `offset` places from `current`, wrapping at either end.
+    func provider(_ offset: Int, from current: UsageProvider) -> UsageProvider? {
         let providers = enabledProviders
         guard providers.count > 1,
-              let index = providers.firstIndex(of: selectedProvider) else { return }
-        let next = (index + offset % providers.count + providers.count) % providers.count
-        select(provider: providers[next])
+              let index = providers.firstIndex(of: current) else { return nil }
+        return providers[(index + offset % providers.count + providers.count) % providers.count]
     }
+
+    /// Selects the tab `offset` places from the current one, wrapping at either end.
+    func selectAdjacentProvider(offset: Int) {
+        if let next = provider(offset, from: selectedProvider) {
+            select(provider: next)
+        }
+    }
+}
+
+/// The tabs of the window in front, published by each window with `focusedSceneValue`, so
+/// ⌘1–⌘9 and ⇧⌘] / ⇧⌘[ switch that window's tab directly instead of going through the shared
+/// model.
+struct WindowTabs: Sendable {
+    let current: UsageProvider
+    let choose: @MainActor @Sendable (UsageProvider) -> Void
+}
+
+extension FocusedValues {
+    @Entry var windowTabs: WindowTabs?
 }
 
 struct CodexMeterCommands: Commands {
     let model: AppModel
+    @FocusedValue(\.windowTabs) private var windowTabs
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {
@@ -57,7 +76,7 @@ struct CodexMeterCommands: Commands {
         }
 
         CommandMenu("Usage") {
-            UsageMenuItems(model: model)
+            UsageMenuItems(model: model, windowTabs: windowTabs)
         }
     }
 }
@@ -66,6 +85,7 @@ struct CodexMeterCommands: Commands {
 /// or off and sessions start or end.
 private struct UsageMenuItems: View {
     let model: AppModel
+    let windowTabs: WindowTabs?
 #if os(iOS)
     @Environment(\.openWindow) private var openWindow
     @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
@@ -76,8 +96,9 @@ private struct UsageMenuItems: View {
         // A second iPad window, starting on the tab in front, to keep two providers side by
         // side in Split View or Stage Manager.
         if supportsMultipleWindows {
-            Button("Open \(model.selectedProvider.displayName) in New Window") {
-                openWindow(value: model.selectedProvider)
+            let front = windowTabs?.current ?? model.selectedProvider
+            Button("Open \(front.displayName) in New Window") {
+                openWindow(value: front)
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
             Divider()
@@ -105,7 +126,7 @@ private struct UsageMenuItems: View {
         // ⌘1 to ⌘9 jump to a tab, in tab order, as in Safari and Mail.
         ForEach(Array(model.enabledProviders.prefix(9).enumerated()), id: \.element) { index, provider in
             Button(provider.displayName) {
-                model.select(provider: provider)
+                select(provider)
             }
             .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
         }
@@ -113,13 +134,28 @@ private struct UsageMenuItems: View {
         if model.enabledProviders.count > 1 {
             Divider()
             Button("Next Provider") {
-                model.selectAdjacentProvider(offset: 1)
+                selectAdjacent(1)
             }
             .keyboardShortcut("]", modifiers: [.command, .shift])
             Button("Previous Provider") {
-                model.selectAdjacentProvider(offset: -1)
+                selectAdjacent(-1)
             }
             .keyboardShortcut("[", modifiers: [.command, .shift])
+        }
+    }
+
+    private func select(_ provider: UsageProvider) {
+        if let windowTabs {
+            windowTabs.choose(provider)
+        } else {
+            model.select(provider: provider)
+        }
+    }
+
+    private func selectAdjacent(_ offset: Int) {
+        let current = windowTabs?.current ?? model.selectedProvider
+        if let next = model.provider(offset, from: current) {
+            select(next)
         }
     }
 }

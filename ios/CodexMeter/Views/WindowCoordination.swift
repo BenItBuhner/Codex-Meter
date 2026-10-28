@@ -22,7 +22,7 @@ final class WindowRegistry {
 
     func windowAppeared(_ id: UUID) {
         if !openWindows.contains(id) { openWindows.append(id) }
-        if keyWindowID == nil { keyWindowID = id }
+        if keyWindowID.map({ !openWindows.contains($0) }) ?? true { keyWindowID = id }
     }
 
     func windowDisappeared(_ id: UUID) {
@@ -52,11 +52,18 @@ final class WindowRegistry {
 
     /// True when window `id` should show the model's sheets.
     func presentsSheets(in id: UUID) -> Bool {
-        (presenterID ?? keyWindowID ?? id) == id
+        if let presenterID, openWindows.contains(presenterID) { return presenterID == id }
+        return isKey(id)
     }
 
+    /// True when window `id` is the one in front. With one window, or before any window has
+    /// reported becoming key (UIKit may make the first window key before it is observed), the
+    /// only window counts as in front.
     func isKey(_ id: UUID) -> Bool {
-        (keyWindowID ?? id) == id
+        guard openWindows.count > 1,
+              let keyWindowID,
+              openWindows.contains(keyWindowID) else { return true }
+        return keyWindowID == id
     }
 }
 

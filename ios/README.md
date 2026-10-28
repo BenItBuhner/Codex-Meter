@@ -36,8 +36,9 @@ The app is universal and adapts to the window it gets rather than to the device:
   the ⌘ shortcut overlay. Hovering with a trackpad scrubs the history charts.
 - **Multiple windows.** `UIApplicationSupportsMultipleScenes` is on and the scene is a
   `WindowGroup(for: UsageProvider.self)`. Data and settings stay on the shared `AppModel`;
-  each window keeps its own tab (`@SceneStorage`), and `model.selectedProvider` follows the
-  window in front so ⌘R, ⌘1–⌘9 and foreground refreshes act on it. `WindowRegistry` pins the
+  each window keeps its own tab (`@SceneStorage`). ⌘1–⌘9 and ⇧⌘] / ⇧⌘[ switch the tab of the
+  window in front (it publishes its tabs with `focusedSceneValue`), and `model.selectedProvider`
+  follows that window so ⌘R and foreground refreshes act on it. `WindowRegistry` pins the
   model's sheets (Settings, sign-in, reset, setup) to the window in front when they open, so
   other windows never mirror them. Usage → Open in New Window (⌥⌘N) opens the front tab in
   a new window.

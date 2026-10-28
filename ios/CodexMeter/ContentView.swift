@@ -113,6 +113,8 @@ struct ContentView: View {
             selection = provider
             storedProvider = provider.rawValue
         }
+        // Menu commands switch this window's tab while it is in front.
+        .focusedSceneValue(\.windowTabs, WindowTabs(current: currentSelection) { choose($0) })
         .onChange(of: anySheetOpen, initial: true) { _, open in
             windows.sheetsChanged(anyOpen: open)
         }
