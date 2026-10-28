@@ -42,21 +42,6 @@ final class IPadLayoutTests: XCTestCase {
         capture("01-landscape-sidebar-codex")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Codex 5-hour and Weekly share a row in landscape")
 
-        // Landscape opens with the sidebar showing. Its button switches to the floating tab bar
-        // (and back); either way the dashboard keeps at least two columns.
-        if openSidebar(in: app) {
-            UITestSupport.settle(1.0)
-            capture("02-landscape-tab-bar")
-            XCTAssertTrue(app.buttons["Copilot"].firstMatch.exists, "The sidebar lists the added providers too")
-            assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Columns survive the sidebar")
-            UITestSupport.tap(app.buttons["Claude Code"])
-            XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Sidebar rows switch tabs")
-            UITestSupport.settle(0.8)
-            capture("03-landscape-claude-from-sidebar")
-            closeSidebar(in: app)
-            UITestSupport.settle(0.8)
-        }
-
         // ⌘1…⌘4 follow the tab order; ⌘R refreshes the visible tab without leaving it.
         press("3", .command, in: app, expecting: app.navigationBars["Cursor"], "⌘3 opens Cursor")
         XCTAssertTrue(app.staticTexts["Weekly"].firstMatch.waitForExistence(timeout: 5))
@@ -82,6 +67,24 @@ final class IPadLayoutTests: XCTestCase {
         capture("07-landscape-settings")
         UITestSupport.tap(app.buttons["Done"])
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
+
+        // After the shortcuts: in the simulator a key press right after toggling the sidebar can
+        // be swallowed. Landscape opens with the sidebar showing. Its button switches to the floating tab bar
+        // (and back); either way the dashboard keeps at least two columns.
+        if openSidebar(in: app) {
+            UITestSupport.settle(1.0)
+            capture("02-landscape-tab-bar")
+            XCTAssertTrue(app.buttons["Copilot"].firstMatch.exists, "The sidebar lists the added providers too")
+            assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Columns survive the sidebar")
+            UITestSupport.tap(app.buttons["Claude Code"])
+            XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Sidebar rows switch tabs")
+            UITestSupport.settle(0.8)
+            capture("03-landscape-claude-from-sidebar")
+            closeSidebar(in: app)
+            UITestSupport.settle(0.8)
+            UITestSupport.tap(app.buttons["Codex"])
+            XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
+        }
 
         UITestSupport.scrollDashboard(untilVisible: app.staticTexts["Usage history"], in: app)
         UITestSupport.settle(0.8)

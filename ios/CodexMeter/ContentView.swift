@@ -30,6 +30,11 @@ struct ContentView: View {
         )
     }
 
+    /// UI tests that reset settings start every window on the default tab, even one iPadOS
+    /// restores from an earlier test.
+    private static let restoresWindowTabs =
+        !ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings")
+
     private func choose(_ provider: UsageProvider) {
         selection = provider
         storedProvider = provider.rawValue
@@ -100,9 +105,9 @@ struct ContentView: View {
         .onAppear {
             windows.windowAppeared(windowID)
             if selection == nil {
-                selection = openedProvider
-                    ?? storedProvider.flatMap(UsageProvider.init(rawValue:))
-                    ?? model.selectedProvider
+                selection = Self.restoresWindowTabs
+                    ? openedProvider ?? storedProvider.flatMap(UsageProvider.init(rawValue:)) ?? model.selectedProvider
+                    : model.selectedProvider
             }
         }
         .onDisappear {

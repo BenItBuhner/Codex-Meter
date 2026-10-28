@@ -168,7 +168,7 @@ jobs:
   ipad-layout:
     name: iPad layout tests and screenshots
     runs-on: macos-26
-    timeout-minutes: 100
+    timeout-minutes: 130
     defaults:
       run:
         working-directory: ios

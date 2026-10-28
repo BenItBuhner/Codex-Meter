@@ -119,8 +119,13 @@ struct KeyWindowObserver: UIViewRepresentable {
                   let scene,
                   ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") else { return }
             closedRestoredWindows = true
-            for session in UIApplication.shared.openSessions where session != scene.session {
-                UIApplication.shared.requestSceneSessionDestruction(session, options: nil)
+            // Only windows in the background, once launch settles: never the one on screen.
+            let keep = scene.session
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                for session in UIApplication.shared.openSessions
+                where session != keep && session.scene?.activationState != .foregroundActive {
+                    UIApplication.shared.requestSceneSessionDestruction(session, options: nil)
+                }
             }
         }
 #endif
