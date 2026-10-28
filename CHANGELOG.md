@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.13 — 2026-10-28
+
 ### Changed
 
 - Usage history shows the Weekly chart first and the 5-hour chart below it, on the dashboard card and the full history page.
