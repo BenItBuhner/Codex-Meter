@@ -63,7 +63,7 @@ struct CodexMeterApp: App {
             ContentView(openedProvider: provider)
                 .environment(model)
 #if DEBUG
-                .modifier(SimulatedWindow())
+                .modifier(SimulatedWindow(model: model))
 #endif
                 .onReceive(NotificationCenter.default.publisher(for: .codexMeterOpenRoute)) { note in
                     if let route = note.userInfo?["route"] as? String {

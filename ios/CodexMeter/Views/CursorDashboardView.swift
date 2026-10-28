@@ -6,6 +6,7 @@ import SwiftUI
 struct CursorDashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.drawsBarsInSimulatedRail) private var drawsBarsInSimulatedRail
 
     var body: some View {
         @Bindable var cursor = model.cursor
@@ -50,31 +51,33 @@ struct CursorDashboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Cursor")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if cursor.phase != .signedOut {
-                    NavigationLink {
-                        DashboardEditView(provider: .cursor)
-                    } label: {
-                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+            if !drawsBarsInSimulatedRail {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if cursor.phase != .signedOut {
+                        NavigationLink {
+                            DashboardEditView(provider: .cursor)
+                        } label: {
+                            Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                        }
+
+                        Button {
+                            Task { await model.cursor.refresh() }
+                        } label: {
+                            if cursor.isRefreshing {
+                                ProgressView()
+                            } else {
+                                Label("Refresh", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        .disabled(cursor.isRefreshing)
+                        .accessibilityLabel(cursor.isRefreshing ? "Refreshing Cursor usage" : "Refresh Cursor usage")
                     }
 
                     Button {
-                        Task { await model.cursor.refresh() }
+                        model.isShowingSettings = true
                     } label: {
-                        if cursor.isRefreshing {
-                            ProgressView()
-                        } else {
-                            Label("Refresh", systemImage: "arrow.clockwise")
-                        }
+                        Label("Settings", systemImage: "gearshape")
                     }
-                    .disabled(cursor.isRefreshing)
-                    .accessibilityLabel(cursor.isRefreshing ? "Refreshing Cursor usage" : "Refresh Cursor usage")
-                }
-
-                Button {
-                    model.isShowingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
                 }
             }
         }

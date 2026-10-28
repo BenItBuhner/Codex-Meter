@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.drawsBarsInSimulatedRail) private var drawsBarsInSimulatedRail
     /// The provider a window was opened for with Open in New Window, if any.
     var openedProvider: UsageProvider? = nil
 
@@ -49,7 +50,8 @@ struct ContentView: View {
                     NavigationStack {
                         DashboardView(provider: provider)
                     }
-                    .toolbar(model.enabledProviders.count > 1 ? .visible : .hidden, for: .tabBar)
+                    .toolbar(model.enabledProviders.count > 1 && !drawsBarsInSimulatedRail ? .visible : .hidden,
+                             for: .tabBar)
                 }
             }
         }

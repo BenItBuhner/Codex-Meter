@@ -50,24 +50,30 @@ The app is universal and adapts to the window it gets rather than to the device:
 
 ## iPhone Duo
 
-Nothing in the app sizes itself from the screen, the device idiom or the orientation, which
-is what Apple's iPhone Duo guide asks for, so the foldable gets the same width-driven layout:
+iPhone Duo keeps the status bar and Dynamic Island in a rail down the trailing (right) edge of
+both displays. Apps built with the iOS 27.1 SDK get their toolbar buttons and tab bar laid out
+vertically in that rail, top down: Dynamic Island, status, toolbar, tabs. The app is ready
+for that:
 
-- **Folded** (outer display, about 466 × 678 pt, compact width): one column with the bottom
-  tab bar, like any iPhone.
-- **Open** (inner display, about 951 × 669 pt, regular width and height): two columns, and
-  the tabs can show as a sidebar, as on iPad.
-- **Folding mid-session** resizes the window and the cards re-flow; the tab you are on stays,
-  because the layout follows the measured width instead of a size read at launch.
+- Every toolbar item and tab has both a title and an icon, which iOS needs to stack it
+  vertically (a title-only item stays horizontal and leaves the rail empty).
+- Nothing sizes itself from the screen, the device idiom or the orientation, as Apple's
+  guide asks. Layout follows the width the dashboard gets: folded (about 382 pt beside the
+  rail, compact width) is one column; open (about 867 pt, regular width and height) is two
+  columns, split down the middle where the fold is.
+- Folding mid-session resizes the window and the cards re-flow; the tab you are on stays.
 - Two windows side by side work on the open display the same way they do on iPad.
 
-`IPadLayoutTests.testDuoFoldsAndUnfoldsWithoutLosingPlace` checks both poses and folds and
-unfolds while running (`-ui-testing-duo folded|open`, then ⌃⌥⌘F), on an iPad simulator
-because GitHub's macOS 26 runners have Xcode 26 only. The stills land in `ipad-gallery`.
+**Release builds must use Xcode 27.1 or later.** Built with Xcode 26, iOS shows the app at
+iPhone size in the middle of the open display and none of the vertical bars appear. Check
+on the iPhone Duo simulator in Xcode 27.1 before shipping.
 
-To use the whole inner display, release builds must be built with **Xcode 27.1 or later**
-(iOS 27.1 SDK). Built with Xcode 26, iOS shows the app at iPhone size in the middle of the
-open display. Check on the iPhone Duo simulator in Xcode 27.1 before shipping.
+`IPadLayoutTests.testDuoFoldsAndUnfoldsWithoutLosingPlace` checks both poses and folds and
+unfolds while running (`-ui-testing-duo folded|open`, then ⌃⌥⌘F). GitHub's macOS 26 runners
+have Xcode 26 only, so it runs on an iPad simulator: `SimulatedWindow` lays the app out at
+the Duo's window sizes and draws the trailing rail itself, with the dashboard's real
+Refresh and Settings actions and the provider tabs, while the dashboards leave their top
+toolbar empty. The stills land in `ipad-gallery`.
 
 ## Claude Code tab
 

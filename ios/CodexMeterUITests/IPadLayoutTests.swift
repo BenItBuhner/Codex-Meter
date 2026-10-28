@@ -58,31 +58,26 @@ final class IPadLayoutTests: XCTestCase {
         }
 
         // ⌘1…⌘4 follow the tab order; ⌘R refreshes the visible tab without leaving it.
-        app.typeKey("3", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5), "⌘3 opens Cursor")
+        press("3", .command, in: app, expecting: app.navigationBars["Cursor"], "⌘3 opens Cursor")
         XCTAssertTrue(app.staticTexts["Weekly"].firstMatch.waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("04-landscape-cursor")
 
-        app.typeKey("4", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Copilot"].waitForExistence(timeout: 5), "⌘4 opens Copilot")
+        press("4", .command, in: app, expecting: app.navigationBars["Copilot"], "⌘4 opens Copilot")
         UITestSupport.settle(0.8)
         capture("05-landscape-copilot")
 
-        app.typeKey("2", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "⌘2 opens Claude Code")
+        press("2", .command, in: app, expecting: app.navigationBars["Claude Code"], "⌘2 opens Claude Code")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Claude Code windows share a row")
         UITestSupport.settle(0.6)
         capture("06-landscape-claude")
 
-        app.typeKey("1", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5), "⌘1 returns to Codex")
+        press("1", .command, in: app, expecting: app.navigationBars["Codex"], "⌘1 returns to Codex")
         app.typeKey("r", modifierFlags: .command)
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 5), "⌘R keeps the dashboard")
 
-        app.typeKey(",", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "⌘, opens Settings")
+        press(",", .command, in: app, expecting: app.navigationBars["Settings"], "⌘, opens Settings")
         UITestSupport.settle(0.8)
         capture("07-landscape-settings")
         UITestSupport.tap(app.buttons["Done"])
@@ -202,43 +197,59 @@ final class IPadLayoutTests: XCTestCase {
         capture("50-landscape-duo-folded-codex")
         assertStacked(app, "Folded, the outer display stacks the cards")
 
-        // Unfold: same tab, now two columns.
-        app.typeKey("f", modifierFlags: [.command, .option, .control])
-        UITestSupport.settle(1.5)
+        let rail = app.otherElements["duo-status-rail"]
+        XCTAssertTrue(rail.waitForExistence(timeout: 5), "The status rail is drawn")
+        XCTAssertGreaterThan(rail.frame.minX, app.staticTexts["5-hour"].firstMatch.frame.maxX,
+                             "The status rail runs down the trailing edge")
+
+        // Unfold: same tab, now two columns, rail still on the right.
+        fold(app, open: true)
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5), "Unfolding keeps the tab")
         capture("51-landscape-duo-open-codex")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Open, the inner display shares rows")
+        XCTAssertGreaterThan(rail.frame.minX, app.staticTexts["Weekly"].firstMatch.frame.maxX)
 
-        app.typeKey("3", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
+        press("3", .command, in: app, expecting: app.navigationBars["Cursor"])
         UITestSupport.settle(1.0)
         capture("52-landscape-duo-open-cursor")
 
-        app.typeKey("2", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5))
+        // The rail's tabs switch tabs too.
+        UITestSupport.tap(rail.buttons["Claude Code"])
+        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Rail tabs switch tabs")
         UITestSupport.settle(1.0)
         capture("53-landscape-duo-open-claude")
 
         // Fold again mid-session: still on Claude Code, back to one column.
-        app.typeKey("f", modifierFlags: [.command, .option, .control])
-        UITestSupport.settle(1.5)
+        fold(app, open: false)
         XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Folding keeps the tab")
         capture("54-landscape-duo-folded-claude")
 
-        app.typeKey(",", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        UITestSupport.tap(rail.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "The rail's Settings button works")
         UITestSupport.settle(1.0)
         capture("55-landscape-duo-folded-settings")
         UITestSupport.tap(app.buttons["Done"])
 
-        app.typeKey("f", modifierFlags: [.command, .option, .control])
-        UITestSupport.settle(1.0)
-        app.typeKey("1", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
-        app.swipeUp()
+        fold(app, open: true)
+        press("1", .command, in: app, expecting: app.navigationBars["Codex"])
+        app.staticTexts["5-hour"].firstMatch.swipeUp()
         UITestSupport.settle(1.0)
         capture("56-landscape-duo-open-codex-scrolled")
         app.terminate()
+    }
+
+    /// Folds or unfolds the simulated iPhone Duo with ⌃⌥⌘F, pressing again only if the first
+    /// key event after launch was swallowed.
+    private func fold(_ app: XCUIApplication, open: Bool, file: StaticString = #filePath, line: UInt = #line) {
+        let target = app.otherElements.matching(NSPredicate(
+            format: "identifier == 'duo-status-rail' AND value == %@", open ? "open" : "folded"
+        )).firstMatch
+        for _ in 0..<2 where !target.exists {
+            app.typeKey("f", modifierFlags: [.command, .option, .control])
+            _ = target.waitForExistence(timeout: 3)
+        }
+        XCTAssertTrue(target.exists, open ? "Unfolds" : "Folds", file: file, line: line)
+        UITestSupport.settle(1.2)
     }
 
     // MARK: Multiple windows
@@ -248,8 +259,7 @@ final class IPadLayoutTests: XCTestCase {
     /// tests' launches.
     func testWindowsOpenProviderInNewWindow() throws {
         let app = launch(.landscapeLeft)
-        app.typeKey("3", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
+        press("3", .command, in: app, expecting: app.navigationBars["Cursor"])
         let windowsBefore = app.windows.count
 
         app.typeKey("n", modifierFlags: [.command, .option])
@@ -259,13 +269,11 @@ final class IPadLayoutTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(app.windows.count, windowsBefore, "A window scene was added")
 
         // The new window switches tabs on its own.
-        app.typeKey("2", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5))
+        press("2", .command, in: app, expecting: app.navigationBars["Claude Code"])
         UITestSupport.settle(0.8)
         capture("41-landscape-new-window-claude")
 
-        app.typeKey(",", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "Settings opens in the window in front")
+        press(",", .command, in: app, expecting: app.navigationBars["Settings"], "Settings opens in the window in front")
         UITestSupport.settle(0.8)
         capture("42-landscape-new-window-settings")
         UITestSupport.tap(app.buttons["Done"])
@@ -290,6 +298,27 @@ final class IPadLayoutTests: XCTestCase {
         }
         XCTAssertEqual(a.frame.midY, b.frame.midY, accuracy: 6, message, file: file, line: line)
         XCTAssertGreaterThan(abs(a.frame.minX - b.frame.minX), 150, message, file: file, line: line)
+    }
+
+    /// Presses a shortcut and waits for `expected`. Pressed a second time if nothing changed:
+    /// in the simulator the first hardware key event after launch can go to activating the
+    /// keyboard focus system instead of the menu command.
+    @discardableResult
+    private func press(
+        _ key: String,
+        _ modifiers: XCUIElement.KeyModifierFlags,
+        in app: XCUIApplication,
+        expecting expected: XCUIElement,
+        _ message: String = "",
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> Bool {
+        app.typeKey(key, modifierFlags: modifiers)
+        if expected.waitForExistence(timeout: 3) { return true }
+        app.typeKey(key, modifierFlags: modifiers)
+        let found = expected.waitForExistence(timeout: 5)
+        XCTAssertTrue(found, message, file: file, line: line)
+        return found
     }
 
     /// The Codex 5-hour card sits above the Weekly card.

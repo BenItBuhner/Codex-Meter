@@ -92,6 +92,9 @@ struct KeyWindowObserver: UIViewRepresentable {
             if let observer { NotificationCenter.default.removeObserver(observer) }
             observer = nil
             guard let window else { return }
+#if DEBUG
+            Self.closeRestoredWindowsForUITests(keeping: window.windowScene)
+#endif
             observer = NotificationCenter.default.addObserver(
                 forName: UIWindow.didBecomeKeyNotification,
                 object: window,
@@ -105,6 +108,22 @@ struct KeyWindowObserver: UIViewRepresentable {
                 DispatchQueue.main.async { [weak self] in self?.onBecomeKey?() }
             }
         }
+
+#if DEBUG
+        private static var closedRestoredWindows = false
+
+        /// UI tests relaunch the app many times; iPadOS would bring back a window an earlier
+        /// test opened, and key presses could then land in it. A reset launch keeps one window.
+        private static func closeRestoredWindowsForUITests(keeping scene: UIWindowScene?) {
+            guard !closedRestoredWindows,
+                  let scene,
+                  ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-settings") else { return }
+            closedRestoredWindows = true
+            for session in UIApplication.shared.openSessions where session != scene.session {
+                UIApplication.shared.requestSceneSessionDestruction(session, options: nil)
+            }
+        }
+#endif
 
         deinit {
             if let observer { NotificationCenter.default.removeObserver(observer) }
