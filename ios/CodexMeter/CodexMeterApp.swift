@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import UserNotifications
 
@@ -57,9 +58,13 @@ struct CodexMeterApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        // iPad can open several windows; Open in New Window passes the provider to show first.
+        WindowGroup(for: UsageProvider.self) { $provider in
+            ContentView(openedProvider: provider)
                 .environment(model)
+#if DEBUG
+                .modifier(SimulatedWindow(model: model))
+#endif
                 .onReceive(NotificationCenter.default.publisher(for: .codexMeterOpenRoute)) { note in
                     if let route = note.userInfo?["route"] as? String {
                         model.handle(route: route)

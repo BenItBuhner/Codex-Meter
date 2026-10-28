@@ -5,6 +5,7 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.drawsBarsInSimulatedRail) private var drawsBarsInSimulatedRail
     var provider: UsageProvider = .codex
 
     var body: some View {
@@ -68,31 +69,33 @@ struct DashboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Codex")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if model.mode != .signedOut {
-                    NavigationLink {
-                        DashboardEditView()
-                    } label: {
-                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+            if !drawsBarsInSimulatedRail {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if model.mode != .signedOut {
+                        NavigationLink {
+                            DashboardEditView()
+                        } label: {
+                            Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                        }
+
+                        Button {
+                            Task { await model.refresh() }
+                        } label: {
+                            if model.isRefreshing {
+                                ProgressView()
+                            } else {
+                                Label("Refresh", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        .disabled(model.isRefreshing)
+                        .accessibilityLabel(model.isRefreshing ? "Refreshing usage" : "Refresh usage")
                     }
 
                     Button {
-                        Task { await model.refresh() }
+                        model.isShowingSettings = true
                     } label: {
-                        if model.isRefreshing {
-                            ProgressView()
-                        } else {
-                            Label("Refresh", systemImage: "arrow.clockwise")
-                        }
+                        Label("Settings", systemImage: "gearshape")
                     }
-                    .disabled(model.isRefreshing)
-                    .accessibilityLabel(model.isRefreshing ? "Refreshing usage" : "Refresh usage")
-                }
-
-                Button {
-                    model.isShowingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
                 }
             }
         }
