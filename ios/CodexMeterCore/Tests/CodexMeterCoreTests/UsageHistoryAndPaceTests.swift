@@ -69,6 +69,47 @@ final class UsageHistoryAndPaceTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(UsageHistory.self, from: encoded), history)
     }
 
+    func testSavedResetRestartsPaceWithoutMovingDeadline() {
+        let hour: TimeInterval = 60 * 60
+        let start = Date(timeIntervalSince1970: 2_000_000_000)
+        let weeklyReset = start.addingTimeInterval(7 * 24 * hour)
+        func weekly(_ used: Int) -> UsageWindow {
+            UsageWindow(usedPercent: used, windowSeconds: 604_800, resetAt: weeklyReset)
+        }
+        var history = UsageHistory.empty(.weekly)
+        for h in stride(from: 6, through: 66, by: 6) {
+            history = history.appending(
+                window: weekly(h * 70 / 66),
+                observedAt: start.addingTimeInterval(TimeInterval(h) * hour)
+            )
+        }
+        let resetSample = start.addingTimeInterval(67 * hour)
+        history = history.appending(window: weekly(0), observedAt: resetSample)
+        XCTAssertEqual(history.inWindowResetAt, resetSample)
+        history = history.appending(window: weekly(5), observedAt: resetSample.addingTimeInterval(hour))
+        let now = resetSample.addingTimeInterval(2 * hour)
+        history = history.appending(window: weekly(10), observedAt: now)
+        XCTAssertEqual(history.samplesSinceInWindowReset.count, 3)
+
+        let wholeWeek = UsagePace.assess(window: weekly(10), observedAt: now, now: now)
+        let sinceReset = UsagePace.assess(
+            window: weekly(10),
+            history: history,
+            observedAt: now,
+            now: now
+        )
+        XCTAssertGreaterThan(wholeWeek.estimatedRemaining, 20 * 24 * hour)
+        XCTAssertTrue(sinceReset.isAvailable)
+        XCTAssertEqual(sinceReset.estimatedRemaining, 18 * hour, accuracy: hour)
+        XCTAssertTrue(sinceReset.isAccelerated)
+        XCTAssertEqual(sinceReset.resetAt, weeklyReset)
+
+        let jitter = UsageHistory.empty(.weekly)
+            .appending(window: weekly(20), observedAt: start.addingTimeInterval(hour))
+            .appending(window: weekly(19), observedAt: start.addingTimeInterval(2 * hour))
+        XCTAssertNil(jitter.inWindowResetAt)
+    }
+
     func testPaceAssessmentUsesSensitivityAndRecentHistory() {
         let observedAt = Date(timeIntervalSince1970: 2_000_000_000)
         let reset = observedAt.addingTimeInterval(3 * 60 * 60)

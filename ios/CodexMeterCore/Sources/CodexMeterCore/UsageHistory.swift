@@ -149,9 +149,47 @@ public struct UsageHistory: Codable, Sendable, Equatable {
         return count
     }
 
+    /// When usage was reset partway through the latest window without moving its reset time.
+    /// Claude Code saved resets work this way: usage drops back to zero but the weekly deadline
+    /// stays put. The reset is placed halfway between the samples on either side of the drop,
+    /// or at the later one when it still reads zero.
+    public var inWindowResetAt: Date? {
+        let current = currentWindowSamples
+        guard current.count >= 2 else { return nil }
+        for index in stride(from: current.count - 1, to: 0, by: -1) {
+            let before = current[index - 1]
+            let after = current[index]
+            if Self.isResetDrop(before, after) {
+                if after.usedPercent <= 0 { return after.observedAt }
+                return before.observedAt.addingTimeInterval(
+                    after.observedAt.timeIntervalSince(before.observedAt) / 2
+                )
+            }
+        }
+        return nil
+    }
+
+    /// Latest-window samples taken after the most recent in-window reset, oldest first.
+    public var samplesSinceInWindowReset: [UsageSample] {
+        let current = currentWindowSamples
+        guard current.count >= 2 else { return current }
+        for index in stride(from: current.count - 1, to: 0, by: -1)
+        where Self.isResetDrop(current[index - 1], current[index]) {
+            return Array(current[index...])
+        }
+        return current
+    }
+
+    /// Usage only falls inside a window when it is reset. A small dip is rounding noise unless
+    /// it lands on zero.
+    private static func isResetDrop(_ before: UsageSample, _ after: UsageSample) -> Bool {
+        guard after.usedPercent < before.usedPercent else { return false }
+        return after.usedPercent <= 0 || before.usedPercent - after.usedPercent >= 3
+    }
+
     /// Recent observed burn in percentage points per second.
     public var observedBurnRate: Double {
-        let current = currentWindowSamples
+        let current = samplesSinceInWindowReset
         guard let latest = current.last, current.count >= 2 else { return 0 }
         let minimumSpan: TimeInterval = switch kind {
         case .fiveHour: 10 * 60
