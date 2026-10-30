@@ -90,6 +90,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderUsageParsers.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DeviceAuth.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NotificationRoutes.java" \
   "$ROOT/tests/ParserSelfTest.java" \
   "$ROOT/tests/ProviderParsersSelfTest.java" \
   "$ROOT/tests/WatchProvidersSelfTest.java"
@@ -98,6 +99,16 @@ java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.WatchProvidersSelfTest
+
+# Notification taps route to their provider (cold and warm start).
+grep -q 'NotificationRoutes.requestCode(REQUEST_OPEN, provider)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'putExtra(MainActivity.EXTRA_PROVIDER, provider.id)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
+grep -q 'NotificationRoutes.requestedProvider' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+grep -q 'protected void onNewIntent' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.9.0-alpha.13"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"

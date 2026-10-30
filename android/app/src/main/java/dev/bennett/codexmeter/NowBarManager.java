@@ -17,6 +17,7 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -63,6 +64,7 @@ public final class NowBarManager {
     private static final int REQUEST_END = 8611;
     private static final int REQUEST_REFRESH = 8612;
     private static final int REQUEST_STOP = 8613;
+    private static final int REQUEST_OPEN = 8614;
     private static final String PREFS = "codex_meter_now_bar_v1";
     private static final String SAMSUNG_ONGOING_PREFIX = "android.ongoingActivityNoti.";
     private static final String TAG = "CodexNowBar";
@@ -606,9 +608,16 @@ public final class NowBarManager {
             body.append(tail);
         }
         String text = body.toString();
+        // Tapping opens this monitor's provider, not whichever tab was last open. The data URI
+        // and per-provider request code keep each provider's PendingIntent distinct (extras alone
+        // don't, because PendingIntent identity ignores them).
         Intent open = new Intent(context, MainActivity.class)
+                .setAction(NotificationRoutes.ACTION_OPEN_PROVIDER)
+                .setData(Uri.parse(NotificationRoutes.uri(provider, "now_bar")))
+                .putExtra(MainActivity.EXTRA_PROVIDER, provider.id)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
+        PendingIntent contentIntent = PendingIntent.getActivity(context,
+                NotificationRoutes.requestCode(REQUEST_OPEN, provider), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stopIntent = PendingIntent.getBroadcast(context, REQUEST_STOP,
                 new Intent(context, NowBarActionReceiver.class).setAction(ACTION_STOP),
