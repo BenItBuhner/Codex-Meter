@@ -65,10 +65,15 @@ public static partial class ClaudeUsageParser
             }
         }
 
+        var plan = NormalizePlanLabel(planLabel);
+        // Verified Ultra accounts have no 5-hour window (unverified ones keep a temporary one).
+        // An idle placeholder (0%, no reset time) on Ultra isn't a real window, so drop it.
+        if (plan == PlanUltra && fiveHour is { UsedPercent: <= 0, ResetAt: null }) fiveHour = null;
+
         var limitReached = Reached(fiveHour) || Reached(weekly) || additional.Any(l => l.LimitReached);
         if (ExtraUsage(Json.Get(root, "extra_usage")) is { } extra) additional.Add(extra);
 
-        return new UsageSnapshot(planLabel, !limitReached, limitReached, fiveHour, weekly, null, null, additional,
+        return new UsageSnapshot(plan, !limitReached, limitReached, fiveHour, weekly, null, null, additional,
             null, null, fetchedAt);
     }
 
@@ -183,6 +188,37 @@ public static partial class ClaudeUsageParser
         return null;
     }
 
+    public const string PlanUltra = "Ultra";
+    public const string PlanMax = "Max";
+    /// <summary>Dashboard copy shown in place of the 5-hour card on Ultra.</summary>
+    public const string NoFiveHourLimitNote = "No 5-hour limit on Ultra \u00b7 weekly limits still apply";
+
+    /// <summary>
+    /// Current name for a Claude plan label, so snapshots cached before the rename read right:
+    /// "Max 20x" (and raw tiers like <c>default_claude_max_20x</c>) become "Ultra", "Max 5x"
+    /// becomes "Max". Other labels pass through trimmed.
+    /// </summary>
+    public static string NormalizePlanLabel(string? label)
+    {
+        var trimmed = (label ?? "").Trim();
+        var key = new string(trimmed.ToLowerInvariant()
+            .Where(c => !char.IsWhiteSpace(c) && c != '_' && c != '-').ToArray());
+        if (key.StartsWith("default", StringComparison.Ordinal)) key = key["default".Length..];
+        if (key.StartsWith("claude", StringComparison.Ordinal)) key = key["claude".Length..];
+        return key switch
+        {
+            "ultra" or "max20x" or "max20" => PlanUltra,
+            "max" or "max5x" or "max5" => PlanMax,
+            _ => trimmed,
+        };
+    }
+
+    /// <summary>True when the plan has no 5-hour window (verified Ultra) and none was reported.</summary>
+    public static bool NoFiveHourLimit(UsageSnapshot? snapshot) =>
+        snapshot is { FiveHour: null }
+        && NormalizePlanLabel(snapshot.PlanType) == PlanUltra
+        && (snapshot.Weekly is not null || snapshot.AdditionalLimits.Count > 0);
+
     /// <summary>Plan badge from <c>GET /api/oauth/profile</c>; never throws.</summary>
     public static string PlanLabel(string? profileJson)
     {
@@ -194,11 +230,13 @@ public static partial class ClaudeUsageParser
         var type = Json.Str(Json.Get(organization, "organization_type")).ToLowerInvariant();
         var hasMax = Json.Bool(Json.Get(account, "has_claude_max"), false);
         var hasPro = Json.Bool(Json.Get(account, "has_claude_pro"), false);
-        if (tier.Contains("max_20x")) return "Max 20x";
-        if (tier.Contains("max_5x")) return "Max 5x";
+        // Anthropic renamed Max 20x to Ultra and Max 5x to Max; old tiers map to the new names.
+        if (tier.Contains("ultra") || tier.Contains("max_20x")) return PlanUltra;
+        if (tier.Contains("max_5x")) return PlanMax;
+        if (type.Contains("ultra")) return PlanUltra;
         if (type.Contains("enterprise")) return "Enterprise";
         if (type.Contains("team")) return "Team";
-        if (type.Contains("max") || hasMax) return "Max";
+        if (type.Contains("max") || hasMax) return PlanMax;
         if (type.Contains("pro") || hasPro) return "Pro";
         if (type.Contains("free")) return "Free";
         return "";

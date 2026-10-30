@@ -30,6 +30,9 @@ public final class ProviderAccounts {
     public static String plan(Context context, UsageProvider provider) {
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
         if (snapshot == null || snapshot.planType == null) return "";
+        if (provider == UsageProvider.CLAUDE_CODE) {
+            return ClaudeUsageParser.normalizePlanLabel(snapshot.planType);
+        }
         return provider == UsageProvider.CODEX
                 ? UsageFormat.planLabel(snapshot.planType) : snapshot.planType;
     }

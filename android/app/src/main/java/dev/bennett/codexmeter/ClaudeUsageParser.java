@@ -93,6 +93,15 @@ public final class ClaudeUsageParser {
             }
         }
 
+        String plan = normalizePlanLabel(planLabel);
+        // Verified Ultra accounts have no 5-hour window (unverified ones keep a temporary one).
+        // An idle placeholder (0%, no reset time) on Ultra isn't a real window, so drop it and
+        // let the weekly limits stand alone; a live window (usage or a reset time) is kept.
+        if (PLAN_ULTRA.equals(plan) && fiveHour != null && fiveHour.usedPercent <= 0
+                && fiveHour.resetAtEpochSeconds <= 0L) {
+            fiveHour = null;
+        }
+
         boolean limitReached = reached(fiveHour) || reached(weekly);
         for (UsageLimit limit : extra) {
             limitReached |= limit.limitReached;
@@ -103,7 +112,7 @@ public final class ClaudeUsageParser {
             extra.add(extraUsage);
         }
 
-        return new UsageSnapshot(planLabel == null ? "" : planLabel, !limitReached,
+        return new UsageSnapshot(plan, !limitReached,
                 limitReached, fiveHour, weekly, null, extra, null, -1, fetchedAtMillis);
     }
 
@@ -194,6 +203,44 @@ public final class ClaudeUsageParser {
      * Plan badge from {@code GET /api/oauth/profile}. Reads the rate-limit tier first because it
      * is the only field that separates Max 5x from Max 20x.
      */
+    public static final String PLAN_ULTRA = "Ultra";
+    public static final String PLAN_MAX = "Max";
+    /** Dashboard copy shown in place of the 5-hour card on Ultra. */
+    public static final String NO_FIVE_HOUR_LIMIT_NOTE =
+            "No 5-hour limit on Ultra \u00b7 weekly limits still apply";
+
+    /**
+     * Current name for a Claude plan label, so snapshots cached before the rename read right:
+     * "Max 20x" (and raw tiers like {@code default_claude_max_20x}) become "Ultra", "Max 5x"
+     * becomes "Max". Other labels pass through trimmed.
+     */
+    public static String normalizePlanLabel(String label) {
+        if (label == null) return "";
+        String trimmed = label.trim();
+        String key = trimmed.toLowerCase(Locale.ROOT).replaceAll("[\\s_\\-]+", "");
+        if (key.startsWith("default")) key = key.substring("default".length());
+        if (key.startsWith("claude")) key = key.substring("claude".length());
+        switch (key) {
+            case "ultra":
+            case "max20x":
+            case "max20":
+                return PLAN_ULTRA;
+            case "max":
+            case "max5x":
+            case "max5":
+                return PLAN_MAX;
+            default:
+                return trimmed;
+        }
+    }
+
+    /** True when the plan has no 5-hour window (verified Ultra) and none was reported. */
+    public static boolean noFiveHourLimit(UsageSnapshot snapshot) {
+        return snapshot != null && snapshot.fiveHour == null
+                && PLAN_ULTRA.equals(normalizePlanLabel(snapshot.planType))
+                && (snapshot.weekly != null || !snapshot.additionalLimits.isEmpty());
+    }
+
     public static String planLabel(String profileBody) {
         if (profileBody == null || profileBody.isEmpty()) return "";
         try {
@@ -204,12 +251,14 @@ public final class ClaudeUsageParser {
                     : organization.optString("rate_limit_tier", "").toLowerCase(Locale.ROOT);
             String type = organization == null ? ""
                     : organization.optString("organization_type", "").toLowerCase(Locale.ROOT);
-            if (tier.contains("max_20x")) return "Max 20x";
-            if (tier.contains("max_5x")) return "Max 5x";
+            // Anthropic renamed Max 20x to Ultra and Max 5x to Max; old tiers map to the new names.
+            if (tier.contains("ultra") || tier.contains("max_20x")) return PLAN_ULTRA;
+            if (tier.contains("max_5x")) return PLAN_MAX;
+            if (type.contains("ultra")) return PLAN_ULTRA;
             if (type.contains("enterprise")) return "Enterprise";
             if (type.contains("team")) return "Team";
             if (type.contains("max") || (account != null && account.optBoolean("has_claude_max"))) {
-                return "Max";
+                return PLAN_MAX;
             }
             if (type.contains("pro") || (account != null && account.optBoolean("has_claude_pro"))) {
                 return "Pro";

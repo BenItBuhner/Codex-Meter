@@ -46,7 +46,7 @@ final class ClaudeUsageParserTests: XCTestCase {
 
         XCTAssertNil(snapshot.monthly)
         XCTAssertNil(snapshot.usageCredits)
-        XCTAssertEqual(snapshot.planType, "Max 20x")
+        XCTAssertEqual(snapshot.planType, "Ultra", "cached Max 20x label is renamed")
         XCTAssertEqual(snapshot.fetchedAt, fetchedAt)
 
         // Only Fable and extra usage: no Opus/Sonnet, "All models" and null rows skipped.
@@ -111,7 +111,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         let decoded = try decoder.decode(UsageSnapshot.self, from: encoder.encode(snapshot))
         XCTAssertEqual(decoded.weekly?.usedPercent, 20)
         XCTAssertEqual(decoded.additionalLimits.count, 2)
-        XCTAssertEqual(decoded.planType, "Max 20x")
+        XCTAssertEqual(decoded.planType, "Ultra")
     }
 
     func testNullWindowsAndDisabledExtraUsageAreSkipped() throws {
@@ -175,11 +175,11 @@ final class ClaudeUsageParserTests: XCTestCase {
             ClaudeUsageParser.planLabel(
                 profile: #"{"organization":{"organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x"}}"#
             ),
-            "Max 20x"
+            "Ultra"
         )
         XCTAssertEqual(
             ClaudeUsageParser.planLabel(profile: #"{"organization":{"rate_limit_tier":"default_claude_max_5x"}}"#),
-            "Max 5x"
+            "Max"
         )
         XCTAssertEqual(
             ClaudeUsageParser.planLabel(profile: #"{"account":{"has_claude_pro":true},"organization":{}}"#),
@@ -333,4 +333,55 @@ final class ClaudeCodeOAuthTests: XCTestCase {
 
         XCTAssertThrowsError(try ClaudeTokenResponse.parse(Data(#"{"refresh_token":"r"}"#.utf8)))
     }
+
+    func testUltraAndMaxRename() throws {
+        XCTAssertEqual(
+            ClaudeUsageParser.planLabel(profile: #"{"organization":{"rate_limit_tier":"default_claude_ultra"}}"#),
+            "Ultra"
+        )
+        XCTAssertEqual(
+            ClaudeUsageParser.planLabel(profile: #"{"organization":{"organization_type":"claude_ultra"}}"#),
+            "Ultra"
+        )
+        let aliases: [(String?, String)] = [
+            ("Max 20x", "Ultra"), ("max_20x", "Ultra"), ("default_claude_max_20x", "Ultra"),
+            (" ultra ", "Ultra"), ("Max 5x", "Max"), ("max-5x", "Max"), ("max", "Max"),
+            ("Pro", "Pro"), ("Team", "Team"), ("", ""), (nil, ""),
+        ]
+        for (alias, expected) in aliases {
+            XCTAssertEqual(ClaudeUsageParser.normalizePlanLabel(alias), expected, "\(alias ?? "nil")")
+        }
+    }
+
+    func testVerifiedUltraHasNoFiveHourWindow() throws {
+        let ultra = try ClaudeUsageParser.parse(
+            #"{"limits":[{"kind":"weekly_all","group":"weekly","percent":30,"resets_at":"2026-11-02T03:00:00Z"}],"five_hour":null,"seven_day":null}"#,
+            planLabel: "Ultra",
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNil(ultra.fiveHour)
+        XCTAssertEqual(ultra.weekly?.usedPercent, 30)
+        XCTAssertFalse(ultra.limitReached)
+        XCTAssertTrue(ClaudeUsageParser.noFiveHourLimit(ultra))
+
+        let idle = #"{"five_hour":{"utilization":0,"resets_at":null},"seven_day":{"utilization":12,"resets_at":null}}"#
+        let ultraIdle = try ClaudeUsageParser.parse(idle, planLabel: "Max 20x", fetchedAt: fetchedAt)
+        XCTAssertNil(ultraIdle.fiveHour, "idle placeholder 5-hour window on Ultra is dropped")
+        XCTAssertEqual(ultraIdle.planType, "Ultra")
+        let maxIdle = try ClaudeUsageParser.parse(idle, planLabel: "Max 5x", fetchedAt: fetchedAt)
+        XCTAssertNotNil(maxIdle.fiveHour, "Max keeps its 5-hour window")
+        XCTAssertEqual(maxIdle.planType, "Max")
+        XCTAssertFalse(ClaudeUsageParser.noFiveHourLimit(maxIdle))
+
+        let ultraLive = try ClaudeUsageParser.parse(fullBody, planLabel: "Ultra", fetchedAt: fetchedAt)
+        XCTAssertEqual(ultraLive.fiveHour?.usedPercent, 41, "unverified Ultra keeps a live 5-hour window")
+
+        let atWeekly = try ClaudeUsageParser.parse(
+            #"{"five_hour":null,"seven_day":{"utilization":100,"resets_at":"2026-11-02T03:00:00Z"}}"#,
+            planLabel: "Ultra",
+            fetchedAt: fetchedAt
+        )
+        XCTAssertTrue(atWeekly.limitReached, "Ultra weekly limit still blocks")
+    }
+
 }
