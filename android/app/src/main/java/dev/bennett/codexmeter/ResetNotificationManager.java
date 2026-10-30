@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
@@ -319,7 +320,7 @@ public final class ResetNotificationManager {
             text = result.userMessage() + " Codex Meter will try again on the next refresh.";
         }
         return post(context, NOTIFICATION_CLAUDE_SAVED_RESET, title, text,
-                NOTIFICATION_CLAUDE_SAVED_RESET);
+                NOTIFICATION_CLAUDE_SAVED_RESET, false, UsageProvider.CLAUDE_CODE);
     }
 
     public static void dismissResetCreditExpiryNotification(Context context,
@@ -495,12 +496,22 @@ public final class ResetNotificationManager {
 
     private static boolean post(Context context, int id, String title, String text, int requestCode,
             boolean onlyAlertOnce) {
+        return post(context, id, title, text, requestCode, onlyAlertOnce, UsageProvider.CODEX);
+    }
+
+    /** Taps open {@code provider}'s usage, whichever provider tab was open last. */
+    private static boolean post(Context context, int id, String title, String text, int requestCode,
+            boolean onlyAlertOnce, UsageProvider provider) {
         NotificationManager manager = manager(context);
         if (manager == null) return false;
         String channel = createChannel(manager, ResetAlertPreferences.getStyle(context));
         if (!canPost(context, manager, channel)) return false;
         PendingIntent contentIntent = PendingIntent.getActivity(context, requestCode,
-                new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                new Intent(context, MainActivity.class)
+                        .setAction(NotificationRoutes.ACTION_OPEN_PROVIDER)
+                        .setData(Uri.parse(NotificationRoutes.uri(provider, "alert_" + id)))
+                        .putExtra(MainActivity.EXTRA_PROVIDER, provider.id)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(context, channel)

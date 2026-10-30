@@ -17,6 +17,7 @@ public final class ProviderParsersSelfTest {
     private static final long NOW_S = NOW / 1000L;
 
     public static void main(String[] args) throws Exception {
+        testNotificationRoutes();
         testCatalog();
         testProviderTabs();
         testDeviceAuth();
@@ -467,4 +468,42 @@ public final class ProviderParsersSelfTest {
                 "the keyboard opening is not leaving");
         check(AppSessionRules.knownApps(UsageProvider.CODEX).size() == 1, "Codex official apps");
     }
+
+    private static void testNotificationRoutes() {
+        UsageProvider[] all = UsageProvider.values();
+        java.util.Set<Integer> codes = new java.util.HashSet<>();
+        java.util.Set<String> uris = new java.util.HashSet<>();
+        for (UsageProvider provider : all) {
+            codes.add(NotificationRoutes.requestCode(8614, provider));
+            String uri = NotificationRoutes.uri(provider, "now_bar");
+            uris.add(uri);
+            java.net.URI parsed = java.net.URI.create(uri);
+            check(NotificationRoutes.requestedProvider(null, parsed.getScheme(),
+                            parsed.getHost(), parsed.getPath()) == provider,
+                    "live notification URI routes back to " + provider.id);
+            check(NotificationRoutes.requestedProvider(provider.id, null, null, null) == provider,
+                    "provider extra routes to " + provider.id);
+        }
+        check(codes.size() == all.length, "each provider gets its own PendingIntent request code");
+        check(uris.size() == all.length, "each provider gets its own notification data URI");
+        check(all.length < NotificationRoutes.STRIDE, "request-code stride fits every provider");
+        check(NotificationRoutes.requestCode(8614, UsageProvider.CURSOR)
+                        != NotificationRoutes.requestCode(8615, UsageProvider.CODEX),
+                "surfaces don't collide");
+        check(NotificationRoutes.requestedProvider("cursor", "codexmeter", "usage", "/claude_code")
+                        == UsageProvider.CURSOR, "the explicit extra wins over the URI");
+        check(NotificationRoutes.requestedProvider("bogus", "codexmeter", "usage", "/claude_code")
+                        == UsageProvider.CLAUDE_CODE, "an unknown extra falls back to the URI");
+        check(NotificationRoutes.requestedProvider(null, null, null, null) == null,
+                "a launcher start names no provider and keeps the last tab");
+        check(NotificationRoutes.requestedProvider(null, "codexmeter", "auth", "/cursor") == null,
+                "OAuth callbacks are not provider routes");
+        check(NotificationRoutes.requestedProvider(null, "codexmeter", "usage", "/nope") == null,
+                "unknown provider URIs are ignored");
+        check("codexmeter://usage/claude_code?from=alert_42".equals(
+                        NotificationRoutes.uri(UsageProvider.CLAUDE_CODE, "alert_42")),
+                "URI shape");
+        System.out.println("Notification routes: per-provider URIs and request codes verified.");
+    }
+
 }

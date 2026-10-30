@@ -264,11 +264,24 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void handleLaunchIntent(Intent intent) {
-        String requestedProvider = intent == null ? null
-                : intent.getStringExtra(EXTRA_PROVIDER);
-        if (requestedProvider != null) {
+        // Notification and widget taps name a provider (extra, or codexmeter://usage/<id>).
+        // Handled here for cold start (onCreate) and warm start (onNewIntent), then cleared so
+        // onResume doesn't re-apply a stale request after the user switches tabs.
+        Uri routeData = intent == null ? null : intent.getData();
+        UsageProvider requested = intent == null ? null
+                : NotificationRoutes.requestedProvider(intent.getStringExtra(EXTRA_PROVIDER),
+                        routeData == null ? null : routeData.getScheme(),
+                        routeData == null ? null : routeData.getHost(),
+                        routeData == null ? null : routeData.getPath());
+        if (intent != null) {
             intent.removeExtra(EXTRA_PROVIDER);
-            UsageProvider requested = UsageProvider.fromId(requestedProvider);
+            if (routeData != null && NotificationRoutes.isUsageUri(routeData.getScheme(),
+                    routeData.getHost())) {
+                intent.setData(null);
+            }
+        }
+        if (requested != null) {
+            DiagnosticLog.info(this, "user", "provider_route", "provider", requested.id);
             if (requested != this.provider
                     && ProviderPreferences.getEnabled(this).contains(requested)) {
                 this.provider = requested;
