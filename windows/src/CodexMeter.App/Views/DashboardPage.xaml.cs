@@ -3,6 +3,7 @@ using CodexMeter.App.Controls;
 using CodexMeter.App.Services;
 using CodexMeter.Core.Formatting;
 using CodexMeter.Core.Models;
+using CodexMeter.Core.Parsing;
 using CodexMeter.Core.Providers;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -79,7 +80,8 @@ public sealed partial class DashboardPage : Page
 
         HeaderIconHost.Child = ProviderIcons.Create(provider.Id, 32);
         TitleText.Text = provider.DisplayName;
-        var plan = usage is null ? "" : provider == UsageProvider.Codex ? UsageFormat.PlanLabel(usage.PlanType) : usage.PlanType;
+        var plan = usage is null ? "" : provider == UsageProvider.Codex ? UsageFormat.PlanLabel(usage.PlanType)
+            : provider == UsageProvider.ClaudeCode ? ClaudeUsageParser.NormalizePlanLabel(usage.PlanType) : usage.PlanType;
         PlanText.Text = plan;
         PlanBadge.Visibility = plan.Length > 0 && entry.SignedIn ? Visibility.Visible : Visibility.Collapsed;
         RefreshingRing.IsActive = entry.Refreshing;
@@ -120,6 +122,10 @@ public sealed partial class DashboardPage : Page
         }
 
         AddMeter("5-hour", usage.FiveHour, "Meter_fiveHour");
+        if (provider == UsageProvider.ClaudeCode && ClaudeUsageParser.NoFiveHourLimit(usage))
+        {
+            MeterCards.Children.Add(Cards.Text(ClaudeUsageParser.NoFiveHourLimitNote, "CaptionSecondaryTextStyle"));
+        }
         AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
         AddMeter(provider == UsageProvider.Cursor ? "Included usage · monthly" : "Monthly", usage.Monthly, "Meter_monthly");
         foreach (var limit in usage.AdditionalLimits)

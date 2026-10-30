@@ -182,7 +182,7 @@ public class ServiceFlowTests
         Assert.Equal(("c-access", "c-refresh", "org-1", "me@example.com"), (tokens.AccessToken, tokens.RefreshToken, tokens.AccountId, tokens.Email));
         var snapshot = await service.RefreshAsync();
         Assert.Equal(12, snapshot.FiveHour!.UsedPercent);
-        Assert.Equal("Max 5x", snapshot.PlanType);
+        Assert.Equal("Max", snapshot.PlanType);
     }
 
     [Fact]

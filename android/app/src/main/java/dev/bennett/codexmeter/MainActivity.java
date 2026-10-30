@@ -1394,6 +1394,13 @@ public final class MainActivity extends AppCompatActivity {
                 }
             }
         }
+        if (target == UsageProvider.CLAUDE_CODE && ClaudeUsageParser.noFiveHourLimit(snapshot)) {
+            TextView note = Ui.text(this, ClaudeUsageParser.NO_FIVE_HOUR_LIMIT_NOTE, 14.0f,
+                    Ui.secondaryText(this.dark));
+            note.setGravity(Gravity.CENTER);
+            note.setPadding(0, Ui.dp(this, 4.0f), 0, Ui.dp(this, 8.0f));
+            column.addView(note, new LinearLayout.LayoutParams(-1, -2));
+        }
         if (!anyUsage) {
             TextView empty = Ui.text(this, "Pull down to load your " + target.displayName
                     + " usage.", 14.0f, Ui.secondaryText(this.dark));

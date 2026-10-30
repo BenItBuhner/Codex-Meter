@@ -42,7 +42,13 @@ final class ClaudeUsageModel {
     }
 
     var accountPlan: String {
-        usage?.planType ?? ""
+        // Snapshots cached before the rename read "Max 20x"/"Max 5x"; show Ultra/Max.
+        ClaudeUsageParser.normalizePlanLabel(usage?.planType)
+    }
+
+    /// "No 5-hour limit" copy for verified Ultra, which reports only weekly windows.
+    var fiveHourNote: String? {
+        ClaudeUsageParser.noFiveHourLimit(usage) ? ClaudeUsageParser.noFiveHourLimitNote : nil
     }
 
     var isSignedIn: Bool {
@@ -225,7 +231,7 @@ final class ClaudeUsageModel {
 
     static func demoSnapshot(at now: Date, refreshCount: Int = 0) -> UsageSnapshot {
         UsageSnapshot(
-            planType: "Max 5x (Demo)",
+            planType: "Max (Demo)",
             allowed: true,
             limitReached: false,
             fiveHour: UsageWindow(

@@ -106,6 +106,13 @@ public enum ClaudeUsageParser {
             }
         }
 
+        let plan = normalizePlanLabel(planLabel)
+        // Verified Ultra accounts have no 5-hour window (unverified ones keep a temporary one).
+        // An idle placeholder (0%, no reset time) on Ultra isn't a real window, so drop it.
+        if plan == planUltra, let window = fiveHour, window.usedPercent <= 0, window.resetAt == nil {
+            fiveHour = nil
+        }
+
         let limitReached = reached(fiveHour) || reached(weekly)
             || additionalLimits.contains { $0.limitReached }
 
@@ -114,7 +121,7 @@ public enum ClaudeUsageParser {
         }
 
         return UsageSnapshot(
-            planType: planLabel,
+            planType: plan,
             allowed: !limitReached,
             limitReached: limitReached,
             fiveHour: fiveHour,
@@ -287,8 +294,36 @@ public enum ClaudeUsageParser {
     }
 
     /// Plan badge from `GET /api/oauth/profile`. Reads the rate-limit tier first because it is
-    /// the only field that separates Max 5x from Max 20x. The profile only decorates the badge,
+    /// the only field that separates Max from Ultra (formerly Max 5x and Max 20x). The profile only decorates the badge,
     /// so any schema change or malformed body yields an empty label instead of an error.
+    public static let planUltra = "Ultra"
+    public static let planMax = "Max"
+    /// Dashboard copy shown in place of the 5-hour card on Ultra.
+    public static let noFiveHourLimitNote = "No 5-hour limit on Ultra \u{00B7} weekly limits still apply"
+
+    /// Current name for a Claude plan label, so snapshots cached before the rename read right:
+    /// "Max 20x" (and raw tiers like `default_claude_max_20x`) become "Ultra", "Max 5x" becomes
+    /// "Max". Other labels pass through trimmed.
+    public static func normalizePlanLabel(_ label: String?) -> String {
+        let trimmed = (label ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        var key = trimmed.lowercased(with: Locale(identifier: "en_US_POSIX"))
+            .filter { !$0.isWhitespace && $0 != "_" && $0 != "-" }
+        if key.hasPrefix("default") { key.removeFirst("default".count) }
+        if key.hasPrefix("claude") { key.removeFirst("claude".count) }
+        switch key {
+        case "ultra", "max20x", "max20": return planUltra
+        case "max", "max5x", "max5": return planMax
+        default: return trimmed
+        }
+    }
+
+    /// True when the plan has no 5-hour window (verified Ultra) and none was reported.
+    public static func noFiveHourLimit(_ snapshot: UsageSnapshot?) -> Bool {
+        guard let snapshot, snapshot.fiveHour == nil else { return false }
+        return normalizePlanLabel(snapshot.planType) == planUltra
+            && (snapshot.weekly != nil || !snapshot.additionalLimits.isEmpty)
+    }
+
     public static func planLabel(profile data: Data) -> String {
         guard !data.isEmpty, let root = try? JSONSupport.object(from: data) else {
             return ""
@@ -301,11 +336,13 @@ public enum ClaudeUsageParser {
         let hasMax = JSONSupport.bool(account?["has_claude_max"], default: false)
         let hasPro = JSONSupport.bool(account?["has_claude_pro"], default: false)
 
-        if tier.contains("max_20x") { return "Max 20x" }
-        if tier.contains("max_5x") { return "Max 5x" }
+        // Anthropic renamed Max 20x to Ultra and Max 5x to Max; old tiers map to the new names.
+        if tier.contains("ultra") || tier.contains("max_20x") { return planUltra }
+        if tier.contains("max_5x") { return planMax }
+        if type.contains("ultra") { return planUltra }
         if type.contains("enterprise") { return "Enterprise" }
         if type.contains("team") { return "Team" }
-        if type.contains("max") || hasMax { return "Max" }
+        if type.contains("max") || hasMax { return planMax }
         if type.contains("pro") || hasPro { return "Pro" }
         if type.contains("free") { return "Free" }
         return ""

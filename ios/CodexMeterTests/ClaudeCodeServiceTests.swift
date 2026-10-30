@@ -56,7 +56,7 @@ final class ClaudeCodeServiceTests: XCTestCase {
         XCTAssertEqual(usage.fiveHour?.usedPercent, 6)
         XCTAssertEqual(usage.weekly?.usedPercent, 35)
         XCTAssertEqual(usage.additionalLimits.first?.displayName, "Fable only")
-        XCTAssertEqual(usage.planType, "Max 20x")
+        XCTAssertEqual(usage.planType, "Ultra")
         XCTAssertEqual(counts.read()["/api/oauth/usage"], 2)
         XCTAssertEqual(counts.read()["/v1/oauth/token"], 1)
 

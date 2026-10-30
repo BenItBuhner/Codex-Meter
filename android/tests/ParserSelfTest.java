@@ -2803,7 +2803,9 @@ public final class ParserSelfTest {
                 "Claude seven_day maps to weekly");
         check(snapshot.weekly.remainingPercent() == 65, "Claude weekly remaining");
         check(snapshot.monthly == null, "Claude has no monthly window");
-        check("Max 20x".equals(snapshot.planType), "Claude plan label kept");
+        check("Ultra".equals(snapshot.planType), "cached Max 20x label is renamed to Ultra");
+        check(!ClaudeUsageParser.noFiveHourLimit(snapshot),
+                "a live 5-hour window on Ultra (unverified account) is kept and shown");
         check(snapshot.additionalLimits.size() == 1,
                 "legacy Opus, Sonnet, and codename keys are not shown");
         UsageLimit extra = snapshot.additionalLimits.get(0);
@@ -2833,6 +2835,7 @@ public final class ParserSelfTest {
                 + "\"extra_usage\":{\"is_enabled\":null,\"utilization\":null}"
                 + "}";
         UsageSnapshot fromLimits = ClaudeUsageParser.parse(current, "Max 5x", 2_000L);
+        check("Max".equals(fromLimits.planType), "cached Max 5x label is renamed to Max");
         check(fromLimits.fiveHour.usedPercent == 41 && fromLimits.fiveHour.windowSeconds == 18_000L,
                 "limits[] session row is the 5-hour meter");
         check(fromLimits.weekly.usedPercent == 20 && fromLimits.weekly.windowSeconds == 604_800L,
@@ -2876,13 +2879,60 @@ public final class ParserSelfTest {
         check(ClaudeUsageParser.parseResetSeconds("not a date") == 0L,
                 "bad Claude reset timestamps are ignored");
 
-        check("Max 20x".equals(ClaudeUsageParser.planLabel(
+        check("Ultra".equals(ClaudeUsageParser.planLabel(
                 "{\"organization\":{\"organization_type\":\"claude_max\","
                         + "\"rate_limit_tier\":\"default_claude_max_20x\"}}")),
-                "Claude Max 20x from rate-limit tier");
-        check("Max 5x".equals(ClaudeUsageParser.planLabel(
+                "Claude max_20x tier is now Ultra");
+        check("Max".equals(ClaudeUsageParser.planLabel(
                 "{\"organization\":{\"rate_limit_tier\":\"default_claude_max_5x\"}}")),
-                "Claude Max 5x from rate-limit tier");
+                "Claude max_5x tier is now Max");
+        check("Ultra".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"rate_limit_tier\":\"default_claude_ultra\"}}")),
+                "Claude ultra tier");
+        check("Ultra".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_ultra\"}}")),
+                "Claude ultra organization type");
+        check("Max".equals(ClaudeUsageParser.planLabel("{\"account\":{\"has_claude_max\":true}}")),
+                "Claude Max from account flag");
+        String[][] aliases = {
+                {"Max 20x", "Ultra"}, {"max_20x", "Ultra"}, {"default_claude_max_20x", "Ultra"},
+                {" ultra ", "Ultra"}, {"Max 5x", "Max"}, {"max-5x", "Max"}, {"max", "Max"},
+                {"Pro", "Pro"}, {"Team", "Team"}, {"", ""}, {null, ""}};
+        for (String[] alias : aliases) {
+            check(alias[1].equals(ClaudeUsageParser.normalizePlanLabel(alias[0])),
+                    "Claude plan alias " + alias[0] + " -> " + alias[1]);
+        }
+
+        String ultraBody = "{\"limits\":["
+                + "{\"kind\":\"weekly_all\",\"group\":\"weekly\",\"percent\":30,"
+                + "\"resets_at\":\"2026-11-02T03:00:00Z\"}],"
+                + "\"five_hour\":null,\"seven_day\":null}";
+        UsageSnapshot ultra = ClaudeUsageParser.parse(ultraBody, "Ultra", 3_000L);
+        check(ultra.fiveHour == null && ultra.weekly.usedPercent == 30 && !ultra.limitReached,
+                "verified Ultra: weekly only, no 5-hour window");
+        check(ClaudeUsageParser.noFiveHourLimit(ultra), "Ultra shows the no-5-hour-limit note");
+        check(!DashboardSections.providerSections(ultra, null).contains(DashboardSections.FIVE_HOUR),
+                "Ultra dashboard has no 5-hour card");
+        check(WearGlanceFormat.focusSummary(ultra).indexOf("5h") < 0,
+                "Ultra glance summary omits the 5-hour window");
+        UsageSnapshot ultraIdle = ClaudeUsageParser.parse(
+                "{\"five_hour\":{\"utilization\":0,\"resets_at\":null},"
+                        + "\"seven_day\":{\"utilization\":12,\"resets_at\":null}}",
+                "Max 20x", 4_000L);
+        check(ultraIdle.fiveHour == null && "Ultra".equals(ultraIdle.planType),
+                "an idle placeholder 5-hour window on Ultra is dropped");
+        UsageSnapshot maxIdle = ClaudeUsageParser.parse(
+                "{\"five_hour\":{\"utilization\":0,\"resets_at\":null},"
+                        + "\"seven_day\":{\"utilization\":12,\"resets_at\":null}}",
+                "Max 5x", 4_000L);
+        check(maxIdle.fiveHour != null && "Max".equals(maxIdle.planType),
+                "Max keeps its 5-hour window");
+        check(!ClaudeUsageParser.noFiveHourLimit(maxIdle) && !ClaudeUsageParser.noFiveHourLimit(minimal),
+                "the no-5-hour note is Ultra-only");
+        UsageSnapshot ultraAtWeekly = ClaudeUsageParser.parse(
+                "{\"five_hour\":null,\"seven_day\":{\"utilization\":100,"
+                        + "\"resets_at\":\"2026-11-02T03:00:00Z\"}}", "Ultra", 5_000L);
+        check(ultraAtWeekly.limitReached, "Ultra weekly limit still blocks");
         check("Pro".equals(ClaudeUsageParser.planLabel(
                 "{\"account\":{\"has_claude_pro\":true},\"organization\":{}}")),
                 "Claude Pro from account flags");
