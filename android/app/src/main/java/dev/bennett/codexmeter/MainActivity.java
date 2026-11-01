@@ -679,6 +679,13 @@ public final class MainActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         String reset = UsageFormat.reset(this, window, WidgetOptions.RESET_RELATIVE,
                 snapshot.fetchedAtMillis, now);
+        long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+        if (window.showsResetCountdown() && resetAt > 0L && resetAt <= now) {
+            // The saved numbers are from before this window reset. Show it refilled until the
+            // next refresh confirms, instead of the old value next to "Resets now".
+            window = new UsageWindow(0, window.windowSeconds, 0L, 0L);
+            reset = "Reset passed · refresh to update";
+        }
         UsagePace.Assessment pace = UsagePacePreferences.assess(this, this.provider, snapshot,
                 window, now);
         UsageWaveView wave = new UsageWaveView(this);
@@ -1154,7 +1161,6 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void startOrContinueSignIn(UsageProvider target) {
-        String str;
         DiagnosticLog.info(this, "user", "sign_in_requested",
                 "provider", target.id,
                 "already_signed_in", SecureTokenStore.isSignedIn(this, target));
@@ -1165,6 +1171,15 @@ public final class MainActivity extends AppCompatActivity {
             rebuild();
             return;
         }
+        launchSignIn(target);
+    }
+
+    /**
+     * Opens the provider's sign-in even while a (dead) sign-in is saved. A successful sign-in
+     * replaces the saved tokens in place, so usage history and settings are kept.
+     */
+    private void launchSignIn(UsageProvider target) {
+        String str;
         if (ProviderCatalog.get(target).usesSignInScreen()) {
             SignInActivity.start(this, target);
             return;
@@ -1172,7 +1187,9 @@ public final class MainActivity extends AppCompatActivity {
         try {
             startForegroundService(new Intent(this, (Class<?>) OAuthService.class)
                     .setAction(OAuthService.ACTION_START)
-                    .putExtra(OAuthService.EXTRA_PROVIDER, target.id));
+                    .putExtra(OAuthService.EXTRA_PROVIDER, target.id)
+                    .putExtra(OAuthService.EXTRA_REAUTHENTICATE,
+                            SecureTokenStore.isSignedIn(this, target)));
             if (ProviderPreferences.isSignInPending(this, target)) {
                 str = "Resuming secure " + target.vendorName + " sign-in…";
             } else {
@@ -1322,6 +1339,16 @@ public final class MainActivity extends AppCompatActivity {
             LinearLayout.LayoutParams errorParams = new LinearLayout.LayoutParams(-1, -2);
             errorParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 14));
             this.content.addView(errorText, errorParams);
+            if (target == UsageProvider.CLAUDE_CODE
+                    && ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE.equals(error)) {
+                // Signing in again replaces the dead token in place; history and settings stay.
+                Button again = Ui.nativePrimaryButton(this, "Sign in with Claude again");
+                again.setOnClickListener(view -> launchSignIn(target));
+                LinearLayout.LayoutParams againParams =
+                        new LinearLayout.LayoutParams(-1, Ui.dp(this, 56));
+                againParams.setMargins(0, 0, 0, Ui.dp(this, 16));
+                this.content.addView(again, againParams);
+            }
         }
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);

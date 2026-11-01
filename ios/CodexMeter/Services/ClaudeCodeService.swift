@@ -166,7 +166,16 @@ public actor ClaudeCodeService {
         return tokens
     }
 
+    /// Claude refresh tokens are single-use. If the saved tokens were rotated since `previous`
+    /// was read (for example by the widget or another window), use them instead of sending the
+    /// retired refresh token, which Anthropic would reject.
     private func refreshTokens(_ previous: AuthTokens) async throws -> AuthTokens {
+        var previous = previous
+        if let stored = try? await tokenStore.load(), stored.isUsable,
+           stored.refreshToken != previous.refreshToken {
+            if !stored.shouldRefresh(at: now()) { return stored }
+            previous = stored
+        }
         let payload = try await postToken(
             ClaudeCodeAPI.refreshBody(refreshToken: previous.refreshToken)
         )

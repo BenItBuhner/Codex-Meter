@@ -48,6 +48,21 @@ public final class UsagePaceDemoActivity extends Activity {
             finish();
             return;
         }
+        String claudeScenario = getIntent().getStringExtra("claude_scenario");
+        if (claudeScenario != null && !claudeScenario.isEmpty()) {
+            try {
+                seedClaude(claudeScenario);
+                startActivity(new Intent(this, MainActivity.class)
+                        .putExtra(MainActivity.EXTRA_PROVIDER, UsageProvider.CLAUDE_CODE.id)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                | Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (Exception exception) {
+                throw new IllegalStateException("Could not seed Claude demo", exception);
+            } finally {
+                finish();
+            }
+            return;
+        }
         try {
             // Optional overrides for demoing the non-configurable zero-balance auto-hide.
             String creditsBalance = getIntent().getStringExtra("credits_balance");
@@ -108,6 +123,40 @@ public final class UsagePaceDemoActivity extends Activity {
         } finally {
             finish();
         }
+    }
+
+    /**
+     * Claude Code states for screenshots: "ultra" (no 5-hour limit, profile says Ultra),
+     * "legacy_badge" (a badge saved as "Max 20x" before the rename), "sign_in_again" (Anthropic
+     * rejected the refresh token) and "expired" (the saved weekly window reset since the last
+     * refresh). Data is marked fresh so opening the tab does not hit the network.
+     */
+    private void seedClaude(String scenario) throws Exception {
+        long now = System.currentTimeMillis();
+        long day = TimeUnit.DAYS.toMillis(1);
+        long weekSeconds = TimeUnit.DAYS.toSeconds(7);
+        boolean expired = "expired".equals(scenario);
+        long weeklyReset = expired ? now - TimeUnit.HOURS.toMillis(9) : now + 6 * day;
+        int weeklyUsed = expired ? 100 : 4;
+        String plan = "legacy_badge".equals(scenario) ? "Max 20x" : "Ultra";
+        UsageSnapshot snapshot = new UsageSnapshot(plan, true, false, null,
+                new UsageWindow(weeklyUsed, weekSeconds, 0L, weeklyReset / 1000L),
+                Arrays.asList(new UsageLimit(ClaudeUsageParser.LIMIT_ID_PREFIX
+                        + "weekly_scoped_fable", "Fable only", "", true, false,
+                        new UsageWindow(2, weekSeconds, 0L, weeklyReset / 1000L), null)),
+                null, -1, now);
+        SecureTokenStore.save(this, UsageProvider.CLAUDE_CODE, new AuthTokens(
+                "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
+                "debug-demo-org", "demo@codexmeter.local"));
+        ProviderPreferences.saveSnapshot(this, UsageProvider.CLAUDE_CODE, snapshot);
+        // Fresh data plus a recent back-off keep the tab from fetching with the fake token.
+        ProviderPreferences.setRateLimitedAt(this, UsageProvider.CLAUDE_CODE, now);
+        if ("sign_in_again".equals(scenario)) {
+            ProviderPreferences.setLastError(this, UsageProvider.CLAUDE_CODE,
+                    ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE);
+        }
+        AppPreferences.setRefreshOnLaunch(this, false);
+        AppPreferences.completeOnboarding(this);
     }
 
     private void seedHistory(long now, long fiveHourReset, long weeklyReset) {
