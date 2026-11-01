@@ -64,6 +64,13 @@ public final class UsageSnapshot {
         this.fetchedAtMillis = j;
     }
 
+    /** The same snapshot with a different plan badge. */
+    public UsageSnapshot withPlanType(String plan) {
+        return new UsageSnapshot(plan, allowed, limitReached, fiveHour, weekly, monthly,
+                additionalLimits, usageCredits, spendControl, resetCreditsAvailable,
+                fetchedAtMillis);
+    }
+
     /**
      * The longer-cadence Codex window: weekly when present, otherwise the monthly window that
      * free-tier accounts report. Surfaces that used to hardcode "weekly" adapt through this so a

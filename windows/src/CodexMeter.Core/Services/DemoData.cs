@@ -14,7 +14,7 @@ public static class DemoData
     {
         if (provider == UsageProvider.ClaudeCode)
         {
-            return new UsageSnapshot("Max 20x", true, false,
+            return new UsageSnapshot("Max", true, false,
                 new UsageWindow(41, 18_000, 0, now.AddHours(3).AddMinutes(12)),
                 new UsageWindow(20, 604_800, 0, now.AddDays(4).AddHours(5)), null, null,
                 [

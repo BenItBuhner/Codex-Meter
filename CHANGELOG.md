@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Claude plan badges use Anthropic's new names: Max 5x is now **Max** and Max 20x is now **Ultra**. The name comes from your Claude profile, so future renames show up without an update, and badges saved before the change are renamed too. All apps.
+
+### Fixed
+
+- Claude Code usage is sturdier after Anthropic's plan change. On Android the usage request now matches Claude Code 2.1.316, and if Anthropic refuses its saved-reset part, the app retries plain usage instead of failing. On every app a 403 is treated as a temporary refusal instead of "your plan has no usage limits", and your sign-in is always kept. Accounts with no 5-hour limit (verified Ultra) load normally.
+- Accounts without a 5-hour limit show the weekly meters with a short "No 5-hour limit on this plan" note instead of a missing card. Home screen widgets set to the 5-hour meter show the weekly one instead of "Unavailable", and the live notification follows the weekly limit. Android and iPhone/Mac.
+
 ## 2.9.0-alpha.13 — 2026-10-28
 
 ### Changed

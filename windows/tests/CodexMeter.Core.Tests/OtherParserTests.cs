@@ -114,10 +114,38 @@ public class ClaudeUsageParserTests
     }
 
     [Fact]
+    public void ClaudeUltraWithoutFiveHourLimitStillLoads()
+    {
+        // Verified Ultra (October 2026): five_hour is null and limits[] has no session row.
+        const string body = """
+            {"five_hour":null,
+             "seven_day":{"utilization":47.0,"resets_at":"2026-11-03T17:00:00.036205+00:00","limit_dollars":null,"used_dollars":null,"remaining_dollars":null,"locked_reason":null},
+             "seven_day_opus":null,"seven_day_sonnet":null,
+             "extra_usage":{"is_enabled":false,"utilization":null},
+             "limits":[
+              {"kind":"weekly_all","group":"weekly","percent":47,"severity":"normal","resets_at":"2026-11-03T17:00:00.036205+00:00","scope":null,"is_active":true},
+              {"kind":"weekly_scoped","group":"weekly","percent":2,"resets_at":"2026-11-03T17:00:00+00:00","scope":{"model":{"id":null,"display_name":"Fable"},"surface":null},"is_active":false}
+             ]}
+            """;
+        var s = ClaudeUsageParser.Parse(body, "Ultra", At);
+        Assert.Null(s.FiveHour);
+        Assert.Equal(47, s.Weekly!.UsedPercent);
+        Assert.Equal(["Fable only"], s.AdditionalLimits.Select(l => l.Name));
+        Assert.False(s.LimitReached);
+    }
+
+    [Fact]
     public void PlanLabelsFromProfile()
     {
-        Assert.Equal("Max 20x", ClaudeUsageParser.PlanLabel("""{"organization":{"organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x"}}"""));
-        Assert.Equal("Max 5x", ClaudeUsageParser.PlanLabel("""{"organization":{"rate_limit_tier":"default_claude_max_5x"}}"""));
+        // Anthropic renamed Max 5x to Max and Max 20x to Ultra (October 2026); the tier string stayed.
+        Assert.Equal("Ultra", ClaudeUsageParser.PlanLabel("""{"organization":{"organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x"}}"""));
+        Assert.Equal("Max", ClaudeUsageParser.PlanLabel("""{"organization":{"rate_limit_tier":"default_claude_max_5x"}}"""));
+        Assert.Equal("Ultra", ClaudeUsageParser.PlanLabel("""{"organization":{"organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x","plan_display_name":"Ultra","plan_display_label":"Ultra plan"}}"""));
+        Assert.Equal("Max", ClaudeUsageParser.PlanLabel("""{"organization":{"rate_limit_tier":"default_claude_max_5x","plan_display_name":"<b>x</b>"}}"""));
+        Assert.Equal("Max", ClaudeUsageParser.PlanLabel("""{"organization":{"rate_limit_tier":"default_claude_max_5x","plan_display_name":null}}"""));
+        Assert.Equal("Ultra", ClaudeUsageParser.CurrentPlanName("Max 20x"));
+        Assert.Equal("Max", ClaudeUsageParser.CurrentPlanName("Max 5x"));
+        Assert.Equal("Pro", ClaudeUsageParser.CurrentPlanName("Pro"));
         Assert.Equal("Pro", ClaudeUsageParser.PlanLabel("""{"account":{"has_claude_pro":true},"organization":{}}"""));
         Assert.Equal("Max", ClaudeUsageParser.PlanLabel("""{"account":{"has_claude_max":true}}"""));
         Assert.Equal("Team", ClaudeUsageParser.PlanLabel("""{"organization":{"organization_type":"claude_team"}}"""));

@@ -286,29 +286,66 @@ public enum ClaudeUsageParser {
         return date
     }
 
-    /// Plan badge from `GET /api/oauth/profile`. Reads the rate-limit tier first because it is
-    /// the only field that separates Max 5x from Max 20x. The profile only decorates the badge,
-    /// so any schema change or malformed body yields an empty label instead of an error.
+    /// Plan badge from `GET /api/oauth/profile`.
+    ///
+    /// Anthropic renamed its plans on 30 October 2026: Max 5x is now "Max" and Max 20x is now
+    /// "Ultra". The profile gained `organization.plan_display_name` with the current name, which
+    /// Claude Code itself shows, so that wins. The rate-limit tier did not change
+    /// (`default_claude_max_20x` is still sent for Ultra), so it is the fallback that keeps the two
+    /// Max-type plans apart. The profile only decorates the badge, so any schema change or
+    /// malformed body yields an empty label instead of an error.
     public static func planLabel(profile data: Data) -> String {
         guard !data.isEmpty, let root = try? JSONSupport.object(from: data) else {
             return ""
         }
         let account = JSONSupport.object(root["account"])
         let organization = JSONSupport.object(root["organization"])
+        let display = JSONSupport.string(organization?["plan_display_name"])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if isPlanName(display) { return display }
         let posix = Locale(identifier: "en_US_POSIX")
         let tier = JSONSupport.string(organization?["rate_limit_tier"]).lowercased(with: posix)
         let type = JSONSupport.string(organization?["organization_type"]).lowercased(with: posix)
         let hasMax = JSONSupport.bool(account?["has_claude_max"], default: false)
         let hasPro = JSONSupport.bool(account?["has_claude_pro"], default: false)
 
-        if tier.contains("max_20x") { return "Max 20x" }
-        if tier.contains("max_5x") { return "Max 5x" }
         if type.contains("enterprise") { return "Enterprise" }
         if type.contains("team") { return "Team" }
+        if tier.contains("max_20x") || tier.contains("ultra") || type.contains("ultra") {
+            return "Ultra"
+        }
+        if tier.contains("max_5x") { return "Max" }
         if type.contains("max") || hasMax { return "Max" }
         if type.contains("pro") || hasPro { return "Pro" }
         if type.contains("free") { return "Free" }
         return ""
+    }
+
+    /// Renames a plan badge saved before the October 2026 rename (Max 5x/20x).
+    public static func currentPlanName(_ saved: String) -> String {
+        let trimmed = saved.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch trimmed.lowercased() {
+        case "max 20x": return "Ultra"
+        case "max 5x": return "Max"
+        default: return trimmed
+        }
+    }
+
+    /// Shown where the 5-hour meter would be when the plan has none (verified Ultra).
+    public static let noSessionLimitNote = "No 5-hour limit on this plan. Only the weekly limits apply."
+
+    /// Same rule Claude Code applies to `plan_display_name`: letters, digits, spaces and
+    /// `.+-`, at most 40 characters, starting with a letter or digit.
+    static func isPlanName(_ value: String) -> Bool {
+        guard !value.isEmpty, value.count <= 40, value.lowercased() != "null" else { return false }
+        let allowed = CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: " .+-"))
+        guard value.unicodeScalars.allSatisfy({ allowed.contains($0) }),
+              let first = value.unicodeScalars.first,
+              CharacterSet.letters.union(.decimalDigits).contains(first),
+              let last = value.unicodeScalars.last,
+              CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: "+")).contains(last)
+        else { return false }
+        return true
     }
 
     public static func planLabel(profile string: String) -> String {

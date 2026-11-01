@@ -1394,6 +1394,18 @@ public final class MainActivity extends AppCompatActivity {
                 }
             }
         }
+        if (anyUsage && target == UsageProvider.CLAUDE_CODE && snapshot.fiveHour == null
+                && snapshot.weekly != null) {
+            // Verified Ultra accounts have no 5-hour limit since October 2026; say so instead of
+            // leaving people to wonder where the card went.
+            TextView note = Ui.text(this, ClaudeUsageParser.NO_SESSION_LIMIT_NOTE, 13.0f,
+                    Ui.secondaryText(this.dark));
+            note.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
+            noteParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10),
+                    Ui.dp(this, 12));
+            column.addView(note, 0, noteParams);
+        }
         if (!anyUsage) {
             TextView empty = Ui.text(this, "Pull down to load your " + target.displayName
                     + " usage.", 14.0f, Ui.secondaryText(this.dark));

@@ -82,6 +82,7 @@ public final class ClaudeUsageApi {
         try {
             synchronized (LOCK) {
                 AuthTokens tokens = usableTokens(context);
+                boolean plainOnly = false;
                 Response usage = get(context, "claude_usage",
                         ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
                 if (usage.status == 401) {
@@ -91,7 +92,22 @@ public final class ClaudeUsageApi {
                     usage = get(context, "claude_usage",
                             ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
                 }
-                if (usage.status == 429) {
+                if (shouldRetryPlain(usage.status)) {
+                    // The saved-reset query is optional. If Anthropic refuses the request with it,
+                    // plain usage still loads; saved resets just keep their last known state.
+                    DiagnosticLog.warn(context, "refresh", "claude_usage_retry_plain",
+                            "status", usage.status);
+                    Response plain = get(context, "claude_usage_plain", ClaudeCodeApi.USAGE_URL,
+                            tokens);
+                    if (plain.status >= 200 && plain.status < 300) {
+                        plainOnly = true;
+                        usage = plain;
+                    } else if (plain.status == 429) {
+                        usage = plain;
+                    }
+                }
+                if (usage.status == 429 || usage.status == 403) {
+                    // Claude Code treats a 403 from this route as throttling too.
                     ProviderPreferences.setRateLimitedAt(context, PROVIDER,
                             System.currentTimeMillis());
                 }
@@ -115,7 +131,9 @@ public final class ClaudeUsageApi {
                 }
                 if (plan.isEmpty()) {
                     UsageSnapshot previous = ProviderPreferences.loadSnapshot(context, PROVIDER);
-                    if (previous != null) plan = previous.planType;
+                    if (previous != null) {
+                        plan = ClaudeUsageParser.currentPlanName(previous.planType);
+                    }
                 }
                 UsageSnapshot snapshot = ClaudeUsageParser.parse(usage.body, plan,
                         System.currentTimeMillis());
@@ -127,9 +145,12 @@ public final class ClaudeUsageApi {
                     throw new Exception("Usage was received, but it could not be saved on this device.");
                 }
                 UsageHistoryRecorder.record(context, PROVIDER, snapshot);
-                ClaudeSavedResets savedResets = ClaudeSavedResets.fromUsageBody(usage.body,
-                        snapshot.fetchedAtMillis);
-                ProviderPreferences.saveSavedResets(context, PROVIDER, savedResets);
+                ClaudeSavedResets savedResets = plainOnly
+                        ? ProviderPreferences.loadSavedResets(context, PROVIDER)
+                        : ClaudeSavedResets.fromUsageBody(usage.body, snapshot.fetchedAtMillis);
+                if (!plainOnly) {
+                    ProviderPreferences.saveSavedResets(context, PROVIDER, savedResets);
+                }
                 DiagnosticLog.info(context, "refresh", "claude_usage_refresh_succeeded",
                         "duration_ms", SystemClock.elapsedRealtime() - started,
                         "five_hour", snapshot.fiveHour != null,
@@ -152,13 +173,19 @@ public final class ClaudeUsageApi {
         }
     }
 
+    /** Statuses where the plain usage route is worth one retry without the saved-reset query. */
+    static boolean shouldRetryPlain(int status) {
+        return status == 400 || status == 403 || status == 404 || status == 422
+                || status >= 500;
+    }
+
     private static String usageError(Response response) {
         switch (response.status) {
             case 401:
                 return "Claude rejected the saved sign-in. Sign in with Claude again.";
             case 403:
-                return "Claude usage access was denied for this account. Usage limits are only "
-                        + "available for Pro, Max, Team, and Enterprise plans.";
+                return "Claude is refusing usage checks for now (HTTP 403). Your sign-in is kept; "
+                        + "try again in a few minutes.";
             case 404:
                 return "The Claude usage endpoint is unavailable or has changed.";
             case 429:

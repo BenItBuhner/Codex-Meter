@@ -31,6 +31,13 @@ struct CodexMeterHomeWidgetView: View {
         switch configuration.allowance {
         case .both:
             nil
+        case .fiveHour where entry.snapshot.hasNoShortWindow:
+            // No 5-hour limit on this plan (Claude Ultra): show the weekly one instead of a blank.
+            FocusedAllowance(
+                title: LocalizedStringKey(entry.snapshot.longWindowTitle),
+                longTitle: LocalizedStringKey("\(entry.snapshot.longWindowTitle) allowance"),
+                window: entry.snapshot.weekly
+            )
         case .fiveHour:
             FocusedAllowance(
                 title: LocalizedStringKey(entry.snapshot.shortWindowTitle),

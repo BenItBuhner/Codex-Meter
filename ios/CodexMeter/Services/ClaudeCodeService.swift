@@ -136,7 +136,7 @@ public actor ClaudeCodeService {
                 }
             }
             if plan.isEmpty, let previous = try? await cache.load()?.usage {
-                plan = previous.planType
+                plan = ClaudeUsageParser.currentPlanName(previous.planType)
             }
 
             let snapshot = try ClaudeUsageParser.parse(usage.data, planLabel: plan, fetchedAt: now())
@@ -232,7 +232,7 @@ public actor ClaudeCodeService {
         case 401:
             "Claude rejected the saved sign-in. Sign in with Claude again."
         case 403:
-            "Claude usage access was denied for this account. Usage limits are only available for Pro, Max, Team, and Enterprise plans."
+            "Claude is refusing usage checks for now (HTTP 403). Your sign-in is kept; try again in a few minutes."
         case 404:
             "The Claude usage endpoint is unavailable or has changed."
         case 429:

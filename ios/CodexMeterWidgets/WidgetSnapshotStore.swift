@@ -60,6 +60,12 @@ struct WidgetDisplaySnapshot: Sendable, Equatable {
         return "\(max(1, seconds / 60))m"
     }
 
+    /// A plan with only the long window, such as Claude Ultra without its 5-hour limit.
+    var hasNoShortWindow: Bool {
+        mode == .live && freshness != .empty && fiveHour.usedPercent == nil
+            && weekly.usedPercent != nil
+    }
+
     /// Header name: the product for Codex, otherwise the provider.
     var headerTitle: String {
         provider == .codex ? "Codex Meter" : provider.displayName
@@ -237,7 +243,7 @@ private extension WidgetDisplaySnapshot {
             version: shared.version,
             mode: mode,
             fetchedAt: shared.fetchedAt,
-            plan: shared.planType.isEmpty ? nil : shared.planType,
+            plan: shared.planType.isEmpty ? nil : ClaudeUsageParser.currentPlanName(shared.planType),
             fiveHour: Self.window(
                 from: shared.fiveHour,
                 fetchedAt: shared.fetchedAt,
