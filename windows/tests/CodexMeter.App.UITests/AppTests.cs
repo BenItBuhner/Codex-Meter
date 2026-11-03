@@ -126,7 +126,11 @@ public class AppTests
     public void LiveUsageSettingsMirrorTheLiveNotification()
     {
         using var app = new AppSession("--page", "settings");
-        Assert.Equal(ToggleState.On, app.Find("TraySwitch").AsToggleButton().ToggleState);
+        var tray = app.Find("TraySwitch");
+        Assert.Equal(ToggleState.On, tray.AsToggleButton().ToggleState);
+        // The section sits far down the page; the expander only creates its rows once they scroll
+        // into view, and focusing the switch scrolls there.
+        tray.Focus();
         Assert.Equal(ToggleState.On, app.Find("LiveFollowAppsSwitch").AsToggleButton().ToggleState);
         var provider = app.Find("LiveProviderBox").AsComboBox();
         Assert.Equal("Automatic", provider.SelectedItem?.Name);
