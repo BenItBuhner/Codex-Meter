@@ -1,0 +1,170 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.github.BenItBuhner.Glasse",
+    "module": "liquidglass",
+    "version": "ce13246500",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.8.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.compose",
+          "module": "compose-bom",
+          "version": {
+            "requires": "2026.09.00"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        },
+        {
+          "group": "androidx.compose.ui",
+          "module": "ui"
+        },
+        {
+          "group": "androidx.compose.foundation",
+          "module": "foundation"
+        },
+        {
+          "group": "androidx.compose.material3",
+          "module": "material3"
+        },
+        {
+          "group": "androidx.compose.material",
+          "module": "material-icons-core",
+          "version": {
+            "requires": "1.7.8"
+          }
+        },
+        {
+          "group": "androidx.activity",
+          "module": "activity-compose",
+          "version": {
+            "requires": "1.13.0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "liquidglass-ce13246500.aar",
+          "url": "liquidglass-ce13246500.aar",
+          "size": 764599,
+          "sha512": "c8c130b60f3724b750ced3e289d365368a97c355e98ebf4a1eaf674c50cab2edbe11ae88f213968ca7262af70a7f569f14e863516150f50adb432ec6cf9ca9fd",
+          "sha256": "7765bd7f8185c5570ab295619146cdc29690cbc176c8e8b9c440831d20c95233",
+          "sha1": "7ab28e02d4390c747692c8d6c974137e2449ed06",
+          "md5": "2839ce056ef79e4849b90750ebd47b15"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.compose",
+          "module": "compose-bom",
+          "version": {
+            "requires": "2026.09.00"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        },
+        {
+          "group": "androidx.compose.ui",
+          "module": "ui"
+        },
+        {
+          "group": "androidx.compose.foundation",
+          "module": "foundation"
+        },
+        {
+          "group": "androidx.compose.material3",
+          "module": "material3"
+        },
+        {
+          "group": "androidx.compose.material",
+          "module": "material-icons-core",
+          "version": {
+            "requires": "1.7.8"
+          }
+        },
+        {
+          "group": "androidx.activity",
+          "module": "activity-compose",
+          "version": {
+            "requires": "1.13.0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "liquidglass-ce13246500.aar",
+          "url": "liquidglass-ce13246500.aar",
+          "size": 764599,
+          "sha512": "c8c130b60f3724b750ced3e289d365368a97c355e98ebf4a1eaf674c50cab2edbe11ae88f213968ca7262af70a7f569f14e863516150f50adb432ec6cf9ca9fd",
+          "sha256": "7765bd7f8185c5570ab295619146cdc29690cbc176c8e8b9c440831d20c95233",
+          "sha1": "7ab28e02d4390c747692c8d6c974137e2449ed06",
+          "md5": "2839ce056ef79e4849b90750ebd47b15"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "liquidglass-ce13246500-sources.jar",
+          "url": "liquidglass-ce13246500-sources.jar",
+          "size": 115011,
+          "sha512": "623259432c78100b415e7e222283feac9e13836249cb8bcc14dd9379e254c9ae75b760e39cc8db5e38bd3e439086714a19a9c1586db650ce5d00a8e9bae502d5",
+          "sha256": "a71a8ae7077a30a2753287ee01901168bd030051dd2df57742d66b8a9721f25c",
+          "sha1": "572b39e6db2273a2a766b171772039aa1c564fb7",
+          "md5": "e6ec2ca1176ca2eeaf6919fb082683a3"
+        }
+      ]
+    }
+  ]
+}

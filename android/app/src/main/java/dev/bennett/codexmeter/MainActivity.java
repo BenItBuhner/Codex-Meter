@@ -78,8 +78,8 @@ public final class MainActivity extends AppCompatActivity {
     /** Slots still in the tab menu; the layout inflates all of them. */
     private int menuSlots = TAB_SLOTS.length;
     private Ui.Header header;
-    /** One UI 9 design: SESL9's floating tab bar instead of the stock tabs. */
-    private OneUi9ProviderBar oneUi9Bar;
+    /** One UI 9 and Liquid Glass designs: a floating tab bar instead of the stock tabs. */
+    private ProviderBar oneUi9Bar;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -131,6 +131,8 @@ public final class MainActivity extends AppCompatActivity {
         this.header = page.header;
         if (page.oneUi9 != null) {
             this.oneUi9Bar = new OneUi9ProviderBar(page.oneUi9, this::selectProvider);
+        } else if (page.glass != null) {
+            this.oneUi9Bar = new GlassProviderBar(page.glass, this::selectProvider);
         }
         this.provider = ProviderPreferences.getSelected(this);
         setUpProviderTabs();

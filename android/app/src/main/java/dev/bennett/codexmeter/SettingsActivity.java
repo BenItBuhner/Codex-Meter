@@ -249,8 +249,9 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onViewCreated(View view, Bundle bundle) {
             super.onViewCreated(view, bundle);
-            if (AppPreferences.isOneUi9Design(requireContext())) {
-                // One UI 9: the list runs edge to edge under the floating toolbar and fades, so
+            if (AppPreferences.isOneUi9Design(requireContext())
+                    || AppPreferences.isLiquidGlassDesign(requireContext())) {
+                // One UI 9 and Liquid Glass: the list runs edge to edge under the floating toolbar and fades, so
                 // it has no backdrop of its own and no rounded list edges; each row group keeps
                 // its own card.
                 view.setBackgroundColor(Color.TRANSPARENT);
@@ -439,7 +440,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     ? "System default"
                     : WidgetOptions.THEME_DARK.equals(theme) ? "Dark" : "Light";
             findPreference("settings_appearance").setSummary(themeLabel
-                    + (AppPreferences.isOneUi9Design(context) ? " · One UI 9" : ""));
+                    + " · " + designLabel(context));
 
             findPreference("settings_refresh_usage").setSummary(refreshSummary(context));
             findPreference("settings_reset_credits").setSummary(resetCreditsSummary(context));
@@ -632,16 +633,32 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindDesign() {
-            SwitchPreferenceCompat oneUi9 = findPreference("one_ui_9_design");
-            oneUi9.setPersistent(false);
-            oneUi9.setChecked(AppPreferences.isOneUi9Design(requireContext()));
-            oneUi9.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setOneUi9Design(requireContext(), (Boolean) value);
+            ListPreference design = findPreference("app_design_ui");
+            design.setPersistent(false);
+            design.setValue(AppPreferences.getDesign(requireContext()));
+            design.setSummary(designLabel(requireContext()));
+            design.setOnPreferenceChangeListener((preference, value) -> {
+                String choice = String.valueOf(value);
+                if (choice.equals(AppPreferences.getDesign(requireContext()))) {
+                    return false;
+                }
+                AppPreferences.setDesign(requireContext(), choice);
+                design.setValue(choice);
+                design.setSummary(designLabel(requireContext()));
                 // Restart the whole app so every page is built fresh with the new design.
                 Activity activity = requireActivity();
                 getListView().postDelayed(() -> restartForDesign(activity), 250);
-                return true;
+                return false;
             });
+        }
+
+        /** The name of the current design, as Settings → Appearance lists it. */
+        static String designLabel(Context context) {
+            String design = AppPreferences.getDesign(context);
+            if (AppPreferences.DESIGN_LIQUID_GLASS.equals(design)) {
+                return "Liquid Glass";
+            }
+            return AppPreferences.DESIGN_ONE_UI_9.equals(design) ? "One UI 9" : "One UI 8.5";
         }
 
         /** Relaunches the app on Settings → Appearance in a fresh process. */

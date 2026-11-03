@@ -81,11 +81,18 @@ public final class Ui {
         public final LinearLayout content;
         /** Set only on One UI 9 pages. */
         public final OneUi9Page oneUi9;
+        /** Set only on Liquid Glass pages. */
+        public final GlassPage glass;
 
         private Page(Header header, LinearLayout content, OneUi9Page oneUi9) {
+            this(header, content, oneUi9, null);
+        }
+
+        private Page(Header header, LinearLayout content, OneUi9Page oneUi9, GlassPage glass) {
             this.header = header;
             this.content = content;
             this.oneUi9 = oneUi9;
+            this.glass = glass;
         }
     }
 
@@ -141,6 +148,11 @@ public final class Ui {
      */
     public static Page installPage(AppCompatActivity activity, String title, boolean back,
             int layout) {
+        if (GlassPage.isOn(activity)) {
+            GlassPage page = GlassPage.install(activity, R.layout.oneui9_body_scroll, title, back,
+                    true);
+            return new Page(page, page.body.findViewById(R.id.dashboard_content), null, page);
+        }
         if (OneUi9Page.isOn(activity)) {
             OneUi9Page page = OneUi9Page.install(activity, R.layout.oneui9_body_scroll, title,
                     back, true);
@@ -157,6 +169,9 @@ public final class Ui {
 
     /** Settings pages: a page shell around the preference fragment container. */
     public static Header installSettingsPage(AppCompatActivity activity, String title) {
+        if (GlassPage.isOn(activity)) {
+            return GlassPage.install(activity, R.layout.oneui9_body_settings, title, true, true);
+        }
         if (OneUi9Page.isOn(activity)) {
             return OneUi9Page.install(activity, R.layout.oneui9_body_settings, title, true, true);
         }
@@ -203,6 +218,9 @@ public final class Ui {
     }
 
     public static ConfigPage installConfigPage(AppCompatActivity activity, String title) {
+        if (GlassPage.isOn(activity)) {
+            return installGlassConfigPage(activity, title);
+        }
         if (OneUi9Page.isOn(activity)) {
             return installOneUi9ConfigPage(activity, title);
         }
@@ -267,6 +285,59 @@ public final class Ui {
         });
         actions.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
                 shell.setBottomReserve(Math.max(0, b - t) + dp(activity, 8.0f)));
+        return page;
+    }
+
+    /**
+     * Liquid Glass widget settings: an inline title and floating glass Cancel / Save buttons over
+     * the scrolling settings, Save in the accent color like iOS's confirm button.
+     */
+    private static ConfigPage installGlassConfigPage(AppCompatActivity activity, String title) {
+        GlassPage shell = GlassPage.install(activity, R.layout.oneui9_body_widget_config, title,
+                true, false);
+        ConfigPage page = new ConfigPage(shell,
+                shell.body.findViewById(R.id.widget_settings_content),
+                shell.body.findViewById(R.id.widget_preview_container));
+        LinearLayout actions = new LinearLayout(activity);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER);
+        com.benitbuhner.liquidglass.widget.GlassButton cancel =
+                new com.benitbuhner.liquidglass.widget.GlassButton(activity);
+        cancel.setText("Cancel");
+        cancel.setSizeDp(50.0f);
+        cancel.setOnClickListener(view -> page.cancel.run());
+        com.benitbuhner.liquidglass.widget.GlassButton save =
+                new com.benitbuhner.liquidglass.widget.GlassButton(activity);
+        save.setText("Save");
+        save.setSizeDp(50.0f);
+        save.setProminent(true);
+        save.setOnClickListener(view -> page.save.run());
+        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(activity, 50.0f),
+                1.0f);
+        actions.addView(cancel, half);
+        LinearLayout.LayoutParams second = new LinearLayout.LayoutParams(0,
+                dp(activity, 50.0f), 1.0f);
+        second.setMarginStart(dp(activity, 12.0f));
+        actions.addView(save, second);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM);
+        int side = dp(activity, 20.0f);
+        params.setMargins(side, 0, side, 0);
+        shell.root.addView(actions, params);
+        // The buttons float above the navigation bar, and the last row stays clear of them.
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(actions, (view, insets) -> {
+            int bottom = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                    .bottom + dp(activity, 12.0f);
+            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
+            if (lp.bottomMargin != bottom) {
+                lp.bottomMargin = bottom;
+                view.setLayoutParams(lp);
+            }
+            return insets;
+        });
+        actions.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
+                shell.setBottomReserve(Math.max(0, b - t) + dp(activity, 24.0f)));
         return page;
     }
 

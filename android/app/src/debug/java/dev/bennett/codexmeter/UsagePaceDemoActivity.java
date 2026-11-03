@@ -11,6 +11,16 @@ public final class UsagePaceDemoActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        // Optional: pick the design ("classic", "one_ui_9", "liquid_glass") and theme
+        // ("light", "dark", "system") before any page is built.
+        String design = getIntent().getStringExtra("design");
+        if (design != null && !design.isEmpty()) {
+            AppPreferences.setDesign(this, design);
+        }
+        String theme = getIntent().getStringExtra("theme");
+        if (theme != null && !theme.isEmpty()) {
+            AppPreferences.setAppTheme(this, theme);
+        }
         String settingsPage = getIntent().getStringExtra("open_settings_page");
         if (settingsPage != null && !settingsPage.isEmpty()) {
             startActivity(new Intent(this, SettingsActivity.class)
@@ -94,6 +104,9 @@ public final class UsagePaceDemoActivity extends Activity {
             AppPreferences.setRefreshOnLaunch(this, false);
             AppPreferences.setDashboardVisibility(this, true, true, true, true, true, true, true);
             AppPreferences.completeOnboarding(this);
+            if (getIntent().getBooleanExtra("demo_providers", false)) {
+                seedProviders(now);
+            }
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
             boolean livePreview = getIntent().getBooleanExtra("start_live_preview", false);
@@ -108,6 +121,36 @@ public final class UsagePaceDemoActivity extends Activity {
         } finally {
             finish();
         }
+    }
+
+    /** Signs Claude Code and Cursor in with demo usage, so the dashboard shows provider tabs. */
+    private void seedProviders(long now) throws Exception {
+        long nowSeconds = now / 1000L;
+        String claude = "{\"plan_type\":\"max\",\"allowed\":true,\"limit_reached\":false,"
+                + "\"five_hour\":" + window(71, 18000, nowSeconds + 52 * 60) + ","
+                + "\"weekly\":" + window(34, 604800, nowSeconds + 5 * 86400) + ","
+                + "\"fetched_at\":" + (now - 600000) + "}";
+        String cursor = "{\"plan_type\":\"pro\",\"allowed\":true,\"limit_reached\":false,"
+                + "\"monthly\":" + window(27, 2592000, nowSeconds + 11 * 86400) + ","
+                + "\"fetched_at\":" + (now - 900000) + "}";
+        seedProvider(UsageProvider.CLAUDE_CODE, claude);
+        seedProvider(UsageProvider.CURSOR, cursor);
+        ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR));
+        ProviderPreferences.setSelected(this, UsageProvider.CODEX);
+    }
+
+    private void seedProvider(UsageProvider provider, String json) throws Exception {
+        SecureTokenStore.save(this, provider, new AuthTokens(
+                "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
+                "debug-demo-account", "demo@codexmeter.local"));
+        ProviderPreferences.saveSnapshot(this, provider,
+                UsageSnapshot.fromJson(new org.json.JSONObject(json)));
+    }
+
+    private static String window(int used, long seconds, long resetAt) {
+        return "{\"used_percent\":" + used + ",\"limit_window_seconds\":" + seconds
+                + ",\"reset_after_seconds\":0,\"reset_at\":" + resetAt + "}";
     }
 
     private void seedHistory(long now, long fiveHourReset, long weeklyReset) {

@@ -22,6 +22,11 @@ public final class AppPreferences {
     private static final String KEY_HISTORY_SECTION_OVERRIDES = "history_section_overrides";
     private static final String KEY_MATERIAL_YOU = "material_you";
     private static final String KEY_ONE_UI_9_DESIGN = "one_ui_9_design";
+    private static final String KEY_APP_DESIGN = "app_design";
+    /** Settings → Appearance → Design choices. */
+    public static final String DESIGN_CLASSIC = "classic";
+    public static final String DESIGN_ONE_UI_9 = "one_ui_9";
+    public static final String DESIGN_LIQUID_GLASS = "liquid_glass";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
@@ -436,13 +441,42 @@ public final class AppPreferences {
         prefs(context).edit().putBoolean(KEY_MATERIAL_YOU, enabled).commit();
     }
 
+    /**
+     * The app's design: classic (One UI 8.5), One UI 9, or Liquid Glass. Installs from before the
+     * Liquid Glass design only stored the One UI 9 switch, so that is the fallback.
+     */
+    public static String getDesign(Context context) {
+        SharedPreferences prefs = prefs(context);
+        String design = prefs.getString(KEY_APP_DESIGN, null);
+        if (DESIGN_ONE_UI_9.equals(design) || DESIGN_LIQUID_GLASS.equals(design)
+                || DESIGN_CLASSIC.equals(design)) {
+            return design;
+        }
+        return prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false) ? DESIGN_ONE_UI_9 : DESIGN_CLASSIC;
+    }
+
+    public static void setDesign(Context context, String design) {
+        if (!DESIGN_ONE_UI_9.equals(design) && !DESIGN_LIQUID_GLASS.equals(design)) {
+            design = DESIGN_CLASSIC;
+        }
+        prefs(context).edit()
+                .putString(KEY_APP_DESIGN, design)
+                .putBoolean(KEY_ONE_UI_9_DESIGN, DESIGN_ONE_UI_9.equals(design))
+                .commit();
+    }
+
     /** When enabled, pages use the One UI 9 chrome (floating toolbar and tab bar). */
     public static boolean isOneUi9Design(Context context) {
-        return prefs(context).getBoolean(KEY_ONE_UI_9_DESIGN, false);
+        return DESIGN_ONE_UI_9.equals(getDesign(context));
     }
 
     public static void setOneUi9Design(Context context, boolean enabled) {
-        prefs(context).edit().putBoolean(KEY_ONE_UI_9_DESIGN, enabled).commit();
+        setDesign(context, enabled ? DESIGN_ONE_UI_9 : DESIGN_CLASSIC);
+    }
+
+    /** When enabled, pages use Apple's Liquid Glass chrome from the Glasse library. */
+    public static boolean isLiquidGlassDesign(Context context) {
+        return DESIGN_LIQUID_GLASS.equals(getDesign(context));
     }
 
     public static String getAppStyle(Context context) {
