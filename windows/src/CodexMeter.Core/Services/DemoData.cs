@@ -28,6 +28,7 @@ public static class DemoData
                 [new UsageLimit("cursor_on_demand", "Additional usage ($12.50 of $50)", primary: new UsageWindow(25, 604_800, 0, now.AddDays(2).AddHours(9)))],
                 null, null, now);
         }
+        if (!provider.IsBuiltIn) return Added(provider, now);
         return new UsageSnapshot("pro", true, false,
             new UsageWindow(38, 18_000, 0, now.AddHours(2).AddMinutes(15)),
             new UsageWindow(64, 604_800, 0, now.AddDays(3).AddHours(7)), null, 2,
@@ -37,6 +38,84 @@ public static class DemoData
                     secondary: new UsageWindow(47, 604_800, 0, now.AddDays(3).AddHours(7))),
             ],
             new UsageCredits(true, false, "2500"), null, now);
+    }
+
+    /// <summary>Plausible windows for an added provider, shaped like what its usage route returns.</summary>
+    private static UsageSnapshot Added(UsageProvider provider, DateTimeOffset now)
+    {
+        const long hour = 3_600, day = 86_400, week = 604_800, month = 2_592_000;
+        // Vary the numbers by provider so a dashboard of several doesn't look copied.
+        var seed = provider.Id.Aggregate(7, (sum, c) => (sum * 31 + c) % 997);
+        UsageWindow Window(int percent, long seconds, TimeSpan resetIn) =>
+            new(Math.Clamp(percent + seed % 17, 0, 100), seconds, 0, now + resetIn);
+        UsageWindow FiveHour() => Window(31, 5 * hour, TimeSpan.FromMinutes(134));
+        UsageWindow Weekly() => Window(22, week, TimeSpan.FromHours(4 * 24 + 6));
+        UsageWindow Monthly() => Window(36, month, TimeSpan.FromDays(17));
+        UsageSnapshot Make(string plan, UsageWindow? fiveHour, UsageWindow? weekly, UsageWindow? monthly,
+            IReadOnlyList<UsageLimit>? extras = null, UsageCredits? credits = null) =>
+            new(plan, true, false, fiveHour, weekly, monthly, null, extras ?? [], credits, null, now);
+
+        return provider.Id switch
+        {
+            "copilot" => Make("Pro", null, null, Monthly(),
+                [new UsageLimit("chat", "Chat", primary: Window(12, month, TimeSpan.FromDays(17)))]),
+            "factory" => Make("Pro", FiveHour(), Weekly(), Monthly()),
+            "cline" or "opencode_go" => Make("Pro", FiveHour(), Weekly(), Monthly()),
+            "grok" => Make("SuperGrok", null, null, Monthly()),
+            "devin" or "windsurf" => Make("Pro", Window(18, day, TimeSpan.FromHours(9)), Weekly(), null),
+            "augment" or "kiro" or "codebuff" => Make("Pro", null, null, Monthly()),
+            "minimax" => Make("Plus", FiveHour(), Weekly(), null),
+            "zai" => Make("Pro", FiveHour(), Weekly(), null,
+                [new UsageLimit("web_search_and_reader", "Web search and reader", primary: Window(8, month, TimeSpan.FromDays(17)))]),
+            "amp" => Make("Free", Window(29, day, TimeSpan.FromHours(14)), null, null, credits: new UsageCredits(true, false, "$5.00")),
+            "openrouter" => Make("", null, null, Monthly(), credits: new UsageCredits(true, false, "$18.40")),
+            "kilo" => Make("", null, null, null, credits: new UsageCredits(true, false, "$12.75")),
+            "chutes" or "v0" => Make("", Window(24, day, TimeSpan.FromHours(11)), null, null),
+            "warp" => Make("Pro", null, null, Monthly()),
+            _ => Make("Pro", FiveHour(), Weekly(), null),
+        };
+    }
+
+    /// <summary>
+    /// A few past windows plus the current one for each window the demo snapshot has, so the
+    /// usage history chart has something to show. Ends at the snapshot's current value.
+    /// </summary>
+    public static ProviderHistory History(UsageProvider provider, DateTimeOffset now)
+    {
+        var snapshot = Snapshot(provider, now);
+        var seed = provider.Id.Aggregate(3, (sum, c) => (sum * 17 + c) % 101);
+        UsageHistory Build(UsageHistoryKind kind, UsageWindow? current, int pastWindows, TimeSpan step)
+        {
+            var history = UsageHistory.Empty(kind);
+            if (current?.ResetAt is not { } reset) return history;
+            var length = TimeSpan.FromSeconds(current.WindowSeconds);
+            var samples = new List<UsageSample>();
+            for (var back = pastWindows; back >= 0; back--)
+            {
+                var windowReset = reset - length * back;
+                var start = windowReset - length;
+                var end = back == 0 ? now : windowReset - step;
+                // Past windows finish between 55% and 100%; the current one ends at today's value.
+                var final = back == 0 ? current.UsedPercent : 55 + (seed * (back + 3)) % 46;
+                var count = Math.Max(2, (int)((end - start) / step));
+                for (var i = 0; i <= count; i++)
+                {
+                    var at = start + (end - start) * i / count;
+                    if (at <= start) at = start + TimeSpan.FromMinutes(1);
+                    // A burst early in the window, a quiet stretch, then steady use.
+                    var t = (double)i / count;
+                    var shape = t < 0.25 ? t * 1.8 : t < 0.5 ? 0.45 + (t - 0.25) * 0.4 : 0.55 + (t - 0.5) * 0.9;
+                    samples.Add(new UsageSample(at, (int)Math.Round(final * Math.Min(1, shape)), windowReset, current.WindowSeconds));
+                }
+            }
+            return new UsageHistory(kind, samples);
+        }
+        return new ProviderHistory
+        {
+            FiveHour = Build(UsageHistoryKind.FiveHour, snapshot.FiveHour, 5, TimeSpan.FromMinutes(20)),
+            Weekly = Build(UsageHistoryKind.Weekly, snapshot.Weekly, 3, TimeSpan.FromHours(6)),
+            Monthly = Build(UsageHistoryKind.Monthly, snapshot.Monthly, 2, TimeSpan.FromDays(1)),
+        };
     }
 
     public static ResetCreditsSnapshot Credits(DateTimeOffset now) => new(2,
@@ -54,6 +133,17 @@ public static class DemoData
 public sealed class DemoProviderService(UsageProvider provider, ProviderContext context) : ProviderService(provider, context)
 {
     public override bool SupportsResetCredits => Provider == UsageProvider.Codex;
+
+    /// <summary>Device-code providers show a sample code first, so the sign-in dialog can be seen in demo mode.</summary>
+    protected override async Task<AuthTokens> RunSignInAsync(SignInPrompt prompt, CancellationToken cancellationToken)
+    {
+        if (Provider.SignIn == SignInStyle.DeviceCode && prompt.ShowDeviceCode is { } show)
+        {
+            await show(new Auth.DeviceCode("demo-device", "WDJB-MJHT", "https://example.com/device", "", 5, 900)).ConfigureAwait(false);
+            await Task.Delay(6000, cancellationToken).ConfigureAwait(false);
+        }
+        return await RunSignInAsync(prompt.OpenBrowser, cancellationToken).ConfigureAwait(false);
+    }
 
     protected override async Task<AuthTokens> RunSignInAsync(Func<Uri, Task> openBrowser, CancellationToken cancellationToken)
     {

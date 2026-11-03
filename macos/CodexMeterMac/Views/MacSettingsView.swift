@@ -28,8 +28,10 @@ struct MacSettingsView: View {
 struct MacMenuBarSettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(MacPreferences.showsMenuBarExtraKey) private var showsMenuBarExtra = true
-    @AppStorage(MacPreferences.menuBarShowsPercentKey) private var showsPercent = true
     @AppStorage(MacPreferences.menuBarProviderKey) private var providerID = ""
+    @AppStorage(MacPreferences.menuBarFollowsAppsKey) private var followsApps = true
+    @AppStorage(MacPreferences.menuBarWindowKey) private var windowChoice = MacLiveWindow.auto.rawValue
+    @AppStorage(MacPreferences.menuBarStyleKey) private var styleChoice = MacPreferences.defaultMenuBarStyle
     @State private var opensAtLogin = LaunchAtLogin.isEnabled
     @State private var loginItemError: String?
 
@@ -38,20 +40,40 @@ struct MacMenuBarSettingsView: View {
             Section {
                 Toggle("Show Codex Meter in the menu bar", isOn: $showsMenuBarExtra)
                     .accessibilityIdentifier("settings-show-menu-bar")
-                Toggle("Show remaining percentage", isOn: $showsPercent)
-                    .disabled(!showsMenuBarExtra)
-                Picker("Meter follows", selection: $providerID) {
-                    Text("Selected provider").tag("")
+            } header: {
+                Text("Menu bar")
+            } footer: {
+                Text("With the menu bar item on, closing the window keeps Codex Meter running so usage, alerts, and widgets stay current.")
+            }
+
+            Section {
+                Picker("Show", selection: $styleChoice) {
+                    ForEach(MacMenuBarStyle.allCases) { style in
+                        Text(style.title).tag(style.rawValue)
+                    }
+                }
+                .accessibilityIdentifier("settings-menu-bar-style")
+                Picker("Provider", selection: $providerID) {
+                    Text("Automatic").tag("")
                     ForEach(model.enabledProviders) { provider in
                         Text(provider.displayName).tag(provider.rawValue)
                     }
                 }
-                .disabled(!showsMenuBarExtra)
+                .accessibilityIdentifier("settings-menu-bar-provider")
+                Toggle("While using AI apps", isOn: $followsApps)
+                    .accessibilityIdentifier("settings-menu-bar-follows-apps")
+                Picker("Percentage shown", selection: $windowChoice) {
+                    ForEach(MacLiveWindow.allCases) { window in
+                        Text(window.title).tag(window.rawValue)
+                    }
+                }
+                .accessibilityIdentifier("settings-menu-bar-window")
             } header: {
-                Text("Menu bar")
+                Text("Live usage")
             } footer: {
-                Text("The gauge shows whichever allowance is closest to running out. With the menu bar item on, closing the window keeps Codex Meter running so usage, alerts, and widgets stay current.")
+                Text("Like the live notification on Android. Automatic shows the first connected provider in the sidebar. While using AI apps shows a provider's usage while its app is in front: ChatGPT or Codex, Claude, Cursor, Windsurf and more. Auto shows whichever of the 5-hour and weekly limits has less left, and a used-up limit shows the time until it resets.")
             }
+            .disabled(!showsMenuBarExtra)
 
             Section {
                 Toggle("Open at login", isOn: $opensAtLogin)
@@ -89,12 +111,17 @@ struct MacMenuBarSettingsView: View {
     }
 }
 
-/// The Usage menu: refresh, provider switching (⌘1–⌘9), and resets.
+/// File → Add Account… (⌘N) and the Usage menu: refresh, provider switching (⌘1–⌘9), and resets.
 struct MacCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
-        CommandGroup(replacing: .newItem) {}
+        CommandGroup(replacing: .newItem) {
+            Button("Add Account…") {
+                NotificationCenter.default.post(name: .codexMeterAddAccount, object: nil)
+            }
+            .keyboardShortcut("n")
+        }
 
         CommandMenu("Usage") {
             if !MacLaunchOptions.diagnosticDisables("commands") {

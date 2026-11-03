@@ -23,6 +23,13 @@ public sealed record AppSettings
     /// <summary>Background refresh spacing in minutes (providers may enforce a longer minimum).</summary>
     public int RefreshMinutes { get; init; } = 15;
     public bool ShowTrayIcon { get; init; } = true;
+    /// <summary>Live usage: the provider the tray icon follows, or empty for automatic (first in the sidebar).</summary>
+    public string LiveProvider { get; init; } = LiveUsage.AutomaticProvider;
+    /// <summary>Live usage: show the provider of the AI app in front (ChatGPT, Claude, Cursor, ...) while it's in front.</summary>
+    public bool LiveFollowApps { get; init; } = true;
+    /// <summary>Live usage: 5-hour, weekly, or whichever has less left.</summary>
+    public LiveWindowChoice LiveWindow { get; init; } = LiveWindowChoice.Auto;
+    public LiveIconStyle LiveIconStyle { get; init; } = LiveIconStyle.Ring;
     public bool CloseToTray { get; init; } = true;
     public bool StartWithWindows { get; init; }
     public bool StartMinimized { get; init; }
@@ -30,6 +37,32 @@ public sealed record AppSettings
     public bool NotifyLow { get; init; } = true;
     public int LowThreshold { get; init; } = 15;
     public bool OnboardingDone { get; init; }
+
+    /// <summary>Edit dashboard: card order per provider id (missing means default order).</summary>
+    public Dictionary<string, List<string>> SectionOrder { get; init; } = [];
+    /// <summary>Edit dashboard: hidden cards per provider id.</summary>
+    public Dictionary<string, List<string>> HiddenSections { get; init; } = [];
+    /// <summary>Usage history highlights switched away from their default.</summary>
+    public List<string> HistoryOverrides { get; init; } = [];
+
+    /// <summary>Use a Codex reset credit shortly before it expires instead of losing it.</summary>
+    public bool AutoUseExpiringResets { get; init; }
+    public int AutoUseLeadMinutes { get; init; } = Models.CreditExpiryAutoApply.DefaultLeadMinutes;
+    /// <summary>Use a Codex reset credit when a window runs low.</summary>
+    public bool AutoUseWhenLow { get; init; }
+    public Models.LowUsageAutoUseMetric AutoUseMetric { get; init; } = Models.LowUsageAutoUseMetric.Both;
+    public int AutoUseThreshold { get; init; } = Models.LowUsageAutoUse.DefaultThreshold;
+    /// <summary>The window the low-usage rule last fired for, so it fires once per window.</summary>
+    public string? AutoUseLastToken { get; init; }
+
+    public List<string> SectionOrderFor(string providerId) => SectionOrder.GetValueOrDefault(providerId) ?? [];
+    public List<string> HiddenSectionsFor(string providerId) => HiddenSections.GetValueOrDefault(providerId) ?? [];
+
+    public AppSettings WithSections(string providerId, List<string> order, List<string> hidden) => this with
+    {
+        SectionOrder = new Dictionary<string, List<string>>(SectionOrder) { [providerId] = order },
+        HiddenSections = new Dictionary<string, List<string>>(HiddenSections) { [providerId] = hidden },
+    };
 
     public static readonly int[] RefreshChoices = [5, 15, 30, 60];
 }

@@ -38,14 +38,18 @@ struct DashboardEditView: View {
             } header: {
                 Text("\(provider.displayName) cards")
             } footer: {
-                if provider == .codex {
-                    Text("Drag the handles to arrange cards and use the switches to hide cards you do not need. Model-specific limits appear automatically when OpenAI reports them.")
-                } else {
-                    Text("Drag the handles to arrange your \(provider.displayName) cards and use the switches to hide cards you do not need. Each provider keeps its own layout.")
-                }
+                #if !os(macOS)
+                Text(arrangeNote)
+                #endif
             }
 
             Section {
+                #if os(macOS)
+                // Mac list footers stay on one line, so the hint gets its own row there.
+                Label(arrangeNote, systemImage: "hand.draw")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                #endif
                 Label(infoNote, systemImage: "info.circle")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -62,6 +66,13 @@ struct DashboardEditView: View {
         .task {
             rebuildItems()
         }
+    }
+
+    private var arrangeNote: String {
+        if provider == .codex {
+            return "Drag the handles to arrange cards and use the switches to hide cards you do not need. Model-specific limits appear automatically when OpenAI reports them."
+        }
+        return "Drag the handles to arrange your \(provider.displayName) cards and use the switches to hide cards you do not need. Each provider keeps its own layout."
     }
 
     private var infoNote: String {

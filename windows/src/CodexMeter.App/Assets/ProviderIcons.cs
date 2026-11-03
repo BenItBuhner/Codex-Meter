@@ -25,5 +25,22 @@ internal static partial class ProviderIcons
         };
     }
 
+    /// <summary>
+    /// The mark as a plain vector shape filled with <paramref name="fill"/>. Used in list rows,
+    /// where path icons don't draw.
+    /// </summary>
+    public static Microsoft.UI.Xaml.FrameworkElement CreateShape(string providerId, double size, Brush fill)
+    {
+        if (!Paths.TryGetValue(providerId, out var mark))
+            return new FontIcon { Glyph = "\uE774", FontSize = size, Foreground = fill };
+        var geometry = (Geometry)XamlBindingHelper.ConvertValue(typeof(Geometry), mark.Data);
+        return new Microsoft.UI.Xaml.Controls.Viewbox
+        {
+            Width = size,
+            Height = size,
+            Child = new Microsoft.UI.Xaml.Shapes.Path { Data = geometry, Fill = fill, Width = mark.Width, Height = mark.Height },
+        };
+    }
+
     public static bool Has(string providerId) => Paths.ContainsKey(providerId);
 }

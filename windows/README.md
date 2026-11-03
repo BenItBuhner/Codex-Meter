@@ -16,9 +16,13 @@ sidebar, Fluent cards and Settings cards, light and dark themes, and Segoe Fluen
 - **Settings**: theme, window material, which providers appear and their order, used vs. remaining,
   reset format, 24-hour clock, pace, refresh interval, reset and low-allowance notifications,
   notification-area icon, keep running when closed, start with Windows.
-- **Notification area**: an icon that shows your remaining percentage (turning amber, then red), a
-  tooltip with every provider, and a menu to open, refresh or quit. Windows toasts announce resets
-  and low allowance.
+- **Live usage in the notification area**, like the Android live notification: the icon is redrawn
+  as a ring (or a number) for one service's tighter window, turning amber, then red, and showing the
+  time until reset once a limit is used up. While ChatGPT, Codex, Claude, Cursor or another AI app is
+  in front, it shows that service. Hover for a tooltip with every service, click for a compact flyout
+  with each one's meters, and right-click to open, refresh or quit. Settings → Live usage picks the
+  service, "While using AI apps", the percentage shown (Auto, 5-hour or weekly) and the icon style.
+  Windows toasts announce resets and low allowance.
 
 Credentials are encrypted with Windows Data Protection (DPAPI) for your Windows account and stored in
 `%LOCALAPPDATA%\CodexMeter`, next to cached usage and settings. There is no relay server.

@@ -3,18 +3,22 @@
 Native SwiftUI app for macOS 15 Sequoia and later. It shows the same usage as the
 iPhone app (Codex, Claude Code, and Cursor) in a Mac shape:
 
-- **Menu bar meter.** A gauge whose needle follows the allowance closest to running
-  out, with its remaining percentage. Click it for a panel with every provider's
-  meters, reset countdowns, Refresh All (⌘R), sign-in shortcuts, and Open Codex Meter.
-  Settings → Menu Bar picks the provider it follows, hides the percentage, or removes
-  the item.
-- **Main window.** A sidebar of providers (each with its headroom ring) and the
-  selected provider's dashboard. The dashboards, Edit dashboard, usage history, reset
+- **Live usage in the menu bar**, like the Android live notification: a ring that fills
+  with what's left of one provider's tighter window (5-hour or weekly), with the
+  percentage beside it, turning orange and red as it runs low and showing the time until
+  reset once it's used up. While ChatGPT, Codex, Claude, Cursor or another AI app is in
+  front, it shows that provider. Click it for a panel with every provider's meters, reset
+  countdowns, Refresh All (⌘R), sign-in shortcuts, and Open Codex Meter. Settings → Menu
+  Bar picks ring and/or percentage, the provider, "While using AI apps", the percentage
+  shown (Auto, 5-hour or weekly), or removes the item.
+- **Main window.** A sidebar of providers (each with its headroom ring), a + button at
+  its foot for Add Account (also File → Add Account…, ⌘N), and the selected provider's
+  dashboard. The dashboards, Edit dashboard, usage history, reset
   credits, sign-in, and first-run setup are the iOS views, unchanged.
 - **Settings window (⌘,).** General is the iOS settings page as a grouped Mac form
   (accounts, providers, dashboard, refresh, reset credits, estimates, notifications,
   data, about). Menu Bar holds the Mac-only options and Open at login.
-- **Usage menu.** Refresh (⌘R), Refresh All Providers (⇧⌘R), switch provider
+- **File and Usage menus.** Add Account… (⌘N); Refresh (⌘R), Refresh All Providers (⇧⌘R), switch provider
   (⌘1–⌘9), Use a Reset Credit…, Explore Demo.
 - **Desktop and Notification Center widgets.** The iOS home-screen widget (small,
   medium, large, extra large) with the same configuration options. Lock Screen

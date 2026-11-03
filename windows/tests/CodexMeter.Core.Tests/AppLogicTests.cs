@@ -14,7 +14,12 @@ public class ProviderSelectionTests
     [Fact]
     public void IdsAreSharedWithThePhoneApps()
     {
-        Assert.Equal(["codex", "claude_code", "cursor"], UsageProvider.All.Select(p => p.Id));
+        Assert.Equal([
+            "codex", "claude_code", "cursor", "copilot", "kimi", "factory", "grok", "antigravity",
+            "devin", "windsurf", "augment", "cline", "opencode_go", "minimax", "zai", "kiro", "amp",
+            "openrouter", "kilo", "codebuff", "synthetic", "chutes", "v0", "warp",
+        ], UsageProvider.All.Select(p => p.Id));
+        Assert.Equal(["codex", "claude_code", "cursor"], UsageProvider.BuiltIns.Select(p => p.Id));
         Assert.Equal(Claude, UsageProvider.Resolve(" CLAUDE_CODE "));
         Assert.Equal(Codex, UsageProvider.Resolve("unknown"));
         Assert.Equal(Codex, UsageProvider.Resolve(null));
@@ -27,7 +32,8 @@ public class ProviderSelectionTests
         Assert.Equal([Codex], UsageProvider.EnabledFromIds(null, new HashSet<UsageProvider>()));
         Assert.Equal([Codex, Cursor], UsageProvider.EnabledFromIds([], new HashSet<UsageProvider> { Cursor }));
         Assert.Equal([Claude, Cursor], UsageProvider.EnabledFromIds(["cursor", "claude_code", "bogus"], new HashSet<UsageProvider>()));
-        Assert.Equal([Cursor, Codex, Claude], UsageProvider.OrderFromIds(["cursor", "cursor", "nope"]));
+        Assert.Equal([Cursor, Codex, Claude], UsageProvider.OrderFromIds(["cursor", "cursor", "nope"]).Take(3));
+        Assert.Equal(UsageProvider.All.Count, UsageProvider.OrderFromIds(["cursor"]).Count);
         Assert.Equal([Codex], UsageProvider.WithEnabled([Codex], Codex, false)); // Last one stays on.
         Assert.Equal([Codex, Cursor], UsageProvider.WithEnabled([Codex], Cursor, true));
         Assert.Equal(Cursor, UsageProvider.VisibleSelection(Claude, [Cursor, Codex]));
