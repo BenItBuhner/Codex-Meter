@@ -156,14 +156,53 @@ public sealed class SettingsPage : PageBase
         });
         Body.Children.Add(lowAlert);
 
-        Body.Children.Add(SectionHeader("Windows"));
+        Body.Children.Add(SectionHeader("Live usage"));
         ToggleSwitch closeToTray = null!;
-        Body.Children.Add(Card("Show in the notification area", "A tray icon with your remaining allowance; hover for every service.", "",
-            Toggle("TraySwitch", s.ShowTrayIcon, on =>
+        var live = new SettingsExpander
+        {
+            Header = "Live usage in the notification area",
+            Description = "A ring or number next to the clock that follows your usage, like the live notification on Android. Hover for every service; click for a summary.",
+            HeaderIcon = new FontIcon { Glyph = "\uE9D9" },
+            IsExpanded = true,
+            Content = Toggle("TraySwitch", s.ShowTrayIcon, on =>
             {
                 Update(x => x with { ShowTrayIcon = on });
                 closeToTray.IsEnabled = on;
-            })));
+            }),
+        };
+        AutomationProperties.SetAutomationId(live, "LiveUsageExpander");
+        var liveProviders = State.EnabledProviders.ToList();
+        live.Items.Add(new SettingsCard
+        {
+            Header = "Service",
+            Description = "Automatic shows the first connected service in your sidebar.",
+            Content = Combo("LiveProviderBox", ["Automatic", .. liveProviders.Select(p => p.DisplayName)],
+                liveProviders.FindIndex(p => p.Id == s.LiveProvider) + 1,
+                i => Update(x => x with { LiveProvider = i == 0 ? LiveUsage.AutomaticProvider : liveProviders[i - 1].Id })),
+        });
+        live.Items.Add(new SettingsCard
+        {
+            Header = "While using AI apps",
+            Description = "Show a service's usage while its app is in front: ChatGPT or Codex, Claude, Cursor, Windsurf and more.",
+            Content = Toggle("LiveFollowAppsSwitch", s.LiveFollowApps, on => Update(x => x with { LiveFollowApps = on })),
+        });
+        live.Items.Add(new SettingsCard
+        {
+            Header = "Percentage shown",
+            Description = "Auto shows whichever of the 5-hour and weekly limits has less left.",
+            Content = Combo("LiveWindowBox", ["Auto", "5-hour usage", "Weekly usage"], (int)s.LiveWindow,
+                i => Update(x => x with { LiveWindow = (LiveWindowChoice)i })),
+        });
+        live.Items.Add(new SettingsCard
+        {
+            Header = "Icon style",
+            Description = "A used-up limit shows the time until it resets.",
+            Content = Combo("LiveStyleBox", ["Ring", "Number"], (int)s.LiveIconStyle,
+                i => Update(x => x with { LiveIconStyle = (LiveIconStyle)i })),
+        });
+        Body.Children.Add(live);
+
+        Body.Children.Add(SectionHeader("Windows"));
         closeToTray = Toggle("CloseToTraySwitch", s.CloseToTray, on => Update(x => x with { CloseToTray = on }));
         closeToTray.IsEnabled = s.ShowTrayIcon;
         Body.Children.Add(Card("Keep running when the window is closed", "Closing hides the window; quit from the tray icon.", "", closeToTray));

@@ -1,6 +1,8 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using CodexMeter.App.Views;
+using CodexMeter.Core.Formatting;
+using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
 using Microsoft.UI.Windowing;
@@ -76,6 +78,7 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             window.Navigate(pages[0]);
             await Task.Delay(1200);
             failures += await CaptureAsync(File("compact")) ? 0 : 1;
+            failures += await CaptureFlyoutAsync(File("tray-flyout"));
         }
         SaveTrayIcons();
         return failures == 0 ? 0 : 4;
@@ -149,9 +152,11 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
         }
     }
 
-    private bool CaptureScreen(string path)
+    private bool CaptureScreen(string path) => CaptureScreen(path, window.Handle);
+
+    private static bool CaptureScreen(string path, IntPtr handle)
     {
-        if (NativeMethods.DwmGetWindowAttribute(window.Handle, NativeMethods.DwmwaExtendedFrameBounds, out var rect,
+        if (NativeMethods.DwmGetWindowAttribute(handle, NativeMethods.DwmwaExtendedFrameBounds, out var rect,
                 System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.Rect>()) != 0) return false;
         var width = rect.Right - rect.Left;
         var height = rect.Bottom - rect.Top;
@@ -190,13 +195,70 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
         await stream.AsStreamForRead().CopyToAsync(file);
     }
 
+    /// <summary>The tray flyout, opened above the notification area as a click would.</summary>
+    private async Task<int> CaptureFlyoutAsync(string file)
+    {
+        var flyout = new TrayFlyout(state, _ => { }, () => { }) { LiveProvider = state.EnabledProviders.FirstOrDefault() };
+        try
+        {
+            var area = DisplayArea.Primary.WorkArea;
+            flyout.Show(new Windows.Graphics.PointInt32(area.X + area.Width - 40, area.Y + area.Height - 4));
+            await Task.Delay(1200);
+            var ok = CaptureScreen(Path.Combine(directory, file), flyout.Handle);
+            if (!ok) App.Log($"Screen capture of {file} failed.");
+            return ok ? 0 : 1;
+        }
+        finally
+        {
+            flyout.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A sheet of the live tray icon: ring and number styles for a healthy, low, critical and used-up
+    /// window, at 16, 24 and 32px on a dark and a light taskbar, then the same sheet at 4x.
+    /// </summary>
     private void SaveTrayIcons()
     {
-        foreach (var (value, remaining) in new[] { (62, 62), (28, 28), (7, 7) })
+        var now = DateTimeOffset.UtcNow;
+        UsageWindow Sample(int used, double hours) => new(used, 18_000, resetAt: now.AddHours(hours));
+        var samples = new[] { Sample(38, 2), Sample(72, 3), Sample(93, 1), Sample(100, 2.4) }
+            .Select(w => new LiveReading(UsageProvider.Codex, w, "5-hour", now)).ToArray();
+        int[] sizes = [16, 24, 32];
+        const int cell = 40;
+        var columns = samples.Length * sizes.Length;
+        using var sheet = new Bitmap(columns * cell, 4 * cell);
+        using (var g = Graphics.FromImage(sheet))
         {
-            using var icon = TrayIcon.Draw(value, remaining);
-            using var bitmap = icon.ToBitmap();
-            bitmap.Save(Path.Combine(directory, $"tray-{value}.png"), ImageFormat.Png);
+            var row = 0;
+            foreach (var dark in new[] { true, false })
+            {
+                foreach (var style in new[] { LiveIconStyle.Ring, LiveIconStyle.Number })
+                {
+                    using (var background = new SolidBrush(dark ? Color.FromArgb(0x20, 0x20, 0x20) : Color.FromArgb(0xEE, 0xEE, 0xEE)))
+                        g.FillRectangle(background, 0, row * cell, columns * cell, cell);
+                    var column = 0;
+                    foreach (var size in sizes)
+                    {
+                        foreach (var sample in samples)
+                        {
+                            using var icon = TrayIcon.Draw(sample, style, UsageDisplayMode.Remaining, size, dark, now);
+                            g.DrawImageUnscaled(icon, column * cell + (cell - size) / 2, row * cell + (cell - size) / 2);
+                            column++;
+                        }
+                    }
+                    row++;
+                }
+            }
         }
+        sheet.Save(Path.Combine(directory, "tray-icons.png"), ImageFormat.Png);
+        using var large = new Bitmap(sheet.Width * 4, sheet.Height * 4);
+        using (var g = Graphics.FromImage(large))
+        {
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            g.DrawImage(sheet, 0, 0, large.Width, large.Height);
+        }
+        large.Save(Path.Combine(directory, "tray-icons-4x.png"), ImageFormat.Png);
     }
 }

@@ -55,7 +55,7 @@ public partial class App : Application
 
             if (options.ScreenshotDirectory is null)
             {
-                tray = new TrayIcon(State, ShowMainWindow, () => _ = State.RefreshAllAsync(force: true), Quit);
+                tray = new TrayIcon(State, OpenFromTray, () => _ = State.RefreshAllAsync(force: true), Quit);
                 timer = DispatcherQueue.GetForCurrentThread().CreateTimer();
                 timer.Interval = TimeSpan.FromMinutes(1);
                 timer.Tick += async (_, _) => await State.BackgroundTickAsync();
@@ -134,6 +134,13 @@ public partial class App : Application
     public void ShowMainWindowFromRedirect() => window?.DispatcherQueue.TryEnqueue(ShowMainWindow);
 
     public void ShowMainWindow() => window?.ShowAndActivate();
+
+    /// <summary>The tray menu and flyout: bring the window back, on a service's page or Settings when given.</summary>
+    private void OpenFromTray(string? page)
+    {
+        ShowMainWindow();
+        if (page is not null) window?.Navigate(page);
+    }
 
     public void Quit()
     {

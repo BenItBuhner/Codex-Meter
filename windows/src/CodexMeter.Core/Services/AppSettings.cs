@@ -23,6 +23,13 @@ public sealed record AppSettings
     /// <summary>Background refresh spacing in minutes (providers may enforce a longer minimum).</summary>
     public int RefreshMinutes { get; init; } = 15;
     public bool ShowTrayIcon { get; init; } = true;
+    /// <summary>Live usage: the provider the tray icon follows, or empty for automatic (first in the sidebar).</summary>
+    public string LiveProvider { get; init; } = LiveUsage.AutomaticProvider;
+    /// <summary>Live usage: show the provider of the AI app in front (ChatGPT, Claude, Cursor, ...) while it's in front.</summary>
+    public bool LiveFollowApps { get; init; } = true;
+    /// <summary>Live usage: 5-hour, weekly, or whichever has less left.</summary>
+    public LiveWindowChoice LiveWindow { get; init; } = LiveWindowChoice.Auto;
+    public LiveIconStyle LiveIconStyle { get; init; } = LiveIconStyle.Ring;
     public bool CloseToTray { get; init; } = true;
     public bool StartWithWindows { get; init; }
     public bool StartMinimized { get; init; }

@@ -121,4 +121,22 @@ public class AppTests
         app.WaitUntil(() => app.Find("Meter_fiveHour").Name.Contains("used", StringComparison.OrdinalIgnoreCase),
             "The meter did not switch to showing usage.");
     }
+
+    [Fact]
+    public void LiveUsageSettingsMirrorTheLiveNotification()
+    {
+        using var app = new AppSession("--page", "settings");
+        Assert.Equal(ToggleState.On, app.Find("TraySwitch").AsToggleButton().ToggleState);
+        Assert.Equal(ToggleState.On, app.Find("LiveFollowAppsSwitch").AsToggleButton().ToggleState);
+        var provider = app.Find("LiveProviderBox").AsComboBox();
+        Assert.Equal("Automatic", provider.SelectedItem?.Name);
+        provider.Select("Claude Code");
+        var window = app.Find("LiveWindowBox").AsComboBox();
+        Assert.Equal("Auto", window.SelectedItem?.Name);
+        window.Select("Weekly usage");
+        var style = app.Find("LiveStyleBox").AsComboBox();
+        Assert.Equal("Ring", style.SelectedItem?.Name);
+        style.Select("Number");
+        app.WaitUntil(() => app.Find("LiveStyleBox").AsComboBox().SelectedItem?.Name == "Number", "The icon style did not change.");
+    }
 }
