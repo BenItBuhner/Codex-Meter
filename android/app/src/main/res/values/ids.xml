@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item name="design_chrome_installed" type="id" />
-    <item name="glass_page_root" type="id" />
-    <item name="glass_page_body" type="id" />
-    <item name="glass_skinned" type="id" />
-    <item name="glass_prominent" type="id" />
-    <item name="glass_skin" type="id" />
+    <!-- Liquid Glass: holds the settings pages' fragments out of sight (GlassSettings). -->
+    <item name="glass_fragments" type="id" />
 </resources>

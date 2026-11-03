@@ -1,0 +1,82 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.github.BenItBuhner.Glasse",
+    "module": "glasskit",
+    "version": "7c316ee38f",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.8.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "glasskit-7c316ee38f.jar",
+          "url": "glasskit-7c316ee38f.jar",
+          "size": 590013,
+          "sha512": "16394b66696763230321ddfb4a63147d3d02c19ca3585fe880395f64e4891747ec85ba9cb1c395da7267b1a929139c4bbeb3722fbf51996923261711fd4e5053",
+          "sha256": "b1ebd71f7a022af0b128324cf9704daff4f0507aeaa30ff39c780696ffe24496",
+          "sha1": "9220d6032e3d2f8ef21b6179874c514165842365",
+          "md5": "c43537ff58204b0a1df03b5d32e6d05e"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "glasskit-7c316ee38f.jar",
+          "url": "glasskit-7c316ee38f.jar",
+          "size": 590013,
+          "sha512": "16394b66696763230321ddfb4a63147d3d02c19ca3585fe880395f64e4891747ec85ba9cb1c395da7267b1a929139c4bbeb3722fbf51996923261711fd4e5053",
+          "sha256": "b1ebd71f7a022af0b128324cf9704daff4f0507aeaa30ff39c780696ffe24496",
+          "sha1": "9220d6032e3d2f8ef21b6179874c514165842365",
+          "md5": "c43537ff58204b0a1df03b5d32e6d05e"
+        }
+      ]
+    }
+  ]
+}

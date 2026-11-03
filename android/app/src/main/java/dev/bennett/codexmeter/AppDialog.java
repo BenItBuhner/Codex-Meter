@@ -9,7 +9,7 @@ import androidx.appcompat.app.AlertDialog;
 /**
  * The app's dialog builder: an {@link AlertDialog.Builder} that remembers what it was given, so
  * that in the Liquid Glass design {@link #create()} can show the same dialog as glass (an alert, or
- * a sheet for lists and custom views) instead of a One UI dialog. In the other designs it is a
+ * a sheet for lists) instead of a One UI dialog. In the other designs it is a
  * plain AlertDialog.Builder.
  */
 final class AppDialog extends AlertDialog.Builder {
@@ -165,8 +165,10 @@ final class AppDialog extends AlertDialog.Builder {
 
     @Override
     public AlertDialog create() {
-        if (GlassDialogs.host(getContext()) != null) {
-            return new GlassDialogs.Proxy(getContext(), this);
+        GlassApp glass = GlassApp.of(getContext());
+        // Custom views stay One UI dialogs: the glass sheet has no place for Android views.
+        if (glass != null && view == null) {
+            return new GlassDialog(getContext(), glass, this);
         }
         return super.create();
     }

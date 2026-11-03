@@ -9,8 +9,8 @@ import com.google.android.material.appbar.AppBarLayout;
 
 /**
  * Keeps the classic design (One UI 8) looking and behaving as it did on SESL8, now that the
- * whole app runs on SESL9. The One UI 9 and Liquid Glass designs have their own page shells
- * ({@link OneUi9Page}, {@link GlassPage}) and need nothing from here.
+ * whole app runs on SESL9. The One UI 9 design has its own page shell ({@link OneUi9Page}) and
+ * Liquid Glass draws its own screens ({@link GlassApp}); neither needs anything from here.
  */
 final class DesignChrome {
     private static final int INSTALLED_TAG = R.id.design_chrome_installed;

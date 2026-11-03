@@ -1,0 +1,60 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.github.BenItBuhner.Glasse",
+    "module": "glasse-assets",
+    "version": "7c316ee38f",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.8.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "glasse-assets-7c316ee38f.jar",
+          "url": "glasse-assets-7c316ee38f.jar",
+          "size": 3929159,
+          "sha512": "890c9be6c044bd4d42c5928ae60bbe1ed097b55951a6f86f2ae4d25db8779980a7929b3b4d36ba0fcacea7199f6bbfee1765be1c93474cdb14cb17d2192b0dee",
+          "sha256": "ea8c73fb2340786c802413b3371bccc496f171424129a035e5c8df1968a625eb",
+          "sha1": "1a66e13b8fea82627a201518f1dc803b98dd40ce",
+          "md5": "208b2afb8eaa7ec91aa672b3e900e66d"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "glasse-assets-7c316ee38f.jar",
+          "url": "glasse-assets-7c316ee38f.jar",
+          "size": 3929159,
+          "sha512": "890c9be6c044bd4d42c5928ae60bbe1ed097b55951a6f86f2ae4d25db8779980a7929b3b4d36ba0fcacea7199f6bbfee1765be1c93474cdb14cb17d2192b0dee",
+          "sha256": "ea8c73fb2340786c802413b3371bccc496f171424129a035e5c8df1968a625eb",
+          "sha1": "1a66e13b8fea82627a201518f1dc803b98dd40ce",
+          "md5": "208b2afb8eaa7ec91aa672b3e900e66d"
+        }
+      ]
+    }
+  ]
+}

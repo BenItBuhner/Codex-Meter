@@ -1,0 +1,313 @@
+package dev.bennett.codexmeter.glass;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/** Sample data shaped like the app's, for rendering the screens off-device. */
+final class FakeSource implements GlassSource {
+    private final Set<Runnable> subs = new LinkedHashSet<>();
+    private String selected = "codex";
+    private boolean usagePace = true;
+    private boolean refreshOnLaunch = true;
+    private boolean systemTheme = true;
+    private boolean materialYou;
+    private int design = 2;
+    private int schedule = 1;
+    GlassModel.Dialog dialog;
+    String dialogScreen;
+
+    FakeSource() {
+        for (String id : new String[] {"codex", "claude_code", "cursor", "copilot"}) {
+            GlassIcons.provider(id, pathOf(id));
+        }
+    }
+
+    private static String pathOf(String id) {
+        Path file = Paths.get("../app/src/main/res/drawable/ic_provider_" + id + ".xml");
+        try {
+            Matcher m = Pattern.compile("pathData=\"([^\"]+)\"")
+                    .matcher(new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+            return m.find() ? m.group(1) : "";
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
+    private void changed() {
+        for (Runnable r : new ArrayList<>(subs)) {
+            r.run();
+        }
+    }
+
+    @Override
+    public Runnable subscribe(Runnable onChange) {
+        subs.add(onChange);
+        return () -> subs.remove(onChange);
+    }
+
+    @Override
+    public List<GlassModel.Tab> tabs() {
+        return Arrays.asList(
+                new GlassModel.Tab("codex", "Codex", "provider_codex"),
+                new GlassModel.Tab("claude_code", "Claude", "provider_claude_code"),
+                new GlassModel.Tab("cursor", "Cursor", "provider_cursor"),
+                new GlassModel.Tab("copilot", "Copilot", "provider_copilot"));
+    }
+
+    @Override
+    public String selectedTab() {
+        return selected;
+    }
+
+    @Override
+    public void selectTab(String id) {
+        selected = id;
+        changed();
+    }
+
+    @Override
+    public GlassModel.Dashboard dashboard() {
+        GlassModel.Dashboard d = new GlassModel.Dashboard();
+        d.title = "codex".equals(selected) ? "Codex" : "Claude Code";
+        d.subtitle = "Updated 2 minutes ago";
+        GlassModel.Card five = new GlassModel.Card(GlassModel.Card.Kind.METER);
+        five.title = "5-hour";
+        five.icon = "clock";
+        five.color = "#007aff";
+        five.remaining = 0.72;
+        five.value = "72%";
+        five.detail = "Resets in 2 h 14 min";
+        five.summary = "At this pace about 38% will be left when it resets.";
+        d.cards.add(five);
+        GlassModel.Card week = new GlassModel.Card(GlassModel.Card.Kind.METER);
+        week.title = "Weekly";
+        week.icon = "calendar";
+        week.color = "#5856d6";
+        week.remaining = 0.19;
+        week.value = "19%";
+        week.detail = "Resets Sat 9:40 AM";
+        week.summary = "Usage is running faster than the week allows. It may run out Friday evening.";
+        week.fast = true;
+        d.cards.add(week);
+        GlassModel.Card resets = new GlassModel.Card(GlassModel.Card.Kind.LINK);
+        resets.title = "Reset credits";
+        resets.icon = "bolt";
+        resets.color = "#ff9500";
+        resets.value = "2 available";
+        resets.summary = "The next one expires in 6 days.";
+        resets.onPress = () -> { };
+        d.cards.add(resets);
+        GlassModel.Card history = new GlassModel.Card(GlassModel.Card.Kind.HISTORY);
+        history.title = "Usage history";
+        double[] bars = new double[24];
+        for (int i = 0; i < bars.length; i++) {
+            bars[i] = 0.12 + Math.abs(Math.sin(i * 0.9 + 0.4)) * 0.8;
+        }
+        history.bars = bars;
+        history.startLabel = "24 h ago";
+        history.endLabel = "Now";
+        history.summary = "Share of the 5-hour window used each hour.";
+        d.cards.add(history);
+        GlassModel.Card credits = new GlassModel.Card(GlassModel.Card.Kind.BALANCE);
+        credits.title = "Usage credits";
+        credits.icon = "creditcard";
+        credits.color = "#34c759";
+        credits.value = "1,240 credits";
+        credits.summary = "Used after your plan's limits run out";
+        d.cards.add(credits);
+        return d;
+    }
+
+    @Override
+    public boolean refreshing() {
+        return false;
+    }
+
+    @Override
+    public void refresh() {
+    }
+
+    @Override
+    public List<MenuEntry> menu() {
+        return Arrays.asList(
+                new MenuEntry("Usage history", "history", false, null),
+                new MenuEntry("Edit dashboard", "edit", false, null),
+                new MenuEntry("Add widget", "widget", false, null),
+                null,
+                new MenuEntry("Settings", "gear", false, null));
+    }
+
+    private static GlassModel.Row link(String key, String title, String icon, String color, String page) {
+        GlassModel.Row r = new GlassModel.Row(GlassModel.Row.Kind.LINK, key);
+        r.title = title;
+        r.icon = icon;
+        r.color = color;
+        r.link = page;
+        return r;
+    }
+
+    @Override
+    public GlassModel.Page page(String id) {
+        switch (id) {
+            case "root": {
+                GlassModel.Page p = new GlassModel.Page("root", "Settings");
+                GlassModel.Section accounts = new GlassModel.Section(null);
+                GlassModel.Row acc = link("settings_accounts", "Accounts", "person2", "#007aff", "accounts");
+                acc.value = "2";
+                accounts.rows.add(acc);
+                accounts.rows.add(link("settings_providers", "Dashboard tabs", "tabs", "#5856d6", null));
+                p.sections.add(accounts);
+                GlassModel.Section live = new GlassModel.Section(null);
+                live.rows.add(link("settings_now_bar", "Now Bar", "waveform", "#ff9500", "now_bar"));
+                live.rows.add(link("settings_notifications", "Notifications", "bell", "#ff3b30", "notifications"));
+                live.rows.add(link("settings_lock_widgets", "Lock screen widgets", "lock", "#34c759", null));
+                p.sections.add(live);
+                GlassModel.Section usage = new GlassModel.Section(null);
+                usage.rows.add(link("settings_refresh_usage", "Refresh & dashboard", "refresh", "#007aff", "refresh_usage"));
+                usage.rows.add(link("settings_reset_credits", "Reset credits", "bolt", "#ff9f0a", "reset_credits"));
+                usage.rows.add(link("settings_appearance", "Appearance", "paintbrush", "#5856d6", "appearance"));
+                p.sections.add(usage);
+                GlassModel.Section app = new GlassModel.Section(null);
+                GlassModel.Row upd = link("settings_updates", "Updates", "download", "#8e8e93", "updates");
+                upd.value = "Alpha";
+                app.rows.add(upd);
+                app.rows.add(link("settings_transfer", "Backup & transfer", "arrows", "#34c759", "transfer"));
+                app.rows.add(link("settings_privacy", "Privacy", "hand", "#007aff", "privacy"));
+                p.sections.add(app);
+                GlassModel.Section about = new GlassModel.Section(null);
+                about.rows.add(link("about_codex_meter", "About Codex Meter", "info", "#8e8e93", null));
+                p.sections.add(about);
+                return p;
+            }
+            case "appearance": {
+                GlassModel.Page p = new GlassModel.Page(id, "Appearance");
+                GlassModel.Section theme = new GlassModel.Section("Theme");
+                GlassModel.Row seg = new GlassModel.Row(GlassModel.Row.Kind.SEGMENTED, "app_theme");
+                seg.entries = new String[] {"Light", "Dark"};
+                seg.selected = 0;
+                seg.enabled = !systemTheme;
+                theme.rows.add(seg);
+                GlassModel.Row sys = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, "theme_system_ui");
+                sys.title = "System default";
+                sys.checked = systemTheme;
+                theme.rows.add(sys);
+                GlassModel.Row you = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, "material_you");
+                you.title = "Material You";
+                you.summary = "Use the system color palette when available";
+                you.checked = materialYou;
+                theme.rows.add(you);
+                p.sections.add(theme);
+                GlassModel.Section design = new GlassModel.Section("Design");
+                GlassModel.Row d = new GlassModel.Row(GlassModel.Row.Kind.CHOICE, "app_design_ui");
+                d.title = "App design";
+                d.entries = new String[] {"One UI 8.5", "One UI 9", "Liquid Glass"};
+                d.selected = this.design;
+                design.rows.add(d);
+                design.footer = "Liquid Glass uses Apple's iOS 26 design, drawn by Glassé.";
+                p.sections.add(design);
+                return p;
+            }
+            case "refresh_usage": {
+                GlassModel.Page p = new GlassModel.Page(id, "Refresh & dashboard");
+                GlassModel.Section refresh = new GlassModel.Section("Refresh");
+                GlassModel.Row sched = new GlassModel.Row(GlassModel.Row.Kind.CHOICE, "refresh_schedule_ui");
+                sched.title = "Refresh usage";
+                sched.entries = new String[] {"Every 15 minutes", "Adaptive (recommended)", "Every hour", "Manually"};
+                sched.selected = schedule;
+                sched.summary = "Adaptive refreshes more often while you're using your allowance.";
+                refresh.rows.add(sched);
+                GlassModel.Row launch = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, "refresh_on_launch");
+                launch.title = "Refresh when opening the app";
+                launch.checked = refreshOnLaunch;
+                refresh.rows.add(launch);
+                p.sections.add(refresh);
+                GlassModel.Section dash = new GlassModel.Section("Dashboard");
+                GlassModel.Row edit = new GlassModel.Row(GlassModel.Row.Kind.LINK, "dashboard_reorder_ui");
+                edit.title = "Edit dashboard";
+                edit.summary = "Choose and order the cards for each provider";
+                dash.rows.add(edit);
+                GlassModel.Row pace = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, "usage_pace_enabled_ui");
+                pace.title = "Usage estimates";
+                pace.summary = "Estimate what will be left when each window resets";
+                pace.checked = usagePace;
+                dash.rows.add(pace);
+                GlassModel.Row warn = new GlassModel.Row(GlassModel.Row.Kind.CHOICE, "usage_pace_sensitivity_ui");
+                warn.title = "Fast-usage warnings";
+                warn.entries = new String[] {"Off", "Relaxed", "Balanced", "Sensitive"};
+                warn.selected = 2;
+                warn.enabled = usagePace;
+                dash.rows.add(warn);
+                p.sections.add(dash);
+                GlassModel.Section danger = new GlassModel.Section(null);
+                GlassModel.Row clear = new GlassModel.Row(GlassModel.Row.Kind.ACTION, "clear_history");
+                clear.title = "Clear local history";
+                clear.destructive = true;
+                danger.rows.add(clear);
+                p.sections.add(danger);
+                return p;
+            }
+            default: {
+                GlassModel.Page p = new GlassModel.Page(id, id);
+                return p;
+            }
+        }
+    }
+
+    @Override
+    public void toggle(String page, String key, boolean on) {
+        if ("usage_pace_enabled_ui".equals(key)) usagePace = on;
+        if ("refresh_on_launch".equals(key)) refreshOnLaunch = on;
+        if ("theme_system_ui".equals(key)) systemTheme = on;
+        if ("material_you".equals(key)) materialYou = on;
+        changed();
+    }
+
+    @Override
+    public void choose(String page, String key, int index) {
+        if ("app_design_ui".equals(key)) design = index;
+        if ("refresh_schedule_ui".equals(key)) schedule = index;
+        changed();
+    }
+
+    @Override
+    public void press(String page, String key) {
+        if ("clear_history".equals(key)) {
+            GlassModel.Dialog d = new GlassModel.Dialog();
+            d.title = "Clear local history?";
+            d.message = "This removes the usage history saved on this device. Your account is not changed.";
+            d.buttons.add(new GlassModel.Dialog.Button("Cancel", GlassModel.Dialog.CANCEL, null));
+            d.buttons.add(new GlassModel.Dialog.Button("Clear", GlassModel.Dialog.DESTRUCTIVE, null));
+            d.onClose = () -> {
+                dialog = null;
+                changed();
+            };
+            dialog = d;
+            dialogScreen = CodexGlass.SETTINGS;
+            changed();
+        }
+    }
+
+    @Override
+    public void closeSettings() {
+    }
+
+    @Override
+    public Nav takeNav() {
+        return null;
+    }
+
+    @Override
+    public GlassModel.Dialog dialog(String screen) {
+        return screen.equals(dialogScreen) ? dialog : null;
+    }
+}

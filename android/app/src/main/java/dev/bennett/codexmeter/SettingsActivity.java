@@ -45,7 +45,7 @@ public final class SettingsActivity extends AppCompatActivity {
         super.attachBaseContext(DesignChrome.wrap(base));
     }
 
-    private static final String EXTRA_PAGE = "settings_page";
+    static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
     private static final String PAGE_ACCOUNTS = "accounts";
     private static final String PAGE_APPEARANCE = "appearance";
@@ -70,6 +70,15 @@ public final class SettingsActivity extends AppCompatActivity {
         super.onCreate(bundle);
         AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
         String page = normalizePage(getIntent().getStringExtra(EXTRA_PAGE));
+        if (AppPreferences.isLiquidGlassDesign(this)) {
+            // Liquid Glass Settings are glass screens in the main activity.
+            startActivity(new Intent(this, MainActivity.class)
+                    .putExtra(GlassApp.EXTRA_SETTINGS_PAGE, page)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+            overridePendingTransition(0, 0);
+            return;
+        }
         Ui.installSettingsPage(this, pageTitle(page));
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
@@ -78,7 +87,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private static String normalizePage(String page) {
+    static String normalizePage(String page) {
         if (PAGE_ACCOUNTS.equals(page)
                 || PAGE_APPEARANCE.equals(page)
                 || PAGE_REFRESH_USAGE.equals(page)
@@ -95,7 +104,7 @@ public final class SettingsActivity extends AppCompatActivity {
         return PAGE_ROOT;
     }
 
-    private static String pageTitle(String page) {
+    static String pageTitle(String page) {
         switch (page) {
             case PAGE_ACCOUNTS:
                 return "Accounts";
@@ -259,58 +268,6 @@ public final class SettingsActivity extends AppCompatActivity {
             } else {
                 view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
             }
-        }
-
-        /**
-         * List settings in the Liquid Glass design open iOS's pull-down menu out of their row,
-         * with a check on the current value, instead of One UI's list dialog.
-         */
-        @Override
-        public void onDisplayPreferenceDialog(Preference preference) {
-            if (!(preference instanceof ListPreference)
-                    || GlassDialogs.host(requireContext()) == null) {
-                super.onDisplayPreferenceDialog(preference);
-                return;
-            }
-            ListPreference list = (ListPreference) preference;
-            CharSequence[] labels = list.getEntries();
-            CharSequence[] values = list.getEntryValues();
-            if (labels == null || values == null) {
-                super.onDisplayPreferenceDialog(preference);
-                return;
-            }
-            int selected = list.findIndexOfValue(list.getValue());
-            OneUiChoiceDialog.OnChoiceSelected pick = which -> {
-                String value = values[which].toString();
-                if (list.callChangeListener(value)) {
-                    list.setValue(value);
-                }
-            };
-            View row = rowOf(preference);
-            if (row != null) {
-                GlassDialogs.choose(row, labels, selected, pick);
-            } else {
-                String[] names = new String[labels.length];
-                for (int i = 0; i < labels.length; i++) {
-                    names[i] = labels[i].toString();
-                }
-                OneUiChoiceDialog.show(requireContext(), String.valueOf(list.getTitle()), names,
-                        selected, pick);
-            }
-        }
-
-        /** The list row showing {@code preference}, when it is on screen. */
-        private View rowOf(Preference preference) {
-            androidx.recyclerview.widget.RecyclerView list = getListView();
-            if (list == null || !(list.getAdapter()
-                    instanceof androidx.preference.PreferenceGroup.PreferencePositionCallback)) {
-                return null;
-            }
-            int position = ((androidx.preference.PreferenceGroup.PreferencePositionCallback)
-                    list.getAdapter()).getPreferenceAdapterPosition(preference);
-            androidx.recyclerview.widget.RecyclerView.ViewHolder holder =
-                    list.findViewHolderForAdapterPosition(position);
-            return holder == null ? null : holder.itemView;
         }
 
         @Override
@@ -717,10 +674,15 @@ public final class SettingsActivity extends AppCompatActivity {
         private static void restartForDesign(Activity activity) {
             Intent main = new Intent(activity, MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            Intent settings = new Intent(activity, SettingsActivity.class);
-            Intent appearance = new Intent(activity, SettingsActivity.class)
-                    .putExtra(EXTRA_PAGE, PAGE_APPEARANCE);
-            activity.startActivities(new Intent[] {main, settings, appearance});
+            if (AppPreferences.isLiquidGlassDesign(activity)) {
+                // Liquid Glass Settings live in the main activity: open it at Appearance.
+                activity.startActivity(main.putExtra(GlassApp.EXTRA_SETTINGS_PAGE, PAGE_APPEARANCE));
+            } else {
+                Intent settings = new Intent(activity, SettingsActivity.class);
+                Intent appearance = new Intent(activity, SettingsActivity.class)
+                        .putExtra(EXTRA_PAGE, PAGE_APPEARANCE);
+                activity.startActivities(new Intent[] {main, settings, appearance});
+            }
             activity.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             activity.finishAffinity();
             Runtime.getRuntime().exit(0);

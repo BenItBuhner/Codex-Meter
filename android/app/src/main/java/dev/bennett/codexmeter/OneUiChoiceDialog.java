@@ -16,22 +16,14 @@ final class OneUiChoiceDialog {
     private OneUiChoiceDialog() {
     }
 
-    /**
-     * The choice for the row {@code anchor}: in the Liquid Glass design a pull-down menu out of
-     * that row, otherwise the One UI dialog.
-     */
     static void show(View anchor, String title, String[] labels, int selected,
             OnChoiceSelected listener) {
-        if (GlassDialogs.host(anchor.getContext()) != null) {
-            GlassDialogs.choose(anchor, labels, selected, listener);
-            return;
-        }
         show(anchor.getContext(), title, labels, selected, listener);
     }
 
     static void show(Context context, String title, String[] labels, int selected,
             OnChoiceSelected listener) {
-        if (GlassDialogs.host(context) != null) {
+        if (GlassApp.of(context) != null) {
             new AppDialog(context)
                     .setTitle(title)
                     .setSingleChoiceItems(labels, selected, (dialog, which) -> {

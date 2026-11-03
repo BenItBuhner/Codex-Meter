@@ -49,7 +49,7 @@ public final class AboutActivity extends AppCompatActivity {
         dark = Ui.isDark(this);
         EdgeToEdge.apply(this, () -> new kotlin.Pair<>(dark, dark));
         // Liquid Glass keeps One UI 9's About page: both run on SESL9's own values.
-        boolean oneUi9 = OneUi9Page.isOn(this) || GlassPage.isOn(this);
+        boolean oneUi9 = OneUi9Page.isOn(this);
         setContentView(oneUi9 ? R.layout.activity_about_oneui9 : R.layout.activity_about);
         applySystemBarInsets();
         if (oneUi9) {
