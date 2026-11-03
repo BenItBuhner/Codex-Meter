@@ -10,7 +10,9 @@ import static com.benitbuhner.glasse.kit.Kit.GlassScrollView;
 import static com.benitbuhner.glasse.kit.Kit.GlassSegmented;
 import static com.benitbuhner.glasse.kit.Kit.GlassSwitch;
 import static com.benitbuhner.glasse.kit.Kit.GlassTabBar;
+import static com.benitbuhner.glasse.kit.Kit.GlassSlider;
 import static com.benitbuhner.glasse.kit.Kit.Icon;
+import static com.benitbuhner.glasse.kit.Kit.Img;
 import static com.benitbuhner.glasse.kit.Kit.Row;
 import static com.benitbuhner.glasse.kit.Kit.Stack;
 import static com.benitbuhner.glasse.kit.Kit.Text;
@@ -34,6 +36,7 @@ import com.benitbuhner.glasse.kit.KitScreen;
 import com.benitbuhner.glasse.kit.NodeDraw;
 import com.benitbuhner.glasse.kit.OnBool;
 import com.benitbuhner.glasse.kit.OnInt;
+import com.benitbuhner.glasse.kit.OnNum;
 import com.benitbuhner.glasse.kit.OnScroll;
 import com.benitbuhner.glasse.kit.OnStr;
 import com.benitbuhner.glasse.kit.P;
@@ -77,6 +80,17 @@ public final class CodexGlass {
     public static Screen settings(Env env, GlassSource source) {
         GlassIcons.register();
         Comp app = p -> R.h(SettingsApp, p.with("src", source));
+        return Kit.makeKitScreen(env, app, ACCENT);
+    }
+
+    /**
+     * A screen that starts at page {@code start} (an activity of its own, such as widget
+     * settings): the same pages as Settings; back on the first page calls
+     * {@link GlassSource#closeSettings()}.
+     */
+    public static Screen page(Env env, GlassSource source, String start) {
+        GlassIcons.register();
+        Comp app = p -> R.h(SettingsApp, p.with("src", source, "start", start));
         return Kit.makeKitScreen(env, app, ACCENT);
     }
 
@@ -239,10 +253,44 @@ public final class CodexGlass {
                         ListPad(P.of("padY", 18),
                                 Text(P.of("size", 17, "weight", 600, "ls", -0.34, "lh", 22, "lines", 2,
                                         "color", t.pal.label), c.title),
-                                Text(P.of("size", 15, "ls", -0.15, "lh", 20, "lines", 6, "mt", 4,
-                                        "color", t.pal.label2), c.summary),
-                                GlassButton(P.of("mt", 16, "variant", "filled", "label", c.button,
-                                        "fillColor", t.accent, "color", "#fff", "onPress", c.onPress))));
+                                c.summary != null ? Text(P.of("size", 15, "ls", -0.15, "lh", 20, "lines", 8,
+                                        "mt", 4, "color", c.warning ? red(t) : t.pal.label2), c.summary) : null,
+                                c.detail != null ? Text(P.of("size", 13, "lh", 17.55, "lines", 8, "mt", 8,
+                                        "color", t.pal.label2), c.detail) : null,
+                                c.button != null ? Box(P.of("mt", 16, "opacity", c.buttonEnabled ? 1.0 : 0.4,
+                                                "pointerEvents", c.buttonEnabled ? null : "none"),
+                                        GlassButton(P.of("variant", "filled", "label", c.button, "h", 50, "r", 25,
+                                                "fillColor", t.accent, "color", "#fff", "onPress", c.onPress)))
+                                        : null,
+                                c.progress >= 0 ? bar(Math.min(1, c.progress), t.accent, t.pal.fill, 14) : null,
+                                c.value != null ? Text(P.of("size", 13, "lh", 17.55, "lines", 4, "mt", 10,
+                                        "color", c.fast ? red(t) : t.pal.label2), c.value) : null));
+            case CHART:
+                return GlassChart.card(c, key);
+            case STATS: {
+                List<Object> lines = new ArrayList<>();
+                if (c.title != null) {
+                    lines.add(Text(P.of("size", 17, "weight", 600, "ls", -0.34, "lines", 2, "mb", 4,
+                            "color", t.pal.label), c.title));
+                }
+                for (String[] stat : c.stats) {
+                    lines.add(Row(P.of("mt", 8, "gap", 12),
+                            Text(P.of("flex", 1, "size", 15, "lines", 2, "color", t.pal.label2), stat[0]),
+                            Text(P.of("size", 15, "lines", 1, "color", t.pal.label), stat[1])));
+                }
+                if (c.summary != null) {
+                    lines.add(Text(P.of("size", 13, "lh", 17.55, "lines", 4, "mt", 12, "color", t.pal.label2),
+                            c.summary));
+                }
+                return ListSection(P.of("key", key, "header", c.detail), ListPad(P.of("padY", 14), lines));
+            }
+            case NOTE:
+                return ListSection(P.of("key", key, "header", c.detail),
+                        ListPad(P.of("padY", 14),
+                                c.title != null ? Text(P.of("size", 17, "weight", 600, "lines", 2, "mb", 6,
+                                        "color", t.pal.label), c.title) : null,
+                                Text(P.of("size", 15, "lh", 20, "lines", 40, "color", t.pal.label2),
+                                        c.summary == null ? "" : c.summary)));
             case SIGN_IN:
                 return Box(P.of("key", key, "align", "center", "padT", 24, "padX", 8),
                         Box(P.of("w", 72, "h", 72, "r", 18, "bg", tile(c.color), "align", "center",
@@ -304,6 +352,23 @@ public final class CodexGlass {
         return color != null ? color : ACCENT;
     }
 
+    private static String red(KTheme t) {
+        return "dark".equals(t.scheme) ? "#ff453a" : "#ff3b30";
+    }
+
+    /** A capsule progress bar. */
+    private static El bar(double v, String fill, String track, double mt) {
+        return Draw(P.of("h", 8, "mt", mt, "v", v, "fill", fill, "track", track,
+                "draw", (NodeDraw) (cv, w, h, n, ax, ay) -> {
+                    double r = h / 2;
+                    cv.drawRRect(Sk.rrect(0, 0, w, h, r), Sk.paint(Sk.color(n.props.s("track"))));
+                    double fw = Math.max(h, w * n.props.d("v", 0.0));
+                    if (n.props.d("v", 0.0) > 0) {
+                        cv.drawRRect(Sk.rrect(0, 0, fw, h, r), Sk.paint(Sk.color(n.props.s("fill"))));
+                    }
+                }));
+    }
+
     /** A row label with a smaller second line under it. */
     private static Object twoLine(String title, String summary, KTheme t) {
         if (summary == null || summary.isEmpty()) {
@@ -321,7 +386,8 @@ public final class CodexGlass {
         GlassSource src = props.g("src");
         KTheme t = Kit.useTheme();
         int version = useSource(kit, src);
-        State<List<String>> stack = R.useState(Collections.singletonList(ROOT));
+        String start = props.s("start");
+        State<List<String>> stack = R.useState(Collections.singletonList(start != null ? start : ROOT));
         State<Boolean> past = R.useState(false);
         State<String> query = R.useState("");
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> past.set(y > 46));
@@ -346,7 +412,16 @@ public final class CodexGlass {
             if (nav.reset) {
                 query.set("");
             }
+            if (nav.pop) {
+                if (!kit.back()) {
+                    src.closeSettings();
+                }
+                return;
+            }
             stack.update(s -> {
+                if (nav.reset && nav.alone && nav.page != null) {
+                    return Collections.singletonList(nav.page);
+                }
                 List<String> n = new ArrayList<>(nav.reset ? Collections.singletonList(ROOT) : s);
                 if (nav.page != null && !ROOT.equals(nav.page) && !nav.page.equals(n.get(n.size() - 1))) {
                     n.add(nav.page);
@@ -355,7 +430,18 @@ public final class CodexGlass {
             });
         });
         Env env = kit.scene.env;
-        boolean sub = pages.size() > 1;
+        boolean sub = pages.size() > 1 || !ROOT.equals(top);
+        GlassModel.Page topPage = top.startsWith(CHOICE) ? null : src.page(top);
+        List<El> actions = new ArrayList<>();
+        if (topPage != null) {
+            for (GlassModel.Action a : topPage.actions) {
+                actions.add(a.icon != null
+                        ? GlassButton(P.of("key", "a:" + a.label, "icon", a.icon, "onPress", a.onPress))
+                        : GlassButton(P.of("key", "a:" + a.label, "label", a.label, "padX", 16,
+                                "variant", a.prominent ? "filled" : null, "fillColor", a.prominent ? t.accent : null,
+                                "color", a.prominent ? "#fff" : null, "onPress", a.onPress)));
+            }
+        }
 
         List<El> els = new ArrayList<>();
         for (String id : pages) {
@@ -369,16 +455,21 @@ public final class CodexGlass {
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                 GlassNavBar(P.of("title", titleOf(src, top), "titleVisible", sub || past.get(),
+                        "trailing", actions.isEmpty() ? null : actions,
                         "onBack", (Runnable) () -> {
                             if (!kit.back()) {
-                                env.getBack().invoke();
+                                if (start != null) {
+                                    src.closeSettings();
+                                } else {
+                                    env.getBack().invoke();
+                                }
                             }
                         })),
-                Anim(P.of("abs", true, "left", 16, "right", 16, "bottom", t.B + 14,
+                ROOT.equals(pages.get(0)) ? Anim(P.of("abs", true, "left", 16, "right", 16, "bottom", t.B + 14,
                                 "to", P.of("opacity", sub ? 0 : 1, "scale", sub ? 0.96 : 1),
                                 "pointerEvents", sub ? "none" : null),
                         GlassSearchField(P.of("placeholder", "Search", "value", query.get(),
-                                "onChange", (OnStr) query::set))),
+                                "onChange", (OnStr) query::set))) : null,
                 R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", SETTINGS, "v", version)));
     };
 
@@ -432,7 +523,13 @@ public final class CodexGlass {
                 for (int i = 0; i < row.entries.length; i++) {
                     int which = i;
                     rows.add(ListRow(P.of("key", "e" + i, "label", row.entries[i],
-                                    "onPress", (Runnable) () -> src.choose(pageId, row.key, which)),
+                                    "onPress", (Runnable) () -> {
+                                        if (row.onChoose != null) {
+                                            row.onChoose.on(which);
+                                        } else {
+                                            src.choose(pageId, row.key, which);
+                                        }
+                                    }),
                             i == row.selected ? Icon(P.of("name", "check", "size", 18, "color", t.accent)) : null));
                 }
                 body.add(ListSection(P.of("footer", row.summary), rows));
@@ -443,7 +540,11 @@ public final class CodexGlass {
         if (page == null) {
             return Page(P.of("onScroll", p.get("onScroll")));
         }
-        body.add(LargeTitle(page.title, 18.0));
+        body.add(LargeTitle(page.title, page.intro != null ? 6.0 : 18.0));
+        if (page.intro != null) {
+            body.add(Text(P.of("size", 15, "lh", 20, "lines", 12, "ml", 4, "mr", 4, "mb", 22,
+                    "color", t.pal.label2), page.intro));
+        }
         String query = p.s("query");
         if (root && query != null && !query.trim().isEmpty()) {
             body.add(searchResults(src, query.trim(), push, t));
@@ -460,9 +561,26 @@ public final class CodexGlass {
 
     private static El section(GlassModel.Section section, String pageId, GlassSource src, OnStr push,
             KTheme t, String key) {
+        if (!section.cards.isEmpty()) {
+            List<El> cards = new ArrayList<>();
+            for (int i = 0; i < section.cards.size(); i++) {
+                cards.add(card(section.cards.get(i), t, key + "c" + i));
+            }
+            return Box(P.of("key", key), cards);
+        }
+        if (section.onMove != null && !section.rows.isEmpty()) {
+            List<GlassModel.Row> list = section.rows;
+            double[] heights = new double[list.size()];
+            for (int i = 0; i < heights.length; i++) {
+                heights[i] = rowHeight(list.get(i));
+            }
+            String sig = key + ":" + list.size();
+            return GlassReorder.section(sig, section.header, section.footer, list.size(), heights,
+                    (i, handle) -> row(list.get(i), pageId, src, push, t, handle), section.onMove);
+        }
         List<El> rows = new ArrayList<>();
         for (GlassModel.Row row : section.rows) {
-            rows.add(row(row, pageId, src, push, t));
+            rows.add(row(row, pageId, src, push, t, null));
         }
         if (rows.isEmpty() && section.footer == null) {
             return null;
@@ -475,25 +593,85 @@ public final class CodexGlass {
     }
 
     private static El row(GlassModel.Row r, String pageId, GlassSource src, OnStr push, KTheme t) {
+        return row(r, pageId, src, push, t, null);
+    }
+
+    private static El row(GlassModel.Row r, String pageId, GlassSource src, OnStr push, KTheme t, El extra) {
         String key = r.key != null ? r.key : r.title;
         double h = rowHeight(r);
         Object label = twoLine(r.title, r.summary, t);
+        OnBool toggle = v -> {
+            if (r.onToggle != null) {
+                r.onToggle.on(v);
+            } else {
+                src.toggle(pageId, r.key, v);
+            }
+        };
+        OnInt choose = i -> {
+            if (r.onChoose != null) {
+                r.onChoose.on(i);
+            } else {
+                src.choose(pageId, r.key, i);
+            }
+        };
+        Runnable press = () -> {
+            if (r.onPress != null) {
+                r.onPress.run();
+            } else {
+                src.press(pageId, r.key);
+            }
+        };
+        // Icons: a colored tile (iOS Settings), a plain mark in the text color, or a picture.
+        String icon = r.plainIcon || r.image != null ? null : r.icon;
+        Object leading = leading(r, t);
         El el;
         switch (r.kind) {
             case SWITCH:
-                el = ListRow(P.of("key", key, "h", h, "icon", r.icon, "color", r.color, "label", label),
-                        GlassSwitch(P.of("value", r.checked,
-                                "onChange", (OnBool) v -> src.toggle(pageId, r.key, v))));
+                el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "label", label,
+                                "leading", leading),
+                        GlassSwitch(P.of("value", r.checked, "onChange", toggle)), extra);
                 break;
             case SWITCH_LINK:
-                el = ListRow(P.of("key", key, "h", h, "icon", r.icon, "color", r.color, "label", label,
-                                "onPress", open(r, pageId, src, push)),
-                        GlassSwitch(P.of("value", r.checked,
-                                "onChange", (OnBool) v -> src.toggle(pageId, r.key, v))),
+                el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "label", label,
+                                "leading", leading, "onPress", open(r, pageId, src, push)),
+                        GlassSwitch(P.of("value", r.checked, "onChange", toggle)),
                         Icon(P.of("name", "chevronRight", "size", 15, "color", t.pal.label3)));
                 break;
+            case BUTTON:
+                el = ListPad(P.of("key", key, "padY", 4, "padX", 0),
+                        GlassButton(P.of("variant", "filled", "label", r.title, "h", 50, "r", 25,
+                                "fillColor", r.destructive ? null : t.accent,
+                                "color", r.destructive ? red(t) : "#fff", "onPress", press)));
+                break;
+            case SLIDER:
+                el = ListPad(P.of("key", key),
+                        r.title.isEmpty() ? null : Row(P.of("mb", 6),
+                                Text(P.of("flex", 1, "size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label),
+                                        r.title),
+                                r.value != null ? Text(P.of("size", 17, "lines", 1, "color", t.pal.label2),
+                                        r.value) : null),
+                        GlassSlider(P.of("value", r.fraction, "min", 0.0, "max", 1.0,
+                                "step", r.steps > 1 ? 1.0 / (r.steps - 1) : 0.0, "ticks", r.steps > 1,
+                                "onChange", (OnNum) v -> {
+                                    if (r.onSlide != null) {
+                                        r.onSlide.on(v);
+                                    }
+                                })));
+                break;
+            case IMAGE:
+                el = ListPad(P.of("key", key, "padY", 16),
+                        Img(P.of("src", GlassImages.of(r.image), "h", r.imageHeight, "fit", "contain")));
+                break;
+            case TEXT:
+                el = ListPad(P.of("key", key, "padY", 12),
+                        r.title.isEmpty() ? null : Text(P.of("size", 17, "weight", 600, "lines", 2, "mb", 4,
+                                "color", t.pal.label), r.title),
+                        Text(P.of("size", 15, "lh", 20, "lines", 60, "color", t.pal.label2),
+                                r.summary == null ? "" : r.summary));
+                break;
             case CHOICE:
-                el = ListRow(P.of("key", key, "h", h, "icon", r.icon, "color", r.color, "label", label,
+                el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "label", label,
+                        "leading", leading,
                         "value", r.selected >= 0 && r.entries != null && r.selected < r.entries.length
                                 ? shortValue(r.entries[r.selected]) : null,
                         "chevron", true,
@@ -506,26 +684,45 @@ public final class CodexGlass {
                 }
                 el = ListPad(P.of("key", key),
                         GlassSegmented(P.of("labels", labels, "index", Math.max(0, r.selected),
-                                "onChange", (OnInt) i -> src.choose(pageId, r.key, i))));
+                                "onChange", choose)));
+                break;
+            case RADIO:
+                el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "leading", leading,
+                                "label", label, "onPress", press),
+                        r.checked ? Icon(P.of("name", "check", "size", 18, "color", t.accent)) : null);
                 break;
             case ACTION:
-                el = ListRow(P.of("key", key, "h", h, "icon", r.icon, "color", r.color,
-                        "label", actionLabel(r, t), "onPress", (Runnable) () -> src.press(pageId, r.key)));
+                el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "leading", leading,
+                        "label", actionLabel(r, t), "onPress", press));
                 break;
             case INFO:
-                el = ListRow(P.of("key", key, "h", h, "icon", r.icon, "color", r.color, "label", label,
-                        "value", r.value));
+                el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "label", label,
+                        "leading", leading, "value", r.value), extra);
                 break;
             case LINK:
             default:
-                el = ListRow(P.of("key", key, "h", h, "icon", r.icon, "color", r.color, "label", label,
-                        "value", r.value, "chevron", true, "onPress", open(r, pageId, src, push)));
+                el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "label", label,
+                        "leading", leading, "value", r.value, "chevron", true,
+                        "onPress", r.onPress != null ? r.onPress : open(r, pageId, src, push)));
                 break;
         }
         if (!r.enabled) {
             return Box(P.of("key", key, "icon", r.icon, "opacity", 0.38, "pointerEvents", "none"), el);
         }
         return el;
+    }
+
+    /** The start of a row: a picture, or a plain mark in the text color; null for a tile or nothing. */
+    private static Object leading(GlassModel.Row r, KTheme t) {
+        if (r.image != null && r.kind != GlassModel.Row.Kind.IMAGE) {
+            double s = r.imageSize;
+            return Img(P.of("src", GlassImages.of(r.image), "w", s, "h", s, "r", r.roundImage ? s / 2 : s * 0.225));
+        }
+        if (r.plainIcon && r.icon != null) {
+            return Box(P.of("w", 30, "h", 30, "align", "center", "justify", "center"),
+                    Icon(P.of("name", r.icon, "size", 22, "color", t.pal.label)));
+        }
+        return null;
     }
 
     private static Runnable open(GlassModel.Row r, String pageId, GlassSource src, OnStr push) {
@@ -556,11 +753,12 @@ public final class CodexGlass {
 
     /** One line: 52pt like iOS; a summary adds a line or two of 13pt text. */
     private static double rowHeight(GlassModel.Row r) {
+        double min = r.image != null && r.imageSize > 36 ? r.imageSize + 24 : 0;
         if (r.summary == null || r.summary.isEmpty()) {
-            return 52;
+            return Math.max(52, min);
         }
         int lines = Math.min(3, 1 + r.summary.length() / 44);
-        return 44 + 22 + lines * 16.5 - 8;
+        return Math.max(min, 44 + 22 + lines * 16.5 - 8);
     }
 
     private static El searchResults(GlassSource src, String query, OnStr push, KTheme t) {
@@ -626,8 +824,8 @@ public final class CodexGlass {
                 shown.onClose.run();
             }
         };
-        boolean alertOpen = d != null && d.items == null;
-        boolean sheetOpen = d != null && d.items != null;
+        boolean alertOpen = d != null && d.items == null && d.amount == null;
+        boolean sheetOpen = d != null && (d.items != null || d.amount != null);
         List<AlertAction> actions = new ArrayList<>();
         if (shown != null) {
             for (GlassModel.Dialog.Button b : shown.buttons) {
@@ -637,7 +835,7 @@ public final class CodexGlass {
         if (actions.isEmpty()) {
             actions.add(new AlertAction("OK", GlassModel.Dialog.PROMINENT, null));
         }
-        boolean isSheet = shown != null && shown.items != null;
+        boolean isSheet = shown != null && (shown.items != null || shown.amount != null);
         return Box(P.of("abs", true, "left", 0, "top", 0, "w", t.W, "h", t.H, "pointerEvents", null),
                 !isSheet ? GlassAlert(P.of("key", "alert", "open", alertOpen, "onClose", close,
                         "title", shown == null ? "" : shown.title,
@@ -645,7 +843,7 @@ public final class CodexGlass {
                         "actions", actions)) : null,
                 isSheet ? GlassSheet(P.of("key", "sheet", "open", sheetOpen, "onClose", close,
                                 "title", shown.title,
-                                "detents", new double[] {sheetDetent(t, shown.items.length,
+                                "detents", new double[] {sheetDetent(t, shown.items != null ? shown.items.length : 3,
                                         shown.message == null ? 0 : shown.message.length(),
                                         !shown.buttons.isEmpty())}),
                         sheetBody(shown, t)) : null);
@@ -665,7 +863,8 @@ public final class CodexGlass {
 
     private static El sheetBody(GlassModel.Dialog d, KTheme t) {
         List<El> rows = new ArrayList<>();
-        for (int i = 0; i < d.items.length; i++) {
+        String[] items = d.items != null ? d.items : new String[0];
+        for (int i = 0; i < items.length; i++) {
             int which = i;
             if (d.checked != null) {
                 rows.add(ListRow(P.of("key", "i" + i, "label", d.items[i]),
@@ -693,14 +892,46 @@ public final class CodexGlass {
                     "color", prominent ? "#fff" : destructive ? "#ff3b30" : null,
                     "onPress", b.onPress)));
         }
-        El list = ListSection(P.of("mb", 0, "r", 26), rows);
+        El list = d.amount != null ? amountPicker(d.amount, t) : ListSection(P.of("mb", 0, "r", 26), rows);
         double maxList = t.H * 0.92 - 52 - 24 - (buttons.isEmpty() ? 0 : 64) - t.B;
         return Box(P.of(),
                 d.message != null ? Text(P.of("size", 15, "ls", -0.15, "lh", 20, "lines", 8, "mb", 14,
                         "ml", 4, "mr", 4, "color", t.pal.label2), d.message) : null,
-                d.items.length * 52.5 > maxList
+                items.length * 52.5 > maxList
                         ? GlassScrollView(P.of("h", maxList, "noSheetDrag", true), list)
                         : list,
                 buttons.isEmpty() ? null : Row(P.of("gap", 10, "mt", 16), buttons));
+    }
+
+    /** − value + over a segmented unit picker, and a note under them. */
+    private static El amountPicker(GlassModel.Amount a, KTheme t) {
+        List<String> units = new ArrayList<>();
+        Collections.addAll(units, a.units);
+        return ListSection(P.of("mb", 0, "r", 26),
+                ListPad(P.of("padY", 16),
+                        Row(P.of("align", "center", "gap", 16),
+                                GlassButton(P.of("key", "minus", "label", "−", "w", 56, "h", 44, "r", 22,
+                                        "variant", "filled", "onPress", (Runnable) () -> {
+                                            if (a.onValue != null && a.value > a.min) {
+                                                a.onValue.on(a.value - 1);
+                                            }
+                                        })),
+                                Text(P.of("flex", 1, "size", 34, "weight", 600, "align", "center", "lines", 1,
+                                        "color", t.pal.label), String.valueOf(a.value)),
+                                GlassButton(P.of("key", "plus", "label", "+", "w", 56, "h", 44, "r", 22,
+                                        "variant", "filled", "onPress", (Runnable) () -> {
+                                            if (a.onValue != null && a.value < a.max) {
+                                                a.onValue.on(a.value + 1);
+                                            }
+                                        }))),
+                        units.isEmpty() ? null : Box(P.of("mt", 16),
+                                GlassSegmented(P.of("labels", units, "index", Math.max(0, a.unit),
+                                        "onChange", (OnInt) i -> {
+                                            if (a.onUnit != null) {
+                                                a.onUnit.on(i);
+                                            }
+                                        }))),
+                        a.note == null ? null : Text(P.of("size", 13, "lh", 17.55, "lines", 3, "mt", 12,
+                                "color", a.error ? red(t) : t.pal.label2), a.note)));
     }
 }

@@ -40,10 +40,10 @@ final class GlassSettings {
         ICONS.put("about_codex_meter", new String[] {"info", "#8e8e93"});
     }
 
-    private final MainActivity activity;
+    private final androidx.appcompat.app.AppCompatActivity activity;
     private final Map<String, SettingsActivity.SettingsFragment> fragments = new HashMap<>();
 
-    GlassSettings(MainActivity activity) {
+    GlassSettings(androidx.appcompat.app.AppCompatActivity activity) {
         this.activity = activity;
     }
 
@@ -161,6 +161,9 @@ final class GlassSettings {
                 r = new Row(Row.Kind.LINK, key);
             }
         }
+        if (r.kind == Row.Kind.LINK) {
+            r.link = linkOf(key);
+        }
         r.title = text(pref.getTitle());
         if (r.title == null) {
             r.title = "";
@@ -255,6 +258,30 @@ final class GlassSettings {
                 radio.setValue(values[index]);
             }
         }
+    }
+
+    /** The glass page a Settings row opens, so search can look inside it; null when unknown. */
+    private static String linkOf(String key) {
+        if (key == null) {
+            return null;
+        }
+        switch (key) {
+            case "settings_providers":
+                return GlassScreens.PREFIX + "tabs";
+            case "settings_lock_widgets":
+                return GlassScreens.PREFIX + "lock_widgets";
+            case "about_codex_meter":
+                return GlassScreens.PREFIX + "about";
+            default:
+                break;
+        }
+        if (key.startsWith("settings_")) {
+            String page = key.substring("settings_".length());
+            if (page.equals(SettingsActivity.normalizePage(page))) {
+                return page;
+            }
+        }
+        return null;
     }
 
     void press(String page, String key) {

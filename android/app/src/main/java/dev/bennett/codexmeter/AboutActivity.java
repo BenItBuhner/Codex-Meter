@@ -46,6 +46,9 @@ public final class AboutActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         dark = Ui.isDark(this);
         EdgeToEdge.apply(this, () -> new kotlin.Pair<>(dark, dark));
         // Liquid Glass keeps One UI 9's About page: both run on SESL9's own values.

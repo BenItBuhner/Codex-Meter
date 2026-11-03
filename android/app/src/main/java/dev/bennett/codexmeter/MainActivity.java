@@ -39,7 +39,7 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
-public final class MainActivity extends AppCompatActivity {
+public final class MainActivity extends AppCompatActivity implements GlassApp.Host {
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(DesignChrome.wrap(base));
@@ -331,7 +331,8 @@ public final class MainActivity extends AppCompatActivity {
         super.recreate();
     }
 
-    GlassApp glass() {
+    @Override
+    public GlassApp glass() {
         return this.glass;
     }
 
@@ -380,6 +381,13 @@ public final class MainActivity extends AppCompatActivity {
             intent.removeExtra(GlassApp.EXTRA_SETTINGS_PAGE);
             if (this.glass != null) {
                 this.glass.openSettings(glassPage, true);
+            }
+        }
+        Intent glassIntent = intent == null ? null : intent.getParcelableExtra(GlassApp.EXTRA_GLASS_INTENT);
+        if (glassIntent != null) {
+            intent.removeExtra(GlassApp.EXTRA_GLASS_INTENT);
+            if (this.glass != null) {
+                this.glass.intercept(glassIntent);
             }
         }
         String requestedProvider = intent == null ? null

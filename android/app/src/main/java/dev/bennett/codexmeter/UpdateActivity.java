@@ -42,6 +42,9 @@ public final class UpdateActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         dark = Ui.isDark(this);
         content = Ui.installPage(this, "App update", true).content;
         String requested = getIntent().getStringExtra(EXTRA_VERSION);

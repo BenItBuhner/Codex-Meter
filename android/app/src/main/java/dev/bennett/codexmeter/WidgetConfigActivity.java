@@ -37,7 +37,52 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-public final class WidgetConfigActivity extends AppCompatActivity {
+public final class WidgetConfigActivity extends AppCompatActivity
+        implements GlassApp.Host {
+    private GlassApp glass;
+
+    @Override
+    public GlassApp glass() {
+        return glass;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (glass != null) {
+            glass.onResume();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        if (glass != null) {
+            glass.onPause();
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (glass != null) {
+            glass.onDestroy();
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        if (glass != null) {
+            glass.onConfigurationChanged(config);
+        }
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        return glass != null ? glass.dispatchTouchEvent(ev) : super.dispatchTouchEvent(ev);
+    }
+
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(DesignChrome.wrap(base));
@@ -84,6 +129,12 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         if (this.appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             Toast.makeText(this, "No widget was selected.", Toast.LENGTH_LONG).show();
             finish();
+            return;
+        }
+        if (AppPreferences.isLiquidGlassDesign(this)) {
+            glass = new GlassApp(this, super::dispatchTouchEvent,
+                    GlassScreens.PREFIX + "widget:" + this.appWidgetId);
+            glass.start(state);
             return;
         }
         this.dark = Ui.isDark(this);

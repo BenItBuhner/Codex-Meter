@@ -12,6 +12,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AppCompatActivity;
 import com.benitbuhner.glasse.android.GlasseHost;
 import com.benitbuhner.glasse.ui.ScreenMaker;
 import dev.bennett.codexmeter.glass.CodexGlass;
@@ -29,16 +30,28 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * in place of the One UI views, inside {@link MainActivity}. This class is the app behind those
  * screens: the dashboard's cards come from the same data as the One UI dashboard
  * ({@link GlassCards}), and Settings runs the app's own settings code ({@link GlassSettings}).
- * Pages without a glass version yet (Dashboard tabs, Lock screen widgets, About, usage history,
- * reset credits, Edit dashboard, updates) open as their One UI 9 activities.
+ * The other pages (Dashboard tabs, Lock screen widgets, About, usage history, reset credits, Edit
+ * dashboard, updates, widget settings) are glass pages too ({@link GlassScreens}): the intents
+ * that would open their One UI activities open them here instead. Widget settings, which the
+ * launcher opens as an activity of its own, host a GlassApp that starts at their page.
  */
 final class GlassApp implements GlassSource {
     /** MainActivity extra: open glass Settings at this page. */
     static final String EXTRA_SETTINGS_PAGE = "glass_settings_page";
     private static final String STATE_PAGE = "glass_settings_page";
 
-    private final MainActivity activity;
+    /** An activity that shows Liquid Glass. */
+    interface Host {
+        GlassApp glass();
+    }
+
+    /** MainActivity extra: open the glass page for this intent (a ported activity's own). */
+    static final String EXTRA_GLASS_INTENT = "glass_intent";
+
+    private final AppCompatActivity activity;
+    private final String landing;
     private final GlassSettings settings;
+    private final GlassScreens screens;
     private final GlasseHost glasse;
     private final List<Runnable> listeners = new CopyOnWriteArrayList<>();
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -48,6 +61,7 @@ final class GlassApp implements GlassSource {
     private Nav nav;
     private String shownPage = "root";
     private GlassDialog dialog;
+    private GlassModel.Dialog model;
     private String dialogScreen;
     private boolean pending;
 
@@ -56,23 +70,54 @@ final class GlassApp implements GlassSource {
     }
 
     GlassApp(MainActivity activity, Touch superTouch) {
+        this(activity, superTouch, null);
+    }
+
+    /** {@code landing}: the page this activity shows (widget settings), or null for the dashboard. */
+    GlassApp(AppCompatActivity activity, Touch superTouch, String landing) {
         this.activity = activity;
+        this.landing = landing;
         this.settings = new GlassSettings(activity);
+        this.screens = new GlassScreens(activity, this);
         GlassIcons.register();
         for (UsageProvider provider : UsageProvider.values()) {
             registerIcon(activity, provider);
         }
         Map<String, ScreenMaker> makers = new LinkedHashMap<>();
         makers.put(CodexGlass.SETTINGS, env -> CodexGlass.settings(env, this));
-        glasse = new GlasseHost(activity, env -> CodexGlass.dashboard(env, this), makers,
-                superTouch::dispatch);
+        glasse = new GlasseHost(activity, landing != null
+                ? env -> CodexGlass.page(env, this, landing)
+                : env -> CodexGlass.dashboard(env, this), makers, superTouch::dispatch);
+        if (landing != null) {
+            shownPage = landing;
+        }
+    }
+
+    private MainActivity main() {
+        return (MainActivity) activity;
+    }
+
+    /**
+     * In Liquid Glass, a ported activity hands its intent to MainActivity, which shows its glass
+     * page, and finishes. Call right after super.onCreate; returns true when it did.
+     */
+    static boolean redirect(AppCompatActivity from) {
+        if (!AppPreferences.isLiquidGlassDesign(from)) {
+            return false;
+        }
+        from.startActivity(new Intent(from, MainActivity.class)
+                .putExtra(EXTRA_GLASS_INTENT, new Intent(from.getIntent()))
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        from.finish();
+        from.overridePendingTransition(0, 0);
+        return true;
     }
 
     /** The glass app on {@code context}'s activity, or null when it shows the One UI views. */
     static GlassApp of(Context context) {
         while (context instanceof ContextWrapper) {
-            if (context instanceof MainActivity) {
-                return ((MainActivity) context).glass();
+            if (context instanceof Host) {
+                return ((Host) context).glass();
             }
             context = ((ContextWrapper) context).getBaseContext();
         }
@@ -102,8 +147,15 @@ final class GlassApp implements GlassSource {
         activity.getSharedPreferences("codex_meter_settings_v1", Context.MODE_PRIVATE)
                 .registerOnSharedPreferenceChangeListener(prefsListener);
         String page = state == null ? null : state.getString(STATE_PAGE);
-        if (page != null) {
-            openSettings(page, true);
+        if (page != null && landing == null) {
+            if (page.startsWith(GlassScreens.PREFIX)) {
+                openPage(page, null);
+            } else {
+                openSettings(page, true);
+            }
+        }
+        if (landing != null) {
+            screens.opened(landing, activity.getIntent());
         }
     }
 
@@ -121,6 +173,10 @@ final class GlassApp implements GlassSource {
 
     void onResume() {
         glasse.onResume();
+        GlassScreens.Screen screen = screens.screen(shownPage);
+        if (screen != null) {
+            screen.resumed();
+        }
         changed();
     }
 
@@ -132,6 +188,7 @@ final class GlassApp implements GlassSource {
         activity.getSharedPreferences("codex_meter_settings_v1", Context.MODE_PRIVATE)
                 .unregisterOnSharedPreferenceChangeListener(prefsListener);
         ui.removeCallbacksAndMessages(null);
+        screens.dispose();
         glasse.onDestroy();
     }
 
@@ -149,12 +206,54 @@ final class GlassApp implements GlassSource {
      * instead. Returns true when the intent was handled here.
      */
     boolean intercept(Intent intent) {
-        if (intent == null || intent.getComponent() == null
-                || !SettingsActivity.class.getName().equals(intent.getComponent().getClassName())) {
+        if (intent == null || intent.getComponent() == null) {
             return false;
         }
-        openSettings(intent.getStringExtra(SettingsActivity.EXTRA_PAGE), false);
+        if (SettingsActivity.class.getName().equals(intent.getComponent().getClassName())) {
+            if (landing != null) {
+                return false;
+            }
+            openSettings(intent.getStringExtra(SettingsActivity.EXTRA_PAGE), false);
+            return true;
+        }
+        String page = GlassScreens.pageFor(intent);
+        if (page == null) {
+            return false;
+        }
+        openPage(page, intent);
         return true;
+    }
+
+    /** Starts {@code intent}, as a glass page when it opens one. */
+    void start(Intent intent) {
+        if (!intercept(intent)) {
+            activity.startActivity(intent);
+        }
+    }
+
+    void post(Runnable action) {
+        ui.post(action);
+    }
+
+    /**
+     * Opens glass page {@code id}: on top of the Settings pages when they're showing, otherwise on
+     * its own (back returns to the dashboard).
+     */
+    void openPage(String id, Intent intent) {
+        screens.opened(id, intent);
+        if (glasse.getHost().app != null || landing != null) {
+            nav = new Nav(false, id);
+        } else {
+            nav = new Nav(true, id, true, false);
+            glasse.getHost().open(CodexGlass.SETTINGS, false);
+        }
+        changed();
+    }
+
+    /** Closes the page on top (a page that finished its job, like a saved widget). */
+    void pop() {
+        nav = new Nav(false, null, false, true);
+        changed();
     }
 
     void openSettings(String page, boolean instant) {
@@ -199,7 +298,7 @@ final class GlassApp implements GlassSource {
     void showDialog(GlassDialog value) {
         dialog = value;
         String app = glasse.getHost().app;
-        dialogScreen = app == null ? CodexGlass.DASHBOARD : app;
+        dialogScreen = app != null ? app : landing != null ? CodexGlass.SETTINGS : CodexGlass.DASHBOARD;
         changed();
     }
 
@@ -211,9 +310,27 @@ final class GlassApp implements GlassSource {
         changedSoon();
     }
 
+    /** Shows a glass dialog built here rather than from an AppDialog (a picker sheet, say). */
+    void showDialog(GlassModel.Dialog value) {
+        model = value;
+        String app = glasse.getHost().app;
+        dialogScreen = app != null ? app : landing != null ? CodexGlass.SETTINGS : CodexGlass.DASHBOARD;
+        changed();
+    }
+
+    void closeDialog(GlassModel.Dialog value) {
+        if (model == value) {
+            model = null;
+            changed();
+        }
+    }
+
     @Override
     public GlassModel.Dialog dialog(String screen) {
-        return dialog != null && screen.equals(dialogScreen) ? dialog.model() : null;
+        if (!screen.equals(dialogScreen)) {
+            return null;
+        }
+        return dialog != null ? dialog.model() : model;
     }
 
     // ------------------------------------------------------------------ GlassSource
@@ -235,17 +352,17 @@ final class GlassApp implements GlassSource {
 
     @Override
     public String selectedTab() {
-        return activity.glassProvider().id;
+        return main().glassProvider().id;
     }
 
     @Override
     public void selectTab(String id) {
-        activity.glassSelectProvider(UsageProvider.fromId(id));
+        main().glassSelectProvider(UsageProvider.fromId(id));
     }
 
     @Override
     public GlassModel.Dashboard dashboard() {
-        return GlassCards.build(activity, activity.glassProvider());
+        return GlassCards.build(main(), main().glassProvider());
     }
 
     @Override
@@ -255,16 +372,16 @@ final class GlassApp implements GlassSource {
 
     @Override
     public void refresh() {
-        activity.glassRefresh();
+        main().glassRefresh();
     }
 
     @Override
     public List<MenuEntry> menu() {
         List<MenuEntry> menu = new ArrayList<>();
-        menu.add(new MenuEntry("Usage history", "history", false, () -> UsageHistoryActivity.open(
-                activity, activity.glassProvider())));
-        menu.add(new MenuEntry("Edit dashboard", "edit", false, activity::glassEditDashboard));
-        menu.add(new MenuEntry("Add widget", "widget", false, activity::requestPinWidget));
+        menu.add(new MenuEntry("Usage history", "history", false, () -> openPage(
+                GlassScreens.PREFIX + "history:" + main().glassProvider().id, null)));
+        menu.add(new MenuEntry("Edit dashboard", "edit", false, main()::glassEditDashboard));
+        menu.add(new MenuEntry("Add widget", "widget", false, main()::requestPinWidget));
         menu.add(new MenuEntry("Settings", "gear", false, () -> {
             DiagnosticLog.info(activity, "user", "settings_opened");
             openSettings("root", false);
@@ -274,6 +391,9 @@ final class GlassApp implements GlassSource {
 
     @Override
     public GlassModel.Page page(String id) {
+        if (id != null && id.startsWith(GlassScreens.PREFIX)) {
+            return screens.page(id);
+        }
         return settings.page(id);
     }
 
@@ -300,7 +420,11 @@ final class GlassApp implements GlassSource {
 
     @Override
     public void closeSettings() {
-        glasse.getHost().close();
+        if (landing != null) {
+            activity.finish();
+        } else {
+            glasse.getHost().close();
+        }
     }
 
     @Override
@@ -313,6 +437,10 @@ final class GlassApp implements GlassSource {
     @Override
     public void shown(String page) {
         shownPage = page;
+        GlassScreens.Screen screen = screens.screen(page);
+        if (screen != null) {
+            screen.shown();
+        }
     }
 
     // ------------------------------------------------------------------ icons

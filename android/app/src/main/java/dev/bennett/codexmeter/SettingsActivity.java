@@ -1359,6 +1359,11 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void showAddExpiryReminderDialog() {
+            GlassApp glass = GlassApp.of(requireContext());
+            if (glass != null) {
+                showGlassReminderSheet(glass);
+                return;
+            }
             boolean dark = Ui.isDark(requireContext());
             LinearLayout container = new LinearLayout(requireContext());
             container.setOrientation(LinearLayout.VERTICAL);
@@ -1413,6 +1418,48 @@ public final class SettingsActivity extends AppCompatActivity {
                         dialog.dismiss();
                     }));
             dialog.show();
+        }
+
+        /** Liquid Glass: the same reminder time, picked with − and + and a unit, in a sheet. */
+        private void showGlassReminderSheet(GlassApp glass) {
+            dev.bennett.codexmeter.glass.GlassModel.Dialog sheet =
+                    new dev.bennett.codexmeter.glass.GlassModel.Dialog();
+            dev.bennett.codexmeter.glass.GlassModel.Amount amount =
+                    new dev.bennett.codexmeter.glass.GlassModel.Amount();
+            sheet.title = "Add reminder time";
+            sheet.message = "Notify me this long before each available reset credit expires.";
+            amount.units = new String[] {"Minutes", "Hours", "Days", "Weeks"};
+            amount.unit = 1;
+            amount.onValue = value -> {
+                amount.value = value;
+                amount.note = null;
+                glass.changed();
+            };
+            amount.onUnit = unit -> {
+                amount.unit = unit;
+                amount.note = null;
+                glass.changed();
+            };
+            sheet.amount = amount;
+            sheet.buttons.add(new dev.bennett.codexmeter.glass.GlassModel.Dialog.Button("Cancel",
+                    dev.bennett.codexmeter.glass.GlassModel.Dialog.CANCEL, () -> glass.closeDialog(sheet)));
+            sheet.buttons.add(new dev.bennett.codexmeter.glass.GlassModel.Dialog.Button("Add",
+                    dev.bennett.codexmeter.glass.GlassModel.Dialog.PROMINENT, () -> {
+                        Long leadTime = parseLeadTime(String.valueOf(amount.value), amount.unit);
+                        if (leadTime == null) {
+                            amount.note = "Enter a time from 1 minute to 1 year.";
+                            amount.error = true;
+                            glass.changed();
+                            return;
+                        }
+                        List<Long> updated = new ArrayList<>(
+                                ResetAlertPreferences.getResetCreditExpiryLeadTimes(requireContext()));
+                        if (!updated.contains(leadTime)) updated.add(leadTime);
+                        saveExpiryLeadTimes(updated);
+                        glass.closeDialog(sheet);
+                    }));
+            sheet.onClose = () -> glass.closeDialog(sheet);
+            glass.showDialog(sheet);
         }
 
         private Long parseLeadTime(String amount, int unitPosition) {

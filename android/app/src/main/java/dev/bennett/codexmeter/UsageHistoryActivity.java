@@ -48,6 +48,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         dark = Ui.isDark(this);
         provider = UsageProvider.fromId(getIntent().getStringExtra(EXTRA_PROVIDER));
         content = Ui.installPage(this, provider == UsageProvider.CODEX ? "Usage history"

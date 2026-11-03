@@ -55,6 +55,9 @@ public final class ResetCreditActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         this.dark = Ui.isDark(this);
         if (UsageProvider.CLAUDE_CODE.id.equals(
                 getIntent().getStringExtra(MainActivity.EXTRA_PROVIDER))) {
@@ -119,7 +122,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
             this.content.addView(errorCard);
         }
 
-        String autoUse = autoUseSummary(nextExpiry > 0L);
+        String autoUse = autoUseSummary(this, claude(), nextExpiry > 0L);
         if (!autoUse.isEmpty()) {
             Ui.addSpacer(this.content, 8);
             android.widget.TextView autoUseText =
@@ -341,22 +344,22 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     /** One line describing the automatic-use rules that are on, or empty when none are. */
-    private String autoUseSummary(boolean hasExpiry) {
-        boolean expiryOn = claude()
-                ? ResetAlertPreferences.claudeSavedResetExpiryEnabled(this)
-                : ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(this);
-        long lead = claude()
-                ? ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(this)
-                : ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(this);
-        boolean lowOn = claude()
-                ? ResetAlertPreferences.claudeSavedResetLowUsageEnabled(this)
-                : ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(this);
-        String metric = claude()
-                ? ResetAlertPreferences.claudeSavedResetMetric(this)
-                : ResetAlertPreferences.resetCreditLowUsageMetric(this);
-        int threshold = claude()
-                ? ResetAlertPreferences.claudeSavedResetThreshold(this)
-                : ResetAlertPreferences.resetCreditLowUsageThreshold(this);
+    static String autoUseSummary(Context context, boolean claude, boolean hasExpiry) {
+        boolean expiryOn = claude
+                ? ResetAlertPreferences.claudeSavedResetExpiryEnabled(context)
+                : ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context);
+        long lead = claude
+                ? ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context)
+                : ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context);
+        boolean lowOn = claude
+                ? ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context)
+                : ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context);
+        String metric = claude
+                ? ResetAlertPreferences.claudeSavedResetMetric(context)
+                : ResetAlertPreferences.resetCreditLowUsageMetric(context);
+        int threshold = claude
+                ? ResetAlertPreferences.claudeSavedResetThreshold(context)
+                : ResetAlertPreferences.resetCreditLowUsageThreshold(context);
         StringBuilder text = new StringBuilder();
         if (expiryOn && hasExpiry) {
             text.append("Unused credits are used automatically ")

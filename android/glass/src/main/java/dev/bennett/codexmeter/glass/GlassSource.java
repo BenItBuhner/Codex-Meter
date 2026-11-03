@@ -71,10 +71,20 @@ public interface GlassSource {
         public final boolean reset;
         /** the page to open on top, or null */
         public final String page;
+        /** with reset: the page alone, without the first page under it (back leaves Settings) */
+        public final boolean alone;
+        /** close the page on top instead */
+        public final boolean pop;
 
         public Nav(boolean reset, String page) {
+            this(reset, page, false, false);
+        }
+
+        public Nav(boolean reset, String page, boolean alone, boolean pop) {
             this.reset = reset;
             this.page = page;
+            this.alone = alone;
+            this.pop = pop;
         }
     }
 
