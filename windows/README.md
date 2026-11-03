@@ -55,6 +55,9 @@ dotnet publish src/CodexMeter.App -c Release -r win-x64 -p:Platform=x64 -o out/x
 out/x64/CodexMeter.exe
 ```
 
+Release tags build a setup .exe for each architecture from `installer/CodexMeter.iss` (Inno Setup,
+per-user install, no admin prompt) and attach it to the GitHub release next to portable zips.
+
 Command-line switches:
 
 | Switch | Effect |

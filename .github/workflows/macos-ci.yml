@@ -172,11 +172,32 @@ jobs:
           cd "DerivedData/Build/Products/Release"
           ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
 
+      - name: Build the disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A standard drag-to-Applications .dmg.
+          stage="$RUNNER_TEMP/dmg"
+          rm -rf "$stage" && mkdir -p "$stage"
+          ditto "DerivedData/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname "Codex Meter" -srcfolder "$stage" -fs HFS+ -format UDZO -ov \
+            "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          # Check it mounts and holds a runnable app.
+          mnt="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          test -x "$mnt/Codex Meter.app/Contents/MacOS/Codex Meter"
+          test -L "$mnt/Applications"
+          hdiutil detach "$mnt"
+          ls -la "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+
       - name: Upload Release app
         uses: actions/upload-artifact@v7
         with:
           name: macos-app-unsigned
-          path: macos/CodexMeter-macOS-unsigned.zip
+          path: |
+            macos/CodexMeter-macOS-unsigned.zip
+            macos/CodexMeter-macOS-unsigned.dmg
           retention-days: 14
 
       - name: Upload test results on failure
@@ -213,7 +234,8 @@ jobs:
           version="${RELEASE_TAG#v}"
           cd dist
           mv CodexMeter-macOS-unsigned.zip "CodexMeter-$version-macos.zip"
-          sha256sum "CodexMeter-$version-macos.zip" > SHA256SUMS-macos.txt
+          mv CodexMeter-macOS-unsigned.dmg "CodexMeter-$version-macos.dmg"
+          sha256sum "CodexMeter-$version-macos.dmg" "CodexMeter-$version-macos.zip" > SHA256SUMS-macos.txt
           cat SHA256SUMS-macos.txt
           # The Android workflow creates and publishes the release; wait for it, and only create a
           # draft ourselves if it hasn't appeared (the Android job then edits and publishes it).
@@ -228,5 +250,6 @@ jobs:
               --title "Codex Meter $version" --notes "Codex Meter $version" || true
           fi
           gh release upload "$RELEASE_TAG" --clobber \
+            "CodexMeter-$version-macos.dmg#Codex Meter for macOS (.dmg, unsigned)" \
             "CodexMeter-$version-macos.zip#Codex Meter for macOS (unsigned .zip)" \
             "SHA256SUMS-macos.txt"
