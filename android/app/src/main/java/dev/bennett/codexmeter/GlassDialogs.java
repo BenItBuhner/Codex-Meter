@@ -67,19 +67,49 @@ final class GlassDialogs {
     }
 
     /**
-     * A single choice as iOS's pull-down menu out of {@code anchor} (the row that was tapped),
-     * with a check mark on the current choice.
+     * A single choice as iOS's pull-down menu out of {@code row} (the row that was tapped), with
+     * a check mark on the current choice. The menu grows out of a button-sized spot at the row's
+     * trailing end, where iOS puts a row's pop-up value: grown out of the whole row it would
+     * start as a row-wide blob magnifying the text under it.
      */
-    static void choose(View anchor, CharSequence[] labels, int selected,
+    static void choose(View row, CharSequence[] labels, int selected,
             OneUiChoiceDialog.OnChoiceSelected listener) {
+        Context context = row.getContext();
         List<GlassMenu.Item> rows = new ArrayList<>();
         for (int i = 0; i < labels.length; i++) {
             int position = i;
-            rows.add(new GlassMenu.Item(labels[i], i == selected ? check(anchor.getContext())
-                    : null, false, false, () -> listener.onSelected(position)));
+            rows.add(new GlassMenu.Item(labels[i], i == selected ? check(context) : null,
+                    false, false, () -> listener.onSelected(position)));
         }
-        new GlassMenu(anchor).setItems(rows).setWidthDp(Math.min(300.0f, Math.max(220.0f,
-                longest(labels) * 9.0f + 80.0f))).show();
+        float width = Math.min(300.0f, Math.max(220.0f, longest(labels) * 9.0f + 80.0f));
+        LiquidGlassLayout root = host(context);
+        if (root == null) {
+            new GlassMenu(row).setItems(rows).setWidthDp(width).show();
+            return;
+        }
+        int size = Ui.dp(context, 44.0f);
+        int[] at = new int[2];
+        int[] origin = new int[2];
+        row.getLocationInWindow(at);
+        root.getLocationInWindow(origin);
+        android.widget.FrameLayout.LayoutParams params =
+                new android.widget.FrameLayout.LayoutParams(size, size, Gravity.TOP | Gravity.START);
+        params.leftMargin = at[0] - origin[0] - root.getPaddingLeft() + row.getWidth()
+                - Ui.dp(context, 12.0f) - size;
+        params.topMargin = at[1] - origin[1] + (row.getHeight() - size) / 2;
+        View anchor = new View(context);
+        anchor.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        GlassMenu menu = new GlassMenu(anchor).setItems(rows).setWidthDp(width)
+                .setOnDismissListener(shown -> root.removeView(anchor));
+        anchor.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View view, int l, int t, int r, int b, int ol, int ot,
+                    int or, int ob) {
+                view.removeOnLayoutChangeListener(this);
+                view.post(menu::show);
+            }
+        });
+        root.addView(anchor, params);
     }
 
     private static int longest(CharSequence[] labels) {
