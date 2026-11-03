@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.14 — 2026-11-03
+
+### Added
+
+- **Liquid Glass design** (Settings › Appearance): a third design next to One UI 8.5 and One UI 9, built from Glassé's glass components. Every screen has a glass version: the dashboard, Settings, Dashboard tabs, Lock screen widgets, About, Usage history, Reset credits, Edit dashboard, App update, Release history, home and lock-screen widget settings, alerts, sheets and the Add reminder time picker. Every setting keeps its existing behavior. One UI 8.5 and One UI 9 are unchanged. The APK is about 20 MB larger.
+- Desktop live usage: the Windows tray icon and the Mac menu bar item now follow the same rules as the Android live notification. They show the AI app in front first (ChatGPT or Codex, Claude, Cursor and others), then your chosen service, and the window with less left, or the time until reset once a limit is used up. Windows draws a ring or number icon at the tray's real size, with a flyout of every service's bars when clicked. The Mac shows a drawn ring that turns orange and red as you run low. Linux gets the ring style and the Service and Percentage shown settings. Each app has a new Live usage section in Settings.
+
+### Changed
+
+- Desktop apps reach parity with the phone apps: Windows and Linux cover all 24 services, with usage history charts and insights, Edit dashboard, Add account search, device-code, pasted-token and API-key sign-in, Codex reset auto-use, and a first-run welcome page. Windows uses a native title bar and navigation view with low and failing badges. Linux uses libadwaita dialogs and boxed lists. The Mac app gains an Add Account button in the sidebar and File › Add Account… (⌘N).
+
 ## 2.9.0-alpha.13 — 2026-10-28
 
 ### Changed
