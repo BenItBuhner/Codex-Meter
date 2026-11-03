@@ -53,13 +53,23 @@ public sealed class AccountsPage : IPage
 
         var connected = Adw.PreferencesGroup.New();
         connected.SetTitle("Connected");
-        connected.SetDescription("Each provider keeps its own sign-in. Signing out of one never touches the others.");
-        var available = Adw.PreferencesGroup.New();
-        available.SetTitle("Add an account");
-        var connectedCount = 0;
-        var availableCount = 0;
+        connected.SetDescription("Each service keeps its own sign-in. Signing out of one never touches the others.");
+        var add = Gtk.Button.New();
+        var addContent = Adw.ButtonContent.New();
+        addContent.SetIconName("list-add-symbolic");
+        addContent.SetLabel("Add Account");
+        add.SetChild(addContent);
+        add.AddCssClass("flat");
+        add.SetValign(Gtk.Align.Center);
+        add.SetName("AddAccountButton");
+        add.OnClicked += async (_, _) =>
+        {
+            if (await window.AddAccountAsync() is { } error) window.ShowToast(error);
+        };
+        connected.SetHeaderSuffix(add);
 
-        foreach (var entry in state.Entries)
+        var count = 0;
+        foreach (var entry in state.Entries.Where(e => e.SignedIn || e.SigningIn))
         {
             var provider = entry.Provider;
             var row = Adw.ActionRow.New();
@@ -68,7 +78,14 @@ public sealed class AccountsPage : IPage
             var mark = ProviderIcons.Create(provider.Id, 20);
             mark.SetMarginEnd(4);
             row.AddPrefix(mark);
-            if (entry.SignedIn)
+            if (!entry.SignedIn)
+            {
+                row.SetSubtitle("Signing in…");
+                var spinner = Gtk.Spinner.New();
+                spinner.SetSpinning(true);
+                row.AddSuffix(spinner);
+            }
+            else
             {
                 var plan = entry.Usage is { } usage
                     ? (provider == UsageProvider.Codex ? UsageFormat.PlanLabel(usage.PlanType) : usage.PlanType)
@@ -80,41 +97,24 @@ public sealed class AccountsPage : IPage
                 signOut.SetName("SignOut_" + provider.Id);
                 signOut.OnClicked += (_, _) => ConfirmSignOut(provider);
                 row.AddSuffix(signOut);
-                connected.Add(row);
-                connectedCount++;
             }
-            else
-            {
-                row.SetSubtitle($"{provider.Meters} · {provider.SignInSummary}");
-                var signIn = Gtk.Button.NewWithLabel(entry.SigningIn ? "Signing in…" : provider.SignInLabel);
-                signIn.AddCssClass("suggested-action");
-                signIn.SetValign(Gtk.Align.Center);
-                signIn.SetSensitive(!entry.SigningIn);
-                signIn.SetName("SignIn_" + provider.Id);
-                signIn.OnClicked += async (_, _) =>
-                {
-                    var error = await SignInDialog.RunAsync(state, provider, window.Window);
-                    if (error is not null) window.ShowToast(error);
-                };
-                row.AddSuffix(signIn);
-                available.Add(row);
-                availableCount++;
-            }
+            connected.Add(row);
+            count++;
         }
-        if (connectedCount == 0)
+        if (count == 0)
         {
             var empty = Adw.ActionRow.New();
             empty.SetTitle("No accounts yet");
-            empty.SetSubtitle("Add one below to see its limits.");
+            empty.SetSubtitle("Use Add Account to connect Codex, Claude Code, Cursor or another service.");
             connected.Add(empty);
         }
         preferences.Add(connected);
         groups.Add(connected);
-        if (availableCount > 0)
-        {
-            preferences.Add(available);
-            groups.Add(available);
-        }
+
+        var privacy = Adw.PreferencesGroup.New();
+        privacy.SetDescription(SignInDialog.StorageDescription(App.Current?.KeyLocation));
+        preferences.Add(privacy);
+        groups.Add(privacy);
     }
 
     /// <summary>Asks before signing out. Public so the screenshot run can show it.</summary>

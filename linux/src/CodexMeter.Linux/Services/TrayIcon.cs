@@ -150,19 +150,31 @@ public sealed class TrayIcon : IDisposable
     private delegate void WriteBody(ref MessageWriter writer);
 
 
-    /// <summary>Text for the tooltip, e.g. "Codex: 62% left (5-hour)".</summary>
+    /// <summary>What the icon shows: the chosen service, else the first connected one in the sidebar.</summary>
+    public static LiveReading? Current(AppState state)
+    {
+        var settings = state.Settings.Current;
+        var candidates = state.EnabledProviders.Where(p => state[p].SignedIn && state[p].Usage is not null).ToList();
+        if (LiveUsage.ChooseProvider(settings.LiveProvider, null, candidates) is not { } provider) return null;
+        return LiveUsage.Read(provider, state[provider].Usage, settings.LiveWindow);
+    }
+
+    /// <summary>Tooltip and menu lines: the live value first, then every other service, e.g. "Claude Code: 41% (weekly)".</summary>
     public static IReadOnlyList<string> SummaryLines(AppState state)
     {
         var lines = new List<string>();
-        var mode = state.Settings.Current.DisplayMode;
+        var settings = state.Settings.Current;
+        var now = DateTimeOffset.UtcNow;
+        var live = Current(state);
+        if (live is not null) lines.Add(live.Headline(settings.DisplayMode, now));
         foreach (var provider in state.EnabledProviders)
         {
             var entry = state[provider];
-            if (!entry.SignedIn) continue;
-            var window = entry.Usage?.FiveHour ?? entry.Usage?.LongWindow;
-            lines.Add(window is null
+            if (!entry.SignedIn || provider == live?.Provider) continue;
+            var other = LiveUsage.Read(provider, entry.Usage, settings.LiveWindow);
+            lines.Add(other.Window is null
                 ? $"{provider.DisplayName}: no data yet"
-                : $"{provider.DisplayName}: {UsageFormat.Percent(window, mode)} ({UsageFormat.WindowName(window.WindowSeconds).ToLowerInvariant()})");
+                : $"{provider.DisplayName}: {other.CompactText(settings.DisplayMode, now)} ({other.WindowLabel.ToLowerInvariant()})");
         }
         return lines;
     }
@@ -170,12 +182,12 @@ public sealed class TrayIcon : IDisposable
     private Snapshot Capture()
     {
         var lines = SummaryLines(state).ToArray();
-        var first = state.EnabledProviders.Select(p => state[p]).FirstOrDefault(e => e.SignedIn && e.Usage is not null);
-        var window = first?.Usage?.FiveHour ?? first?.Usage?.LongWindow;
-        var value = window is null ? (int?)null : UsageFormat.Value(window, state.Settings.Current.DisplayMode);
-        var remaining = window?.RemainingPercent ?? 100;
-        var pixmaps = new[] { 22, 32, 48 }.Select(size => (size, ToArgb(Draw(value, remaining, size), size))).ToArray();
-        return new Snapshot(state.Settings.Current.ShowTrayIcon, lines.Length == 0 ? "No accounts connected" : string.Join("\n", lines),
+        var settings = state.Settings.Current;
+        var live = Current(state);
+        var now = DateTimeOffset.UtcNow;
+        var pixmaps = new[] { 22, 32, 48 }
+            .Select(size => (size, ToArgb(Draw(live, settings.LiveIconStyle, settings.DisplayMode, size, now), size))).ToArray();
+        return new Snapshot(settings.ShowTrayIcon, lines.Length == 0 ? "No accounts connected" : string.Join("\n", lines),
             pixmaps, lines);
     }
 
@@ -202,27 +214,62 @@ public sealed class TrayIcon : IDisposable
         else ui.Post(_ => { if (!disposed) action(); }, null);
     }
 
-    /// <summary>A rounded badge with the percentage on a color that turns amber, then red, as the allowance runs low.</summary>
-    internal static Cairo.ImageSurface Draw(int? value, int remainingPercent, int size)
+    private static (double R, double G, double B) LevelColor(LiveLevel level) => level switch
+    {
+        LiveLevel.Critical => (0xC0 / 255.0, 0x1C / 255.0, 0x28 / 255.0),
+        LiveLevel.Low => (0xC6 / 255.0, 0x6A / 255.0, 0x00 / 255.0),
+        LiveLevel.Healthy => (0x53 / 255.0, 0x45 / 255.0, 0xF3 / 255.0),
+        _ => (0x60 / 255.0, 0x5E / 255.0, 0x5C / 255.0),
+    };
+
+    /// <summary>
+    /// The live icon at <paramref name="size"/> pixels. Ring: a disc in the level's color with a white
+    /// arc for what's left, readable on light and dark panels alike. Number: a rounded badge with the
+    /// value, or the time until reset once the window is used up.
+    /// </summary>
+    internal static Cairo.ImageSurface Draw(LiveReading? live, LiveIconStyle style, UsageDisplayMode mode, int size, DateTimeOffset now)
     {
         var surface = new Cairo.ImageSurface(Cairo.Format.Argb32, size, size);
         var cr = new Cairo.Context(surface);
-        var (r, g, b) = value is null ? (0x60, 0x5E, 0x5C)
-            : remainingPercent <= 15 ? (0xC0, 0x1C, 0x28)
-            : remainingPercent <= 35 ? (0xC6, 0x6A, 0x00)
-            : (0x53, 0x45, 0xF3);
-        var radius = size * 0.22;
+        var (r, g, b) = LevelColor(live?.Level ?? LiveLevel.None);
         var inset = size / 32.0;
+        if (style == LiveIconStyle.Ring)
+        {
+            // Panels can be light or dark, so the ring sits on a colored disc of its own.
+            var center = size / 2.0;
+            cr.Arc(center, center, center - inset, 0, 2 * Math.PI);
+            cr.SetSourceRgb(r, g, b);
+            cr.Fill();
+            var stroke = Math.Max(2.5, size * 0.14);
+            var radius = center - inset - stroke * 0.9;
+            cr.LineWidth = stroke;
+            cr.SetSourceRgba(1, 1, 1, 0.3);
+            cr.Arc(center, center, radius, 0, 2 * Math.PI);
+            cr.Stroke();
+            var fraction = live?.Fraction(mode) ?? 0;
+            if (fraction > 0)
+            {
+                cr.SetSourceRgb(1, 1, 1);
+                cr.LineCap = Cairo.LineCap.Round;
+                var start = -Math.PI / 2;
+                cr.Arc(center, center, radius, start, start + 2 * Math.PI * Math.Max(0.03, Math.Min(1, fraction)));
+                cr.Stroke();
+            }
+            cr.Dispose();
+            surface.Flush();
+            return surface;
+        }
+        var radiusCorner = size * 0.22;
         double x = inset, y = inset, w = size - 2 * inset, h = size - 2 * inset;
         cr.NewPath();
-        cr.Arc(x + w - radius, y + radius, radius, -Math.PI / 2, 0);
-        cr.Arc(x + w - radius, y + h - radius, radius, 0, Math.PI / 2);
-        cr.Arc(x + radius, y + h - radius, radius, Math.PI / 2, Math.PI);
-        cr.Arc(x + radius, y + radius, radius, Math.PI, 3 * Math.PI / 2);
+        cr.Arc(x + w - radiusCorner, y + radiusCorner, radiusCorner, -Math.PI / 2, 0);
+        cr.Arc(x + w - radiusCorner, y + h - radiusCorner, radiusCorner, 0, Math.PI / 2);
+        cr.Arc(x + radiusCorner, y + h - radiusCorner, radiusCorner, Math.PI / 2, Math.PI);
+        cr.Arc(x + radiusCorner, y + radiusCorner, radiusCorner, Math.PI, 3 * Math.PI / 2);
         cr.ClosePath();
-        cr.SetSourceRgb(r / 255.0, g / 255.0, b / 255.0);
+        cr.SetSourceRgb(r, g, b);
         cr.Fill();
-        var text = value is null ? "–" : value.Value.ToString();
+        var text = live?.IconText(mode, now) ?? "–";
         cr.SelectFontFace("Sans", Cairo.FontSlant.Normal, Cairo.FontWeight.Bold);
         cr.SetFontSize(size * (text.Length >= 3 ? 0.40 : 0.56));
         cr.TextExtents(text, out var extents);
@@ -258,15 +305,21 @@ public sealed class TrayIcon : IDisposable
         return output;
     }
 
-    /// <summary>Writes sample badges for the screenshot gallery.</summary>
+    /// <summary>Writes sample icons for the screenshot gallery: both styles, healthy, low, critical and used up.</summary>
     public static bool SaveSamples(string directory)
     {
         try
         {
-            foreach (var value in new[] { 62, 28, 7 })
+            var now = DateTimeOffset.UtcNow;
+            foreach (var used in new[] { 38, 72, 93, 100 })
             {
-                using var surface = Draw(value, value, 64);
-                surface.WriteToPng(Path.Combine(directory, $"tray-{value}.png"));
+                var reading = new LiveReading(Core.Providers.UsageProvider.Codex,
+                    new Core.Models.UsageWindow(used, 18_000, resetAt: now.AddHours(2.4)), "5-hour", now);
+                foreach (var style in new[] { LiveIconStyle.Ring, LiveIconStyle.Number })
+                {
+                    using var surface = Draw(reading, style, UsageDisplayMode.Remaining, 64, now);
+                    surface.WriteToPng(Path.Combine(directory, $"tray-{style.ToString().ToLowerInvariant()}-{100 - used}.png"));
+                }
             }
             return true;
         }

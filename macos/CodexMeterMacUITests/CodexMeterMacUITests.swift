@@ -79,6 +79,10 @@ final class CodexMeterMacUITests: XCTestCase {
         XCTAssertTrue(MacUITestSupport.click(app.buttons["Menu Bar"]))
         let menuBarToggle = app.descendants(matching: .any).matching(identifier: "settings-show-menu-bar").firstMatch
         XCTAssertTrue(menuBarToggle.waitForExistence(timeout: 5), "Show in the menu bar toggle")
+        for id in ["style", "provider", "follows-apps", "window"] {
+            let control = app.descendants(matching: .any).matching(identifier: "settings-menu-bar-\(id)").firstMatch
+            XCTAssertTrue(control.waitForExistence(timeout: 5), "Live usage setting \(id)")
+        }
     }
 
     func testMenuBarPanelSummarizesEveryProvider() throws {
