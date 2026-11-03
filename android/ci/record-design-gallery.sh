@@ -25,6 +25,9 @@ adb shell settings put global transition_animation_scale 1 || true
 adb shell settings put global animator_duration_scale 1 || true
 adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
 adb install -r "$APK"
+# Keep the device log next to the pictures, so a crash (app or emulator) can be traced.
+adb logcat -c || true
+adb logcat -v time > "$OUT/logcat.txt" 2>/dev/null &
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 
 shot() {
@@ -75,7 +78,8 @@ W="${size%x*}"; H="${size#*x}"
 
 for THEME in light dark; do
   demo
-  shot "$THEME-01-dashboard" 6
+  shot "$THEME-00-launch" 2
+  shot "$THEME-01-dashboard" 5
   adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 500
   shot "$THEME-02-scrolled" 2
   adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 300

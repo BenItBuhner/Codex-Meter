@@ -76,7 +76,7 @@ jobs:
           arch: x86_64
           profile: pixel_7
           force-avd-creation: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swangle_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
           script: ./android/ci/record-design-gallery.sh android/app/build/outputs/apk/debug/app-debug.apk design-gallery ${{ github.event.inputs.design || 'liquid_glass' }}
 
