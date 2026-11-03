@@ -10,16 +10,26 @@ on:
       - 'ios/CodexMeterTests/**'
       - 'ios/CodexMeterWidgets/**'
       - '.github/workflows/macos-ci.yml'
+  # Release tags build the app and attach it to the GitHub release.
+  push:
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional: an existing release tag (like v2.9.0-alpha.14) to build and attach the Mac app to'
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: macos-ci-${{ github.ref }}
+  group: macos-ci-${{ github.ref }}-${{ inputs.release_tag }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  # The release tag this run builds for, or empty for an ordinary CI run.
+  RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
   # CI has no Apple signing identity: sign ad hoc and drop the sandbox/App Group
   # entitlements, which need a provisioning profile to launch. Hardened runtime is off so
   # the ad hoc signed test bundles can load into the app.
@@ -36,6 +46,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || '' }}
 
       - name: Show Xcode version
         shell: bash
@@ -142,13 +154,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Release builds show the tag's version (v2.9.0-alpha.14 -> 2.9.0; the bundle's short
+          # version must be numbers only).
+          version_args=()
+          if [[ -n "$RELEASE_TAG" ]]; then
+            short="${RELEASE_TAG#v}"
+            version_args=("MARKETING_VERSION=${short%%-*}")
+          fi
           # shellcheck disable=SC2086
           xcodebuild build \
             -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -derivedDataPath DerivedData \
-            $SIGNING_ARGS
+            $SIGNING_ARGS "${version_args[@]}"
           cd "DerivedData/Build/Products/Release"
           ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
 
@@ -169,3 +188,44 @@ jobs:
             macos/MacGalleryResults.xcresult
           if-no-files-found: ignore
           retention-days: 3
+
+  release:
+    name: Attach to the GitHub release
+    if: github.ref_type == 'tag' || inputs.release_tag != ''
+    needs: mac-app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the app
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-app-unsigned
+          path: dist
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          cd dist
+          mv CodexMeter-macOS-unsigned.zip "CodexMeter-$version-macos.zip"
+          sha256sum "CodexMeter-$version-macos.zip" > SHA256SUMS-macos.txt
+          cat SHA256SUMS-macos.txt
+          # The Android workflow creates and publishes the release; wait for it, and only create a
+          # draft ourselves if it hasn't appeared (the Android job then edits and publishes it).
+          for attempt in $(seq 1 30); do
+            gh release view "$RELEASE_TAG" >/dev/null 2>&1 && break
+            sleep 30
+          done
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            prerelease=false
+            [[ "$version" == *-* ]] && prerelease=true
+            gh release create "$RELEASE_TAG" --draft --verify-tag --prerelease="$prerelease" \
+              --title "Codex Meter $version" --notes "Codex Meter $version" || true
+          fi
+          gh release upload "$RELEASE_TAG" --clobber \
+            "CodexMeter-$version-macos.zip#Codex Meter for macOS (unsigned .zip)" \
+            "SHA256SUMS-macos.txt"
