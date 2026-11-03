@@ -156,10 +156,11 @@ jobs:
           set -euo pipefail
           # Release builds show the tag's version (v2.9.0-alpha.14 -> 2.9.0; the bundle's short
           # version must be numbers only).
-          version_args=()
+          # (A plain string, not an array: macOS bash 3.2 treats an empty array as unset under set -u.)
+          version_args=""
           if [[ -n "$RELEASE_TAG" ]]; then
             short="${RELEASE_TAG#v}"
-            version_args=("MARKETING_VERSION=${short%%-*}")
+            version_args="MARKETING_VERSION=${short%%-*}"
           fi
           # shellcheck disable=SC2086
           xcodebuild build \
@@ -167,7 +168,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -derivedDataPath DerivedData \
-            $SIGNING_ARGS "${version_args[@]}"
+            $SIGNING_ARGS $version_args
           cd "DerivedData/Build/Products/Release"
           ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
 
