@@ -65,9 +65,9 @@ tap_desc() {
   adb shell input tap "$x" "$y"
 }
 
-# Taps tab $1 (0-based) of $2 tabs on the glass tab bar (one view, so by position).
+# Taps tab $1 (0-based) of $2 tabs on the glass tab bar ("Providers": one view, so by position).
 tap_tab() {
-  read -r _ y x1 x2 <<<"$(center_of "com.benitbuhner.liquidglass.widget.GlassTabBar")"
+  read -r _ y x1 x2 <<<"$(center_of "Providers")"
   [[ -n "${y:-}" ]] || { echo "no tab bar" >&2; return 1; }
   local w=$(( (x2 - x1) / $2 ))
   adb shell input tap $(( x1 + w * $1 + w / 2 )) "$y"
@@ -82,13 +82,13 @@ for THEME in light dark; do
   shot "$THEME-01-dashboard" 5
   adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 500
   shot "$THEME-02-scrolled" 2
-  adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 300
+  for _ in 1 2; do adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 300; sleep 1; done
   sleep 2
-  tap_desc "More" && shot "$THEME-03-menu" 6
+  { tap_desc "More" && shot "$THEME-03-menu" 6; } || true
   adb shell input keyevent KEYCODE_BACK
   sleep 2
-  tap_tab 1 3 && shot "$THEME-04-claude" 3
-  tap_tab 2 3 && shot "$THEME-05-cursor" 3
+  { tap_tab 1 3 && shot "$THEME-04-claude" 3; } || true
+  { tap_tab 2 3 && shot "$THEME-05-cursor" 3; } || true
   demo --ez resume_live_settings true
   shot "$THEME-06-settings" 5
   adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 500
@@ -108,12 +108,12 @@ REC=$!
 sleep 2
 adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 700; sleep 2
 adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 3 / 4)) 700; sleep 2
-tap_desc "More"; sleep 3
+tap_desc "More" || true; sleep 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
-tap_tab 1 3; sleep 3
-tap_tab 2 3; sleep 3
-tap_tab 0 3; sleep 3
-tap_desc "More"; sleep 3
+tap_tab 1 3 || true; sleep 3
+tap_tab 2 3 || true; sleep 3
+tap_tab 0 3 || true; sleep 3
+tap_desc "More" || true; sleep 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
 wait "$REC" || true
 sleep 2

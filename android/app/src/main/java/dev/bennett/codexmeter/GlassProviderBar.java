@@ -36,6 +36,7 @@ final class GlassProviderBar implements ProviderBar {
         this.onSelected = onSelected;
         this.gap = Ui.dp(page.activity, 12.0f);
         bar = new GlassTabBar(page.activity);
+        bar.setContentDescription(page.activity.getString(R.string.glass_provider_tabs));
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM);
