@@ -1,7 +1,7 @@
 package dev.bennett.codexmeter;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -1282,7 +1282,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void confirmSignOut() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Sign out?").setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Sign out", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.10
+        AlertDialog dialog = new AppDialog(this).setTitle("Sign out?").setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Sign out", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.10
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 MainActivity.this.signOut();
@@ -1483,7 +1483,7 @@ public final class MainActivity extends AppCompatActivity {
             appWidgetManager.requestPinAppWidget(componentName, null, null);
             Toast.makeText(this, "Choose a size and place the widget on your home screen.", Toast.LENGTH_LONG).show();
         } else {
-            AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
+            AlertDialog dialog = new AppDialog(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
             dialog.show();
         }
     }

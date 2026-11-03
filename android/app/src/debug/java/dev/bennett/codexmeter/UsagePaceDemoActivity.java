@@ -29,6 +29,17 @@ public final class UsagePaceDemoActivity extends Activity {
             finish();
             return;
         }
+        String screen = getIntent().getStringExtra("open_activity");
+        if (screen != null && !screen.isEmpty()) {
+            try {
+                startActivity(new Intent(this, Class.forName("dev.bennett.codexmeter." + screen))
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (ClassNotFoundException missing) {
+                android.util.Log.w("UsagePaceDemo", "No screen " + screen);
+            }
+            finish();
+            return;
+        }
         if (getIntent().getBooleanExtra("open_usage_history", false)) {
             startActivity(new Intent(this, UsageHistoryActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));

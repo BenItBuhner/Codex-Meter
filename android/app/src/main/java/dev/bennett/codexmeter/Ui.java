@@ -586,6 +586,9 @@ public final class Ui {
         }
         button.setElevation(0.0f);
         button.setStateListAnimator(null);
+        if (z) {
+            button.setTag(R.id.glass_prominent, Boolean.TRUE);
+        }
         return button;
     }
 
@@ -603,6 +606,7 @@ public final class Ui {
         button.setTextColor(new ColorStateList(
                 new int[][]{new int[]{-android.R.attr.state_enabled}, new int[0]},
                 new int[]{disabledText, onAccent}));
+        button.setTag(R.id.glass_prominent, Boolean.TRUE);
         return button;
     }
 

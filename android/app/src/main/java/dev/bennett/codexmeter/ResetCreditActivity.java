@@ -1,6 +1,6 @@
 package dev.bennett.codexmeter;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -242,7 +242,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
     }
 
     public void confirmUse() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Use one " + this.provider.displayName + " reset?").setMessage("The available credit expiring soonest will be used. This cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use 1 reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
+        AlertDialog dialog = new AppDialog(this).setTitle("Use one " + this.provider.displayName + " reset?").setMessage("The available credit expiring soonest will be used. This cannot be undone.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Use 1 reset", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.ResetCreditActivity.5
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 ResetCreditActivity.this.consume();

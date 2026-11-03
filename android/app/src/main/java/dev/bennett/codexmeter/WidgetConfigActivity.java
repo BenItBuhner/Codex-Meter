@@ -376,7 +376,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         row.setSummary(labels[Math.max(0, spinner.getSelectedItemPosition())]);
         row.setShowTopDivider(divider);
         row.setShowBottomDivider(false);
-        row.setOnClickListener(view -> OneUiChoiceDialog.show(this, title, labels,
+        row.setOnClickListener(view -> OneUiChoiceDialog.show(view, title, labels,
                 spinner.getSelectedItemPosition(),
                 position -> applyPreviewSelection(spinner, position)));
         card.addView(row);

@@ -87,7 +87,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             labels[i] = HistorySections.label(keys.get(i));
             checked[i] = AppPreferences.isHistorySectionVisible(this, keys.get(i));
         }
-        new AlertDialog.Builder(this)
+        new AppDialog(this)
                 .setTitle("Highlights to show")
                 .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) ->
                         AppPreferences.setHistorySectionVisible(this, keys.get(which), isChecked))
@@ -162,7 +162,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         Button clear = Ui.button(this, "Clear local history", false, dark);
         clear.setEnabled(!five.samples.isEmpty() || !weekly.samples.isEmpty()
                 || !monthly.samples.isEmpty());
-        clear.setOnClickListener(view -> new AlertDialog.Builder(this)
+        clear.setOnClickListener(view -> new AppDialog(this)
                 .setTitle("Clear usage history?")
                 .setMessage("This removes every locally stored usage sample. Your latest "
                         + "allowance and account sign-in stay intact.")

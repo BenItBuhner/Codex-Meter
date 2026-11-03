@@ -273,7 +273,7 @@ public final class UpdateActivity extends AppCompatActivity {
         UpdatePreferences.setInstallError(this, "");
         if (!canInstallPackages()) {
             waitingForInstallPermission = true;
-            new AlertDialog.Builder(this)
+            new AppDialog(this)
                     .setTitle("Allow app installs")
                     .setMessage("Android requires permission for Codex Meter to hand its verified "
                             + "GitHub APK to the system installer. You still approve every update.")
@@ -348,7 +348,7 @@ public final class UpdateActivity extends AppCompatActivity {
     }
 
     private void confirmOlderDownload() {
-        new AlertDialog.Builder(this)
+        new AppDialog(this)
                 .setTitle("Downgrade requires uninstalling")
                 .setMessage("Android blocks in-place downgrades for ordinary apps. Uninstalling "
                         + "Codex Meter removes its account, settings, cached usage, and widgets. "

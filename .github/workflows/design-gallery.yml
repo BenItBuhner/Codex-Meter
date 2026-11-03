@@ -9,6 +9,9 @@ on:
     paths:
       - 'android/app/src/main/java/dev/bennett/codexmeter/GlassPage.java'
       - 'android/app/src/main/java/dev/bennett/codexmeter/GlassProviderBar.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/GlassSkin.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/GlassDialogs.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/AppDialog.java'
       - 'android/vendor/m2/com/github/BenItBuhner/**'
       - 'android/ci/record-design-gallery.sh'
       - '.github/workflows/design-gallery.yml'

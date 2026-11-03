@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- iOS's chevron.up.chevron.down: the glyph of a pull-down button (Liquid Glass design). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="14dp" android:height="18dp" android:viewportWidth="14" android:viewportHeight="18">
+    <path android:strokeColor="#FF000000" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:fillColor="#00000000" android:strokeWidth="1.9"
+        android:pathData="M3,6.5L7,2.5L11,6.5M3,11.5L7,15.5L11,11.5" />
+</vector>

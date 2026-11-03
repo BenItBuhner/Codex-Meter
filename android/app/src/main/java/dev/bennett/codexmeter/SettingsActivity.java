@@ -261,6 +261,58 @@ public final class SettingsActivity extends AppCompatActivity {
             }
         }
 
+        /**
+         * List settings in the Liquid Glass design open iOS's pull-down menu out of their row,
+         * with a check on the current value, instead of One UI's list dialog.
+         */
+        @Override
+        public void onDisplayPreferenceDialog(Preference preference) {
+            if (!(preference instanceof ListPreference)
+                    || GlassDialogs.host(requireContext()) == null) {
+                super.onDisplayPreferenceDialog(preference);
+                return;
+            }
+            ListPreference list = (ListPreference) preference;
+            CharSequence[] labels = list.getEntries();
+            CharSequence[] values = list.getEntryValues();
+            if (labels == null || values == null) {
+                super.onDisplayPreferenceDialog(preference);
+                return;
+            }
+            int selected = list.findIndexOfValue(list.getValue());
+            OneUiChoiceDialog.OnChoiceSelected pick = which -> {
+                String value = values[which].toString();
+                if (list.callChangeListener(value)) {
+                    list.setValue(value);
+                }
+            };
+            View row = rowOf(preference);
+            if (row != null) {
+                GlassDialogs.choose(row, labels, selected, pick);
+            } else {
+                String[] names = new String[labels.length];
+                for (int i = 0; i < labels.length; i++) {
+                    names[i] = labels[i].toString();
+                }
+                OneUiChoiceDialog.show(requireContext(), String.valueOf(list.getTitle()), names,
+                        selected, pick);
+            }
+        }
+
+        /** The list row showing {@code preference}, when it is on screen. */
+        private View rowOf(Preference preference) {
+            androidx.recyclerview.widget.RecyclerView list = getListView();
+            if (list == null || !(list.getAdapter()
+                    instanceof androidx.preference.PreferenceGroup.PreferencePositionCallback)) {
+                return null;
+            }
+            int position = ((androidx.preference.PreferenceGroup.PreferencePositionCallback)
+                    list.getAdapter()).getPreferenceAdapterPosition(preference);
+            androidx.recyclerview.widget.RecyclerView.ViewHolder holder =
+                    list.findViewHolderForAdapterPosition(position);
+            return holder == null ? null : holder.itemView;
+        }
+
         @Override
         public void onResume() {
             super.onResume();
@@ -343,7 +395,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             findPreference("clear_diagnostic_logs").setOnPreferenceClickListener(preference -> {
-                new AlertDialog.Builder(requireContext())
+                new AppDialog(requireContext())
                         .setTitle("Clear diagnostic logs?")
                         .setMessage("This permanently deletes all saved diagnostic events.")
                         .setNegativeButton("Cancel", null)
@@ -575,7 +627,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void confirmSignOut(UsageProvider provider) {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Sign out of " + provider.accountName + "?")
                     .setMessage("This removes encrypted " + provider.accountName
                             + " tokens and cached " + provider.displayName
@@ -720,7 +772,7 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             String[] names = new String[tabs.size()];
             for (int i = 0; i < tabs.size(); i++) names[i] = tabs.get(i).displayName;
-            new AlertDialog.Builder(context)
+            new AppDialog(context)
                     .setTitle("Edit which dashboard?")
                     .setItems(names, (dialog, which) -> openDashboardEditor(tabs.get(which)))
                     .setNegativeButton("Cancel", null)
@@ -781,7 +833,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     metric.setVisible(false);
                     return true;
                 }
-                new AlertDialog.Builder(requireContext())
+                new AppDialog(requireContext())
                         .setTitle("Use resets automatically?")
                         .setMessage("Codex Meter will spend one banked reset when your "
                                 + "remaining usage reaches the level you choose. It checks "
@@ -867,7 +919,7 @@ public final class SettingsActivity extends AppCompatActivity {
                         preference.setEnabled(true);
                         preference.setSummary(CHECK_SUMMARY);
                         updateResetStatus();
-                        new AlertDialog.Builder(requireContext())
+                        new AppDialog(requireContext())
                                 .setTitle("Claude Code resets")
                                 .setMessage(report)
                                 .setPositiveButton("Close", null)
@@ -974,7 +1026,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     metric.setVisible(false);
                     return true;
                 }
-                new AlertDialog.Builder(requireContext())
+                new AppDialog(requireContext())
                         .setTitle("Use resets automatically?")
                         .setMessage("Codex Meter will spend one banked reset when your "
                                 + "remaining usage reaches the level you choose. It checks "
@@ -1043,7 +1095,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     return true;
                 }
                 if (UpdateChannel.ALPHA.equals(channel)) {
-                    new AlertDialog.Builder(requireContext())
+                    new AppDialog(requireContext())
                             .setTitle("Switch to the alpha channel?")
                             .setMessage("Alpha builds ship faster with less testing and may be "
                                     + "unstable. They use the same signing key and version code "
@@ -1318,7 +1370,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private void showExpiryReminderTimesDialog() {
             List<Long> leadTimes = ResetAlertPreferences.getResetCreditExpiryLeadTimes(
                     requireContext());
-            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext())
+            AlertDialog.Builder builder = new AppDialog(requireContext())
                     .setTitle("Reminder times")
                     .setNeutralButton("Add", (dialog, which) ->
                             showAddExpiryReminderDialog())
@@ -1376,7 +1428,7 @@ public final class SettingsActivity extends AppCompatActivity {
             inputRow.addView(unit, unitParams);
             container.addView(inputRow, rowParams);
 
-            AlertDialog dialog = new AlertDialog.Builder(requireContext())
+            AlertDialog dialog = new AppDialog(requireContext())
                     .setTitle("Add reminder time")
                     .setView(container)
                     .setNegativeButton("Cancel", null)
@@ -1781,7 +1833,7 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             String[] names = new String[providers.size()];
             for (int i = 0; i < providers.size(); i++) names[i] = providers.get(i).displayName;
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Show usage for")
                     .setItems(names, (dialog, which) -> pickAppFor(providers.get(which)))
                     .setNegativeButton("Cancel", null)
@@ -1875,7 +1927,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     return view;
                 }
             };
-            new AlertDialog.Builder(context)
+            new AppDialog(context)
                     .setTitle("Show " + provider.displayName + " in")
                     .setAdapter(adapter, (dialog, which) -> {
                         AppSessionPreferences.addApp(requireContext(), packages.get(which),
@@ -1900,7 +1952,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     + "In Accessibility, open Installed apps → Codex Meter app detection and "
                     + "turn it on. If the switch is greyed out, go back, open App info → ⋮ → "
                     + "Allow restricted settings, then try again.";
-            new AlertDialog.Builder(context)
+            new AppDialog(context)
                     .setTitle(allowed ? "App detection is on" : "Allow app detection")
                     .setMessage(allowed ? "Codex Meter app detection only reads the package "
                             + "name of the app in front: no text, no taps or typing, and nothing "
@@ -1934,7 +1986,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void showSamsungNowBarHelp() {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Samsung Now Bar setup")
                     .setMessage("For Android Live Updates:\n"
                             + "1. Open Settings > About phone/tablet > Software information.\n"
@@ -2176,7 +2228,7 @@ public final class SettingsActivity extends AppCompatActivity {
                             : "Sign in first to export ChatGPT authentication")
             };
             boolean[] checked = {true, true, true, false};
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Export sections")
                     .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> {
                         if (which == 3 && isChecked && !signedIn) {
@@ -2209,7 +2261,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void confirmSensitiveExport(boolean appSettings, boolean notifications,
                 boolean nowBar, boolean authentication) {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Authentication will be included")
                     .setMessage(SettingsTransfer.SECURITY_WARNING
                             + "\n\nOnly continue if you are moving Codex Meter to another device "
@@ -2294,7 +2346,7 @@ public final class SettingsActivity extends AppCompatActivity {
                         + "\n" + SettingsTransfer.sectionSummary(section) + warning;
                 checked[i] = !SettingsTransfer.isAuthenticationSection(section);
             }
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Import sections")
                     .setMultiChoiceItems(labels, checked,
                             (dialog, which, isChecked) -> checked[which] = isChecked)
@@ -2336,7 +2388,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private void confirmSensitiveImport(SettingsTransfer.Document document,
                 boolean appSettings, boolean notifications, boolean nowBar,
                 boolean authentication) {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Import authentication?")
                     .setMessage(SettingsTransfer.SECURITY_WARNING
                             + "\n\nThis replaces ChatGPT sign-in on this device with the tokens "

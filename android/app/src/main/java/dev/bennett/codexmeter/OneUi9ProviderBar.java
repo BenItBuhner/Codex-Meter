@@ -185,7 +185,7 @@ final class OneUi9ProviderBar implements ProviderBar {
                 checked = i;
             }
         }
-        new AlertDialog.Builder(page.activity)
+        new AppDialog(page.activity)
                 .setTitle(R.string.oneui9_more_providers)
                 .setSingleChoiceItems(names, checked, (dialog, which) -> {
                     dialog.dismiss();

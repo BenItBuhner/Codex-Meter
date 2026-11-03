@@ -42,7 +42,7 @@ demo() {
     --ez demo_providers true "$@" >/dev/null
 }
 
-# Center of the first view whose class or content description matches $1.
+# Center of the first view whose class, content description or text matches $1.
 center_of() {
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
   adb exec-out cat /sdcard/ui.xml | python3 -c '
@@ -52,7 +52,8 @@ xml = sys.stdin.read()
 for node in re.findall(r"<node [^>]*>", xml):
     cls = re.search(r"class=\"([^\"]*)\"", node).group(1)
     desc = re.search(r"content-desc=\"([^\"]*)\"", node).group(1)
-    if want in (cls, desc):
+    text = re.search(r" text=\"([^\"]*)\"", node)
+    if want in (cls, desc, text.group(1) if text else None):
         x1, y1, x2, y2 = map(int, re.search(r"bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", node).groups())
         print((x1 + x2) // 2, (y1 + y2) // 2, x1, x2)
         break
@@ -97,6 +98,21 @@ for THEME in light dark; do
   shot "$THEME-08-appearance" 5
   demo --es open_widget_metric five_hour
   shot "$THEME-09-widget-settings" 6
+  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 500
+  shot "$THEME-10-widget-settings-scrolled" 2
+  { tap_desc "Theme" && shot "$THEME-11-widget-picker" 4; } || true
+  adb shell input keyevent KEYCODE_BACK
+  demo --es open_settings_page refresh_usage
+  shot "$THEME-12-refresh-settings" 5
+  { tap_desc "Refresh usage" && shot "$THEME-13-list-picker" 4; } || true
+  demo --es open_settings_page notifications
+  shot "$THEME-14-notifications" 5
+  demo --es open_activity ProvidersActivity
+  shot "$THEME-15-providers" 5
+  demo --ez open_usage_history true
+  shot "$THEME-16-usage-history" 5
+  for _ in 1 2 3; do adb shell input swipe $((W / 2)) $((H * 4 / 5)) $((W / 2)) $((H / 5)) 300; sleep 1; done
+  { tap_desc "Clear local history" && shot "$THEME-17-alert" 4; } || true
 done
 
 # One take in light: dashboard, menu open and closed, provider tabs, scrolling.

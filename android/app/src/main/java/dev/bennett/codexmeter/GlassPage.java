@@ -165,6 +165,7 @@ final class GlassPage implements Ui.Header {
             }
         });
         root.post(this::rebuildMenu);
+        GlassSkin.install(this);
         ViewCompat.requestApplyInsets(root);
     }
 
