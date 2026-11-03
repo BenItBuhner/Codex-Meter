@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Installs the debug phone app on a running emulator, seeds demo usage for three providers
+# (UsagePaceDemoActivity) and saves screenshots plus a screen recording of one design in light
+# and dark: dashboard, scrolled, the "…" menu, another provider tab, Settings, Appearance and
+# widget settings.
+#
+#   android/ci/record-design-gallery.sh <debug APK> <output dir> [design]
+#
+# design: liquid_glass (default), one_ui_9 or classic.
+set -euo pipefail
+
+APK="${1:?debug APK required}"
+OUT="${2:?gallery directory required}"
+DESIGN="${3:-liquid_glass}"
+PKG=dev.bennett.codexmeter
+DEMO="$PKG/.UsagePaceDemoActivity"
+mkdir -p "$OUT"
+
+adb wait-for-device
+until [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]]; do sleep 2; done
+adb shell settings put system screen_off_timeout 1800000 || true
+adb shell svc power stayon true || true
+adb shell settings put global window_animation_scale 1 || true
+adb shell settings put global transition_animation_scale 1 || true
+adb shell settings put global animator_duration_scale 1 || true
+adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
+adb install -r "$APK"
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+
+shot() {
+  sleep "${2:-3}"
+  adb exec-out screencap -p > "$OUT/$1.png"
+  echo "Saved $1.png"
+}
+
+demo() {
+  adb shell am force-stop "$PKG"
+  adb shell am start -W -n "$DEMO" --es design "$DESIGN" --es theme "$THEME" \
+    --ez demo_providers true "$@" >/dev/null
+}
+
+# Center of the first view whose class or content description matches $1.
+center_of() {
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+  adb exec-out cat /sdcard/ui.xml | python3 -c '
+import re, sys
+want = sys.argv[1]
+xml = sys.stdin.read()
+for node in re.findall(r"<node [^>]*>", xml):
+    cls = re.search(r"class=\"([^\"]*)\"", node).group(1)
+    desc = re.search(r"content-desc=\"([^\"]*)\"", node).group(1)
+    if want in (cls, desc):
+        x1, y1, x2, y2 = map(int, re.search(r"bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", node).groups())
+        print((x1 + x2) // 2, (y1 + y2) // 2, x1, x2)
+        break
+' "$1"
+}
+
+tap_desc() {
+  read -r x y _ _ <<<"$(center_of "$1")"
+  [[ -n "${x:-}" ]] || { echo "no view for $1" >&2; return 1; }
+  adb shell input tap "$x" "$y"
+}
+
+# Taps tab $1 (0-based) of $2 tabs on the glass tab bar (one view, so by position).
+tap_tab() {
+  read -r _ y x1 x2 <<<"$(center_of "com.benitbuhner.liquidglass.widget.GlassTabBar")"
+  [[ -n "${y:-}" ]] || { echo "no tab bar" >&2; return 1; }
+  local w=$(( (x2 - x1) / $2 ))
+  adb shell input tap $(( x1 + w * $1 + w / 2 )) "$y"
+}
+
+size="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
+W="${size%x*}"; H="${size#*x}"
+
+for THEME in light dark; do
+  demo
+  shot "$THEME-01-dashboard" 6
+  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 500
+  shot "$THEME-02-scrolled" 2
+  adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 300
+  sleep 2
+  tap_desc "More" && shot "$THEME-03-menu" 2
+  adb shell input keyevent KEYCODE_BACK
+  sleep 2
+  tap_tab 1 3 && shot "$THEME-04-claude" 3
+  tap_tab 2 3 && shot "$THEME-05-cursor" 3
+  demo --ez resume_live_settings true
+  shot "$THEME-06-settings" 5
+  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 500
+  shot "$THEME-07-settings-scrolled" 2
+  demo --es open_settings_page appearance
+  shot "$THEME-08-appearance" 5
+  demo --es open_widget_metric five_hour
+  shot "$THEME-09-widget-settings" 6
+done
+
+# One take in light: dashboard, menu open and closed, provider tabs, scrolling.
+THEME=light
+demo
+sleep 5
+adb shell screenrecord --time-limit 40 /sdcard/walk.mp4 &
+REC=$!
+sleep 2
+adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 700; sleep 2
+adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 3 / 4)) 700; sleep 2
+tap_desc "More"; sleep 3
+adb shell input keyevent KEYCODE_BACK; sleep 2
+tap_tab 1 3; sleep 3
+tap_tab 2 3; sleep 3
+tap_tab 0 3; sleep 3
+tap_desc "More"; sleep 3
+adb shell input keyevent KEYCODE_BACK; sleep 2
+wait "$REC" || true
+sleep 2
+adb pull /sdcard/walk.mp4 "$OUT/walk-light.mp4" >/dev/null && echo "Saved walk-light.mp4"
+adb logcat -d -b crash > "$OUT/crash-log.txt" || true

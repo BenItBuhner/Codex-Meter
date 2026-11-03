@@ -1,0 +1,89 @@
+name: Android design gallery
+
+# Screenshots and a recording of the phone app's designs on an emulator, light and dark, so a
+# design change can be reviewed without installing it. Runs on pull requests that touch the
+# design shells, or by hand for any design.
+on:
+  pull_request:
+    branches: [main, alpha]
+    paths:
+      - 'android/app/src/main/java/dev/bennett/codexmeter/GlassPage.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/GlassProviderBar.java'
+      - 'android/vendor/m2/com/github/BenItBuhner/**'
+      - 'android/ci/record-design-gallery.sh'
+      - '.github/workflows/design-gallery.yml'
+  workflow_dispatch:
+    inputs:
+      design:
+        description: 'Design to record (liquid_glass, one_ui_9 or classic)'
+        default: liquid_glass
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: design-gallery-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gallery:
+    name: Design gallery on a phone emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # SESL9 ships Java 24 bytecode, which older javac can't read.
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Build debug phone app
+        shell: bash
+        working-directory: android
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Record gallery on a phone emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: false
+          script: ./android/ci/record-design-gallery.sh android/app/build/outputs/apk/debug/app-debug.apk design-gallery ${{ github.event.inputs.design || 'liquid_glass' }}
+
+      - name: Upload gallery
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: design-gallery
+          path: design-gallery/
+          if-no-files-found: warn
