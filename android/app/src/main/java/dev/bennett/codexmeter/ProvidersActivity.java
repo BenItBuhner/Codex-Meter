@@ -41,6 +41,9 @@ public final class ProvidersActivity extends AppCompatActivity {
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         this.dark = Ui.isDark(this);
         LinearLayout content = Ui.installPage(this, "Dashboard tabs", true).content;
         // Pull-to-refresh would swallow downward drag gestures while rearranging rows.

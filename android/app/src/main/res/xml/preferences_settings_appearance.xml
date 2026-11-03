@@ -20,10 +20,12 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Design">
-        <SwitchPreferenceCompat
-            android:key="one_ui_9_design"
-            android:summary="Floating toolbar and tab bar from Samsung's One UI 9"
-            android:title="One UI 9 design" />
+        <ListPreference
+            android:entries="@array/app_design_entries"
+            android:entryValues="@array/app_design_values"
+            android:key="app_design_ui"
+            android:persistent="false"
+            android:title="App design" />
     </PreferenceCategory>
 
 </PreferenceScreen>

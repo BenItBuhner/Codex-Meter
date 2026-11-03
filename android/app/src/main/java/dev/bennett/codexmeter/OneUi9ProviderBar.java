@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  * blur would keep showing whatever was there when it last drew. SESL's floating toolbar handles
  * this for its own pills by invalidating them on scroll; the bar does the same here.
  */
-final class OneUi9ProviderBar {
+final class OneUi9ProviderBar implements ProviderBar {
     private static final int MORE_ID = 1000;
 
     private final OneUi9Page page;
@@ -109,7 +109,8 @@ final class OneUi9ProviderBar {
     }
 
     /** Shows {@code enabled} providers in order with {@code current} selected. */
-    void update(List<UsageProvider> enabled, UsageProvider current) {
+    @Override
+    public void update(List<UsageProvider> enabled, UsageProvider current) {
         if (!enabled.equals(providers)) {
             providers = new ArrayList<>(enabled);
             Menu menu = nav.getMenu();
@@ -184,7 +185,7 @@ final class OneUi9ProviderBar {
                 checked = i;
             }
         }
-        new AlertDialog.Builder(page.activity)
+        new AppDialog(page.activity)
                 .setTitle(R.string.oneui9_more_providers)
                 .setSingleChoiceItems(names, checked, (dialog, which) -> {
                     dialog.dismiss();

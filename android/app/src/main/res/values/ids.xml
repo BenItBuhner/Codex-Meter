@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item name="design_chrome_installed" type="id" />
+    <!-- Liquid Glass: holds the settings pages' fragments out of sight (GlassSettings). -->
+    <item name="glass_fragments" type="id" />
 </resources>
