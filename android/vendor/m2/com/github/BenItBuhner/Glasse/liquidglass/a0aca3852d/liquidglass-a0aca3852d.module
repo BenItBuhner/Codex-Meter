@@ -3,7 +3,7 @@
   "component": {
     "group": "com.github.BenItBuhner.Glasse",
     "module": "liquidglass",
-    "version": "ce13246500",
+    "version": "a0aca3852d",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -70,13 +70,13 @@
       ],
       "files": [
         {
-          "name": "liquidglass-ce13246500.aar",
-          "url": "liquidglass-ce13246500.aar",
-          "size": 764599,
-          "sha512": "c8c130b60f3724b750ced3e289d365368a97c355e98ebf4a1eaf674c50cab2edbe11ae88f213968ca7262af70a7f569f14e863516150f50adb432ec6cf9ca9fd",
-          "sha256": "7765bd7f8185c5570ab295619146cdc29690cbc176c8e8b9c440831d20c95233",
-          "sha1": "7ab28e02d4390c747692c8d6c974137e2449ed06",
-          "md5": "2839ce056ef79e4849b90750ebd47b15"
+          "name": "liquidglass-a0aca3852d.aar",
+          "url": "liquidglass-a0aca3852d.aar",
+          "size": 764674,
+          "sha512": "cb2edba5b863d07da5d3381dda5ad424acf1ebdd0ead8df48b9ac6179af2c294ea2cbd0623b4d967a645689d82b9f230caaf4a5486173644e999162662b9f321",
+          "sha256": "0d0f287e39173e391328c20d625c2e448cd44e5a7a3aed68e2888870c43a74ca",
+          "sha1": "0ce9a0164a3ebe6d60c663a581b8d6b8ec4f05b1",
+          "md5": "b5993bf1af969fd5b189fe4257213927"
         }
       ]
     },
@@ -136,13 +136,13 @@
       ],
       "files": [
         {
-          "name": "liquidglass-ce13246500.aar",
-          "url": "liquidglass-ce13246500.aar",
-          "size": 764599,
-          "sha512": "c8c130b60f3724b750ced3e289d365368a97c355e98ebf4a1eaf674c50cab2edbe11ae88f213968ca7262af70a7f569f14e863516150f50adb432ec6cf9ca9fd",
-          "sha256": "7765bd7f8185c5570ab295619146cdc29690cbc176c8e8b9c440831d20c95233",
-          "sha1": "7ab28e02d4390c747692c8d6c974137e2449ed06",
-          "md5": "2839ce056ef79e4849b90750ebd47b15"
+          "name": "liquidglass-a0aca3852d.aar",
+          "url": "liquidglass-a0aca3852d.aar",
+          "size": 764674,
+          "sha512": "cb2edba5b863d07da5d3381dda5ad424acf1ebdd0ead8df48b9ac6179af2c294ea2cbd0623b4d967a645689d82b9f230caaf4a5486173644e999162662b9f321",
+          "sha256": "0d0f287e39173e391328c20d625c2e448cd44e5a7a3aed68e2888870c43a74ca",
+          "sha1": "0ce9a0164a3ebe6d60c663a581b8d6b8ec4f05b1",
+          "md5": "b5993bf1af969fd5b189fe4257213927"
         }
       ]
     },
@@ -156,13 +156,13 @@
       },
       "files": [
         {
-          "name": "liquidglass-ce13246500-sources.jar",
-          "url": "liquidglass-ce13246500-sources.jar",
-          "size": 115011,
-          "sha512": "623259432c78100b415e7e222283feac9e13836249cb8bcc14dd9379e254c9ae75b760e39cc8db5e38bd3e439086714a19a9c1586db650ce5d00a8e9bae502d5",
-          "sha256": "a71a8ae7077a30a2753287ee01901168bd030051dd2df57742d66b8a9721f25c",
-          "sha1": "572b39e6db2273a2a766b171772039aa1c564fb7",
-          "md5": "e6ec2ca1176ca2eeaf6919fb082683a3"
+          "name": "liquidglass-a0aca3852d-sources.jar",
+          "url": "liquidglass-a0aca3852d-sources.jar",
+          "size": 115242,
+          "sha512": "f152ec2163ec33146f76290d2aae960fb68d1cc622de1fe23541f835fe4acd541ba4b892207f6a0bb05c19d9fb76e2f505b99d739004d535a11481dc8f801c1f",
+          "sha256": "4ec4bfa5faad922704a3bcf6e99f6f7f108f3aa75febdcad466c94421bde4c2f",
+          "sha1": "7afe266269a07489f1e3d474c3196c979b20b5ac",
+          "md5": "e2a7a98f14443f9828b57d9f37fb629e"
         }
       ]
     }

@@ -84,7 +84,7 @@ for THEME in light dark; do
   shot "$THEME-02-scrolled" 2
   adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 300
   sleep 2
-  tap_desc "More" && shot "$THEME-03-menu" 2
+  tap_desc "More" && shot "$THEME-03-menu" 6
   adb shell input keyevent KEYCODE_BACK
   sleep 2
   tap_tab 1 3 && shot "$THEME-04-claude" 3

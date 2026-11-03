@@ -125,7 +125,7 @@ dependencies {
     implementation(project(":oneui9compat"))
     // Glasse's Liquid Glass library for the Liquid Glass design (see GlassPage). Glasse is
     // private, so it is built from a commit and vendored in vendor/m2 (ci/vendor-liquidglass.sh).
-    implementation("com.github.BenItBuhner.Glasse:liquidglass:ce13246500")
+    implementation("com.github.BenItBuhner.Glasse:liquidglass:a0aca3852d")
     sesl9.forEach { (module, pinned) ->
         implementation(module) { version { strictly(pinned) } }
     }

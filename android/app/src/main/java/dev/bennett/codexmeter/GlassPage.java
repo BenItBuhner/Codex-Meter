@@ -241,9 +241,15 @@ final class GlassPage implements Ui.Header {
         if (scroller instanceof NestedScrollView) {
             ((NestedScrollView) scroller).seslSetFadingEdgeEnabled(false);
         } else if (scroller instanceof RecyclerView) {
-            ((RecyclerView) scroller).seslSetFadingEdgeEnabled(false);
+            RecyclerView list = (RecyclerView) scroller;
+            list.seslSetFadingEdgeEnabled(false);
+            list.addItemDecoration(new PageColorEdges(pageColor(activity)));
         }
         applyScrollerPadding();
+        if (scroller instanceof RecyclerView) {
+            // The list laid out before it had room for the bars; start at its first row.
+            scroller.post(() -> ((RecyclerView) scroller).scrollToPosition(0));
+        }
         onScrolled();
     }
 
@@ -277,6 +283,45 @@ final class GlassPage implements Ui.Header {
             nav.setTitleVisible(titleHeight > 0 && offset > titleHeight * 0.6f);
         }
         edge.setScrolled(offset > 0);
+    }
+
+    /**
+     * SESL's preference list paints its whole background in the card color and covers the gaps
+     * between cards with the page color. The padding above the first row and below the last one
+     * (room for the bars) is no gap, so it would show as a card-colored block behind the nav bar
+     * and the navigation bar. This paints those two areas in the page color, under the rows.
+     */
+    private static final class PageColorEdges extends RecyclerView.ItemDecoration {
+        private final android.graphics.Paint paint =
+                new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+        PageColorEdges(int color) {
+            paint.setColor(color);
+        }
+
+        @Override
+        public void onDraw(android.graphics.Canvas canvas, RecyclerView parent,
+                RecyclerView.State state) {
+            int count = parent.getChildCount();
+            RecyclerView.Adapter<?> adapter = parent.getAdapter();
+            if (count == 0 || adapter == null) {
+                return;
+            }
+            View first = parent.getChildAt(0);
+            if (parent.getChildAdapterPosition(first) == 0) {
+                float top = first.getTop() + first.getTranslationY();
+                if (top > 0) {
+                    canvas.drawRect(0, 0, parent.getWidth(), top, paint);
+                }
+            }
+            View last = parent.getChildAt(count - 1);
+            if (parent.getChildAdapterPosition(last) == adapter.getItemCount() - 1) {
+                float bottom = last.getBottom() + last.getTranslationY();
+                if (bottom < parent.getHeight()) {
+                    canvas.drawRect(0, bottom, parent.getWidth(), parent.getHeight(), paint);
+                }
+            }
+        }
     }
 
     private static int scrollOffset(View scroller) {
