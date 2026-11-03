@@ -60,7 +60,7 @@ struct MacProviderStatus: Equatable {
     }
 }
 
-/// Remaining-allowance thresholds shared by the menu bar symbol and meter tints.
+/// Remaining-allowance thresholds shared by the menu bar ring and meter tints.
 enum MacMeterLevel: Equatable {
     case healthy
     case low
@@ -71,18 +71,6 @@ enum MacMeterLevel: Equatable {
         case ..<10: self = .critical
         case ..<25: self = .low
         default: self = .healthy
-        }
-    }
-
-    /// An SF Symbols gauge whose needle tracks the remaining allowance.
-    static func gaugeSymbol(remainingPercent: Int?) -> String {
-        guard let remaining = remainingPercent else { return "gauge.with.dots.needle.bottom.50percent" }
-        switch remaining {
-        case ..<17: return "gauge.with.dots.needle.0percent"
-        case ..<42: return "gauge.with.dots.needle.33percent"
-        case ..<59: return "gauge.with.dots.needle.50percent"
-        case ..<84: return "gauge.with.dots.needle.67percent"
-        default: return "gauge.with.dots.needle.100percent"
         }
     }
 }

@@ -136,13 +136,22 @@ public sealed class SettingsPage : IPage
         var desktop = Group("Desktop");
         closeToTray = Switch("Keep running when the window is closed", "Closing hides the window; quit from the tray icon or the main menu.",
             s.CloseToTray, on => state.Settings.Update(x => x with { CloseToTray = on }));
-        desktop.Add(Switch("Show in the system tray",
-            "An icon with your remaining allowance. Needs a tray: KDE Plasma, Cinnamon, Xfce, Budgie, or GNOME with the AppIndicator extension.",
+        desktop.Add(Switch("Live usage in the system tray",
+            "A ring or number that follows your usage, like the live notification on Android. Needs a tray: KDE Plasma, Cinnamon, Xfce, Budgie, or GNOME with the AppIndicator extension.",
             s.ShowTrayIcon, on =>
             {
                 state.Settings.Update(x => x with { ShowTrayIcon = on });
                 closeToTray.SetSensitive(on);
             }, "TraySwitch"));
+        var liveProviders = state.EnabledProviders.ToList();
+        desktop.Add(Combo("Tray service", "Automatic shows the first connected service in the sidebar.",
+            ["Automatic", .. liveProviders.Select(p => p.DisplayName)], (uint)(liveProviders.FindIndex(p => p.Id == s.LiveProvider) + 1),
+            i => state.Settings.Update(x => x with { LiveProvider = i == 0 ? LiveUsage.AutomaticProvider : liveProviders[i - 1].Id }), "LiveProviderBox"));
+        desktop.Add(Combo("Percentage shown", "Auto shows whichever of the 5-hour and weekly limits has less left.",
+            ["Auto", "5-hour usage", "Weekly usage"], (uint)s.LiveWindow,
+            i => state.Settings.Update(x => x with { LiveWindow = (LiveWindowChoice)i }), "LiveWindowBox"));
+        desktop.Add(Combo("Tray icon style", "A used-up limit shows the time until it resets.", ["Ring", "Number"], (uint)s.LiveIconStyle,
+            i => state.Settings.Update(x => x with { LiveIconStyle = (LiveIconStyle)i }), "LiveStyleBox"));
         closeToTray.SetSensitive(s.ShowTrayIcon);
         desktop.Add(closeToTray);
         desktop.Add(Switch("Start when you log in", "Opens in the tray when you sign in to your desktop.",
