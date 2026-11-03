@@ -256,6 +256,12 @@ final class FakeSource implements GlassSource {
                 p.sections.add(danger);
                 return p;
             }
+            case "x:history":
+                return history();
+            case "x:tabs":
+                return tabsPage();
+            case "x:widget":
+                return widgetPage();
             default: {
                 GlassModel.Page p = new GlassModel.Page(id, id);
                 return p;
@@ -309,5 +315,130 @@ final class FakeSource implements GlassSource {
     @Override
     public GlassModel.Dialog dialog(String screen) {
         return screen.equals(dialogScreen) ? dialog : null;
+    }
+
+    private final List<String> tabOrder = new ArrayList<>(Arrays.asList("Codex", "Claude Code", "Cursor", "Copilot"));
+    private int tap;
+    private double opacity = 0.5;
+
+    private GlassModel.Page history() {
+        GlassModel.Page p = new GlassModel.Page("x:history", "Usage history");
+        p.actions.add(new GlassModel.Action("Customize", "sliders", false, () -> { }));
+        GlassModel.Card note = new GlassModel.Card(GlassModel.Card.Kind.NOTE);
+        note.summary = "The solid line is this window's usage, faint lines are previous windows, the dotted "
+                + "diagonal is a sustainable pace, and the dashed line is the projection.";
+        GlassModel.Section guide = new GlassModel.Section(null);
+        guide.cards.add(note);
+        p.sections.add(guide);
+        GlassModel.Card chart = new GlassModel.Card(GlassModel.Card.Kind.CHART);
+        chart.title = "Weekly window";
+        GlassModel.Chart c = new GlassModel.Chart();
+        c.label = "Weekly";
+        c.sampleLabel = "42 samples";
+        c.current = new double[] {0, 0, 0.1, 6, 0.2, 14, 0.3, 19, 0.42, 31, 0.55, 38};
+        c.previous.add(new double[] {0, 0, 0.2, 10, 0.5, 40, 0.8, 70, 1, 82});
+        c.previous.add(new double[] {0, 0, 0.3, 22, 0.6, 51, 1, 96});
+        c.projection = new double[] {0.55, 38, 1, 71};
+        c.hint = "Drag to inspect · tap a window to compare";
+        c.windows.add(new Object[] {"Current window", "38% used · avg 0.4%/h", -1});
+        c.windows.add(new Object[] {"Oct 20 – Oct 27", "96% used · avg 0.6%/h", 1});
+        c.windows.add(new Object[] {"Oct 13 – Oct 20", "82% used · avg 0.5%/h", 0});
+        chart.chart = c;
+        GlassModel.Card stats = new GlassModel.Card(GlassModel.Card.Kind.STATS);
+        stats.title = "Insights";
+        stats.stats.add(new String[] {"Pace vs. previous windows", "4 pts behind typical"});
+        stats.stats.add(new String[] {"Projected exhaustion", "in 9 days"});
+        stats.stats.add(new String[] {"Avg. completed window", "89% used"});
+        GlassModel.Section week = new GlassModel.Section(null);
+        week.cards.add(chart);
+        week.cards.add(stats);
+        p.sections.add(week);
+        return p;
+    }
+
+    private GlassModel.Page tabsPage() {
+        GlassModel.Page p = new GlassModel.Page("x:tabs", "Dashboard tabs");
+        p.intro = "Drag to reorder. Switch off to hide a tab.";
+        GlassModel.Section list = new GlassModel.Section(null);
+        list.footer = "With five or more on, the first three get tabs and the rest go under More.";
+        String[] ids = {"codex", "claude_code", "cursor", "copilot"};
+        List<String> names = Arrays.asList("Codex", "Claude Code", "Cursor", "Copilot");
+        for (String name : tabOrder) {
+            GlassModel.Row r = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, name);
+            r.title = name;
+            r.icon = "provider_" + ids[names.indexOf(name)];
+            r.plainIcon = true;
+            r.checked = !"Copilot".equals(name);
+            r.summary = "Copilot".equals(name) ? "Not signed in" : null;
+            list.rows.add(r);
+        }
+        list.onMove = (from, to) -> {
+            tabOrder.add(to, tabOrder.remove(from));
+            changed();
+        };
+        p.sections.add(list);
+        return p;
+    }
+
+    private GlassModel.Page widgetPage() {
+        GlassModel.Page p = new GlassModel.Page("x:widget", "Customize widget");
+        p.actions.add(new GlassModel.Action("Save", null, true, () -> { }));
+        GlassModel.Section look = new GlassModel.Section("Appearance");
+        GlassModel.Row bg = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, "bg");
+        bg.title = "Background";
+        bg.checked = true;
+        look.rows.add(bg);
+        GlassModel.Row slider = new GlassModel.Row(GlassModel.Row.Kind.SLIDER, "opacity");
+        slider.title = "Opacity";
+        slider.steps = 3;
+        slider.fraction = opacity;
+        slider.onSlide = v -> {
+            opacity = v;
+            changed();
+        };
+        look.rows.add(slider);
+        GlassModel.Row theme = new GlassModel.Row(GlassModel.Row.Kind.CHOICE, "theme");
+        theme.title = "Theme";
+        theme.entries = new String[] {"Match app", "Light", "Dark"};
+        theme.selected = 0;
+        look.rows.add(theme);
+        p.sections.add(look);
+        GlassModel.Section tapSection = new GlassModel.Section("Widget tap action");
+        String[] labels = {"Open Codex Meter", "Refresh usage", "Use reset if available"};
+        for (int i = 0; i < labels.length; i++) {
+            int which = i;
+            GlassModel.Row r = new GlassModel.Row(GlassModel.Row.Kind.RADIO, "tap" + i);
+            r.title = labels[i];
+            r.checked = i == tap;
+            r.onPress = () -> {
+                tap = which;
+                changed();
+            };
+            tapSection.rows.add(r);
+        }
+        p.sections.add(tapSection);
+        GlassModel.Section save = new GlassModel.Section(null);
+        GlassModel.Row button = new GlassModel.Row(GlassModel.Row.Kind.BUTTON, "use");
+        button.title = "Use 1 reset";
+        save.rows.add(button);
+        p.sections.add(save);
+        return p;
+    }
+
+    /** The Add reminder time sheet. */
+    void showAmount(String screen) {
+        GlassModel.Dialog d = new GlassModel.Dialog();
+        d.title = "Add reminder time";
+        d.message = "Notify me this long before each available reset credit expires.";
+        GlassModel.Amount a = new GlassModel.Amount();
+        a.value = 2;
+        a.units = new String[] {"Minutes", "Hours", "Days", "Weeks"};
+        a.unit = 1;
+        d.amount = a;
+        d.buttons.add(new GlassModel.Dialog.Button("Cancel", GlassModel.Dialog.CANCEL, null));
+        d.buttons.add(new GlassModel.Dialog.Button("Add", GlassModel.Dialog.PROMINENT, null));
+        dialog = d;
+        dialogScreen = screen;
+        changed();
     }
 }
