@@ -18,7 +18,9 @@ import static com.benitbuhner.glasse.kit.Kit.Stack;
 import static com.benitbuhner.glasse.kit.Kit.Text;
 import static com.benitbuhner.glasse.kit.KitMore.GlassSheet;
 import static com.benitbuhner.glasse.kit.KitUi.BarChart;
+import static com.benitbuhner.glasse.kit.KitControls.ActivityIndicator;
 import static com.benitbuhner.glasse.kit.KitControls.ProgressBar;
+import static com.benitbuhner.glasse.kit.KitControls.TextFieldRow;
 import static com.benitbuhner.glasse.kit.KitPopup.GlassPopupMenu;
 import static com.benitbuhner.glasse.kit.KitUi.GlassAlert;
 import static com.benitbuhner.glasse.kit.KitUi.GlassNavBar;
@@ -368,6 +370,19 @@ public final class CodexGlass {
                 }));
     }
 
+    /** A row title with a capsule tag after it ("Experimental"), and its summary under. */
+    private static Object tagged(GlassModel.Row r, KTheme t) {
+        El title = Row(P.of("gap", 8, "align", "center"),
+                Text(P.of("size", 17, "ls", -0.34, "lh", 22, "lines", 1, "color", t.pal.label), r.title),
+                Box(P.of("h", 20, "r", 10, "padX", 8, "justify", "center", "bg", t.pal.fill),
+                        Text(P.of("size", 12, "weight", 600, "lines", 1, "color", t.accent), r.tag)));
+        if (r.summary == null || r.summary.isEmpty()) {
+            return Box(P.of("flex", 1), title);
+        }
+        return Box(P.of("flex", 1, "gap", 2), title,
+                Text(P.of("size", 13, "lh", 16.5, "lines", 3, "color", t.pal.label2), r.summary));
+    }
+
     /** A row label with a smaller second line under it. */
     private static Object twoLine(String title, String summary, KTheme t) {
         if (summary == null || summary.isEmpty()) {
@@ -622,7 +637,7 @@ public final class CodexGlass {
     private static El row(GlassModel.Row r, String pageId, GlassSource src, OnStr push, KTheme t, El extra) {
         String key = r.key != null ? r.key : r.title;
         double h = rowHeight(r);
-        Object label = twoLine(r.title, r.summary, t);
+        Object label = r.tag != null ? tagged(r, t) : twoLine(r.title, r.summary, t);
         OnBool toggle = v -> {
             if (r.onToggle != null) {
                 r.onToggle.on(v);
@@ -684,6 +699,31 @@ public final class CodexGlass {
             case IMAGE:
                 el = ListPad(P.of("key", key, "padY", 16),
                         Img(P.of("src", GlassImages.of(r.image), "h", r.imageHeight, "fit", "contain")));
+                break;
+            case FIELD: {
+                OnStr typed = text -> {
+                    if (r.onText != null) {
+                        r.onText.on(text);
+                    }
+                };
+                el = Row(P.of("key", key, "align", "center", "padR", r.onPress != null ? 12 : 0),
+                        Box(P.of("flex", 1),
+                                TextFieldRow(P.of("label", r.title.isEmpty() ? null : r.title,
+                                        "value", r.value == null ? "" : r.value, "placeholder", r.hint,
+                                        "secure", r.secret, "onChange", typed))),
+                        r.onPress != null ? GlassButton(P.of("label", "Paste", "h", 34, "padX", 14,
+                                "onPress", r.onPress)) : null);
+                break;
+            }
+            case CODE:
+                el = ListPad(P.of("key", key, "padY", 18, "align", "center"),
+                        r.title.isEmpty() ? null : Text(P.of("size", 13, "lines", 1, "color", t.pal.label2,
+                                "align", "center"), r.title),
+                        Text(P.of("size", 34, "weight", 700, "ls", 3, "lines", 1, "mt", 6, "tabular", true,
+                                "align", "center", "color", t.pal.label), r.value == null ? "" : r.value),
+                        r.summary == null ? null : Row(P.of("mt", 12, "gap", 8, "align", "center"),
+                                ActivityIndicator(P.of()),
+                                Text(P.of("size", 15, "lines", 2, "color", t.pal.label2), r.summary)));
                 break;
             case TEXT:
                 el = ListPad(P.of("key", key, "padY", 12),

@@ -258,6 +258,10 @@ final class FakeSource implements GlassSource {
                 p.sections.add(danger);
                 return p;
             }
+            case "x:add_account":
+                return addAccount();
+            case "x:signin":
+                return signIn();
             case "x:history":
                 return history();
             case "x:tabs":
@@ -322,6 +326,80 @@ final class FakeSource implements GlassSource {
     private final List<String> tabOrder = new ArrayList<>(Arrays.asList("Codex", "Claude Code", "Cursor", "Copilot"));
     private int tap;
     private double opacity = 0.5;
+
+    private GlassModel.Page addAccount() {
+        GlassModel.Page p = new GlassModel.Page("x:add_account", "Add account");
+        p.intro = "Choose a service to connect. Each one gets its own tab on the dashboard.";
+        GlassModel.Section search = new GlassModel.Section(null);
+        GlassModel.Row field = new GlassModel.Row(GlassModel.Row.Kind.FIELD, "search");
+        field.hint = "Search providers";
+        field.value = "";
+        search.rows.add(field);
+        p.sections.add(search);
+        GlassModel.Section list = new GlassModel.Section(null);
+        String[][] rows = {
+                {"copilot", "Copilot", "Monthly premium requests and chat · GitHub sign-in", null},
+                {"claude_code", "Kimi Code", "5-hour and weekly limits · Kimi sign-in", null},
+                {"cursor", "Grok", "SuperGrok credits for the billing period · xAI sign-in", "Experimental"},
+                {"codex", "Devin", "Daily and weekly quota · Windsurf token", "Experimental"}};
+        for (String[] r : rows) {
+            GlassModel.Row row = new GlassModel.Row(GlassModel.Row.Kind.LINK, r[1]);
+            row.title = r[1];
+            row.summary = r[2];
+            row.icon = "provider_" + r[0];
+            row.plainIcon = true;
+            row.tag = r[3];
+            row.onPress = () -> { };
+            list.rows.add(row);
+        }
+        p.sections.add(list);
+        return p;
+    }
+
+    private GlassModel.Page signIn() {
+        GlassModel.Page p = new GlassModel.Page("x:signin", "Copilot");
+        GlassModel.Section hero = new GlassModel.Section(null);
+        GlassModel.Row head = new GlassModel.Row(GlassModel.Row.Kind.INFO, "hero");
+        head.title = "Connect Copilot";
+        head.summary = "Monthly premium requests and chat";
+        head.icon = "provider_copilot";
+        head.plainIcon = true;
+        hero.rows.add(head);
+        GlassModel.Row how = new GlassModel.Row(GlassModel.Row.Kind.TEXT, "how");
+        how.summary = "Codex Meter shows a short code. Enter it on GitHub’s sign-in page and approve; "
+                + "this screen finishes on its own.";
+        hero.rows.add(how);
+        p.sections.add(hero);
+        GlassModel.Section code = new GlassModel.Section(null);
+        GlassModel.Row c = new GlassModel.Row(GlassModel.Row.Kind.CODE, "code");
+        c.title = "Your code";
+        c.value = "8F2K-QX4T";
+        c.summary = "Waiting for you to enter it…";
+        code.rows.add(c);
+        p.sections.add(code);
+        GlassModel.Section actions = new GlassModel.Section(null);
+        GlassModel.Row open = new GlassModel.Row(GlassModel.Row.Kind.BUTTON, "open");
+        open.title = "Copy code and open GitHub";
+        open.onPress = () -> { };
+        actions.rows.add(open);
+        GlassModel.Row cancel = new GlassModel.Row(GlassModel.Row.Kind.ACTION, "cancel");
+        cancel.title = "Cancel";
+        cancel.onPress = () -> { };
+        actions.rows.add(cancel);
+        p.sections.add(actions);
+        GlassModel.Section key = new GlassModel.Section("Or use an API key");
+        GlassModel.Row field = new GlassModel.Row(GlassModel.Row.Kind.FIELD, "key");
+        field.hint = "Paste your Copilot key";
+        field.value = "";
+        field.secret = true;
+        field.onPress = () -> { };
+        key.rows.add(field);
+        p.sections.add(key);
+        GlassModel.Section privacy = new GlassModel.Section(null);
+        privacy.footer = "Sign-in details are encrypted with Android Keystore and only sent to GitHub.";
+        p.sections.add(privacy);
+        return p;
+    }
 
     private GlassModel.Page history() {
         GlassModel.Page p = new GlassModel.Page("x:history", "Usage history");

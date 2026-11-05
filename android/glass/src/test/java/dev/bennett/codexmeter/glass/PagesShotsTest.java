@@ -30,6 +30,8 @@ public class PagesShotsTest {
         Assume.assumeTrue(out != null);
         String scheme = System.getProperty("cap.scheme", "light");
         shoot(out, scheme, "x:history", "history", false);
+        shoot(out, scheme, "x:add_account", "add-account", false);
+        shoot(out, scheme, "x:signin", "signin", false);
         shoot(out, scheme, "x:tabs", "tabs", false);
         shoot(out, scheme, "x:widget", "widget", false);
         shoot(out, scheme, "x:widget", "reminder", true);

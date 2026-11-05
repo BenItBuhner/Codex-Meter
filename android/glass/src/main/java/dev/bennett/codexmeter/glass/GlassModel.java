@@ -109,6 +109,10 @@ public final class GlassModel {
         void on(boolean value);
     }
 
+    public interface OnText {
+        void on(String text);
+    }
+
     public interface OnPick {
         void on(int index);
     }
@@ -169,7 +173,12 @@ public final class GlassModel {
             /** a paragraph of text in the list */
             TEXT,
             /** one option of several, with a check when {@link #checked} ({@link #onPress} picks it) */
-            RADIO
+            RADIO,
+            /** a text field: {@link #value} as typed, {@link #hint} when empty, {@link #onText} on each change;
+             *  {@link #onPress}, when set, is a Paste button at its end */
+            FIELD,
+            /** a large centered code or number ({@link #value}), {@link #title} above it, {@link #summary} under */
+            CODE
         }
 
         public final Kind kind;
@@ -197,6 +206,13 @@ public final class GlassModel {
         public double fraction;
         /** SLIDER: the number of stops (2 or more), or 0 for a smooth slider. */
         public int steps;
+        /** A small capsule after the title ("Experimental"). */
+        public String tag;
+        /** FIELD: the placeholder. */
+        public String hint;
+        /** FIELD: draws dots in place of the text. */
+        public boolean secret;
+        public OnText onText;
         /** Handlers for rows that are not settings preferences; null falls back to the source. */
         public Runnable onPress;
         public OnToggle onToggle;

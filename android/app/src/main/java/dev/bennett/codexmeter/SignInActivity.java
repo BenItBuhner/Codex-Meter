@@ -23,6 +23,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import dev.bennett.codexmeter.glass.GlassModel;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,7 +34,15 @@ import java.util.concurrent.Executors;
  * a token to copy back, or an API key. Device-code and browser sign-ins run in
  * {@link OAuthService} so they survive leaving the app; paste and key sign-ins finish here.
  */
-public final class SignInActivity extends AppCompatActivity {
+public final class SignInActivity extends AppCompatActivity implements GlassApp.Host {
+    /** Liquid Glass: this page drawn by Glassé's kit ({@link #glassPage}), or null for One UI. */
+    private GlassApp glass;
+
+    @Override
+    public GlassApp glass() {
+        return glass;
+    }
+
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(DesignChrome.wrap(base));
@@ -115,8 +124,12 @@ public final class SignInActivity extends AppCompatActivity {
         this.entry = ProviderCatalog.get(provider);
         this.client = ProviderClients.get(provider);
         this.dark = Ui.isDark(this);
-        this.content = Ui.installPage(this, provider.displayName, true).content;
-        findViewById(R.id.dashboard_refresh).setEnabled(false);
+        if (AppPreferences.isLiquidGlassDesign(this)) {
+            glass = new GlassApp(this, super::dispatchTouchEvent, GlassScreens.PREFIX + "signin:" + provider.id);
+        } else {
+            this.content = Ui.installPage(this, provider.displayName, true).content;
+            findViewById(R.id.dashboard_refresh).setEnabled(false);
+        }
         if (state != null) {
             pasteDraft = nonNull(state.getString("paste"));
             keyDraft = nonNull(state.getString("key"));
@@ -126,7 +139,39 @@ public final class SignInActivity extends AppCompatActivity {
             serviceStarted = true;
             status = "Resuming sign-in…";
         }
+        if (glass != null) {
+            glass.start(state);
+        }
         render();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (glass != null) {
+            glass.onResume();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        if (glass != null) {
+            glass.onPause();
+        }
+        super.onPause();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        if (glass != null) {
+            glass.onConfigurationChanged(config);
+        }
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        return glass != null ? glass.dispatchTouchEvent(ev) : super.dispatchTouchEvent(ev);
     }
 
     @Override
@@ -180,6 +225,9 @@ public final class SignInActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (glass != null) {
+            glass.onDestroy();
+        }
         executor.shutdownNow();
         super.onDestroy();
     }
@@ -193,6 +241,10 @@ public final class SignInActivity extends AppCompatActivity {
     // ------------------------------------------------------------------ layout
 
     private void render() {
+        if (glass != null) {
+            glass.changed();
+            return;
+        }
         content.removeAllViews();
         addHero();
         if (entry.inferred) addExperimentalNote();
@@ -458,6 +510,187 @@ public final class SignInActivity extends AppCompatActivity {
         params.setMargins(0, Ui.dp(this, 12), 0, 0);
         content.addView(card, params);
         return field;
+    }
+
+    // ------------------------------------------------------------------ Liquid Glass
+
+    /** This page for the Liquid Glass design: the same steps, state and actions as the views above. */
+    GlassModel.Page glassPage() {
+        GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "signin:" + provider.id,
+                provider.displayName);
+        GlassModel.Section hero = GlassScreens.section(null);
+        GlassModel.Row head = GlassScreens.row(GlassModel.Row.Kind.INFO, "hero",
+                "Connect " + provider.displayName, entry.meters);
+        head.icon = "provider_" + provider.id;
+        head.plainIcon = true;
+        if (entry.inferred) {
+            head.tag = "Experimental";
+        }
+        hero.rows.add(head);
+        hero.rows.add(GlassScreens.text("how", howItWorks()));
+        if (entry.inferred) {
+            hero.footer = "This uses the same sign-in as " + provider.vendorName + "’s own tools, but Codex "
+                    + "Meter hasn’t been able to confirm the usage check with a live account yet. If it "
+                    + "doesn’t work, the " + provider.displayName + " tab will say why.";
+        }
+        page.sections.add(hero);
+        switch (entry.signIn) {
+            case DEVICE_CODE:
+                glassDeviceCode(page);
+                break;
+            case CODE_PASTE:
+                glassPaste(page);
+                break;
+            case API_KEY:
+                glassApiKey(page, true);
+                break;
+            case LOOPBACK:
+            case BROWSER:
+            default:
+                glassBrowser(page);
+                break;
+        }
+        if (entry.acceptsApiKey && entry.signIn != ProviderCatalog.SignIn.API_KEY) {
+            glassApiKey(page, false);
+        }
+        GlassModel.Section privacy = GlassScreens.section(null);
+        privacy.footer = "Sign-in details are encrypted with Android Keystore and only sent to "
+                + provider.vendorName + ". No Codex Meter server is involved.";
+        page.sections.add(privacy);
+        return page;
+    }
+
+    private GlassModel.Section glassActions(GlassModel.Page page, String header) {
+        GlassModel.Section section = GlassScreens.section(header);
+        if (!status.isEmpty()) {
+            section.footer = statusIsError ? "Couldn’t connect. " + status : status;
+        }
+        page.sections.add(section);
+        return section;
+    }
+
+    private static GlassModel.Row glassButton(String key, String label, Runnable onPress) {
+        GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.BUTTON, key, label, null);
+        row.onPress = onPress;
+        return row;
+    }
+
+    private static GlassModel.Row glassAction(String key, String label, Runnable onPress) {
+        GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.ACTION, key, label, null);
+        row.onPress = onPress;
+        return row;
+    }
+
+    private void glassBrowser(GlassModel.Page page) {
+        GlassModel.Section section = glassActions(page, null);
+        section.rows.add(glassButton("signin", serviceStarted ? "Continue in browser" : provider.signInLabel(),
+                () -> {
+                    if (serviceStarted && !lastOpenedUrl.isEmpty()) {
+                        openUrl(lastOpenedUrl, false);
+                    } else {
+                        startService(false);
+                    }
+                }));
+        if (serviceStarted) {
+            section.rows.add(glassAction("cancel", "Cancel", this::cancelService));
+        }
+    }
+
+    private void glassDeviceCode(GlassModel.Page page) {
+        if (!userCode.isEmpty() || !verifyUrl.isEmpty()) {
+            GlassModel.Section code = GlassScreens.section(null);
+            GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.CODE, "code",
+                    userCode.isEmpty() ? "" : "Your code", userCode.isEmpty()
+                            ? "Waiting for you to approve in the browser…" : "Waiting for you to enter it…");
+            row.value = userCode;
+            code.rows.add(row);
+            page.sections.add(code);
+            GlassModel.Section section = glassActions(page, null);
+            section.rows.add(glassButton("open", userCode.isEmpty() ? "Open " + provider.vendorName
+                    : "Copy code and open " + provider.vendorName, () -> {
+                        if (!userCode.isEmpty()) {
+                            copy(userCode);
+                        }
+                        openUrl(verifyUrl, false);
+                    }));
+            section.rows.add(glassAction("cancel", "Cancel", this::cancelService));
+            return;
+        }
+        GlassModel.Section section = glassActions(page, null);
+        section.rows.add(glassButton("start", serviceStarted ? "Getting a code…" : "Get a sign-in code", () -> {
+            if (!serviceStarted) {
+                startService(false);
+            }
+        }));
+    }
+
+    private void glassPaste(GlassModel.Page page) {
+        GlassModel.Section one = GlassScreens.section("Step 1");
+        one.rows.add(glassAction("open", "Open " + provider.vendorName + " sign-in", () -> {
+            if (pasteSession == null || pasteProvider != provider) {
+                pasteSession = new ProviderClient.Session();
+                pasteProvider = provider;
+            }
+            openUrl(client.pasteUrl(pasteSession), false);
+        }));
+        page.sections.add(one);
+        GlassModel.Section two = glassActions(page, "Step 2");
+        two.rows.add(glassField("paste", client.pasteHint(), pasteDraft, false, text -> pasteDraft = text));
+        two.rows.add(glassButton("connect", busy ? "Connecting…" : "Connect", () -> {
+            if (busy) {
+                return;
+            }
+            if (pasteSession == null || pasteProvider != provider) {
+                showError("Open the " + provider.vendorName + " sign-in first (step 1).");
+                return;
+            }
+            ProviderClient.Session session = pasteSession;
+            runConnect(() -> client.finishPaste(getApplicationContext(), session, pasteDraft));
+        }));
+    }
+
+    private void glassApiKey(GlassModel.Page page, boolean primaryMethod) {
+        GlassModel.Section section = primaryMethod ? glassActions(page, "API key")
+                : GlassScreens.section("Or use an API key");
+        if (!primaryMethod) {
+            page.sections.add(section);
+        }
+        if (!entry.keyUrl.isEmpty()) {
+            section.rows.add(glassAction("create", "Create a key on " + provider.vendorName,
+                    () -> openUrl(entry.keyUrl, false)));
+        }
+        section.rows.add(glassField("key", "Paste your " + provider.displayName + " key", keyDraft, true,
+                text -> keyDraft = text));
+        section.rows.add(glassButton("connect_key", busy ? "Checking…" : primaryMethod ? "Connect" : "Connect with key",
+                () -> {
+                    if (!busy) {
+                        runConnect(() -> client.fromApiKey(getApplicationContext(), keyDraft));
+                    }
+                }));
+    }
+
+    /** A glass text field with a Paste button (the kit's field has no long-press paste menu). */
+    private GlassModel.Row glassField(String key, String hint, String value, boolean secret,
+            GlassModel.OnText onText) {
+        GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.FIELD, key, "", null);
+        row.hint = hint;
+        row.value = value;
+        row.secret = secret;
+        row.onText = text -> {
+            onText.on(text);
+            render();
+        };
+        row.onPress = () -> {
+            ClipboardManager clipboard = getSystemService(ClipboardManager.class);
+            ClipData clip = clipboard == null ? null : clipboard.getPrimaryClip();
+            CharSequence text = clip == null || clip.getItemCount() == 0 ? null
+                    : clip.getItemAt(0).coerceToText(this);
+            if (text != null) {
+                onText.on(text.toString().trim());
+                render();
+            }
+        };
+        return row;
     }
 
     // ------------------------------------------------------------------ actions
