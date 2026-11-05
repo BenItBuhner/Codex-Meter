@@ -676,7 +676,8 @@ public final class CodexGlass {
                         Icon(P.of("name", "chevronRight", "size", 15, "color", t.pal.label3)));
                 break;
             case BUTTON:
-                el = ListPad(P.of("key", key, "padY", 4, "padX", 0),
+                // inset from the card's rounded edges like the other rows
+                el = ListPad(P.of("key", key, "padY", 12, "padX", 16),
                         GlassButton(P.of("variant", "filled", "label", r.title, "h", 50, "r", 25,
                                 "fillColor", r.destructive ? null : t.accent,
                                 "color", r.destructive ? red(t) : "#fff", "onPress", press)));

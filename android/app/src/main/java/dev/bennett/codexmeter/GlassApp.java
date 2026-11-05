@@ -384,8 +384,8 @@ final class GlassApp implements GlassSource {
     @Override
     public List<MenuEntry> menu() {
         List<MenuEntry> menu = new ArrayList<>();
-        menu.add(new MenuEntry("Edit dashboard", "edit", false, main()::glassEditDashboard));
-        menu.add(new MenuEntry("Settings", "gear", false, () -> {
+        menu.add(new MenuEntry("Edit dashboard", "squarePencil", false, main()::glassEditDashboard));
+        menu.add(new MenuEntry("Settings", "gearshape", false, () -> {
             DiagnosticLog.info(activity, "user", "settings_opened");
             openSettings("root", false);
         }));

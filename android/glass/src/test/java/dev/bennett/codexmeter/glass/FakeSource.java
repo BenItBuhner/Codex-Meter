@@ -145,8 +145,8 @@ final class FakeSource implements GlassSource {
     @Override
     public List<MenuEntry> menu() {
         return Arrays.asList(
-                new MenuEntry("Edit dashboard", "edit", false, null),
-                new MenuEntry("Settings", "gear", false, null));
+                new MenuEntry("Edit dashboard", "squarePencil", false, null),
+                new MenuEntry("Settings", "gearshape", false, null));
     }
 
     private static GlassModel.Row link(String key, String title, String icon, String color, String page) {
