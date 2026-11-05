@@ -167,6 +167,10 @@ public final class WearGlanceFormat {
         UsageWindow fiveHour = currentFiveHour(snapshot);
         UsageWindow longWindow = currentLongWindow(snapshot);
         if (fiveHour == null && longWindow == null) return "No usage yet";
+        // Plans without a 5-hour window (Claude Ultra) show only the long window.
+        if (fiveHour == null) {
+            return longWindowShortLabel(snapshot) + " " + remainingPercentText(longWindow);
+        }
         return "5h " + remainingPercentText(fiveHour) + " \u00b7 "
                 + longWindowShortLabel(snapshot) + " "
                 + remainingPercentText(longWindow);
