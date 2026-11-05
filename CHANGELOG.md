@@ -14,6 +14,47 @@
 - Claude Code usage is sturdier after Anthropic's plan change. On Android the usage request now matches Claude Code 2.1.316, and if Anthropic refuses its saved-reset part, the app retries plain usage instead of failing. On every app a 403 is treated as a temporary refusal instead of "your plan has no usage limits", and your sign-in is always kept. Accounts with no 5-hour limit (verified Ultra) load normally.
 - Accounts without a 5-hour limit show the weekly meters with a short "No 5-hour limit on this plan" note instead of a missing card. Home screen widgets set to the 5-hour meter show the weekly one instead of "Unavailable", and the live notification follows the weekly limit. Android and iPhone/Mac.
 
+## 2.9.0-alpha.16 — 2026-11-05
+
+### Changed
+
+- Liquid Glass action rows such as "Check for updates" read in the normal text color like iOS Settings; only destructive ones are red.
+- Home screen widgets go back to their regular look in Liquid Glass. The glass surface in 2.9.0-alpha.15 replaced the background that Samsung's launcher blurs, so widgets lost their blur and looked rough.
+
+### Fixed
+
+- Pull to refresh works on every dashboard page. A page shorter than the screen, such as a provider with only a couple of cards on a tall phone, ignored the pull.
+
+## 2.9.0-alpha.15 — 2026-11-05
+
+### Changed
+
+- **Liquid Glass** now runs on Glassé's latest version, with its iOS 26 pop-up menus, pull to refresh, progress bars, spinners and text fields.
+- Dashboard: Edit and Settings are two glass buttons at the top right, with SF Symbols-style icons. The refresh button and the ⋯ menu are gone. Pull down to refresh, and open Usage history from its card.
+- Usage cards have a springing progress bar and a pace row: "At this pace it lasts 1d 6h", or "Running out early" in orange.
+- Usage history shows one window at a time, picked with a segmented control, with a legend under the chart in place of the explanation paragraph.
+- Settings choices open an iOS 26 pop-up menu from the row instead of a new page.
+- Add account and every provider's sign-in page are now Liquid Glass pages, with search, a large device code with a spinner, and text fields with a Paste button.
+- In Liquid Glass, home screen widgets get a glass look: a see-through fill, a top sheen and a bright rim. Switching designs redraws them.
+
+### Fixed
+
+- Back on the dashboard no longer closes the app while a sheet, menu or alert is open. The same goes for widget settings with a sub page open.
+- Android's predictive back-to-home animation now plays from the Liquid Glass dashboard.
+- A back gesture the system cancels no longer leaves a page stuck mid-swipe.
+- Full-width buttons in Liquid Glass cards no longer run into the card's edges.
+
+## 2.9.0-alpha.14 — 2026-11-03
+
+### Added
+
+- **Liquid Glass design** (Settings › Appearance): a third design next to One UI 8.5 and One UI 9, built from Glassé's glass components. Every screen has a glass version: the dashboard, Settings, Dashboard tabs, Lock screen widgets, About, Usage history, Reset credits, Edit dashboard, App update, Release history, home and lock-screen widget settings, alerts, sheets and the Add reminder time picker. Every setting keeps its existing behavior. One UI 8.5 and One UI 9 are unchanged. The APK is about 20 MB larger.
+- Desktop live usage: the Windows tray icon and the Mac menu bar item now follow the same rules as the Android live notification. They show the AI app in front first (ChatGPT or Codex, Claude, Cursor and others), then your chosen service, and the window with less left, or the time until reset once a limit is used up. Windows draws a ring or number icon at the tray's real size, with a flyout of every service's bars when clicked. The Mac shows a drawn ring that turns orange and red as you run low. Linux gets the ring style and the Service and Percentage shown settings. Each app has a new Live usage section in Settings.
+
+### Changed
+
+- Desktop apps reach parity with the phone apps: Windows and Linux cover all 24 services, with usage history charts and insights, Edit dashboard, Add account search, device-code, pasted-token and API-key sign-in, Codex reset auto-use, and a first-run welcome page. Windows uses a native title bar and navigation view with low and failing badges. Linux uses libadwaita dialogs and boxed lists. The Mac app gains an Add Account button in the sidebar and File › Add Account… (⌘N).
+
 ## 2.9.0-alpha.13 — 2026-10-28
 
 ### Changed

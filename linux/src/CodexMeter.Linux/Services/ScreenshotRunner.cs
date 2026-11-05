@@ -20,6 +20,14 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             state.Settings.Update(s => s with { Theme = theme });
             var name = theme.ToString().ToLowerInvariant();
             await Resize(1100, 780);
+            var shot = pages.Count + 1;
+            if (state.SignedIn.Count == 0)
+            {
+                // First run: the welcome page.
+                window.Navigate("welcome");
+                await Delay(900);
+                failures += Capture($"{name}-00-welcome.png") ? 0 : 1;
+            }
             for (var i = 0; i < pages.Count; i++)
             {
                 window.Navigate(pages[i]);
@@ -53,20 +61,82 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                     failures += Capture($"{name}-{i + 1:00}-{pages[i]}-more.png") ? 0 : 1;
                 }
             }
+            failures += await ExtrasAsync(name, pages, shot);
+            shot += 4;
             // Narrow window: the split view collapses into one pane with a back button.
             await Resize(400, 760);
             window.ShowContent(false);
             await Delay(700);
-            failures += Capture($"{name}-{pages.Count + 1:00}-compact-sidebar.png") ? 0 : 1;
+            failures += Capture($"{name}-{shot++:00}-compact-sidebar.png") ? 0 : 1;
             window.Navigate(pages[0]);
             window.ShowContent(true);
             await Delay(900);
-            failures += Capture($"{name}-{pages.Count + 2:00}-compact.png") ? 0 : 1;
+            failures += Capture($"{name}-{shot:00}-compact.png") ? 0 : 1;
             window.ShowContent(false);
         }
         if (prefix.Length == 0) failures += TrayIcon.SaveSamples(directory) ? 0 : 1;
         if (state.SignedIn.Count == 0) failures += await SignInAsync();
         return failures == 0 ? 0 : 4;
+    }
+
+    /// <summary>The usage history chart, Add account, Edit dashboard and a device-code sign-in.</summary>
+    private async Task<int> ExtrasAsync(string name, List<string> pages, int shot)
+    {
+        var failures = 0;
+        var dashboard = pages.FirstOrDefault(id => Core.Providers.UsageProvider.Find(id) is { } p && state[p].SignedIn && state[p].Usage is not null);
+        if (dashboard is not null)
+        {
+            window.Navigate(dashboard);
+            await Delay(900);
+            if (window.CurrentPage is { } page && Find(page.Page, "HistoryCard") is { } card && card.GetParent() is { } parent)
+            {
+                // Scroll so the chart sits near the top.
+                var content = page.Scroller.GetChild()!;
+                card.TranslateCoordinates(content, 0, 0, out _, out var y);
+                page.Scroller.GetVadjustment().SetValue(Math.Max(0, y - 24));
+                await Delay(600);
+                failures += Capture($"{name}-{shot:00}-history.png") ? 0 : 1;
+                page.Scroller.GetVadjustment().SetValue(0);
+            }
+        }
+
+        Adw.Dialog? opened = null;
+        _ = window.AddAccountAsync(d => opened = d);
+        await Delay(900);
+        failures += Capture($"{name}-{shot + 1:00}-add-account.png") ? 0 : 1;
+        opened?.ForceClose();
+        await Delay(500);
+
+        if (dashboard is not null)
+        {
+            window.Navigate(dashboard);
+            await Delay(500);
+            var edit = window.EditDashboard();
+            await Delay(900);
+            failures += Capture($"{name}-{shot + 2:00}-edit-dashboard.png") ? 0 : 1;
+            edit?.ForceClose();
+            await Delay(500);
+        }
+
+        if (state.Entries.FirstOrDefault(e => !e.SignedIn && e.Provider.SignIn == Core.Providers.SignInStyle.DeviceCode) is { } device)
+        {
+            opened = null;
+            var run = SignInDialog.DeviceAsync(state, device.Provider, window.Window, KeyLocation.Keyring, d => opened = d);
+            await Delay(1500);
+            failures += Capture($"{name}-{shot + 3:00}-sign-in-code.png") ? 0 : 1;
+            opened?.Close();
+            await run;
+            await Delay(500);
+        }
+        return failures;
+    }
+
+    private static Gtk.Widget? Find(Gtk.Widget root, string name)
+    {
+        if (root.GetName() == name) return root;
+        for (var child = root.GetFirstChild(); child is not null; child = child.GetNextSibling())
+            if (Find(child, name) is { } found) return found;
+        return null;
     }
 
     /// <summary>Signed-out run: the whole sign-in flow with the demo service (dialog, then the filled dashboard).</summary>
@@ -80,7 +150,7 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
         await Delay(500);
         var signIn = SignInDialog.RunAsync(state, provider, window.Window, KeyLocation.Keyring);
         await Delay(250);
-        failures += Capture("light-10-signing-in.png") ? 0 : 1;
+        failures += Capture("light-20-signing-in.png") ? 0 : 1;
         var error = await signIn;
         if (error is not null || !state[provider].SignedIn)
         {
@@ -88,7 +158,7 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             failures++;
         }
         await Delay(900);
-        failures += Capture("light-11-after-sign-in.png") ? 0 : 1;
+        failures += Capture("light-21-after-sign-in.png") ? 0 : 1;
         return failures;
     }
 

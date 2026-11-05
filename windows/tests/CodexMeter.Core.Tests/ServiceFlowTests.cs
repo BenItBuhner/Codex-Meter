@@ -250,7 +250,7 @@ public class ServiceFlowTests
         Assert.Null(await store.LoadAsync("codex"));
         Assert.Null(await codex.CachedAsync());
         Assert.NotNull(await store.LoadAsync("cursor")); // Other providers untouched.
-        Assert.Equal(2, (await hub.SignedInAsync()).Count);
+        Assert.Equal(hub.Providers.Count - 1, (await hub.SignedInAsync()).Count);
     }
 
     [Fact]

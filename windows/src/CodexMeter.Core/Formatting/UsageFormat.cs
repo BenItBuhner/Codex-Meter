@@ -112,6 +112,7 @@ public static class UsageFormat
     /// <summary>"5-hour", "Weekly", "Monthly", or "30-day" for odd lengths.</summary>
     public static string WindowName(long seconds) => seconds switch
     {
+        86_400 => "Daily",
         >= 10_800 and <= 28_800 => "5-hour",
         >= 432_000 and <= 864_000 => "Weekly",
         >= 864_000 => "Monthly",

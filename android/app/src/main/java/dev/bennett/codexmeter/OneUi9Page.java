@@ -75,9 +75,13 @@ final class OneUi9Page implements Ui.Header {
         this.baseCollapsedHeight = Math.max(appBar.seslGetCollapsedHeight(), toolbarHeight);
     }
 
-    /** Whether the One UI 9 design is on. Switching it restarts the app, so it never changes under a live page. */
+    /**
+     * Whether pages use the One UI 9 shell. Switching design restarts the app, so it never changes
+     * under a live page. Liquid Glass draws the dashboard and Settings itself ({@link GlassApp});
+     * its other pages use One UI 9 until they have glass versions.
+     */
     static boolean isOn(Activity activity) {
-        return AppPreferences.isOneUi9Design(activity);
+        return AppPreferences.isOneUi9Design(activity) || AppPreferences.isLiquidGlassDesign(activity);
     }
 
     /**

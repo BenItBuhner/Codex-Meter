@@ -56,6 +56,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         this.dark = Ui.isDark(this);
         this.provider = UsageProvider.fromId(getIntent().getStringExtra(EXTRA_PROVIDER));
         LinearLayout content = Ui.installPage(this, "Edit dashboard", true).content;

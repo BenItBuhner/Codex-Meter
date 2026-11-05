@@ -1,0 +1,110 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.github.BenItBuhner.Glasse",
+    "module": "glasse-demo-kt",
+    "version": "4d4031245a",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.8.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasskit",
+          "version": {
+            "requires": "4d4031245a"
+          }
+        },
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasse-assets",
+          "version": {
+            "requires": "4d4031245a"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "glasse-demo-kt-4d4031245a.jar",
+          "url": "glasse-demo-kt-4d4031245a.jar",
+          "size": 150451,
+          "sha512": "2f96d75596ef1adee297d10b35e90a2b99495c530d3ce096d5e4b4e7f5968944769a0456e8f07c4d1ba2e671e0245eb33bed645fabddac7550b1c9f3d9f3762f",
+          "sha256": "7f9fc7b5cca5cefeb7890e2fcb6fabe05a21f73f8fac2ec4e73281118adf2504",
+          "sha1": "52561ee2d56f098cfca436e7f696b4c2c4e2156f",
+          "md5": "ef964b892ecf746e44bd955e4e2d2abd"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasskit",
+          "version": {
+            "requires": "4d4031245a"
+          }
+        },
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasse-assets",
+          "version": {
+            "requires": "4d4031245a"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "glasse-demo-kt-4d4031245a.jar",
+          "url": "glasse-demo-kt-4d4031245a.jar",
+          "size": 150451,
+          "sha512": "2f96d75596ef1adee297d10b35e90a2b99495c530d3ce096d5e4b4e7f5968944769a0456e8f07c4d1ba2e671e0245eb33bed645fabddac7550b1c9f3d9f3762f",
+          "sha256": "7f9fc7b5cca5cefeb7890e2fcb6fabe05a21f73f8fac2ec4e73281118adf2504",
+          "sha1": "52561ee2d56f098cfca436e7f696b4c2c4e2156f",
+          "md5": "ef964b892ecf746e44bd955e4e2d2abd"
+        }
+      ]
+    }
+  ]
+}
