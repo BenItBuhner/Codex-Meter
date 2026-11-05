@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs the debug phone app on a running emulator, seeds demo usage for three providers
 # (UsagePaceDemoActivity) and saves screenshots plus a screen recording of one design in light
-# and dark: dashboard, scrolled, the "…" menu, another provider tab, Settings, Appearance and
+# and dark: dashboard, scrolled, pull to refresh (checked in the log), another provider tab, Settings, Appearance and
 # widget settings.
 #
 #   android/ci/record-design-gallery.sh <debug APK> <output dir> [design]
@@ -74,6 +74,21 @@ tap_tab() {
   adb shell input tap $(( x1 + w * $1 + w / 2 )) "$y"
 }
 
+# Pulls the dashboard down with a held finger (shots mid-pull and after letting go) and checks the
+# app logged a refresh. Prints PULL-TO-REFRESH OK or FAILED with the shot name.
+pull_refresh() {
+  local x=$((W / 2)) y0=$((H / 3)) n0 n1
+  n0="$(adb logcat -d -s CodexGlass:I | grep -c 'pull to refresh' || true)"
+  adb shell input motionevent DOWN "$x" "$y0"
+  for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input motionevent MOVE "$x" $((y0 + H * k / 40)); done
+  shot "$1-pulling" 0
+  adb shell input motionevent UP "$x" $((y0 + H / 4))
+  shot "$1-released" 0.6
+  sleep 2
+  n1="$(adb logcat -d -s CodexGlass:I | grep -c 'pull to refresh' || true)"
+  if (( n1 > n0 )); then echo "PULL-TO-REFRESH OK: $1"; else echo "PULL-TO-REFRESH FAILED: $1"; fi
+}
+
 size="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
 W="${size%x*}"; H="${size#*x}"
 
@@ -85,11 +100,11 @@ for THEME in light dark; do
   shot "$THEME-02-scrolled" 2
   for _ in 1 2; do adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 300; sleep 1; done
   sleep 2
-  { tap_desc "More" && shot "$THEME-03-menu" 6; } || true
-  adb shell input keyevent KEYCODE_BACK
+  pull_refresh "$THEME-02b-pull"
   sleep 2
   { tap_tab 1 3 && shot "$THEME-04-claude" 3; } || true
   { tap_tab 2 3 && shot "$THEME-05-cursor" 3; } || true
+  pull_refresh "$THEME-05b-pull-short-page"
   demo --ez resume_live_settings true
   shot "$THEME-06-settings" 5
   adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 500

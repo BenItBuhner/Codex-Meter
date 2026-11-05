@@ -315,11 +315,7 @@ public final class WidgetRenderer {
     }
 
     private static void applyRootAndHeader(Context context, RemoteViews remoteViews, int i, WidgetOptions widgetOptions, boolean z, WidgetState widgetState) {
-        if (AppPreferences.isLiquidGlassDesign(context)) {
-            // Liquid Glass: home screen widgets get the glass surface too.
-            remoteViews.setInt(android.R.id.background, "setBackgroundResource",
-                    glassBackground(z, widgetOptions.opacity));
-        } else if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
+        if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
             int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
             remoteViews.setInt(android.R.id.background, "setBackgroundColor",
                     z ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
@@ -910,19 +906,6 @@ public final class WidgetRenderer {
         for (int viewId : viewIds) {
             views.setInt(viewId, "setColorFilter", color);
         }
-    }
-
-    /** The Liquid Glass widget surface for {@code opacity} (0 is none). */
-    static int glassBackground(boolean dark, int opacity) {
-        if (opacity == 0) {
-            return R.drawable.widget_bg_transparent;
-        }
-        if (dark) {
-            return opacity <= 56 ? R.drawable.widget_bg_glass_dark_56
-                    : opacity >= 100 ? R.drawable.widget_bg_glass_dark_100 : R.drawable.widget_bg_glass_dark_88;
-        }
-        return opacity <= 56 ? R.drawable.widget_bg_glass_light_56
-                : opacity >= 100 ? R.drawable.widget_bg_glass_light_100 : R.drawable.widget_bg_glass_light_88;
     }
 
     private static int backgroundResource(Context context, boolean z, int i, String str) {

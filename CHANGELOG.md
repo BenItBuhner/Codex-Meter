@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Liquid Glass action rows such as "Check for updates" read in the normal text color like iOS Settings; only destructive ones are red.
+- Home screen widgets go back to their regular look in Liquid Glass. The glass surface in 2.9.0-alpha.15 replaced the background that Samsung's launcher blurs, so widgets lost their blur and looked rough.
+
+### Fixed
+
+- Pull to refresh works on every dashboard page. A page shorter than the screen, such as a provider with only a couple of cards on a tall phone, ignored the pull.
+
 ## 2.9.0-alpha.15 — 2026-11-05
 
 ### Changed
