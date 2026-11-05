@@ -375,7 +375,7 @@ public final class CodexGlass {
         El title = Row(P.of("gap", 8, "align", "center"),
                 Text(P.of("size", 17, "ls", -0.34, "lh", 22, "lines", 1, "color", t.pal.label), r.title),
                 Box(P.of("h", 20, "r", 10, "padX", 8, "justify", "center", "bg", t.pal.fill),
-                        Text(P.of("size", 12, "weight", 600, "lines", 1, "color", t.accent), r.tag)));
+                        Text(P.of("size", 12, "weight", 600, "lines", 1, "color", t.pal.label2), r.tag)));
         if (r.summary == null || r.summary.isEmpty()) {
             return Box(P.of("flex", 1), title);
         }
@@ -812,7 +812,8 @@ public final class CodexGlass {
     }
 
     private static Object actionLabel(GlassModel.Row r, KTheme t) {
-        String color = r.destructive ? ("dark".equals(t.scheme) ? "#ff453a" : "#ff3b30") : t.accent;
+        // iOS Settings: an action row reads in the label color (Shut Down, Reset); only destructive ones are red
+        String color = r.destructive ? ("dark".equals(t.scheme) ? "#ff453a" : "#ff3b30") : t.pal.label;
         El title = Text(P.of("size", 17, "ls", -0.34, "lh", 22, "lines", 1, "color", color), r.title);
         if (r.summary == null || r.summary.isEmpty()) {
             return Box(P.of("flex", 1), title);

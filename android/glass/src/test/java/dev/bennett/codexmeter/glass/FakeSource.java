@@ -25,6 +25,10 @@ final class FakeSource implements GlassSource {
     private int schedule = 1;
     GlassModel.Dialog dialog;
     String dialogScreen;
+    /** pull-to-refresh calls */
+    int refreshes;
+    /** only the first card, so the dashboard is shorter than the screen */
+    boolean shortDashboard;
 
     FakeSource() {
         for (String id : new String[] {"codex", "claude_code", "cursor", "copilot"}) {
@@ -130,6 +134,9 @@ final class FakeSource implements GlassSource {
         credits.value = "1,240 credits";
         credits.summary = "Used after your plan's limits run out";
         d.cards.add(credits);
+        if (shortDashboard) {
+            d.cards.subList(1, d.cards.size()).clear();
+        }
         return d;
     }
 
@@ -140,6 +147,7 @@ final class FakeSource implements GlassSource {
 
     @Override
     public void refresh() {
+        refreshes++;
     }
 
     @Override

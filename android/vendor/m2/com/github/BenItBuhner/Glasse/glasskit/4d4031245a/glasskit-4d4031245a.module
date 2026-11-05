@@ -3,7 +3,7 @@
   "component": {
     "group": "com.github.BenItBuhner.Glasse",
     "module": "glasskit",
-    "version": "7fd8bc419c",
+    "version": "4d4031245a",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -36,13 +36,13 @@
       ],
       "files": [
         {
-          "name": "glasskit-7fd8bc419c.jar",
-          "url": "glasskit-7fd8bc419c.jar",
-          "size": 851220,
-          "sha512": "3d8a468146d2279e8bc2ee3921a27c504688cb33f271ab427e43a3aa6c551c90fc00070a8e308d133fb71905ba44f6f2af8b2d7bf674a399f36da1724e0a10c2",
-          "sha256": "e3c12473d858a5c825e46165533aad7196cb891f17bbdacb1a94fb5e8fd1797d",
-          "sha1": "6c9cebef9e1028bba8cd2783cc345ef739a11369",
-          "md5": "6337ba27befef7480dd26ec1d3034319"
+          "name": "glasskit-4d4031245a.jar",
+          "url": "glasskit-4d4031245a.jar",
+          "size": 851426,
+          "sha512": "03d4669272fcac527d61af405aeb07d103c0cc77edf03ee8ec8a49b09cb03a5d1b1be3bef9ef113c264f2f7d52d235d38a728ad7d5680fc2409953deff309c22",
+          "sha256": "c451c350145a420219785af77a5f86a30aedd41beea2b4a87b40b898ae4741c8",
+          "sha1": "e9619e125c1a10f8be1fb0a050895e4bdf9f90ba",
+          "md5": "942fe44a114da274e8b9882f01c5bb65"
         }
       ]
     },
@@ -68,13 +68,13 @@
       ],
       "files": [
         {
-          "name": "glasskit-7fd8bc419c.jar",
-          "url": "glasskit-7fd8bc419c.jar",
-          "size": 851220,
-          "sha512": "3d8a468146d2279e8bc2ee3921a27c504688cb33f271ab427e43a3aa6c551c90fc00070a8e308d133fb71905ba44f6f2af8b2d7bf674a399f36da1724e0a10c2",
-          "sha256": "e3c12473d858a5c825e46165533aad7196cb891f17bbdacb1a94fb5e8fd1797d",
-          "sha1": "6c9cebef9e1028bba8cd2783cc345ef739a11369",
-          "md5": "6337ba27befef7480dd26ec1d3034319"
+          "name": "glasskit-4d4031245a.jar",
+          "url": "glasskit-4d4031245a.jar",
+          "size": 851426,
+          "sha512": "03d4669272fcac527d61af405aeb07d103c0cc77edf03ee8ec8a49b09cb03a5d1b1be3bef9ef113c264f2f7d52d235d38a728ad7d5680fc2409953deff309c22",
+          "sha256": "c451c350145a420219785af77a5f86a30aedd41beea2b4a87b40b898ae4741c8",
+          "sha1": "e9619e125c1a10f8be1fb0a050895e4bdf9f90ba",
+          "md5": "942fe44a114da274e8b9882f01c5bb65"
         }
       ]
     }

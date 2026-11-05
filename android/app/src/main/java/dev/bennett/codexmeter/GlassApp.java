@@ -378,6 +378,7 @@ final class GlassApp implements GlassSource {
 
     @Override
     public void refresh() {
+        android.util.Log.i("CodexGlass", "pull to refresh");
         main().glassRefresh();
     }
 

@@ -511,10 +511,13 @@ final class GlassWidgetScreens {
                 WidgetOptions options = options();
                 RemoteViews remote = WidgetRenderer.buildPreview(c, appWidgetId, options, size, providers);
                 FrameLayout surface = new FrameLayout(c);
+                GradientDrawable bg = new GradientDrawable();
                 boolean dark = WidgetOptions.THEME_DARK.equals(options.theme)
                         || (!WidgetOptions.THEME_LIGHT.equals(options.theme) && Ui.isDark(c));
-                // the glass surface the widget gets on the home screen (WidgetRenderer)
-                surface.setBackgroundResource(WidgetRenderer.glassBackground(dark, options.opacity));
+                int alpha = Math.round(options.opacity * 2.55f);
+                bg.setColor(dark ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
+                bg.setCornerRadius(28 * density);
+                surface.setBackground(bg);
                 View widget = remote.apply(c.getApplicationContext(), surface);
                 surface.addView(widget, new FrameLayout.LayoutParams(-1, -1));
                 int inset = Math.round(14 * density);
