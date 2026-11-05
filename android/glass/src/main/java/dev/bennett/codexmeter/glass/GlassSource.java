@@ -26,7 +26,7 @@ public interface GlassSource {
 
     void refresh();
 
-    /** The dashboard's ⋯ menu: labels, icons, and what each does (null entries are separators). */
+    /** The dashboard bar's buttons, right to left of the title: labels, icons, and what each does. */
     List<MenuEntry> menu();
 
     final class MenuEntry {

@@ -46,6 +46,9 @@ public final class GlassModel {
         public double remaining;
         /** METER: usage is running faster than the window allows. */
         public boolean fast;
+        /** METER: the pace line under the bar, label and value ("At this pace", "lasts 3d 4h"); null for none. */
+        public String paceLabel;
+        public String pace;
         /** HISTORY: bar heights, 0 to 1, oldest first. */
         public double[] bars;
         /** HISTORY: labels under the first and last bar. */
@@ -90,6 +93,8 @@ public final class GlassModel {
         public final List<Object[]> windows = new ArrayList<>();
         public String hint;
         public String emptyText;
+        /** Show a legend of the lines under the chart. */
+        public boolean legend;
     }
 
     public interface Scrub {

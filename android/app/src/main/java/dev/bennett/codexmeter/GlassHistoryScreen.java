@@ -6,6 +6,7 @@ import dev.bennett.codexmeter.glass.GlassModel;
 import dev.bennett.codexmeter.glass.GlassModel.Card;
 import dev.bennett.codexmeter.glass.GlassModel.Section;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -19,6 +20,8 @@ import java.util.Locale;
 final class GlassHistoryScreen extends GlassScreens.Screen {
     private static final int MAX_BREAKDOWN_WINDOWS = 5;
     private final UsageProvider provider;
+    /** The window the page shows (its segmented control). */
+    private int windowIndex;
 
     GlassHistoryScreen(GlassScreens screens, UsageProvider provider) {
         super(screens);
@@ -42,27 +45,44 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
                 ? null : PlanPricing.forPlan(snapshot.planType);
 
-        if (visible(HistorySections.GUIDE)) {
-            page.sections.add(GlassScreens.cards(GlassScreens.note(null,
-                    "The solid line is this window's usage, faint lines are previous windows, "
-                            + "the dotted diagonal is a sustainable pace, and the dashed line is "
-                            + "the projection. Drag a chart to inspect any moment. Samples are "
-                            + "recorded after each successful refresh and stay on this device.")));
-        }
-        boolean hasCharts = false;
+        // One window at a time, picked with a segmented control at the top (iOS's way of
+        // switching between views of the same data), instead of every chart stacked.
+        List<String> labels = new ArrayList<>();
+        List<UsageWindow> shown = new ArrayList<>();
+        List<UsageHistory> histories = new ArrayList<>();
         if (snapshot != null && snapshot.fetchedAtMillis > 0L) {
             if (snapshot.weekly != null) {
-                addWindow(page, "Weekly", snapshot.weekly, snapshot, weekly, pricing);
-                hasCharts = true;
-            }
-            if (snapshot.monthly != null) {
-                addWindow(page, "Monthly", snapshot.monthly, snapshot, monthly, pricing);
-                hasCharts = true;
+                labels.add("Weekly");
+                shown.add(snapshot.weekly);
+                histories.add(weekly);
             }
             if (snapshot.fiveHour != null) {
-                addWindow(page, "5-hour", snapshot.fiveHour, snapshot, five, pricing);
-                hasCharts = true;
+                labels.add("5-hour");
+                shown.add(snapshot.fiveHour);
+                histories.add(five);
             }
+            if (snapshot.monthly != null) {
+                labels.add("Monthly");
+                shown.add(snapshot.monthly);
+                histories.add(monthly);
+            }
+        }
+        boolean hasCharts = !shown.isEmpty();
+        if (hasCharts) {
+            int index = Math.max(0, Math.min(windowIndex, shown.size() - 1));
+            if (shown.size() > 1) {
+                Section pick = GlassScreens.section(null);
+                GlassModel.Row segmented = GlassScreens.row(GlassModel.Row.Kind.SEGMENTED, "window", "", null);
+                segmented.entries = labels.toArray(new String[0]);
+                segmented.selected = index;
+                segmented.onChoose = which -> {
+                    windowIndex = which;
+                    changed();
+                };
+                pick.rows.add(segmented);
+                page.sections.add(pick);
+            }
+            addWindow(page, labels.get(index), shown.get(index), snapshot, histories.get(index), pricing);
         }
         if (!hasCharts) {
             page.sections.add(GlassScreens.cards(GlassScreens.note(null,
@@ -152,7 +172,8 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         card.title = label + " window";
         GlassModel.Chart chart = new GlassModel.Chart();
         card.chart = chart;
-        chart.label = label;
+        chart.label = Math.round(window.usedPercent) + "% used so far";
+        chart.legend = visible(HistorySections.GUIDE);
         chart.sampleLabel = samples.size() < 2 ? "Building history" : samples.size() + " samples";
         long resetAt = window.effectiveResetAtMillis(observedAt);
         long startAt = resetAt - window.windowSeconds * 1000L;
@@ -293,22 +314,22 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
             double typical = UsageStats.typicalUsedPercentAt(history, elapsed);
             if (typical >= 0d) {
                 long delta = Math.round(window.usedPercent - typical);
-                card.stats.add(new String[] {"Pace vs. previous windows",
-                        delta >= 2L ? delta + " pts ahead of typical"
-                                : delta <= -2L ? (-delta) + " pts behind typical" : "On par with typical"});
+                card.stats.add(new String[] {"Vs. earlier windows",
+                        delta >= 2L ? delta + " pts ahead"
+                                : delta <= -2L ? (-delta) + " pts behind" : "On par"});
             }
         }
         if (visible(HistorySections.INSIGHT_EXHAUSTION)) {
             UsagePace.Assessment pace = UsagePacePreferences.assess(activity(), provider, snapshot, window, now);
             if (pace != null && pace.available) {
-                card.stats.add(new String[] {"Projected exhaustion",
+                card.stats.add(new String[] {"Runs out",
                         UsageFormat.relative(pace.estimatedExhaustionAtMillis, now)});
             }
         }
         if (visible(HistorySections.INSIGHT_AVERAGE)) {
             double average = UsageStats.averageFinalPercent(history);
             if (average >= 0d) {
-                card.stats.add(new String[] {"Avg. completed window", Math.round(average) + "% used"});
+                card.stats.add(new String[] {"Average window", Math.round(average) + "% used"});
             }
         }
         if (visible(HistorySections.INSIGHT_PEAK)) {
@@ -318,11 +339,11 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
                 if (pricing != null) {
                     value += " · ≈ " + PlanPricing.formatUsd(pricing.windowValueUsd(history.kind) * peak / 100d) + "/h";
                 }
-                card.stats.add(new String[] {"Peak burn observed", value});
+                card.stats.add(new String[] {"Fastest burn", value});
             }
         }
         if (pricing != null) {
-            card.stats.add(new String[] {"Est. value used this window",
+            card.stats.add(new String[] {"Value used",
                     "≈ " + PlanPricing.formatUsd(pricing.estimatedValueUsd(history.kind, window.usedPercent))
                             + " of " + PlanPricing.formatUsd(pricing.windowValueUsd(history.kind))});
         }

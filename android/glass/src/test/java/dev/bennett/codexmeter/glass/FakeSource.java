@@ -87,7 +87,8 @@ final class FakeSource implements GlassSource {
         five.remaining = 0.72;
         five.value = "72%";
         five.detail = "Resets in 2 h 14 min";
-        five.summary = "At this pace about 38% will be left when it resets.";
+        five.paceLabel = "At this pace it lasts";
+        five.pace = "1d 6h";
         d.cards.add(five);
         GlassModel.Card week = new GlassModel.Card(GlassModel.Card.Kind.METER);
         week.title = "Weekly";
@@ -96,7 +97,8 @@ final class FakeSource implements GlassSource {
         week.remaining = 0.19;
         week.value = "19%";
         week.detail = "Resets Sat 9:40 AM";
-        week.summary = "Usage is running faster than the week allows. It may run out Friday evening.";
+        week.paceLabel = "Running out early";
+        week.pace = "2d 3h left";
         week.fast = true;
         d.cards.add(week);
         GlassModel.Card resets = new GlassModel.Card(GlassModel.Card.Kind.LINK);
@@ -111,12 +113,15 @@ final class FakeSource implements GlassSource {
         history.title = "Usage history";
         double[] bars = new double[24];
         for (int i = 0; i < bars.length; i++) {
-            bars[i] = 0.12 + Math.abs(Math.sin(i * 0.9 + 0.4)) * 0.8;
+            bars[i] = 0.04 + 0.77 * Math.pow(i / 23.0, 1.2) + 0.03 * Math.sin(i);
         }
         history.bars = bars;
-        history.startLabel = "24 h ago";
+        history.value = "Weekly";
+        history.color = "#007aff";
+        history.onPress = () -> { };
+        history.startLabel = "Window start";
         history.endLabel = "Now";
-        history.summary = "Share of the 5-hour window used each hour.";
+        history.summary = "How much of the weekly window was used, from its start until now.";
         d.cards.add(history);
         GlassModel.Card credits = new GlassModel.Card(GlassModel.Card.Kind.BALANCE);
         credits.title = "Usage credits";
@@ -140,10 +145,7 @@ final class FakeSource implements GlassSource {
     @Override
     public List<MenuEntry> menu() {
         return Arrays.asList(
-                new MenuEntry("Usage history", "history", false, null),
                 new MenuEntry("Edit dashboard", "edit", false, null),
-                new MenuEntry("Add widget", "widget", false, null),
-                null,
                 new MenuEntry("Settings", "gear", false, null));
     }
 
@@ -324,16 +326,18 @@ final class FakeSource implements GlassSource {
     private GlassModel.Page history() {
         GlassModel.Page p = new GlassModel.Page("x:history", "Usage history");
         p.actions.add(new GlassModel.Action("Customize", "sliders", false, () -> { }));
-        GlassModel.Card note = new GlassModel.Card(GlassModel.Card.Kind.NOTE);
-        note.summary = "The solid line is this window's usage, faint lines are previous windows, the dotted "
-                + "diagonal is a sustainable pace, and the dashed line is the projection.";
-        GlassModel.Section guide = new GlassModel.Section(null);
-        guide.cards.add(note);
-        p.sections.add(guide);
+        GlassModel.Section pick = new GlassModel.Section(null);
+        GlassModel.Row seg = new GlassModel.Row(GlassModel.Row.Kind.SEGMENTED, "window");
+        seg.entries = new String[] {"Weekly", "5-hour"};
+        seg.selected = 0;
+        seg.onChoose = i -> { };
+        pick.rows.add(seg);
+        p.sections.add(pick);
         GlassModel.Card chart = new GlassModel.Card(GlassModel.Card.Kind.CHART);
         chart.title = "Weekly window";
         GlassModel.Chart c = new GlassModel.Chart();
-        c.label = "Weekly";
+        c.label = "38% used so far";
+        c.legend = true;
         c.sampleLabel = "42 samples";
         c.current = new double[] {0, 0, 0.1, 6, 0.2, 14, 0.3, 19, 0.42, 31, 0.55, 38};
         c.previous.add(new double[] {0, 0, 0.2, 10, 0.5, 40, 0.8, 70, 1, 82});
@@ -346,9 +350,9 @@ final class FakeSource implements GlassSource {
         chart.chart = c;
         GlassModel.Card stats = new GlassModel.Card(GlassModel.Card.Kind.STATS);
         stats.title = "Insights";
-        stats.stats.add(new String[] {"Pace vs. previous windows", "4 pts behind typical"});
-        stats.stats.add(new String[] {"Projected exhaustion", "in 9 days"});
-        stats.stats.add(new String[] {"Avg. completed window", "89% used"});
+        stats.stats.add(new String[] {"Vs. earlier windows", "4 pts behind"});
+        stats.stats.add(new String[] {"Runs out", "in 9 days"});
+        stats.stats.add(new String[] {"Average window", "89% used"});
         GlassModel.Section week = new GlassModel.Section(null);
         week.cards.add(chart);
         week.cards.add(stats);

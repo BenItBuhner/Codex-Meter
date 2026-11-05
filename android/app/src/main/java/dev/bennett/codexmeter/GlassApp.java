@@ -132,18 +132,24 @@ final class GlassApp implements GlassSource {
         fragments.setVisibility(View.GONE);
         glasse.getView().addView(fragments, 0, new FrameLayout.LayoutParams(1, 1));
         applyTheme();
-        // Back closes the glass page, sheet or menu on top (Android 13+ also gets the host's own
-        // predictive-back callback while a page is open); otherwise it leaves as usual.
-        activity.getOnBackPressedDispatcher().addCallback(activity, new OnBackPressedCallback(true) {
+        // Back closes the glass page, sheet or menu on top. The callback is on only while there is one,
+        // so on the dashboard Android's own back runs (with its predictive back-to-home animation).
+        // Android 13+ also gets the host's own predictive-back callback, which animates the page.
+        OnBackPressedCallback back = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
                 if (!glasse.onBackPressed()) {
                     setEnabled(false);
                     activity.getOnBackPressedDispatcher().onBackPressed();
-                    setEnabled(true);
                 }
             }
+        };
+        activity.getOnBackPressedDispatcher().addCallback(activity, back);
+        glasse.setOnBackActive(on -> {
+            back.setEnabled(on);
+            return kotlin.Unit.INSTANCE;
         });
+        back.setEnabled(glasse.backActive());
         activity.getSharedPreferences("codex_meter_settings_v1", Context.MODE_PRIVATE)
                 .registerOnSharedPreferenceChangeListener(prefsListener);
         String page = state == null ? null : state.getString(STATE_PAGE);
@@ -378,10 +384,7 @@ final class GlassApp implements GlassSource {
     @Override
     public List<MenuEntry> menu() {
         List<MenuEntry> menu = new ArrayList<>();
-        menu.add(new MenuEntry("Usage history", "history", false, () -> openPage(
-                GlassScreens.PREFIX + "history:" + main().glassProvider().id, null)));
         menu.add(new MenuEntry("Edit dashboard", "edit", false, main()::glassEditDashboard));
-        menu.add(new MenuEntry("Add widget", "widget", false, main()::requestPinWidget));
         menu.add(new MenuEntry("Settings", "gear", false, () -> {
             DiagnosticLog.info(activity, "user", "settings_opened");
             openSettings("root", false);
