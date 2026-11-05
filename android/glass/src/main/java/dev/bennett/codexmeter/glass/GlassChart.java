@@ -2,6 +2,7 @@ package dev.bennett.codexmeter.glass;
 
 import static com.benitbuhner.glasse.kit.Kit.Box;
 import static com.benitbuhner.glasse.kit.Kit.Draw;
+import static com.benitbuhner.glasse.kit.Kit.Icon;
 import static com.benitbuhner.glasse.kit.Kit.Row;
 import static com.benitbuhner.glasse.kit.Kit.Text;
 import static com.benitbuhner.glasse.kit.KitUi.ListPad;
@@ -134,6 +135,16 @@ final class GlassChart {
         kids.add(Text(P.of("size", 13, "lines", 1, "ml", SIDE, "mr", SIDE, "mt", 2, "mb", 10,
                 "color", readout != null ? t.pal.label : t.pal.label2),
                 readout != null ? readout : chart.hint == null ? "" : chart.hint));
+        if (chart.legend) {
+            // what each line is, in place of a paragraph explaining it
+            kids.add(Row(P.of("ml", SIDE, "mr", SIDE, "gap", 18),
+                    swatch("This window", accent, false, t),
+                    swatch("Earlier windows", old, false, t)));
+            kids.add(Row(P.of("ml", SIDE, "mr", SIDE, "mb", 8, "gap", 18),
+                    swatch("Even pace", pace, true, t),
+                    chart.projection != null
+                            ? swatch("Projection", chart.projectionWarning ? warn : faintAccent, true, t) : null));
+        }
         El top = ListPad(P.of("padX", 0, "padY", 8), kids);
 
         List<El> rows = new ArrayList<>();
@@ -144,13 +155,27 @@ final class GlassChart {
             boolean on = index == window;
             rows.add(ListRow(P.of("key", "w" + i, "h", 60,
                     "label", Box(P.of("flex", 1, "gap", 2),
-                            Text(P.of("size", 15, "weight", 600, "lines", 1,
-                                    "color", on ? t.accent : t.pal.label), (String) w[0]),
+                            Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label), (String) w[0]),
                             Text(P.of("size", 13, "lines", 1, "color", t.pal.label2), (String) w[1])),
-                    "onPress", (Runnable) () -> selected.set(index))));
+                    "onPress", (Runnable) () -> selected.set(on ? -1 : index)),
+                    on ? Icon(P.of("name", "check", "size", 18, "color", t.accent)) : null));
         }
         return ListSection(P.of("header", c.title), rows);
     };
+
+    /** A legend entry: a short line in the chart's color (dashed for guides) and its name. */
+    private static El swatch(String label, String color, boolean dashed, KTheme t) {
+        return Row(P.of("gap", 6, "align", "center", "h", 18),
+                Draw(P.of("w", 16, "h", 4, "c", color, "dashed", dashed,
+                        "draw", (NodeDraw) (cv, w, h, n, ax, ay) -> {
+                            Paint paint = stroke(n.props.s("c"), 2.5);
+                            if (n.props.b("dashed")) {
+                                paint.setPathEffect(PathEffect.Companion.makeDash(new float[] {3f, 3f}, 0f));
+                            }
+                            cv.drawLine(1f, (float) (h / 2), (float) (w - 1), (float) (h / 2), paint);
+                        })),
+                Text(P.of("size", 12, "lines", 1, "color", t.pal.label2), label));
+    }
 
     private static void draw(Canvas cv, double[] xy, double left, double right, double top, double bottom,
             Paint paint) {

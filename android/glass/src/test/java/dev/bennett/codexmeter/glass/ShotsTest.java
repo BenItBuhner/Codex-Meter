@@ -30,12 +30,10 @@ public class ShotsTest {
                 env -> CodexGlass.dashboard(env, src), makers);
         c.run(2500);
         c.shot(out + "/app-dashboard-" + scheme + ".png");
-        // the ⋯ menu
-        c.tap(W - 16 - 22, TOP + 6 + 4 + 22, 80);
-        c.run(1200);
-        c.shot(out + "/app-menu-" + scheme + ".png");
-        c.tap(W / 2, H / 2 + 200, 80);
-        c.run(1200);
+        // pulled down: the refresh spinner
+        c.drag(W / 2, 300, W / 2, 420, 400);
+        c.shot(out + "/app-pull-" + scheme + ".png");
+        c.run(1500);
         // scrolled, so the tab bar minimizes and the title moves into the bar
         c.drag(W / 2, 600, W / 2, 250, 300);
         c.run(1500);

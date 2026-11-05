@@ -463,6 +463,12 @@ public final class AppPreferences {
                 .putString(KEY_APP_DESIGN, design)
                 .putBoolean(KEY_ONE_UI_9_DESIGN, DESIGN_ONE_UI_9.equals(design))
                 .commit();
+        // Home screen widgets take the design's surface (glass in Liquid Glass).
+        try {
+            WidgetRenderer.updateAll(context);
+        } catch (RuntimeException ignored) {
+            // No widgets, or the launcher is busy; they redraw on their next update.
+        }
     }
 
     /** When enabled, pages use the One UI 9 chrome (floating toolbar and tab bar). */

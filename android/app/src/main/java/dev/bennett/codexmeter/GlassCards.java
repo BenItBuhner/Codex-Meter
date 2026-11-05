@@ -223,11 +223,17 @@ final class GlassCards {
         UsagePace.Assessment pace = UsagePacePreferences.assess(a, provider, snapshot, window, now);
         String estimate = UsageFormat.estimatedRemaining(pace);
         c.fast = pace != null && pace.accelerated;
+        String left = estimate.replace("Est. ", "");
         if (c.fast) {
-            c.summary = "Usage is running faster than this window allows."
-                    + (estimate.isEmpty() ? "" : " " + estimate.replace("Est. ", "About ") + " until it runs out.");
-        } else if (!estimate.isEmpty()) {
-            c.summary = estimate.replace("Est. ", "At this pace it lasts about ") + ".";
+            c.paceLabel = "Running out early";
+            c.pace = left.isEmpty() ? null : left + " left";
+            if (c.pace == null) {
+                c.summary = c.paceLabel + ".";
+                c.paceLabel = null;
+            }
+        } else if (!left.isEmpty()) {
+            c.paceLabel = "At this pace it lasts";
+            c.pace = left;
         }
         return c;
     }
@@ -305,8 +311,14 @@ final class GlassCards {
         c.bars = bars;
         c.startLabel = n > 0 ? "Window start" : "";
         c.endLabel = n > 0 ? "Now" : "";
+        c.value = label.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + label.substring(1);
+        c.color = "#007aff";
+        GlassApp glass = GlassApp.of(a);
+        if (glass != null) {
+            c.onPress = () -> glass.openPage(GlassScreens.PREFIX + "history:" + target.id, null);
+        }
         c.summary = n > 0
-                ? "Share of the " + label + " window used, from its start until now. Tap the ⋯ menu for full history."
+                ? "How much of the " + label + " window was used, from its start until now."
                 : "Charts appear once " + target.vendorName + " has reported a few refreshes.";
         return c;
     }

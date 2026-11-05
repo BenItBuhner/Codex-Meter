@@ -173,8 +173,29 @@ final class GlassScreens {
                 return new GlassWidgetScreens.Lock(this, parseInt(arg), app::pop);
             case "widget":
                 return new GlassWidgetScreens.Home(this, parseInt(arg), app::pop);
+            case "add_account":
+                return activity instanceof AddAccountActivity ? new Hosted(this) {
+                    @Override
+                    GlassModel.Page page() {
+                        return ((AddAccountActivity) activity()).glassPage();
+                    }
+                } : null;
+            case "signin":
+                return activity instanceof SignInActivity ? new Hosted(this) {
+                    @Override
+                    GlassModel.Page page() {
+                        return ((SignInActivity) activity()).glassPage();
+                    }
+                } : null;
             default:
                 return null;
+        }
+    }
+
+    /** A page whose activity builds it (Add account, sign-in): its model comes from that activity. */
+    private abstract static class Hosted extends Screen {
+        Hosted(GlassScreens screens) {
+            super(screens);
         }
     }
 

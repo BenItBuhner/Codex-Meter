@@ -87,7 +87,8 @@ final class FakeSource implements GlassSource {
         five.remaining = 0.72;
         five.value = "72%";
         five.detail = "Resets in 2 h 14 min";
-        five.summary = "At this pace about 38% will be left when it resets.";
+        five.paceLabel = "At this pace it lasts";
+        five.pace = "1d 6h";
         d.cards.add(five);
         GlassModel.Card week = new GlassModel.Card(GlassModel.Card.Kind.METER);
         week.title = "Weekly";
@@ -96,7 +97,8 @@ final class FakeSource implements GlassSource {
         week.remaining = 0.19;
         week.value = "19%";
         week.detail = "Resets Sat 9:40 AM";
-        week.summary = "Usage is running faster than the week allows. It may run out Friday evening.";
+        week.paceLabel = "Running out early";
+        week.pace = "2d 3h left";
         week.fast = true;
         d.cards.add(week);
         GlassModel.Card resets = new GlassModel.Card(GlassModel.Card.Kind.LINK);
@@ -111,12 +113,15 @@ final class FakeSource implements GlassSource {
         history.title = "Usage history";
         double[] bars = new double[24];
         for (int i = 0; i < bars.length; i++) {
-            bars[i] = 0.12 + Math.abs(Math.sin(i * 0.9 + 0.4)) * 0.8;
+            bars[i] = 0.04 + 0.77 * Math.pow(i / 23.0, 1.2) + 0.03 * Math.sin(i);
         }
         history.bars = bars;
-        history.startLabel = "24 h ago";
+        history.value = "Weekly";
+        history.color = "#007aff";
+        history.onPress = () -> { };
+        history.startLabel = "Window start";
         history.endLabel = "Now";
-        history.summary = "Share of the 5-hour window used each hour.";
+        history.summary = "How much of the weekly window was used, from its start until now.";
         d.cards.add(history);
         GlassModel.Card credits = new GlassModel.Card(GlassModel.Card.Kind.BALANCE);
         credits.title = "Usage credits";
@@ -140,11 +145,8 @@ final class FakeSource implements GlassSource {
     @Override
     public List<MenuEntry> menu() {
         return Arrays.asList(
-                new MenuEntry("Usage history", "history", false, null),
-                new MenuEntry("Edit dashboard", "edit", false, null),
-                new MenuEntry("Add widget", "widget", false, null),
-                null,
-                new MenuEntry("Settings", "gear", false, null));
+                new MenuEntry("Edit dashboard", "squarePencil", false, null),
+                new MenuEntry("Settings", "gearshape", false, null));
     }
 
     private static GlassModel.Row link(String key, String title, String icon, String color, String page) {
@@ -256,6 +258,10 @@ final class FakeSource implements GlassSource {
                 p.sections.add(danger);
                 return p;
             }
+            case "x:add_account":
+                return addAccount();
+            case "x:signin":
+                return signIn();
             case "x:history":
                 return history();
             case "x:tabs":
@@ -321,19 +327,95 @@ final class FakeSource implements GlassSource {
     private int tap;
     private double opacity = 0.5;
 
+    private GlassModel.Page addAccount() {
+        GlassModel.Page p = new GlassModel.Page("x:add_account", "Add account");
+        p.intro = "Choose a service to connect. Each one gets its own tab on the dashboard.";
+        GlassModel.Section search = new GlassModel.Section(null);
+        GlassModel.Row field = new GlassModel.Row(GlassModel.Row.Kind.FIELD, "search");
+        field.hint = "Search providers";
+        field.value = "";
+        search.rows.add(field);
+        p.sections.add(search);
+        GlassModel.Section list = new GlassModel.Section(null);
+        String[][] rows = {
+                {"copilot", "Copilot", "Monthly premium requests and chat · GitHub sign-in", null},
+                {"claude_code", "Kimi Code", "5-hour and weekly limits · Kimi sign-in", null},
+                {"cursor", "Grok", "SuperGrok credits for the billing period · xAI sign-in", "Experimental"},
+                {"codex", "Devin", "Daily and weekly quota · Windsurf token", "Experimental"}};
+        for (String[] r : rows) {
+            GlassModel.Row row = new GlassModel.Row(GlassModel.Row.Kind.LINK, r[1]);
+            row.title = r[1];
+            row.summary = r[2];
+            row.icon = "provider_" + r[0];
+            row.plainIcon = true;
+            row.tag = r[3];
+            row.onPress = () -> { };
+            list.rows.add(row);
+        }
+        p.sections.add(list);
+        return p;
+    }
+
+    private GlassModel.Page signIn() {
+        GlassModel.Page p = new GlassModel.Page("x:signin", "Copilot");
+        GlassModel.Section hero = new GlassModel.Section(null);
+        GlassModel.Row head = new GlassModel.Row(GlassModel.Row.Kind.INFO, "hero");
+        head.title = "Connect Copilot";
+        head.summary = "Monthly premium requests and chat";
+        head.icon = "provider_copilot";
+        head.plainIcon = true;
+        hero.rows.add(head);
+        GlassModel.Row how = new GlassModel.Row(GlassModel.Row.Kind.TEXT, "how");
+        how.summary = "Codex Meter shows a short code. Enter it on GitHub’s sign-in page and approve; "
+                + "this screen finishes on its own.";
+        hero.rows.add(how);
+        p.sections.add(hero);
+        GlassModel.Section code = new GlassModel.Section(null);
+        GlassModel.Row c = new GlassModel.Row(GlassModel.Row.Kind.CODE, "code");
+        c.title = "Your code";
+        c.value = "8F2K-QX4T";
+        c.summary = "Waiting for you to enter it…";
+        code.rows.add(c);
+        p.sections.add(code);
+        GlassModel.Section actions = new GlassModel.Section(null);
+        GlassModel.Row open = new GlassModel.Row(GlassModel.Row.Kind.BUTTON, "open");
+        open.title = "Copy code and open GitHub";
+        open.onPress = () -> { };
+        actions.rows.add(open);
+        GlassModel.Row cancel = new GlassModel.Row(GlassModel.Row.Kind.ACTION, "cancel");
+        cancel.title = "Cancel";
+        cancel.onPress = () -> { };
+        actions.rows.add(cancel);
+        p.sections.add(actions);
+        GlassModel.Section key = new GlassModel.Section("Or use an API key");
+        GlassModel.Row field = new GlassModel.Row(GlassModel.Row.Kind.FIELD, "key");
+        field.hint = "Paste your Copilot key";
+        field.value = "";
+        field.secret = true;
+        field.onPress = () -> { };
+        key.rows.add(field);
+        p.sections.add(key);
+        GlassModel.Section privacy = new GlassModel.Section(null);
+        privacy.footer = "Sign-in details are encrypted with Android Keystore and only sent to GitHub.";
+        p.sections.add(privacy);
+        return p;
+    }
+
     private GlassModel.Page history() {
         GlassModel.Page p = new GlassModel.Page("x:history", "Usage history");
         p.actions.add(new GlassModel.Action("Customize", "sliders", false, () -> { }));
-        GlassModel.Card note = new GlassModel.Card(GlassModel.Card.Kind.NOTE);
-        note.summary = "The solid line is this window's usage, faint lines are previous windows, the dotted "
-                + "diagonal is a sustainable pace, and the dashed line is the projection.";
-        GlassModel.Section guide = new GlassModel.Section(null);
-        guide.cards.add(note);
-        p.sections.add(guide);
+        GlassModel.Section pick = new GlassModel.Section(null);
+        GlassModel.Row seg = new GlassModel.Row(GlassModel.Row.Kind.SEGMENTED, "window");
+        seg.entries = new String[] {"Weekly", "5-hour"};
+        seg.selected = 0;
+        seg.onChoose = i -> { };
+        pick.rows.add(seg);
+        p.sections.add(pick);
         GlassModel.Card chart = new GlassModel.Card(GlassModel.Card.Kind.CHART);
         chart.title = "Weekly window";
         GlassModel.Chart c = new GlassModel.Chart();
-        c.label = "Weekly";
+        c.label = "38% used so far";
+        c.legend = true;
         c.sampleLabel = "42 samples";
         c.current = new double[] {0, 0, 0.1, 6, 0.2, 14, 0.3, 19, 0.42, 31, 0.55, 38};
         c.previous.add(new double[] {0, 0, 0.2, 10, 0.5, 40, 0.8, 70, 1, 82});
@@ -346,9 +428,9 @@ final class FakeSource implements GlassSource {
         chart.chart = c;
         GlassModel.Card stats = new GlassModel.Card(GlassModel.Card.Kind.STATS);
         stats.title = "Insights";
-        stats.stats.add(new String[] {"Pace vs. previous windows", "4 pts behind typical"});
-        stats.stats.add(new String[] {"Projected exhaustion", "in 9 days"});
-        stats.stats.add(new String[] {"Avg. completed window", "89% used"});
+        stats.stats.add(new String[] {"Vs. earlier windows", "4 pts behind"});
+        stats.stats.add(new String[] {"Runs out", "in 9 days"});
+        stats.stats.add(new String[] {"Average window", "89% used"});
         GlassModel.Section week = new GlassModel.Section(null);
         week.cards.add(chart);
         week.cards.add(stats);

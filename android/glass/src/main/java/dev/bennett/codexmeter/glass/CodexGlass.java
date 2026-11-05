@@ -18,6 +18,10 @@ import static com.benitbuhner.glasse.kit.Kit.Stack;
 import static com.benitbuhner.glasse.kit.Kit.Text;
 import static com.benitbuhner.glasse.kit.KitMore.GlassSheet;
 import static com.benitbuhner.glasse.kit.KitUi.BarChart;
+import static com.benitbuhner.glasse.kit.KitControls.ActivityIndicator;
+import static com.benitbuhner.glasse.kit.KitControls.ProgressBar;
+import static com.benitbuhner.glasse.kit.KitControls.TextFieldRow;
+import static com.benitbuhner.glasse.kit.KitPopup.GlassPopupMenu;
 import static com.benitbuhner.glasse.kit.KitUi.GlassAlert;
 import static com.benitbuhner.glasse.kit.KitUi.GlassNavBar;
 import static com.benitbuhner.glasse.kit.KitUi.GlassSearchField;
@@ -40,6 +44,7 @@ import com.benitbuhner.glasse.kit.OnNum;
 import com.benitbuhner.glasse.kit.OnScroll;
 import com.benitbuhner.glasse.kit.OnStr;
 import com.benitbuhner.glasse.kit.P;
+import com.benitbuhner.glasse.kit.PopupItem;
 import com.benitbuhner.glasse.kit.R;
 import com.benitbuhner.glasse.kit.Ref;
 import com.benitbuhner.glasse.kit.State;
@@ -150,22 +155,14 @@ public final class CodexGlass {
         int index = indexOf(tabs, selected);
         String value = more.get() || index >= own ? MORE : selected;
 
-        List<MenuItem> items = new ArrayList<>();
-        StringBuilder menuKey = new StringBuilder("menu");
-        for (GlassSource.MenuEntry entry : src.menu()) {
-            if (entry == null) {
-                items.add(null);
-                menuKey.append("|-");
-            } else {
-                items.add(new MenuItem(entry.label, entry.icon, entry.destructive, entry.onSelect));
-                menuKey.append('|').append(entry.label);
-            }
-        }
+        // The bar's buttons (Edit dashboard, Settings): each its own glass button, side by side like
+        // iOS's toolbar items. Pull the page down to refresh.
         List<El> trailing = new ArrayList<>();
-        trailing.add(GlassButton(P.of("key", "refresh", "id", "refresh",
-                "icon", src.refreshing() ? "clock" : "refresh", "onPress", (Runnable) src::refresh)));
-        if (!items.isEmpty()) {
-            trailing.add(GlassMenu(P.of("key", menuKey.toString(), "id", "trail", "items", items)));
+        for (GlassSource.MenuEntry entry : src.menu()) {
+            if (entry != null) {
+                trailing.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
+                        "icon", entry.icon, "onPress", entry.onSelect)));
+            }
         }
 
         List<Object> body = new ArrayList<>();
@@ -180,7 +177,9 @@ public final class CodexGlass {
 
         double[] bg = t.pal.groupedRGB;
         return Box(P.of("fill", true, "bg", t.pal.grouped),
-                Page(P.of("key", "page:" + selected, "onScroll", onScroll, "tail", 150), body),
+                GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", 16, "tail", 150,
+                        "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
+                        "refreshing", src.refreshing()), body.toArray()),
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                 GlassNavBar(P.of("title", d.title, "titleVisible", past.get(), "trailing", trailing)),
@@ -240,9 +239,12 @@ public final class CodexGlass {
                         ListRow(P.of("icon", c.icon, "color", tile(c.color), "label", c.title, "value", c.value,
                                 "chevron", c.onPress != null, "onPress", c.onPress)));
             case HISTORY:
-                return ListSection(P.of("key", key, "header", c.title, "footer", c.summary),
-                        ListPad(P.of(),
-                                BarChart(P.of("values", c.bars, "color", ACCENT, "h", 96, "gap", 2.0)),
+                return ListSection(P.of("key", key, "footer", c.summary),
+                        ListRow(P.of("icon", "chart", "color", tile(c.color), "label", c.title,
+                                "value", c.value, "chevron", c.onPress != null, "onPress", c.onPress)),
+                        ListPad(P.of("padY", 16),
+                                BarChart(P.of("values", c.bars, "color", tile(c.color), "h", 88, "gap", 3.0,
+                                        "radius", new double[] {4, 4, 2, 2})),
                                 Row(P.of("mt", 8),
                                         Text(P.of("flex", 1, "size", 13, "lines", 1, "color", t.pal.label2),
                                                 c.startLabel == null ? "" : c.startLabel),
@@ -268,21 +270,16 @@ public final class CodexGlass {
             case CHART:
                 return GlassChart.card(c, key);
             case STATS: {
-                List<Object> lines = new ArrayList<>();
-                if (c.title != null) {
-                    lines.add(Text(P.of("size", 17, "weight", 600, "ls", -0.34, "lines", 2, "mb", 4,
-                            "color", t.pal.label), c.title));
+                // label and value rows, like a Settings detail list
+                List<El> rows = new ArrayList<>();
+                for (int i = 0; i < c.stats.size(); i++) {
+                    String[] stat = c.stats.get(i);
+                    rows.add(ListRow(P.of("key", "s" + i, "h", stat[0].length() + stat[1].length() > 36 ? 66 : 52,
+                            "label", Text(P.of("size", 17, "ls", -0.34, "lines", 2, "color", t.pal.label), stat[0])),
+                            Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label2), stat[1])));
                 }
-                for (String[] stat : c.stats) {
-                    lines.add(Row(P.of("mt", 8, "gap", 12),
-                            Text(P.of("flex", 1, "size", 15, "lines", 2, "color", t.pal.label2), stat[0]),
-                            Text(P.of("size", 15, "lines", 1, "color", t.pal.label), stat[1])));
-                }
-                if (c.summary != null) {
-                    lines.add(Text(P.of("size", 13, "lh", 17.55, "lines", 4, "mt", 12, "color", t.pal.label2),
-                            c.summary));
-                }
-                return ListSection(P.of("key", key, "header", c.detail), ListPad(P.of("padY", 14), lines));
+                String header = c.title != null ? c.title : c.detail;
+                return ListSection(P.of("key", key, "header", header, "footer", c.summary), rows);
             }
             case NOTE:
                 return ListSection(P.of("key", key, "header", c.detail),
@@ -313,17 +310,21 @@ public final class CodexGlass {
         }
     }
 
-    /** A usage window: what's left in large type, a capsule bar, and when it resets. */
+    /**
+     * A usage window: its name and reset time, what's left in large type with a ring gauge, a
+     * capsule bar, and the pace as a row of its own (orange when it runs out early).
+     */
     private static El meter(GlassModel.Card c, KTheme t, String key) {
         boolean dark = "dark".equals(t.scheme);
         String fill = c.remaining <= 0.1 ? (dark ? "#ff453a" : "#ff3b30")
                 : c.remaining <= 0.25 ? (dark ? "#ff9f0a" : "#ff9500")
                 : (dark ? "#30d158" : "#34c759");
-        String track = t.pal.fill;
+        String warn = dark ? "#ff9f0a" : "#c93400";
         double v = Math.max(0, Math.min(1, c.remaining));
+        boolean pace = c.pace != null && !c.pace.isEmpty();
         return ListSection(P.of("key", key),
                 ListPad(P.of("padY", 16),
-                        Row(P.of("gap", 12),
+                        Row(P.of("gap", 10),
                                 Box(P.of("w", 30, "h", 30, "r", 8, "bg", tile(c.color), "align", "center",
                                         "justify", "center"),
                                         Icon(P.of("name", c.icon, "size", 19, "color", "#fff"))),
@@ -331,21 +332,21 @@ public final class CodexGlass {
                                         "color", t.pal.label), c.title),
                                 c.detail != null ? Text(P.of("size", 15, "ls", -0.2, "lines", 1,
                                         "color", t.pal.label2), c.detail) : null),
-                        Row(P.of("mt", 14, "align", "end", "gap", 6),
-                                Text(P.of("size", 34, "weight", 700, "ls", -1.19, "lh", 38.08,
+                        Row(P.of("mt", 12, "align", "end", "gap", 6),
+                                Text(P.of("size", 34, "weight", 700, "ls", -1.19, "lh", 38.08, "tabular", true,
                                         "color", t.pal.label), c.value),
-                                Text(P.of("size", 17, "ls", -0.34, "mb", 5, "color", t.pal.label2), "left")),
-                        Draw(P.of("h", 8, "mt", 12, "v", v, "fill", fill, "track", track,
-                                "draw", (NodeDraw) (cv, w, h, n, ax, ay) -> {
-                                    double r = h / 2;
-                                    cv.drawRRect(Sk.rrect(0, 0, w, h, r), Sk.paint(Sk.color(n.props.s("track"))));
-                                    double fw = Math.max(h, w * n.props.d("v", 0.0));
-                                    if (n.props.d("v", 0.0) > 0) {
-                                        cv.drawRRect(Sk.rrect(0, 0, fw, h, r), Sk.paint(Sk.color(n.props.s("fill"))));
-                                    }
-                                })),
-                        c.summary != null ? Text(P.of("size", 13, "lh", 17.55, "lines", 3, "mt", 10,
-                                "color", c.fast ? (dark ? "#ff9f0a" : "#c93400") : t.pal.label2), c.summary) : null));
+                                Text(P.of("flex", 1, "size", 17, "ls", -0.34, "mb", 5, "color", t.pal.label2),
+                                        "left")),
+                        ProgressBar(P.of("mt", 12, "h", 8, "value", v, "color", fill)),
+                        pace ? Row(P.of("mt", 14, "gap", 8, "align", "center"),
+                                Icon(P.of("name", c.fast ? "bolt" : "waveform", "size", 15,
+                                        "color", c.fast ? warn : t.pal.label2)),
+                                Text(P.of("flex", 1, "size", 15, "ls", -0.2, "lines", 1,
+                                        "color", c.fast ? warn : t.pal.label2), c.paceLabel),
+                                Text(P.of("size", 15, "weight", 600, "ls", -0.2, "lines", 1, "tabular", true,
+                                        "color", c.fast ? warn : t.pal.label), c.pace)) : null,
+                        !pace && c.summary != null ? Text(P.of("size", 13, "lh", 17.55, "lines", 3, "mt", 10,
+                                "color", c.fast ? warn : t.pal.label2), c.summary) : null));
     }
 
     private static String tile(String color) {
@@ -367,6 +368,19 @@ public final class CodexGlass {
                         cv.drawRRect(Sk.rrect(0, 0, fw, h, r), Sk.paint(Sk.color(n.props.s("fill"))));
                     }
                 }));
+    }
+
+    /** A row title with a capsule tag after it ("Experimental"), and its summary under. */
+    private static Object tagged(GlassModel.Row r, KTheme t) {
+        El title = Row(P.of("gap", 8, "align", "center"),
+                Text(P.of("size", 17, "ls", -0.34, "lh", 22, "lines", 1, "color", t.pal.label), r.title),
+                Box(P.of("h", 20, "r", 10, "padX", 8, "justify", "center", "bg", t.pal.fill),
+                        Text(P.of("size", 12, "weight", 600, "lines", 1, "color", t.accent), r.tag)));
+        if (r.summary == null || r.summary.isEmpty()) {
+            return Box(P.of("flex", 1), title);
+        }
+        return Box(P.of("flex", 1, "gap", 2), title,
+                Text(P.of("size", 13, "lh", 16.5, "lines", 3, "color", t.pal.label2), r.summary));
     }
 
     /** A row label with a smaller second line under it. */
@@ -592,6 +606,30 @@ public final class CodexGlass {
         return ListSection(P.of("key", key, "header", section.header, "footer", section.footer), rows);
     }
 
+    /** A CHOICE row whose value opens an anchored glass pop-up menu (Picker .menu in a Form). */
+    private static final Comp ChoiceRow = p -> {
+        KTheme t = Kit.useTheme();
+        GlassModel.Row r = p.g("r");
+        OnInt choose = p.g("choose");
+        State<Boolean> open = R.useState(false);
+        List<PopupItem> items = new ArrayList<>();
+        for (int i = 0; i < r.entries.length; i++) {
+            int index = i;
+            items.add(new PopupItem(r.entries[i]).checked(i == r.selected).onSelect(() -> choose.on(index)));
+        }
+        String value = r.selected >= 0 && r.selected < r.entries.length ? shortValue(r.entries[r.selected]) : null;
+        return R.frag(
+                ListRow(P.of("h", p.d("h", 52.0), "icon", p.s("icon"), "color", r.color, "label", p.get("label"),
+                                "leading", p.get("leading"),
+                                "onPress", r.enabled ? (Runnable) () -> open.set(true) : null),
+                        Row(P.of("gap", 5, "align", "center", "ml", 8),
+                                value != null ? Text(P.of("size", 17, "ls", -0.34, "lines", 1,
+                                        "color", t.pal.label2), value) : null,
+                                Icon(P.of("name", "chevronUpDown", "size", 15, "color", t.pal.label2)))),
+                GlassPopupMenu(P.of("open", open.get(), "onClose", (Runnable) () -> open.set(false),
+                        "items", items, "width", 280)));
+    };
+
     private static El row(GlassModel.Row r, String pageId, GlassSource src, OnStr push, KTheme t) {
         return row(r, pageId, src, push, t, null);
     }
@@ -599,7 +637,7 @@ public final class CodexGlass {
     private static El row(GlassModel.Row r, String pageId, GlassSource src, OnStr push, KTheme t, El extra) {
         String key = r.key != null ? r.key : r.title;
         double h = rowHeight(r);
-        Object label = twoLine(r.title, r.summary, t);
+        Object label = r.tag != null ? tagged(r, t) : twoLine(r.title, r.summary, t);
         OnBool toggle = v -> {
             if (r.onToggle != null) {
                 r.onToggle.on(v);
@@ -638,7 +676,8 @@ public final class CodexGlass {
                         Icon(P.of("name", "chevronRight", "size", 15, "color", t.pal.label3)));
                 break;
             case BUTTON:
-                el = ListPad(P.of("key", key, "padY", 4, "padX", 0),
+                // inset from the card's rounded edges like the other rows
+                el = ListPad(P.of("key", key, "padY", 12, "padX", 16),
                         GlassButton(P.of("variant", "filled", "label", r.title, "h", 50, "r", 25,
                                 "fillColor", r.destructive ? null : t.accent,
                                 "color", r.destructive ? red(t) : "#fff", "onPress", press)));
@@ -662,6 +701,31 @@ public final class CodexGlass {
                 el = ListPad(P.of("key", key, "padY", 16),
                         Img(P.of("src", GlassImages.of(r.image), "h", r.imageHeight, "fit", "contain")));
                 break;
+            case FIELD: {
+                OnStr typed = text -> {
+                    if (r.onText != null) {
+                        r.onText.on(text);
+                    }
+                };
+                el = Row(P.of("key", key, "align", "center", "padR", r.onPress != null ? 12 : 0),
+                        Box(P.of("flex", 1),
+                                TextFieldRow(P.of("label", r.title.isEmpty() ? null : r.title,
+                                        "value", r.value == null ? "" : r.value, "placeholder", r.hint,
+                                        "secure", r.secret, "onChange", typed))),
+                        r.onPress != null ? GlassButton(P.of("label", "Paste", "h", 34, "padX", 14,
+                                "onPress", r.onPress)) : null);
+                break;
+            }
+            case CODE:
+                el = ListPad(P.of("key", key, "padY", 18, "align", "center"),
+                        r.title.isEmpty() ? null : Text(P.of("size", 13, "lines", 1, "color", t.pal.label2,
+                                "align", "center"), r.title),
+                        Text(P.of("size", 34, "weight", 700, "ls", 3, "lines", 1, "mt", 6, "tabular", true,
+                                "align", "center", "color", t.pal.label), r.value == null ? "" : r.value),
+                        r.summary == null ? null : Row(P.of("mt", 12, "gap", 8, "align", "center"),
+                                ActivityIndicator(P.of()),
+                                Text(P.of("size", 15, "lines", 2, "color", t.pal.label2), r.summary)));
+                break;
             case TEXT:
                 el = ListPad(P.of("key", key, "padY", 12),
                         r.title.isEmpty() ? null : Text(P.of("size", 17, "weight", 600, "lines", 2, "mb", 4,
@@ -670,6 +734,12 @@ public final class CodexGlass {
                                 r.summary == null ? "" : r.summary));
                 break;
             case CHOICE:
+                if (r.entries != null && r.entries.length > 0 && r.entries.length <= 12) {
+                    // iOS 26's pop-up menu: the choices grow out of the row's value, the current one checked
+                    el = R.h(ChoiceRow, P.of("key", key, "r", r, "h", h, "icon", icon, "label", label,
+                            "leading", leading, "choose", choose));
+                    break;
+                }
                 el = ListRow(P.of("key", key, "h", h, "icon", icon, "color", r.color, "label", label,
                         "leading", leading,
                         "value", r.selected >= 0 && r.entries != null && r.selected < r.entries.length
