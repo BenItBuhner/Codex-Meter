@@ -45,7 +45,7 @@ public final class SettingsActivity extends AppCompatActivity {
         super.attachBaseContext(DesignChrome.wrap(base));
     }
 
-    private static final String EXTRA_PAGE = "settings_page";
+    static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
     private static final String PAGE_ACCOUNTS = "accounts";
     private static final String PAGE_APPEARANCE = "appearance";
@@ -70,6 +70,15 @@ public final class SettingsActivity extends AppCompatActivity {
         super.onCreate(bundle);
         AppPreferences.setAppStyle(this, WidgetOptions.SURFACE_ONE_UI);
         String page = normalizePage(getIntent().getStringExtra(EXTRA_PAGE));
+        if (AppPreferences.isLiquidGlassDesign(this)) {
+            // Liquid Glass Settings are glass screens in the main activity.
+            startActivity(new Intent(this, MainActivity.class)
+                    .putExtra(GlassApp.EXTRA_SETTINGS_PAGE, page)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+            overridePendingTransition(0, 0);
+            return;
+        }
         Ui.installSettingsPage(this, pageTitle(page));
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
@@ -78,7 +87,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private static String normalizePage(String page) {
+    static String normalizePage(String page) {
         if (PAGE_ACCOUNTS.equals(page)
                 || PAGE_APPEARANCE.equals(page)
                 || PAGE_REFRESH_USAGE.equals(page)
@@ -95,7 +104,7 @@ public final class SettingsActivity extends AppCompatActivity {
         return PAGE_ROOT;
     }
 
-    private static String pageTitle(String page) {
+    static String pageTitle(String page) {
         switch (page) {
             case PAGE_ACCOUNTS:
                 return "Accounts";
@@ -249,8 +258,9 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onViewCreated(View view, Bundle bundle) {
             super.onViewCreated(view, bundle);
-            if (AppPreferences.isOneUi9Design(requireContext())) {
-                // One UI 9: the list runs edge to edge under the floating toolbar and fades, so
+            if (AppPreferences.isOneUi9Design(requireContext())
+                    || AppPreferences.isLiquidGlassDesign(requireContext())) {
+                // One UI 9 and Liquid Glass: the list runs edge to edge under the floating toolbar and fades, so
                 // it has no backdrop of its own and no rounded list edges; each row group keeps
                 // its own card.
                 view.setBackgroundColor(Color.TRANSPARENT);
@@ -342,7 +352,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             findPreference("clear_diagnostic_logs").setOnPreferenceClickListener(preference -> {
-                new AlertDialog.Builder(requireContext())
+                new AppDialog(requireContext())
                         .setTitle("Clear diagnostic logs?")
                         .setMessage("This permanently deletes all saved diagnostic events.")
                         .setNegativeButton("Cancel", null)
@@ -439,7 +449,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     ? "System default"
                     : WidgetOptions.THEME_DARK.equals(theme) ? "Dark" : "Light";
             findPreference("settings_appearance").setSummary(themeLabel
-                    + (AppPreferences.isOneUi9Design(context) ? " · One UI 9" : ""));
+                    + " · " + designLabel(context));
 
             findPreference("settings_refresh_usage").setSummary(refreshSummary(context));
             findPreference("settings_reset_credits").setSummary(resetCreditsSummary(context));
@@ -574,7 +584,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void confirmSignOut(UsageProvider provider) {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Sign out of " + provider.accountName + "?")
                     .setMessage("This removes encrypted " + provider.accountName
                             + " tokens and cached " + provider.displayName
@@ -632,26 +642,47 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindDesign() {
-            SwitchPreferenceCompat oneUi9 = findPreference("one_ui_9_design");
-            oneUi9.setPersistent(false);
-            oneUi9.setChecked(AppPreferences.isOneUi9Design(requireContext()));
-            oneUi9.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setOneUi9Design(requireContext(), (Boolean) value);
+            ListPreference design = findPreference("app_design_ui");
+            design.setPersistent(false);
+            design.setValue(AppPreferences.getDesign(requireContext()));
+            design.setSummary(designLabel(requireContext()));
+            design.setOnPreferenceChangeListener((preference, value) -> {
+                String choice = String.valueOf(value);
+                if (choice.equals(AppPreferences.getDesign(requireContext()))) {
+                    return false;
+                }
+                AppPreferences.setDesign(requireContext(), choice);
+                design.setValue(choice);
+                design.setSummary(designLabel(requireContext()));
                 // Restart the whole app so every page is built fresh with the new design.
                 Activity activity = requireActivity();
                 getListView().postDelayed(() -> restartForDesign(activity), 250);
-                return true;
+                return false;
             });
+        }
+
+        /** The name of the current design, as Settings → Appearance lists it. */
+        static String designLabel(Context context) {
+            String design = AppPreferences.getDesign(context);
+            if (AppPreferences.DESIGN_LIQUID_GLASS.equals(design)) {
+                return "Liquid Glass";
+            }
+            return AppPreferences.DESIGN_ONE_UI_9.equals(design) ? "One UI 9" : "One UI 8.5";
         }
 
         /** Relaunches the app on Settings → Appearance in a fresh process. */
         private static void restartForDesign(Activity activity) {
             Intent main = new Intent(activity, MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            Intent settings = new Intent(activity, SettingsActivity.class);
-            Intent appearance = new Intent(activity, SettingsActivity.class)
-                    .putExtra(EXTRA_PAGE, PAGE_APPEARANCE);
-            activity.startActivities(new Intent[] {main, settings, appearance});
+            if (AppPreferences.isLiquidGlassDesign(activity)) {
+                // Liquid Glass Settings live in the main activity: open it at Appearance.
+                activity.startActivity(main.putExtra(GlassApp.EXTRA_SETTINGS_PAGE, PAGE_APPEARANCE));
+            } else {
+                Intent settings = new Intent(activity, SettingsActivity.class);
+                Intent appearance = new Intent(activity, SettingsActivity.class)
+                        .putExtra(EXTRA_PAGE, PAGE_APPEARANCE);
+                activity.startActivities(new Intent[] {main, settings, appearance});
+            }
             activity.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             activity.finishAffinity();
             Runtime.getRuntime().exit(0);
@@ -703,7 +734,7 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             String[] names = new String[tabs.size()];
             for (int i = 0; i < tabs.size(); i++) names[i] = tabs.get(i).displayName;
-            new AlertDialog.Builder(context)
+            new AppDialog(context)
                     .setTitle("Edit which dashboard?")
                     .setItems(names, (dialog, which) -> openDashboardEditor(tabs.get(which)))
                     .setNegativeButton("Cancel", null)
@@ -764,7 +795,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     metric.setVisible(false);
                     return true;
                 }
-                new AlertDialog.Builder(requireContext())
+                new AppDialog(requireContext())
                         .setTitle("Use resets automatically?")
                         .setMessage("Codex Meter will spend one banked reset when your "
                                 + "remaining usage reaches the level you choose. It checks "
@@ -850,7 +881,7 @@ public final class SettingsActivity extends AppCompatActivity {
                         preference.setEnabled(true);
                         preference.setSummary(CHECK_SUMMARY);
                         updateResetStatus();
-                        new AlertDialog.Builder(requireContext())
+                        new AppDialog(requireContext())
                                 .setTitle("Claude Code resets")
                                 .setMessage(report)
                                 .setPositiveButton("Close", null)
@@ -957,7 +988,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     metric.setVisible(false);
                     return true;
                 }
-                new AlertDialog.Builder(requireContext())
+                new AppDialog(requireContext())
                         .setTitle("Use resets automatically?")
                         .setMessage("Codex Meter will spend one banked reset when your "
                                 + "remaining usage reaches the level you choose. It checks "
@@ -1026,7 +1057,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     return true;
                 }
                 if (UpdateChannel.ALPHA.equals(channel)) {
-                    new AlertDialog.Builder(requireContext())
+                    new AppDialog(requireContext())
                             .setTitle("Switch to the alpha channel?")
                             .setMessage("Alpha builds ship faster with less testing and may be "
                                     + "unstable. They use the same signing key and version code "
@@ -1301,7 +1332,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private void showExpiryReminderTimesDialog() {
             List<Long> leadTimes = ResetAlertPreferences.getResetCreditExpiryLeadTimes(
                     requireContext());
-            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext())
+            AlertDialog.Builder builder = new AppDialog(requireContext())
                     .setTitle("Reminder times")
                     .setNeutralButton("Add", (dialog, which) ->
                             showAddExpiryReminderDialog())
@@ -1328,6 +1359,11 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void showAddExpiryReminderDialog() {
+            GlassApp glass = GlassApp.of(requireContext());
+            if (glass != null) {
+                showGlassReminderSheet(glass);
+                return;
+            }
             boolean dark = Ui.isDark(requireContext());
             LinearLayout container = new LinearLayout(requireContext());
             container.setOrientation(LinearLayout.VERTICAL);
@@ -1359,7 +1395,7 @@ public final class SettingsActivity extends AppCompatActivity {
             inputRow.addView(unit, unitParams);
             container.addView(inputRow, rowParams);
 
-            AlertDialog dialog = new AlertDialog.Builder(requireContext())
+            AlertDialog dialog = new AppDialog(requireContext())
                     .setTitle("Add reminder time")
                     .setView(container)
                     .setNegativeButton("Cancel", null)
@@ -1382,6 +1418,48 @@ public final class SettingsActivity extends AppCompatActivity {
                         dialog.dismiss();
                     }));
             dialog.show();
+        }
+
+        /** Liquid Glass: the same reminder time, picked with − and + and a unit, in a sheet. */
+        private void showGlassReminderSheet(GlassApp glass) {
+            dev.bennett.codexmeter.glass.GlassModel.Dialog sheet =
+                    new dev.bennett.codexmeter.glass.GlassModel.Dialog();
+            dev.bennett.codexmeter.glass.GlassModel.Amount amount =
+                    new dev.bennett.codexmeter.glass.GlassModel.Amount();
+            sheet.title = "Add reminder time";
+            sheet.message = "Notify me this long before each available reset credit expires.";
+            amount.units = new String[] {"Minutes", "Hours", "Days", "Weeks"};
+            amount.unit = 1;
+            amount.onValue = value -> {
+                amount.value = value;
+                amount.note = null;
+                glass.changed();
+            };
+            amount.onUnit = unit -> {
+                amount.unit = unit;
+                amount.note = null;
+                glass.changed();
+            };
+            sheet.amount = amount;
+            sheet.buttons.add(new dev.bennett.codexmeter.glass.GlassModel.Dialog.Button("Cancel",
+                    dev.bennett.codexmeter.glass.GlassModel.Dialog.CANCEL, () -> glass.closeDialog(sheet)));
+            sheet.buttons.add(new dev.bennett.codexmeter.glass.GlassModel.Dialog.Button("Add",
+                    dev.bennett.codexmeter.glass.GlassModel.Dialog.PROMINENT, () -> {
+                        Long leadTime = parseLeadTime(String.valueOf(amount.value), amount.unit);
+                        if (leadTime == null) {
+                            amount.note = "Enter a time from 1 minute to 1 year.";
+                            amount.error = true;
+                            glass.changed();
+                            return;
+                        }
+                        List<Long> updated = new ArrayList<>(
+                                ResetAlertPreferences.getResetCreditExpiryLeadTimes(requireContext()));
+                        if (!updated.contains(leadTime)) updated.add(leadTime);
+                        saveExpiryLeadTimes(updated);
+                        glass.closeDialog(sheet);
+                    }));
+            sheet.onClose = () -> glass.closeDialog(sheet);
+            glass.showDialog(sheet);
         }
 
         private Long parseLeadTime(String amount, int unitPosition) {
@@ -1764,7 +1842,7 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             String[] names = new String[providers.size()];
             for (int i = 0; i < providers.size(); i++) names[i] = providers.get(i).displayName;
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Show usage for")
                     .setItems(names, (dialog, which) -> pickAppFor(providers.get(which)))
                     .setNegativeButton("Cancel", null)
@@ -1858,7 +1936,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     return view;
                 }
             };
-            new AlertDialog.Builder(context)
+            new AppDialog(context)
                     .setTitle("Show " + provider.displayName + " in")
                     .setAdapter(adapter, (dialog, which) -> {
                         AppSessionPreferences.addApp(requireContext(), packages.get(which),
@@ -1883,7 +1961,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     + "In Accessibility, open Installed apps → Codex Meter app detection and "
                     + "turn it on. If the switch is greyed out, go back, open App info → ⋮ → "
                     + "Allow restricted settings, then try again.";
-            new AlertDialog.Builder(context)
+            new AppDialog(context)
                     .setTitle(allowed ? "App detection is on" : "Allow app detection")
                     .setMessage(allowed ? "Codex Meter app detection only reads the package "
                             + "name of the app in front: no text, no taps or typing, and nothing "
@@ -1917,7 +1995,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void showSamsungNowBarHelp() {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Samsung Now Bar setup")
                     .setMessage("For Android Live Updates:\n"
                             + "1. Open Settings > About phone/tablet > Software information.\n"
@@ -2159,7 +2237,7 @@ public final class SettingsActivity extends AppCompatActivity {
                             : "Sign in first to export ChatGPT authentication")
             };
             boolean[] checked = {true, true, true, false};
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Export sections")
                     .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> {
                         if (which == 3 && isChecked && !signedIn) {
@@ -2192,7 +2270,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void confirmSensitiveExport(boolean appSettings, boolean notifications,
                 boolean nowBar, boolean authentication) {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Authentication will be included")
                     .setMessage(SettingsTransfer.SECURITY_WARNING
                             + "\n\nOnly continue if you are moving Codex Meter to another device "
@@ -2277,7 +2355,7 @@ public final class SettingsActivity extends AppCompatActivity {
                         + "\n" + SettingsTransfer.sectionSummary(section) + warning;
                 checked[i] = !SettingsTransfer.isAuthenticationSection(section);
             }
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Import sections")
                     .setMultiChoiceItems(labels, checked,
                             (dialog, which, isChecked) -> checked[which] = isChecked)
@@ -2319,7 +2397,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private void confirmSensitiveImport(SettingsTransfer.Document document,
                 boolean appSettings, boolean notifications, boolean nowBar,
                 boolean authentication) {
-            new AlertDialog.Builder(requireContext())
+            new AppDialog(requireContext())
                     .setTitle("Import authentication?")
                     .setMessage(SettingsTransfer.SECURITY_WARNING
                             + "\n\nThis replaces ChatGPT sign-in on this device with the tokens "

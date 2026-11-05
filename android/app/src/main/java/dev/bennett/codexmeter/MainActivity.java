@@ -1,7 +1,7 @@
 package dev.bennett.codexmeter;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -39,7 +39,7 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.widget.BottomTabLayout;
 
 /* JADX INFO: loaded from: classes.dex */
-public final class MainActivity extends AppCompatActivity {
+public final class MainActivity extends AppCompatActivity implements GlassApp.Host {
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(DesignChrome.wrap(base));
@@ -78,8 +78,10 @@ public final class MainActivity extends AppCompatActivity {
     /** Slots still in the tab menu; the layout inflates all of them. */
     private int menuSlots = TAB_SLOTS.length;
     private Ui.Header header;
-    /** One UI 9 design: SESL9's floating tab bar instead of the stock tabs. */
-    private OneUi9ProviderBar oneUi9Bar;
+    /** One UI 9 and Liquid Glass designs: a floating tab bar instead of the stock tabs. */
+    private ProviderBar oneUi9Bar;
+    /** The Liquid Glass design: Glassé's screens in place of the One UI views; null otherwise. */
+    private GlassApp glass;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -125,6 +127,18 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
+        if (AppPreferences.isLiquidGlassDesign(this)) {
+            this.glass = new GlassApp(this, super::dispatchTouchEvent);
+            this.glass.start(bundle);
+            this.provider = ProviderPreferences.getSelected(this);
+            applyEnabledProviders();
+            handleLaunchIntent(getIntent());
+            WidgetUpgradeRepair.runIfNeeded(this);
+            rebuild();
+            RefreshScheduler.schedulePeriodic(this);
+            ReleaseUpdateScheduler.ensureScheduled(this);
+            return;
+        }
         Ui.Page page = Ui.installPage(this, "Codex Meter", false,
                 R.layout.activity_main_dashboard);
         this.content = page.content;
@@ -188,6 +202,14 @@ public final class MainActivity extends AppCompatActivity {
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        if (this.glass != null) {
+            this.glass.onResume();
+            this.glass.applyTheme();
+            applyEnabledProviders();
+            handleLaunchIntent(getIntent());
+            rebuild();
+            return;
+        }
         String appTheme = AppPreferences.getAppTheme(this);
         boolean zIsDark = Ui.isDark(this);
         boolean materialYou = AppPreferences.isMaterialYouEnabled(this);
@@ -257,13 +279,117 @@ public final class MainActivity extends AppCompatActivity {
         super.onStop();
     }
 
+    @Override
+    protected void onPause() {
+        if (this.glass != null) {
+            this.glass.onPause();
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle out) {
+        super.onSaveInstanceState(out);
+        if (this.glass != null) {
+            this.glass.save(out);
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        if (this.glass != null) {
+            this.glass.onConfigurationChanged(config);
+        }
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        return this.glass != null ? this.glass.dispatchTouchEvent(ev) : super.dispatchTouchEvent(ev);
+    }
+
+    /** Liquid Glass: Settings opens as the glass Settings screen, not the One UI activity. */
+    @Override
+    @SuppressWarnings("deprecation")
+    public void startActivityForResult(Intent intent, int requestCode, Bundle options) {
+        if (this.glass != null && this.glass.intercept(intent)) {
+            return;
+        }
+        super.startActivityForResult(intent, requestCode, options);
+    }
+
+    /**
+     * Liquid Glass draws its own theme, so a theme change (Settings › Appearance) redraws the
+     * glass screens instead of rebuilding the activity.
+     */
+    @Override
+    public void recreate() {
+        if (this.glass != null) {
+            this.glass.applyTheme();
+            return;
+        }
+        super.recreate();
+    }
+
+    @Override
+    public GlassApp glass() {
+        return this.glass;
+    }
+
+    UsageProvider glassProvider() {
+        return this.provider;
+    }
+
+    void glassSelectProvider(UsageProvider selected) {
+        if (ProviderPreferences.getEnabled(this).contains(selected)) {
+            selectProvider(selected);
+        }
+    }
+
+    void glassRefresh() {
+        setRefreshing(true);
+        refreshFromPull();
+    }
+
+    void glassEditDashboard() {
+        DiagnosticLog.info(this, "user", "dashboard_editor_opened");
+        Ui.startSecondaryActivity(this, new Intent(this, DashboardReorderActivity.class)
+                .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, this.provider.id));
+    }
+
+    private void setRefreshing(boolean refreshing) {
+        if (this.swipeRefresh != null) {
+            this.swipeRefresh.setRefreshing(refreshing);
+        }
+        if (this.glass != null) {
+            this.glass.setRefreshing(refreshing);
+        }
+    }
+
     @Override // android.app.Activity
     protected void onDestroy() {
+        if (this.glass != null) {
+            this.glass.onDestroy();
+        }
         this.executor.shutdownNow();
         super.onDestroy();
     }
 
     private void handleLaunchIntent(Intent intent) {
+        String glassPage = intent == null ? null : intent.getStringExtra(GlassApp.EXTRA_SETTINGS_PAGE);
+        if (glassPage != null) {
+            intent.removeExtra(GlassApp.EXTRA_SETTINGS_PAGE);
+            if (this.glass != null) {
+                this.glass.openSettings(glassPage, true);
+            }
+        }
+        Intent glassIntent = intent == null ? null : intent.getParcelableExtra(GlassApp.EXTRA_GLASS_INTENT);
+        if (glassIntent != null) {
+            intent.removeExtra(GlassApp.EXTRA_GLASS_INTENT);
+            if (this.glass != null) {
+                this.glass.intercept(glassIntent);
+            }
+        }
         String requestedProvider = intent == null ? null
                 : intent.getStringExtra(EXTRA_PROVIDER);
         if (requestedProvider != null) {
@@ -433,9 +559,7 @@ public final class MainActivity extends AppCompatActivity {
         DiagnosticLog.info(this, "user", "provider_selected", "provider", selected.id);
         this.provider = selected;
         ProviderPreferences.setSelected(this, selected);
-        if (this.swipeRefresh != null) {
-            this.swipeRefresh.setRefreshing(false);
-        }
+        setRefreshing(false);
         rebuild();
         refreshSelectedProviderIfStale();
     }
@@ -449,25 +573,19 @@ public final class MainActivity extends AppCompatActivity {
                 && SecureTokenStore.isSignedIn(this, UsageProvider.CLAUDE_CODE)
                 && AppPreferences.getRefreshOnLaunch(this)
                 && ClaudeUsageApi.isStale(this)) {
-            if (this.swipeRefresh != null) {
-                this.swipeRefresh.setRefreshing(true);
-            }
+            setRefreshing(true);
             refreshProvider(UsageProvider.CLAUDE_CODE, "tab");
         } else if (this.provider == UsageProvider.CURSOR
                 && SecureTokenStore.isSignedIn(this, UsageProvider.CURSOR)
                 && AppPreferences.getRefreshOnLaunch(this)
                 && CursorUsageApi.isStale(this)) {
-            if (this.swipeRefresh != null) {
-                this.swipeRefresh.setRefreshing(true);
-            }
+            setRefreshing(true);
             refreshProvider(UsageProvider.CURSOR, "tab");
         } else if (ProviderUsageApi.handles(this.provider)
                 && SecureTokenStore.isSignedIn(this, this.provider)
                 && AppPreferences.getRefreshOnLaunch(this)
                 && ProviderUsageApi.isStale(this, this.provider)) {
-            if (this.swipeRefresh != null) {
-                this.swipeRefresh.setRefreshing(true);
-            }
+            setRefreshing(true);
             refreshProvider(this.provider, "tab");
         }
     }
@@ -485,6 +603,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void rebuild() {
+        if (this.glass != null) {
+            this.glass.changed();
+            return;
+        }
         applyProviderTitle();
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
@@ -709,39 +831,16 @@ public final class MainActivity extends AppCompatActivity {
         card.addView(detail, detailParams);
 
         // Windows still waiting for usage data would only render a blank "Waiting for usage
-        // data" chart, so they are dropped from the card until OpenAI reports them.
+        // data" chart, so they are dropped from the card until the provider reports them.
+        // Longer windows come first and the 5-hour chart sits at the bottom.
         boolean hasCharts = false;
-        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
-        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView fiveChart = new UsageBurnChartView(this);
-            fiveChart.setData("5-hour", fiveWindow,
-                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.FIVE_HOUR),
-                    snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, target, snapshot, fiveWindow, now));
-            card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
-            hasCharts = true;
-        }
-
-        UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
-        if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
-            weeklyChart.setData("Weekly", weeklyWindow,
-                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.WEEKLY),
-                    snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, target, snapshot, weeklyWindow, now));
-            card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
-            hasCharts = true;
-        }
-
-        UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
-        if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
-            monthlyChart.setData("Monthly", monthlyWindow,
-                    ProviderPreferences.loadUsageHistory(this, target, UsageHistory.MONTHLY),
-                    snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, target, snapshot, monthlyWindow, now));
-            card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
-            hasCharts = true;
+        if (snapshot != null && snapshot.fetchedAtMillis > 0L) {
+            hasCharts |= addBurnChart(card, target, snapshot, "Weekly", snapshot.weekly,
+                    UsageHistory.WEEKLY, now);
+            hasCharts |= addBurnChart(card, target, snapshot, "Monthly", snapshot.monthly,
+                    UsageHistory.MONTHLY, now);
+            hasCharts |= addBurnChart(card, target, snapshot, "5-hour", snapshot.fiveHour,
+                    UsageHistory.FIVE_HOUR, now);
         }
 
         if (!hasCharts) {
@@ -761,6 +860,19 @@ public final class MainActivity extends AppCompatActivity {
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
         return card;
+    }
+
+    private boolean addBurnChart(LinearLayout card, UsageProvider target,
+            UsageSnapshot snapshot, String label, UsageWindow window, String historyKind,
+            long now) {
+        if (window == null) return false;
+        UsageBurnChartView chart = new UsageBurnChartView(this);
+        chart.setData(label, window,
+                ProviderPreferences.loadUsageHistory(this, target, historyKind),
+                snapshot.fetchedAtMillis,
+                UsagePacePreferences.assess(this, target, snapshot, window, now));
+        card.addView(chart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+        return true;
     }
 
     private LinearLayout buildUsageCreditsCard(UsageCredits credits) {
@@ -860,7 +972,7 @@ public final class MainActivity extends AppCompatActivity {
         return row;
     }
 
-    private static String usageCreditBalance(UsageCredits credits) {
+    static String usageCreditBalance(UsageCredits credits) {
         if (credits.unlimited) {
             return "Unlimited";
         }
@@ -877,7 +989,7 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static String usageCreditsSummary(UsageCredits credits) {
+    static String usageCreditsSummary(UsageCredits credits) {
         if (credits.unlimited) {
             return "Usage-credit balance is not capped";
         }
@@ -887,7 +999,7 @@ public final class MainActivity extends AppCompatActivity {
         return "Purchased Codex usage-credit balance";
     }
 
-    private static String cadenceLabel(UsageWindow window) {
+    static String cadenceLabel(UsageWindow window) {
         long seconds = window.windowSeconds;
         if (seconds >= 432_000L && seconds <= 777_600L) {
             return "Weekly";
@@ -913,7 +1025,7 @@ public final class MainActivity extends AppCompatActivity {
         return "Usage";
     }
 
-    private static String limitTitle(UsageLimit limit) {
+    static String limitTitle(UsageLimit limit) {
         if (limit.limitReached) {
             return limit.displayName() + " (limit reached)";
         }
@@ -1069,7 +1181,7 @@ public final class MainActivity extends AppCompatActivity {
         return available + " resets available";
     }
 
-    private String resetCreditsSummary(boolean signedIn, int available, long nextExpiry,
+    String resetCreditsSummary(boolean signedIn, int available, long nextExpiry,
             long now) {
         if (!signedIn) {
             return "Sign in to view reset credits";
@@ -1092,7 +1204,7 @@ public final class MainActivity extends AppCompatActivity {
      * Prefer the detailed reset-credits cache; fall back to the usage-endpoint summary count.
      * Unknown inventory never surfaces an empty card.
      */
-    private boolean shouldShowResetCreditsCard(UsageSnapshot snapshot) {
+    boolean shouldShowResetCreditsCard(UsageSnapshot snapshot) {
         ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(this);
         if (credits != null) {
             return credits.shouldDisplay();
@@ -1247,7 +1359,7 @@ public final class MainActivity extends AppCompatActivity {
     private void refreshFromPull() {
         if (this.provider != UsageProvider.CODEX) {
             if (!SecureTokenStore.isSignedIn(this, this.provider)) {
-                this.swipeRefresh.setRefreshing(false);
+                setRefreshing(false);
                 Toast.makeText(this, this.provider.signInLabel() + " to refresh usage.",
                         Toast.LENGTH_SHORT).show();
                 return;
@@ -1259,7 +1371,7 @@ public final class MainActivity extends AppCompatActivity {
         if (!SecureTokenStore.isSignedIn(this)) {
             DiagnosticLog.warn(this, "user", "manual_refresh_rejected",
                     "source", "pull", "reason", "signed_out");
-            this.swipeRefresh.setRefreshing(false);
+            setRefreshing(false);
             Toast.makeText(this, "Sign in from Settings to refresh usage.", Toast.LENGTH_SHORT).show();
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return;
@@ -1272,7 +1384,7 @@ public final class MainActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     DiagnosticLog.info(applicationContext, "user",
                             "manual_refresh_finished", "source", "pull");
-                    this.swipeRefresh.setRefreshing(false);
+                    setRefreshing(false);
                     rebuild();
                 });
             } catch (Exception e) {
@@ -1281,7 +1393,7 @@ public final class MainActivity extends AppCompatActivity {
                 AppPreferences.setLastError(applicationContext, safeMessage(e));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
-                    this.swipeRefresh.setRefreshing(false);
+                    setRefreshing(false);
                     Toast.makeText(this, safeMessage(e), Toast.LENGTH_LONG).show();
                     rebuild();
                 });
@@ -1290,7 +1402,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void confirmSignOut() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Sign out?").setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Sign out", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.10
+        AlertDialog dialog = new AppDialog(this).setTitle("Sign out?").setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Sign out", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.10
             @Override // android.content.DialogInterface.OnClickListener
             public void onClick(DialogInterface dialogInterface, int i) {
                 MainActivity.this.signOut();
@@ -1371,14 +1483,11 @@ public final class MainActivity extends AppCompatActivity {
                             snapshot, snapshot.fiveHour, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.WEEKLY.equals(key)) {
-                    addDashboardCard(column, buildMetricCard(
-                            target == UsageProvider.CURSOR ? "Included usage · Weekly" : "Weekly",
+                    addDashboardCard(column, buildMetricCard("Weekly",
                             snapshot, snapshot.weekly, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.MONTHLY.equals(key)) {
-                    addDashboardCard(column, buildMetricCard(
-                            target == UsageProvider.CURSOR ? "Included usage · Monthly"
-                                    : "Monthly",
+                    addDashboardCard(column, buildMetricCard("Monthly",
                             snapshot, snapshot.monthly, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
@@ -1440,8 +1549,7 @@ public final class MainActivity extends AppCompatActivity {
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         String limits = target == UsageProvider.CURSOR
-                ? " included usage and when it refreshes, plus any extra spend on top of "
-                        + "your plan."
+                ? " usage and when it refreshes, plus any extra spend on top of your plan."
                 : target == UsageProvider.CLAUDE_CODE
                         ? " 5-hour and weekly limits, plus any model-only allocation your plan "
                                 + "has."
@@ -1477,9 +1585,7 @@ public final class MainActivity extends AppCompatActivity {
             }
             final String message = failure;
             runOnUiThread(() -> {
-                if (this.swipeRefresh != null) {
-                    this.swipeRefresh.setRefreshing(false);
-                }
+                setRefreshing(false);
                 if (message != null && !"tab".equals(source)) {
                     Toast.makeText(this, message, Toast.LENGTH_LONG).show();
                 }
@@ -1495,7 +1601,7 @@ public final class MainActivity extends AppCompatActivity {
             appWidgetManager.requestPinAppWidget(componentName, null, null);
             Toast.makeText(this, "Choose a size and place the widget on your home screen.", Toast.LENGTH_LONG).show();
         } else {
-            AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
+            AlertDialog dialog = new AppDialog(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
             dialog.show();
         }
     }

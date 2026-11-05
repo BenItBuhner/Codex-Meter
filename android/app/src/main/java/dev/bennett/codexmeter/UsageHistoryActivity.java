@@ -48,6 +48,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         dark = Ui.isDark(this);
         provider = UsageProvider.fromId(getIntent().getStringExtra(EXTRA_PROVIDER));
         content = Ui.installPage(this, provider == UsageProvider.CODEX ? "Usage history"
@@ -87,7 +90,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             labels[i] = HistorySections.label(keys.get(i));
             checked[i] = AppPreferences.isHistorySectionVisible(this, keys.get(i));
         }
-        new AlertDialog.Builder(this)
+        new AppDialog(this)
                 .setTitle("Highlights to show")
                 .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) ->
                         AppPreferences.setHistorySectionVisible(this, keys.get(which), isChecked))
@@ -126,12 +129,8 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         }
 
         // Windows still waiting for usage data are skipped instead of rendering blank charts.
+        // Longer windows first, matching the dashboard card; the 5-hour chart is last.
         boolean hasCharts = false;
-        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
-        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
-            addWindowSection("5-hour", fiveWindow, snapshot, five, pricing);
-            hasCharts = true;
-        }
         UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
         if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
             addWindowSection("Weekly", weeklyWindow, snapshot, weekly, pricing);
@@ -140,6 +139,11 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
         if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
             addWindowSection("Monthly", monthlyWindow, snapshot, monthly, pricing);
+            hasCharts = true;
+        }
+        UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
+        if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
+            addWindowSection("5-hour", fiveWindow, snapshot, five, pricing);
             hasCharts = true;
         }
         if (!hasCharts) {
@@ -161,7 +165,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         Button clear = Ui.button(this, "Clear local history", false, dark);
         clear.setEnabled(!five.samples.isEmpty() || !weekly.samples.isEmpty()
                 || !monthly.samples.isEmpty());
-        clear.setOnClickListener(view -> new AlertDialog.Builder(this)
+        clear.setOnClickListener(view -> new AppDialog(this)
                 .setTitle("Clear usage history?")
                 .setMessage("This removes every locally stored usage sample. Your latest "
                         + "allowance and account sign-in stay intact.")

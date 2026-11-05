@@ -13,18 +13,27 @@ on:
     paths:
       - 'windows/**'
       - '.github/workflows/windows-ci.yml'
+    # Release tags build the app and attach it to the GitHub release (path filters don't apply to tags).
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional: an existing release tag (like v2.9.0-alpha.14) to build and attach the Windows app to'
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: windows-ci-${{ github.ref }}
+  group: windows-ci-${{ github.ref }}-${{ inputs.release_tag }}
   cancel-in-progress: true
 
 env:
   DOTNET_NOLOGO: '1'
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  # The release tag this run builds for, or empty for an ordinary CI run.
+  RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
 
 jobs:
   core-tests:
@@ -36,6 +45,8 @@ jobs:
         working-directory: windows
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || '' }}
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
@@ -52,6 +63,8 @@ jobs:
         working-directory: windows
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || '' }}
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
@@ -61,9 +74,12 @@ jobs:
 
       - name: Publish x64 and ARM64
         run: |
+          # Release builds carry the tag's version (v2.9.0-alpha.14 -> 2.9.0-alpha.14).
+          $versionArgs = @()
+          if ($env:RELEASE_TAG) { $versionArgs = @("-p:Version=$($env:RELEASE_TAG.TrimStart('v'))") }
           foreach ($arch in 'x64', 'arm64') {
             $platform = if ($arch -eq 'x64') { 'x64' } else { 'ARM64' }
-            dotnet publish src/CodexMeter.App/CodexMeter.App.csproj -c Release -r "win-$arch" -p:Platform=$platform -o "out/CodexMeter-win-$arch"
+            dotnet publish src/CodexMeter.App/CodexMeter.App.csproj -c Release -r "win-$arch" -p:Platform=$platform -o "out/CodexMeter-win-$arch" @versionArgs
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           Get-ChildItem out/CodexMeter-win-x64 -Filter CodexMeter.exe | Format-List Name, Length
@@ -105,6 +121,59 @@ jobs:
             if (Test-Path "out/CodexMeter-win-$arch") { Compress-Archive -Path "out/CodexMeter-win-$arch/*" -DestinationPath "out/CodexMeter-win-$arch.zip" -Force }
           }
 
+      # The installer script comes from this workflow's own commit, so a backfill run for an older
+      # tag (built from that tag's code) can still package it.
+      - name: Check out the installer script
+        uses: actions/checkout@v7
+        with:
+          path: _workflow
+          sparse-checkout: windows/installer
+          sparse-checkout-cone-mode: false
+
+      - name: Build installers
+        run: |
+          # Inno Setup builds a normal setup .exe per architecture (per-user install, Start menu
+          # shortcut, uninstaller in Settings > Apps).
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if (-not $iscc) { throw 'Inno Setup compiler not found' }
+          $version = if ($env:RELEASE_TAG) { $env:RELEASE_TAG.TrimStart('v') } else { '0.0.0-ci' }
+          foreach ($arch in 'x64', 'arm64') {
+            & $iscc.FullName "/DAppVersion=$version" "/DArch=$arch" "/DSourceDir=$PWD\out\CodexMeter-win-$arch" "/DOutputDir=$PWD\out" "/DIconFile=$PWD\src\CodexMeter.App\Assets\AppIcon.ico" "$env:GITHUB_WORKSPACE\_workflow\windows\installer\CodexMeter.iss"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Get-ChildItem out -Filter 'CodexMeter-Setup-*.exe' | Format-Table Name, Length
+
+      - name: Install, launch and uninstall the x64 installer
+        run: |
+          $setup = Resolve-Path out/CodexMeter-Setup-x64.exe
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', '/LOG=out\setup.log' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content out/setup.log; throw "Setup exited with $($p.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Codex Meter'
+          $exe = Join-Path $dir 'CodexMeter.exe'
+          if (-not (Test-Path $exe)) { Get-Content out/setup.log; throw "CodexMeter.exe not installed to $dir" }
+          $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Codex Meter.lnk'
+          if (-not (Test-Path $shortcut)) { throw "Start menu shortcut missing: $shortcut" }
+          $app = Start-Process $exe -ArgumentList '--demo' -PassThru
+          Start-Sleep -Seconds 15
+          if ($app.HasExited) { throw "Installed app exited early with $($app.ExitCode)" }
+          Stop-Process -Id $app.Id -Force
+          $u = Start-Process (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "Uninstall exited with $($u.ExitCode)" }
+          Start-Sleep -Seconds 3
+          if (Test-Path $exe) { throw 'Uninstall left CodexMeter.exe behind' }
+          'Installer OK'
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: CodexMeter-win-setup
+          path: windows/out/CodexMeter-Setup-*.exe
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7
@@ -132,3 +201,51 @@ jobs:
         with:
           name: CodexMeter-win-arm64
           path: windows/out/CodexMeter-win-arm64.zip
+
+  release:
+    name: Attach to the GitHub release
+    if: github.ref_type == 'tag' || inputs.release_tag != ''
+    needs: [core-tests, app]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download builds
+        uses: actions/download-artifact@v8
+        with:
+          pattern: CodexMeter-win-*
+          merge-multiple: true
+          path: dist
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          cd dist
+          mv CodexMeter-win-x64.zip "CodexMeter-$version-windows-x64.zip"
+          mv CodexMeter-win-arm64.zip "CodexMeter-$version-windows-arm64.zip"
+          mv CodexMeter-Setup-x64.exe "CodexMeter-$version-Setup-x64.exe"
+          mv CodexMeter-Setup-arm64.exe "CodexMeter-$version-Setup-arm64.exe"
+          sha256sum CodexMeter-*-Setup-*.exe CodexMeter-*-windows-*.zip > SHA256SUMS-windows.txt
+          cat SHA256SUMS-windows.txt
+          # The Android workflow creates and publishes the release; wait for it, and only create a
+          # draft ourselves if it hasn't appeared (the Android job then edits and publishes it).
+          for attempt in $(seq 1 30); do
+            gh release view "$RELEASE_TAG" >/dev/null 2>&1 && break
+            sleep 30
+          done
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            prerelease=false
+            [[ "$version" == *-* ]] && prerelease=true
+            gh release create "$RELEASE_TAG" --draft --verify-tag --prerelease="$prerelease" \
+              --title "Codex Meter $version" --notes "Codex Meter $version" || true
+          fi
+          gh release upload "$RELEASE_TAG" --clobber \
+            "CodexMeter-$version-Setup-x64.exe#Codex Meter for Windows (x64 installer)" \
+            "CodexMeter-$version-Setup-arm64.exe#Codex Meter for Windows (ARM64 installer)" \
+            "CodexMeter-$version-windows-x64.zip#Codex Meter for Windows (x64, portable .zip)" \
+            "CodexMeter-$version-windows-arm64.zip#Codex Meter for Windows (ARM64, portable .zip)" \
+            "SHA256SUMS-windows.txt"

@@ -7,21 +7,46 @@ import ServiceManagement
 /// `AppSettings` the iOS app uses.
 enum MacPreferences {
     static let showsMenuBarExtraKey = "codex-meter.mac.shows-menu-bar-extra-v1"
+    /// Kept so an older "hide the percentage" choice carries over to `menuBarStyleKey`.
     static let menuBarShowsPercentKey = "codex-meter.mac.menu-bar-shows-percent-v1"
-    /// A provider id, or empty to follow the provider selected in the window.
+    /// A provider id, or empty for automatic (the first connected provider in the sidebar).
     static let menuBarProviderKey = "codex-meter.mac.menu-bar-provider-v1"
+    /// Show the provider of the AI app in front while it's in front.
+    static let menuBarFollowsAppsKey = "codex-meter.mac.menu-bar-follows-apps-v1"
+    /// `MacLiveWindow` raw value.
+    static let menuBarWindowKey = "codex-meter.mac.menu-bar-window-v1"
+    /// `MacMenuBarStyle` raw value.
+    static let menuBarStyleKey = "codex-meter.mac.menu-bar-style-v1"
 
     static var showsMenuBarExtra: Bool {
         UserDefaults.standard.object(forKey: showsMenuBarExtraKey) as? Bool ?? true
     }
 
-    /// The provider the menu bar meter follows.
+    /// The style to start from: ring and percentage, or ring only for anyone who had hidden the percentage.
+    static var defaultMenuBarStyle: String {
+        let showedPercent = UserDefaults.standard.object(forKey: menuBarShowsPercentKey) as? Bool ?? true
+        return (showedPercent ? MacMenuBarStyle.ringAndText : .ring).rawValue
+    }
+
+    /// What the menu bar shows right now: the AI app in front, then the chosen provider, then the
+    /// first enabled provider with usage, as on Windows and the Android live notification.
     @MainActor
-    static func menuBarProvider(storedID: String, model: AppModel) -> UsageProvider {
-        if let provider = UsageProvider(rawValue: storedID), model.enabledProviders.contains(provider) {
-            return provider
-        }
-        return model.selectedProvider
+    static func menuBarReading(
+        storedID: String,
+        followsApps: Bool,
+        window: MacLiveWindow,
+        model: AppModel
+    ) -> MacLiveReading? {
+        let candidates = model.enabledProviders.filter { model.macStatus(for: $0).snapshot != nil }
+        guard let provider = MacLiveUsage.chooseProvider(
+            chosen: UsageProvider(rawValue: storedID),
+            frontApp: followsApps ? MacFrontmostApp.shared.provider : nil,
+            candidates: candidates
+        ) else { return nil }
+        let status = model.macStatus(for: provider)
+        guard let snapshot = status.snapshot,
+              let meter = MacLiveUsage.chooseMeter(snapshot, window: window) else { return nil }
+        return MacLiveReading(provider: provider, meter: meter, fetchedAt: snapshot.fetchedAt)
     }
 }
 

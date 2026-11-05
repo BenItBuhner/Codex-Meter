@@ -2,29 +2,48 @@ import AppKit
 import CodexMeterCore
 import SwiftUI
 
-/// The status item: a gauge whose needle follows the tightest allowance of the chosen
-/// provider, with its remaining percentage beside it.
+/// The status item, the Mac twin of the Android live notification: a ring that fills with what's
+/// left of one provider's tighter window, with the percentage beside it (or the time until reset
+/// once it's used up). It follows the AI app in front, then the chosen provider.
 struct MenuBarLabel: View {
     @Environment(AppModel.self) private var model
-    @AppStorage(MacPreferences.menuBarShowsPercentKey) private var showsPercent = true
     @AppStorage(MacPreferences.menuBarProviderKey) private var providerID = ""
+    @AppStorage(MacPreferences.menuBarFollowsAppsKey) private var followsApps = true
+    @AppStorage(MacPreferences.menuBarWindowKey) private var windowChoice = MacLiveWindow.auto.rawValue
+    @AppStorage(MacPreferences.menuBarStyleKey) private var styleChoice = MacPreferences.defaultMenuBarStyle
+
+    /// Ticks each minute so a used-up window's countdown stays current between refreshes.
+    @State private var now = Date()
 
     var body: some View {
-        let provider = MacPreferences.menuBarProvider(storedID: providerID, model: model)
-        let meter = model.macStatus(for: provider).tightestMeter
-        HStack(spacing: 4) {
-            Image(systemName: MacMeterLevel.gaugeSymbol(remainingPercent: meter?.remainingPercent))
-            if showsPercent, let meter {
-                Text("\(meter.remainingPercent)%")
+        // Reads the AI app in front, so the label redraws when it changes.
+        let reading = MacPreferences.menuBarReading(
+            storedID: providerID,
+            followsApps: followsApps,
+            window: MacLiveWindow(rawValue: windowChoice) ?? .auto,
+            model: model
+        )
+        let style = MacMenuBarStyle(rawValue: styleChoice) ?? .ringAndText
+        return HStack(spacing: 4) {
+            if style.showsRing || reading == nil {
+                Image(nsImage: MacMenuBarRing.image(
+                    fraction: reading?.fraction,
+                    level: reading.map { MacMeterLevel(remainingPercent: $0.remainingPercent) },
+                    exhausted: reading?.isExhausted ?? false
+                ))
+            }
+            if style.showsText, let reading {
+                Text(reading.compactText(now: now))
                     .monospacedDigit()
             }
         }
-        .accessibilityLabel(
-            meter.map { "Codex Meter, \(provider.displayName) \($0.remainingPercent) percent left" }
-                ?? "Codex Meter"
-        )
+        .accessibilityLabel(reading.map { "Codex Meter, \($0.headline(now: now))" } ?? "Codex Meter")
         .task {
             await model.startIfNeeded()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                now = Date()
+            }
         }
     }
 }
@@ -35,6 +54,19 @@ struct MenuBarPanel: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
+    @AppStorage(MacPreferences.menuBarProviderKey) private var providerID = ""
+    @AppStorage(MacPreferences.menuBarFollowsAppsKey) private var followsApps = true
+    @AppStorage(MacPreferences.menuBarWindowKey) private var windowChoice = MacLiveWindow.auto.rawValue
+
+    /// The provider the status item is showing, marked on its card.
+    private var menuBarProvider: UsageProvider? {
+        MacPreferences.menuBarReading(
+            storedID: providerID,
+            followsApps: followsApps,
+            window: MacLiveWindow(rawValue: windowChoice) ?? .auto,
+            model: model
+        )?.provider
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -56,6 +88,7 @@ struct MenuBarPanel: View {
                     ForEach(model.enabledProviders) { provider in
                         MenuBarProviderCard(
                             status: model.macStatus(for: provider),
+                            isInMenuBar: provider == menuBarProvider,
                             onOpen: { open(provider) },
                             onSignIn: { signIn(provider) }
                         )
@@ -166,6 +199,7 @@ struct MenuBarPanel: View {
 
 private struct MenuBarProviderCard: View {
     let status: MacProviderStatus
+    var isInMenuBar = false
     let onOpen: () -> Void
     let onSignIn: () -> Void
 
@@ -181,6 +215,13 @@ private struct MenuBarProviderCard: View {
                     PlanBadge(title: status.plan)
                 }
                 Spacer()
+                if isInMenuBar {
+                    Image(systemName: "menubar.rectangle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .help("Shown in the menu bar")
+                        .accessibilityLabel("Shown in the menu bar")
+                }
                 Button(action: onOpen) {
                     Image(systemName: "arrow.up.forward.app")
                 }

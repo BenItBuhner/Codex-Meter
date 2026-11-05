@@ -22,10 +22,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.notification.StatusBarNotification;
+import android.text.format.DateFormat;
 import android.util.Log;
 import androidx.annotation.RequiresApi;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import java.util.Collections;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -583,10 +586,26 @@ public final class NowBarManager {
         String focusCritical = NowBarCopy.focusCriticalText(
                 weeklyFocus ? (longIsMonthly ? "M " : "W ") : "",
                 progressWindow, observedAt, now);
-        String title = provider.displayName + " usage";
-        String estimate = UsageFormat.estimatedRemaining(pace);
-        String text = fiveHourText + " · " + weeklyText
-                + (estimate.isEmpty() ? "" : " · " + estimate);
+        // Minimal layout: the title names the focused window and what is left, the body says
+        // when it resets, then the other window. Pace only appears when it is a warning.
+        String focusLabel = weeklyFocus ? longLabel : "5-hour";
+        String title = NowBarCopy.headline(focusLabel, progressWindow);
+        String resetText = NowBarCopy.resetClockText(progressWindow, observedAt, now,
+                DateFormat.is24HourFormat(context), TimeZone.getDefault(), Locale.getDefault());
+        String estimate = accelerated && pace.available && pace.estimatedRemainingMillis > 0L
+                && remaining > 0
+                ? "Runs out in " + UsageFormat.compactDuration(pace.estimatedRemainingMillis)
+                : "";
+        UsageWindow otherWindow = weeklyFocus ? fiveHour : weekly;
+        String otherText = otherWindow == null ? ""
+                : weeklyFocus ? fiveHourText : weeklyText;
+        StringBuilder body = new StringBuilder(resetText == null ? "" : resetText);
+        String tail = estimate.isEmpty() ? otherText : estimate;
+        if (!tail.isEmpty()) {
+            if (body.length() > 0) body.append(" · ");
+            body.append(tail);
+        }
+        String text = body.toString();
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
@@ -606,6 +625,7 @@ public final class NowBarManager {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
                 .setContentText(text)
+                .setSubText(provider.displayName)
                 .setContentIntent(contentIntent)
                 .setDeleteIntent(stopIntent)
                 .setOngoing(true)
@@ -628,7 +648,7 @@ public final class NowBarManager {
             applySamsungCompatibility(context, builder, provider, fiveHour, weekly, longLabel,
                     used,
                     progressWindow, weeklyFocus, until, now, observedAt, preview,
-                    accelerated, estimate);
+                    accelerated, title, text, resetText);
         } else {
             Bundle promotionExtras = new Bundle();
             promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
@@ -712,13 +732,7 @@ public final class NowBarManager {
             UsageProvider provider, UsageWindow fiveHour, UsageWindow weekly, String longLabel, int used,
             UsageWindow progressWindow,
             boolean weeklyFocus, long until, long now, long observedAt, boolean preview,
-            boolean accelerated, String estimate) {
-        String fiveHourText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
-        String weeklyText = NowBarCopy.limitText(longLabel, weekly, observedAt, now);
-        String availableWindows = fiveHour != null && weekly != null
-                ? "Both usage windows"
-                : fiveHour != null ? "5-hour window"
-                : weekly != null ? longLabel + " window" : "Usage window unavailable";
+            boolean accelerated, String title, String text, String resetText) {
         // Chip sits on the accent fill → always-light Codex mark.
         // Expanded Now Bar: pick an explicit light/dark resource at post time. Night-qualified
         // drawables can resolve wrong inside Samsung SystemUI (separate process / config).
@@ -737,21 +751,20 @@ public final class NowBarManager {
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
                 NowBarCopy.chipExpandedText(weeklyFocus ? longLabel : "5-hour",
                         progressWindow, observedAt, now));
-        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
-                fiveHourText + " · " + weeklyText);
-        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
-                accelerated && !estimate.isEmpty() ? estimate : availableWindows);
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo", title);
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo", text);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "description",
                 provider.displayName + " usage limits");
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "progressSegments.icon", progressDot);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", nowBarIcon);
-        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", fiveHourText);
-        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo", weeklyText);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", title);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo",
+                resetText == null ? text : resetText);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarIconType", "progress");
         builder.addExtras(extras)
-                .setSubText(preview ? "Now Bar preview" : "Until the next usage reset")
+                .setSubText(preview ? "Now Bar preview" : provider.displayName)
                 .setProgress(100, used, false)
                 .setCategory(Notification.CATEGORY_STATUS)
                 .setShowWhen(true)

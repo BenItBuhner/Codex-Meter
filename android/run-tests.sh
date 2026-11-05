@@ -189,9 +189,12 @@ grep -q 'history_section_overrides' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 
 # Usage-history charts must be gated on real usage data instead of blank placeholders.
-grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
+grep -q 'snapshot != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'weeklyWindow != null && snapshot.fetchedAtMillis > 0L' \
+grep -q 'if (window == null) return false;' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# The 5-hour chart sits below the Weekly chart.
+grep -q 'addBurnChart(card, target, snapshot, "Weekly"' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
@@ -208,7 +211,7 @@ grep -q 'MONTHLY = "monthly"' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java"
 grep -q 'public UsageWindow longWindow()' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java"
-grep -q 'monthlyWindow != null && snapshot.fetchedAtMillis > 0L' \
+grep -q 'UsageHistory.MONTHLY, now' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
 grep -q 'DashboardSections.MONTHLY.equals(key)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"

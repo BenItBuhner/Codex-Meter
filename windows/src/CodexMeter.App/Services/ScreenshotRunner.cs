@@ -1,8 +1,15 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using CodexMeter.App.Views;
+using CodexMeter.Core.Formatting;
+using CodexMeter.Core.Models;
+using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -26,26 +33,89 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             state.Settings.Update(s => s with { Theme = theme });
             FitWindow(1180, 820);
             var name = theme.ToString().ToLowerInvariant();
-            for (var i = 0; i < pages.Count; i++)
+            var shot = 0;
+            string File(string label) => $"{name}-{++shot:00}-{label}.png";
+            foreach (var page in pages)
             {
-                window.Navigate(pages[i]);
+                window.Navigate(page);
                 await Task.Delay(1200);
-                var expected = pages[i] switch { "settings" => "SettingsPage", "accounts" => "AccountsPage", _ => "DashboardPage" };
+                var expected = page switch { "settings" => "SettingsPage", "accounts" => "AccountsPage", _ => "DashboardPage" };
                 if (window.CurrentPageType?.Name != expected)
                 {
-                    App.Log($"Expected {expected} for {pages[i]} but the window shows {window.CurrentPageType?.Name ?? "nothing"}.");
+                    App.Log($"Expected {expected} for {page} but the window shows {window.CurrentPageType?.Name ?? "nothing"}.");
                     failures++;
                 }
-                failures += await CaptureAsync($"{name}-{i + 1:00}-{pages[i]}.png") ? 0 : 1;
+                failures += await CaptureAsync(File(page)) ? 0 : 1;
             }
-            // Narrow window: the pane collapses and the meter cards stack.
+
+            // The usage history chart, scrolled into view.
+            window.Navigate(pages[0]);
+            await Task.Delay(1000);
+            if (window.CurrentScrollViewer is { } scroller && Find(scroller, "HistoryCard") is FrameworkElement chart)
+            {
+                var top = chart.TransformToVisual((UIElement)scroller.Content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+                scroller.ChangeView(null, Math.Max(0, top - 12), null, true);
+                await Task.Delay(800);
+                failures += await CaptureAsync(File("history")) ? 0 : 1;
+                scroller.ChangeView(null, 0, null, true);
+            }
+
+            // Dialogs: Add account, Edit dashboard and a device-code sign-in.
+            failures += await CaptureDialogAsync(File("add-account"), opened => window.AddAccountAsync(opened));
+            failures += await CaptureDialogAsync(File("edit-dashboard"), opened => window.EditDashboardAsync(opened));
+            if (state.Entries.FirstOrDefault(e => !e.SignedIn && e.Provider.SignIn == SignInStyle.DeviceCode)?.Provider is { } device
+                && window.Content.XamlRoot is { } xamlRoot)
+            {
+                var signIn = SignInFlow.RunAsync(device, xamlRoot);
+                await Task.Delay(1500);
+                failures += await CaptureAsync(File("sign-in-code")) ? 0 : 1;
+                CloseDialogs();
+                await signIn;
+            }
+
+            // Narrow window: the pane collapses behind the title bar's menu button and cards stack.
             FitWindow(560, 820);
             window.Navigate(pages[0]);
             await Task.Delay(1200);
-            failures += await CaptureAsync($"{name}-{pages.Count + 1:00}-compact.png") ? 0 : 1;
+            failures += await CaptureAsync(File("compact")) ? 0 : 1;
+            failures += await CaptureFlyoutAsync(File("tray-flyout"));
         }
         SaveTrayIcons();
         return failures == 0 ? 0 : 4;
+    }
+
+    private async Task<int> CaptureDialogAsync(string file, Func<Action<ContentDialog>, Task> show)
+    {
+        var opened = new TaskCompletionSource<ContentDialog>();
+        var task = show(dialog => opened.TrySetResult(dialog));
+        var first = await Task.WhenAny(opened.Task, Task.Delay(5000));
+        if (first != opened.Task)
+        {
+            App.Log($"No dialog opened for {file}.");
+            return 1;
+        }
+        await Task.Delay(800);
+        var ok = await CaptureAsync(file);
+        opened.Task.Result.Hide();
+        await task;
+        return ok ? 0 : 1;
+    }
+
+    private void CloseDialogs()
+    {
+        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(window.Content.XamlRoot))
+            if (popup.Child is ContentDialog dialog) dialog.Hide();
+    }
+
+    private static DependencyObject? Find(DependencyObject parent, string automationId)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (AutomationProperties.GetAutomationId(child) == automationId) return child;
+            if (Find(child, automationId) is { } found) return found;
+        }
+        return null;
     }
 
     private void FitWindow(int width, int height)
@@ -82,9 +152,11 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
         }
     }
 
-    private bool CaptureScreen(string path)
+    private bool CaptureScreen(string path) => CaptureScreen(path, window.Handle);
+
+    private static bool CaptureScreen(string path, IntPtr handle)
     {
-        if (NativeMethods.DwmGetWindowAttribute(window.Handle, NativeMethods.DwmwaExtendedFrameBounds, out var rect,
+        if (NativeMethods.DwmGetWindowAttribute(handle, NativeMethods.DwmwaExtendedFrameBounds, out var rect,
                 System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.Rect>()) != 0) return false;
         var width = rect.Right - rect.Left;
         var height = rect.Bottom - rect.Top;
@@ -123,13 +195,70 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
         await stream.AsStreamForRead().CopyToAsync(file);
     }
 
+    /// <summary>The tray flyout, opened above the notification area as a click would.</summary>
+    private async Task<int> CaptureFlyoutAsync(string file)
+    {
+        var flyout = new TrayFlyout(state, _ => { }, () => { }) { LiveProvider = state.EnabledProviders.FirstOrDefault() };
+        try
+        {
+            var area = DisplayArea.Primary.WorkArea;
+            flyout.Show(new Windows.Graphics.PointInt32(area.X + area.Width - 40, area.Y + area.Height - 4));
+            await Task.Delay(1200);
+            var ok = CaptureScreen(Path.Combine(directory, file), flyout.Handle);
+            if (!ok) App.Log($"Screen capture of {file} failed.");
+            return ok ? 0 : 1;
+        }
+        finally
+        {
+            flyout.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A sheet of the live tray icon: ring and number styles for a healthy, low, critical and used-up
+    /// window, at 16, 24 and 32px on a dark and a light taskbar, then the same sheet at 4x.
+    /// </summary>
     private void SaveTrayIcons()
     {
-        foreach (var (value, remaining) in new[] { (62, 62), (28, 28), (7, 7) })
+        var now = DateTimeOffset.UtcNow;
+        UsageWindow Sample(int used, double hours) => new(used, 18_000, resetAt: now.AddHours(hours));
+        var samples = new[] { Sample(38, 2), Sample(72, 3), Sample(93, 1), Sample(100, 2.4) }
+            .Select(w => new LiveReading(UsageProvider.Codex, w, "5-hour", now)).ToArray();
+        int[] sizes = [16, 24, 32];
+        const int cell = 40;
+        var columns = samples.Length * sizes.Length;
+        using var sheet = new Bitmap(columns * cell, 4 * cell);
+        using (var g = Graphics.FromImage(sheet))
         {
-            using var icon = TrayIcon.Draw(value, remaining);
-            using var bitmap = icon.ToBitmap();
-            bitmap.Save(Path.Combine(directory, $"tray-{value}.png"), ImageFormat.Png);
+            var row = 0;
+            foreach (var dark in new[] { true, false })
+            {
+                foreach (var style in new[] { LiveIconStyle.Ring, LiveIconStyle.Number })
+                {
+                    using (var background = new SolidBrush(dark ? Color.FromArgb(0x20, 0x20, 0x20) : Color.FromArgb(0xEE, 0xEE, 0xEE)))
+                        g.FillRectangle(background, 0, row * cell, columns * cell, cell);
+                    var column = 0;
+                    foreach (var size in sizes)
+                    {
+                        foreach (var sample in samples)
+                        {
+                            using var icon = TrayIcon.Draw(sample, style, UsageDisplayMode.Remaining, size, dark, now);
+                            g.DrawImageUnscaled(icon, column * cell + (cell - size) / 2, row * cell + (cell - size) / 2);
+                            column++;
+                        }
+                    }
+                    row++;
+                }
+            }
         }
+        sheet.Save(Path.Combine(directory, "tray-icons.png"), ImageFormat.Png);
+        using var large = new Bitmap(sheet.Width * 4, sheet.Height * 4);
+        using (var g = Graphics.FromImage(large))
+        {
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            g.DrawImage(sheet, 0, 0, large.Width, large.Height);
+        }
+        large.Save(Path.Combine(directory, "tray-icons-4x.png"), ImageFormat.Png);
     }
 }

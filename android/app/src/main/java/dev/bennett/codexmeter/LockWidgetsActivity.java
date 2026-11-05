@@ -29,6 +29,9 @@ public final class LockWidgetsActivity extends AppCompatActivity {
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         this.dark = Ui.isDark(this);
         this.content = Ui.installPage(this, "Lock screen widgets", true).content;
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =

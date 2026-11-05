@@ -125,11 +125,10 @@ public final class UsageFormat {
     }
 
     public static String estimatedRemaining(UsagePace.Assessment assessment) {
-        if (assessment == null || !assessment.available) {
+        // A depleted window already says 0%, so the estimate would only repeat it.
+        if (assessment == null || !assessment.available
+                || assessment.estimatedRemainingMillis <= 0L || assessment.usedPercent >= 100) {
             return "";
-        }
-        if (assessment.estimatedRemainingMillis <= 0L) {
-            return "Est. depleted";
         }
         return "Est. " + compactDuration(assessment.estimatedRemainingMillis);
     }

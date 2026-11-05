@@ -56,6 +56,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         this.dark = Ui.isDark(this);
         this.provider = UsageProvider.fromId(getIntent().getStringExtra(EXTRA_PROVIDER));
         LinearLayout content = Ui.installPage(this, "Edit dashboard", true).content;
@@ -168,12 +171,12 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                 items.add(new SectionItem(key, "5-hour limit",
                         "Rolling 5-hour " + provider.displayName + " window"));
             } else if (DashboardSections.WEEKLY.equals(key)) {
-                items.add(new SectionItem(key, cursor ? "Included usage" : "Weekly limit",
-                        cursor ? "Your plan's included usage, refreshed weekly"
+                items.add(new SectionItem(key, cursor ? "Weekly usage" : "Weekly limit",
+                        cursor ? "Your plan's usage, refreshed weekly"
                                 : "Rolling 7-day " + provider.displayName + " window"));
             } else if (DashboardSections.MONTHLY.equals(key)) {
-                items.add(new SectionItem(key, cursor ? "Included usage" : "Monthly limit",
-                        cursor ? "Your plan's included usage for the billing month"
+                items.add(new SectionItem(key, cursor ? "Monthly usage" : "Monthly limit",
+                        cursor ? "Your plan's usage for the billing month"
                                 : "Monthly " + provider.displayName + " window"));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 items.add(new SectionItem(key, "Usage history",

@@ -16,8 +16,23 @@ final class OneUiChoiceDialog {
     private OneUiChoiceDialog() {
     }
 
+    static void show(View anchor, String title, String[] labels, int selected,
+            OnChoiceSelected listener) {
+        show(anchor.getContext(), title, labels, selected, listener);
+    }
+
     static void show(Context context, String title, String[] labels, int selected,
             OnChoiceSelected listener) {
+        if (GlassApp.of(context) != null) {
+            new AppDialog(context)
+                    .setTitle(title)
+                    .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                        listener.onSelected(which);
+                        dialog.dismiss();
+                    })
+                    .show();
+            return;
+        }
         RadioItemViewGroup group = new RadioItemViewGroup(context);
         group.setOrientation(LinearLayout.VERTICAL);
         int[] ids = new int[labels.length];
@@ -32,7 +47,7 @@ final class OneUiChoiceDialog {
         int safeSelected = Math.max(0, Math.min(labels.length - 1, selected));
         if (ids.length > 0) group.check(ids[safeSelected]);
 
-        AlertDialog dialog = new AlertDialog.Builder(context)
+        AlertDialog dialog = new AppDialog(context)
                 .setTitle(title)
                 .setView(group)
                 .setNegativeButton(android.R.string.cancel, null)

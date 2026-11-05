@@ -5,6 +5,8 @@ import UserNotifications
 
 extension Notification.Name {
     static let codexMeterOpenRoute = Notification.Name("codexMeterOpenRoute")
+    /// File → Add Account… and the sidebar's + button ask the main window for the picker.
+    static let codexMeterAddAccount = Notification.Name("codexMeterAddAccount")
 }
 
 /// Owns the one `AppModel` shared by the main window, the menu bar extra, and Settings, and

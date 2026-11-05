@@ -29,6 +29,9 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         dark = Ui.isDark(this);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
