@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.16 — 2026-11-05
+
 ### Changed
 
 - Liquid Glass action rows such as "Check for updates" read in the normal text color like iOS Settings; only destructive ones are red.
