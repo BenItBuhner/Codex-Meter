@@ -5,7 +5,7 @@ plugins {
     `java-library`
 }
 
-val glasse = "7c316ee38f"
+val glasse = "039e267d24"
 val skiko = "0.156.0"
 
 java {

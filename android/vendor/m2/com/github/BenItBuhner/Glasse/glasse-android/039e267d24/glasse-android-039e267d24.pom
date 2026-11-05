@@ -9,19 +9,19 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.BenItBuhner.Glasse</groupId>
   <artifactId>glasse-android</artifactId>
-  <version>7c316ee38f</version>
+  <version>039e267d24</version>
   <packaging>aar</packaging>
   <dependencies>
     <dependency>
       <groupId>com.github.BenItBuhner.Glasse</groupId>
       <artifactId>glasskit</artifactId>
-      <version>7c316ee38f</version>
+      <version>039e267d24</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>com.github.BenItBuhner.Glasse</groupId>
       <artifactId>glasse-assets</artifactId>
-      <version>7c316ee38f</version>
+      <version>039e267d24</version>
       <scope>compile</scope>
     </dependency>
     <dependency>

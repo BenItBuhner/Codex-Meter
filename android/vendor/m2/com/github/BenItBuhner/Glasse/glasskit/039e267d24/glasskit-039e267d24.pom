@@ -7,21 +7,9 @@
   <!-- do_not_remove: published-with-gradle-metadata -->
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.BenItBuhner.Glasse</groupId>
-  <artifactId>glasse-demo-kt</artifactId>
-  <version>7c316ee38f</version>
+  <artifactId>glasskit</artifactId>
+  <version>039e267d24</version>
   <dependencies>
-    <dependency>
-      <groupId>com.github.BenItBuhner.Glasse</groupId>
-      <artifactId>glasskit</artifactId>
-      <version>7c316ee38f</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.github.BenItBuhner.Glasse</groupId>
-      <artifactId>glasse-assets</artifactId>
-      <version>7c316ee38f</version>
-      <scope>compile</scope>
-    </dependency>
     <dependency>
       <groupId>org.jetbrains.kotlin</groupId>
       <artifactId>kotlin-stdlib</artifactId>
