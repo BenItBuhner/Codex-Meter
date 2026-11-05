@@ -1300,7 +1300,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
      * Opens the provider's sign-in even while a (dead) sign-in is saved. A successful sign-in
      * replaces the saved tokens in place, so usage history and settings are kept.
      */
-    private void launchSignIn(UsageProvider target) {
+    void launchSignIn(UsageProvider target) {
         String str;
         if (ProviderCatalog.get(target).usesSignInScreen()) {
             SignInActivity.start(this, target);

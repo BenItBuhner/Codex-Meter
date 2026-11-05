@@ -9,8 +9,8 @@
 ### Fixed
 
 - Claude Code no longer loses its sign-in when two refreshes overlap. Claude sign-in tokens can only be used once, and a saved-reset claim could resend one that a usage refresh had already replaced, which Anthropic answers with "Refresh token not found or invalid". The app now uses the newer token and saves each new token the moment it arrives. Android and iPhone/Mac.
-- When Anthropic does reject a Claude sign-in, the Claude Code tab says so in plain words and shows a **Sign in with Claude again** button. Signing in again keeps your usage history and settings. Android.
-- A usage card whose reset time has passed since the last refresh shows it as refilled ("Reset passed · refresh to update") instead of the old number next to "Resets now". Android.
+- When Anthropic does reject a Claude sign-in, the Claude Code tab says so in plain words and shows a **Sign in with Claude again** button. Signing in again keeps your usage history and settings. Android, in every design including Liquid Glass.
+- A usage card whose reset time has passed since the last refresh shows it as refilled ("Reset passed · refresh to update") instead of the old number next to "Resets now". Android, in every design including Liquid Glass.
 - Claude Code usage is sturdier after Anthropic's plan change. On Android the usage request now matches Claude Code 2.1.316, and if Anthropic refuses its saved-reset part, the app retries plain usage instead of failing. On every app a 403 is treated as a temporary refusal instead of "your plan has no usage limits", and your sign-in is always kept. Accounts with no 5-hour limit (verified Ultra) load normally.
 - Accounts without a 5-hour limit show the weekly meters with a short "No 5-hour limit on this plan" note instead of a missing card. Home screen widgets set to the 5-hour meter show the weekly one instead of "Unavailable", the live notification follows the weekly limit, and the watch glance shows only the weekly meter instead of "5h --". Android, iPhone/Mac and Windows.
 

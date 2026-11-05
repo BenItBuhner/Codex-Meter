@@ -25,7 +25,8 @@ shot() {
 open_claude() {
   adb shell am force-stop "$PKG"
   adb shell input keyevent KEYCODE_WAKEUP
-  adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es claude_scenario "$1" >/dev/null
+  adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es claude_scenario "$1" \
+    --es design "${2:-classic}" >/dev/null
 }
 
 for theme in light dark; do
@@ -35,6 +36,9 @@ for theme in light dark; do
   open_claude legacy_badge;  shot "$theme-02-saved-max20x-badge-renamed"
   open_claude sign_in_again; shot "$theme-03-sign-in-again"
   open_claude expired;       shot "$theme-04-reset-passed"
+  open_claude ultra liquid_glass;         shot "$theme-05-glass-ultra" 8
+  open_claude sign_in_again liquid_glass; shot "$theme-06-glass-sign-in-again"
+  open_claude expired liquid_glass;       shot "$theme-07-glass-reset-passed"
 done
 
 adb logcat -d -b crash > "$OUT/logcat-crash.txt" || true
