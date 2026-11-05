@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.15 — 2026-11-05
+
+### Changed
+
+- **Liquid Glass** now runs on Glassé's latest version, with its iOS 26 pop-up menus, pull to refresh, progress bars, spinners and text fields.
+- Dashboard: Edit and Settings are two glass buttons at the top right, with SF Symbols-style icons. The refresh button and the ⋯ menu are gone. Pull down to refresh, and open Usage history from its card.
+- Usage cards have a springing progress bar and a pace row: "At this pace it lasts 1d 6h", or "Running out early" in orange.
+- Usage history shows one window at a time, picked with a segmented control, with a legend under the chart in place of the explanation paragraph.
+- Settings choices open an iOS 26 pop-up menu from the row instead of a new page.
+- Add account and every provider's sign-in page are now Liquid Glass pages, with search, a large device code with a spinner, and text fields with a Paste button.
+- In Liquid Glass, home screen widgets get a glass look: a see-through fill, a top sheen and a bright rim. Switching designs redraws them.
+
+### Fixed
+
+- Back on the dashboard no longer closes the app while a sheet, menu or alert is open. The same goes for widget settings with a sub page open.
+- Android's predictive back-to-home animation now plays from the Liquid Glass dashboard.
+- A back gesture the system cancels no longer leaves a page stuck mid-swipe.
+- Full-width buttons in Liquid Glass cards no longer run into the card's edges.
+
 ## 2.9.0-alpha.14 — 2026-11-03
 
 ### Added
