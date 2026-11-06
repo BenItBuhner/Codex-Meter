@@ -314,7 +314,7 @@ final class GlassScreens {
         GlassModel.Page page() {
             Context c = activity();
             GlassModel.Page page = new GlassModel.Page(PREFIX + "tabs", "Dashboard tabs");
-            page.intro = "Drag to reorder. Switch off to hide a tab.";
+            page.intro = "Tap Edit to reorder, or touch and hold a tab. Switch off to hide one.";
             Section list = section(null);
             list.footer = "With five or more on, the first three get tabs and the rest go under More.";
             List<UsageProvider> enabled = ProviderPreferences.getEnabled(c);
@@ -339,6 +339,7 @@ final class GlassScreens {
                 List<UsageProvider> order = items();
                 order.add(to, order.remove(from));
                 ProviderPreferences.setOrder(c, order);
+                android.util.Log.i("CodexGlass", "reorder tabs " + from + " to " + to);
                 DiagnosticLog.info(c, "user", "provider_order_changed");
                 changed();
             };
