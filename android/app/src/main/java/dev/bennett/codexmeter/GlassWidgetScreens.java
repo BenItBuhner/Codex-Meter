@@ -29,6 +29,9 @@ import java.util.List;
 final class GlassWidgetScreens {
     private GlassWidgetScreens() {}
 
+    /** Delayed widget preview redraws. */
+    private static final android.os.Handler PREVIEW = new android.os.Handler(android.os.Looper.getMainLooper());
+
     private static Row toggle(String key, String title, boolean on, GlassModel.OnToggle onToggle) {
         Row r = GlassScreens.row(Row.Kind.SWITCH, key, title, null);
         r.checked = on;
@@ -173,9 +176,17 @@ final class GlassWidgetScreens {
         }
 
         private void redraw() {
+            // The switch or slider moves now; the preview (a widget drawn to a PNG on the UI thread, tens of
+            // milliseconds) is redrawn once the changes settle, so toggles and slider drags stay smooth.
+            changed();
+            PREVIEW.removeCallbacks(rerender);
+            PREVIEW.postDelayed(rerender, 160);
+        }
+
+        private final Runnable rerender = () -> {
             preview = null;
             changed();
-        }
+        };
 
         private String metersHint() {
             int capacity = slots > 1 ? WidgetMeters.lockSlotCapacity() : 1;
@@ -384,7 +395,7 @@ final class GlassWidgetScreens {
             page.sections.add(appearance);
 
             Section meters = GlassScreens.section("Meters");
-            meters.footer = metersHint() + " Drag handles to choose which meters fill slots first. Empty "
+            meters.footer = metersHint() + " Tap Edit or touch and hold a meter to choose which fill slots first. Empty "
                     + "selected meters keep a blank dash on the widget.";
             for (String key : meterOrder) {
                 meters.rows.add(toggle(key, WidgetMeters.configLabel(key, snapshot), selected.contains(key), on -> {
@@ -438,9 +449,17 @@ final class GlassWidgetScreens {
         }
 
         private void redraw() {
+            // The switch or slider moves now; the preview (a widget drawn to a PNG on the UI thread, tens of
+            // milliseconds) is redrawn once the changes settle, so toggles and slider drags stay smooth.
+            changed();
+            PREVIEW.removeCallbacks(rerender);
+            PREVIEW.postDelayed(rerender, 160);
+        }
+
+        private final Runnable rerender = () -> {
             preview = null;
             changed();
-        }
+        };
 
         private WidgetOptions options() {
             int opacity = background ? WidgetOptionCatalog.OPACITY_VALUES[Math.max(0, Math.min(

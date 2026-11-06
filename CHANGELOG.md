@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.17 — 2026-11-06
+
+### Changed
+
+- Liquid Glass lists you can rearrange (dashboard tabs, meter order, and others) now use Glassé's reorder list like iOS: tap Edit at the top right to show the ≡ handles, or touch and hold a row to drag it without entering Edit.
+- Updated Glassé, which brings its latest switch and scrolling fixes.
+
+### Fixed
+
+- Toggles on the widget settings pages no longer lag. Each tap redrew the widget preview image before the switch could move; the preview now refreshes a moment after you stop tapping.
+
 ## 2.9.0-alpha.16 — 2026-11-05
 
 ### Changed
