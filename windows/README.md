@@ -18,8 +18,9 @@ sidebar, Fluent cards and Settings cards, light and dark themes, and Segoe Fluen
   notification-area icon, keep running when closed, start with Windows.
 - **Live usage in the notification area**, like the Android live notification: the icon is redrawn
   as a ring (or a number) for one service's tighter window, turning amber, then red, and showing the
-  time until reset once a limit is used up. While ChatGPT, Codex, Claude, Cursor or another AI app is
-  in front, it shows that service. Hover for a tooltip with every service, click for a compact flyout
+  time until reset once a limit is used up. While ChatGPT, Codex, Claude, Cursor, SpaceXSI's Grok
+  (Grok Bot) or another AI app is in front, it shows that service. Apps are recognized by process
+  name, then by the executable's product and publisher (Anthropic, Anysphere, SpaceXAI). Hover for a tooltip with every service, click for a compact flyout
   with each one's meters, and right-click to open, refresh or quit. Settings → Live usage picks the
   service, "While using AI apps", the percentage shown (Auto, 5-hour or weekly) and the icon style.
   Windows toasts announce resets and low allowance.

@@ -35,11 +35,52 @@ public class LiveUsageTests
     [InlineData("Codex", "codex")]
     [InlineData("cursor", "cursor")]
     [InlineData(" Windsurf ", "windsurf")]
+    [InlineData("claude.exe", "claude_code")]
+    [InlineData("Cursor.exe", "cursor")]
+    // The SpaceXSI Grok app's process is "Grok Bot", with a space.
+    [InlineData("Grok Bot", "grok")]
+    [InlineData("Grok Bot.exe", "grok")]
+    [InlineData("grokbot", "grok")]
+    [InlineData("GrokBot", "grok")]
+    [InlineData("grok-bot", "grok")]
+    [InlineData("Grok", "grok")]
+    [InlineData("Grok Desktop", "grok")]
+    [InlineData("Cursor Helper", "cursor")]
     [InlineData("explorer", null)]
+    [InlineData(".exe", null)]
+    [InlineData("Claudette", null)]
+    [InlineData("Precursor", null)]
+    [InlineData("groker", null)]
+    [InlineData("MyCursor App", null)]
     [InlineData("", null)]
     [InlineData(null, null)]
     public void DesktopAppsMapToProviders(string? app, string? provider) =>
         Assert.Equal(provider, LiveUsage.ProviderForApp(app)?.Id);
+
+    [Theory]
+    // The SpaceXSI desktop family signs its apps "SpaceXAI".
+    [InlineData("SomeHost", "Grok Bot", "SpaceXAI", "grok")]
+    [InlineData("SomeHost", null, "SpaceXAI", "grok")]
+    [InlineData("SomeHost", null, "SpaceXSI", "grok")]
+    [InlineData("SomeHost", null, "X.AI Corp", "grok")]
+    [InlineData("SomeHost", null, "Anysphere, Inc.", "cursor")]
+    [InlineData("SomeHost", null, "Anthropic, PBC", "claude_code")]
+    [InlineData("SomeHost", "Claude", null, "claude_code")]
+    // The process name wins over the publisher.
+    [InlineData("Cursor", "Something", "Anthropic", "cursor")]
+    [InlineData("notepad", "Notepad", "Microsoft Corporation", null)]
+    [InlineData("SomeHost", null, "Anthropic Fans Club", null)]
+    [InlineData(null, null, null, null)]
+    public void DesktopAppsMapToProvidersByProductAndCompany(string? process, string? product, string? company, string? provider) =>
+        Assert.Equal(provider, LiveUsage.ProviderForApp(process, product, company)?.Id);
+
+    [Fact]
+    public void FocusedGrokBotLeadsTheTrayOverClaudeCodeAndCursor()
+    {
+        IReadOnlyList<UsageProvider> candidates = [Claude, Cursor, UsageProvider.Grok];
+        var front = LiveUsage.ProviderForApp("Grok Bot", "Grok Bot", "SpaceXAI");
+        Assert.Equal(UsageProvider.Grok, LiveUsage.ChooseProvider(LiveUsage.AutomaticProvider, front, candidates));
+    }
 
     [Fact]
     public void AutoTakesTheTighterWindowAndPrefersFiveHourOnATie()

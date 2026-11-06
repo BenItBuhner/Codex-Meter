@@ -76,6 +76,7 @@ public static class LiveUsage
     /// <summary>
     /// Desktop apps that point the live icon at a provider while they're in front, by process or
     /// app name (lowercase, without ".exe"). The desktop twin of Android's AppSessionRules.
+    /// Names with spaces are matched with and without them, so "grok bot" also covers "GrokBot".
     /// </summary>
     private static readonly Dictionary<string, UsageProvider> KnownApps = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -87,21 +88,100 @@ public static class LiveUsage
         ["kiro"] = UsageProvider.Kiro,
         ["antigravity"] = UsageProvider.Antigravity,
         ["warp"] = UsageProvider.Warp,
+        // The SpaceXSI desktop family (published as SpaceXAI): the Grok app's process is "Grok Bot".
         ["grok"] = UsageProvider.Grok,
+        ["grok bot"] = UsageProvider.Grok,
+        ["grokbot"] = UsageProvider.Grok,
+        ["grok desktop"] = UsageProvider.Grok,
         ["kimi"] = UsageProvider.Kimi,
+    };
+
+    /// <summary>
+    /// Publishers, from an app's CompanyName, whose desktop apps belong to one provider. Keys are
+    /// normalized (lowercase letters and digits, legal suffixes like "Inc." or "PBC" dropped).
+    /// </summary>
+    private static readonly Dictionary<string, UsageProvider> KnownCompanies = new(StringComparer.Ordinal)
+    {
+        ["anthropic"] = UsageProvider.ClaudeCode,
+        ["anysphere"] = UsageProvider.Cursor,
+        // SpaceXSI, which signs its Windows apps "SpaceXAI", and xAI before it.
+        ["spacexai"] = UsageProvider.Grok,
+        ["spacexsi"] = UsageProvider.Grok,
+        ["xai"] = UsageProvider.Grok,
+    };
+
+    /// <summary>The same apps keyed without spaces, dashes or other separators.</summary>
+    private static readonly Dictionary<string, UsageProvider> CompactApps = KnownApps
+        .GroupBy(pair => Compact(pair.Key))
+        .ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
+
+    private static readonly HashSet<string> CompanySuffixes = new(StringComparer.Ordinal)
+    {
+        "inc", "incorporated", "llc", "ltd", "limited", "pbc", "corp", "corporation", "co", "company", "gmbh", "plc",
     };
 
     /// <summary>Names of the apps matched to <paramref name="provider"/>, for the setting's description.</summary>
     public static IEnumerable<string> AppNamesFor(UsageProvider provider) =>
         KnownApps.Where(pair => pair.Value == provider).Select(pair => pair.Key);
 
-    /// <summary>The provider whose app this is, from a process name ("Claude", "ChatGPT.exe") or app name.</summary>
+    /// <summary>
+    /// The provider whose app this is, from a process name ("Claude", "ChatGPT.exe", "Grok Bot")
+    /// or app name. Tries the exact name, then the name without spaces or separators ("grok-bot",
+    /// "GrokBot"), then the first word ("Grok Desktop", "Cursor Helper"). It never matches a
+    /// name that merely contains a known one, so "Claudette" or "Precursor" stay unmatched.
+    /// </summary>
     public static UsageProvider? ProviderForApp(string? appName)
     {
         if (string.IsNullOrWhiteSpace(appName)) return null;
         var name = appName.Trim();
-        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name[..^4];
-        return KnownApps.GetValueOrDefault(name);
+        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name[..^4].TrimEnd();
+        if (name.Length == 0) return null;
+        if (KnownApps.TryGetValue(name, out var exact)) return exact;
+        var compact = Compact(name);
+        if (compact.Length == 0) return null;
+        if (CompactApps.TryGetValue(compact, out var normalized)) return normalized;
+        var words = Words(name);
+        if (words.Count > 1 && CompactApps.TryGetValue(words[0], out var leading)) return leading;
+        return null;
+    }
+
+    /// <summary>
+    /// The provider of a running app, from what Windows knows about it: the process name first,
+    /// then the executable's ProductName, then its CompanyName (Anthropic, Anysphere, SpaceXAI).
+    /// </summary>
+    public static UsageProvider? ProviderForApp(string? processName, string? productName, string? companyName) =>
+        ProviderForApp(processName) ?? ProviderForApp(productName) ?? ProviderForCompany(companyName);
+
+    /// <summary>The provider that publishes apps as <paramref name="companyName"/> ("Anthropic, PBC", "SpaceXAI").</summary>
+    public static UsageProvider? ProviderForCompany(string? companyName)
+    {
+        if (string.IsNullOrWhiteSpace(companyName)) return null;
+        var words = Words(companyName);
+        while (words.Count > 1 && CompanySuffixes.Contains(words[^1])) words.RemoveAt(words.Count - 1);
+        var key = string.Concat(words);
+        return key.Length > 0 && KnownCompanies.TryGetValue(key, out var provider) ? provider : null;
+    }
+
+    /// <summary>Lowercase letters and digits only: "Grok Bot" → "grokbot".</summary>
+    private static string Compact(string value) =>
+        string.Concat(value.Where(char.IsLetterOrDigit)).ToLowerInvariant();
+
+    /// <summary>Lowercase words split on anything that isn't a letter or digit.</summary>
+    private static List<string> Words(string value)
+    {
+        var words = new List<string>();
+        var start = -1;
+        for (var i = 0; i <= value.Length; i++)
+        {
+            var inWord = i < value.Length && char.IsLetterOrDigit(value[i]);
+            if (inWord && start < 0) start = i;
+            else if (!inWord && start >= 0)
+            {
+                words.Add(value[start..i].ToLowerInvariant());
+                start = -1;
+            }
+        }
+        return words;
     }
 
     /// <summary>
