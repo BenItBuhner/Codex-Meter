@@ -3,12 +3,14 @@
     <string-array name="app_design_entries">
         <item>One UI 8.5</item>
         <item>One UI 9</item>
-        <item>Liquid Glass</item>
+        <item>Liquid Glass (iOS 26-inspired)</item>
+        <item>Liquid Glass (iOS 27-inspired)</item>
     </string-array>
     <string-array name="app_design_values">
         <item>classic</item>
         <item>one_ui_9</item>
-        <item>liquid_glass</item>
+        <item>liquid_glass_ios_26</item>
+        <item>liquid_glass_ios_27</item>
     </string-array>
     <string-array name="now_bar_display_mode_entries">
         <item>Automatic (recommended)</item>

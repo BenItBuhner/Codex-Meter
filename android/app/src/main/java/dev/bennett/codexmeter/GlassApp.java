@@ -17,6 +17,7 @@ import com.benitbuhner.glasse.android.GlasseHost;
 import com.benitbuhner.glasse.ui.ScreenMaker;
 import dev.bennett.codexmeter.glass.CodexGlass;
 import dev.bennett.codexmeter.glass.GlassIcons;
+import dev.bennett.codexmeter.glass.GlassLook;
 import dev.bennett.codexmeter.glass.GlassModel;
 import dev.bennett.codexmeter.glass.GlassSource;
 import java.util.ArrayList;
@@ -56,7 +57,12 @@ final class GlassApp implements GlassSource {
     private final List<Runnable> listeners = new CopyOnWriteArrayList<>();
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final SharedPreferences.OnSharedPreferenceChangeListener prefsListener =
-            (prefs, key) -> changedSoon();
+            (prefs, key) -> {
+                if (key != null && key.startsWith("glass_")) {
+                    applyLook(GlassApp.this.activity);
+                }
+                changedSoon();
+            };
     private boolean refreshing;
     private Nav nav;
     private String shownPage = "root";
@@ -77,6 +83,7 @@ final class GlassApp implements GlassSource {
     GlassApp(AppCompatActivity activity, Touch superTouch, String landing) {
         this.activity = activity;
         this.landing = landing;
+        applyLook(activity);
         this.settings = new GlassSettings(activity);
         this.screens = new GlassScreens(activity, this);
         GlassIcons.register();
@@ -91,6 +98,19 @@ final class GlassApp implements GlassSource {
         if (landing != null) {
             shownPage = landing;
         }
+    }
+
+    /**
+     * Sets the glass material for the saved look: iOS 26-inspired (Glassé's own material, as the
+     * design always drew) or iOS 27-inspired with its tint, then the accessibility switches.
+     */
+    static void applyLook(Context context) {
+        GlassLook.apply(new GlassLook.Options(
+                AppPreferences.isLiquidGlassIos27(context)
+                        ? GlassLook.Generation.IOS_27 : GlassLook.Generation.IOS_26,
+                AppPreferences.getGlassTintLevel(context) / 100.0,
+                AppPreferences.isGlassReduceTransparency(context),
+                AppPreferences.isGlassIncreaseContrast(context)));
     }
 
     private MainActivity main() {
