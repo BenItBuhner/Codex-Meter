@@ -93,7 +93,7 @@
 
     <com.google.android.material.floatingtoolbar.FloatingToolbarLayout
         android:id="@+id/expressive_toolbar"
-        style="@style/Widget.Material3.FloatingToolbar"
+        style="@style/Widget.Material3.FloatingToolbar.Vibrant"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
