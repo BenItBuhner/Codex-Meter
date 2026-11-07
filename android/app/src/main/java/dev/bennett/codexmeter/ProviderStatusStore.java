@@ -64,7 +64,8 @@ public final class ProviderStatusStore {
         if (!StatusPollPolicy.shouldFetch(now, last, failures, retryAfter, foreground,
                 ThreadLocalRandom.current().nextDouble())) {
             // The feed may have been fetched for another provider that shares it.
-            return reparse(context, provider, p.getString(key + "_body", null), now);
+            return reparse(context, provider, p.getString(key + "_body", null),
+                    p.getLong(key + "_fetched", now));
         }
         p.edit().putLong(key + "_attempt", now).apply();
         String body = null;
@@ -88,10 +89,11 @@ public final class ProviderStatusStore {
             SharedPreferences.Editor edit = p.edit().putLong(key + "_retry_after", until);
             if (status == HttpURLConnection.HTTP_NOT_MODIFIED) {
                 body = cached;
-                edit.putInt(key + "_failures", 0);
+                edit.putInt(key + "_failures", 0).putLong(key + "_fetched", now);
             } else if (status >= 200 && status < 300) {
                 body = read(connection.getInputStream());
-                edit.putInt(key + "_failures", 0).putString(key + "_body", body);
+                edit.putInt(key + "_failures", 0).putString(key + "_body", body)
+                        .putLong(key + "_fetched", now);
                 String newEtag = connection.getHeaderField("ETag");
                 if (newEtag != null) {
                     edit.putString(key + "_etag", newEtag);
@@ -125,11 +127,12 @@ public final class ProviderStatusStore {
         return reparse(context, provider, body, now);
     }
 
-    private static boolean reparse(Context context, UsageProvider provider, String body, long now) {
+    /** {@code checkedAt}: when the feed body was last fetched, which the card shows. */
+    private static boolean reparse(Context context, UsageProvider provider, String body, long checkedAt) {
         if (body == null) {
             return false;
         }
-        ProviderStatus status = ProviderStatusSources.parse(provider, body, now);
+        ProviderStatus status = ProviderStatusSources.parse(provider, body, checkedAt);
         return status != null && store(context, provider, status);
     }
 
