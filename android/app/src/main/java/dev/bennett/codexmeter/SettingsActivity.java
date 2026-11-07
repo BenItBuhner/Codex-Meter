@@ -21,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
@@ -197,6 +198,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     bindRefresh();
                     bindUsagePace();
                     bindModelSpeed();
+                    bindPriority();
                     break;
                 case PAGE_RESET_CREDITS:
                     addPreferencesFromResource(R.xml.preferences_settings_reset_credits);
@@ -1016,6 +1018,52 @@ public final class SettingsActivity extends AppCompatActivity {
                         String.valueOf(value));
                 return true;
             });
+        }
+
+        private void bindPriority() {
+            SwitchPreferenceCompat view = findPreference("priority_view_ui");
+            EditTextPreference name = findPreference("priority_name_ui");
+            SwitchPreferenceCompat written = findPreference("priority_written_summary_ui");
+            if (view == null || name == null || written == null) {
+                return;
+            }
+            Context context = requireContext();
+            view.setPersistent(false);
+            view.setChecked(PriorityPrefs.isViewEnabled(context));
+            name.setPersistent(false);
+            name.setText(PrioritySummary.name(context));
+            name.setSummary(nameSummary(PrioritySummary.name(context)));
+            written.setPersistent(false);
+            written.setChecked(PrioritySummary.isEnabled(context));
+            written.setSummary("Off unless you turn it on. Asks an OpenCode free model, about once or "
+                    + "twice a day, to word the summary from the card types, provider names and states "
+                    + "only: never your name, prompts, code, usage numbers or sign-ins. OpenCode "
+                    + "currently keeps its free models for its own app, so you may keep seeing the "
+                    + "summary written on this phone.");
+            name.setVisible(view.isChecked());
+            written.setVisible(view.isChecked());
+            view.setOnPreferenceChangeListener((preference, value) -> {
+                boolean on = (Boolean) value;
+                PriorityPrefs.setViewEnabled(requireContext(), on);
+                name.setVisible(on);
+                written.setVisible(on);
+                return true;
+            });
+            name.setOnPreferenceChangeListener((preference, value) -> {
+                String text = String.valueOf(value).trim();
+                PrioritySummary.setName(requireContext(), text);
+                name.setSummary(nameSummary(text));
+                return true;
+            });
+            written.setOnPreferenceChangeListener((preference, value) -> {
+                PrioritySummary.setEnabled(requireContext(), (Boolean) value);
+                return true;
+            });
+        }
+
+        private static String nameSummary(String name) {
+            return name == null || name.isEmpty() ? "Optional. Stays on this phone."
+                    : name + " · stays on this phone";
         }
 
         private void bindModelSpeed() {

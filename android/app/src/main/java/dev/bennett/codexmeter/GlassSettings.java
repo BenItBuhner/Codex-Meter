@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter;
 
 import androidx.fragment.app.FragmentManager;
+import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
@@ -149,6 +150,16 @@ final class GlassSettings {
                 }
             }
             r.selected = list.getValue() == null ? -1 : list.findIndexOfValue(list.getValue());
+        } else if (pref instanceof EditTextPreference) {
+            EditTextPreference field = (EditTextPreference) pref;
+            r = new Row(Row.Kind.FIELD, key);
+            r.value = field.getText() == null ? "" : field.getText();
+            r.hint = text(pref.getTitle());
+            r.onText = value -> {
+                if (field.callChangeListener(value)) {
+                    field.setText(value);
+                }
+            };
         } else {
             boolean clickable = pref.getOnPreferenceClickListener() != null || pref.getIntent() != null
                     || pref.getFragment() != null;
