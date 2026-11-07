@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 3.0.0 — 2026-11-05
+## 3.0.0 — 2026-11-06
 
 Codex Meter 3.0 is the biggest update yet. It now tracks **24 AI coding providers**, runs on **Android, Wear OS, iPhone, iPad, Apple Watch, Mac, Windows and Linux**, has new **One UI 9** and **Liquid Glass** designs, and shows your usage **inside the AI apps you're using**.
 
@@ -18,8 +18,8 @@ Codex Meter 3.0 is the biggest update yet. It now tracks **24 AI coding provider
 
 ### Added
 
-- **Liquid Glass design** (Settings › Appearance): a third design next to One UI 8.5 and One UI 9, built from Glassé's glass components. Every screen has a glass version, including the dashboard, Settings, Add account and every provider's sign-in page, Usage history, Reset credits, widget settings, alerts and sheets. The dashboard has Edit and Settings glass buttons at the top right and pull to refresh; usage cards have a springing progress bar and a pace row ("At this pace it lasts 1d 6h"); Settings choices open an iOS 26 pop-up menu; and Usage history shows one window at a time with a segmented control. Android's predictive back animation plays from it. Every setting keeps its behavior, and the APK is about 20 MB larger.
-- Desktop live usage: the Windows tray icon and the Mac menu bar item follow the same rules as the Android live notification. They show the AI app in front first (ChatGPT or Codex, Claude, Cursor and others), then your chosen service, and the window with less left, or the time until reset once a limit is used up. Windows draws a ring or number icon with a flyout of every service's bars; the Mac shows a ring that turns orange and red as you run low; Linux gets the ring style. Each app has a Live usage section in Settings.
+- **Liquid Glass design** (Settings › Appearance): a third design next to One UI 8.5 and One UI 9, built from Glassé's glass components. Every screen has a glass version, including the dashboard, Settings, Add account and every provider's sign-in page, Usage history, Reset credits, widget settings, alerts and sheets. The dashboard has Edit and Settings glass buttons at the top right and pull to refresh; usage cards have a springing progress bar and a pace row ("At this pace it lasts 1d 6h"); Settings choices open an iOS 26 pop-up menu; Usage history shows one window at a time with a segmented control; and lists you can rearrange use an iOS-style reorder list (tap Edit for the ≡ handles, or touch and hold a row to drag it). Android's predictive back animation plays from it. Every setting keeps its behavior, and the APK is about 20 MB larger.
+- Desktop live usage: the Windows tray icon and the Mac menu bar item follow the same rules as the Android live notification. They show the AI app in front first (ChatGPT or Codex, Claude, Cursor and others), then your chosen service, and the window with less left, or the time until reset once a limit is used up. Windows draws a ring or number icon with a flyout of every service's bars; the Mac shows a ring that turns orange and red as you run low; Linux gets the ring style. Each app has a Live usage section in Settings. On Windows the tray also recognises an app by its product and publisher name, so SpaceXSI's Grok desktop app (Grok Bot) brings up Grok (#181).
 - Codex Meter for Mac (`macos/`): a native SwiftUI app with a menu bar meter that shows the allowance closest to running out, a panel with every provider's meters, a sidebar window with the same Codex, Claude Code and Cursor dashboards as the iPhone app, a Settings window (⌘,), Usage menu shortcuts (⌘R, ⌘1–⌘9), Open at login, and desktop widgets. It keeps refreshing, alerting, and auto-using expiring resets from the menu bar after its window closes.
 - Codex Meter for Windows (`windows/`): a native WinUI 3 app for Windows 11 on x64 and ARM64, with Mica, a sidebar with Codex, Claude Code and Cursor dashboards, browser sign-in on an Accounts page, a full Settings page, and a notification-area icon that shows your remaining percentage, plus toasts. Run it with `--demo` to see sample data without signing in.
 - Linux desktop app: a native GTK 4 + libadwaita app with a dashboard for Codex, Claude Code and Cursor, accounts, settings, a tray icon with your remaining percentage, desktop notifications, start at login, and credentials protected by the login keyring. It shares the Windows app's C# core. Each release includes a `.deb` and an AppImage for x86-64 and ARM64.
@@ -43,6 +43,8 @@ Codex Meter 3.0 is the biggest update yet. It now tracks **24 AI coding provider
 
 ### Changed
 
+- Claude plan badges use Anthropic's new names: Max 5x is now **Max** and Max 20x is now **Ultra**. The name comes from your Claude profile, so future renames show up without an update, and badges saved before the change are renamed too. All apps (#171).
+- Accounts without a 5-hour limit (verified Claude Ultra) show the weekly meters with a short "No 5-hour limit on this plan" note instead of a missing card. Home screen widgets set to the 5-hour meter show the weekly one instead of "Unavailable", the live notification follows the weekly limit, and the watch glance shows only the weekly meter. Android, iPhone/Mac and Windows (#171).
 - Desktop apps reach parity with the phone apps: Windows and Linux cover all 24 services, with usage history charts and insights, Edit dashboard, Add account search, device-code, pasted-token and API-key sign-in, Codex reset auto-use, and a first-run welcome page. Windows uses a native title bar and navigation view with low and failing badges. Linux uses libadwaita dialogs and boxed lists. The Mac app gains an Add Account button in the sidebar and File › Add Account… (⌘N).
 - Usage history shows the Weekly chart first and the 5-hour chart below it, on the dashboard card and the full history page.
 - The live notification is simpler: the title says what is left in the focused window ("Weekly · 48% left"), and the line under it says when that window resets, then the other window. The estimate only appears when usage is running fast.
@@ -81,6 +83,11 @@ Codex Meter 3.0 is the biggest update yet. It now tracks **24 AI coding provider
 
 ### Fixed
 
+- Claude Code keeps its sign-in when two refreshes overlap. Claude sign-in tokens can only be used once; the app now uses the newer token and saves each new one the moment it arrives, instead of resending a retired token that Anthropic rejects with "Refresh token not found or invalid". Android and iPhone/Mac (#171).
+- When Anthropic does reject a Claude sign-in, the Claude Code tab says so in plain words and shows a **Sign in with Claude again** button that keeps your usage history and settings. Android, in every design (#171).
+- A usage card whose reset time has passed since the last refresh shows it as refilled ("Reset passed · refresh to update") instead of the old number next to "Resets now". Android, in every design (#171).
+- Claude Code usage is sturdier after Anthropic's plan change: on Android the usage request matches Claude Code 2.1.316 and falls back to plain usage if Anthropic refuses it, and on every app a 403 is a temporary refusal that keeps your sign-in (#171).
+- Toggles on the widget settings pages no longer lag: the widget preview now refreshes a moment after you stop tapping instead of before the switch can move.
 - The dashed projection on usage charts climbs at your current pace up to the reset when you will not run out first, instead of drawing a flat line.
 - Usage cards no longer show "Est. depleted" next to a limit that is already at 0%.
 - Claude Code saved resets: sign-in and token refresh now ask for Claude Code's full scope list, so Anthropic treats the app as Claude Code. Existing sign-ins pick up the new scope on their next refresh. Settings → Refresh & usage → **Check with Anthropic** makes one fresh usage request and shows exactly what came back, with a Copy button.
@@ -101,7 +108,7 @@ Codex Meter 3.0 is the biggest update yet. It now tracks **24 AI coding provider
 - Native CI for every platform: iOS, iPad and Apple Watch galleries, macOS build and UI tests, Windows UI automation, Linux packaging on x86-64 and ARM64, and a Wear OS emulator gallery.
 - Dependabot keeps GitHub Actions and Gradle dependencies current with weekly grouped updates (#104).
 - Releases now carry the Windows (x64 and ARM64 zips) and Mac (unsigned zip) apps with SHA-256 sums, next to the Android and Linux files (#176).
-- Previously shipped to the alpha channel as 2.9.0-alpha.1 through 2.9.0-alpha.16.
+- Previously shipped to the alpha channel as 2.9.0-alpha.1 through 2.9.0-alpha.17.
 
 **Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.8.0...v3.0.0 <!-- pragma: allowlist secret -->
 
