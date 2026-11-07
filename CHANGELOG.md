@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Service status on the dashboard. When the official status page reports a problem with a component the provider depends on, such as Claude Code (not the Claude API) or Grok Bot, a card above the meters names that component and the incident, and tapping it opens the status page. It uses OpenAI's, Anthropic's and Cursor's own status feeds and SpaceXSI's incident feed for Grok, checked about every 5 minutes while the app is open and never in the background. If a feed can't be read, the app treats the status as unknown and doesn't call it an outage. Antigravity has no official status feed, so it shows none. Android.
+
 ### Changed
 
 - Claude plan badges use Anthropic's new names: Max 5x is now **Max** and Max 20x is now **Ultra**. The name comes from your Claude profile, so future renames show up without an update, and badges saved before the change are renamed too. All apps.
