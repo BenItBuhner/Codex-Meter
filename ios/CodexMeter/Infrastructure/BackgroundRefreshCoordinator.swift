@@ -1,4 +1,6 @@
+#if canImport(BackgroundTasks) && os(iOS)
 import BackgroundTasks
+#endif
 import Foundation
 
 nonisolated public struct BackgroundRefreshOutcome: Sendable, Equatable {
@@ -35,6 +37,9 @@ nonisolated struct BackgroundRefreshRunGate: Sendable, Equatable {
     }
 }
 
+// The Mac app has its own coordinator with this API in macos/CodexMeterMac (BGTaskScheduler
+// is iOS-only).
+#if os(iOS)
 /// Owns the single best-effort BGAppRefresh request used by the app.
 /// Registration must be called during app launch before the scene finishes
 /// connecting.
@@ -163,3 +168,4 @@ public final class BackgroundRefreshCoordinator {
         }
     }
 }
+#endif

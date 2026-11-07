@@ -9,7 +9,7 @@
     android:minResizeWidth="124dp"
     android:minResizeHeight="56dp"
     android:widgetCategory="0x2000"
-    android:widgetFeatures="reconfigurable"
+    android:widgetFeatures="reconfigurable|hide_from_picker"
     android:previewLayout="@layout/widget_lock_rings_wide"
     android:targetCellWidth="2"
     android:targetCellHeight="1"

@@ -1,0 +1,255 @@
+name: macOS CI
+
+on:
+  pull_request:
+    branches: [main, alpha]
+    paths:
+      - 'macos/**'
+      - 'ios/CodexMeter/**'
+      - 'ios/CodexMeterCore/**'
+      - 'ios/CodexMeterTests/**'
+      - 'ios/CodexMeterWidgets/**'
+      - '.github/workflows/macos-ci.yml'
+  # Release tags build the app and attach it to the GitHub release.
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional: an existing release tag (like v2.9.0-alpha.14) to build and attach the Mac app to'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-ci-${{ github.ref }}-${{ inputs.release_tag }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The release tag this run builds for, or empty for an ordinary CI run.
+  RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
+  # CI has no Apple signing identity: sign ad hoc and drop the sandbox/App Group
+  # entitlements, which need a provisioning profile to launch. Hardened runtime is off so
+  # the ad hoc signed test bundles can load into the app.
+  SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
+
+jobs:
+  mac-app:
+    name: Mac app build, tests, and gallery
+    runs-on: macos-26
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || '' }}
+
+      - name: Show Xcode version
+        shell: bash
+        run: |
+          xcodebuild -version
+          sw_vers
+          system_profiler SPDisplaysDataType | grep -E 'Resolution|Display Type' || true
+
+      - name: Build app, widgets, and tests (Debug)
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          xcodebuild build-for-testing \
+            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -destination 'platform=macOS' \
+            -derivedDataPath DerivedData \
+            $SIGNING_ARGS
+
+      - name: Check app bundle contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="DerivedData/Build/Products/Debug/Codex Meter.app"
+          test -x "$APP/Contents/MacOS/Codex Meter"
+          test -d "$APP/Contents/PlugIns/CodexMeterMacWidgets.appex"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' \
+            "$APP/Contents/PlugIns/CodexMeterMacWidgets.appex/Contents/Info.plist"
+          codesign --verify --deep --strict "$APP"
+          echo "Bundle OK"
+
+      - name: Smoke-launch the app
+        id: smoke
+        shell: bash
+        run: ./ci/smoke-launch.sh "DerivedData/Build/Products/Debug/Codex Meter.app/Contents/MacOS/Codex Meter" smoke
+
+      - name: Upload smoke diagnostics
+        if: always() && steps.smoke.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-smoke
+          path: macos/smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop when the app does not settle
+        if: steps.smoke.outputs.healthy != 'true'
+        shell: bash
+        run: |
+          cat smoke/summary.txt
+          echo "::error::The app did not settle after launch; see the smoke summary above"
+          exit 1
+
+      - name: Run unit and UI tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          xcodebuild test-without-building \
+            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -destination 'platform=macOS' \
+            -derivedDataPath DerivedData \
+            -resultBundlePath TestResults.xcresult \
+            -skip-testing:CodexMeterMacUITests/MacGalleryTests \
+            -retry-tests-on-failure -test-iterations 2 \
+            $SIGNING_ARGS
+
+      - name: Record Mac gallery
+        id: gallery
+        if: (success() || failure()) && steps.build.outcome == 'success' && steps.smoke.outputs.healthy == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          ./ci/record-mac-gallery.sh "$PWD/ci-gallery" DerivedData $SIGNING_ARGS
+
+      - name: Summarize gallery
+        if: steps.gallery.outcome == 'success'
+        shell: bash
+        run: |
+          {
+            echo "## macOS demo gallery"
+            echo
+            echo "Download the **macos-demo-gallery** artifact for window and full-screen stills of the offline demo in Light and Dark Mode."
+            echo
+            echo '```'
+            ls -1 ci-gallery || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload gallery
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-demo-gallery
+          path: macos/ci-gallery/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build Release app
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Release builds show the tag's version (v2.9.0-alpha.14 -> 2.9.0; the bundle's short
+          # version must be numbers only).
+          # (A plain string, not an array: macOS bash 3.2 treats an empty array as unset under set -u.)
+          version_args=""
+          if [[ -n "$RELEASE_TAG" ]]; then
+            short="${RELEASE_TAG#v}"
+            version_args="MARKETING_VERSION=${short%%-*}"
+          fi
+          # shellcheck disable=SC2086
+          xcodebuild build \
+            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath DerivedData \
+            $SIGNING_ARGS $version_args
+          cd "DerivedData/Build/Products/Release"
+          ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
+
+      - name: Build the disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A standard drag-to-Applications .dmg.
+          stage="$RUNNER_TEMP/dmg"
+          rm -rf "$stage" && mkdir -p "$stage"
+          ditto "DerivedData/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname "Codex Meter" -srcfolder "$stage" -fs HFS+ -format UDZO -ov \
+            "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          # Check it mounts and holds a runnable app.
+          mnt="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          test -x "$mnt/Codex Meter.app/Contents/MacOS/Codex Meter"
+          test -L "$mnt/Applications"
+          hdiutil detach "$mnt"
+          ls -la "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+
+      - name: Upload Release app
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-app-unsigned
+          path: |
+            macos/CodexMeter-macOS-unsigned.zip
+            macos/CodexMeter-macOS-unsigned.dmg
+          retention-days: 14
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-test-results
+          path: |
+            macos/TestResults.xcresult
+            macos/MacGalleryResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 3
+
+  release:
+    name: Attach to the GitHub release
+    if: github.ref_type == 'tag' || inputs.release_tag != ''
+    needs: mac-app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the app
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-app-unsigned
+          path: dist
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          cd dist
+          mv CodexMeter-macOS-unsigned.zip "CodexMeter-$version-macos.zip"
+          mv CodexMeter-macOS-unsigned.dmg "CodexMeter-$version-macos.dmg"
+          sha256sum "CodexMeter-$version-macos.dmg" "CodexMeter-$version-macos.zip" > SHA256SUMS-macos.txt
+          cat SHA256SUMS-macos.txt
+          # The Android workflow creates and publishes the release; wait for it, and only create a
+          # draft ourselves if it hasn't appeared (the Android job then edits and publishes it).
+          for attempt in $(seq 1 30); do
+            gh release view "$RELEASE_TAG" >/dev/null 2>&1 && break
+            sleep 30
+          done
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            prerelease=false
+            [[ "$version" == *-* ]] && prerelease=true
+            gh release create "$RELEASE_TAG" --draft --verify-tag --prerelease="$prerelease" \
+              --title "Codex Meter $version" --notes "Codex Meter $version" || true
+          fi
+          gh release upload "$RELEASE_TAG" --clobber \
+            "CodexMeter-$version-macos.dmg#Codex Meter for macOS (.dmg, unsigned)" \
+            "CodexMeter-$version-macos.zip#Codex Meter for macOS (unsigned .zip)" \
+            "SHA256SUMS-macos.txt"

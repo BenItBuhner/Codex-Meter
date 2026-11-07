@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string-array name="app_design_entries">
+        <item>One UI 8.5</item>
+        <item>One UI 9</item>
+        <item>Liquid Glass</item>
+    </string-array>
+    <string-array name="app_design_values">
+        <item>classic</item>
+        <item>one_ui_9</item>
+        <item>liquid_glass</item>
+    </string-array>
     <string-array name="now_bar_display_mode_entries">
         <item>Automatic (recommended)</item>
         <item>Android Live Update</item>

@@ -1,0 +1,118 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.github.BenItBuhner.Glasse",
+    "module": "glasse-android",
+    "version": "3672792f42",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.8.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasskit",
+          "version": {
+            "requires": "3672792f42"
+          }
+        },
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasse-assets",
+          "version": {
+            "requires": "3672792f42"
+          }
+        },
+        {
+          "group": "org.jetbrains.skiko",
+          "module": "skiko-android",
+          "version": {
+            "requires": "0.156.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "glasse-android-3672792f42.aar",
+          "url": "glasse-android-3672792f42.aar",
+          "size": 19125029,
+          "sha512": "444388a99bd583856297e3e5f9070113f53863ab0a62989727a5f857c80ce06a51e35866e1234dd88ed01b17245e44696725c6a92d2234132a47bc82def3a722",
+          "sha256": "4b230eaed87485452dcdef940f87b579bfd7a62004cbe98812d9733ff10d582f",
+          "sha1": "481ed97d1a99d979895842139d36cc499685414c",
+          "md5": "70d6a8059c52697210e891e3b99289ba"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasskit",
+          "version": {
+            "requires": "3672792f42"
+          }
+        },
+        {
+          "group": "com.github.BenItBuhner.Glasse",
+          "module": "glasse-assets",
+          "version": {
+            "requires": "3672792f42"
+          }
+        },
+        {
+          "group": "org.jetbrains.skiko",
+          "module": "skiko-android",
+          "version": {
+            "requires": "0.156.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "glasse-android-3672792f42.aar",
+          "url": "glasse-android-3672792f42.aar",
+          "size": 19125029,
+          "sha512": "444388a99bd583856297e3e5f9070113f53863ab0a62989727a5f857c80ce06a51e35866e1234dd88ed01b17245e44696725c6a92d2234132a47bc82def3a722",
+          "sha256": "4b230eaed87485452dcdef940f87b579bfd7a62004cbe98812d9733ff10d582f",
+          "sha1": "481ed97d1a99d979895842139d36cc499685414c",
+          "md5": "70d6a8059c52697210e891e3b99289ba"
+        }
+      ]
+    }
+  ]
+}

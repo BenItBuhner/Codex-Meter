@@ -22,15 +22,29 @@ import androidx.core.widget.NestedScrollView;
 
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
+import java.util.ArrayList;
+import java.util.List;
 
-/** First-run setup built from the same One UI Design Library primitives as the app. */
+/**
+ * First-run setup built from the same One UI Design Library primitives as the app: welcome,
+ * choose providers (nothing preselected), sign in to each chosen provider or skip, then done.
+ */
 public final class OnboardingActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     public static final String EXTRA_AUTH_RETURN = "oauth_return";
 
     private LinearLayout content;
     private Ui.Page page;
     private boolean dark;
     private int step;
+    /** Providers picked on the second step, in enum order; drives the sign-in steps. */
+    private final List<UsageProvider> chosen = new ArrayList<>();
+    /** Unsaved picks while the provider step is open. */
+    private final List<UsageProvider> picked = new ArrayList<>();
     private boolean receiverRegistered;
     private boolean oauthRequested;
     private String authMessage = "";
@@ -43,7 +57,10 @@ public final class OnboardingActivity extends AppCompatActivity {
             if (AppConstants.ACTION_OAUTH_READY.equals(action)) {
                 String url = intent.getStringExtra(AppConstants.EXTRA_AUTH_URL);
                 if (url != null && !url.isEmpty()) {
-                    authMessage = "Your secure ChatGPT sign-in is open in the browser.";
+                    UsageProvider target = currentSignInProvider();
+                    authMessage = "Your secure "
+                            + (target == null ? "" : target.accountName + " ")
+                            + "sign-in is open in the browser.";
                     render();
                     openAuthUrl(url);
                 }
@@ -53,14 +70,16 @@ public final class OnboardingActivity extends AppCompatActivity {
                 oauthRequested = false;
                 boolean success = intent.getBooleanExtra(AppConstants.EXTRA_SUCCESS, false);
                 String message = intent.getStringExtra(AppConstants.EXTRA_MESSAGE);
-                if (success || SecureTokenStore.isSignedIn(OnboardingActivity.this)) {
-                    showStep(OnboardingFlow.STEP_COMPLETE);
+                UsageProvider target = currentSignInProvider();
+                if (success || (target != null
+                        && SecureTokenStore.isSignedIn(OnboardingActivity.this, target))) {
+                    authMessage = "";
                 } else {
                     authMessage = message == null || message.trim().isEmpty()
                             ? "Sign-in did not complete. Please try again."
                             : message;
-                    showStep(OnboardingFlow.STEP_ACCOUNT);
                 }
+                render();
             }
         }
     };
@@ -79,11 +98,12 @@ public final class OnboardingActivity extends AppCompatActivity {
         findViewById(R.id.dashboard_refresh).setEnabled(false);
         boolean oauthReturn = getIntent().getBooleanExtra(EXTRA_AUTH_RETURN, false);
         this.oauthRequested = AppPreferences.isOAuthPending(this);
-        this.step = OnboardingFlow.initialStep(
-                AppPreferences.getOnboardingStep(this),
-                SecureTokenStore.isSignedIn(this),
-                oauthReturn);
-        if (oauthReturn && !SecureTokenStore.isSignedIn(this)) {
+        this.chosen.addAll(AppPreferences.getOnboardingProviders(this));
+        this.picked.addAll(this.chosen);
+        this.step = OnboardingFlow.initialStep(AppPreferences.getOnboardingStep(this),
+                this.chosen.size());
+        UsageProvider target = currentSignInProvider();
+        if (oauthReturn && target != null && !SecureTokenStore.isSignedIn(this, target)) {
             this.authMessage = "Sign-in did not complete. You can safely try again.";
         }
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -105,20 +125,22 @@ public final class OnboardingActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         this.oauthRequested = AppPreferences.isOAuthPending(this);
-        if (SecureTokenStore.isSignedIn(this)) {
-            showStep(OnboardingFlow.STEP_COMPLETE);
-        } else if (intent.getBooleanExtra(EXTRA_AUTH_RETURN, false)) {
+        UsageProvider target = currentSignInProvider();
+        if (target != null && !SecureTokenStore.isSignedIn(this, target)
+                && intent.getBooleanExtra(EXTRA_AUTH_RETURN, false)) {
             this.authMessage = "Sign-in did not complete. You can safely try again.";
-            showStep(OnboardingFlow.STEP_ACCOUNT);
         }
+        render();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (this.content != null && SecureTokenStore.isSignedIn(this)
-                && this.step != OnboardingFlow.STEP_COMPLETE) {
-            showStep(OnboardingFlow.STEP_COMPLETE);
+        // Back from the browser: show the connected state of the current sign-in step.
+        UsageProvider target = currentSignInProvider();
+        if (this.content != null && target != null) {
+            if (SecureTokenStore.isSignedIn(this, target)) this.authMessage = "";
+            render();
         }
     }
 
@@ -165,16 +187,17 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void render() {
         if (this.content == null) return;
         this.content.removeAllViews();
-        this.page.toolbar.setTitle("Codex Meter");
-        this.page.toolbar.setShowNavigationButtonAsBack(this.step > OnboardingFlow.STEP_WELCOME);
+        this.page.header.setTitle("Codex Meter");
+        this.page.header.setBack(this.step > OnboardingFlow.STEP_WELCOME);
 
         addProgress();
+        UsageProvider target = currentSignInProvider();
         if (this.step == OnboardingFlow.STEP_WELCOME) {
             buildWelcome();
-        } else if (this.step == OnboardingFlow.STEP_USAGE) {
-            buildUsage();
-        } else if (this.step == OnboardingFlow.STEP_ACCOUNT) {
-            buildAccount();
+        } else if (this.step == OnboardingFlow.STEP_PROVIDERS) {
+            buildProviders();
+        } else if (target != null) {
+            buildSignIn(target);
         } else {
             buildComplete();
         }
@@ -183,8 +206,12 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void addProgress() {
-        TextView label = Ui.text(this, "STEP " + (this.step + 1) + " OF "
-                + OnboardingFlow.STEP_COUNT, 12.0f, Ui.accent(this, this.dark));
+        // Before anything is chosen, count the picks so far (at least one sign-in step).
+        int planned = this.step <= OnboardingFlow.STEP_PROVIDERS
+                ? Math.max(1, this.picked.size()) : this.chosen.size();
+        int total = OnboardingFlow.stepCount(planned);
+        TextView label = Ui.text(this, "STEP " + (this.step + 1) + " OF " + total, 12.0f,
+                Ui.accent(this, this.dark));
         label.setTypeface(Ui.mediumTypeface(this));
         label.setLetterSpacing(0.08f);
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
@@ -192,7 +219,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.content.addView(label, labelParams);
 
         ProgressBar progress = Ui.progress(this, this.dark);
-        progress.setProgress((this.step + 1) * 100 / OnboardingFlow.STEP_COUNT);
+        progress.setProgress((this.step + 1) * 100 / total);
         LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 5));
         progressParams.setMargins(Ui.dp(this, 14), 0, Ui.dp(this, 14), Ui.dp(this, 26));
         this.content.addView(progress, progressParams);
@@ -200,8 +227,9 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private void buildWelcome() {
         addIntro("Meet Codex Meter",
-                "Your ChatGPT Codex allowance, reset timing, and available reset credits in one "
-                        + "quick One UI view.",
+                "Your Codex, Claude Code, Cursor, Copilot and other AI coding limits, reset "
+                        + "timing, and credits in one quick One UI view. Next, pick the ones you "
+                        + "use.",
                 R.drawable.ic_oui_battery);
 
         Ui.addSpacer(this.content, 20);
@@ -218,39 +246,68 @@ public final class OnboardingActivity extends AppCompatActivity {
         bodyParams.setMargins(0, Ui.dp(this, 10), 0, 0);
         card.addView(body, bodyParams);
         this.content.addView(card);
-        addPrimaryAction("Continue", () -> showStep(OnboardingFlow.STEP_USAGE));
+        addPrimaryAction("Continue", () -> showStep(OnboardingFlow.STEP_PROVIDERS));
     }
 
-    private void buildUsage() {
-        addIntro("Everything important at a glance",
-                "See what remains without digging through ChatGPT, then keep it visible with "
-                        + "home-screen and supported Galaxy lock-screen widgets.",
-                R.drawable.ic_oui_time);
-
-        this.content.addView(Ui.separator(this, "What you get"));
-        RoundedLinearLayout features = Ui.seslRowCard(this, this.dark);
-        CardItemView limits = Ui.actionRow(this, "Live Codex limits",
-                "Five-hour and weekly allowance with reset timing",
-                R.drawable.ic_oui_calendar_week, null);
-        limits.setShowBottomDivider(true);
-        features.addView(limits);
-        CardItemView widgets = Ui.actionRow(this, "Native One UI widgets",
-                "At-a-glance usage on your home and lock screens",
-                R.drawable.ic_oui_add_home, null);
-        widgets.setShowBottomDivider(true);
-        features.addView(widgets);
-        features.addView(Ui.actionRow(this, "Useful alerts",
-                "Optional updates when limits reset or credits arrive",
-                R.drawable.ic_oui_notification, null));
-        this.content.addView(features);
-        addPrimaryAction("Continue", () -> showStep(OnboardingFlow.STEP_ACCOUNT));
-    }
-
-    private void buildAccount() {
-        addIntro("Connect your ChatGPT account",
-                "Use OpenAI’s secure browser flow to sign up or sign in. Codex Meter never sees "
-                        + "your password.",
+    private void buildProviders() {
+        addIntro("Choose your providers",
+                "Pick every service you want to track. Each one gets a tab on the dashboard, "
+                        + "and you can add more later in Settings → Accounts.",
                 R.drawable.ic_oui_samsung_account);
+
+        Button next = Ui.nativePrimaryButton(this, "Continue");
+        ProviderPicker picker = new ProviderPicker(this, this.dark, null, this.picked,
+                provider -> {
+                    next.setEnabled(!this.picked.isEmpty());
+                    next.setAlpha(this.picked.isEmpty() ? 0.45f : 1.0f);
+                });
+        this.content.addView(picker.view());
+
+        next.setEnabled(!this.picked.isEmpty());
+        next.setAlpha(this.picked.isEmpty() ? 0.45f : 1.0f);
+        next.setOnClickListener(view -> saveProvidersAndContinue());
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, Ui.dp(this, 60));
+        params.setMargins(0, Ui.dp(this, 22), 0, Ui.dp(this, 8));
+        this.content.addView(next, params);
+    }
+
+    private void saveProvidersAndContinue() {
+        List<UsageProvider> ordered = new ArrayList<>();
+        for (UsageProvider provider : ProviderCatalog.recommendedOrder()) {
+            if (this.picked.contains(provider)) ordered.add(provider);
+        }
+        if (ordered.isEmpty()) return;
+        this.chosen.clear();
+        this.chosen.addAll(ordered);
+        AppPreferences.setOnboardingProviders(this, ordered);
+        ProviderPreferences.setEnabledProviders(this, ordered);
+        ProviderPreferences.setSelected(this, ProviderPreferences.getEnabled(this).get(0));
+        DiagnosticLog.info(this, "user", "onboarding_providers_chosen",
+                "count", ordered.size());
+        this.authMessage = "";
+        showStep(OnboardingFlow.FIRST_SIGN_IN_STEP);
+    }
+
+    private void buildSignIn(UsageProvider provider) {
+        boolean signedIn = SecureTokenStore.isSignedIn(this, provider);
+        addIntro("Connect " + provider.displayName,
+                signedIn
+                        ? "Your " + provider.accountName + " account is connected."
+                        : "Sign in with the " + provider.accountName + " account you use in "
+                                + provider.displayName + ". The browser handles your password; "
+                                + "Codex Meter never sees it.",
+                ProvidersActivity.iconRes(provider));
+
+        if (signedIn) {
+            Ui.addSpacer(this.content, 20);
+            RoundedLinearLayout account = Ui.seslRowCard(this, this.dark);
+            account.addView(Ui.actionRow(this, provider.accountName + " connected",
+                    ProviderAccounts.summary(this, provider), R.drawable.ic_oui_contact_outline,
+                    null));
+            this.content.addView(account);
+            addPrimaryAction("Continue", this::goNext);
+            return;
+        }
 
         this.content.addView(Ui.separator(this, "Private by design"));
         RoundedLinearLayout privacy = Ui.seslRowCard(this, this.dark);
@@ -259,51 +316,54 @@ public final class OnboardingActivity extends AppCompatActivity {
                 R.drawable.ic_oui_privacy, null);
         encrypted.setShowBottomDivider(true);
         privacy.addView(encrypted);
-        privacy.addView(Ui.actionRow(this, "No analytics SDK",
-                "Your account and usage are not sent through a Codex Meter server",
+        privacy.addView(Ui.actionRow(this, "Straight to " + provider.vendorName,
+                "No Codex Meter server or analytics SDK in between",
                 R.drawable.ic_oui_contact_outline, null));
         this.content.addView(privacy);
 
         if (!this.authMessage.isEmpty()) {
             Ui.addSpacer(this.content, 16);
             RoundedLinearLayout status = Ui.seslCard(this, this.dark);
-            TextView message = Ui.text(this, this.authMessage, 14.0f,
-                    Ui.secondaryText(this.dark));
-            status.addView(message);
+            status.addView(Ui.text(this, this.authMessage, 14.0f, Ui.secondaryText(this.dark)));
             this.content.addView(status);
         }
 
-        String signInLabel = AppPreferences.isOAuthPending(this)
-                ? "Continue sign-in with ChatGPT"
-                : "Sign up or sign in with ChatGPT";
-        addPrimaryAction(signInLabel, this::startSignIn);
-        Button later = Ui.button(this, "Not now", false, this.dark);
-        later.setOnClickListener(view -> completeAndOpenMain());
+        addPrimaryAction(ProviderPreferences.isSignInPending(this, provider)
+                ? "Continue sign-in with " + provider.accountName
+                : provider.signInLabel(), () -> startSignIn(provider));
+        Button later = Ui.button(this, "Skip for now", false, this.dark);
+        later.setOnClickListener(view -> {
+            cancelPendingSignIn();
+            goNext();
+        });
         LinearLayout.LayoutParams laterParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
         laterParams.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 8));
         this.content.addView(later, laterParams);
     }
 
     private void buildComplete() {
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
-        addIntro(signedIn ? "You’re all set" : "Setup complete",
-                signedIn
-                        ? "Your ChatGPT account is connected. Codex Meter will load your latest "
-                            + "allowance as the app opens."
-                        : "You can connect ChatGPT later from the Codex Meter dashboard.",
-                signedIn ? R.drawable.ic_oui_samsung_account : R.drawable.ic_oui_info_outline);
+        boolean any = false;
+        for (UsageProvider provider : this.chosen) {
+            any |= SecureTokenStore.isSignedIn(this, provider);
+        }
+        addIntro(any ? "You’re all set" : "Setup complete",
+                any ? "Codex Meter will load your latest usage as the app opens."
+                        : "You can sign in any time from Settings → Accounts.",
+                any ? R.drawable.ic_oui_samsung_account : R.drawable.ic_oui_info_outline);
 
-        Ui.addSpacer(this.content, 20);
-        RoundedLinearLayout account = Ui.seslRowCard(this, this.dark);
-        AuthTokens tokens = SecureTokenStore.load(this);
-        account.addView(Ui.actionRow(this,
-                signedIn ? "ChatGPT connected" : "Continue without an account",
-                signedIn && tokens != null && !tokens.email.isEmpty()
-                        ? tokens.email
-                        : (signedIn ? "Secure sign-in complete" : "Sign in whenever you’re ready"),
-                signedIn ? R.drawable.ic_oui_contact_outline : R.drawable.ic_oui_privacy,
-                null));
-        this.content.addView(account);
+        this.content.addView(Ui.separator(this, "Accounts"));
+        RoundedLinearLayout accounts = Ui.seslRowCard(this, this.dark);
+        for (int i = 0; i < this.chosen.size(); i++) {
+            UsageProvider provider = this.chosen.get(i);
+            CardItemView row = Ui.actionRow(this, provider.displayName,
+                    SecureTokenStore.isSignedIn(this, provider)
+                            ? ProviderAccounts.summary(this, provider)
+                            : "Not signed in · sign in later from Settings",
+                    ProvidersActivity.iconRes(provider), null);
+            row.setShowBottomDivider(i < this.chosen.size() - 1);
+            accounts.addView(row);
+        }
+        this.content.addView(accounts);
         addPrimaryAction("Open Codex Meter", this::completeAndOpenMain);
     }
 
@@ -344,29 +404,46 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void showStep(int requestedStep) {
-        this.step = OnboardingFlow.normalizeStep(requestedStep);
+        this.step = OnboardingFlow.normalizeStep(requestedStep, this.chosen.size());
         AppPreferences.setOnboardingStep(this, this.step);
         render();
     }
 
     private void goBack() {
-        showStep(OnboardingFlow.previousStep(this.step));
+        this.authMessage = "";
+        showStep(OnboardingFlow.previousStep(this.step, this.chosen.size()));
     }
 
-    private void startSignIn() {
-        if (SecureTokenStore.isSignedIn(this)) {
-            showStep(OnboardingFlow.STEP_COMPLETE);
+    private void goNext() {
+        this.authMessage = "";
+        showStep(OnboardingFlow.nextStep(this.step, this.chosen.size()));
+    }
+
+    /** The provider of the current sign-in step, or null on any other step. */
+    private UsageProvider currentSignInProvider() {
+        int index = OnboardingFlow.signInIndex(this.step, this.chosen.size());
+        return index < 0 ? null : this.chosen.get(index);
+    }
+
+    private void startSignIn(UsageProvider provider) {
+        if (SecureTokenStore.isSignedIn(this, provider)) {
+            render();
             return;
         }
-        boolean resuming = AppPreferences.isOAuthPending(this);
+        if (ProviderCatalog.get(provider).usesSignInScreen()) {
+            // Device codes, pasted tokens and keys have their own screen; it closes when done.
+            startActivity(SignInActivity.intent(this, provider));
+            return;
+        }
+        boolean resuming = ProviderPreferences.isSignInPending(this, provider);
         this.oauthRequested = true;
-        this.authMessage = resuming
-                ? "Resuming secure ChatGPT sign-in…"
-                : "Preparing secure ChatGPT sign-in…";
+        this.authMessage = (resuming ? "Resuming" : "Preparing") + " secure "
+                + provider.accountName + " sign-in…";
         render();
         try {
             startForegroundService(new Intent(this, OAuthService.class)
-                    .setAction(OAuthService.ACTION_START));
+                    .setAction(OAuthService.ACTION_START)
+                    .putExtra(OAuthService.EXTRA_PROVIDER, provider.id));
         } catch (RuntimeException exception) {
             this.oauthRequested = false;
             AppPreferences.setOAuthPending(this, false, "");

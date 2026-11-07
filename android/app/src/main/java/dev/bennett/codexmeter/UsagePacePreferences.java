@@ -44,12 +44,28 @@ public final class UsagePacePreferences {
 
     public static UsagePace.Assessment assess(Context context, UsageSnapshot snapshot,
             UsageWindow window, long nowMillis) {
+        return assess(context, UsageProvider.CODEX, snapshot, window, nowMillis);
+    }
+
+    /**
+     * Pace from the provider's own burn history. Limits without history (for example per-model
+     * caps) fall back to the five-hour/weekly/monthly history matching their window length.
+     */
+    public static UsagePace.Assessment assess(Context context, UsageProvider provider,
+            UsageSnapshot snapshot, UsageWindow window, long nowMillis) {
         if (!isEnabled(context) || snapshot == null) {
             return UsagePace.assess(null, 0L, nowMillis, getSensitivity(context));
         }
         String kind = window == snapshot.weekly ? UsageHistory.WEEKLY
                 : window == snapshot.monthly ? UsageHistory.MONTHLY : UsageHistory.FIVE_HOUR;
-        return UsagePace.assess(window, AppPreferences.loadUsageHistory(context, kind),
+        if (provider != UsageProvider.CODEX && window != snapshot.fiveHour
+                && window != snapshot.weekly && window != snapshot.monthly) {
+            // Extra meters (a Fable-only allocation, extra usage) have no history of their own yet.
+            return UsagePace.assess(window, snapshot.fetchedAtMillis, nowMillis,
+                    getSensitivity(context));
+        }
+        return UsagePace.assess(window,
+                ProviderPreferences.loadUsageHistory(context, provider, kind),
                 snapshot.fetchedAtMillis, nowMillis, getSensitivity(context));
     }
 }

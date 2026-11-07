@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import WidgetKit
 
@@ -13,7 +14,7 @@ struct CodexMeterHomeWidget: Widget {
             CodexMeterHomeWidgetView(entry: entry)
         }
         .configurationDisplayName("Codex Meter")
-        .description("See both Codex allowance windows or focus on one responsive usage dial.")
+        .description("See both allowance windows for Codex or another connected provider, or focus on one responsive usage dial.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
     }
 }
@@ -30,10 +31,17 @@ struct CodexMeterHomeWidgetView: View {
         switch configuration.allowance {
         case .both:
             nil
+        case .fiveHour where entry.snapshot.hasNoShortWindow:
+            // No 5-hour limit on this plan (Claude Ultra): show the weekly one instead of a blank.
+            FocusedAllowance(
+                title: LocalizedStringKey(entry.snapshot.longWindowTitle),
+                longTitle: LocalizedStringKey("\(entry.snapshot.longWindowTitle) allowance"),
+                window: entry.snapshot.weekly
+            )
         case .fiveHour:
             FocusedAllowance(
-                title: "5 hours",
-                longTitle: "Five-hour allowance",
+                title: LocalizedStringKey(entry.snapshot.shortWindowTitle),
+                longTitle: LocalizedStringKey("\(entry.snapshot.shortWindowTitle) allowance"),
                 window: entry.snapshot.fiveHour
             )
         case .weekly:
@@ -101,7 +109,7 @@ struct CodexMeterHomeWidgetView: View {
             } else {
                 HStack(spacing: 9) {
                     UsageRing(
-                        title: "5 hours",
+                        title: LocalizedStringKey(entry.snapshot.shortWindowTitle),
                         window: entry.snapshot.fiveHour,
                         configuration: configuration,
                         compact: true
@@ -146,7 +154,7 @@ struct CodexMeterHomeWidgetView: View {
             } else {
                 HStack(alignment: .top, spacing: 10) {
                     UsageRing(
-                        title: "5 hours",
+                        title: LocalizedStringKey(entry.snapshot.shortWindowTitle),
                         window: entry.snapshot.fiveHour,
                         configuration: configuration,
                         compact: true
@@ -195,13 +203,13 @@ struct CodexMeterHomeWidgetView: View {
                                 window: focusedAllowance.window,
                                 configuration: configuration
                             )
-                            Divider()
                             Label(
                                 "\(entry.snapshot.creditCount) credits",
                                 systemImage: "bolt.fill"
                             )
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
+                            .padding(.top, extraLarge ? 6 : 4)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -250,7 +258,7 @@ struct CodexMeterHomeWidgetView: View {
             Image(systemName: "gauge.with.dots.needle.33percent")
                 .foregroundStyle(configuration.accent.color)
                 .widgetAccentable()
-            Text("Codex")
+            Text(entry.snapshot.provider.displayName)
                 .font(.caption.weight(.bold))
             Spacer(minLength: 3)
             WidgetStateBadge(
@@ -265,7 +273,7 @@ struct CodexMeterHomeWidgetView: View {
             Image(systemName: "gauge.with.dots.needle.33percent")
                 .foregroundStyle(configuration.accent.color)
                 .widgetAccentable()
-            Text("Codex Meter")
+            Text(entry.snapshot.headerTitle)
                 .font(.headline)
             if let plan = entry.snapshot.plan {
                 Text(plan)
@@ -295,7 +303,9 @@ struct CodexMeterHomeWidgetView: View {
                 Image(systemName: "clock.arrow.circlepath")
             }
             Spacer(minLength: 8)
-            Label("\(entry.snapshot.creditCount) credits", systemImage: "bolt.fill")
+            if entry.snapshot.provider == .codex {
+                Label("\(entry.snapshot.creditCount) credits", systemImage: "bolt.fill")
+            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)

@@ -55,6 +55,11 @@ public final class ResetCreditApi {
     }
 
     public static ResetConsumeResult consumeBestAvailable(Context context) throws Exception {
+        return consumeAvailable(context, null);
+    }
+
+    public static ResetConsumeResult consumeAvailable(Context context, String creditId)
+            throws Exception {
         Context app = context.getApplicationContext() == null ? context : context.getApplicationContext();
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(app, "user", "reset_credit_use_requested");
@@ -80,7 +85,10 @@ public final class ResetCreditApi {
 
             JSONObject requestBody = new JSONObject();
             requestBody.put("redeem_request_id", UUID.randomUUID().toString());
-            String preferredCreditId = credits.preferredCreditId(now);
+            String preferredCreditId = preferredCreditId(credits, creditId, now);
+            if (creditId != null && !creditId.isEmpty() && preferredCreditId.isEmpty()) {
+                return new ResetConsumeResult(ResetConsumeResult.NO_CREDIT, 0, "");
+            }
             if (!preferredCreditId.isEmpty()) {
                 requestBody.put(AppConstants.EXTRA_CREDIT_ID, preferredCreditId);
             }
@@ -127,6 +135,20 @@ public final class ResetCreditApi {
                     "duration_ms", SystemClock.elapsedRealtime() - started);
             return new ResetConsumeResult(code, windowsReset, message);
         }
+    }
+
+    private static String preferredCreditId(ResetCreditsSnapshot credits, String creditId,
+            long nowMillis) {
+        if (creditId != null && !creditId.isEmpty()) {
+            for (RateLimitResetCredit credit : credits.credits) {
+                if (credit != null && credit.isAvailable() && credit.id.equals(creditId)
+                        && (credit.expiresAtMillis <= 0L || credit.expiresAtMillis > nowMillis)) {
+                    return creditId;
+                }
+            }
+            return "";
+        }
+        return credits.preferredCreditId(nowMillis);
     }
 
     private static Response request(Context context, String operation, String str, String str2,

@@ -146,6 +146,7 @@ final class NotificationPlanningTests: XCTestCase {
         XCTAssertTrue(settings.unexpectedRefillAlertsEnabled)
         XCTAssertTrue(settings.creditExpiryRemindersEnabled)
         XCTAssertEqual(settings.creditExpiryLeadMinutes, AppSettings.defaultCreditExpiryLeadMinutes)
+        XCTAssertTrue(settings.creditExpiryAutoApplyEnabled)
     }
 
     func testObsoleteExpiryIdentifiersPreserveActiveOnes() {

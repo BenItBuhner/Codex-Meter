@@ -15,11 +15,18 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_MONTHLY = "dashboard_monthly";
     private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
     private static final String KEY_DASHBOARD_SECTION_ORDER = "dashboard_section_order";
+    private static final String KEY_DASHBOARD_SPEND_CONTROL = "dashboard_spend_control";
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
     private static final String KEY_DASHBOARD_USAGE_HISTORY = "dashboard_usage_history";
     private static final String KEY_DASHBOARD_WEEKLY = "dashboard_weekly";
     private static final String KEY_HISTORY_SECTION_OVERRIDES = "history_section_overrides";
     private static final String KEY_MATERIAL_YOU = "material_you";
+    private static final String KEY_ONE_UI_9_DESIGN = "one_ui_9_design";
+    private static final String KEY_APP_DESIGN = "app_design";
+    /** Settings → Appearance → Design choices. */
+    public static final String DESIGN_CLASSIC = "classic";
+    public static final String DESIGN_ONE_UI_9 = "one_ui_9";
+    public static final String DESIGN_LIQUID_GLASS = "liquid_glass";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
@@ -27,6 +34,7 @@ public final class AppPreferences {
     private static final String KEY_OAUTH_URL = "oauth_url";
     private static final String KEY_ONBOARDING_COMPLETE = "onboarding_complete";
     private static final String KEY_ONBOARDING_STEP = "onboarding_step";
+    private static final String KEY_ONBOARDING_PROVIDERS = "onboarding_providers";
     private static final String KEY_AUTOMATIC_REFRESH = "automatic_refresh";
     private static final String KEY_REFRESH_FAILURES = "refresh_failures";
     private static final String KEY_REFRESH_MINUTES = "refresh_minutes";
@@ -83,6 +91,8 @@ public final class AppPreferences {
         NowBarPreferences.clearSuppression(context);
         ResetNotificationManager.clearState(context);
         ResetCreditExpiryScheduler.cancelAll(context);
+        ResetCreditExpiryApplyScheduler.cancelAll(context);
+        ResetCreditExpiryApplyReceiver.clearState(context);
         PhoneWearSync.pushUsage(context, null);
     }
 
@@ -298,6 +308,14 @@ public final class AppPreferences {
         prefs(context).edit().putBoolean(KEY_DASHBOARD_MONTHLY, show).apply();
     }
 
+    public static boolean showDashboardSpendControl(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_SPEND_CONTROL, true);
+    }
+
+    public static void setShowDashboardSpendControl(Context context, boolean show) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_SPEND_CONTROL, show).apply();
+    }
+
     public static boolean showDashboardAdditionalLimits(Context context) {
         return prefs(context).getBoolean(KEY_DASHBOARD_ADDITIONAL_LIMITS, true);
     }
@@ -421,6 +439,44 @@ public final class AppPreferences {
 
     public static void setMaterialYouEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_MATERIAL_YOU, enabled).commit();
+    }
+
+    /**
+     * The app's design: classic (One UI 8.5), One UI 9, or Liquid Glass. Installs from before the
+     * Liquid Glass design only stored the One UI 9 switch, so that is the fallback.
+     */
+    public static String getDesign(Context context) {
+        SharedPreferences prefs = prefs(context);
+        String design = prefs.getString(KEY_APP_DESIGN, null);
+        if (DESIGN_ONE_UI_9.equals(design) || DESIGN_LIQUID_GLASS.equals(design)
+                || DESIGN_CLASSIC.equals(design)) {
+            return design;
+        }
+        return prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false) ? DESIGN_ONE_UI_9 : DESIGN_CLASSIC;
+    }
+
+    public static void setDesign(Context context, String design) {
+        if (!DESIGN_ONE_UI_9.equals(design) && !DESIGN_LIQUID_GLASS.equals(design)) {
+            design = DESIGN_CLASSIC;
+        }
+        prefs(context).edit()
+                .putString(KEY_APP_DESIGN, design)
+                .putBoolean(KEY_ONE_UI_9_DESIGN, DESIGN_ONE_UI_9.equals(design))
+                .commit();
+    }
+
+    /** When enabled, pages use the One UI 9 chrome (floating toolbar and tab bar). */
+    public static boolean isOneUi9Design(Context context) {
+        return DESIGN_ONE_UI_9.equals(getDesign(context));
+    }
+
+    public static void setOneUi9Design(Context context, boolean enabled) {
+        setDesign(context, enabled ? DESIGN_ONE_UI_9 : DESIGN_CLASSIC);
+    }
+
+    /** When enabled, pages use Apple's Liquid Glass chrome from the Glasse library. */
+    public static boolean isLiquidGlassDesign(Context context) {
+        return DESIGN_LIQUID_GLASS.equals(getDesign(context));
     }
 
     public static String getAppStyle(Context context) {
@@ -678,21 +734,45 @@ public final class AppPreferences {
         return prefs(context).getBoolean(KEY_ONBOARDING_COMPLETE, false);
     }
 
+    /** The saved setup step; the activity clamps it to the providers chosen so far. */
     public static int getOnboardingStep(Context context) {
-        return OnboardingFlow.normalizeStep(
-                prefs(context).getInt(KEY_ONBOARDING_STEP, OnboardingFlow.STEP_WELCOME));
+        return prefs(context).getInt(KEY_ONBOARDING_STEP, OnboardingFlow.STEP_WELCOME);
     }
 
     public static void setOnboardingStep(Context context, int step) {
-        prefs(context).edit()
-                .putInt(KEY_ONBOARDING_STEP, OnboardingFlow.normalizeStep(step))
-                .apply();
+        prefs(context).edit().putInt(KEY_ONBOARDING_STEP, step).apply();
+    }
+
+    /** Providers picked during setup, in enum order. Empty until the user picks. */
+    public static java.util.List<UsageProvider> getOnboardingProviders(Context context) {
+        java.util.List<UsageProvider> chosen = new java.util.ArrayList<>();
+        String saved = prefs(context).getString(KEY_ONBOARDING_PROVIDERS, "");
+        for (UsageProvider provider : UsageProvider.values()) {
+            for (String id : saved.split(",")) {
+                if (provider.id.equals(id.trim())) {
+                    chosen.add(provider);
+                    break;
+                }
+            }
+        }
+        return chosen;
+    }
+
+    public static void setOnboardingProviders(Context context,
+            java.util.List<UsageProvider> providers) {
+        StringBuilder ids = new StringBuilder();
+        for (UsageProvider provider : providers) {
+            if (ids.length() > 0) ids.append(',');
+            ids.append(provider.id);
+        }
+        prefs(context).edit().putString(KEY_ONBOARDING_PROVIDERS, ids.toString()).apply();
     }
 
     public static void completeOnboarding(Context context) {
         prefs(context).edit()
                 .putBoolean(KEY_ONBOARDING_COMPLETE, true)
                 .remove(KEY_ONBOARDING_STEP)
+                .remove(KEY_ONBOARDING_PROVIDERS)
                 .apply();
     }
 

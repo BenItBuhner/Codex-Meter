@@ -134,6 +134,12 @@ public enum UsageParser {
                 }()
             )
         }
+        let spendControl = JSONSupport.object(root["spend_control"]).map { control in
+            SpendControl(
+                reached: JSONSupport.bool(control["reached"], default: false),
+                individualLimit: parseSpendControlLimit(JSONSupport.object(control["individual_limit"]))
+            )
+        }
 
         return UsageSnapshot(
             planType: planType,
@@ -145,6 +151,7 @@ public enum UsageParser {
             resetCreditsAvailable: rawAvailableCount >= 0 ? rawAvailableCount : nil,
             additionalLimits: additionalLimits,
             usageCredits: usageCredits,
+            spendControl: spendControl,
             fetchedAt: fetchedAt
         )
     }
@@ -173,24 +180,77 @@ public enum UsageParser {
 
         let resetAfter = JSONSupport.int64(object["reset_after_seconds"], default: 0)
         let resetAtSeconds = JSONSupport.int64(object["reset_at"], default: 0)
-        let roundedUsed: Int
-        let javaRounded = floor(used + 0.5)
-        if javaRounded >= Double(Int.max) {
-            roundedUsed = Int.max
-        } else if javaRounded <= Double(Int.min) {
-            roundedUsed = Int.min
-        } else {
-            roundedUsed = Int(javaRounded)
-        }
 
         return UsageWindow(
-            usedPercent: roundedUsed,
+            usedPercent: roundHalfUp(used),
             windowSeconds: duration,
             resetAfterSeconds: resetAfter,
             resetAt: resetAtSeconds > 0
                 ? Date(timeIntervalSince1970: TimeInterval(resetAtSeconds))
                 : nil
         )
+    }
+
+    /// `spend_control.individual_limit`. Amounts arrive as strings (`"25000"`) and percentages as
+    /// numbers, but the reverse also appears, so every field goes through the tolerant helpers.
+    /// Returns `nil` when nothing usable is present so the card stays hidden.
+    private static func parseSpendControlLimit(_ object: JSONSupport.Object?) -> SpendControlLimit? {
+        guard let object else {
+            return nil
+        }
+        let limit = amount(object["limit"])
+        let used = amount(object["used"])
+        let remaining = amount(object["remaining"])
+
+        let usedPercent: Int
+        if let percent = JSONSupport.double(object["used_percent"]), percent.isFinite {
+            usedPercent = roundHalfUp(percent)
+        } else if let percent = JSONSupport.double(object["remaining_percent"]), percent.isFinite {
+            usedPercent = 100 - roundHalfUp(percent)
+        } else if let limit, let used,
+                  let limitValue = Double(limit), let usedValue = Double(used),
+                  limitValue > 0, usedValue.isFinite {
+            usedPercent = roundHalfUp(usedValue / limitValue * 100)
+        } else {
+            return nil
+        }
+
+        let resetAfter = JSONSupport.int64(object["reset_after_seconds"], default: 0)
+        let resetAtSeconds = JSONSupport.int64(object["reset_at"], default: 0)
+        return SpendControlLimit(
+            source: JSONSupport.string(object["source"]),
+            limit: limit,
+            used: used,
+            remaining: remaining,
+            usedPercent: usedPercent,
+            resetAfterSeconds: resetAfter,
+            resetAt: resetAtSeconds > 0
+                ? Date(timeIntervalSince1970: TimeInterval(resetAtSeconds))
+                : nil
+        )
+    }
+
+    /// A credit amount as text, accepting JSON strings and numbers but not booleans or null.
+    private static func amount(_ value: Any?) -> String? {
+        if let text = value as? String {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        guard JSONSupport.double(value) != nil else {
+            return nil
+        }
+        return JSONSupport.string(value)
+    }
+
+    private static func roundHalfUp(_ value: Double) -> Int {
+        let rounded = floor(value + 0.5)
+        if rounded >= Double(Int.max) {
+            return Int.max
+        }
+        if rounded <= Double(Int.min) {
+            return Int.min
+        }
+        return Int(rounded)
     }
 
     private static func nearest(

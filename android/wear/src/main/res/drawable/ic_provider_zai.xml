@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Z.ai mark from Lobe Icons (MIT). The trademark belongs to its owner.
+     Single-color white for the watch's dark surfaces; complications tint it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M24 2 9.264 22H0L14.736 2ZM12.105 2 9.927 4.953H0.653L2.83 2ZM23.254 19.048 21.078 22H11.836L14.01 19.048Z" />
+</vector>

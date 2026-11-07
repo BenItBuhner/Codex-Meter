@@ -19,4 +19,13 @@
             android:title="Material You" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Design">
+        <ListPreference
+            android:entries="@array/app_design_entries"
+            android:entryValues="@array/app_design_values"
+            android:key="app_design_ui"
+            android:persistent="false"
+            android:title="App design" />
+    </PreferenceCategory>
+
 </PreferenceScreen>

@@ -1,0 +1,165 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "sesl.androidx.customview",
+    "module": "customview",
+    "version": "1.2.0-rc01+1.0.1-sesl9+rev0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.7.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.1"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.10.0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.1-sesl9+rev0.aar",
+          "url": "customview-1.2.0-rc01+1.0.1-sesl9+rev0.aar",
+          "size": 34364,
+          "sha512": "6331afc9a3301e5c1d7ebcf472b928a94ebf4f21b6980b6f962ddc2102f3aa6f710a5af9891f366d3b6b92b548327907169720b5c7d22835eb3db253fee0f149",
+          "sha256": "52a2dfbfcf5d05ea660814e57d10e40fbf57545a6554fdc831c9839948610817",
+          "sha1": "b289c12a07c6746c0f9b822808981e165f52c23d",
+          "md5": "fa6bdf2101b234f5f7a2d1d3e4e69b92"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.collection",
+          "module": "collection",
+          "version": {
+            "requires": "1.6.0"
+          }
+        },
+        {
+          "group": "org.jspecify",
+          "module": "jspecify",
+          "version": {
+            "requires": "1.0.1"
+          }
+        },
+        {
+          "group": "androidx.annotation",
+          "module": "annotation",
+          "version": {
+            "requires": "1.10.0"
+          }
+        },
+        {
+          "group": "sesl.androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.19.0+1.0.29-sesl9+rev0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.1-sesl9+rev0.aar",
+          "url": "customview-1.2.0-rc01+1.0.1-sesl9+rev0.aar",
+          "size": 34364,
+          "sha512": "6331afc9a3301e5c1d7ebcf472b928a94ebf4f21b6980b6f962ddc2102f3aa6f710a5af9891f366d3b6b92b548327907169720b5c7d22835eb3db253fee0f149",
+          "sha256": "52a2dfbfcf5d05ea660814e57d10e40fbf57545a6554fdc831c9839948610817",
+          "sha1": "b289c12a07c6746c0f9b822808981e165f52c23d",
+          "md5": "fa6bdf2101b234f5f7a2d1d3e4e69b92"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.1-sesl9+rev0-sources.jar",
+          "url": "customview-1.2.0-rc01+1.0.1-sesl9+rev0-sources.jar",
+          "size": 31789,
+          "sha512": "a3effbe4c6b8feba85f72667a7bc6691a63cf6bca357df1cf34d9b2344c0c1db8d309ade79dac7753e75839ca95e8af62edab7b47ebf1c8cc6a980e01a39090d",
+          "sha256": "982458fd61225370bc8cdb3d0edc035a4566736a9d93b70e457aa1898f03a1d5",
+          "sha1": "cac5dea528bcd9cade84e79f21c5ca7ebb6e259a",
+          "md5": "5225201eaf7591e1df8f8ee3cccf3e6a"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "customview-1.2.0-rc01+1.0.1-sesl9+rev0-javadoc.jar",
+          "url": "customview-1.2.0-rc01+1.0.1-sesl9+rev0-javadoc.jar",
+          "size": 458989,
+          "sha512": "40e749748921ea87ccceb876cccc5965a9f617dda5f2bfbbf2bcbbb4f066a4033d2b57a31202fe739041598ab21554b32bf9a5737de6632a7f28f54ead24e710",
+          "sha256": "2e8d253f8aefcd0694942d1237a343b78d41f38823f0886c961cf378c577c3a2",
+          "sha1": "ba79c79e7e7a8b660fcbdb1a9e376433f7123118",
+          "md5": "a64f4ef2de364cd9e6adc9877887c119"
+        }
+      ]
+    }
+  ]
+}

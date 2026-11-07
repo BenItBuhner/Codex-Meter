@@ -1,0 +1,6 @@
+DerivedData/
+ci-gallery/
+*.xcresult
+xcuserdata/
+*.xcuserstate
+CodexMeter-macOS-unsigned.zip

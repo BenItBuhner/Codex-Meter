@@ -6,6 +6,8 @@ public enum DashboardSections {
     public static let weekly = "weekly"
     public static let monthly = "monthly"
     public static let usageCredits = "usage_credits"
+    /// Monthly credit limit from workspace spend controls (`spend_control.individual_limit`).
+    public static let spendControl = "spend_control"
     public static let usageHistory = "usage_history"
     public static let resetCredits = "reset_credits"
 
@@ -25,9 +27,10 @@ public enum DashboardSections {
         key.hasPrefix(limitPrefix)
     }
 
-    /// Default order: standard windows, monthly, detected additional limits, credits, history, resets.
+    /// Default order: standard windows, monthly, the monthly credit limit, detected additional
+    /// limits, credits, history, resets.
     public static func defaultOrder(additionalLimits: [UsageLimit]) -> [String] {
-        var result = [fiveHour, weekly, monthly]
+        var result = [fiveHour, weekly, monthly, spendControl]
         for limit in additionalLimits {
             let key = limitKey(limit)
             if !result.contains(key) {
@@ -36,6 +39,52 @@ public enum DashboardSections {
         }
         result.append(contentsOf: [usageCredits, usageHistory, resetCredits])
         return result
+    }
+
+    /// Sections a provider other than Codex can show, in default order: its 5-hour, weekly, and
+    /// monthly windows, its additional limits, then usage history when that provider keeps one.
+    /// Without data yet, `emptyDefaults` stands in for the windows so Edit dashboard still lists
+    /// that provider's usual cards. Mirrors Android's `DashboardSections.providerSections`.
+    public static func providerSections(
+        snapshot: UsageSnapshot?,
+        emptyDefaults: [String],
+        includeHistory: Bool = true
+    ) -> [String] {
+        var result: [String] = []
+        if let snapshot {
+            if snapshot.fiveHour != nil { result.append(fiveHour) }
+            if snapshot.weekly != nil { result.append(weekly) }
+            if snapshot.monthly != nil { result.append(monthly) }
+            for limit in snapshot.additionalLimits {
+                let key = limitKey(limit)
+                if !result.contains(key) {
+                    result.append(key)
+                }
+            }
+        } else {
+            result = deduplicating(emptyDefaults)
+        }
+        if includeHistory, !result.contains(usageHistory) {
+            result.append(usageHistory)
+        }
+        return result
+    }
+
+    /// The cards a provider dashboard shows, in the user's order, without hidden ones.
+    public static func visibleProviderSections(
+        snapshot: UsageSnapshot,
+        savedOrder: [String],
+        hidden: [String],
+        includeHistory: Bool = false
+    ) -> [String] {
+        let available = providerSections(
+            snapshot: snapshot,
+            emptyDefaults: [],
+            includeHistory: includeHistory
+        )
+        let hiddenKeys = Set(hidden)
+        return resolveOrder(saved: savedOrder, available: available)
+            .filter { !hiddenKeys.contains($0) }
     }
 
     /// Applies a saved order to the currently available section keys.

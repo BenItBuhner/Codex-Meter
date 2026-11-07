@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -15,6 +16,11 @@ import java.util.concurrent.Executors;
 
 /** Advanced release picker with explicit downgrade constraints. */
 public final class ReleaseHistoryActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private LinearLayout content;
     private boolean dark;
@@ -23,6 +29,9 @@ public final class ReleaseHistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         dark = Ui.isDark(this);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override

@@ -1,11 +1,15 @@
 import SwiftUI
+#if os(iOS)
 import SafariServices
+#endif
 
 struct SignInView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var showingBrowser = false
     @State private var didCopyCode = false
+    @ScaledMetric(relativeTo: .largeTitle) private var introSymbolSize: CGFloat = 54
+    @ScaledMetric(relativeTo: .largeTitle) private var codeSymbolSize: CGFloat = 48
 
     var body: some View {
         ScrollView {
@@ -59,7 +63,7 @@ struct SignInView: View {
     private var introStep: some View {
         VStack(spacing: 20) {
             Image(systemName: "person.crop.circle.badge.checkmark")
-                .font(.system(size: 54))
+                .font(.system(size: introSymbolSize))
                 .foregroundStyle(.tint)
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityHidden(true)
@@ -96,7 +100,7 @@ struct SignInView: View {
     private func codeStep(challenge: DeviceCodeChallenge) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "person.badge.key.fill")
-                .font(.system(size: 48))
+                .font(.system(size: codeSymbolSize))
                 .foregroundStyle(.tint)
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityHidden(true)
@@ -125,7 +129,7 @@ struct SignInView: View {
                     )
                 }
                 .buttonStyle(.bordered)
-                .animation(.snappy, value: didCopyCode)
+                .motionAnimation(.snappy, value: didCopyCode)
 
                 Button("Open ChatGPT sign-in") {
                     showingBrowser = true
@@ -155,7 +159,9 @@ struct SignInView: View {
     }
 }
 
-private struct SafariView: UIViewControllerRepresentable {
+// The Mac app defines its own SafariView that hands the page to the default browser.
+#if os(iOS)
+struct SafariView: UIViewControllerRepresentable {
     let url: URL
 
     func makeUIViewController(context: Context) -> SFSafariViewController {
@@ -166,3 +172,4 @@ private struct SafariView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
 }
+#endif

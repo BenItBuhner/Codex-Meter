@@ -1,3 +1,4 @@
+import CodexMeterCore
 import Foundation
 import WidgetKit
 
@@ -24,7 +25,7 @@ struct MeterWidgetTimelineProvider: AppIntentTimelineProvider {
     ) async -> MeterWidgetEntry {
         MeterWidgetEntry(
             date: .now,
-            snapshot: context.isPreview ? .preview : store.load(),
+            snapshot: context.isPreview ? .preview : store.load(provider: configuration.provider.resolvedProvider),
             configuration: configuration
         )
     }
@@ -34,7 +35,7 @@ struct MeterWidgetTimelineProvider: AppIntentTimelineProvider {
         in context: Context
     ) async -> Timeline<MeterWidgetEntry> {
         let now = Date.now
-        let snapshot = store.load()
+        let snapshot = store.load(provider: configuration.provider.resolvedProvider)
         let entry = MeterWidgetEntry(
             date: now,
             snapshot: snapshot,
@@ -99,7 +100,7 @@ struct FiveHourAccessoryTimelineProvider: AppIntentTimelineProvider {
     ) async -> ConfiguredAccessoryWidgetEntry {
         ConfiguredAccessoryWidgetEntry(
             date: .now,
-            snapshot: context.isPreview ? .preview : store.load(),
+            snapshot: context.isPreview ? .preview : store.load(provider: configuration.provider.resolvedProvider),
             allowance: configuration.allowance
         )
     }
@@ -109,7 +110,7 @@ struct FiveHourAccessoryTimelineProvider: AppIntentTimelineProvider {
         in context: Context
     ) async -> Timeline<ConfiguredAccessoryWidgetEntry> {
         let now = Date.now
-        let snapshot = store.load()
+        let snapshot = store.load(provider: configuration.provider.resolvedProvider)
         return accessoryTimeline(
             snapshot: snapshot,
             allowance: configuration.allowance,
@@ -135,7 +136,7 @@ struct WeeklyAccessoryTimelineProvider: AppIntentTimelineProvider {
     ) async -> ConfiguredAccessoryWidgetEntry {
         ConfiguredAccessoryWidgetEntry(
             date: .now,
-            snapshot: context.isPreview ? .preview : store.load(),
+            snapshot: context.isPreview ? .preview : store.load(provider: configuration.provider.resolvedProvider),
             allowance: configuration.allowance
         )
     }
@@ -145,7 +146,7 @@ struct WeeklyAccessoryTimelineProvider: AppIntentTimelineProvider {
         in context: Context
     ) async -> Timeline<ConfiguredAccessoryWidgetEntry> {
         let now = Date.now
-        let snapshot = store.load()
+        let snapshot = store.load(provider: configuration.provider.resolvedProvider)
         return accessoryTimeline(
             snapshot: snapshot,
             allowance: configuration.allowance,
@@ -171,7 +172,7 @@ struct DualAccessoryTimelineProvider: AppIntentTimelineProvider {
     ) async -> ConfiguredAccessoryWidgetEntry {
         ConfiguredAccessoryWidgetEntry(
             date: .now,
-            snapshot: context.isPreview ? .preview : store.load(),
+            snapshot: context.isPreview ? .preview : store.load(provider: configuration.provider.resolvedProvider),
             allowance: configuration.allowance
         )
     }
@@ -181,7 +182,7 @@ struct DualAccessoryTimelineProvider: AppIntentTimelineProvider {
         in context: Context
     ) async -> Timeline<ConfiguredAccessoryWidgetEntry> {
         let now = Date.now
-        let snapshot = store.load()
+        let snapshot = store.load(provider: configuration.provider.resolvedProvider)
         return accessoryTimeline(
             snapshot: snapshot,
             allowance: configuration.allowance,

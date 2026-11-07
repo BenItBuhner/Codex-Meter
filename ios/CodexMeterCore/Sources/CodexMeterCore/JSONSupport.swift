@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreFoundation)
+import CoreFoundation
+#endif
 
 public enum CodexMeterParsingError: Error, Sendable, Equatable {
     case invalidRootObject

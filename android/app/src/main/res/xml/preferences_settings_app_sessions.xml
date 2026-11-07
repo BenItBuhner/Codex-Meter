@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:key="app_sessions_main"
+        app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="app_sessions_enabled_ui"
+            android:title="Show while using AI apps"
+            app:iconSpaceReserved="false" />
+        <!-- Summary is "Allowed" or "Needs access"; the dialog explains what it can see. -->
+        <Preference
+            android:key="app_sessions_access"
+            android:title="App detection"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <!-- One "Apps" card with every matched app; filled in by SettingsActivity. -->
+    <PreferenceCategory
+        android:key="app_sessions_apps"
+        android:order="100"
+        android:title="Apps" />
+</PreferenceScreen>

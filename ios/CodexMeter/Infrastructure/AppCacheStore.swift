@@ -27,6 +27,23 @@ nonisolated public struct AppCacheSnapshot: Codable, Sendable, Equatable {
 public actor AppCacheStore {
     public nonisolated static let defaultFileName = "app-cache-v1.json"
     public nonisolated static let shared = AppCacheStore()
+    /// Claude Code usage lives in its own file so the Codex cache (and its file name) stays
+    /// untouched and each provider can be signed out independently.
+    public nonisolated static let claudeFileName = "claude-cache-v1.json"
+    public nonisolated static let claude = AppCacheStore(fileURL: defaultDirectoryURL()
+        .appendingPathComponent(claudeFileName))
+    /// Cursor usage gets its own file for the same reason.
+    public nonisolated static let cursorFileName = "cursor-cache-v1.json"
+    public nonisolated static let cursor = AppCacheStore(fileURL: defaultDirectoryURL()
+        .appendingPathComponent(cursorFileName))
+
+    /// The Application Support folder the default caches live in.
+    public nonisolated static func defaultDirectoryURL() -> URL {
+        let fileManager = FileManager.default
+        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        return base.appendingPathComponent("CodexMeter", isDirectory: true)
+    }
 
     private let fileURL: URL
     private let fileManager: FileManager

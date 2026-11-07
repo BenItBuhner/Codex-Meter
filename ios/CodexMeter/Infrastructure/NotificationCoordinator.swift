@@ -183,6 +183,70 @@ public actor NotificationCoordinator {
             settings: settings,
             now: now
         )
+        await processExpiryAutoApplyNotifications(
+            credits: credits,
+            settings: settings,
+            now: now
+        )
+    }
+
+    public func notifyExpiryAutoApply(result: ResetConsumeResult, expiresAt: Date) async {
+        let content = UNMutableNotificationContent()
+        switch result.outcome {
+        case .reset:
+            content.title = "Expiring Codex reset used"
+            content.body = result.userMessage + " It would have expired at "
+                + expiresAt.formatted(date: .omitted, time: .shortened) + "."
+        case .nothingToReset:
+            content.title = "Expiring reset had nothing to reset"
+            content.body = "Your Codex limits were already full, so the credit was left to expire."
+        case .noCredit, .alreadyRedeemed:
+            content.title = "Expiring reset was already gone"
+            content.body = result.userMessage
+        case .unknown:
+            content.title = "Could not use expiring reset"
+            content.body = result.userMessage
+        }
+        await post(content, identifier: "codex-meter.credit-expiry-apply.result")
+    }
+
+    public func notifyExpiryAutoApplyFailure(message: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = "Could not use expiring reset"
+        content.body = message + " Codex Meter will try again on the next refresh."
+        await post(content, identifier: "codex-meter.credit-expiry-apply.failure")
+    }
+
+    public func notifyLowUsageAutoUse(
+        result: ResetConsumeResult,
+        windowLabel: String,
+        remainingPercent: Int
+    ) async {
+        let content = UNMutableNotificationContent()
+        if result.applied {
+            content.title = "Codex reset used automatically"
+            content.body = "Your \(windowLabel) limit reached \(max(0, remainingPercent))% remaining. "
+                + result.userMessage
+        } else {
+            content.title = "Automatic reset not used"
+            content.body = result.userMessage
+        }
+        await post(content, identifier: "codex-meter.low-usage-auto-use.result")
+    }
+
+    public func notifyLowUsageAutoUseFailure(message: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = "Could not use a reset automatically"
+        content.body = message + " Codex Meter will try again on the next refresh."
+        await post(content, identifier: "codex-meter.low-usage-auto-use.failure")
+    }
+
+    private func post(_ content: UNMutableNotificationContent, identifier: String) async {
+        content.sound = .default
+        content.userInfo = [NotificationDeduplication.routeUserInfoKey: "reset"]
+        try? await center.add(
+            UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        )
     }
 
     /// Suppresses false “surprise refill” alerts after the user redeems a reset credit.
@@ -563,6 +627,64 @@ public actor NotificationCoordinator {
         )
         if !obsoleteDelivered.isEmpty {
             center.removeDeliveredNotifications(withIdentifiers: obsoleteDelivered)
+        }
+    }
+
+    private func processExpiryAutoApplyNotifications(
+        credits: ResetCreditsSnapshot,
+        settings: AppSettings,
+        now: Date
+    ) async {
+        let prefix = "codex-meter.credit-expiry-apply."
+        let leadMinutes = settings.creditExpiryAutoApplyLeadMinutes
+        let planned = CreditExpiryAutoApply.plan(
+            credits: credits.credits,
+            now: now,
+            leadMinutes: leadMinutes
+        )
+        guard settings.creditExpiryAutoApplyEnabled else {
+            let pending = await center.pendingNotificationRequests()
+            let identifiers = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
+            if !identifiers.isEmpty {
+                center.removePendingNotificationRequests(withIdentifiers: identifiers)
+            }
+            return
+        }
+        var keeping: Set<String> = []
+        for apply in planned {
+            let identifier = prefix + apply.token
+            keeping.insert(identifier)
+            let fireDate = max(now.addingTimeInterval(1), apply.triggerAt)
+            guard fireDate < apply.expiresAt else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = "Codex reset expires soon"
+            content.body = "An unused reset expires in "
+                + CreditExpiryAutoApply.leadLabel(leadMinutes)
+                + ". Open Codex Meter so it gets used instead of lost."
+            content.sound = .default
+            content.userInfo = [
+                NotificationDeduplication.routeUserInfoKey: "refresh",
+                "creditId": apply.creditId,
+                "token": apply.token
+            ]
+            let components = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute, .second],
+                from: fireDate
+            )
+            try? await center.add(
+                UNNotificationRequest(
+                    identifier: identifier,
+                    content: content,
+                    trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                )
+            )
+        }
+        let pending = await center.pendingNotificationRequests()
+        let obsolete = pending.map(\.identifier).filter {
+            $0.hasPrefix(prefix) && !keeping.contains($0)
+        }
+        if !obsolete.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: obsolete)
         }
     }
 

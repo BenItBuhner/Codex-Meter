@@ -1,0 +1,194 @@
+name: Linux CI
+
+on:
+  pull_request:
+    branches: [main, alpha]
+    paths:
+      - 'linux/**'
+      - 'windows/src/CodexMeter.Core/**'
+      - 'windows/src/CodexMeter.App/Assets/ProviderIcons.g.cs'
+      - 'android/app/build.gradle.kts'
+      - '.github/workflows/linux-ci.yml'
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'linux/**'
+      - 'windows/src/CodexMeter.Core/**'
+      - '.github/workflows/linux-ci.yml'
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: '1'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  build:
+    name: Build, test and package (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+        working-directory: linux
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install GTK 4, libadwaita and tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libadwaita-1-dev libsecret-1-0 adwaita-icon-theme fonts-cantarell \
+            xvfb xauth dbus dbus-x11 desktop-file-utils appstream file
+
+      - name: Unit tests
+        run: dotnet test tests/CodexMeter.Linux.Tests --logger "console;verbosity=normal"
+
+      - name: Validate desktop entry and AppStream metadata
+        run: |
+          desktop-file-validate data/io.github.benitbuhner.CodexMeter.desktop
+          appstreamcli validate --no-net data/io.github.benitbuhner.CodexMeter.metainfo.xml
+
+      - name: Publish
+        run: |
+          packaging/publish.sh ${{ matrix.arch }}
+          echo "VERSION=$(cat out/publish-${{ matrix.arch }}/VERSION)" >> "$GITHUB_ENV"
+
+      - name: Capture screenshots
+        if: matrix.arch == 'x64'
+        env:
+          GSK_RENDERER: cairo
+          GTK_A11Y: none
+        run: |
+          shots="$PWD/out/screenshots"
+          for mode in "" --demo-signed-out; do
+            timeout 300 xvfb-run -a -s "-screen 0 1400x1000x24" dbus-run-session -- \
+              out/publish-x64/codex-meter --screenshots "$shots" $mode
+          done
+          ls -la "$shots"
+          count=$(ls "$shots"/*.png | wc -l)
+          if [[ "$count" -lt 30 ]]; then echo "::error::Only $count screenshots"; exit 1; fi
+
+      - name: Build the .deb
+        run: packaging/build-deb.sh ${{ matrix.arch }}
+
+      - name: Install the .deb and run it
+        env:
+          GSK_RENDERER: cairo
+          GTK_A11Y: none
+        run: |
+          sudo apt-get install -y ./out/codex-meter_*.deb
+          codex-meter --help
+          timeout 300 xvfb-run -a dbus-run-session -- codex-meter --screenshots "$PWD/out/deb-smoke"
+          test "$(ls out/deb-smoke/*.png | wc -l)" -ge 10
+          sudo apt-get remove -y codex-meter
+
+      - name: Build the AppImage
+        run: packaging/build-appimage.sh ${{ matrix.arch }}
+
+      - name: Run the AppImage
+        env:
+          GSK_RENDERER: cairo
+          GTK_A11Y: none
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          appimage="$(ls out/CodexMeter-*.AppImage)"
+          timeout 300 xvfb-run -a dbus-run-session -- "$appimage" --screenshots "$PWD/out/appimage-smoke"
+          test "$(ls out/appimage-smoke/*.png | wc -l)" -ge 10
+
+      - name: Checksums
+        run: |
+          cd out
+          sha256sum codex-meter_*.deb CodexMeter-*.AppImage > SHA256SUMS-linux-${{ matrix.arch }}.txt
+          cat SHA256SUMS-linux-${{ matrix.arch }}.txt
+          mkdir -p dist
+          mv codex-meter_*.deb CodexMeter-*.AppImage SHA256SUMS-linux-*.txt dist/
+
+      - name: Show app log
+        if: always()
+        run: cat ~/.cache/codex-meter/codexmeter.log 2>/dev/null || echo 'No log written.'
+
+      - name: Upload screenshots
+        if: always() && matrix.arch == 'x64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-screenshots
+          path: linux/out/screenshots
+          if-no-files-found: ignore
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: codex-meter-linux-${{ matrix.arch }}
+          path: linux/out/dist
+
+  release:
+    name: Attach to the GitHub release
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: codex-meter-linux-*
+          merge-multiple: true
+          path: dist
+
+      - name: Verify checksums
+        working-directory: dist
+        run: for sums in SHA256SUMS-linux-*.txt; do sha256sum -c "$sums"; done
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The Android workflow creates and publishes the release; wait for it, and only create a
+          # draft ourselves if it hasn't appeared (the Android job then edits and publishes it).
+          for attempt in $(seq 1 30); do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            sleep 30
+          done
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            version="${GITHUB_REF_NAME#v}"
+            prerelease=false
+            [[ "$version" == *-* ]] && prerelease=true
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --prerelease="$prerelease" \
+              --title "Codex Meter $version" --notes "Codex Meter $version" || true
+          fi
+          files=()
+          for file in dist/*; do
+            name="$(basename "$file")"
+            case "$name" in
+              *amd64.deb) label="Codex Meter for Linux (.deb, x64)" ;;
+              *arm64.deb) label="Codex Meter for Linux (.deb, ARM64)" ;;
+              *x86_64.AppImage) label="Codex Meter for Linux (AppImage, x64)" ;;
+              *aarch64.AppImage) label="Codex Meter for Linux (AppImage, ARM64)" ;;
+              *) label="$name" ;;
+            esac
+            files+=("$file#$label")
+          done
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber

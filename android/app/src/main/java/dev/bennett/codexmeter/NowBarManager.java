@@ -10,17 +10,25 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.notification.StatusBarNotification;
+import android.text.format.DateFormat;
 import android.util.Log;
 import androidx.annotation.RequiresApi;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import java.util.Collections;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -36,6 +44,8 @@ public final class NowBarManager {
     private static final String CHANNEL_ID = "codex_live_monitor_v2";
     private static final String EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing";
     private static final String KEY_ACTIVE = "active";
+    private static final String KEY_APP_PACKAGE = "app_package";
+    private static final String KEY_APP_PROVIDER = "app_provider";
     private static final String KEY_AUTO_TRIGGER_FOCUS = "auto_trigger_focus";
     private static final String KEY_FOCUS_METRIC = "focus_metric";
     private static final String KEY_POSTED_MODE = "posted_mode";
@@ -44,6 +54,8 @@ public final class NowBarManager {
     private static final String KEY_START_REASON = "start_reason";
     private static final String KEY_UNTIL = "until";
     private static final String START_ACCELERATED = "accelerated";
+    /** Shown because a matched AI app is open; ends when the user leaves it. */
+    private static final String START_APP = "app";
     private static final String START_LOW = "low";
     private static final String START_MANUAL = "manual";
     private static final String START_PREVIEW = "preview";
@@ -123,6 +135,10 @@ public final class NowBarManager {
 
     public static synchronized void onUsageUpdated(Context context, UsageSnapshot snapshot) {
         if (isPreview(context)) return;
+        if (isAppSession(context)) {
+            onProviderUsageUpdated(context, UsageProvider.CODEX, snapshot);
+            return;
+        }
         if (hasStoredActiveState(context)) {
             if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
                 stop(context, false);
@@ -180,6 +196,102 @@ public final class NowBarManager {
         return until > now && startInternal(context, START_ACCELERATED, focus, until);
     }
 
+    /**
+     * Shows {@code provider}'s usage because its app ({@code packageName}) came to the front.
+     * A monitor the user or a threshold started is left alone; another app's session is
+     * replaced. Returns false when there is nothing to show.
+     */
+    public static synchronized boolean startForApp(Context context, UsageProvider provider,
+            String packageName) {
+        if (context == null || provider == null) return false;
+        if (isAppSessionFor(context, packageName)
+                && activeProvider(context) == provider) {
+            return true;
+        }
+        if (isActive(context) && !isAppSession(context)) return false;
+        if (!canPostNotifications(context)) return false;
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
+        if (!hasWindows(snapshot)) {
+            DiagnosticLog.info(context, "app_session", "start_skipped",
+                    "provider", provider.id, "reason", "no_usage_windows");
+            if (isAppSession(context)) stop(context, false);
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        long until = appSessionUntil(snapshot, now);
+        String focus = computeInitialFocus(context, snapshot, false, now);
+        saveState(context, false, until, focus, true, null, START_APP);
+        state(context).edit()
+                .putString(KEY_APP_PROVIDER, provider.id)
+                .putString(KEY_APP_PACKAGE, packageName)
+                .apply();
+        if (!post(context, snapshot, until, false)) {
+            stop(context, false);
+            return false;
+        }
+        DiagnosticLog.info(context, "app_session", "started", "provider", provider.id);
+        if (now - snapshot.fetchedAtMillis > ProviderUsageApi.STALE_AFTER_MILLIS) {
+            // Opening the app is a good moment to catch up on usage that moved since.
+            RefreshScheduler.scheduleImmediate(context);
+        }
+        // App sessions are not mirrored to the watch: they come and go with every app switch.
+        return true;
+    }
+
+    /** Hides a monitor that {@link #startForApp} showed; any other monitor stays. */
+    public static synchronized void endAppSession(Context context) {
+        if (context == null || !isAppSession(context)) return;
+        DiagnosticLog.info(context, "app_session", "ended");
+        stop(context, false);
+        maybeAutoStart(context, AppPreferences.loadSnapshot(context));
+    }
+
+    /** Keeps an app session current when its provider's usage refreshes. */
+    public static synchronized void onProviderUsageUpdated(Context context,
+            UsageProvider provider, UsageSnapshot snapshot) {
+        if (context == null || !isAppSession(context) || activeProvider(context) != provider) {
+            return;
+        }
+        if (!hasWindows(snapshot)) {
+            stop(context, false);
+            return;
+        }
+        long until = appSessionUntil(snapshot, System.currentTimeMillis());
+        state(context).edit().putLong(KEY_UNTIL, until).apply();
+        if (!post(context, snapshot, until, false)) stop(context, false);
+    }
+
+    /** True while an app session for {@code packageName} is showing. */
+    public static boolean isAppSessionFor(Context context, String packageName) {
+        return isAppSession(context) && isActive(context) && packageName != null
+                && packageName.equals(state(context).getString(KEY_APP_PACKAGE, null));
+    }
+
+    /** True while the monitor is up because a matched app is open. */
+    public static boolean isAppSession(Context context) {
+        return hasStoredActiveState(context) && START_APP.equals(sessionStartReason(context));
+    }
+
+    /** The provider the monitor shows: Codex unless an app session picked another. */
+    public static UsageProvider activeProvider(Context context) {
+        if (!START_APP.equals(sessionStartReason(context))) return UsageProvider.CODEX;
+        return UsageProvider.fromId(state(context).getString(KEY_APP_PROVIDER, null));
+    }
+
+    private static UsageSnapshot loadActiveSnapshot(Context context) {
+        return ProviderPreferences.loadSnapshot(context, activeProvider(context));
+    }
+
+    private static boolean hasWindows(UsageSnapshot snapshot) {
+        return snapshot != null && (snapshot.fiveHour != null || snapshot.longWindow() != null);
+    }
+
+    private static long appSessionUntil(UsageSnapshot snapshot, long now) {
+        long next = snapshot.nextResetMillis(now);
+        // The session ends when the user leaves the app; this only bounds a forgotten one.
+        return next > now ? next : now + TimeUnit.HOURS.toMillis(1);
+    }
+
     public static synchronized void onPaceSettingsChanged(Context context) {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
         if (START_ACCELERATED.equals(sessionStartReason(context))) {
@@ -192,6 +304,10 @@ public final class NowBarManager {
     }
 
     public static synchronized void restore(Context context) {
+        if (isAppSession(context)) {
+            // After a reboot or update the detector shows it again once the app is in front.
+            stop(context, false);
+        }
         if (hasStoredActiveState(context)) {
             long until = activeUntil(context);
             if (until <= System.currentTimeMillis()) {
@@ -227,7 +343,7 @@ public final class NowBarManager {
         if (isPreview(context)) {
             posted = startPreviewWithEnd(context, until);
         } else {
-            UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+            UsageSnapshot snapshot = loadActiveSnapshot(context);
             if (START_ACCELERATED.equals(sessionStartReason(context))) {
                 onUsageUpdated(context, snapshot);
                 return isActive(context);
@@ -291,7 +407,7 @@ public final class NowBarManager {
             snapshot = new UsageSnapshot("plus", true, false, null,
                     new UsageWindow(18, TimeUnit.DAYS.toSeconds(7), 0L, 0L), now);
         } else {
-            snapshot = AppPreferences.loadSnapshot(context);
+            snapshot = loadActiveSnapshot(context);
             if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
                 stop(context, false);
                 return false;
@@ -320,11 +436,16 @@ public final class NowBarManager {
     public static synchronized void stop(Context context, boolean suppressAutoRestart) {
         long until = activeUntil(context);
         boolean wasActive = hasStoredActiveState(context);
+        // Dismissing an app session hides it until the user leaves that app; it must not
+        // also hold back the low-allowance monitor.
+        boolean wasAppSession = isAppSession(context);
+        String appPackage = wasAppSession ? state(context).getString(KEY_APP_PACKAGE, null) : null;
         DiagnosticLog.info(context, "now_bar", "stop_requested",
                 "was_active", wasActive,
                 "suppress_auto_restart", suppressAutoRestart);
         state(context).edit().clear().apply();
-        if (suppressAutoRestart && wasActive && until > System.currentTimeMillis()) {
+        if (suppressAutoRestart && wasActive && !wasAppSession
+                && until > System.currentTimeMillis()) {
             // Respect an explicit stop/dismiss until the window would have ended anyway.
             NowBarPreferences.markSuppressedUntil(context, until);
         }
@@ -346,6 +467,11 @@ public final class NowBarManager {
                 DiagnosticLog.error(context, "now_bar", "expiry_cancel_failed", exception);
                 Log.w(TAG, "Could not cancel live monitor expiry", exception);
             }
+        }
+        if (wasAppSession) {
+            // Stop or swipe-away while the app is open: stay hidden until the user leaves it.
+            if (suppressAutoRestart) AppSessionPreferences.setDismissed(context, appPackage);
+            return;
         }
         PhoneWearSync.pushMonitorState(context);
         PhoneWearSync.pushSettings(context);
@@ -445,8 +571,9 @@ public final class NowBarManager {
                 : NowBarPercentMode.resolveFocus(NowBarPercentMode.AUTO, fiveHour, weekly,
                         acceleratedTrigger);
         UsageWindow progressWindow = NowBarPercentMode.selectWindow(focus, fiveHour, weekly);
+        UsageProvider provider = preview ? UsageProvider.CODEX : activeProvider(context);
         UsagePace.Assessment pace = UsagePacePreferences.assess(
-                context, snapshot, progressWindow, now);
+                context, provider, snapshot, progressWindow, now);
         boolean accelerated = !preview && pace.accelerated;
         int remaining = progressWindow == null ? 0 : progressWindow.remainingPercent();
         int used = progressWindow == null ? 0 : progressWindow.usedPercent;
@@ -459,10 +586,26 @@ public final class NowBarManager {
         String focusCritical = NowBarCopy.focusCriticalText(
                 weeklyFocus ? (longIsMonthly ? "M " : "W ") : "",
                 progressWindow, observedAt, now);
-        String title = "Codex usage";
-        String estimate = UsageFormat.estimatedRemaining(pace);
-        String text = fiveHourText + " · " + weeklyText
-                + (estimate.isEmpty() ? "" : " · " + estimate);
+        // Minimal layout: the title names the focused window and what is left, the body says
+        // when it resets, then the other window. Pace only appears when it is a warning.
+        String focusLabel = weeklyFocus ? longLabel : "5-hour";
+        String title = NowBarCopy.headline(focusLabel, progressWindow);
+        String resetText = NowBarCopy.resetClockText(progressWindow, observedAt, now,
+                DateFormat.is24HourFormat(context), TimeZone.getDefault(), Locale.getDefault());
+        String estimate = accelerated && pace.available && pace.estimatedRemainingMillis > 0L
+                && remaining > 0
+                ? "Runs out in " + UsageFormat.compactDuration(pace.estimatedRemainingMillis)
+                : "";
+        UsageWindow otherWindow = weeklyFocus ? fiveHour : weekly;
+        String otherText = otherWindow == null ? ""
+                : weeklyFocus ? fiveHourText : weeklyText;
+        StringBuilder body = new StringBuilder(resetText == null ? "" : resetText);
+        String tail = estimate.isEmpty() ? otherText : estimate;
+        if (!tail.isEmpty()) {
+            if (body.length() > 0) body.append(" · ");
+            body.append(tail);
+        }
+        String text = body.toString();
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
@@ -482,6 +625,7 @@ public final class NowBarManager {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
                 .setContentText(text)
+                .setSubText(provider.displayName)
                 .setContentIntent(contentIntent)
                 .setDeleteIntent(stopIntent)
                 .setOngoing(true)
@@ -496,10 +640,15 @@ public final class NowBarManager {
             builder.addAction(new Notification.Action.Builder(
                     refreshActionIcon, "Refresh", refreshIntent).build());
         }
+        if (provider != UsageProvider.CODEX) {
+            // Other providers show their own mark, flattened to a white bitmap.
+            builder.setSmallIcon(providerMark(context, provider, Color.WHITE));
+        }
         if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(displayMode)) {
-            applySamsungCompatibility(context, builder, fiveHour, weekly, longLabel, used,
+            applySamsungCompatibility(context, builder, provider, fiveHour, weekly, longLabel,
+                    used,
                     progressWindow, weeklyFocus, until, now, observedAt, preview,
-                    accelerated, estimate);
+                    accelerated, title, text, resetText);
         } else {
             Bundle promotionExtras = new Bundle();
             promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
@@ -575,26 +724,24 @@ public final class NowBarManager {
                     "until", until);
             Log.w(TAG, "Could not schedule live monitor expiry", exception);
         }
-        PhoneWearSync.pushMonitorState(context);
+        if (!START_APP.equals(sessionStartReason(context))) PhoneWearSync.pushMonitorState(context);
         return true;
     }
 
     private static void applySamsungCompatibility(Context context, Notification.Builder builder,
-            UsageWindow fiveHour, UsageWindow weekly, String longLabel, int used,
+            UsageProvider provider, UsageWindow fiveHour, UsageWindow weekly, String longLabel, int used,
             UsageWindow progressWindow,
             boolean weeklyFocus, long until, long now, long observedAt, boolean preview,
-            boolean accelerated, String estimate) {
-        String fiveHourText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
-        String weeklyText = NowBarCopy.limitText(longLabel, weekly, observedAt, now);
-        String availableWindows = fiveHour != null && weekly != null
-                ? "Both usage windows"
-                : fiveHour != null ? "5-hour window"
-                : weekly != null ? longLabel + " window" : "Usage window unavailable";
+            boolean accelerated, String title, String text, String resetText) {
         // Chip sits on the accent fill → always-light Codex mark.
         // Expanded Now Bar: pick an explicit light/dark resource at post time. Night-qualified
         // drawables can resolve wrong inside Samsung SystemUI (separate process / config).
-        Icon chipIcon = Icon.createWithResource(context, R.drawable.ic_codex_logo_on_accent);
-        Icon nowBarIcon = themeAdaptiveCodexLogo(context);
+        boolean codex = provider == UsageProvider.CODEX;
+        Icon chipIcon = codex
+                ? Icon.createWithResource(context, R.drawable.ic_codex_logo_on_accent)
+                : providerMark(context, provider, Color.WHITE);
+        Icon nowBarIcon = codex ? themeAdaptiveCodexLogo(context)
+                : providerMark(context, provider, isNight(context) ? Color.WHITE : Color.BLACK);
         Icon progressDot = Icon.createWithResource(context, R.drawable.ic_now_bar_progress_dot);
         Bundle extras = new Bundle();
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
@@ -604,20 +751,20 @@ public final class NowBarManager {
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
                 NowBarCopy.chipExpandedText(weeklyFocus ? longLabel : "5-hour",
                         progressWindow, observedAt, now));
-        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo",
-                fiveHourText + " · " + weeklyText);
-        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo",
-                accelerated && !estimate.isEmpty() ? estimate : availableWindows);
-        extras.putString(SAMSUNG_ONGOING_PREFIX + "description", "Codex usage limits");
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo", title);
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo", text);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "description",
+                provider.displayName + " usage limits");
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progress", used);
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "progressMax", 100);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "progressSegments.icon", progressDot);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", nowBarIcon);
-        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", fiveHourText);
-        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo", weeklyText);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", title);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo",
+                resetText == null ? text : resetText);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarIconType", "progress");
         builder.addExtras(extras)
-                .setSubText(preview ? "Now Bar preview" : "Until the next usage reset")
+                .setSubText(preview ? "Now Bar preview" : provider.displayName)
                 .setProgress(100, used, false)
                 .setCategory(Notification.CATEGORY_STATUS)
                 .setShowWhen(true)
@@ -637,11 +784,40 @@ public final class NowBarManager {
     }
 
     static int themeAdaptiveCodexLogoRes(Context context) {
-        int night = context.getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_NIGHT_MASK;
-        return night == Configuration.UI_MODE_NIGHT_YES
-                ? R.drawable.ic_codex_logo_dark
-                : R.drawable.ic_codex_logo;
+        return isNight(context) ? R.drawable.ic_codex_logo_dark : R.drawable.ic_codex_logo;
+    }
+
+    private static boolean isNight(Context context) {
+        return (context.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    /**
+     * A provider's mark as a solid-color bitmap. The marks tint themselves from the app theme,
+     * which SystemUI cannot resolve, so they are drawn here in a fixed color instead.
+     */
+    private static final java.util.Map<String, Icon> MARKS = new java.util.HashMap<>();
+
+    private static Icon providerMark(Context context, UsageProvider provider, int color) {
+        String key = provider.id + "/" + color;
+        Icon cached = MARKS.get(key);
+        if (cached != null) return cached;
+        Icon mark = drawProviderMark(context, provider, color);
+        MARKS.put(key, mark);
+        return mark;
+    }
+
+    private static Icon drawProviderMark(Context context, UsageProvider provider, int color) {
+        int size = Math.round(24f * context.getResources().getDisplayMetrics().density);
+        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Drawable mark = context.getDrawable(ProvidersActivity.iconRes(provider));
+        if (mark == null) return Icon.createWithResource(context, R.drawable.ic_notification);
+        mark = mark.mutate();
+        mark.setTintList(null);
+        mark.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
+        mark.setBounds(0, 0, size, size);
+        mark.draw(new Canvas(bitmap));
+        return Icon.createWithBitmap(bitmap);
     }
 
     private static void createChannel(NotificationManager manager) {
@@ -688,7 +864,7 @@ public final class NowBarManager {
     private static String sessionStartReason(Context context) {
         String reason = state(context).getString(KEY_START_REASON, START_MANUAL);
         if (START_ACCELERATED.equals(reason) || START_LOW.equals(reason)
-                || START_PREVIEW.equals(reason)) {
+                || START_PREVIEW.equals(reason) || START_APP.equals(reason)) {
             return reason;
         }
         return START_MANUAL;

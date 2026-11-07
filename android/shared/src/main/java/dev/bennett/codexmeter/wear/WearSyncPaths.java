@@ -8,6 +8,8 @@ public final class WearSyncPaths {
     public static final String MSG_START_MONITOR = "/codex/msg/start_monitor";
     public static final String MSG_STOP_MONITOR = "/codex/msg/stop_monitor";
     public static final String PATH_MONITOR = "/codex/monitor";
+    /** Every provider the phone shows, with its latest usage (see {@link WearProvidersState}). */
+    public static final String PATH_PROVIDERS = "/codex/providers";
     public static final String PATH_SETTINGS = "/codex/settings";
     public static final String PATH_STATUS = "/codex/status";
     public static final String PATH_USAGE = "/codex/usage";

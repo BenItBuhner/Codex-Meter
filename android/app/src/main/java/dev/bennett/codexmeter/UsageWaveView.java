@@ -1,5 +1,7 @@
 package dev.bennett.codexmeter;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -31,6 +33,7 @@ public final class UsageWaveView extends View {
     private String pace = "";
     private int percent;
     private boolean warning;
+    private boolean reduceMotion;
     private float phase;
     private float phaseOffset;
 
@@ -76,6 +79,8 @@ public final class UsageWaveView extends View {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        reduceMotion = ReducedMotion.isRequested(getContext());
+        if (reduceMotion) return;
         animator = ValueAnimator.ofFloat(0f, (float) (Math.PI * 2));
         animator.setDuration(warning ? WARNING_WAVE_DURATION_MS : NORMAL_WAVE_DURATION_MS);
         animator.setRepeatCount(ValueAnimator.INFINITE);
@@ -83,6 +88,15 @@ public final class UsageWaveView extends View {
         animator.addUpdateListener(animation -> {
             phase = (Float) animation.getAnimatedValue();
             invalidate();
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                // An infinite animator only ends when the system zeroes the animator scale
+                // mid-run (or on detach); settle to the flat fill instead of a frozen wave.
+                reduceMotion = true;
+                invalidate();
+            }
         });
         animator.start();
     }
@@ -106,19 +120,23 @@ public final class UsageWaveView extends View {
             canvas.drawRect(0f, 0f, getWidth(), getHeight(), trackPaint);
         }
         float edge = getWidth() * percent / 100f;
-        float amplitude = (warning ? 10f : 8f) * density;
         fillPath.reset();
         fillPath.moveTo(0, 0);
         fillPath.lineTo(edge, 0);
-        int steps = warning ? 36 : 28;
-        for (int i = 1; i <= steps; i++) {
-            float y = getHeight() * i / (float) steps;
-            float envelope = (float) Math.sin(Math.PI * y / getHeight());
-            float angle = (float) ((warning ? Math.PI * 4 : Math.PI * 2)
-                    * y / getHeight() + phase + phaseOffset);
-            float wave = (float) Math.sin(angle);
-            float x = edge + amplitude * envelope * wave;
-            fillPath.lineTo(x, y);
+        if (reduceMotion) {
+            fillPath.lineTo(edge, getHeight());
+        } else {
+            float amplitude = (warning ? 10f : 8f) * density;
+            int steps = warning ? 36 : 28;
+            for (int i = 1; i <= steps; i++) {
+                float y = getHeight() * i / (float) steps;
+                float envelope = (float) Math.sin(Math.PI * y / getHeight());
+                float angle = (float) ((warning ? Math.PI * 4 : Math.PI * 2)
+                        * y / getHeight() + phase + phaseOffset);
+                float wave = (float) Math.sin(angle);
+                float x = edge + amplitude * envelope * wave;
+                fillPath.lineTo(x, y);
+            }
         }
         fillPath.lineTo(0, getHeight());
         fillPath.close();

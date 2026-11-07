@@ -1,0 +1,43 @@
+{
+  "plan_type": "team",
+  "rate_limit": {
+    "allowed": true,
+    "limit_reached": false,
+    "primary_window": {
+      "used_percent": 42,
+      "limit_window_seconds": 18000,
+      "reset_after_seconds": 3600,
+      "reset_at": 2000003600
+    },
+    "secondary_window": {
+      "used_percent": 5,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 400000,
+      "reset_at": 2000400000
+    }
+  },
+  "rate_limit_reached_type": {
+    "type": "workspace_member_usage_limit_reached"
+  },
+  "spend_control": {
+    "reached": false,
+    "individual_limit": {
+      "source": "workspace_spend_controls",
+      "limit": "25000",
+      "used": "8000",
+      "remaining": "17000",
+      "used_percent": 32,
+      "remaining_percent": 68,
+      "reset_after_seconds": 43200,
+      "reset_at": 2000043200
+    }
+  },
+  "credits": {
+    "has_credits": false,
+    "unlimited": false,
+    "balance": "0"
+  },
+  "rate_limit_reset_credits": {
+    "available_count": 2
+  }
+}

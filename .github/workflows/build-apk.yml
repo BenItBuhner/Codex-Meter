@@ -3,11 +3,10 @@ name: Build Codex Meter APK
 on:
   pull_request:
     branches: [main, alpha]
-    paths-ignore: ['ios/**']
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main, alpha]
     tags: ['v*']
-    paths-ignore: ['ios/**']
   workflow_dispatch:
 
 permissions:
@@ -28,6 +27,9 @@ jobs:
     env:
       GH_USERNAME: ${{ github.actor }}
       GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Optional: enables Antigravity sign-in. Builds without them still work.
+      ANTIGRAVITY_CLIENT_ID: ${{ secrets.ANTIGRAVITY_CLIENT_ID }}
+      ANTIGRAVITY_CLIENT_SECRET: ${{ secrets.ANTIGRAVITY_CLIENT_SECRET }}
     defaults:
       run:
         working-directory: android
@@ -38,11 +40,12 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Set up Java 21
+      # SESL9 ships Java 24 bytecode, which older javac can't read.
+      - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: gradle
           cache-dependency-path: |
             android/**/*.gradle*
@@ -59,8 +62,8 @@ jobs:
           fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" \
-            "platforms;android-36" \
             "platforms;android-37.0" \
+            "platforms;android-37.1" \
             "build-tools;36.0.0"
 
       - name: Validate version
@@ -168,6 +171,57 @@ jobs:
           path: android/dist/
           if-no-files-found: error
           retention-days: 3
+
+  # Label a same-repo PR "refresh-sesl9-vendor" to have CI copy the resolved SESL9 artifacts
+  # (GitHub Packages only) into android/vendor/m2 and push them to the PR branch.
+  refresh-sesl9-vendor:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'refresh-sesl9-vendor')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      packages: read
+    env:
+      GH_USERNAME: ${{ github.actor }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Refresh vendored SESL9 artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./ci/vendor-sesl9.sh
+          if [[ -n "$(git status --porcelain vendor/m2)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add vendor/m2
+            git commit -m "Vendor SESL9 artifacts"
+            git push origin "HEAD:${GITHUB_HEAD_REF}"
+          fi
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

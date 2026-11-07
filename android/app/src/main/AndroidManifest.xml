@@ -14,6 +14,17 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- Lets "Show in AI apps" list launchable apps to match and recognise the home screen. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.HOME"/>
+        </intent>
+    </queries>
     <application
         android:name="dev.bennett.codexmeter.CodexMeterApplication"
         android:theme="@style/AppTheme"
@@ -51,6 +62,9 @@
             android:name="dev.bennett.codexmeter.SettingsActivity"
             android:exported="false"/>
         <activity
+            android:name="dev.bennett.codexmeter.LockWidgetsActivity"
+            android:exported="false"/>
+        <activity
             android:name="dev.bennett.codexmeter.UpdateActivity"
             android:configChanges="orientation|screenSize"
             android:exported="false"/>
@@ -63,6 +77,16 @@
         <activity
             android:name="dev.bennett.codexmeter.DashboardReorderActivity"
             android:exported="false"/>
+        <activity
+            android:name="dev.bennett.codexmeter.ProvidersActivity"
+            android:exported="false"/>
+        <activity
+            android:name="dev.bennett.codexmeter.AddAccountActivity"
+            android:exported="false"/>
+        <activity
+            android:name="dev.bennett.codexmeter.SignInActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"/>
         <activity
             android:name="dev.bennett.codexmeter.AboutActivity"
             android:exported="false"/>
@@ -261,6 +285,12 @@
             android:name="dev.bennett.codexmeter.ResetCreditExpiryReceiver"
             android:exported="false"/>
         <receiver
+            android:name="dev.bennett.codexmeter.ResetCreditExpiryApplyReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name="dev.bennett.codexmeter.ClaudeResetExpiryReceiver"
+            android:exported="false"/>
+        <receiver
             android:name="dev.bennett.codexmeter.NowBarActionReceiver"
             android:exported="false"/>
         <receiver
@@ -290,6 +320,18 @@
             android:name="dev.bennett.codexmeter.WidgetRepairJobService"
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="false"/>
+        <service
+            android:name="dev.bennett.codexmeter.AppSessionService"
+            android:label="@string/app_session_service_label"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/app_session_service"/>
+        </service>
         <service
             android:name="dev.bennett.codexmeter.OAuthService"
             android:exported="false"

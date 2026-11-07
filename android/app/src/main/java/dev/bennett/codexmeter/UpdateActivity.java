@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -18,6 +19,11 @@ import java.util.concurrent.Executors;
 
 /** User-facing secure download and PackageInstaller hand-off flow. */
 public final class UpdateActivity extends AppCompatActivity {
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     public static final String EXTRA_VERSION = "release_version";
     public static final String EXTRA_FORCE_CHECK = "force_check";
     public static final String EXTRA_START_INSTALL = "start_install";
@@ -36,6 +42,9 @@ public final class UpdateActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        if (GlassApp.redirect(this)) {
+            return;
+        }
         dark = Ui.isDark(this);
         content = Ui.installPage(this, "App update", true).content;
         String requested = getIntent().getStringExtra(EXTRA_VERSION);
@@ -267,7 +276,7 @@ public final class UpdateActivity extends AppCompatActivity {
         UpdatePreferences.setInstallError(this, "");
         if (!canInstallPackages()) {
             waitingForInstallPermission = true;
-            new AlertDialog.Builder(this)
+            new AppDialog(this)
                     .setTitle("Allow app installs")
                     .setMessage("Android requires permission for Codex Meter to hand its verified "
                             + "GitHub APK to the system installer. You still approve every update.")
@@ -342,7 +351,7 @@ public final class UpdateActivity extends AppCompatActivity {
     }
 
     private void confirmOlderDownload() {
-        new AlertDialog.Builder(this)
+        new AppDialog(this)
                 .setTitle("Downgrade requires uninstalling")
                 .setMessage("Android blocks in-place downgrades for ordinary apps. Uninstalling "
                         + "Codex Meter removes its account, settings, cached usage, and widgets. "

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One UI 9 page, built only from SESL9 parts (see OneUi9Page). Every surface here is
+     transparent: content scrolls edge to edge under the status bar and the floating toolbar,
+     where SESL9's native fading edge fades it out. Only the toolbar's own buttons float. -->
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/oneui9_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/oneui9_app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:elevation="0dp"
+        android:stateListAnimator="@null"
+        app:elevation="0dp"
+        app:liftOnScroll="false"
+        app:seslUseFloatingToolbar="true">
+
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            android:id="@+id/oneui9_collapsing"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            app:contentScrim="@android:color/transparent"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap"
+            app:statusBarScrim="@android:color/transparent" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <FrameLayout
+        android:id="@+id/oneui9_body"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+    <!-- In an anchored CoordinatorLayout child, gravity TOP puts the bar's bottom on the anchor
+         point, here the app bar's bottom edge, so the toolbar rides on the app bar until SESL9
+         hides the app bar and keeps the toolbar floating at the top. -->
+    <com.google.android.material.oneui.floatingactioncontainer.FloatingToolbarLayout
+        android:id="@+id/oneui9_floating_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        app:layout_anchor="@id/oneui9_app_bar"
+        app:layout_anchorGravity="bottom|center_horizontal">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/oneui9_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@null" />
+    </com.google.android.material.oneui.floatingactioncontainer.FloatingToolbarLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

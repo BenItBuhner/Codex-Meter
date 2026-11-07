@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Show in AI apps". Window events only say that something changed; the service then reads
+     which app window is in front from the window list (canRetrieveWindowContent +
+     flagRetrieveInteractiveWindows are what Android requires for that list). It reads only that
+     window's package name. notificationTimeout 0 delivers each change at once instead of
+     waiting for a burst of launch events to settle. No gestures, no key events, no typing. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/app_session_service_description"
+    android:notificationTimeout="0" />

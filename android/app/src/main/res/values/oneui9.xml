@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One UI 9 design (Settings → Appearance). The tint keeps the floating bar readable on
+     devices without Samsung's blur. -->
+<resources>
+    <style name="OneUi9FloatingNavigation" parent="Widget.Design.Light.BottomNavigationView.Floating.IconText">
+        <item name="android:background">@drawable/sesl_bottom_navigation_floating_background_light</item>
+        <item name="backgroundTint">@color/oneui9_nav_surface</item>
+        <item name="seslBottomBarApplyBlur">true</item>
+        <item name="android:elevation">6dp</item>
+    </style>
+    <color name="oneui9_nav_surface">#F6F6F6</color>
+    <color name="oneui9_nav_checked">#1F000000</color>
+</resources>

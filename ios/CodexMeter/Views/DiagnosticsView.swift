@@ -1,5 +1,7 @@
 import SwiftUI
+#if os(iOS)
 import UIKit
+#endif
 
 struct DiagnosticsView: View {
     @State private var enabled = DiagnosticLog.isEnabled
@@ -71,6 +73,7 @@ struct DiagnosticsView: View {
     }
 }
 
+#if os(iOS)
 private struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
@@ -80,3 +83,4 @@ private struct ShareSheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
+#endif

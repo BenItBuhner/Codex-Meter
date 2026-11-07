@@ -10,6 +10,7 @@ import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 import dev.bennett.codexmeter.wear.WearMonitorState;
+import dev.bennett.codexmeter.wear.WearProvidersState;
 import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSyncPaths;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
@@ -40,14 +41,30 @@ public final class WearPhoneSync {
             if (state == null) return false;
             if (state.snapshot == null) {
                 WearPreferences.clearSnapshot(context, state.updatedAtMillis,
-                        !state.signedIn);
+                        !state.signedIn && WearPreferences.CODEX_ID.equals(
+                                WearPreferences.selectedProviderId(context)));
                 return true;
             }
             WearPreferences.saveSnapshot(context, state.snapshot, state.updatedAtMillis);
-            WearOngoingMonitor.updateFromSnapshot(context, state.snapshot);
+            WearOngoingMonitor.updateFromSnapshot(context, WearPreferences.loadSnapshot(context));
             return true;
         } catch (Exception exception) {
             Log.w(TAG, "Could not apply phone usage payload", exception);
+            return false;
+        }
+    }
+
+    public static boolean applyRemoteProviders(Context context, String payload) {
+        try {
+            WearProvidersState state = WearProvidersState.fromJson(new JSONObject(payload));
+            boolean applied = WearPreferences.applyRemoteProviders(context, state);
+            if (applied) {
+                WearOngoingMonitor.updateFromSnapshot(context,
+                        WearPreferences.loadSnapshot(context));
+            }
+            return applied;
+        } catch (Exception exception) {
+            Log.w(TAG, "Could not apply phone providers payload", exception);
             return false;
         }
     }
@@ -100,6 +117,8 @@ public final class WearPhoneSync {
             return applyRemoteMonitor(context, payload);
         } else if (WearSyncPaths.PATH_STATUS.equals(path)) {
             return applyRemoteStatus(context, payload);
+        } else if (WearSyncPaths.PATH_PROVIDERS.equals(path)) {
+            return applyRemoteProviders(context, payload);
         }
         return false;
     }

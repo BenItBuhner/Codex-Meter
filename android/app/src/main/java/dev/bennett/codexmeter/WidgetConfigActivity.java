@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.content.Context;
 import android.annotation.SuppressLint;
 import android.appwidget.AppWidgetManager;
 import android.content.Intent;
@@ -36,7 +37,57 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-public final class WidgetConfigActivity extends AppCompatActivity {
+public final class WidgetConfigActivity extends AppCompatActivity
+        implements GlassApp.Host {
+    private GlassApp glass;
+
+    @Override
+    public GlassApp glass() {
+        return glass;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (glass != null) {
+            glass.onResume();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        if (glass != null) {
+            glass.onPause();
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (glass != null) {
+            glass.onDestroy();
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        if (glass != null) {
+            glass.onConfigurationChanged(config);
+        }
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        return glass != null ? glass.dispatchTouchEvent(ev) : super.dispatchTouchEvent(ev);
+    }
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(DesignChrome.wrap(base));
+    }
+
     private Spinner accentSpinner;
     private CardItemView accentRow;
     private int appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
@@ -60,6 +111,9 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private final List<String> meterOrder = new ArrayList<>();
     private final LinkedHashSet<String> selectedMeters = new LinkedHashSet<>();
     private String tapAction = WidgetOptions.TAP_OPEN_APP;
+    private List<UsageProvider> widgetProviders = new ArrayList<>();
+    private final java.util.Map<UsageProvider, SwitchCompat> providerSwitches =
+            new java.util.EnumMap<>(UsageProvider.class);
     private final int tapOpenId = View.generateViewId();
     private final int tapRefreshId = View.generateViewId();
     private final int tapResetId = View.generateViewId();
@@ -75,6 +129,12 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         if (this.appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             Toast.makeText(this, "No widget was selected.", Toast.LENGTH_LONG).show();
             finish();
+            return;
+        }
+        if (AppPreferences.isLiquidGlassDesign(this)) {
+            glass = new GlassApp(this, super::dispatchTouchEvent,
+                    GlassScreens.PREFIX + "widget:" + this.appWidgetId);
+            glass.start(state);
             return;
         }
         this.dark = Ui.isDark(this);
@@ -101,8 +161,18 @@ public final class WidgetConfigActivity extends AppCompatActivity {
 
         WidgetOptions saved = AppPreferences.loadWidgetOptions(this, this.appWidgetId);
         this.tapAction = AppPreferences.getWidgetTapAction(this, this.appWidgetId);
+        this.widgetProviders = new ArrayList<>(
+                ProviderPreferences.getWidgetProviders(this, this.appWidgetId));
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         loadMeterSelection(saved, snapshot);
+
+        content.addView(Ui.separator(this, "Providers"));
+        content.addView(buildProvidersCard());
+        TextView providersHint = Ui.text(this, "Turn on more than one to stack them, one row "
+                + "per provider. Small sizes show the first one or two.", 13.0f,
+                Ui.secondaryText(this.dark));
+        providersHint.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), Ui.dp(this, 24), 0);
+        content.addView(providersHint);
 
         content.addView(Ui.separator(this, "Appearance"));
         RoundedLinearLayout appearanceCard = Ui.seslRowCard(this, this.dark);
@@ -226,12 +296,52 @@ public final class WidgetConfigActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeslSeekBar seekBar) {
             }
         });
-        page.cancel.setOnClickListener(view -> finish());
-        page.save.setOnClickListener(view -> save());
+        page.onCancel(this::finish);
+        page.onSave(this::save);
         updateSliderVisuals();
         updateRowSummaries();
         updateMetersHint();
         renderPreview();
+    }
+
+    private RoundedLinearLayout buildProvidersCard() {
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        boolean first = true;
+        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+            SwitchCompat toggle = new SwitchCompat(this);
+            toggle.setChecked(this.widgetProviders.contains(provider));
+            this.providerSwitches.put(provider, toggle);
+            card.addView(buildProviderRow(provider, toggle, !first));
+            first = false;
+            toggle.setOnCheckedChangeListener((button, checked) -> {
+                List<UsageProvider> updated = WidgetProviders.toggled(this.widgetProviders,
+                        provider, checked, ProviderPreferences.getOrder(this),
+                        WidgetProviders.MAX_HOME);
+                if (updated.contains(provider) != checked) {
+                    // The last provider stays on; put the switch back.
+                    button.setChecked(!checked);
+                    return;
+                }
+                this.widgetProviders = updated;
+                renderPreview();
+            });
+        }
+        return card;
+    }
+
+    private LinearLayout buildProviderRow(UsageProvider provider, SwitchCompat toggle,
+            boolean topDivider) {
+        LinearLayout row = buildSwitchRow(provider.displayName, toggle, topDivider);
+        LinearLayout content = (LinearLayout) row.getChildAt(row.getChildCount() - 1);
+        ImageView mark = new ImageView(this);
+        mark.setImageResource(ProvidersActivity.iconRes(provider));
+        mark.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
+        mark.setContentDescription(null);
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(Ui.dp(this, 24),
+                Ui.dp(this, 24));
+        markParams.setMarginEnd(Ui.dp(this, 16));
+        content.addView(mark, 0, markParams);
+        return row;
     }
 
     private RoundedLinearLayout buildTapActionCard() {
@@ -317,7 +427,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
         row.setSummary(labels[Math.max(0, spinner.getSelectedItemPosition())]);
         row.setShowTopDivider(divider);
         row.setShowBottomDivider(false);
-        row.setOnClickListener(view -> OneUiChoiceDialog.show(this, title, labels,
+        row.setOnClickListener(view -> OneUiChoiceDialog.show(view, title, labels,
                 spinner.getSelectedItemPosition(),
                 position -> applyPreviewSelection(spinner, position)));
         card.addView(row);
@@ -614,7 +724,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
                 }
                 WidgetOptions options = currentOptions();
                 RemoteViews remote = WidgetRenderer.buildPreview(this, this.appWidgetId, options,
-                        this.widgetSize);
+                        this.widgetSize, this.widgetProviders);
                 FrameLayout surface = new FrameLayout(this);
                 surface.setClipToOutline(true);
                 GradientDrawable background = new GradientDrawable();
@@ -711,6 +821,7 @@ public final class WidgetConfigActivity extends AppCompatActivity {
     private void save() {
         AppPreferences.saveWidgetOptions(this, this.appWidgetId, currentOptions());
         AppPreferences.saveWidgetTapAction(this, this.appWidgetId, this.tapAction);
+        ProviderPreferences.setWidgetProviders(this, this.appWidgetId, this.widgetProviders);
         WidgetRenderer.update(this, AppWidgetManager.getInstance(this), this.appWidgetId);
         setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,
                 this.appWidgetId));

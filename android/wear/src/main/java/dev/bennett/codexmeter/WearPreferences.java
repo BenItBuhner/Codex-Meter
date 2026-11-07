@@ -3,6 +3,7 @@ package dev.bennett.codexmeter;
 import android.content.Context;
 import android.content.SharedPreferences;
 import dev.bennett.codexmeter.wear.WearMonitorState;
+import dev.bennett.codexmeter.wear.WearProvidersState;
 import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
@@ -26,6 +27,10 @@ public final class WearPreferences {
     private static final String KEY_MONITOR_PREVIEW = "monitor_preview";
     private static final String KEY_MONITOR_UNTIL = "monitor_until";
     private static final String KEY_PERCENT_MODE = "percent_mode";
+    private static final String KEY_PROVIDERS_JSON = "providers_json";
+    private static final String KEY_LAST_APPLIED_PROVIDERS_AT = "last_applied_providers_at";
+    private static final String KEY_WATCH_PROVIDER = "watch_provider";
+    static final String CODEX_ID = "codex";
     private static final String KEY_PHONE_VERSION = "phone_version";
     private static final String KEY_REFRESH_IN_PROGRESS = "refresh_in_progress";
     private static final String KEY_REFRESH_MINUTES = "refresh_minutes";
@@ -42,7 +47,96 @@ public final class WearPreferences {
     private WearPreferences() {
     }
 
+    /**
+     * Usage for the provider the watch follows (see {@link #selectedProvider}). Codex keeps
+     * its own, more frequently pushed snapshot; every other provider comes from the phone's
+     * provider list. Tiles, complications and the live monitor all read through here.
+     */
     public static UsageSnapshot loadSnapshot(Context context) {
+        WearProvidersState.Entry selected = selectedProvider(context);
+        if (selected == null || CODEX_ID.equals(selected.id)) {
+            UsageSnapshot codex = loadCodexSnapshot(context);
+            return codex != null || selected == null ? codex : selected.snapshot;
+        }
+        return selected.snapshot;
+    }
+
+    /** The phone's provider list, or null before a phone that sends one has synced. */
+    public static WearProvidersState providersState(Context context) {
+        String json = prefs(context).getString(KEY_PROVIDERS_JSON, null);
+        if (json == null || json.isEmpty()) return null;
+        try {
+            return WearProvidersState.fromJson(new JSONObject(json));
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    public static boolean applyRemoteProviders(Context context, WearProvidersState state) {
+        if (state == null) return false;
+        SharedPreferences prefs = prefs(context);
+        if (state.updatedAtMillis < prefs.getLong(KEY_LAST_APPLIED_PROVIDERS_AT, 0L)) {
+            return false;
+        }
+        try {
+            prefs.edit()
+                    .putString(KEY_PROVIDERS_JSON, state.toJson().toString())
+                    .putLong(KEY_LAST_APPLIED_PROVIDERS_AT, state.updatedAtMillis)
+                    .putBoolean(KEY_SYNCED, true)
+                    .putBoolean(KEY_CONNECTED, true)
+                    .apply();
+        } catch (Exception ignored) {
+            return false;
+        }
+        WearSurfaceUpdater.requestAll(context);
+        return true;
+    }
+
+    /**
+     * The provider the watch shows: the one picked on the watch, else the phone's selected
+     * tab. Null on an older phone that only sends Codex, which then stays the provider.
+     */
+    public static WearProvidersState.Entry selectedProvider(Context context) {
+        WearProvidersState state = providersState(context);
+        return state == null ? null
+                : state.resolve(prefs(context).getString(KEY_WATCH_PROVIDER, ""));
+    }
+
+    public static String selectedProviderId(Context context) {
+        WearProvidersState.Entry selected = selectedProvider(context);
+        return selected == null ? CODEX_ID : selected.id;
+    }
+
+    public static String selectedProviderName(Context context) {
+        WearProvidersState.Entry selected = selectedProvider(context);
+        return selected == null ? "Codex" : selected.displayName;
+    }
+
+    /** Makes the watch follow {@code providerId} until it is picked again or disappears. */
+    public static void setWatchProvider(Context context, String providerId) {
+        prefs(context).edit()
+                .putString(KEY_WATCH_PROVIDER, WearProvidersState.normalizeId(providerId))
+                .apply();
+        WearSurfaceUpdater.requestAll(context);
+    }
+
+    /** Whether the followed provider is signed in on the phone, as far as the watch knows. */
+    public static boolean isSelectedSignedIn(Context context) {
+        WearProvidersState.Entry selected = selectedProvider(context);
+        if (selected != null && !CODEX_ID.equals(selected.id)) return selected.signedIn;
+        WearSyncStatus status = syncStatus(context);
+        if (status.updatedAtMillis > 0L) return status.signedIn;
+        return selected == null || selected.signedIn;
+    }
+
+    /** The followed provider's last refresh error on the phone, if any. */
+    public static String selectedError(Context context) {
+        WearProvidersState.Entry selected = selectedProvider(context);
+        if (selected != null && !CODEX_ID.equals(selected.id)) return selected.lastError;
+        return syncStatus(context).lastError;
+    }
+
+    public static UsageSnapshot loadCodexSnapshot(Context context) {
         String json = prefs(context).getString(KEY_SNAPSHOT_JSON, null);
         if (json == null || json.isEmpty()) return null;
         try {
@@ -139,7 +233,9 @@ public final class WearPreferences {
                 .putBoolean(KEY_CONNECTED, true)
                 .apply();
         if (!status.signedIn) {
-            clearSnapshot(context, status.updatedAtMillis);
+            // Codex signing out only stops the live monitor when the watch follows Codex.
+            clearSnapshot(context, status.updatedAtMillis,
+                    CODEX_ID.equals(selectedProviderId(context)));
         } else {
             WearSurfaceUpdater.requestAll(context);
         }
@@ -269,7 +365,12 @@ public final class WearPreferences {
         return prefs(context).getBoolean(KEY_SYNCED, false);
     }
 
+    /** When the followed provider's usage was last fetched on the phone. */
     public static long lastUsageAt(Context context) {
+        WearProvidersState.Entry selected = selectedProvider(context);
+        if (selected != null && !CODEX_ID.equals(selected.id)) {
+            return selected.snapshot == null ? 0L : selected.snapshot.fetchedAtMillis;
+        }
         return prefs(context).getLong(KEY_LAST_APPLIED_USAGE_AT, 0L);
     }
 

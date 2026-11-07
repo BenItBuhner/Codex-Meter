@@ -93,6 +93,53 @@ final class LiveCodexServiceTests: XCTestCase {
         XCTAssertNotNil(result.usage.monthly?.resetAt)
     }
 
+    func testSpendControlLimitSurvivesRefreshAndCreditFallbackWithAbsoluteReset() async throws {
+        CodexMeterURLProtocol.reset()
+        defer { CodexMeterURLProtocol.reset() }
+        let session = makeStubbedSession()
+        defer { session.invalidateAndCancel() }
+        let paths = makeCachePaths()
+        defer { paths.remove() }
+        let appCache = AppCacheStore(fileURL: paths.app)
+
+        CodexMeterURLProtocol.configure { request in
+            switch request.url?.path {
+            case "/backend-api/wham/usage":
+                return try .json(spendControlUsageResponse(reached: true))
+            case "/backend-api/wham/rate-limit-reset-credits":
+                return try .json(["message": "credits temporarily unavailable"], statusCode: 503)
+            default:
+                return StubbedHTTPResponse(statusCode: 500)
+            }
+        }
+        let fetchedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let service = makeLiveService(
+            session: session,
+            store: MemoryTokenStore(validTokens()),
+            paths: paths,
+            appCache: appCache,
+            now: { fetchedAt }
+        )
+
+        let result = try await service.refresh()
+        let control = try XCTUnwrap(result.usage.spendControl)
+        XCTAssertTrue(control.reached)
+        let limit = try XCTUnwrap(control.individualLimit)
+        XCTAssertEqual(limit.limit, "25000")
+        XCTAssertEqual(limit.used, "8000")
+        XCTAssertEqual(limit.usedPercent, 32)
+        XCTAssertEqual(
+            limit.resetAt,
+            fetchedAt.addingTimeInterval(43_200),
+            "reset_after_seconds should become an absolute date"
+        )
+        XCTAssertEqual(result.usage.fiveHour?.usedPercent, 40)
+        XCTAssertEqual(result.usage.resetCreditsAvailable, 0)
+
+        let cached = try await appCache.load()
+        XCTAssertEqual(cached?.usage?.spendControl, control)
+    }
+
     func testSecondUnauthorizedResponseIsNotRetriedAgain() async throws {
         CodexMeterURLProtocol.reset()
         defer { CodexMeterURLProtocol.reset() }

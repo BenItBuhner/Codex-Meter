@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kilo Code mark from Lobe Icons (MIT). The trademark belongs to its owner.
+     Single-color so One UI tabs and preferences tint it like their stock icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="?android:attr/textColorPrimary"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M0 0H24V24H0ZM22.222 22.222V1.778H1.778V22.222ZM18.667 17.258H16.889V19.036H14.095L12.89 17.83V15.036H14.667V13.258H17.46L18.667 14.465ZM18.667 9.333V11.111H12.889V9.333H14.876V7.111H12.889V5.333H15.447L16.653 6.54V9.333ZM7.111 7.333H9.333L11.111 9.111V11.111H9.333V9.111H7.111V11.111H5.333V5.333H7.111ZM5.333 12.889H7.111V16.889H11.111V18.667H6.54L5.333 17.46ZM16.889 15.036H14.668V17.258H16.889ZM11.111 7.333H9.333V5.333H11.111ZM11.111 14.667H9.333V12.889H11.111Z" />
+</vector>

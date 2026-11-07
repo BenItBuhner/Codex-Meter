@@ -76,6 +76,7 @@ public final class UsageApi {
                             usageSnapshot.resetCreditsAvailable);
                     AppPreferences.setResetCreditsError(context, safeMessage(exception));
                 }
+                ResetCreditExpiryApplyReceiver.evaluateLowUsageAsync(context, usageSnapshot);
             }
         } catch (Exception exception) {
             DiagnosticLog.error(context, "refresh", "usage_refresh_failed", exception,

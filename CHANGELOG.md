@@ -1,5 +1,117 @@
 # Changelog
 
+## Unreleased
+
+## 3.0.0 — 2026-11-06
+
+Codex Meter 3.0 is the biggest update yet. It now tracks **24 AI coding providers**, runs on **Android, Wear OS, iPhone, iPad, Apple Watch, Mac, Windows and Linux**, has new **One UI 9** and **Liquid Glass** designs, and shows your usage **inside the AI apps you're using**.
+
+### Highlights
+
+- **Live usage inside your AI apps.** Open ChatGPT, Claude, GitHub, Grok or Kimi and that app's provider shows up as a live notification, then goes away about half a second after you leave (Settings → Now Bar → Start automatically → While using AI apps).
+- **One UI 9 design**, built on Samsung's SESL9 components, with a switch back to Classic in Settings → Appearance.
+- **Liquid Glass design** (Settings → Appearance), an iOS 26-style look built from Glassé's glass components, with pull to refresh, pop-up menus and glass sign-in pages.
+- **24 providers.** Codex, Claude Code and Cursor, plus Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo Code, Codebuff, Synthetic, Chutes, v0, Warp and Antigravity, each with its own tab and logo.
+- **New apps for Mac, Windows, Linux, iPad and Apple Watch**, and Wear OS now follows every provider.
+- **Reset credits on autopilot.** Banked resets can be used automatically before they expire or when you run low, for Codex and Claude Code.
+- **Workspace monthly credit limit** on Android and iOS (#98).
+
+### Added
+
+- **Liquid Glass design** (Settings › Appearance): a third design next to One UI 8.5 and One UI 9, built from Glassé's glass components. Every screen has a glass version, including the dashboard, Settings, Add account and every provider's sign-in page, Usage history, Reset credits, widget settings, alerts and sheets. The dashboard has Edit and Settings glass buttons at the top right and pull to refresh; usage cards have a springing progress bar and a pace row ("At this pace it lasts 1d 6h"); Settings choices open an iOS 26 pop-up menu; Usage history shows one window at a time with a segmented control; and lists you can rearrange use an iOS-style reorder list (tap Edit for the ≡ handles, or touch and hold a row to drag it). Android's predictive back animation plays from it. Every setting keeps its behavior, and the APK is about 20 MB larger.
+- Desktop live usage: the Windows tray icon and the Mac menu bar item follow the same rules as the Android live notification. They show the AI app in front first (ChatGPT or Codex, Claude, Cursor and others), then your chosen service, and the window with less left, or the time until reset once a limit is used up. Windows draws a ring or number icon with a flyout of every service's bars; the Mac shows a ring that turns orange and red as you run low; Linux gets the ring style. Each app has a Live usage section in Settings. On Windows the tray also recognises an app by its product and publisher name, so SpaceXSI's Grok desktop app (Grok Bot) brings up Grok (#181).
+- Codex Meter for Mac (`macos/`): a native SwiftUI app with a menu bar meter that shows the allowance closest to running out, a panel with every provider's meters, a sidebar window with the same Codex, Claude Code and Cursor dashboards as the iPhone app, a Settings window (⌘,), Usage menu shortcuts (⌘R, ⌘1–⌘9), Open at login, and desktop widgets. It keeps refreshing, alerting, and auto-using expiring resets from the menu bar after its window closes.
+- Codex Meter for Windows (`windows/`): a native WinUI 3 app for Windows 11 on x64 and ARM64, with Mica, a sidebar with Codex, Claude Code and Cursor dashboards, browser sign-in on an Accounts page, a full Settings page, and a notification-area icon that shows your remaining percentage, plus toasts. Run it with `--demo` to see sample data without signing in.
+- Linux desktop app: a native GTK 4 + libadwaita app with a dashboard for Codex, Claude Code and Cursor, accounts, settings, a tray icon with your remaining percentage, desktop notifications, start at login, and credentials protected by the login keyring. It shares the Windows app's C# core. Each release includes a `.deb` and an AppImage for x86-64 and ARM64.
+- iPad: the provider tabs become a sidebar (or a floating top tab bar the sidebar button toggles), with Settings at the bottom of the sidebar, so every connected provider is one tap away instead of behind a More tab.
+- iPad: dashboards lay cards out in one, two or three columns from the width they actually get, so full screen, Split View, Slide Over and Stage Manager windows of any size re-flow live. Cards in a row share one height, the usage history chart keeps a full row, and the signed-out card stays card-sized.
+- iPad keyboard and menu bar: ⌘1–⌘9 jump to a provider tab, ⇧⌘] and ⇧⌘[ move between tabs, ⌘R refreshes the visible tab and ⌘, opens Settings. With a trackpad or mouse, hovering scrubs the usage history charts and picker rows highlight.
+- Apple Watch app (watchOS 26) with complications. It shows every provider the iPhone app tracks, one page per provider, with a ring, per-limit bars and the next reset. Circular, corner, rectangular and inline complications show the followed provider's main limit, plus a next-reset complication. Data comes from the iPhone over WatchConnectivity; tokens never leave the phone.
+- **Show in AI apps** (Settings → Now Bar → Start automatically → While using AI apps, off by default): the live notification appears on its own while ChatGPT, Claude, GitHub, Grok or Kimi is open, showing that app's own provider (ChatGPT shows Codex, Claude shows Claude Code, GitHub shows Copilot), and goes away about half a second after you leave. Switching between matched apps swaps the provider in place. Each connected provider lists its official apps with a switch, and **Add an app** matches any other installed app. It finds the app in front through an Android accessibility service that reads only the package name of the app in front (Android describes it as able to view the screen): no screen content, no taps or typing, and nothing leaves the phone. A monitor you started yourself or one started by a low allowance is never replaced, and dismissing it hides it until you leave that app.
+- 21 more providers on Android (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo Code, Codebuff, Synthetic, Chutes, v0, Warp and Antigravity), with a searchable **Add account** flow (#123).
+- Auto-use banked resets: Codex Meter can spend a saved reset before it expires, and optionally when an allowance runs low (#124).
+- The workspace monthly credit limit (`spend_control`) shows on the Codex dashboard on Android and iOS: credits used, credits left and when it resets (#108, #109).
+- Claude Code saved resets (claude.ai Settings → Usage → Limit resets) now show on the Claude tab in the same Reset credits card and reset screen as Codex, with Reset for free, and Settings has the same before-expiry and running-low auto-use rules. Anthropic can hold a reset until you hit a usage limit; the button then stays off and the reset screen says why.
+- Provider switcher: stock One UI bottom tabs (oneui-design `BottomTabLayout`, icon over label) on the dashboard switch between Codex (default, unchanged) and Claude Code, and the large title follows the selected provider. Claude Code signs in with a Claude account through the same OAuth + PKCE loopback flow as the Claude Code CLI. Its cards follow the `limits` list from the route behind Claude Code's `/usage`: usually just 5-hour and weekly, plus a model-only allocation such as Fable when the account has one, and extra usage when enabled. Providers are pluggable through `UsageProvider`.
+- Claude Code usage history, burn charts, and pace estimates are kept separately from Codex.
+- Home-screen widgets can show Claude Code (widget settings → Provider); tapping one opens the Claude Code tab.
+- iOS: a bottom provider switcher with a Claude Code tab (Claude sign-in by pasting the code Claude shows, usage cards driven by the same `limits` list, plan badge, demo data).
+- Background refresh covers Claude Code at most every 30 minutes with a one-hour back-off after HTTP 429, and keeps running when only one provider is signed in.
+- Cursor tab on Android and iOS: sign in with Cursor through the same browser login the Cursor editor uses (no code to paste), then see included usage, on-demand spend in dollars, the plan badge, and the reset date. Background refresh checks Cursor at most every 15 minutes.
+- Settings → Dashboard tabs chooses which providers appear on the dashboard and in what order (drag to reorder, like Edit dashboard; all on by default, at least one stays on). With two or more on, only their tabs show; with one on, the bottom tabs are hidden. Tabs and settings rows use each service's own mark (OpenAI, Claude, Cursor) from Simple Icons. On iOS the switcher is now the native tab bar.
+- iOS: an Estimated usage time setting and Est. projections on meter cards, like Android (#110).
+
+### Changed
+
+- Claude plan badges use Anthropic's new names: Max 5x is now **Max** and Max 20x is now **Ultra**. The name comes from your Claude profile, so future renames show up without an update, and badges saved before the change are renamed too. All apps (#171).
+- Accounts without a 5-hour limit (verified Claude Ultra) show the weekly meters with a short "No 5-hour limit on this plan" note instead of a missing card. Home screen widgets set to the 5-hour meter show the weekly one instead of "Unavailable", the live notification follows the weekly limit, and the watch glance shows only the weekly meter. Android, iPhone/Mac and Windows (#171).
+- Desktop apps reach parity with the phone apps: Windows and Linux cover all 24 services, with usage history charts and insights, Edit dashboard, Add account search, device-code, pasted-token and API-key sign-in, Codex reset auto-use, and a first-run welcome page. Windows uses a native title bar and navigation view with low and failing badges. Linux uses libadwaita dialogs and boxed lists. The Mac app gains an Add Account button in the sidebar and File › Add Account… (⌘N).
+- Usage history shows the Weekly chart first and the 5-hour chart below it, on the dashboard card and the full history page.
+- The live notification is simpler: the title says what is left in the focused window ("Weekly · 48% left"), and the line under it says when that window resets, then the other window. The estimate only appears when usage is running fast.
+- Settings → Appearance → One UI 9 design switches the app between its classic look and Samsung's One UI 9 design, in place, with no second app to install. One UI 9 uses SESL9's own components: the floating toolbar, the floating blurred tab bar, native fading list edges and the floating Cancel / Save bar in widget settings. The "Try One UI 9" row and the separate preview app are gone.
+- Turning the One UI 9 design on or off restarts the app and reopens Settings → Appearance, so every page is rebuilt cleanly.
+- Settings cleaned up, with nothing removed. The main list is grouped as Accounts, Live usage and Usage, and **Now Bar** is the first row under Live usage with a summary of what starts it.
+- **Now Bar → Start automatically → While using AI apps** is one switch row: the switch turns it on or off, and tapping the row opens the app list. The on/off subtitle and the long description are gone. The app list is one card, each app naming the dashboard it shows, with a single **Add an app**.
+- **Providers** is now **Dashboard tabs**, with a one-line hint. **Accounts** is one card ending in **Add account**.
+- **Refresh & dashboard**: refresh mode and interval are one list (Automatic, or every 5 minutes to 2 hours). The eight Codex card switches are gone because **Edit dashboard** already has them; it now asks which tab to edit.
+- **Reset credits** has its own page. Follow-up options (when to use a reset, the threshold, the window) only appear once their switch is on.
+- Settings has a dedicated Accounts page, and every account row shows its email (#131).
+- iOS catches up with Android's providers: the 21 providers Android added (Copilot, Kimi Code, Factory, Grok, Devin, Windsurf, Augment, Cline, OpenCode Go, MiniMax, Z.ai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, v0, Warp) can be connected on iPhone too, each with its own tab, Keychain item and cache. Antigravity stays Android-only for now (its Google sign-in needs a local callback), and OpenRouter connects with an API key on iPhone.
+- iOS Settings → Accounts matches Android: one Accounts row listing the connected services opens an Accounts page with the connected accounts (email · plan, or "API key" / "Signed in") and an Add account row that opens a searchable provider picker. The Cursor row now shows its email. One sign-in screen handles device codes, pasted tokens and API keys, and marks experimental providers.
+- iOS first-run setup uses the same searchable multi-select provider picker as Android, and Settings → Providers lists only tabs that are on and connected accounts.
+- iOS home-screen and lock-screen widgets can each show a chosen provider (Codex, Claude Code, Cursor or any connected provider). Existing widgets keep showing Codex.
+- Wear OS follows all 24 providers, not only Codex. The phone sends every enabled or signed-in provider's latest usage to the watch. The watch app lists them with their logos, and tapping one makes tiles, complications and the live monitor follow it. By default the watch follows the phone's selected tab.
+- Wear tiles and complications are named by role (Usage overview, Main limit, Second limit, Next reset, Live monitor, Both limits) and use each provider's own windows: 5h and weekly for Codex, monthly for Cursor, named extra limits for Claude Code and Copilot.
+- "Refresh on phone" from the watch refreshes Claude Code, Cursor and the other providers too.
+- The Codex tab's title now reads "Codex", like the Claude Code and Cursor tabs.
+- Edit dashboard is per provider: each tab keeps its own card order and hidden cards, and the editor lists only the cards that provider reports (Codex keeps its existing layout).
+- Cursor limits follow Cursor's current plans. Current plans show one "Weekly" card plus any "Additional usage" cap. Legacy monthly plans (Pro, Pro+, Ultra) show "Monthly", the "Cursor models" and "Other models" pools, and on-demand spend. The outdated "Auto + Composer" and "API models" labels are gone, and Cursor card titles no longer truncate.
+- Antigravity, Augment, Chutes, Codebuff, Devin, Factory, Grok, Kilo Code, Kiro, Synthetic and Z.ai now show their own logos in tabs, Accounts, Add account, first-run setup and widgets, instead of a letter in a box.
+- Lock screen gauges lead with the weekly limit instead of the five-hour one. When a dial can only show one window (two providers on the Gauges widget, or the single Gauge widget), it now shows weekly on the main ring and five-hour as a thinner, lighter ring inside it, so both stay visible. On iOS, the circular lock screen widget puts weekly on the bold outer ring, and the rectangular and inline widgets list weekly first.
+- Lock-screen widgets now show the same providers as the rest of the app. A widget you haven't set up shows the providers you're signed in to, in tab order, each labeled with its name and icon, instead of falling back to a single provider.
+- New Settings → Lock screen widgets page lists every Codex Meter widget on the lock screen and opens its settings to pick providers and meters, since One UI often skips the widget's own setup screen.
+- Lock-screen gauges only show meters a provider reports: a Cursor gauge shows its included-usage dial instead of an empty 5-hour dial, and a single meter draws one centered dial.
+- First-run setup now asks which providers to track (Codex, Claude Code, Cursor; nothing preselected), then walks through signing in to each one, with Skip for now on every sign-in step. Android and iOS.
+- Upgrading installs that never chose providers start with only Codex on (plus any provider already signed in), so a Codex-only install shows no tab bar.
+- Accounts moved off the dashboards: Settings opens with a compact Accounts list, one row per provider on the dashboard with its email and plan, to sign in or out. Settings → Providers shows who is signed in.
+- Home-screen widgets can show any provider, and larger sizes can stack several providers.
+- The lock-screen widget picker is down to Gauge and Gauges, which work with any provider. Older lock-screen widgets already placed keep working (#120, #122).
+- Widget meter labels no longer start with "Codex ·".
+- The dashboard wave and iOS meter, digit and copy-code animations respect the system's reduced-motion setting (#101, #103).
+- iOS: Dynamic Type for fixed-size glyphs, and cards lift with tone instead of hairlines (#107).
+- The phone launcher icon's monochrome layer is back (#105).
+
+### Fixed
+
+- Claude Code keeps its sign-in when two refreshes overlap. Claude sign-in tokens can only be used once; the app now uses the newer token and saves each new one the moment it arrives, instead of resending a retired token that Anthropic rejects with "Refresh token not found or invalid". Android and iPhone/Mac (#171).
+- When Anthropic does reject a Claude sign-in, the Claude Code tab says so in plain words and shows a **Sign in with Claude again** button that keeps your usage history and settings. Android, in every design (#171).
+- A usage card whose reset time has passed since the last refresh shows it as refilled ("Reset passed · refresh to update") instead of the old number next to "Resets now". Android, in every design (#171).
+- Claude Code usage is sturdier after Anthropic's plan change: on Android the usage request matches Claude Code 2.1.316 and falls back to plain usage if Anthropic refuses it, and on every app a 403 is a temporary refusal that keeps your sign-in (#171).
+- Toggles on the widget settings pages no longer lag: the widget preview now refreshes a moment after you stop tapping instead of before the switch can move.
+- The dashed projection on usage charts climbs at your current pace up to the reset when you will not run out first, instead of drawing a flat line.
+- Usage cards no longer show "Est. depleted" next to a limit that is already at 0%.
+- Claude Code saved resets: sign-in and token refresh now ask for Claude Code's full scope list, so Anthropic treats the app as Claude Code. Existing sign-ins pick up the new scope on their next refresh. Settings → Refresh & usage → **Check with Anthropic** makes one fresh usage request and shows exactly what came back, with a Copy button.
+- Claude Code saved resets now show up for accounts that have them: usage and reset requests now identify as Claude Code, since Anthropic decides reset eligibility per client. Settings → Refresh & usage has a new **Your resets** row for Codex and Claude Code that shows the count and next expiry, or why no resets are offered.
+
+### Development
+
+- The whole app now builds on SESL9 (vendored in `android/vendor/m2`) and needs JDK 25. The classic design restores SESL8's sizes and colors through generated resource overrides (`android/ci/classic-design-resources.py`). `-PoneUi9` is gone.
+- Android: AGP 9.4.1, Gradle 9.8.2, Wear Tiles 1.6.2, ProtoLayout 1.4.2, androidx.core 1.19.1, Guava 33.7.2.
+- `DashboardGrid` in CodexMeterCore decides columns and rows, with unit tests. `IPadLayoutTests` checks the columns, sidebar and shortcuts on iPad simulators, and iOS CI runs it on iPad Pro 13-inch (light and dark), iPad Air 11-inch and iPad mini, uploading the stills as `ipad-gallery`. The main UI suite also runs on iPad Pro.
+- `WatchProvidersSelfTest` covers watch meter ordering, the provider payload round trip and which provider the watch follows. `WatchSyncTests` covers the same on iOS.
+- iOS CI builds the watch app on a watch simulator and uploads a `watch-gallery` artifact of screenshots.
+- Self-tests cover Cursor weekly vs legacy plans and the per-provider dashboard sections.
+- Self-tests cover the upgrade default for provider tabs and the provider-count-aware setup steps.
+- Self-tests cover provider ids/defaults, Claude usage parsing (fractional-second ISO resets, null windows, the `limits` list with Fable-only and unknown scoped meters, extra usage, plan badges), the Claude authorize/token request shapes, and Claude refresh pacing.
+- Self-tests (Android and `CodexMeterCore`) cover Cursor usage parsing (epoch-ms and ISO billing cycles, string-encoded numbers, computed plan percent, personal vs team on-demand caps, plan badges), the PKCE login/poll URLs, JWT expiry, token parsing, and auth-error detection.
+- Self-tests cover the enabled-provider list (defaults, unknown ids, saved tab order, keeping the last provider on, and selection fallback); the iOS demo gallery captures the two-tab, single-provider, and Providers settings screens.
+- Native CI for every platform: iOS, iPad and Apple Watch galleries, macOS build and UI tests, Windows UI automation, Linux packaging on x86-64 and ARM64, and a Wear OS emulator gallery.
+- Dependabot keeps GitHub Actions and Gradle dependencies current with weekly grouped updates (#104).
+- Releases now carry the Windows (x64 and ARM64 zips) and Mac (unsigned zip) apps with SHA-256 sums, next to the Android and Linux files (#176).
+- Previously shipped to the alpha channel as 2.9.0-alpha.1 through 2.9.0-alpha.17.
+
+**Full Changelog**: https://github.com/BenItBuhner/Codex-Meter/compare/v2.8.0...v3.0.0 <!-- pragma: allowlist secret -->
+
 ## 2.8.0 — 2026-08-14
 
 ### Added

@@ -11,11 +11,32 @@ public final class UsagePaceDemoActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        // Optional: pick the design ("classic", "one_ui_9", "liquid_glass") and theme
+        // ("light", "dark", "system") before any page is built.
+        String design = getIntent().getStringExtra("design");
+        if (design != null && !design.isEmpty()) {
+            AppPreferences.setDesign(this, design);
+        }
+        String theme = getIntent().getStringExtra("theme");
+        if (theme != null && !theme.isEmpty()) {
+            AppPreferences.setAppTheme(this, theme);
+        }
         String settingsPage = getIntent().getStringExtra("open_settings_page");
         if (settingsPage != null && !settingsPage.isEmpty()) {
             startActivity(new Intent(this, SettingsActivity.class)
                     .putExtra("settings_page", settingsPage)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
+        String screen = getIntent().getStringExtra("open_activity");
+        if (screen != null && !screen.isEmpty()) {
+            try {
+                startActivity(new Intent(this, Class.forName("dev.bennett.codexmeter." + screen))
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (ClassNotFoundException missing) {
+                android.util.Log.w("UsagePaceDemo", "No screen " + screen);
+            }
             finish();
             return;
         }
@@ -46,6 +67,21 @@ public final class UsagePaceDemoActivity extends Activity {
             startActivity(new Intent(this, SettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
             finish();
+            return;
+        }
+        String claudeScenario = getIntent().getStringExtra("claude_scenario");
+        if (claudeScenario != null && !claudeScenario.isEmpty()) {
+            try {
+                seedClaude(claudeScenario);
+                startActivity(new Intent(this, MainActivity.class)
+                        .putExtra(MainActivity.EXTRA_PROVIDER, UsageProvider.CLAUDE_CODE.id)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                | Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (Exception exception) {
+                throw new IllegalStateException("Could not seed Claude demo", exception);
+            } finally {
+                finish();
+            }
             return;
         }
         try {
@@ -92,8 +128,11 @@ public final class UsagePaceDemoActivity extends Activity {
                             now + TimeUnit.DAYS.toMillis(7), "Reset credit 3", "")),
                     now));
             AppPreferences.setRefreshOnLaunch(this, false);
-            AppPreferences.setDashboardVisibility(this, true, true, true, true, true, true);
+            AppPreferences.setDashboardVisibility(this, true, true, true, true, true, true, true);
             AppPreferences.completeOnboarding(this);
+            if (getIntent().getBooleanExtra("demo_providers", false)) {
+                seedProviders(now);
+            }
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
             boolean livePreview = getIntent().getBooleanExtra("start_live_preview", false);
@@ -108,6 +147,70 @@ public final class UsagePaceDemoActivity extends Activity {
         } finally {
             finish();
         }
+    }
+
+    /**
+     * Claude Code states for screenshots: "ultra" (no 5-hour limit, profile says Ultra),
+     * "legacy_badge" (a badge saved as "Max 20x" before the rename), "sign_in_again" (Anthropic
+     * rejected the refresh token) and "expired" (the saved weekly window reset since the last
+     * refresh). Data is marked fresh so opening the tab does not hit the network.
+     */
+    private void seedClaude(String scenario) throws Exception {
+        long now = System.currentTimeMillis();
+        long day = TimeUnit.DAYS.toMillis(1);
+        long weekSeconds = TimeUnit.DAYS.toSeconds(7);
+        boolean expired = "expired".equals(scenario);
+        long weeklyReset = expired ? now - TimeUnit.HOURS.toMillis(9) : now + 6 * day;
+        int weeklyUsed = expired ? 100 : 4;
+        String plan = "legacy_badge".equals(scenario) ? "Max 20x" : "Ultra";
+        UsageSnapshot snapshot = new UsageSnapshot(plan, true, false, null,
+                new UsageWindow(weeklyUsed, weekSeconds, 0L, weeklyReset / 1000L),
+                Arrays.asList(new UsageLimit(ClaudeUsageParser.LIMIT_ID_PREFIX
+                        + "weekly_scoped_fable", "Fable only", "", true, false,
+                        new UsageWindow(2, weekSeconds, 0L, weeklyReset / 1000L), null)),
+                null, -1, now);
+        SecureTokenStore.save(this, UsageProvider.CLAUDE_CODE, new AuthTokens(
+                "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
+                "debug-demo-org", "demo@codexmeter.local"));
+        ProviderPreferences.saveSnapshot(this, UsageProvider.CLAUDE_CODE, snapshot);
+        // Fresh data plus a recent back-off keep the tab from fetching with the fake token.
+        ProviderPreferences.setRateLimitedAt(this, UsageProvider.CLAUDE_CODE, now);
+        if ("sign_in_again".equals(scenario)) {
+            ProviderPreferences.setLastError(this, UsageProvider.CLAUDE_CODE,
+                    ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE);
+        }
+        AppPreferences.setRefreshOnLaunch(this, false);
+        AppPreferences.completeOnboarding(this);
+    }
+
+    /** Signs Claude Code and Cursor in with demo usage, so the dashboard shows provider tabs. */
+    private void seedProviders(long now) throws Exception {
+        long nowSeconds = now / 1000L;
+        String claude = "{\"plan_type\":\"max\",\"allowed\":true,\"limit_reached\":false,"
+                + "\"five_hour\":" + window(71, 18000, nowSeconds + 52 * 60) + ","
+                + "\"weekly\":" + window(34, 604800, nowSeconds + 5 * 86400) + ","
+                + "\"fetched_at\":" + (now - 600000) + "}";
+        String cursor = "{\"plan_type\":\"pro\",\"allowed\":true,\"limit_reached\":false,"
+                + "\"monthly\":" + window(27, 2592000, nowSeconds + 11 * 86400) + ","
+                + "\"fetched_at\":" + (now - 900000) + "}";
+        seedProvider(UsageProvider.CLAUDE_CODE, claude);
+        seedProvider(UsageProvider.CURSOR, cursor);
+        ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CODEX,
+                UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR));
+        ProviderPreferences.setSelected(this, UsageProvider.CODEX);
+    }
+
+    private void seedProvider(UsageProvider provider, String json) throws Exception {
+        SecureTokenStore.save(this, provider, new AuthTokens(
+                "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
+                "debug-demo-account", "demo@codexmeter.local"));
+        ProviderPreferences.saveSnapshot(this, provider,
+                UsageSnapshot.fromJson(new org.json.JSONObject(json)));
+    }
+
+    private static String window(int used, long seconds, long resetAt) {
+        return "{\"used_percent\":" + used + ",\"limit_window_seconds\":" + seconds
+                + ",\"reset_after_seconds\":0,\"reset_at\":" + resetAt + "}";
     }
 
     private void seedHistory(long now, long fiveHourReset, long weeklyReset) {

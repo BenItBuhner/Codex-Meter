@@ -24,7 +24,6 @@ import androidx.wear.watchface.complications.data.ShortTextComplicationData;
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceService;
 import androidx.wear.watchface.complications.datasource.ComplicationRequest;
 import dev.bennett.codexmeter.wear.WearSettingsState;
-import dev.bennett.codexmeter.wear.WearSyncStatus;
 import java.util.concurrent.TimeUnit;
 
 abstract class CodexComplicationService extends ComplicationDataSourceService {
@@ -48,6 +47,45 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
     }
 
     protected abstract ComplicationData dataForType(ComplicationType type, boolean preview);
+
+    /** A single-meter complication for the followed provider's meter at {@code slot}. */
+    protected ComplicationData meterData(ComplicationType type, boolean preview, int slot) {
+        UsageSnapshot snapshot = snapshot(preview);
+        long now = System.currentTimeMillis();
+        WatchMeters.Meter meter = slot == 0 ? WatchMeters.primary(snapshot, now)
+                : WatchMeters.secondary(snapshot, now);
+        UsageWindow window = WatchMeters.window(meter);
+        String shortLabel = meter == null ? (slot == 0 ? "5h"
+                : WearGlanceFormat.longWindowShortLabel(snapshot)) : meter.shortLabel;
+        String label = meter == null ? (slot == 0 ? "5-hour"
+                : WearGlanceFormat.longWindowLabel(snapshot)) : meter.label;
+        String description = label + " " + providerName(preview) + " usage remaining";
+        String percent = surfaceText(preview, WearGlanceFormat.remainingPercentText(window));
+        int remaining = WearGlanceFormat.remainingPercentOrZero(window);
+        if (type == ComplicationType.RANGED_VALUE) {
+            return rangedValue(remaining, percent, shortLabel, description);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && type == ComplicationType.GOAL_PROGRESS) {
+            return goalProgress(remaining, percent, shortLabel, description);
+        } else if (type == ComplicationType.SHORT_TEXT) {
+            return shortText(percent, shortLabel, description);
+        } else if (type == ComplicationType.LONG_TEXT) {
+            return longText(label + " " + percent + " left", description);
+        }
+        return imageForType(type, label + " " + providerName(preview) + " usage");
+    }
+
+    protected String providerName(boolean preview) {
+        return preview ? "Codex" : WearPreferences.selectedProviderName(this);
+    }
+
+    /** First word of the provider name, so "Claude Code" fits a complication title. */
+    protected static String shortProviderName(String name) {
+        if (name == null || name.isEmpty()) return "Codex";
+        int space = name.indexOf(' ');
+        String first = space > 0 ? name.substring(0, space) : name;
+        return first.length() <= 7 ? first : first.substring(0, 7);
+    }
 
     protected ShortTextComplicationData shortText(String text, String title, String description) {
         ShortTextComplicationData.Builder builder = new ShortTextComplicationData.Builder(
@@ -112,15 +150,19 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
         return null;
     }
 
+    /** The followed provider's mark; the watch face tints it. */
     private MonochromaticImage monochromaticImage() {
-        return new MonochromaticImage.Builder(
-                Icon.createWithResource(this, R.drawable.ic_notification)).build();
+        return new MonochromaticImage.Builder(Icon.createWithResource(this, providerIcon()))
+                .build();
     }
 
     private SmallImage smallImage() {
-        return new SmallImage.Builder(
-                Icon.createWithResource(this, R.drawable.ic_notification), SmallImageType.ICON)
-                .build();
+        return new SmallImage.Builder(Icon.createWithResource(this, providerIcon()),
+                SmallImageType.ICON).build();
+    }
+
+    private int providerIcon() {
+        return WearProviderIcons.forId(WearPreferences.selectedProviderId(this));
     }
 
     protected static ComplicationText plain(String text) {
@@ -141,8 +183,7 @@ abstract class CodexComplicationService extends ComplicationDataSourceService {
 
     protected String surfaceText(boolean preview, String currentText) {
         if (preview) return currentText;
-        WearSyncStatus status = WearPreferences.syncStatus(this);
-        if (status.updatedAtMillis > 0L && !status.signedIn) return "sign in";
+        if (!WearPreferences.isSelectedSignedIn(this)) return "sign in";
         WearSettingsState settings = WearPreferences.settingsState(this, 0L,
                 WearSettingsState.SOURCE_WEAR);
         if (WearGlanceFormat.isStale(WearPreferences.lastUsageAt(this),

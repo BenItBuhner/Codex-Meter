@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One slot per provider. MainActivity.applyEnabledProviders fills a slot for each enabled
+     provider, in the order chosen in Settings → Providers, and removes the rest: One UI's
+     BottomTabLayout counts hidden items when it decides between four tabs and three tabs plus
+     "More", so unused slots must be removed rather than hidden. Add a slot when adding a
+     provider (ProviderTabs.SLOT_COUNT). -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/provider_tab_0"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_1"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_2"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_3"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_4"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_5"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_6"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_7"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_8"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_9"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_10"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_11"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_12"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_13"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_14"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_15"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_16"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_17"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_18"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_19"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_20"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_21"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_22"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_23"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
+</menu>
