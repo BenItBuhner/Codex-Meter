@@ -36,4 +36,20 @@
             android:title="Model speed reference" />
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:key="priority_category"
+        android:title="Priority">
+        <SwitchPreferenceCompat
+            android:key="priority_view_ui"
+            android:summary="A card at the top of the dashboard when something needs attention: official incidents first, then performance warnings, then limits running out"
+            android:title="Priority view" />
+        <EditTextPreference
+            android:key="priority_name_ui"
+            android:title="Your name for the greeting" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="priority_written_summary_ui"
+            android:title="Written summary" />
+    </PreferenceCategory>
+
 </PreferenceScreen>
