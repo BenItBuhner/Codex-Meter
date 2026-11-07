@@ -37,6 +37,8 @@ public final class OAuthService extends Service {
     public static final String ACTION_CANCEL_SILENT = "dev.bennett.codexmeter.oauth.CANCEL_SILENT";
     /** {@link UsageProvider#id} to sign in to; missing means Codex. */
     public static final String EXTRA_PROVIDER = "provider";
+    /** Sign in again over a saved sign-in that the provider no longer accepts. */
+    public static final String EXTRA_REAUTHENTICATE = "reauthenticate";
     /** Broadcast while a device-code sign-in waits for the user to enter its code. */
     public static final String ACTION_DEVICE_CODE = "dev.bennett.codexmeter.oauth.DEVICE_CODE";
     public static final String EXTRA_USER_CODE = "user_code";
@@ -69,7 +71,9 @@ public final class OAuthService extends Service {
         }
         UsageProvider requested = UsageProvider.fromId(
                 intent == null ? null : intent.getStringExtra(EXTRA_PROVIDER));
-        if (SecureTokenStore.isSignedIn(this, requested)) {
+        boolean reauthenticate = intent != null
+                && intent.getBooleanExtra(EXTRA_REAUTHENTICATE, false);
+        if (!reauthenticate && SecureTokenStore.isSignedIn(this, requested)) {
             if (!running.get()) {
                 AppPreferences.setOAuthPending(this, false, "");
                 broadcastResult(true, "Already signed in.");

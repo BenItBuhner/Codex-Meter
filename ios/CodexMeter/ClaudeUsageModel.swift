@@ -42,7 +42,7 @@ final class ClaudeUsageModel {
     }
 
     var accountPlan: String {
-        usage?.planType ?? ""
+        ClaudeUsageParser.currentPlanName(usage?.planType ?? "")
     }
 
     var isSignedIn: Bool {
@@ -225,7 +225,7 @@ final class ClaudeUsageModel {
 
     static func demoSnapshot(at now: Date, refreshCount: Int = 0) -> UsageSnapshot {
         UsageSnapshot(
-            planType: "Max 5x (Demo)",
+            planType: "Max (Demo)",
             allowed: true,
             limitReached: false,
             fiveHour: UsageWindow(

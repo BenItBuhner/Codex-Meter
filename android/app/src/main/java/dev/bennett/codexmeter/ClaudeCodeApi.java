@@ -19,9 +19,11 @@ public final class ClaudeCodeApi {
     public static final String PROFILE_URL = "https://api.anthropic.com/api/oauth/profile";
     /**
      * The usage route with Claude Code's saved-reset status added ({@code cedar_ember} block).
-     * One request keeps the rate-limited usage route at its usual load.
+     * One request keeps the rate-limited usage route at its usual load. Same query as Claude
+     * Code's {@code /usage} read; {@code skip_spend} leaves out spend data this app never shows.
      */
-    public static final String USAGE_WITH_SAVED_RESETS_URL = USAGE_URL + "?cedar_ember=1";
+    public static final String USAGE_WITH_SAVED_RESETS_URL =
+            USAGE_URL + "?cedar_ember=1&skip_spend=1";
     /** Spends a saved reset; {@code %s} is the organization UUID. */
     public static final String RESET_RATE_LIMITS_URL =
             "https://api.anthropic.com/api/organizations/%s/reset_rate_limits";
@@ -30,7 +32,7 @@ public final class ClaudeCodeApi {
      * per client surface and CLI version, so without these the {@code cedar_ember} block comes
      * back ineligible or empty for an account that has resets.
      */
-    public static final String CLI_USER_AGENT = "claude-cli/2.1.307 (external, cli)";
+    public static final String CLI_USER_AGENT = "claude-cli/2.1.316 (external, cli)";
     public static final String CLI_APP = "cli";
     /** Required beta header for OAuth-token access to api.anthropic.com. */
     public static final String OAUTH_BETA = "oauth-2025-04-20";

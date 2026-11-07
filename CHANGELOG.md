@@ -6,6 +6,18 @@
 
 - Service status on the dashboard. When the official status page reports a problem with a component the provider depends on, such as Claude Code (not the Claude API) or Grok Bot, a card above the meters names that component and the incident, and tapping it opens the status page. It uses OpenAI's, Anthropic's and Cursor's own status feeds and SpaceXSI's incident feed for Grok, checked about every 5 minutes while the app is open and never in the background. If a feed can't be read, the app treats the status as unknown and doesn't call it an outage. Antigravity has no official status feed, so it shows none. Android.
 
+### Changed
+
+- Claude plan badges use Anthropic's new names: Max 5x is now **Max** and Max 20x is now **Ultra**. The name comes from your Claude profile, so future renames show up without an update, and badges saved before the change are renamed too. All apps.
+
+### Fixed
+
+- Claude Code no longer loses its sign-in when two refreshes overlap. Claude sign-in tokens can only be used once, and a saved-reset claim could resend one that a usage refresh had already replaced, which Anthropic answers with "Refresh token not found or invalid". The app now uses the newer token and saves each new token the moment it arrives. Android and iPhone/Mac.
+- When Anthropic does reject a Claude sign-in, the Claude Code tab says so in plain words and shows a **Sign in with Claude again** button. Signing in again keeps your usage history and settings. Android, in every design including Liquid Glass.
+- A usage card whose reset time has passed since the last refresh shows it as refilled ("Reset passed · refresh to update") instead of the old number next to "Resets now". Android, in every design including Liquid Glass.
+- Claude Code usage is sturdier after Anthropic's plan change. On Android the usage request now matches Claude Code 2.1.316, and if Anthropic refuses its saved-reset part, the app retries plain usage instead of failing. On every app a 403 is treated as a temporary refusal instead of "your plan has no usage limits", and your sign-in is always kept. Accounts with no 5-hour limit (verified Ultra) load normally.
+- Accounts without a 5-hour limit show the weekly meters with a short "No 5-hour limit on this plan" note instead of a missing card. Home screen widgets set to the 5-hour meter show the weekly one instead of "Unavailable", the live notification follows the weekly limit, and the watch glance shows only the weekly meter instead of "5h --". Android, iPhone/Mac and Windows.
+
 ## 2.9.0-alpha.17 — 2026-11-06
 
 ### Changed

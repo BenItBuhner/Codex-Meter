@@ -183,26 +183,49 @@ public static partial class ClaudeUsageParser
         return null;
     }
 
-    /// <summary>Plan badge from <c>GET /api/oauth/profile</c>; never throws.</summary>
+    /// <summary>
+    /// Plan badge from <c>GET /api/oauth/profile</c>; never throws. Anthropic renamed Max 5x to
+    /// "Max" and Max 20x to "Ultra" on 30 October 2026. The profile's
+    /// <c>organization.plan_display_name</c> carries the current name and wins; the unchanged
+    /// rate-limit tier (<c>default_claude_max_20x</c> for Ultra) is the fallback.
+    /// </summary>
     public static string PlanLabel(string? profileJson)
     {
         var root = Json.TryParseObject(profileJson);
         if (root is null) return "";
         var account = Json.Obj(Json.Get(root, "account"));
         var organization = Json.Obj(Json.Get(root, "organization"));
+        var display = Json.Str(Json.Get(organization, "plan_display_name")).Trim();
+        if (PlanName().IsMatch(display)) return display;
         var tier = Json.Str(Json.Get(organization, "rate_limit_tier")).ToLowerInvariant();
         var type = Json.Str(Json.Get(organization, "organization_type")).ToLowerInvariant();
         var hasMax = Json.Bool(Json.Get(account, "has_claude_max"), false);
         var hasPro = Json.Bool(Json.Get(account, "has_claude_pro"), false);
-        if (tier.Contains("max_20x")) return "Max 20x";
-        if (tier.Contains("max_5x")) return "Max 5x";
         if (type.Contains("enterprise")) return "Enterprise";
         if (type.Contains("team")) return "Team";
+        if (tier.Contains("max_20x") || tier.Contains("ultra") || type.Contains("ultra")) return "Ultra";
+        if (tier.Contains("max_5x")) return "Max";
         if (type.Contains("max") || hasMax) return "Max";
         if (type.Contains("pro") || hasPro) return "Pro";
         if (type.Contains("free")) return "Free";
         return "";
     }
+
+    /// <summary>Renames a badge saved before the October 2026 rename (Max 5x/20x).</summary>
+    public static string CurrentPlanName(string? saved)
+    {
+        var trimmed = saved?.Trim() ?? "";
+        if (trimmed.Equals("Max 20x", StringComparison.OrdinalIgnoreCase)) return "Ultra";
+        if (trimmed.Equals("Max 5x", StringComparison.OrdinalIgnoreCase)) return "Max";
+        return trimmed;
+    }
+
+    /// <summary>Shown where the 5-hour meter would be when the plan has none (verified Ultra).</summary>
+    public const string NoSessionLimitNote = "No 5-hour limit on this plan. Only the weekly limits apply.";
+
+    /// <summary>Claude Code's own rule for <c>plan_display_name</c>.</summary>
+    [GeneratedRegex(@"^[\p{L}\p{N}](?:[\p{L}\p{N} .+-]{0,38}[\p{L}\p{N}+])?$")]
+    private static partial Regex PlanName();
 
     public static string Email(string? profileJson)
     {

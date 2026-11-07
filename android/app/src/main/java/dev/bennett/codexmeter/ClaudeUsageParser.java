@@ -35,6 +35,9 @@ public final class ClaudeUsageParser {
     public static final long SEVEN_DAY_SECONDS = 7L * 24L * 60L * 60L;
     public static final long MONTH_SECONDS = 30L * 24L * 60L * 60L;
     static final String LIMIT_ID_PREFIX = "claude_";
+    /** Shown where the 5-hour meter would be when the plan has none (verified Ultra). */
+    public static final String NO_SESSION_LIMIT_NOTE =
+            "No 5-hour limit on this plan. Only the weekly limits apply.";
     /** Older top-level spellings of a Fable-only weekly allocation. */
     private static final String[] LEGACY_FABLE_KEYS = {
             "seven_day_fable", "fable_seven_day", "fable_weekly"};
@@ -190,9 +193,19 @@ public final class ClaudeUsageParser {
         return window != null && window.usedPercent >= 100;
     }
 
+    /** Longest plan name taken from the profile; anything longer is not a plan name. */
+    private static final int MAX_PLAN_NAME = 40;
+    private static final java.util.regex.Pattern PLAN_NAME = java.util.regex.Pattern.compile(
+            "^[\\p{L}\\p{N}](?:[\\p{L}\\p{N} .+-]{0,38}[\\p{L}\\p{N}+])?$");
+
     /**
-     * Plan badge from {@code GET /api/oauth/profile}. Reads the rate-limit tier first because it
-     * is the only field that separates Max 5x from Max 20x.
+     * Plan badge from {@code GET /api/oauth/profile}.
+     *
+     * <p>Anthropic renamed its plans on 30 October 2026: Max 5x is now "Max" and Max 20x is now
+     * "Ultra". The profile gained {@code organization.plan_display_name} with the current name,
+     * which Claude Code itself shows, so that wins. The rate-limit tier did not change
+     * ({@code default_claude_max_20x} is still sent for Ultra), so it is the fallback that keeps
+     * the two Max-type plans apart.
      */
     public static String planLabel(String profileBody) {
         if (profileBody == null || profileBody.isEmpty()) return "";
@@ -200,14 +213,21 @@ public final class ClaudeUsageParser {
             JSONObject root = new JSONObject(profileBody);
             JSONObject account = root.optJSONObject("account");
             JSONObject organization = root.optJSONObject("organization");
+            String display = organization == null || organization.isNull("plan_display_name")
+                    ? "" : organization.optString("plan_display_name", "").trim();
+            if (display.length() <= MAX_PLAN_NAME && PLAN_NAME.matcher(display).matches()) {
+                return display;
+            }
             String tier = organization == null ? ""
                     : organization.optString("rate_limit_tier", "").toLowerCase(Locale.ROOT);
             String type = organization == null ? ""
                     : organization.optString("organization_type", "").toLowerCase(Locale.ROOT);
-            if (tier.contains("max_20x")) return "Max 20x";
-            if (tier.contains("max_5x")) return "Max 5x";
             if (type.contains("enterprise")) return "Enterprise";
             if (type.contains("team")) return "Team";
+            if (tier.contains("max_20x") || tier.contains("ultra") || type.contains("ultra")) {
+                return "Ultra";
+            }
+            if (tier.contains("max_5x")) return "Max";
             if (type.contains("max") || (account != null && account.optBoolean("has_claude_max"))) {
                 return "Max";
             }
@@ -219,6 +239,15 @@ public final class ClaudeUsageParser {
             // The profile only decorates the badge; a schema change must not block usage.
         }
         return "";
+    }
+
+    /** Renames a plan badge saved before the October 2026 rename (Max 5x/20x). */
+    public static String currentPlanName(String saved) {
+        if (saved == null) return "";
+        String trimmed = saved.trim();
+        if (trimmed.equalsIgnoreCase("Max 20x")) return "Ultra";
+        if (trimmed.equalsIgnoreCase("Max 5x")) return "Max";
+        return trimmed;
     }
 
     /** Email shown on the account card; Anthropic has used both field names. */
