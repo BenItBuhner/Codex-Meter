@@ -11,7 +11,8 @@ public final class UsagePaceDemoActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        // Optional: pick the design ("classic", "one_ui_9", "liquid_glass") and theme
+        // Optional: pick the design ("classic", "one_ui_9", "liquid_glass_ios_26", "liquid_glass_ios_27";
+        // the old "liquid_glass" reads as iOS 26) and theme
         // ("light", "dark", "system") before any page is built.
         String design = getIntent().getStringExtra("design");
         if (design != null && !design.isEmpty()) {

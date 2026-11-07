@@ -7,6 +7,7 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
+import androidx.preference.SeekBarPreference;
 import androidx.preference.SeslSwitchPreferenceScreen;
 import androidx.preference.TwoStatePreference;
 import dev.bennett.codexmeter.glass.GlassModel;
@@ -158,6 +159,18 @@ final class GlassSettings {
             r.onText = value -> {
                 if (field.callChangeListener(value)) {
                     field.setText(value);
+                }
+            };
+        } else if (pref instanceof SeekBarPreference) {
+            SeekBarPreference bar = (SeekBarPreference) pref;
+            r = new Row(Row.Kind.SLIDER, key);
+            int min = bar.getMin();
+            int span = Math.max(1, bar.getMax() - min);
+            r.fraction = (bar.getValue() - min) / (double) span;
+            r.onSlide = v -> {
+                int value = min + (int) Math.round(Math.max(0, Math.min(1, v)) * span);
+                if (bar.isEnabled() && value != bar.getValue() && bar.callChangeListener(value)) {
+                    bar.setValue(value);
                 }
             };
         } else {

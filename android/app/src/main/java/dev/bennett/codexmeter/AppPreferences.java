@@ -26,7 +26,14 @@ public final class AppPreferences {
     /** Settings → Appearance → Design choices. */
     public static final String DESIGN_CLASSIC = "classic";
     public static final String DESIGN_ONE_UI_9 = "one_ui_9";
-    public static final String DESIGN_LIQUID_GLASS = "liquid_glass";
+    /** Either Liquid Glass look; saved by installs from before the two looks, read as iOS 26. */
+    public static final String DESIGN_LIQUID_GLASS = DesignIds.LIQUID_GLASS_LEGACY;
+    public static final String DESIGN_LIQUID_GLASS_IOS_26 = DesignIds.LIQUID_GLASS_IOS_26;
+    public static final String DESIGN_LIQUID_GLASS_IOS_27 = DesignIds.LIQUID_GLASS_IOS_27;
+    /** Liquid Glass (iOS 27-inspired) tint, 0 (ultra clear) to 100 (fully tinted). */
+    static final String KEY_GLASS_TINT = "glass_tint_level";
+    static final String KEY_GLASS_REDUCE_TRANSPARENCY = "glass_reduce_transparency";
+    static final String KEY_GLASS_INCREASE_CONTRAST = "glass_increase_contrast";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
@@ -442,23 +449,18 @@ public final class AppPreferences {
     }
 
     /**
-     * The app's design: classic (One UI 8.5), One UI 9, or Liquid Glass. Installs from before the
-     * Liquid Glass design only stored the One UI 9 switch, so that is the fallback.
+     * The app's design: classic (One UI 8.5), One UI 9, or one of the two Liquid Glass looks. Installs
+     * from before the Liquid Glass design only stored the One UI 9 switch, so that is the fallback,
+     * and the single Liquid Glass id saved before the two looks reads as the iOS 26-inspired one.
      */
     public static String getDesign(Context context) {
         SharedPreferences prefs = prefs(context);
-        String design = prefs.getString(KEY_APP_DESIGN, null);
-        if (DESIGN_ONE_UI_9.equals(design) || DESIGN_LIQUID_GLASS.equals(design)
-                || DESIGN_CLASSIC.equals(design)) {
-            return design;
-        }
-        return prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false) ? DESIGN_ONE_UI_9 : DESIGN_CLASSIC;
+        return DesignIds.normalize(prefs.getString(KEY_APP_DESIGN, null),
+                prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false));
     }
 
     public static void setDesign(Context context, String design) {
-        if (!DESIGN_ONE_UI_9.equals(design) && !DESIGN_LIQUID_GLASS.equals(design)) {
-            design = DESIGN_CLASSIC;
-        }
+        design = DesignIds.forSave(design);
         prefs(context).edit()
                 .putString(KEY_APP_DESIGN, design)
                 .putBoolean(KEY_ONE_UI_9_DESIGN, DESIGN_ONE_UI_9.equals(design))
@@ -474,9 +476,47 @@ public final class AppPreferences {
         setDesign(context, enabled ? DESIGN_ONE_UI_9 : DESIGN_CLASSIC);
     }
 
-    /** When enabled, pages use Apple's Liquid Glass chrome from the Glasse library. */
+    /** When enabled, pages use the Liquid Glass-inspired chrome from the Glasse library (either look). */
     public static boolean isLiquidGlassDesign(Context context) {
-        return DESIGN_LIQUID_GLASS.equals(getDesign(context));
+        return DesignIds.isLiquidGlass(getDesign(context));
+    }
+
+    /** True for the iOS 27-inspired Liquid Glass look. */
+    public static boolean isLiquidGlassIos27(Context context) {
+        return DesignIds.isIos27(getDesign(context));
+    }
+
+    /** The iOS 27-inspired look's tint, 0 (ultra clear) to 100 (fully tinted). */
+    public static int getGlassTintLevel(Context context) {
+        return Math.max(0, Math.min(100, prefs(context).getInt(KEY_GLASS_TINT, 25)));
+    }
+
+    public static void setGlassTintLevel(Context context, int level) {
+        prefs(context).edit().putInt(KEY_GLASS_TINT, Math.max(0, Math.min(100, level))).apply();
+    }
+
+    public static void setGlassReduceTransparency(Context context, boolean on) {
+        prefs(context).edit().putBoolean(KEY_GLASS_REDUCE_TRANSPARENCY, on).apply();
+    }
+
+    public static void setGlassIncreaseContrast(Context context, boolean on) {
+        prefs(context).edit().putBoolean(KEY_GLASS_INCREASE_CONTRAST, on).apply();
+    }
+
+    public static boolean isGlassReduceTransparency(Context context) {
+        return prefs(context).getBoolean(KEY_GLASS_REDUCE_TRANSPARENCY, false);
+    }
+
+    /**
+     * Increase Contrast for the glass. Off by default; Settings turns it on by default when the
+     * system's own contrast setting is high (see {@link Ui#systemPrefersHighContrast}).
+     */
+    public static boolean isGlassIncreaseContrast(Context context) {
+        SharedPreferences prefs = prefs(context);
+        if (prefs.contains(KEY_GLASS_INCREASE_CONTRAST)) {
+            return prefs.getBoolean(KEY_GLASS_INCREASE_CONTRAST, false);
+        }
+        return Ui.systemPrefersHighContrast(context);
     }
 
     public static String getAppStyle(Context context) {
