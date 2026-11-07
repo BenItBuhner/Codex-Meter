@@ -23,6 +23,17 @@ final class GlassCards {
         if (update != null) {
             d.cards.add(update(activity, update));
         }
+        ProviderStatus status = ProviderStatusStore.load(activity, provider);
+        if (status != null && status.shouldShowCard()) {
+            // Official incidents only; "status unknown" and our own failed requests stay out.
+            Card s = new Card(Card.Kind.NOTE);
+            s.detail = "Service status";
+            s.title = status.headline(provider.displayName);
+            String checked = "From the official status page · " + UsageFormat.updated(
+                    status.checkedAtMillis, System.currentTimeMillis()).replace("Updated", "checked");
+            s.summary = status.detail().isEmpty() ? checked : status.detail() + "\n" + checked;
+            d.cards.add(s);
+        }
         boolean signedIn = SecureTokenStore.isSignedIn(activity, provider);
         if (!signedIn) {
             d.cards.add(signIn(activity, provider));
@@ -55,7 +66,39 @@ final class GlassCards {
         } else {
             other(activity, provider, snapshot, now, d.cards);
         }
+        if (signedIn && ModelSpeedStore.isVisible(activity, provider)) {
+            d.cards.add(speed(activity, provider));
+        }
         return d;
+    }
+
+    /** Public OpenRouter figures for the model people picked; tapping changes or hides it. */
+    private static Card speed(MainActivity a, UsageProvider provider) {
+        String model = ModelSpeedStore.selectedModel(a, provider);
+        ModelSpeed speed = ModelSpeedStore.load(a, provider);
+        if (model.isEmpty() || speed == null) {
+            Card c = new Card(Card.Kind.LINK);
+            c.title = "Model speed reference";
+            c.value = model.isEmpty() ? "Choose" : null;
+            c.summary = model.isEmpty()
+                    ? "Pick a model to see how it is running on OpenRouter. " + ModelSpeed.DISCLAIMER
+                    : model + " · loading figures from OpenRouter…";
+            c.icon = "waveform";
+            c.color = "#5856d6";
+            c.onPress = () -> a.chooseSpeedModel(provider);
+            return c;
+        }
+        ModelSpeed.Endpoint e = speed.featured();
+        Card c = new Card(Card.Kind.STATS);
+        c.detail = "Model speed reference";
+        c.title = speed.modelName;
+        c.stats.add(new String[] {"Throughput", ModelSpeed.throughputText(e == null ? Double.NaN : e.throughput)});
+        c.stats.add(new String[] {"Latency", ModelSpeed.latencyText(e == null ? Double.NaN : e.latencyMs)});
+        c.stats.add(new String[] {"Uptime", ModelSpeed.uptimeText(e == null ? Double.NaN : e.uptime30m)});
+        c.summary = speed.sourceLine() + ". " + ModelSpeed.DISCLAIMER;
+        c.value = "Change model";
+        c.onPress = () -> a.chooseSpeedModel(provider);
+        return c;
     }
 
     private static void codex(MainActivity a, UsageSnapshot snapshot, long now, List<Card> out) {

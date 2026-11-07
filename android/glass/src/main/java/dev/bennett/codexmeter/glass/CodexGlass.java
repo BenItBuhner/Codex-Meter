@@ -286,6 +286,11 @@ public final class CodexGlass {
                             "label", Text(P.of("size", 17, "ls", -0.34, "lines", 2, "color", t.pal.label), stat[0])),
                             Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label2), stat[1])));
                 }
+                if (c.onPress != null) {
+                    // a closing row that acts on the card ("Change model")
+                    rows.add(ListRow(P.of("key", "press", "label", c.value != null ? c.value : "More",
+                            "chevron", true, "onPress", c.onPress)));
+                }
                 String header = c.title != null ? c.title : c.detail;
                 return ListSection(P.of("key", key, "header", header, "footer", c.summary), rows);
             }
