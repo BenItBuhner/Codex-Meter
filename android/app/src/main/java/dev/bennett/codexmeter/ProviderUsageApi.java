@@ -109,6 +109,30 @@ public final class ProviderUsageApi {
         }
     }
 
+    /**
+     * Fetches usage for a saved (not active) account without touching the active account's
+     * cache. {@code tokens[0]} is replaced when it is renewed.
+     */
+    static UsageSnapshot fetchDetached(Context context, UsageProvider provider,
+            AuthTokens[] tokens) throws Exception {
+        ProviderClient client = ProviderClients.get(provider);
+        if (client == null) throw new IllegalArgumentException(provider.id);
+        synchronized (LOCK) {
+            if (client.canRefresh(tokens[0]) && tokens[0].expiresAtMillis > 0L
+                    && tokens[0].expiresAtMillis
+                            <= System.currentTimeMillis() + REFRESH_MARGIN_MILLIS) {
+                tokens[0] = client.refresh(context, tokens[0]);
+            }
+            try {
+                return client.fetch(context, tokens[0]);
+            } catch (ProviderClient.Unauthorized rejected) {
+                if (!client.canRefresh(tokens[0])) throw rejected;
+                tokens[0] = client.refresh(context, tokens[0]);
+                return client.fetch(context, tokens[0]);
+            }
+        }
+    }
+
     private static AuthTokens usableTokens(Context context, ProviderClient client)
             throws Exception {
         AuthTokens tokens = SecureTokenStore.load(context, client.provider);

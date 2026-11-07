@@ -5,12 +5,8 @@
     <PreferenceCategory android:title="Accounts">
         <!-- Summaries for every row here are filled in by SettingsActivity. -->
         <Preference
-            android:key="settings_accounts"
-            android:title="Accounts"
-            app:iconSpaceReserved="false" />
-        <Preference
             android:key="settings_providers"
-            android:title="Dashboard tabs"
+            android:title="Providers &amp; accounts"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

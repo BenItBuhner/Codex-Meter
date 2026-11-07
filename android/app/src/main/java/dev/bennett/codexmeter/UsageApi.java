@@ -92,6 +92,28 @@ public final class UsageApi {
         return usageSnapshot;
     }
 
+    /**
+     * Fetches usage for a saved (not active) account without touching the active account's
+     * cache, notifications or Wear sync. {@code tokens[0]} is replaced when it is renewed.
+     */
+    static UsageSnapshot fetchDetached(Context context, AuthTokens[] tokens) throws Exception {
+        synchronized (NETWORK_LOCK) {
+            installCookieManager();
+            if (tokens[0].shouldRefresh(System.currentTimeMillis())) {
+                tokens[0] = OAuthClient.refresh(context, tokens[0]);
+            }
+            Response response = requestUsage(context, tokens[0]);
+            if (response.status == 401) {
+                tokens[0] = OAuthClient.refresh(context, tokens[0]);
+                response = requestUsage(context, tokens[0]);
+            }
+            if (response.status < 200 || response.status >= 300) {
+                throw new Exception("Usage refresh failed (HTTP " + response.status + ").");
+            }
+            return UsageParser.parse(response.body, System.currentTimeMillis());
+        }
+    }
+
     static AuthTokens usableTokens(Context context) throws Exception {
         AuthTokens authTokensLoad = SecureTokenStore.load(context);
         if (authTokensLoad == null) {

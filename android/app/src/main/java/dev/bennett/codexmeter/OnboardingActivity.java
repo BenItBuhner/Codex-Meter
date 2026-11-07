@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.widget.Button;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -290,9 +291,19 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private void buildSignIn(UsageProvider provider) {
         boolean signedIn = SecureTokenStore.isSignedIn(this, provider);
-        addIntro("Connect " + provider.displayName,
+        if (signedIn && AccountVault.isAdding(this, provider)) {
+            AccountVault.finishAdding(this, provider);
+        }
+        boolean adding = !signedIn && AccountVault.hasSaved(this, provider);
+        int accounts = AccountVault.count(this, provider);
+        addIntro(adding ? "Add another " + provider.displayName + " account"
+                        : signedIn ? provider.displayName + " connected"
+                        : "Connect " + provider.displayName,
                 signedIn
-                        ? "Your " + provider.accountName + " account is connected."
+                        ? (accounts > 1 ? accounts + " " + provider.accountName
+                                + " accounts are connected. The dashboard shows one at a time; "
+                                + "tap the account button to switch."
+                                : "Your " + provider.accountName + " account is connected.")
                         : "Sign in with the " + provider.accountName + " account you use in "
                                 + provider.displayName + ". The browser handles your password; "
                                 + "Codex Meter never sees it.",
@@ -300,11 +311,27 @@ public final class OnboardingActivity extends AppCompatActivity {
 
         if (signedIn) {
             Ui.addSpacer(this.content, 20);
-            RoundedLinearLayout account = Ui.seslRowCard(this, this.dark);
-            account.addView(Ui.actionRow(this, provider.accountName + " connected",
-                    ProviderAccounts.summary(this, provider), R.drawable.ic_oui_contact_outline,
-                    null));
-            this.content.addView(account);
+            RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+            List<AccountVault.Account> list = AccountVault.list(this, provider);
+            for (int i = 0; i < list.size(); i++) {
+                AccountVault.Account account = list.get(i);
+                String label = account.label(i);
+                card.addView(AccountSwitcher.row(this, this.dark,
+                        new AccountSwitcher.AvatarDrawable(this, AccountSwitcher.initial(label),
+                                AccountSwitcher.colorFor(label), 40, 0),
+                        label, AccountSwitcher.summary(account), false));
+            }
+            View add = AccountSwitcher.row(this, this.dark,
+                    AccountSwitcher.addIcon(this, this.dark), "Add another account",
+                    "Work and personal, or more than one plan", false);
+            add.setOnClickListener(view -> {
+                DiagnosticLog.info(this, "user", "onboarding_add_another", "provider",
+                        provider.id);
+                AccountVault.prepareToAdd(this, provider);
+                startSignIn(provider);
+            });
+            card.addView(add);
+            this.content.addView(card);
             addPrimaryAction("Continue", this::goNext);
             return;
         }
@@ -331,9 +358,14 @@ public final class OnboardingActivity extends AppCompatActivity {
         addPrimaryAction(ProviderPreferences.isSignInPending(this, provider)
                 ? "Continue sign-in with " + provider.accountName
                 : provider.signInLabel(), () -> startSignIn(provider));
-        Button later = Ui.button(this, "Skip for now", false, this.dark);
+        Button later = Ui.button(this, adding ? "Cancel" : "Skip for now", false, this.dark);
         later.setOnClickListener(view -> {
             cancelPendingSignIn();
+            if (adding) {
+                AccountVault.cancelAdding(this, provider);
+                render();
+                return;
+            }
             goNext();
         });
         LinearLayout.LayoutParams laterParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
@@ -348,16 +380,18 @@ public final class OnboardingActivity extends AppCompatActivity {
         }
         addIntro(any ? "You’re all set" : "Setup complete",
                 any ? "Codex Meter will load your latest usage as the app opens."
-                        : "You can sign in any time from Settings → Accounts.",
+                        : "You can sign in any time from Settings → Providers & accounts.",
                 any ? R.drawable.ic_oui_samsung_account : R.drawable.ic_oui_info_outline);
 
         this.content.addView(Ui.separator(this, "Accounts"));
         RoundedLinearLayout accounts = Ui.seslRowCard(this, this.dark);
         for (int i = 0; i < this.chosen.size(); i++) {
             UsageProvider provider = this.chosen.get(i);
+            int count = AccountVault.count(this, provider);
             CardItemView row = Ui.actionRow(this, provider.displayName,
                     SecureTokenStore.isSignedIn(this, provider)
                             ? ProviderAccounts.summary(this, provider)
+                                    + (count > 1 ? " · +" + (count - 1) + " more" : "")
                             : "Not signed in · sign in later from Settings",
                     ProvidersActivity.iconRes(provider), null);
             row.setShowBottomDivider(i < this.chosen.size() - 1);

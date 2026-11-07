@@ -111,6 +111,31 @@ public final class CursorUsageApi {
         }
     }
 
+    /**
+     * Fetches usage for a saved (not active) account without touching the active account's
+     * cache. {@code tokens[0]} is replaced when it is renewed.
+     */
+    static UsageSnapshot fetchDetached(Context context, AuthTokens[] tokens, String plan)
+            throws Exception {
+        synchronized (LOCK) {
+            if (tokens[0].expiresAtMillis > 0L && tokens[0].expiresAtMillis
+                    <= System.currentTimeMillis() + CursorApi.REFRESH_MARGIN_MILLIS) {
+                tokens[0] = refresh(context, tokens[0]);
+            }
+            Response usage = request(context, "cursor_usage_saved_account", CursorApi.USAGE_URL,
+                    "{}", tokens[0].accessToken);
+            if (CursorApi.isUnauthenticated(usage.status, usage.body)) {
+                tokens[0] = refresh(context, tokens[0]);
+                usage = request(context, "cursor_usage_saved_account", CursorApi.USAGE_URL, "{}",
+                        tokens[0].accessToken);
+            }
+            if (usage.status < 200 || usage.status >= 300) {
+                throw new Exception(usageError(usage));
+            }
+            return CursorUsageParser.parse(usage.body, plan, System.currentTimeMillis());
+        }
+    }
+
     private static String usageError(Response response) {
         if (CursorApi.isBotCheckpoint(response.status, response.body)) {
             return "Cursor's bot protection blocked the usage check. Try again in a few minutes.";

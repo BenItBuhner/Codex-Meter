@@ -59,6 +59,7 @@ public final class WidgetRenderer {
     public static void update(Context context, AppWidgetManager appWidgetManager, int i) {
         RemoteViews remoteViewsBuildViews;
         if (context != null && appWidgetManager != null && i != 0) {
+            AccountVault.beginWidgetRender(context, i);
             try {
                 WidgetOptions widgetOptionsLoadWidgetOptions = AppPreferences.loadWidgetOptions(context, i);
                 Bundle appWidgetOptions = appWidgetManager.getAppWidgetOptions(i);
@@ -81,6 +82,8 @@ public final class WidgetRenderer {
                     DiagnosticLog.error(context, "widget", "fallback_render_failed", e2,
                             "widget_id", i);
                 }
+            } finally {
+                AccountVault.endWidgetRender();
             }
         }
     }
@@ -121,9 +124,15 @@ public final class WidgetRenderer {
     static RemoteViews buildPreview(Context context, int appWidgetId, WidgetOptions widgetOptions,
             Bundle appWidgetOptions, List<UsageProvider> providers) {
         String style = styleForSize(context, appWidgetOptions, widgetOptions, providers);
-        RemoteViews preview = buildViews(context, appWidgetId, widgetOptions, style,
-                appWidgetOptions, resolveGraphicTier(context, widgetOptions, appWidgetOptions),
-                providers);
+        RemoteViews preview;
+        AccountVault.beginWidgetRender(context, appWidgetId);
+        try {
+            preview = buildViews(context, appWidgetId, widgetOptions, style,
+                    appWidgetOptions, resolveGraphicTier(context, widgetOptions,
+                            appWidgetOptions), providers);
+        } finally {
+            AccountVault.endWidgetRender();
+        }
         preview.setInt(android.R.id.background, "setBackgroundColor", Color.TRANSPARENT);
         return preview;
     }
@@ -695,7 +704,7 @@ public final class WidgetRenderer {
     private static List<MeterSlot> resolveSlots(Context context, WidgetOptions options,
             WidgetState state, String visualStyle, Bundle bundle, UsageProvider provider) {
         UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context, provider)
-                ? ProviderPreferences.loadSnapshot(context, provider) : null;
+                ? AccountVault.widgetSnapshot(context, provider) : null;
         int height = currentHeight(context, bundle);
         int capacity = WidgetMeters.slotCapacity(visualStyle, height);
         List<String> available = new ArrayList<>(WidgetMeters.availableKeys(snapshot));
@@ -734,7 +743,7 @@ public final class WidgetRenderer {
         ArrayList<MeterSlot> slots = new ArrayList<>();
         for (UsageProvider provider : shown) {
             UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context, provider)
-                    ? ProviderPreferences.loadSnapshot(context, provider) : null;
+                    ? AccountVault.widgetSnapshot(context, provider) : null;
             WidgetState state = WidgetState.from(context, options, provider);
             List<String> keys = WidgetProviders.metersFor(visible,
                     snapshot != null && snapshot.fiveHour != null,
@@ -1075,7 +1084,7 @@ public final class WidgetRenderer {
             String str;
             boolean zIsSignedIn = SecureTokenStore.isSignedIn(context, provider);
             UsageSnapshot usageSnapshotLoadSnapshot =
-                    ProviderPreferences.loadSnapshot(context, provider);
+                    AccountVault.widgetSnapshot(context, provider);
             long jCurrentTimeMillis = System.currentTimeMillis();
             if (!zIsSignedIn) {
                 String connect = "Open the app to connect " + provider.accountName;
@@ -1124,6 +1133,9 @@ public final class WidgetRenderer {
             String strPlanLabel = provider == UsageProvider.CODEX
                     ? UsageFormat.planLabel(usageSnapshotLoadSnapshot.planType)
                     : usageSnapshotLoadSnapshot.planType;
+            // With several accounts, say which ones this widget shows instead of the plan.
+            String accountLabel = AccountVault.widgetAccountLabel(context, provider);
+            if (!accountLabel.isEmpty()) strPlanLabel = accountLabel;
             if (!ProviderPreferences.getLastError(context, provider).isEmpty() && jCurrentTimeMillis - usageSnapshotLoadSnapshot.fetchedAtMillis > TimeUnit.MINUTES.toMillis(20L)) {
                 str2 = str2 + " · refresh issue";
             }
