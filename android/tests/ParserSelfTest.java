@@ -1665,7 +1665,7 @@ public final class ParserSelfTest {
                         "https://api.anthropic.com/api/organizations/"
                                 + "0f1e2d3c-aaaa-bbbb-cccc-1234567890ab/reset_rate_limits"),
                 "claim URL targets the organization");
-        check(ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL.endsWith("/api/oauth/usage?cedar_ember=1"),
+        check(ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL.endsWith("/api/oauth/usage?cedar_ember=1&skip_spend=1"),
                 "usage refresh asks for saved resets");
 
         ClaudeSavedResets.ClaimResult reset = ClaudeSavedResets.ClaimResult.parse(
@@ -2876,13 +2876,63 @@ public final class ParserSelfTest {
         check(ClaudeUsageParser.parseResetSeconds("not a date") == 0L,
                 "bad Claude reset timestamps are ignored");
 
-        check("Max 20x".equals(ClaudeUsageParser.planLabel(
+        // Anthropic renamed Max 5x to Max and Max 20x to Ultra (October 2026). The tier string
+        // did not change, and the profile now also carries the current name.
+        check("Ultra".equals(ClaudeUsageParser.planLabel(
                 "{\"organization\":{\"organization_type\":\"claude_max\","
                         + "\"rate_limit_tier\":\"default_claude_max_20x\"}}")),
-                "Claude Max 20x from rate-limit tier");
-        check("Max 5x".equals(ClaudeUsageParser.planLabel(
+                "Claude Max 20x tier is now called Ultra");
+        check("Max".equals(ClaudeUsageParser.planLabel(
                 "{\"organization\":{\"rate_limit_tier\":\"default_claude_max_5x\"}}")),
-                "Claude Max 5x from rate-limit tier");
+                "Claude Max 5x tier is now called Max");
+        check("Ultra".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"organization_type\":\"claude_max\","
+                        + "\"rate_limit_tier\":\"default_claude_max_20x\","
+                        + "\"plan_display_name\":\"Ultra\","
+                        + "\"plan_display_label\":\"Ultra plan\"}}")),
+                "Claude plan_display_name wins");
+        check("Max".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"rate_limit_tier\":\"default_claude_max_5x\","
+                        + "\"plan_display_name\":\"<script>alert(1)</script>\"}}")),
+                "Claude ignores a display name that is not a plan name");
+        check("Max".equals(ClaudeUsageParser.planLabel(
+                "{\"organization\":{\"rate_limit_tier\":\"default_claude_max_5x\","
+                        + "\"plan_display_name\":null}}")),
+                "Claude null display name falls back to the tier");
+        check("Ultra".equals(ClaudeUsageParser.currentPlanName("Max 20x"))
+                        && "Max".equals(ClaudeUsageParser.currentPlanName("Max 5x"))
+                        && "Pro".equals(ClaudeUsageParser.currentPlanName("Pro")),
+                "saved Claude badges are renamed");
+
+        // Verified Ultra: five_hour is null and limits[] has no session row. Usage must still load.
+        UsageSnapshot ultra = ClaudeUsageParser.parse(
+                "{\"five_hour\":null,\"seven_day\":{\"utilization\":47.0,"
+                        + "\"resets_at\":\"2026-11-03T17:00:00.036205+00:00\","
+                        + "\"limit_dollars\":null,\"used_dollars\":null,"
+                        + "\"remaining_dollars\":null,\"locked_reason\":null},"
+                        + "\"seven_day_opus\":null,\"seven_day_sonnet\":null,"
+                        + "\"extra_usage\":{\"is_enabled\":false,\"utilization\":null},"
+                        + "\"limits\":[{\"kind\":\"weekly_all\",\"group\":\"weekly\","
+                        + "\"percent\":47,\"severity\":\"normal\","
+                        + "\"resets_at\":\"2026-11-03T17:00:00.036205+00:00\","
+                        + "\"scope\":null,\"is_active\":true},"
+                        + "{\"kind\":\"weekly_scoped\",\"group\":\"weekly\",\"percent\":2,"
+                        + "\"resets_at\":\"2026-11-03T17:00:00+00:00\","
+                        + "\"scope\":{\"model\":{\"id\":null,\"display_name\":\"Fable\"},"
+                        + "\"surface\":null},\"is_active\":false}],"
+                        + "\"cedar_ember\":{\"eligible\":false,\"grants\":[]}}",
+                "Ultra", 5L);
+        check(ultra.fiveHour == null && ultra.weekly.usedPercent == 47
+                        && ultra.additionalLimits.size() == 1
+                        && "Fable only".equals(ultra.additionalLimits.get(0).name)
+                        && ultra.hasDisplayableData() && !ultra.limitReached,
+                "Claude Ultra without a 5-hour limit keeps weekly and Fable meters");
+        UsageSnapshot ultraRoundTrip = UsageSnapshot.fromJson(ultra.toJson());
+        check(ultraRoundTrip.fiveHour == null && ultraRoundTrip.weekly.usedPercent == 47
+                        && "Ultra".equals(ultraRoundTrip.planType),
+                "Claude Ultra snapshot survives the saved-snapshot round trip");
+        check(ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL.endsWith("?cedar_ember=1&skip_spend=1"),
+                "Claude usage read matches Claude Code's saved-reset query");
         check("Pro".equals(ClaudeUsageParser.planLabel(
                 "{\"account\":{\"has_claude_pro\":true},\"organization\":{}}")),
                 "Claude Pro from account flags");

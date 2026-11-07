@@ -76,7 +76,7 @@ struct ClaudeSignInView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Usage limits are available for Claude Pro, Max, Team, and Enterprise plans.")
+            Text("Usage limits are available for Claude Pro, Max, Ultra, Team, and Enterprise plans.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

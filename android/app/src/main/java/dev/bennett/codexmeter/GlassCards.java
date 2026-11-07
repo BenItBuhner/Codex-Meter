@@ -36,7 +36,16 @@ final class GlassCards {
             d.subtitle = UsageFormat.updated(snapshot.fetchedAtMillis, now);
         }
         String error = provider == UsageProvider.CODEX ? "" : ProviderPreferences.getLastError(activity, provider);
-        if (error != null && !error.isEmpty()) {
+        if (ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE.equals(error)) {
+            // The saved sign-in was rejected: offer to sign in again over it (history is kept).
+            Card again = new Card(Card.Kind.UPDATE);
+            again.title = provider.displayName + " sign-in expired";
+            again.summary = error;
+            again.warning = true;
+            again.button = "Sign in with " + provider.vendorName + " again";
+            again.onPress = () -> activity.launchSignIn(provider);
+            d.cards.add(again);
+        } else if (error != null && !error.isEmpty()) {
             Card e = new Card(Card.Kind.ERROR);
             e.title = error;
             d.cards.add(e);
@@ -192,6 +201,11 @@ final class GlassCards {
             anyUsage = snapshot.fiveHour != null || snapshot.weekly != null
                     || snapshot.monthly != null || !snapshot.additionalLimits.isEmpty()
                     || (snapshot.usageCredits != null && snapshot.usageCredits.shouldDisplay());
+            if (target == UsageProvider.CLAUDE_CODE && snapshot.fiveHour == null && snapshot.weekly != null) {
+                Card note = new Card(Card.Kind.MESSAGE);
+                note.title = ClaudeUsageParser.NO_SESSION_LIMIT_NOTE;
+                out.add(note);
+            }
             for (String key : DashboardSections.resolveOrder(
                     ProviderPreferences.getDashboardOrder(a, target), available)) {
                 if (DashboardSections.FIVE_HOUR.equals(key)) {
@@ -240,6 +254,15 @@ final class GlassCards {
     private static Card meter(MainActivity a, UsageProvider provider, String label,
             UsageSnapshot snapshot, UsageWindow window, long now) {
         Card c = new Card(Card.Kind.METER);
+        String reset = UsageFormat.reset(a, window, WidgetOptions.RESET_RELATIVE,
+                snapshot.fetchedAtMillis, now);
+        String detail = reset.isEmpty() ? null : "Resets " + reset;
+        long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+        if (window.showsResetCountdown() && resetAt > 0L && resetAt <= now) {
+            // Saved numbers from before this window reset: show it refilled until a refresh confirms.
+            window = new UsageWindow(0, window.windowSeconds, 0L, 0L);
+            detail = "Reset passed · refresh to update";
+        }
         int percent = window.remainingPercent();
         c.title = label;
         c.value = percent + "%";
@@ -247,9 +270,7 @@ final class GlassCards {
         boolean daily = window.windowSeconds >= 86_400L;
         c.icon = daily ? "calendar" : "clock";
         c.color = daily ? "#5856d6" : "#007aff";
-        String reset = UsageFormat.reset(a, window, WidgetOptions.RESET_RELATIVE,
-                snapshot.fetchedAtMillis, now);
-        c.detail = reset.isEmpty() ? null : "Resets " + reset;
+        c.detail = detail;
         UsagePace.Assessment pace = UsagePacePreferences.assess(a, provider, snapshot, window, now);
         String estimate = UsageFormat.estimatedRemaining(pace);
         c.fast = pace != null && pace.accelerated;

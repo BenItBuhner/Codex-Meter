@@ -3,6 +3,7 @@ using CodexMeter.App.Controls;
 using CodexMeter.App.Services;
 using CodexMeter.Core.Formatting;
 using CodexMeter.Core.Models;
+using CodexMeter.Core.Parsing;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
 using Microsoft.UI.Xaml;
@@ -194,6 +195,10 @@ public sealed class DashboardPage : PageBase
             {
                 case DashboardSections.FiveHour:
                     AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour");
+                    if (provider == UsageProvider.ClaudeCode && usage.FiveHour is null && usage.Weekly is not null)
+                    {
+                        cards.Children.Add(Cards.Text(ClaudeUsageParser.NoSessionLimitNote, "CaptionSecondaryTextStyle"));
+                    }
                     break;
                 case DashboardSections.Weekly:
                     AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
