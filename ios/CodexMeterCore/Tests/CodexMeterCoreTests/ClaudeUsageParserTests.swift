@@ -165,6 +165,26 @@ final class ClaudeUsageParserTests: XCTestCase {
         )
     }
 
+    /// Verified Ultra (October 2026): `five_hour` is null and `limits` has no session row.
+    func testUltraWithoutFiveHourLimitStillLoads() throws {
+        let body = #"""
+        {"five_hour":null,
+         "seven_day":{"utilization":47.0,"resets_at":"2026-11-03T17:00:00.036205+00:00","limit_dollars":null,"used_dollars":null,"remaining_dollars":null,"locked_reason":null},
+         "seven_day_opus":null,"seven_day_sonnet":null,
+         "extra_usage":{"is_enabled":false,"utilization":null},
+         "limits":[
+          {"kind":"weekly_all","group":"weekly","percent":47,"severity":"normal","resets_at":"2026-11-03T17:00:00.036205+00:00","scope":null,"is_active":true},
+          {"kind":"weekly_scoped","group":"weekly","percent":2,"resets_at":"2026-11-03T17:00:00+00:00","scope":{"model":{"id":null,"display_name":"Fable"},"surface":null},"is_active":false}
+         ]}
+        """#
+        let snapshot = try ClaudeUsageParser.parse(body, planLabel: "Ultra", fetchedAt: fetchedAt)
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertEqual(snapshot.weekly?.usedPercent, 47)
+        XCTAssertEqual(snapshot.additionalLimits.map(\.name), ["Fable only"])
+        XCTAssertFalse(snapshot.limitReached)
+        XCTAssertTrue(snapshot.hasDisplayableData)
+    }
+
     func testMalformedRootThrows() {
         XCTAssertThrowsError(try ClaudeUsageParser.parse("[]", fetchedAt: fetchedAt))
         XCTAssertThrowsError(try ClaudeUsageParser.parse("not json", fetchedAt: fetchedAt))
@@ -175,12 +195,33 @@ final class ClaudeUsageParserTests: XCTestCase {
             ClaudeUsageParser.planLabel(
                 profile: #"{"organization":{"organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x"}}"#
             ),
-            "Max 20x"
+            "Ultra"
         )
         XCTAssertEqual(
             ClaudeUsageParser.planLabel(profile: #"{"organization":{"rate_limit_tier":"default_claude_max_5x"}}"#),
-            "Max 5x"
+            "Max"
         )
+        XCTAssertEqual(
+            ClaudeUsageParser.planLabel(
+                profile: #"{"organization":{"organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x","plan_display_name":"Ultra","plan_display_label":"Ultra plan"}}"#
+            ),
+            "Ultra"
+        )
+        XCTAssertEqual(
+            ClaudeUsageParser.planLabel(
+                profile: #"{"organization":{"rate_limit_tier":"default_claude_max_5x","plan_display_name":"<b>x</b>"}}"#
+            ),
+            "Max"
+        )
+        XCTAssertEqual(
+            ClaudeUsageParser.planLabel(
+                profile: #"{"organization":{"rate_limit_tier":"default_claude_max_5x","plan_display_name":null}}"#
+            ),
+            "Max"
+        )
+        XCTAssertEqual(ClaudeUsageParser.currentPlanName("Max 20x"), "Ultra")
+        XCTAssertEqual(ClaudeUsageParser.currentPlanName("Max 5x"), "Max")
+        XCTAssertEqual(ClaudeUsageParser.currentPlanName("Pro"), "Pro")
         XCTAssertEqual(
             ClaudeUsageParser.planLabel(profile: #"{"account":{"has_claude_pro":true},"organization":{}}"#),
             "Pro"
