@@ -90,6 +90,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderUsageParsers.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DeviceAuth.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelSpeed.java" \
+  "$ROOT/tests/ModelSpeedSelfTest.java" \
   "$ROOT/tests/ParserSelfTest.java" \
   "$ROOT/tests/ProviderParsersSelfTest.java" \
   "$ROOT/tests/WatchProvidersSelfTest.java"
@@ -98,6 +100,8 @@ java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.WatchProvidersSelfTest
+java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
+  dev.bennett.codexmeter.ModelSpeedSelfTest
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.9.0-alpha.17"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"

@@ -202,6 +202,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        refreshModelSpeed();
         if (this.glass != null) {
             this.glass.onResume();
             this.glass.applyTheme();
@@ -562,6 +563,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         setRefreshing(false);
         rebuild();
         refreshSelectedProviderIfStale();
+        refreshModelSpeed();
     }
 
     /**
@@ -611,6 +613,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
             buildProviderDashboard(this.provider);
+            addModelSpeedCard(this.provider);
             return;
         }
         if (this.content != null) {
@@ -634,6 +637,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
             }
+            addModelSpeedCard(UsageProvider.CODEX);
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
@@ -643,6 +647,109 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
             }
         }
+    }
+
+    /** Fetches the tab's reference model figures from OpenRouter when due, then redraws. */
+    void refreshModelSpeed() {
+        UsageProvider target = this.provider;
+        if (target == null || !ModelSpeedStore.isVisible(this, target)
+                || ModelSpeedStore.selectedModel(this, target).isEmpty() || this.executor.isShutdown()) {
+            return;
+        }
+        Context app = getApplicationContext();
+        try {
+            this.executor.execute(() -> {
+                if (ModelSpeedStore.refreshIfDue(app, target)) {
+                    runOnUiThread(() -> {
+                        if (!isFinishing() && !isDestroyed() && this.provider == target) {
+                            rebuild();
+                        }
+                    });
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // Closing.
+        }
+    }
+
+    /** Lets people pick the reference model (newest first) or hide the card. */
+    void chooseSpeedModel(UsageProvider target) {
+        Context app = getApplicationContext();
+        try {
+            this.executor.execute(() -> {
+                List<ModelSpeed.Choice> choices = ModelSpeedStore.choices(app, target);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    String selected = ModelSpeedStore.selectedModel(this, target);
+                    String[] labels = new String[choices.size() + 1];
+                    int checked = -1;
+                    for (int i = 0; i < choices.size(); i++) {
+                        labels[i] = choices.get(i).name;
+                        if (choices.get(i).id.equals(selected)) {
+                            checked = i;
+                        }
+                    }
+                    labels[choices.size()] = "Hide this card";
+                    if (choices.isEmpty()) {
+                        Toast.makeText(this, "Couldn't load OpenRouter's model list. Try again later.",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                    OneUiChoiceDialog.show(this, "Reference model", labels, checked, which -> {
+                        if (which >= choices.size()) {
+                            ModelSpeedStore.setHidden(this, target, true);
+                        } else {
+                            ModelSpeedStore.selectModel(this, target, choices.get(which).id);
+                            refreshModelSpeed();
+                        }
+                        rebuild();
+                    });
+                });
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // Closing.
+        }
+    }
+
+    /**
+     * Public OpenRouter speed for a model people picked, clearly labelled as a reference and not
+     * their subscription's speed. Null metrics read "Insufficient data".
+     */
+    private void addModelSpeedCard(UsageProvider target) {
+        if (!ModelSpeedStore.isVisible(this, target) || !SecureTokenStore.isSignedIn(this, target)) {
+            return;
+        }
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "Model speed reference", 17, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        ModelSpeed speed = ModelSpeedStore.load(this, target);
+        String model = ModelSpeedStore.selectedModel(this, target);
+        StringBuilder text = new StringBuilder();
+        if (model.isEmpty()) {
+            text.append("Pick a model to see how it is running on OpenRouter right now. ")
+                    .append(ModelSpeed.DISCLAIMER);
+        } else if (speed == null) {
+            text.append(model).append("\nLoading figures from OpenRouter…");
+        } else {
+            ModelSpeed.Endpoint e = speed.featured();
+            text.append(speed.modelName)
+                    .append("\nThroughput: ").append(ModelSpeed.throughputText(e == null ? Double.NaN : e.throughput))
+                    .append("\nLatency: ").append(ModelSpeed.latencyText(e == null ? Double.NaN : e.latencyMs))
+                    .append("\nUptime: ").append(ModelSpeed.uptimeText(e == null ? Double.NaN : e.uptime30m))
+                    .append("\n").append(speed.sourceLine())
+                    .append("\n").append(ModelSpeed.DISCLAIMER);
+        }
+        TextView body = Ui.text(this, text.toString(), 13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(-1, -2);
+        bodyParams.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 12));
+        card.addView(body, bodyParams);
+        Button choose = Ui.nativePrimaryButton(this, model.isEmpty() ? "Choose model" : "Change model");
+        choose.setOnClickListener(view -> chooseSpeedModel(target));
+        card.addView(choose, new LinearLayout.LayoutParams(-1, Ui.dp(this, 52)));
+        Ui.addSpacer(this.content, 20);
+        this.content.addView(card);
     }
 
     private LinearLayout buildUpdateCard(GitHubRelease release) {

@@ -1,0 +1,404 @@
+{
+"data": [
+{
+"id": "google/gemini-omni-1.2-flash",
+"name": "Google: Gemini Omni 1.2 Flash",
+"created": 1793898961
+},
+{
+"id": "google/gemini-omni-1.1-flash",
+"name": "Google: Gemini Omni 1.1 Flash",
+"created": 1793825668
+},
+{
+"id": "openai/gpt-6.1-terra-pro",
+"name": "OpenAI: GPT-6.1 Terra Pro",
+"created": 1793038556
+},
+{
+"id": "openai/gpt-6.1-terra-pro:batch",
+"name": "OpenAI: GPT-6.1 Terra Pro (batch)",
+"created": 1793038556
+},
+{
+"id": "openai/gpt-6.1-terra",
+"name": "OpenAI: GPT-6.1 Terra",
+"created": 1793038409
+},
+{
+"id": "openai/gpt-6.1-terra:batch",
+"name": "OpenAI: GPT-6.1 Terra (batch)",
+"created": 1793038409
+},
+{
+"id": "google/gemini-4-argon",
+"name": "Google: Gemini 4 Argon",
+"created": 1791907477
+},
+{
+"id": "google/gemini-4-argon:batch",
+"name": "Google: Gemini 4 Argon (batch)",
+"created": 1791907477
+},
+{
+"id": "anthropic/claude-haiku-5.5",
+"name": "Anthropic: Claude Haiku 5.5",
+"created": 1791397883
+},
+{
+"id": "anthropic/claude-haiku-5.5:batch",
+"name": "Anthropic: Claude Haiku 5.5 (batch)",
+"created": 1791397883
+},
+{
+"id": "google/gemini-nano-banana-2.1",
+"name": "Google: Nano Banana 2.1",
+"created": 1791300825
+},
+{
+"id": "openai/gpt-6.1-sol-pro",
+"name": "OpenAI: GPT-6.1 Sol Pro",
+"created": 1790702886
+},
+{
+"id": "openai/gpt-6.1-sol-pro:batch",
+"name": "OpenAI: GPT-6.1 Sol Pro (batch)",
+"created": 1790702886
+},
+{
+"id": "openai/gpt-6.1-sol",
+"name": "OpenAI: GPT-6.1 Sol",
+"created": 1790702882
+},
+{
+"id": "openai/gpt-6.1-sol:batch",
+"name": "OpenAI: GPT-6.1 Sol (batch)",
+"created": 1790702882
+},
+{
+"id": "anthropic/claude-sonnet-5.5",
+"name": "Anthropic: Claude Sonnet 5.5",
+"created": 1790618686
+},
+{
+"id": "anthropic/claude-sonnet-5.5:batch",
+"name": "Anthropic: Claude Sonnet 5.5 (batch)",
+"created": 1790618686
+},
+{
+"id": "openai/gpt-6-luna-pro",
+"name": "OpenAI: GPT-6 Luna Pro",
+"created": 1790100791
+},
+{
+"id": "openai/gpt-6-luna-pro:batch",
+"name": "OpenAI: GPT-6 Luna Pro (batch)",
+"created": 1790100791
+},
+{
+"id": "openai/gpt-6-luna",
+"name": "OpenAI: GPT-6 Luna",
+"created": 1790100786
+},
+{
+"id": "openai/gpt-6-luna:batch",
+"name": "OpenAI: GPT-6 Luna (batch)",
+"created": 1790100786
+},
+{
+"id": "openai/gpt-6-sol-pro",
+"name": "OpenAI: GPT-6 Sol Pro",
+"created": 1790100781
+},
+{
+"id": "openai/gpt-6-sol-pro:batch",
+"name": "OpenAI: GPT-6 Sol Pro (batch)",
+"created": 1790100781
+},
+{
+"id": "openai/gpt-6-sol",
+"name": "OpenAI: GPT-6 Sol",
+"created": 1790100775
+},
+{
+"id": "openai/gpt-6-sol:batch",
+"name": "OpenAI: GPT-6 Sol (batch)",
+"created": 1790100775
+},
+{
+"id": "anthropic/claude-opus-5.5",
+"name": "Anthropic: Claude Opus 5.5",
+"created": 1790094732
+},
+{
+"id": "anthropic/claude-opus-5.5:batch",
+"name": "Anthropic: Claude Opus 5.5 (batch)",
+"created": 1790094732
+},
+{
+"id": "x-ai/grok-4.7",
+"name": "SpaceXAI: Grok 4.7",
+"created": 1790007541
+},
+{
+"id": "x-ai/grok-4.7:batch",
+"name": "SpaceXAI: Grok 4.7 (batch)",
+"created": 1790007541
+},
+{
+"id": "openai/gpt-6-astra",
+"name": "OpenAI: GPT-6 Astra",
+"created": 1788552838
+},
+{
+"id": "openai/gpt-6-astra:batch",
+"name": "OpenAI: GPT-6 Astra (batch)",
+"created": 1788552838
+},
+{
+"id": "openai/gpt-6-astra-pro",
+"name": "OpenAI: GPT-6 Astra Pro",
+"created": 1788552835
+},
+{
+"id": "openai/gpt-6-astra-pro:batch",
+"name": "OpenAI: GPT-6 Astra Pro (batch)",
+"created": 1788552835
+},
+{
+"id": "google/gemini-3.8-flash",
+"name": "Google: Gemini 3.8 Flash",
+"created": 1788362056
+},
+{
+"id": "google/gemini-3.8-flash:batch",
+"name": "Google: Gemini 3.8 Flash (batch)",
+"created": 1788362056
+},
+{
+"id": "anthropic/claude-fable-5.1",
+"name": "Anthropic: Claude Fable 5.1",
+"created": 1788285838
+},
+{
+"id": "anthropic/claude-fable-5.1:batch",
+"name": "Anthropic: Claude Fable 5.1 (batch)",
+"created": 1788285838
+},
+{
+"id": "google/gemini-3.7-flash",
+"name": "Google: Gemini 3.7 Flash",
+"created": 1786640581
+},
+{
+"id": "google/gemini-3.7-flash:batch",
+"name": "Google: Gemini 3.7 Flash (batch)",
+"created": 1786640581
+},
+{
+"id": "x-ai/grok-4.6",
+"name": "SpaceXAI: Grok 4.6",
+"created": 1786548957
+},
+{
+"id": "x-ai/grok-4.6:batch",
+"name": "SpaceXAI: Grok 4.6 (batch)",
+"created": 1786548957
+},
+{
+"id": "anthropic/claude-opus-5",
+"name": "Anthropic: Claude Opus 5",
+"created": 1784912544
+},
+{
+"id": "anthropic/claude-opus-5:batch",
+"name": "Anthropic: Claude Opus 5 (batch)",
+"created": 1784912544
+},
+{
+"id": "google/gemini-3.6-flash",
+"name": "Google: Gemini 3.6 Flash",
+"created": 1784646733
+},
+{
+"id": "google/gemini-3.6-flash:batch",
+"name": "Google: Gemini 3.6 Flash (batch)",
+"created": 1784646733
+},
+{
+"id": "google/gemini-3.5-flash-lite",
+"name": "Google: Gemini 3.5 Flash Lite",
+"created": 1784646726
+},
+{
+"id": "google/gemini-3.5-flash-lite:batch",
+"name": "Google: Gemini 3.5 Flash Lite (batch)",
+"created": 1784646726
+},
+{
+"id": "openai/gpt-5.6-luna-pro",
+"name": "OpenAI: GPT-5.6 Luna Pro",
+"created": 1783590867
+},
+{
+"id": "openai/gpt-5.6-luna-pro:batch",
+"name": "OpenAI: GPT-5.6 Luna Pro (batch)",
+"created": 1783590867
+},
+{
+"id": "openai/gpt-5.6-luna",
+"name": "OpenAI: GPT-5.6 Luna",
+"created": 1783590864
+},
+{
+"id": "openai/gpt-5.6-luna:batch",
+"name": "OpenAI: GPT-5.6 Luna (batch)",
+"created": 1783590864
+},
+{
+"id": "openai/gpt-5.6-terra-pro",
+"name": "OpenAI: GPT-5.6 Terra Pro",
+"created": 1783590861
+},
+{
+"id": "openai/gpt-5.6-terra-pro:batch",
+"name": "OpenAI: GPT-5.6 Terra Pro (batch)",
+"created": 1783590861
+},
+{
+"id": "openai/gpt-5.6-terra",
+"name": "OpenAI: GPT-5.6 Terra",
+"created": 1783590857
+},
+{
+"id": "openai/gpt-5.6-terra:batch",
+"name": "OpenAI: GPT-5.6 Terra (batch)",
+"created": 1783590857
+},
+{
+"id": "openai/gpt-5.6-sol-pro",
+"name": "OpenAI: GPT-5.6 Sol Pro",
+"created": 1783590854
+},
+{
+"id": "openai/gpt-5.6-sol-pro:batch",
+"name": "OpenAI: GPT-5.6 Sol Pro (batch)",
+"created": 1783590854
+},
+{
+"id": "openai/gpt-5.6-sol",
+"name": "OpenAI: GPT-5.6 Sol",
+"created": 1783590850
+},
+{
+"id": "openai/gpt-5.6-sol:batch",
+"name": "OpenAI: GPT-5.6 Sol (batch)",
+"created": 1783590850
+},
+{
+"id": "x-ai/grok-4.5",
+"name": "SpaceXAI: Grok 4.5",
+"created": 1783523154
+},
+{
+"id": "anthropic/claude-sonnet-5",
+"name": "Anthropic: Claude Sonnet 5",
+"created": 1782843083
+},
+{
+"id": "anthropic/claude-sonnet-5:batch",
+"name": "Anthropic: Claude Sonnet 5 (batch)",
+"created": 1782843083
+},
+{
+"id": "google/gemini-3.1-flash-lite-image",
+"name": "Google: Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)",
+"created": 1782837225
+},
+{
+"id": "google/gemini-3.1-flash-image",
+"name": "Google: Nano Banana 2 (Gemini 3.1 Flash Image)",
+"created": 1781754065
+},
+{
+"id": "google/gemini-3-pro-image",
+"name": "Google: Nano Banana Pro (Gemini 3 Pro Image)",
+"created": 1781754054
+},
+{
+"id": "~anthropic/claude-fable-latest",
+"name": "Anthropic: Claude Fable Latest",
+"created": 1781029944
+},
+{
+"id": "anthropic/claude-fable-5",
+"name": "Anthropic: Claude Fable 5",
+"created": 1781007515
+},
+{
+"id": "anthropic/claude-fable-5:batch",
+"name": "Anthropic: Claude Fable 5 (batch)",
+"created": 1781007515
+},
+{
+"id": "anthropic/claude-opus-4.8",
+"name": "Anthropic: Claude Opus 4.8",
+"created": 1779905091
+},
+{
+"id": "anthropic/claude-opus-4.8:batch",
+"name": "Anthropic: Claude Opus 4.8 (batch)",
+"created": 1779905091
+},
+{
+"id": "x-ai/grok-build-0.1",
+"name": "SpaceXAI: Grok Build 0.1",
+"created": 1779298123
+},
+{
+"id": "google/gemini-3.5-flash",
+"name": "Google: Gemini 3.5 Flash",
+"created": 1779193800
+},
+{
+"id": "google/gemini-3.5-flash:batch",
+"name": "Google: Gemini 3.5 Flash (batch)",
+"created": 1779193800
+},
+{
+"id": "google/gemini-3.1-flash-lite",
+"name": "Google: Gemini 3.1 Flash Lite",
+"created": 1778168828
+},
+{
+"id": "google/gemini-3.1-flash-lite:batch",
+"name": "Google: Gemini 3.1 Flash Lite (batch)",
+"created": 1778168828
+},
+{
+"id": "openai/gpt-chat-latest",
+"name": "OpenAI: GPT Chat Latest",
+"created": 1778000212
+},
+{
+"id": "x-ai/grok-4.3",
+"name": "SpaceXAI: Grok 4.3",
+"created": 1777591821
+},
+{
+"id": "x-ai/grok-4.3:batch",
+"name": "SpaceXAI: Grok 4.3 (batch)",
+"created": 1777591821
+},
+{
+"id": "~anthropic/claude-haiku-latest",
+"name": "Anthropic: Claude Haiku Latest",
+"created": 1777318492
+},
+{
+"id": "~anthropic/claude-sonnet-latest",
+"name": "Anthropic: Claude Sonnet Latest",
+"created": 1777318368
+}
+]
+}

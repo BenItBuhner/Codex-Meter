@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **Model speed reference** on the Codex, Claude Code and Grok tabs: pick a model and see its public throughput, latency and uptime on OpenRouter over the last 30 minutes, refreshed about every 45 minutes while the app is open. Figures OpenRouter hasn't measured read "Insufficient data". These are OpenRouter's numbers for the model, not your subscription's speed: the app sends no test prompts and has no timing of your own requests. Hide the card from its model picker or Settings › Refresh & dashboard › Model speed reference. Android.
+
 ## 2.9.0-alpha.17 — 2026-11-06
 
 ### Changed

@@ -196,6 +196,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     addPreferencesFromResource(R.xml.preferences_settings_refresh_usage);
                     bindRefresh();
                     bindUsagePace();
+                    bindModelSpeed();
                     break;
                 case PAGE_RESET_CREDITS:
                     addPreferencesFromResource(R.xml.preferences_settings_reset_credits);
@@ -1013,6 +1014,25 @@ public final class SettingsActivity extends AppCompatActivity {
             metric.setOnPreferenceChangeListener((preference, value) -> {
                 ResetAlertPreferences.setClaudeSavedResetMetric(requireContext(),
                         String.valueOf(value));
+                return true;
+            });
+        }
+
+        private void bindModelSpeed() {
+            SwitchPreferenceCompat speed = findPreference("model_speed_reference_ui");
+            if (speed == null) {
+                return;
+            }
+            speed.setPersistent(false);
+            speed.setChecked(ModelSpeedStore.isVisible(requireContext(), UsageProvider.CODEX)
+                    || ModelSpeedStore.isVisible(requireContext(), UsageProvider.CLAUDE_CODE)
+                    || ModelSpeedStore.isVisible(requireContext(), UsageProvider.GROK));
+            speed.setOnPreferenceChangeListener((preference, value) -> {
+                boolean on = (Boolean) value;
+                for (UsageProvider p : new UsageProvider[] {UsageProvider.CODEX,
+                        UsageProvider.CLAUDE_CODE, UsageProvider.GROK}) {
+                    ModelSpeedStore.setHidden(requireContext(), p, !on);
+                }
                 return true;
             });
         }
