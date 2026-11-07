@@ -89,6 +89,27 @@ pull_refresh() {
   if (( n1 > n0 )); then echo "PULL-TO-REFRESH OK: $1"; else echo "PULL-TO-REFRESH FAILED: $1"; fi
 }
 
+# Dashboard tabs: taps Edit (top right), shoots the handles, then touches and holds the first tab and drags
+# it down two rows. Prints REORDER OK or FAILED from the app's log.
+reorder_tabs() {
+  local d n0 n1 x y
+  d="$(adb shell wm density | grep -oE '[0-9]+' | tail -1)"
+  n0="$(adb logcat -d -s CodexGlass:I | grep -c 'reorder tabs' || true)"
+  adb shell input tap $(( W - 50 * d / 160 )) $(( 56 * d / 160 ))
+  shot "$1-editing" 1.5
+  adb shell input tap $(( W - 50 * d / 160 )) $(( 56 * d / 160 ))
+  sleep 1
+  x=$(( 150 * d / 160 )); y=$(( 245 * d / 160 ))
+  adb shell input motionevent DOWN "$x" "$y"
+  sleep 0.8
+  for k in 1 2 3 4 5 6 7 8 9 10 11 12; do adb shell input motionevent MOVE "$x" $(( y + 160 * d / 160 * k / 12 )); done
+  shot "$1-dragging" 0
+  adb shell input motionevent UP "$x" $(( y + 160 * d / 160 ))
+  shot "$1-dropped" 1.5
+  n1="$(adb logcat -d -s CodexGlass:I | grep -c 'reorder tabs' || true)"
+  if (( n1 > n0 )); then echo "REORDER OK: $1"; else echo "REORDER FAILED: $1"; fi
+}
+
 size="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
 W="${size%x*}"; H="${size#*x}"
 
@@ -124,6 +145,7 @@ for THEME in light dark; do
   shot "$THEME-14-notifications" 5
   demo --es open_activity ProvidersActivity
   shot "$THEME-15-providers" 5
+  reorder_tabs "$THEME-15b-providers"
   demo --ez open_usage_history true
   shot "$THEME-16-usage-history" 5
   for _ in 1 2 3; do adb shell input swipe $((W / 2)) $((H * 4 / 5)) $((W / 2)) $((H / 5)) 300; sleep 1; done

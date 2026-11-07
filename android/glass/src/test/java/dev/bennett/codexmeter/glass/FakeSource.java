@@ -27,6 +27,11 @@ final class FakeSource implements GlassSource {
     String dialogScreen;
     /** pull-to-refresh calls */
     int refreshes;
+    /** reorders dropped on a list */
+    int moves;
+    final List<String> tabOrderView() {
+        return tabOrder;
+    }
     /** only the first card, so the dashboard is shorter than the screen */
     boolean shortDashboard;
 
@@ -448,7 +453,7 @@ final class FakeSource implements GlassSource {
 
     private GlassModel.Page tabsPage() {
         GlassModel.Page p = new GlassModel.Page("x:tabs", "Dashboard tabs");
-        p.intro = "Drag to reorder. Switch off to hide a tab.";
+        p.intro = "Tap Edit to reorder, or touch and hold a tab. Switch off to hide one.";
         GlassModel.Section list = new GlassModel.Section(null);
         list.footer = "With five or more on, the first three get tabs and the rest go under More.";
         String[] ids = {"codex", "claude_code", "cursor", "copilot"};
@@ -464,6 +469,7 @@ final class FakeSource implements GlassSource {
         }
         list.onMove = (from, to) -> {
             tabOrder.add(to, tabOrder.remove(from));
+            moves++;
             changed();
         };
         p.sections.add(list);

@@ -28,6 +28,7 @@ import static com.benitbuhner.glasse.kit.KitUi.GlassSearchField;
 import static com.benitbuhner.glasse.kit.KitUi.LargeTitle;
 import static com.benitbuhner.glasse.kit.KitUi.ListPad;
 import static com.benitbuhner.glasse.kit.KitUi.ListRow;
+import static com.benitbuhner.glasse.kit.KitLists.ReorderList;
 import static com.benitbuhner.glasse.kit.KitUi.ListSection;
 import static com.benitbuhner.glasse.kit.KitUi.Page;
 
@@ -38,6 +39,7 @@ import com.benitbuhner.glasse.kit.KTheme;
 import com.benitbuhner.glasse.kit.Kit;
 import com.benitbuhner.glasse.kit.KitScreen;
 import com.benitbuhner.glasse.kit.NodeDraw;
+import com.benitbuhner.glasse.kit.KitLists;
 import com.benitbuhner.glasse.kit.OnBool;
 import com.benitbuhner.glasse.kit.OnInt;
 import com.benitbuhner.glasse.kit.OnNum;
@@ -55,8 +57,10 @@ import com.benitbuhner.glasse.ui.Screen;
 import com.benitbuhner.glasse.ui.Tab;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import kotlin.Unit;
 
 /**
@@ -404,6 +408,8 @@ public final class CodexGlass {
         State<List<String>> stack = R.useState(Collections.singletonList(start != null ? start : ROOT));
         State<Boolean> past = R.useState(false);
         State<String> query = R.useState("");
+        // the page whose reorderable lists are in edit mode (≡ handles), "" for none
+        State<String> editing = R.useState("");
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> past.set(y > 46));
         OnStr push = R.useMemo(R.deps(), () -> (OnStr) id -> stack.update(s -> {
             List<String> n = new ArrayList<>(s);
@@ -447,6 +453,13 @@ public final class CodexGlass {
         boolean sub = pages.size() > 1 || !ROOT.equals(top);
         GlassModel.Page topPage = top.startsWith(CHOICE) ? null : src.page(top);
         List<El> actions = new ArrayList<>();
+        if (topPage != null && reorderable(topPage)) {
+            // iOS: Edit shows the reorder handles, Done (filled) puts them away
+            boolean on = top.equals(editing.get());
+            actions.add(GlassButton(P.of("key", "edit", "id", "edit", "label", on ? "Done" : "Edit", "padX", 16,
+                    "variant", on ? "filled" : "glass", "fillColor", on ? t.accent : null, "color", on ? "#fff" : null,
+                    "onPress", (Runnable) () -> editing.set(on ? "" : top))));
+        }
         if (topPage != null) {
             for (GlassModel.Action a : topPage.actions) {
                 actions.add(a.icon != null
@@ -461,6 +474,7 @@ public final class CodexGlass {
         for (String id : pages) {
             els.add(Box(P.of("key", id, "fill", true),
                     R.h(CodexGlass.SettingsPage, P.of("id", id, "src", src, "v", version, "onScroll", onScroll,
+                            "editing", id.equals(editing.get()),
                             "push", push, "query", ROOT.equals(id) ? query.get() : ""))));
         }
         double[] bg = t.pal.groupedRGB;
@@ -564,7 +578,7 @@ public final class CodexGlass {
             body.add(searchResults(src, query.trim(), push, t));
         } else {
             for (int s = 0; s < page.sections.size(); s++) {
-                El section = section(page.sections.get(s), id, src, push, t, "s" + s);
+                El section = section(page.sections.get(s), id, src, push, t, "s" + s, p.b("editing"));
                 if (section != null) {
                     body.add(section);
                 }
@@ -573,8 +587,17 @@ public final class CodexGlass {
         return Page(P.of("onScroll", p.get("onScroll"), "tail", root ? 110 : 60), body);
     };
 
+    private static boolean reorderable(GlassModel.Page page) {
+        for (GlassModel.Section section : page.sections) {
+            if (section.onMove != null && section.rows.size() > 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static El section(GlassModel.Section section, String pageId, GlassSource src, OnStr push,
-            KTheme t, String key) {
+            KTheme t, String key, boolean editing) {
         if (!section.cards.isEmpty()) {
             List<El> cards = new ArrayList<>();
             for (int i = 0; i < section.cards.size(); i++) {
@@ -583,14 +606,23 @@ public final class CodexGlass {
             return Box(P.of("key", key), cards);
         }
         if (section.onMove != null && !section.rows.isEmpty()) {
+            // Glassé's ReorderList: Edit shows ≡ handles, or touch and hold a row to drag it
             List<GlassModel.Row> list = section.rows;
-            double[] heights = new double[list.size()];
-            for (int i = 0; i < heights.length; i++) {
-                heights[i] = rowHeight(list.get(i));
+            List<String> items = new ArrayList<>();
+            Map<String, GlassModel.Row> byKey = new HashMap<>();
+            double rowH = 52;
+            for (int i = 0; i < list.size(); i++) {
+                GlassModel.Row r = list.get(i);
+                String k = r.key != null && !byKey.containsKey(r.key) ? r.key : "row" + i;
+                items.add(k);
+                byKey.put(k, r);
+                rowH = Math.max(rowH, rowHeight(r));
             }
-            String sig = key + ":" + list.size();
-            return GlassReorder.section(sig, section.header, section.footer, list.size(), heights,
-                    (i, handle) -> row(list.get(i), pageId, src, push, t, handle), section.onMove);
+            GlassModel.Mover mover = section.onMove;
+            return ReorderList(P.of("key", key, "header", section.header, "footer", section.footer,
+                    "items", items, "editing", editing, "rowH", rowH, "inset", 58,
+                    "onMove", (KitLists.OnMove) mover::move,
+                    "renderRow", (KitLists.RenderRow) (k, i) -> reorderRow(byKey.get(k), pageId, src, t)));
         }
         List<El> rows = new ArrayList<>();
         for (GlassModel.Row row : section.rows) {
@@ -604,6 +636,36 @@ public final class CodexGlass {
                     "color", t.pal.label2), section.footer);
         }
         return ListSection(P.of("key", key, "header", section.header, "footer", section.footer), rows);
+    }
+
+    /** A row's content inside a ReorderList (which supplies the padding, handle and separators). */
+    private static El reorderRow(GlassModel.Row r, String pageId, GlassSource src, KTheme t) {
+        if (r == null) {
+            return null;
+        }
+        String icon = r.plainIcon || r.image != null ? null : r.icon;
+        Object leading = icon != null
+                ? Box(P.of("w", 30, "h", 30, "r", 30 * 0.225, "bg", r.color, "align", "center", "justify", "center"),
+                        Icon(P.of("name", icon, "size", 20, "color", "#fff")))
+                : leading(r, t);
+        Object label = r.tag != null ? tagged(r, t) : twoLine(r.title, r.summary, t);
+        if (label instanceof String) {
+            label = Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label), label);
+        }
+        El trailing = null;
+        if (r.kind == GlassModel.Row.Kind.SWITCH || r.kind == GlassModel.Row.Kind.SWITCH_LINK) {
+            trailing = GlassSwitch(P.of("value", r.checked, "onChange", (OnBool) v -> {
+                if (r.onToggle != null) {
+                    r.onToggle.on(v);
+                } else {
+                    src.toggle(pageId, r.key, v);
+                }
+            }));
+        } else if (r.value != null) {
+            trailing = Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label2), r.value);
+        }
+        return Row(P.of("flex", 1, "gap", 12, "align", "center"),
+                leading, Box(P.of("flex", 1), label), trailing);
     }
 
     /** A CHOICE row whose value opens an anchored glass pop-up menu (Picker .menu in a Form). */

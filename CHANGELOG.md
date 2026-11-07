@@ -14,6 +14,17 @@
 - Claude Code usage is sturdier after Anthropic's plan change. On Android the usage request now matches Claude Code 2.1.316, and if Anthropic refuses its saved-reset part, the app retries plain usage instead of failing. On every app a 403 is treated as a temporary refusal instead of "your plan has no usage limits", and your sign-in is always kept. Accounts with no 5-hour limit (verified Ultra) load normally.
 - Accounts without a 5-hour limit show the weekly meters with a short "No 5-hour limit on this plan" note instead of a missing card. Home screen widgets set to the 5-hour meter show the weekly one instead of "Unavailable", the live notification follows the weekly limit, and the watch glance shows only the weekly meter instead of "5h --". Android, iPhone/Mac and Windows.
 
+## 2.9.0-alpha.17 — 2026-11-06
+
+### Changed
+
+- Liquid Glass lists you can rearrange (dashboard tabs, meter order, and others) now use Glassé's reorder list like iOS: tap Edit at the top right to show the ≡ handles, or touch and hold a row to drag it without entering Edit.
+- Updated Glassé, which brings its latest switch and scrolling fixes.
+
+### Fixed
+
+- Toggles on the widget settings pages no longer lag. Each tap redrew the widget preview image before the switch could move; the preview now refreshes a moment after you stop tapping.
+
 ## 2.9.0-alpha.16 — 2026-11-05
 
 ### Changed
