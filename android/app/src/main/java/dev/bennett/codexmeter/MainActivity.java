@@ -85,6 +85,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private ProviderBar oneUi9Bar;
     /** The Liquid Glass design: Glassé's screens in place of the One UI views; null otherwise. */
     private GlassApp glass;
+    /** The Material 3 Expressive dashboard, when that design is chosen. */
+    private ExpressiveDashboard expressive;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
@@ -123,7 +125,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     protected void onCreate(Bundle bundle) {
         this.appliedTheme = AppPreferences.getAppTheme(this);
         this.appliedMaterialYou = AppPreferences.isMaterialYouEnabled(this);
-        Ui.applySelectedTheme(this);
+        boolean expressiveDesign = AppPreferences.isMaterialExpressiveDesign(this);
+        if (expressiveDesign) {
+            ExpressiveDashboard.applyTheme(this);
+        } else {
+            Ui.applySelectedTheme(this);
+        }
         super.onCreate(bundle);
         PhoneWearSync.pushAll(this);
         if (routeToOnboarding(getIntent())) {
@@ -133,6 +140,17 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (AppPreferences.isLiquidGlassDesign(this)) {
             this.glass = new GlassApp(this, super::dispatchTouchEvent);
             this.glass.start(bundle);
+            this.provider = ProviderPreferences.getSelected(this);
+            applyEnabledProviders();
+            handleLaunchIntent(getIntent());
+            WidgetUpgradeRepair.runIfNeeded(this);
+            rebuild();
+            RefreshScheduler.schedulePeriodic(this);
+            ReleaseUpdateScheduler.ensureScheduled(this);
+            return;
+        }
+        if (expressiveDesign) {
+            this.expressive = new ExpressiveDashboard(this, this.dark);
             this.provider = ProviderPreferences.getSelected(this);
             applyEnabledProviders();
             handleLaunchIntent(getIntent());
@@ -370,6 +388,9 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (this.glass != null) {
             this.glass.setRefreshing(refreshing);
         }
+        if (this.expressive != null) {
+            this.expressive.setRefreshing(refreshing);
+        }
     }
 
     @Override // android.app.Activity
@@ -455,6 +476,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
             intent.setData(null);
         }
+        // A new install starts on the design that suits the device; onboarding says so.
+        AppPreferences.applyFirstRunDesignSuggestion(this);
         startActivity(new Intent(this, OnboardingActivity.class)
                 .putExtra(OnboardingActivity.EXTRA_AUTH_RETURN, oauthReturn)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
@@ -613,6 +636,10 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     public void rebuild() {
         if (this.glass != null) {
             this.glass.changed();
+            return;
+        }
+        if (this.expressive != null) {
+            this.expressive.render(this.provider, ProviderPreferences.getEnabled(this));
             return;
         }
         applyProviderTitle();

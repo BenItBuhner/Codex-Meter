@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A provider tab in the Material 3 Expressive floating toolbar. -->
+<com.google.android.material.button.MaterialButton xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Material3.FloatingToolbar.IconButton.Vibrant"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content" />

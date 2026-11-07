@@ -30,6 +30,9 @@ public final class AppPreferences {
     public static final String DESIGN_LIQUID_GLASS = DesignIds.LIQUID_GLASS_LEGACY;
     public static final String DESIGN_LIQUID_GLASS_IOS_26 = DesignIds.LIQUID_GLASS_IOS_26;
     public static final String DESIGN_LIQUID_GLASS_IOS_27 = DesignIds.LIQUID_GLASS_IOS_27;
+    public static final String DESIGN_MATERIAL_3_EXPRESSIVE = DesignIds.MATERIAL_3_EXPRESSIVE;
+    /** Set once a new install's first-run design suggestion has been looked at ("" for none). */
+    private static final String KEY_DESIGN_SUGGESTED = "design_suggested_on_first_run";
     /** Liquid Glass (iOS 27-inspired) tint, 0 (ultra clear) to 100 (fully tinted). */
     static final String KEY_GLASS_TINT = "glass_tint_level";
     static final String KEY_GLASS_REDUCE_TRANSPARENCY = "glass_reduce_transparency";
@@ -479,6 +482,52 @@ public final class AppPreferences {
     /** When enabled, pages use the Liquid Glass-inspired chrome from the Glasse library (either look). */
     public static boolean isLiquidGlassDesign(Context context) {
         return DesignIds.isLiquidGlass(getDesign(context));
+    }
+
+    /** Material 3 Expressive: the dashboard is drawn with Material Components' Expressive views. */
+    public static boolean isMaterialExpressiveDesign(Context context) {
+        return DesignIds.isMaterialExpressive(getDesign(context));
+    }
+
+    /**
+     * A new install's first run: picks a starting design from the device ({@link
+     * DesignIds#suggestFor}). Does nothing once onboarding has started or finished, when any design
+     * was ever saved (including the old One UI 9 switch), or when it has run before, so an existing
+     * install is never moved to another design. Returns the design it saved, or null.
+     */
+    static String applyFirstRunDesignSuggestion(Context context) {
+        SharedPreferences prefs = prefs(context);
+        if (prefs.contains(KEY_DESIGN_SUGGESTED) || prefs.contains(KEY_APP_DESIGN)
+                || prefs.contains(KEY_ONE_UI_9_DESIGN) || isOnboardingComplete(context)
+                || getOnboardingStep(context) > OnboardingFlow.STEP_WELCOME) {
+            return null;
+        }
+        String suggested = DesignIds.suggestFor(android.os.Build.MANUFACTURER,
+                android.os.Build.BRAND, oneUiVersion());
+        prefs.edit().putString(KEY_DESIGN_SUGGESTED, suggested == null ? "" : suggested).commit();
+        if (suggested != null && !suggested.equals(getDesign(context))) {
+            setDesign(context, suggested);
+            return suggested;
+        }
+        return null;
+    }
+
+    /** The design the first run picked from the device, while it is still the one in use; else null. */
+    static String firstRunSuggestedDesign(Context context) {
+        String suggested = prefs(context).getString(KEY_DESIGN_SUGGESTED, "");
+        return suggested.isEmpty() || !suggested.equals(getDesign(context)) ? null : suggested;
+    }
+
+    /** Samsung's {@code ro.build.version.oneui} (e.g. 80500 for One UI 8.5), or 0 when unknown. */
+    private static int oneUiVersion() {
+        try {
+            Class<?> props = Class.forName("android.os.SystemProperties");
+            Object value = props.getMethod("get", String.class, String.class)
+                    .invoke(null, "ro.build.version.oneui", "");
+            return Integer.parseInt(String.valueOf(value).trim());
+        } catch (Throwable e) {
+            return 0;
+        }
     }
 
     /** True for the iOS 27-inspired Liquid Glass look. */

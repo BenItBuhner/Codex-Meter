@@ -18,6 +18,10 @@ final class DesignIds {
     static final String LIQUID_GLASS_LEGACY = "liquid_glass";
     static final String LIQUID_GLASS_IOS_26 = "liquid_glass_ios_26";
     static final String LIQUID_GLASS_IOS_27 = "liquid_glass_ios_27";
+    /** Google's Material 3 Expressive, drawn with Material Components' own views. */
+    static final String MATERIAL_3_EXPRESSIVE = "material_3_expressive";
+    /** One UI 9 reports ro.build.version.oneui as 90000 (major * 10000 + minor * 100). */
+    static final int ONE_UI_9_VERSION = 90000;
 
     /**
      * The design to use for a saved value. {@code legacyOneUi9} is the switch installs stored before
@@ -30,6 +34,7 @@ final class DesignIds {
                 case ONE_UI_9:
                 case LIQUID_GLASS_IOS_26:
                 case LIQUID_GLASS_IOS_27:
+                case MATERIAL_3_EXPRESSIVE:
                     return saved;
                 case LIQUID_GLASS_LEGACY:
                     return LIQUID_GLASS_IOS_26;
@@ -54,6 +59,36 @@ final class DesignIds {
         return LIQUID_GLASS_IOS_27.equals(id);
     }
 
+    static boolean isMaterialExpressive(String id) {
+        return MATERIAL_3_EXPRESSIVE.equals(id);
+    }
+
+    /**
+     * The design to start a new install on, from what the device says it is, or null to keep the
+     * app's default. Advisory only: it is used once, on first run, when nothing is saved yet, and
+     * Settings can change it any time.
+     *
+     * <p>Pixels and other Google-made phones get Material 3 Expressive. Samsung phones get One UI 9
+     * only when the One UI version itself ({@code ro.build.version.oneui}) says 9 or later; the
+     * Android version is not the One UI version, so a Samsung phone that doesn't report it keeps
+     * the default (One UI 8.5).
+     *
+     * @param oneUiVersion {@code ro.build.version.oneui} as a number, or 0 when it can't be read
+     */
+    static String suggestFor(String manufacturer, String brand, int oneUiVersion) {
+        if (is("google", manufacturer) || is("google", brand)) {
+            return MATERIAL_3_EXPRESSIVE;
+        }
+        if (is("samsung", manufacturer) || is("samsung", brand)) {
+            return oneUiVersion >= ONE_UI_9_VERSION ? ONE_UI_9 : CLASSIC;
+        }
+        return null;
+    }
+
+    private static boolean is(String want, String value) {
+        return value != null && want.equalsIgnoreCase(value.trim());
+    }
+
     /** The name Settings shows for a design. */
     static String label(String id) {
         switch (normalize(id, false)) {
@@ -63,6 +98,8 @@ final class DesignIds {
                 return "Liquid Glass (iOS 26-inspired)";
             case LIQUID_GLASS_IOS_27:
                 return "Liquid Glass (iOS 27-inspired)";
+            case MATERIAL_3_EXPRESSIVE:
+                return "Material 3 Expressive";
             default:
                 return "One UI 8.5";
         }
