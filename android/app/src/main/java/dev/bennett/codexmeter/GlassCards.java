@@ -269,7 +269,8 @@ final class GlassCards {
         Card c = new Card(Card.Kind.METER);
         String reset = UsageFormat.reset(a, window, WidgetOptions.RESET_RELATIVE,
                 snapshot.fetchedAtMillis, now);
-        String detail = reset.isEmpty() ? null : "Resets " + reset;
+        // UsageFormat.reset already reads "Resets in 3h" (or "Reset time unavailable").
+        String detail = reset.isEmpty() ? null : reset;
         long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
         if (window.showsResetCountdown() && resetAt > 0L && resetAt <= now) {
             // Saved numbers from before this window reset: show it refilled until a refresh confirms.

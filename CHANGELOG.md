@@ -18,6 +18,7 @@
 
 ### Fixed
 
+- Liquid Glass usage cards read "Resets Resets in 3h"; they now read "Resets in 3h". Android.
 - Claude Code no longer loses its sign-in when two refreshes overlap. Claude sign-in tokens can only be used once, and a saved-reset claim could resend one that a usage refresh had already replaced, which Anthropic answers with "Refresh token not found or invalid". The app now uses the newer token and saves each new token the moment it arrives. Android and iPhone/Mac.
 - When Anthropic does reject a Claude sign-in, the Claude Code tab says so in plain words and shows a **Sign in with Claude again** button. Signing in again keeps your usage history and settings. Android, in every design including Liquid Glass.
 - A usage card whose reset time has passed since the last refresh shows it as refilled ("Reset passed · refresh to update") instead of the old number next to "Resets now". Android, in every design including Liquid Glass.

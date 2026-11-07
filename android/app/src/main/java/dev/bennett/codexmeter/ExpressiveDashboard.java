@@ -84,7 +84,10 @@ final class ExpressiveDashboard {
         ViewCompat.setOnApplyWindowInsetsListener(this.root, (view, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
                     | WindowInsetsCompat.Type.displayCutout());
-            this.scroll.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            // The status bar stays clear (cards don't scroll under it); the floating toolbar and the
+            // last card sit above the navigation bar.
+            view.setPadding(0, bars.top, 0, 0);
+            this.scroll.setPadding(bars.left, 0, bars.right, bars.bottom);
             ViewGroup.MarginLayoutParams params =
                     (ViewGroup.MarginLayoutParams) this.toolbar.getLayoutParams();
             params.bottomMargin = bars.bottom + Ui.dp(activity, 16);
@@ -152,11 +155,11 @@ final class ExpressiveDashboard {
                 break;
             case HISTORY:
                 header(body, c.title, c.value);
-                body.addView(new Bars(this.activity, c.bars,
-                                color(R.attr.colorPrimary),
-                                color(R.attr.colorSurfaceContainerHighest)),
-                        new LinearLayout.LayoutParams(-1, Ui.dp(this.activity, 72)));
-                if (c.startLabel != null && !c.startLabel.isEmpty()) {
+                boolean hasBars = c.startLabel != null && !c.startLabel.isEmpty();
+                if (hasBars) {
+                    body.addView(new Bars(this.activity, c.bars, color(R.attr.colorPrimary),
+                                    color(R.attr.colorSurfaceContainerHighest)),
+                            new LinearLayout.LayoutParams(-1, Ui.dp(this.activity, 72)));
                     body.addView(ends(c.startLabel, c.endLabel));
                 }
                 line(body, c.summary, R.attr.textAppearanceBodyMedium,
@@ -189,15 +192,18 @@ final class ExpressiveDashboard {
                 break;
             case UPDATE:
             case SIGN_IN:
+                int onColor = R.attr.colorOnSurface;
+                int onVariant = R.attr.colorOnSurfaceVariant;
                 if (c.kind == GlassModel.Card.Kind.UPDATE) {
                     card.setCardBackgroundColor(color(c.warning
                             ? R.attr.colorErrorContainer
                             : R.attr.colorPrimaryContainer));
+                    onColor = c.warning ? R.attr.colorOnErrorContainer
+                            : R.attr.colorOnPrimaryContainer;
+                    onVariant = onColor;
                 }
-                line(body, c.title, R.attr.textAppearanceHeadlineSmall,
-                        R.attr.colorOnSurface, 0);
-                line(body, c.summary, R.attr.textAppearanceBodyLarge,
-                        R.attr.colorOnSurfaceVariant, 8);
+                line(body, c.title, R.attr.textAppearanceHeadlineSmall, onColor, 0);
+                line(body, c.summary, R.attr.textAppearanceBodyLarge, onVariant, 8);
                 if (c.button != null && c.onPress != null) {
                     button(body, c.button, c.onPress, false, !c.buttonEnabled);
                 }
@@ -259,6 +265,7 @@ final class ExpressiveDashboard {
             bar.setIndicatorColor(color(R.attr.colorError));
         }
         // The wave is the Expressive bar's own; it flattens as the window empties.
+        bar.setWavelengthDeterminate(Ui.dp(this.activity, 32));
         bar.setWaveAmplitude(c.remaining < 0.08 ? 0 : Ui.dp(this.activity, 3));
         body.addView(bar);
         line(body, c.detail, R.attr.textAppearanceBodyMedium,
