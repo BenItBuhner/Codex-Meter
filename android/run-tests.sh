@@ -99,6 +99,13 @@ java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.WatchProvidersSelfTest
 
+javac -encoding UTF-8 -d "$OUT" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DesignIds.java" \
+  "$ROOT/tests/DesignIdsSelfTest.java"
+java -ea -cp "$OUT" dev.bennett.codexmeter.DesignIdsSelfTest
+grep -q '<item>liquid_glass_ios_26</item>' "$ROOT/app/src/main/res/values/arrays.xml"
+grep -q '<item>liquid_glass_ios_27</item>' "$ROOT/app/src/main/res/values/arrays.xml"
+
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.9.0-alpha.17"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"

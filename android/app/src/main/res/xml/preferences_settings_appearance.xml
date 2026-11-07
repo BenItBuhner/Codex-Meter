@@ -28,4 +28,27 @@
             android:title="App design" />
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:key="glass_look_category"
+        android:title="Liquid Glass">
+        <SeekBarPreference
+            android:defaultValue="25"
+            android:key="glass_tint_level"
+            android:max="100"
+            android:title="Glass tint"
+            app:min="0"
+            app:showSeekBarValue="false"
+            app:updatesContinuously="true" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="glass_reduce_transparency"
+            android:summary="Draws the glass as a nearly solid fill"
+            android:title="Reduce transparency" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="glass_increase_contrast"
+            android:summary="Darker edges and a stronger tint behind text and controls"
+            android:title="Increase contrast" />
+    </PreferenceCategory>
+
 </PreferenceScreen>

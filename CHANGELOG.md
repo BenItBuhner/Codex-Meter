@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Liquid Glass now comes in two looks in Settings › Appearance › App design: **Liquid Glass (iOS 26-inspired)**, the design as it has been, and **Liquid Glass (iOS 27-inspired)**, with more diffused glass, darker edges, brighter highlights, an even backdrop behind the top bar once content scrolls under it, and a **Glass tint** slider from ultra clear to fully tinted. Both looks share the same screens. If you already use Liquid Glass you stay on the iOS 26-inspired look; nothing switches you. Both are inspired designs drawn on Android, not Apple's own, and not pixel-for-pixel copies. Android.
+- Liquid Glass has **Reduce transparency** and **Increase contrast** switches under Settings › Appearance, in both looks. Increase contrast starts on when Android's own contrast setting is high. Android.
+
 ### Changed
 
 - Claude plan badges use Anthropic's new names: Max 5x is now **Max** and Max 20x is now **Ultra**. The name comes from your Claude profile, so future renames show up without an update, and badges saved before the change are renamed too. All apps.

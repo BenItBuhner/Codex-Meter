@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       design:
-        description: 'Design to record (liquid_glass, one_ui_9 or classic)'
+        description: 'Design to record (liquid_glass_ios_26, liquid_glass_ios_27, one_ui_9 or classic; liquid_glass reads as iOS 26)'
         default: liquid_glass
 
 permissions:

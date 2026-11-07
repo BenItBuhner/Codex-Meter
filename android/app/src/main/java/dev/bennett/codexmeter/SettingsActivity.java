@@ -26,6 +26,7 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceListCorners;
+import androidx.preference.SeekBarPreference;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
@@ -639,6 +640,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             bindDesign();
+            bindGlassLook();
         }
 
         private void bindDesign() {
@@ -663,11 +665,44 @@ public final class SettingsActivity extends AppCompatActivity {
 
         /** The name of the current design, as Settings → Appearance lists it. */
         static String designLabel(Context context) {
-            String design = AppPreferences.getDesign(context);
-            if (AppPreferences.DESIGN_LIQUID_GLASS.equals(design)) {
-                return "Liquid Glass";
+            return DesignIds.label(AppPreferences.getDesign(context));
+        }
+
+        /**
+         * Liquid Glass's own settings: the iOS 27-inspired look's tint, and the accessibility
+         * switches both looks follow. Hidden in the One UI designs.
+         */
+        private void bindGlassLook() {
+            Context context = requireContext();
+            PreferenceCategory category = findPreference("glass_look_category");
+            if (category == null) {
+                return;
             }
-            return AppPreferences.DESIGN_ONE_UI_9.equals(design) ? "One UI 9" : "One UI 8.5";
+            boolean glass = AppPreferences.isLiquidGlassDesign(context);
+            category.setVisible(glass);
+            SeekBarPreference tint = findPreference(AppPreferences.KEY_GLASS_TINT);
+            SwitchPreferenceCompat reduce = findPreference(AppPreferences.KEY_GLASS_REDUCE_TRANSPARENCY);
+            SwitchPreferenceCompat contrast = findPreference(AppPreferences.KEY_GLASS_INCREASE_CONTRAST);
+            tint.setVisible(glass && AppPreferences.isLiquidGlassIos27(context));
+            tint.setSummary("From ultra clear to fully tinted");
+            tint.setValue(AppPreferences.getGlassTintLevel(context));
+            boolean reduced = AppPreferences.isGlassReduceTransparency(context);
+            tint.setEnabled(!reduced);
+            reduce.setPersistent(false);
+            reduce.setChecked(reduced);
+            reduce.setOnPreferenceChangeListener((preference, value) -> {
+                boolean on = (Boolean) value;
+                AppPreferences.setGlassReduceTransparency(requireContext(), on);
+                tint.setEnabled(!on);
+                return true;
+            });
+            // Starts on when the system asks for high contrast, until the person sets it here.
+            contrast.setPersistent(false);
+            contrast.setChecked(AppPreferences.isGlassIncreaseContrast(context));
+            contrast.setOnPreferenceChangeListener((preference, value) -> {
+                AppPreferences.setGlassIncreaseContrast(requireContext(), (Boolean) value);
+                return true;
+            });
         }
 
         /** Relaunches the app on Settings → Appearance in a fresh process. */

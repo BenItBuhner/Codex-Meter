@@ -185,6 +185,10 @@ public final class CodexGlass {
                         "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
                         "refreshing", src.refreshing()), body.toArray()),
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
+                // iOS 27-inspired: once content scrolls under the floating bars, the bar's own band
+                // gets an even backdrop (a second fade over just the bar) instead of only the soft fade.
+                GlassLook.uniformToolbar() ? EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg,
+                        "shown", past.get())) : null,
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                 GlassNavBar(P.of("title", d.title, "titleVisible", past.get(), "trailing", trailing)),
                 kitTabs.size() >= 2 ? GlassTabBar(P.of(
@@ -481,6 +485,10 @@ public final class CodexGlass {
         return Box(P.of("fill", true, "bg", t.pal.grouped),
                 Stack(P.of("onPop", pop, "bg", t.pal.grouped), els),
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
+                // iOS 27-inspired: once content scrolls under the floating bars, the bar's own band
+                // gets an even backdrop (a second fade over just the bar) instead of only the soft fade.
+                GlassLook.uniformToolbar() ? EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg,
+                        "shown", past.get())) : null,
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                 GlassNavBar(P.of("title", titleOf(src, top), "titleVisible", sub || past.get(),
                         "trailing", actions.isEmpty() ? null : actions,

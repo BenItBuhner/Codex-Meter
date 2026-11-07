@@ -278,6 +278,26 @@ public final class Ui {
         return !WidgetOptions.THEME_LIGHT.equals(appTheme) && (context.getResources().getConfiguration().uiMode & 48) == 32;
     }
 
+    /**
+     * True when the system asks for more contrast: Android 14+'s contrast level set high, or the
+     * high contrast text switch. Android has no system Reduce Transparency setting, so the glass
+     * offers its own switch for that.
+     */
+    public static boolean systemPrefersHighContrast(Context context) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            android.app.UiModeManager modes = context.getSystemService(android.app.UiModeManager.class);
+            if (modes != null && modes.getContrast() >= 0.5f) {
+                return true;
+            }
+        }
+        try {
+            return android.provider.Settings.Secure.getInt(context.getContentResolver(),
+                    "high_text_contrast_enabled", 0) == 1;
+        } catch (RuntimeException unreadable) {
+            return false;
+        }
+    }
+
     public static boolean isOneUi(Context context) {
         return true;
     }
