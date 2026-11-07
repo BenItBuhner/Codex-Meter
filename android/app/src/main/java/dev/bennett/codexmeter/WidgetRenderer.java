@@ -699,13 +699,23 @@ public final class WidgetRenderer {
         int height = currentHeight(context, bundle);
         int capacity = WidgetMeters.slotCapacity(visualStyle, height);
         List<String> available = new ArrayList<>(WidgetMeters.availableKeys(snapshot));
+        boolean noShortWindow = false;
         if (provider != UsageProvider.CODEX) {
             available.remove(WidgetMeters.RESET_CREDITS);
+            // Plans without a 5-hour limit (Claude Ultra, Cursor) show the long window instead
+            // of an empty 5-hour meter.
+            noShortWindow = snapshot != null && snapshot.fiveHour == null
+                    && snapshot.longWindow() != null;
+            if (noShortWindow) available.remove(WidgetMeters.FIVE_HOUR);
         }
-        List<String> visible = WidgetMeters.cap(
+        List<String> resolvedVisible = new ArrayList<>(
                 WidgetMeters.resolveVisibleForWidget(options.effectiveVisibleMeters(),
-                        available, options.metricMode),
-                capacity);
+                        available, options.metricMode));
+        if (noShortWindow && !resolvedVisible.contains(WidgetMeters.WEEKLY)
+                && WidgetMeters.usageMeterCount(resolvedVisible) == 0) {
+            resolvedVisible.add(0, WidgetMeters.WEEKLY);
+        }
+        List<String> visible = WidgetMeters.cap(resolvedVisible, capacity);
         ResetCreditsSnapshot credits = provider == UsageProvider.CODEX
                 ? AppPreferences.loadResetCredits(context) : null;
         int resetCount = credits == null ? 0 : credits.availableCount;
@@ -1106,6 +1116,12 @@ public final class WidgetRenderer {
             String strReset2 = UsageFormat.reset(context, longWindow,
                     widgetOptions.resetMode, usageSnapshotLoadSnapshot.fetchedAtMillis,
                     jCurrentTimeMillis);
+            if (provider != UsageProvider.CODEX && usageSnapshotLoadSnapshot.fiveHour == null
+                    && longWindow != null) {
+                // A plan without a 5-hour limit (Claude Ultra) says so instead of "Unavailable".
+                strPercent = "No limit";
+                strReset = "No 5-hour limit";
+            }
             String strShortReset = WidgetRenderer.shortReset(context,
                     usageSnapshotLoadSnapshot.fiveHour, widgetOptions.resetMode,
                     usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);

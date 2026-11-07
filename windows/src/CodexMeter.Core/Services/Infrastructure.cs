@@ -224,6 +224,12 @@ public sealed class ProviderCacheStore(string? directory)
             try
             {
                 var entry = JsonSerializer.Deserialize<ProviderCacheEntry>(await File.ReadAllBytesAsync(path).ConfigureAwait(false), Storage.Options);
+                // Claude badges saved before Anthropic's October 2026 rename read "Max 5x"/"Max 20x".
+                if (entry?.Usage is { } usage && providerId == "claude_code")
+                {
+                    var renamed = ClaudeUsageParser.CurrentPlanName(usage.PlanType);
+                    if (renamed != usage.PlanType) entry = entry with { Usage = usage with { PlanType = renamed } };
+                }
                 if (entry is not null) memory[providerId] = entry;
                 return entry;
             }

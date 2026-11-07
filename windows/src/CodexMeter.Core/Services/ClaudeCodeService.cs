@@ -129,7 +129,7 @@ public sealed class ClaudeCodeService(ProviderContext context) : ProviderService
             }
         }
         catch (ProviderException) { }
-        if (plan.Length == 0) plan = (await CachedAsync().ConfigureAwait(false))?.Usage?.PlanType ?? "";
+        if (plan.Length == 0) plan = ClaudeUsageParser.CurrentPlanName((await CachedAsync().ConfigureAwait(false))?.Usage?.PlanType);
 
         var snapshot = ClaudeUsageParser.Parse(usage.Body, plan, Now);
         if (snapshot.FiveHour is null && snapshot.Weekly is null && snapshot.AdditionalLimits.Count == 0)
@@ -140,7 +140,7 @@ public sealed class ClaudeCodeService(ProviderContext context) : ProviderService
     public static string UsageErrorMessage(HttpPayload payload) => payload.Status switch
     {
         401 => "Claude rejected the saved sign-in. Sign in with Claude again.",
-        403 => "Claude usage access was denied for this account. Usage limits are only available for Pro, Max, Team, and Enterprise plans.",
+        403 => "Claude is refusing usage checks for now (HTTP 403). Your sign-in is kept; try again in a few minutes.",
         404 => "The Claude usage endpoint is unavailable or has changed.",
         429 => "Claude is rate-limiting usage checks. Try again in a few minutes.",
         _ => ProviderHttp.ServerMessage(payload.Body, $"Claude usage refresh failed (HTTP {payload.Status})."),

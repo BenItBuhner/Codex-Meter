@@ -101,7 +101,7 @@ private struct ClaudeStatusStrip: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 if !usage.planType.isEmpty {
-                    PlanBadge(title: usage.planType)
+                    PlanBadge(title: ClaudeUsageParser.currentPlanName(usage.planType))
                 }
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     HStack(spacing: 6) {
@@ -118,6 +118,13 @@ private struct ClaudeStatusStrip: View {
                     .accessibilityElement(children: .combine)
                 }
                 Spacer(minLength: 0)
+            }
+
+            if usage.fiveHour == nil, usage.weekly != nil {
+                // Verified Ultra accounts have no 5-hour limit since October 2026.
+                Label(ClaudeUsageParser.noSessionLimitNote, systemImage: "infinity")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if usage.limitReached {
@@ -177,7 +184,7 @@ private struct ClaudeSignedOutView: View {
                 Text("Your Claude Code limits at a glance")
                     .font(.title2.bold())
                     .multilineTextAlignment(.center)
-                Text("Connect your Claude Pro, Max, Team, or Enterprise account to see the 5-hour and weekly limits Claude Code reports, any model-only allocation such as Fable, and reset times.")
+                Text("Connect your Claude Pro, Max, Ultra, Team, or Enterprise account to see the 5-hour and weekly limits Claude Code reports, any model-only allocation such as Fable, and reset times.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }

@@ -82,6 +82,7 @@ public final class ClaudeUsageApi {
         try {
             synchronized (LOCK) {
                 AuthTokens tokens = usableTokens(context);
+                boolean plainOnly = false;
                 Response usage = get(context, "claude_usage",
                         ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
                 if (usage.status == 401) {
@@ -91,7 +92,22 @@ public final class ClaudeUsageApi {
                     usage = get(context, "claude_usage",
                             ClaudeCodeApi.USAGE_WITH_SAVED_RESETS_URL, tokens);
                 }
-                if (usage.status == 429) {
+                if (shouldRetryPlain(usage.status)) {
+                    // The saved-reset query is optional. If Anthropic refuses the request with it,
+                    // plain usage still loads; saved resets just keep their last known state.
+                    DiagnosticLog.warn(context, "refresh", "claude_usage_retry_plain",
+                            "status", usage.status);
+                    Response plain = get(context, "claude_usage_plain", ClaudeCodeApi.USAGE_URL,
+                            tokens);
+                    if (plain.status >= 200 && plain.status < 300) {
+                        plainOnly = true;
+                        usage = plain;
+                    } else if (plain.status == 429) {
+                        usage = plain;
+                    }
+                }
+                if (usage.status == 429 || usage.status == 403) {
+                    // Claude Code treats a 403 from this route as throttling too.
                     ProviderPreferences.setRateLimitedAt(context, PROVIDER,
                             System.currentTimeMillis());
                 }
@@ -115,7 +131,9 @@ public final class ClaudeUsageApi {
                 }
                 if (plan.isEmpty()) {
                     UsageSnapshot previous = ProviderPreferences.loadSnapshot(context, PROVIDER);
-                    if (previous != null) plan = previous.planType;
+                    if (previous != null) {
+                        plan = ClaudeUsageParser.currentPlanName(previous.planType);
+                    }
                 }
                 UsageSnapshot snapshot = ClaudeUsageParser.parse(usage.body, plan,
                         System.currentTimeMillis());
@@ -127,9 +145,12 @@ public final class ClaudeUsageApi {
                     throw new Exception("Usage was received, but it could not be saved on this device.");
                 }
                 UsageHistoryRecorder.record(context, PROVIDER, snapshot);
-                ClaudeSavedResets savedResets = ClaudeSavedResets.fromUsageBody(usage.body,
-                        snapshot.fetchedAtMillis);
-                ProviderPreferences.saveSavedResets(context, PROVIDER, savedResets);
+                ClaudeSavedResets savedResets = plainOnly
+                        ? ProviderPreferences.loadSavedResets(context, PROVIDER)
+                        : ClaudeSavedResets.fromUsageBody(usage.body, snapshot.fetchedAtMillis);
+                if (!plainOnly) {
+                    ProviderPreferences.saveSavedResets(context, PROVIDER, savedResets);
+                }
                 DiagnosticLog.info(context, "refresh", "claude_usage_refresh_succeeded",
                         "duration_ms", SystemClock.elapsedRealtime() - started,
                         "five_hour", snapshot.fiveHour != null,
@@ -152,13 +173,19 @@ public final class ClaudeUsageApi {
         }
     }
 
+    /** Statuses where the plain usage route is worth one retry without the saved-reset query. */
+    static boolean shouldRetryPlain(int status) {
+        return status == 400 || status == 403 || status == 404 || status == 422
+                || status >= 500;
+    }
+
     private static String usageError(Response response) {
         switch (response.status) {
             case 401:
-                return "Claude rejected the saved sign-in. Sign in with Claude again.";
+                return SIGN_IN_AGAIN_MESSAGE;
             case 403:
-                return "Claude usage access was denied for this account. Usage limits are only "
-                        + "available for Pro, Max, Team, and Enterprise plans.";
+                return "Claude is refusing usage checks for now (HTTP 403). Your sign-in is kept; "
+                        + "try again in a few minutes.";
             case 404:
                 return "The Claude usage endpoint is unavailable or has changed.";
             case 429:
@@ -197,19 +224,76 @@ public final class ClaudeUsageApi {
         return tokens;
     }
 
+    /**
+     * Shown when Anthropic no longer accepts the saved refresh token. Nothing on the device can
+     * bring that token back, so the dashboard offers a fresh sign-in; history and settings stay.
+     */
+    public static final String SIGN_IN_AGAIN_MESSAGE =
+            "Your Claude sign-in has expired. Sign in again to keep loading usage; your history "
+                    + "and settings stay.";
+
+    /**
+     * Claude refresh tokens are single-use: each refresh returns a new one and retires the old.
+     * Callers must hold {@link #LOCK}.
+     */
     static AuthTokens refresh(Context context, AuthTokens current) throws Exception {
+        // Another refresh may have rotated the token since the caller read it (a saved-reset
+        // claim and a usage refresh can interleave). Sending the retired token would fail, so
+        // use the newer one instead.
+        AuthTokens stored = SecureTokenStore.load(context, PROVIDER);
+        if (stored != null && stored.isUsable()
+                && !stored.refreshToken.equals(current.refreshToken)
+                && !stored.shouldRefresh(System.currentTimeMillis())) {
+            DiagnosticLog.info(context, "auth", "claude_refresh_already_rotated");
+            return stored;
+        }
+        if (stored != null && stored.isUsable()
+                && !stored.refreshToken.equals(current.refreshToken)) {
+            current = stored;
+        }
         ProviderPreferences.setScopeUpgradeTriedAt(context, PROVIDER, System.currentTimeMillis());
         Response response = postRefresh(context,
                 ClaudeCodeApi.refreshBody(current.refreshToken, ClaudeCodeApi.SCOPE));
-        if (response.status == 400
-                && !OAuthClient.readError(response.body, "").contains("invalid_grant")) {
-            // Same fallback as Claude Code: keep the scopes this sign-in already has.
+        if (response.status == 400 && !isGrantError(response.body)) {
+            // Same fallback as Claude Code: keep the scopes this sign-in already has. A rejected
+            // scope request does not use up the refresh token.
             DiagnosticLog.warn(context, "auth", "claude_scope_upgrade_rejected");
             response = postRefresh(context, ClaudeCodeApi.refreshBody(current.refreshToken));
         }
+        if ((response.status == 400 || response.status == 401) && isGrantError(response.body)) {
+            DiagnosticLog.warn(context, "auth", "claude_refresh_token_rejected",
+                    "status", response.status);
+            throw new Exception(SIGN_IN_AGAIN_MESSAGE);
+        }
         AuthTokens tokens = current.mergeRefresh(parseTokens(response, current));
+        // Save straight away: the old refresh token is already retired on Anthropic's side.
+        SecureTokenStore.save(context, PROVIDER, tokens);
         ProviderPreferences.setGrantedScope(context, PROVIDER, grantedScope(response));
         return tokens;
+    }
+
+    /**
+     * Whether a token-route error means the refresh token itself is dead, as in
+     * {@code {"error":"invalid_grant","error_description":"Refresh token not found or invalid"}}.
+     */
+    static boolean isGrantError(String body) {
+        String code = "";
+        String description = "";
+        try {
+            JSONObject object = new JSONObject(body == null ? "" : body);
+            Object error = object.opt("error");
+            if (error instanceof String) code = (String) error;
+            if (error instanceof JSONObject) {
+                code = ((JSONObject) error).optString("type", "");
+                description = ((JSONObject) error).optString("message", "");
+            }
+            if (description.isEmpty()) description = object.optString("error_description", "");
+        } catch (Exception ignored) {
+            return false;
+        }
+        String text = (code + " " + description).toLowerCase(java.util.Locale.ROOT);
+        return text.contains("invalid_grant") || text.contains("refresh token")
+                || text.contains("revoked");
     }
 
     private static Response postRefresh(Context context, Map<String, String> body)
@@ -247,6 +331,7 @@ public final class ClaudeUsageApi {
      */
     private static boolean shouldRetryAsJson(Response response) {
         if (response.status != 400 && response.status != 415) return false;
+        if (isGrantError(response.body)) return false;
         String error = OAuthClient.readError(response.body, "");
         return !error.contains("invalid_grant") && !error.contains("expired");
     }
