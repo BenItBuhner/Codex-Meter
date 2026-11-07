@@ -58,6 +58,9 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private boolean dark;
     private boolean receiverRegistered;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final android.os.Handler statusHandler =
+            new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable statusTick = this::checkProviderStatus;
     private String lastLaunchedAuthUrl = "";
     private boolean launchSignInRequested;
     private UsageProvider launchSignInProvider = UsageProvider.CODEX;
@@ -203,6 +206,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     protected void onResume() {
         super.onResume();
         refreshModelSpeed();
+        checkProviderStatus();
         if (this.glass != null) {
             this.glass.onResume();
             this.glass.applyTheme();
@@ -282,6 +286,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
     @Override
     protected void onPause() {
+        this.statusHandler.removeCallbacks(this.statusTick);
         if (this.glass != null) {
             this.glass.onPause();
         }
@@ -564,6 +569,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         rebuild();
         refreshSelectedProviderIfStale();
         refreshModelSpeed();
+        checkProviderStatus();
     }
 
     /**
@@ -623,6 +629,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.content.addView(buildUpdateCard(update));
                 Ui.addSpacer(this.content, 20);
             }
+            addStatusCard(UsageProvider.CODEX);
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
                 this.content.addView(dashboard);
@@ -750,6 +757,67 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         card.addView(choose, new LinearLayout.LayoutParams(-1, Ui.dp(this, 52)));
         Ui.addSpacer(this.content, 20);
         this.content.addView(card);
+    }
+
+    /**
+     * Asks the selected provider's official status feed again when {@link StatusPollPolicy}
+     * allows (about every 5 minutes while the dashboard is open), and redraws if it changed.
+     */
+    private void checkProviderStatus() {
+        this.statusHandler.removeCallbacks(this.statusTick);
+        UsageProvider target = this.provider;
+        if (target != null && ProviderStatusSources.forProvider(target) != null
+                && !this.executor.isShutdown()) {
+            Context app = getApplicationContext();
+            try {
+                this.executor.execute(() -> {
+                    if (ProviderStatusStore.refreshIfDue(app, target, true)) {
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed() && this.provider == target) {
+                                rebuild();
+                            }
+                        });
+                    }
+                });
+            } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                return;
+            }
+        }
+        this.statusHandler.postDelayed(this.statusTick, StatusPollPolicy.FOREGROUND_INTERVAL_MS);
+    }
+
+    /** An official incident on one of the provider's components; nothing for "unknown". */
+    private void addStatusCard(UsageProvider target) {
+        ProviderStatus status = ProviderStatusStore.load(this, target);
+        if (status == null || !status.shouldShowCard()) {
+            return;
+        }
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, status.headline(target.displayName), 17,
+                status.state.severity >= ProviderStatus.State.PARTIAL_OUTAGE.severity
+                        ? Ui.danger(this.dark) : Ui.warning(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        String detail = status.detail();
+        String checked = "From the official status page · "
+                + UsageFormat.updated(status.checkedAtMillis, System.currentTimeMillis())
+                        .replace("Updated", "checked");
+        TextView body = Ui.text(this, detail.isEmpty() ? checked : detail + "\n" + checked, 13,
+                Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(-1, -2);
+        bodyParams.setMargins(0, Ui.dp(this, 6), 0, 0);
+        card.addView(body, bodyParams);
+        if (!status.pageUrl.isEmpty()) {
+            card.setOnClickListener(view -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(status.pageUrl)));
+                } catch (android.content.ActivityNotFoundException ignored) {
+                    // No browser; the card still shows the status.
+                }
+            });
+        }
+        this.content.addView(card);
+        Ui.addSpacer(this.content, 20);
     }
 
     private LinearLayout buildUpdateCard(GitHubRelease release) {
@@ -1550,6 +1618,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.content.addView(buildUpdateCard(update));
             Ui.addSpacer(this.content, 20);
         }
+        addStatusCard(target);
         boolean signedIn = SecureTokenStore.isSignedIn(this, target);
         if (!signedIn) {
             this.content.addView(buildProviderIntroCard(target));

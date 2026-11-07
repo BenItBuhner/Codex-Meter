@@ -5,6 +5,7 @@
 ### Added
 
 - **Model speed reference** on the Codex, Claude Code and Grok tabs: pick a model and see its public throughput, latency and uptime on OpenRouter over the last 30 minutes, refreshed about every 45 minutes while the app is open. Figures OpenRouter hasn't measured read "Insufficient data". These are OpenRouter's numbers for the model, not your subscription's speed: the app sends no test prompts and has no timing of your own requests. Hide the card from its model picker or Settings › Refresh & dashboard › Model speed reference. Android.
+- Service status on the dashboard. When the official status page reports a problem with a component the provider depends on, such as Claude Code (not the Claude API) or Grok Bot, a card above the meters names that component and the incident, and tapping it opens the status page. It uses OpenAI's, Anthropic's and Cursor's own status feeds and SpaceXSI's incident feed for Grok, checked about every 5 minutes while the app is open and never in the background. If a feed can't be read, the app treats the status as unknown and doesn't call it an outage. Antigravity has no official status feed, so it shows none. Android.
 
 ### Changed
 
