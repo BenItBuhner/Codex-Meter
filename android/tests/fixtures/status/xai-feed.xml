@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>SpaceXAI System Status</title>
+    <link>https://status.x.ai</link>
+    <atom:link href="https://status.x.ai/feed.xml" rel="self" type="application/rss+xml" />
+    <description>Incident history for xAI services.</description>
+    <item>
+      <title>[Grok Bot] Grok Bot is currently degraded</title>
+      <link>https://status.x.ai/grok-bot/ps_9a160a3b12ec99d1</link>
+      <guid isPermaLink="false">ps_9a160a3b12ec99d1</guid>
+      <description><![CDATA[<h3>Status: RESOLVED</h3><p>Severity: disruption</p><p>Resolved: Fri, 06 Nov 2026 15:15:07 GMT</p><hr /><h4>Updates:</h4><div><p><strong>Fri, 06 Nov 2026 15:15:07 GMT</strong></p><h3>Resolved</h3><p>This issue has been resolved.</p></div><div><p><strong>Fri, 06 Nov 2026 13:57:57 GMT</strong></p><h3>Investigating</h3><p>Grok Bot is currently degraded, and our team is investigating.</p></div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:57:57 GMT</pubDate>
+      <category>disruption</category>
+      <category>resolved</category>
+    </item>
+    <item>
+      <title>[Grok Bot] Computer use in Grok Bot fails for users in a few regions.</title>
+      <link>https://status.x.ai/grok-bot/ps_183910c201a91593</link>
+      <guid isPermaLink="false">ps_183910c201a91593</guid>
+      <description><![CDATA[<h3>Status: RESOLVED</h3><p>Severity: disruption</p><p>Resolved: Fri, 06 Nov 2026 12:03:16 GMT</p><hr /><h4>Updates:</h4><div><p><strong>Fri, 06 Nov 2026 12:03:16 GMT</strong></p><h3>Resolved</h3><p>The issue is resolved and computer use in Grok Bot is working normally again for all users.</p></div><div><p><strong>Fri, 06 Nov 2026 11:49:46 GMT</strong></p><h3>Investigating</h3><p>We've identified an issue where computer use in Grok Bot is failing for users in some regions. Other Grok Bot features are working normally. Our team is working on a fix, and we'll share an update as soon as we have more information.</p></div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:49:46 GMT</pubDate>
+      <category>disruption</category>
+      <category>resolved</category>
+    </item>
+    <item>
+      <title>[Automations] composer-2.5 degraded</title>
+      <link>https://status.x.ai/automations/ps_78783e1b35b98b43</link>
+      <guid isPermaLink="false">ps_78783e1b35b98b43</guid>
+      <description><![CDATA[<h3>Status: RESOLVED</h3><p>Severity: disruption</p><p>Resolved: Thu, 05 Nov 2026 15:56:32 GMT</p><hr /><h4>Updates:</h4><div><p><strong>Thu, 05 Nov 2026 15:56:32 GMT</strong></p><h3>Resolved</h3><p>This issue has been resolved</p></div><div><p><strong>Thu, 05 Nov 2026 15:06:52 GMT</strong></p><h3>Investigating</h3><p>We are currently experiencing issues with Composer 2.5 requests</p></div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 15:06:52 GMT</pubDate>
+      <category>disruption</category>
+      <category>resolved</category>
+    </item>
+    <item>
+      <title>[Bugbot] composer-2.5 degraded</title>
+      <link>https://status.x.ai/bugbot/ps_78783e1b35b98b43</link>
+      <guid isPermaLink="false">ps_78783e1b35b98b43</guid>
+      <description><![CDATA[<h3>Status: RESOLVED</h3><p>Severity: disruption</p><p>Resolved: Thu, 05 Nov 2026 15:56:32 GMT</p><hr /><h4>Updates:</h4><div><p><strong>Thu, 05 Nov 2026 15:56:32 GMT</strong></p><h3>Resolved</h3><p>This issue has been resolved</p></div><div><p><strong>Thu, 05 Nov 2026 15:06:52 GMT</strong></p><h3>Investigating</h3><p>We are currently experiencing issues with Composer 2.5 requests</p></div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 15:06:52 GMT</pubDate>
+      <category>disruption</category>
+      <category>resolved</category>
+    </item>
+    <item>
+      <title>[Cloud Agents] composer-2.5 degraded</title>
+      <link>https://status.x.ai/cloud-agents/ps_78783e1b35b98b43</link>
+      <guid isPermaLink="false">ps_78783e1b35b98b43</guid>
+      <description><![CDATA[<h3>Status: RESOLVED</h3><p>Severity: disruption</p><p>Resolved: Thu, 05 Nov 2026 15:56:32 GMT</p><hr /><h4>Updates:</h4><div><p><strong>Thu, 05 Nov 2026 15:56:32 GMT</strong></p><h3>Resolved</h3><p>This issue has been resolved</p></div><div><p><strong>Thu, 05 Nov 2026 15:06:52 GMT</strong></p><h3>Investigating</h3><p>We are currently experiencing issues with Composer 2.5 requests</p></div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 15:06:52 GMT</pubDate>
+      <category>disruption</category>
+      <category>resolved</category>
+    </item>
+    <item>
+      <title>[CLI] composer-2.5 degraded</title>
+      <link>https://status.x.ai/cursor-cli/ps_78783e1b35b98b43</link>
+      <guid isPermaLink="false">ps_78783e1b35b98b43</guid>
+      <description><![CDATA[<h3>Status: RESOLVED</h3><p>Severity: disruption</p><p>Resolved: Thu, 05 Nov 2026 15:56:32 GMT</p><hr /><h4>Updates:</h4><div><p><strong>Thu, 05 Nov 2026 15:56:32 GMT</strong></p><h3>Resolved</h3><p>This issue has been resolved</p></div><div><p><strong>Thu, 05 Nov 2026 15:06:52 GMT</strong></p><h3>Investigating</h3><p>We are currently experiencing issues with Composer 2.5 requests</p></div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 15:06:52 GMT</pubDate>
+      <category>disruption</category>
+      <category>resolved</category>
+    </item>
+  </channel>
+</rss>

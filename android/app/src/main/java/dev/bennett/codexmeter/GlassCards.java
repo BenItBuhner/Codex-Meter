@@ -23,6 +23,17 @@ final class GlassCards {
         if (update != null) {
             d.cards.add(update(activity, update));
         }
+        ProviderStatus status = ProviderStatusStore.load(activity, provider);
+        if (status != null && status.shouldShowCard()) {
+            // Official incidents only; "status unknown" and our own failed requests stay out.
+            Card s = new Card(Card.Kind.NOTE);
+            s.detail = "Service status";
+            s.title = status.headline(provider.displayName);
+            String checked = "From the official status page · " + UsageFormat.updated(
+                    status.checkedAtMillis, System.currentTimeMillis()).replace("Updated", "checked");
+            s.summary = status.detail().isEmpty() ? checked : status.detail() + "\n" + checked;
+            d.cards.add(s);
+        }
         boolean signedIn = SecureTokenStore.isSignedIn(activity, provider);
         if (!signedIn) {
             d.cards.add(signIn(activity, provider));
