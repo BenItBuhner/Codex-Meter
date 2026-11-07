@@ -30,6 +30,10 @@
             android:key="usage_pace_sensitivity_ui"
             android:title="Fast-usage warnings"
             app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="model_speed_reference_ui"
+            android:summary="Public OpenRouter speed for a model you pick, on the Codex, Claude Code and Grok tabs. Not your subscription's own speed."
+            android:title="Model speed reference" />
     </PreferenceCategory>
 
 </PreferenceScreen>
