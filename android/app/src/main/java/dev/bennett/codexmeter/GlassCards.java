@@ -23,7 +23,11 @@ final class GlassCards {
         if (update != null) {
             d.cards.add(update(activity, update));
         }
-        ProviderStatus status = ProviderStatusStore.load(activity, provider);
+        Card priority = priority(activity);
+        if (priority != null) {
+            d.cards.add(priority);
+        }
+        ProviderStatus status = priority != null ? null : ProviderStatusStore.load(activity, provider);
         if (status != null && status.shouldShowCard()) {
             // Official incidents only; "status unknown" and our own failed requests stay out.
             Card s = new Card(Card.Kind.NOTE);
@@ -98,6 +102,37 @@ final class GlassCards {
         c.summary = speed.sourceLine() + ". " + ModelSpeed.DISCLAIMER;
         c.value = "Change model";
         c.onPress = () -> a.chooseSpeedModel(provider);
+        return c;
+    }
+
+    /** What needs attention across the signed-in tabs, or null when nothing does (or it's off). */
+    private static Card priority(MainActivity a) {
+        if (!PriorityPrefs.isViewEnabled(a)) {
+            return null;
+        }
+        List<PriorityView.Item> items = a.priorityItems();
+        if (!PriorityView.needsAttention(items)) {
+            return null;
+        }
+        PriorityView.Prose prose = PrioritySummary.cached(a, items);
+        Card c = new Card(Card.Kind.NOTE);
+        c.detail = "Priority";
+        c.title = PriorityPrefs.summaryLine(a, items, prose);
+        StringBuilder lines = new StringBuilder();
+        for (PriorityView.Item item : items) {
+            if (item.kind == PriorityView.Kind.TIP) {
+                continue;
+            }
+            lines.append(lines.length() == 0 ? "" : "\n").append("• ").append(item.title);
+            if (!item.detail.isEmpty()) {
+                lines.append("\n   ").append(item.detail);
+            }
+        }
+        String tip = PriorityPrefs.tipLine(items, prose);
+        if (!tip.isEmpty()) {
+            lines.append("\n\n").append(tip);
+        }
+        c.summary = lines.toString();
         return c;
     }
 

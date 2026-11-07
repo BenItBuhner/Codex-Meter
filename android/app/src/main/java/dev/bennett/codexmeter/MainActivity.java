@@ -629,7 +629,9 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.content.addView(buildUpdateCard(update));
                 Ui.addSpacer(this.content, 20);
             }
-            addStatusCard(UsageProvider.CODEX);
+            if (!addPriorityCard()) {
+                addStatusCard(UsageProvider.CODEX);
+            }
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
                 this.content.addView(dashboard);
@@ -766,24 +768,143 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private void checkProviderStatus() {
         this.statusHandler.removeCallbacks(this.statusTick);
         UsageProvider target = this.provider;
-        if (target != null && ProviderStatusSources.forProvider(target) != null
-                && !this.executor.isShutdown()) {
+        // The Priority view covers every signed-in tab, so their feeds are kept fresh too. Each
+        // feed still follows StatusPollPolicy, and providers that share a feed share its fetch.
+        List<UsageProvider> watched = new ArrayList<>();
+        if (target != null) {
+            watched.add(target);
+        }
+        if (PriorityPrefs.isViewEnabled(this)) {
+            for (UsageProvider p : this.tabProviders) {
+                if (!watched.contains(p) && SecureTokenStore.isSignedIn(this, p)) {
+                    watched.add(p);
+                }
+            }
+        }
+        if (!this.executor.isShutdown()) {
             Context app = getApplicationContext();
             try {
                 this.executor.execute(() -> {
-                    if (ProviderStatusStore.refreshIfDue(app, target, true)) {
+                    boolean changed = false;
+                    for (UsageProvider p : watched) {
+                        if (ProviderStatusSources.forProvider(p) != null) {
+                            changed |= ProviderStatusStore.refreshIfDue(app, p, true);
+                        }
+                    }
+                    if (changed) {
                         runOnUiThread(() -> {
-                            if (!isFinishing() && !isDestroyed() && this.provider == target) {
+                            if (!isFinishing() && !isDestroyed()) {
                                 rebuild();
                             }
                         });
                     }
+                    refreshPrioritySummary(app);
                 });
             } catch (java.util.concurrent.RejectedExecutionException ignored) {
                 return;
             }
         }
         this.statusHandler.postDelayed(this.statusTick, StatusPollPolicy.FOREGROUND_INTERVAL_MS);
+    }
+
+    /**
+     * The Priority view's items across the signed-in tabs, from facts already on the device.
+     * Status older than the poll policy's longest backoff is left out rather than shown stale.
+     */
+    List<PriorityView.Item> priorityItems() {
+        long now = System.currentTimeMillis();
+        List<PriorityView.ProviderFacts> facts = new ArrayList<>();
+        List<UsageProvider> providers = this.tabProviders.isEmpty()
+                ? java.util.Collections.singletonList(this.provider) : this.tabProviders;
+        for (UsageProvider p : providers) {
+            if (p == null || !SecureTokenStore.isSignedIn(this, p)) {
+                continue;
+            }
+            ProviderStatus status = ProviderStatusStore.load(this, p);
+            if (status != null && now - status.checkedAtMillis > StatusPollPolicy.MAX_BACKOFF_MS) {
+                status = null;
+            }
+            ModelSpeed speed = ModelSpeedStore.isVisible(this, p) ? ModelSpeedStore.load(this, p) : null;
+            facts.add(new PriorityView.ProviderFacts(p.displayName, status, speed,
+                    ProviderPreferences.loadSnapshot(this, p)));
+        }
+        String pace = UsagePacePreferences.isEnabled(this)
+                ? UsagePacePreferences.getSensitivity(this) : UsagePace.OFF;
+        return PriorityView.build(facts, now, pace);
+    }
+
+    /** Asks for the optional written summary when it is on and due; never blocks the dashboard. */
+    private void refreshPrioritySummary(Context app) {
+        if (!PriorityPrefs.isViewEnabled(app) || !PrioritySummary.isEnabled(app)) {
+            return;
+        }
+        List<PriorityView.Item>[] items = new List[1];
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(1);
+        runOnUiThread(() -> {
+            items[0] = priorityItems();
+            ready.countDown();
+        });
+        try {
+            if (!ready.await(5, java.util.concurrent.TimeUnit.SECONDS) || items[0] == null
+                    || !PriorityView.needsAttention(items[0])) {
+                return;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        if (PrioritySummary.refreshIfDue(app, items[0])) {
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    rebuild();
+                }
+            });
+        }
+    }
+
+    /**
+     * The Priority card: what needs attention across the signed-in tabs, most urgent first.
+     * Returns false (and draws nothing) when it is off or nothing needs attention.
+     */
+    private boolean addPriorityCard() {
+        if (!PriorityPrefs.isViewEnabled(this)) {
+            return false;
+        }
+        List<PriorityView.Item> items = priorityItems();
+        if (!PriorityView.needsAttention(items)) {
+            return false;
+        }
+        PriorityView.Prose prose = PrioritySummary.cached(this, items);
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "Priority", 17, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        TextView summary = Ui.text(this, PriorityPrefs.summaryLine(this, items, prose), 15,
+                Ui.mainText(this.dark));
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
+        sp.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 4));
+        card.addView(summary, sp);
+        for (PriorityView.Item item : items) {
+            if (item.kind == PriorityView.Kind.TIP) {
+                continue;
+            }
+            int color = item.kind == PriorityView.Kind.DOWNTIME || item.exhausted ? Ui.danger(this.dark)
+                    : item.urgent ? Ui.warning(this.dark) : Ui.mainText(this.dark);
+            TextView row = Ui.text(this, item.title, 14, color);
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+            rp.setMargins(0, Ui.dp(this, 8), 0, 0);
+            card.addView(row, rp);
+            if (!item.detail.isEmpty()) {
+                card.addView(Ui.text(this, item.detail, 13, Ui.secondaryText(this.dark)));
+            }
+        }
+        TextView tip = Ui.text(this, PriorityPrefs.tipLine(items, prose), 13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
+        tp.setMargins(0, Ui.dp(this, 10), 0, 0);
+        card.addView(tip, tp);
+        this.content.addView(card);
+        Ui.addSpacer(this.content, 20);
+        return true;
     }
 
     /** An official incident on one of the provider's components; nothing for "unknown". */
@@ -1618,7 +1739,9 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.content.addView(buildUpdateCard(update));
             Ui.addSpacer(this.content, 20);
         }
-        addStatusCard(target);
+        if (!addPriorityCard()) {
+            addStatusCard(target);
+        }
         boolean signedIn = SecureTokenStore.isSignedIn(this, target);
         if (!signedIn) {
             this.content.addView(buildProviderIntroCard(target));
