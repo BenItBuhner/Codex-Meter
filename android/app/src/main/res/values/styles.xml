@@ -23,6 +23,13 @@
         <item name="android:fontFamily">sec</item>
     </style>
 
+    <!-- Material 3 Expressive design (dashboard only). Light or dark follows the app's theme
+         setting through the night mode; colors come from DynamicColors (ExpressiveDashboard). -->
+    <style name="AppTheme.Expressive" parent="Theme.Material3Expressive.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
     <style name="AppThemeDark" parent="AppTheme" />
     <style name="AppThemeLight" parent="AppTheme" />
 </resources>

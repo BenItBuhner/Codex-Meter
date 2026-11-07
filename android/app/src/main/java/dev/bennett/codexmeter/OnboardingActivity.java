@@ -246,6 +246,16 @@ public final class OnboardingActivity extends AppCompatActivity {
         bodyParams.setMargins(0, Ui.dp(this, 10), 0, 0);
         card.addView(body, bodyParams);
         this.content.addView(card);
+        String suggested = AppPreferences.firstRunSuggestedDesign(this);
+        if (suggested != null) {
+            TextView design = Ui.text(this, "Codex Meter starts in the " + DesignIds.label(suggested)
+                            + " design on this phone. You can pick another any time in Settings, "
+                            + "Appearance, App design.",
+                    14.0f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams designParams = new LinearLayout.LayoutParams(-1, -2);
+            designParams.setMargins(Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14), 0);
+            this.content.addView(design, designParams);
+        }
         addPrimaryAction("Continue", () -> showStep(OnboardingFlow.STEP_PROVIDERS));
     }
 

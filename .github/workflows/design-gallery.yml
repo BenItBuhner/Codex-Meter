@@ -9,6 +9,8 @@ on:
     paths:
       - 'android/glass/**'
       - 'android/app/src/main/java/dev/bennett/codexmeter/Glass*.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/Expressive*.java'
+      - 'android/app/src/main/res/layout/expressive_*.xml'
       - 'android/app/src/main/java/dev/bennett/codexmeter/AppDialog.java'
       - 'android/vendor/m2/com/github/BenItBuhner/**'
       - 'android/ci/record-design-gallery.sh'
@@ -16,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       design:
-        description: 'Design to record (liquid_glass_ios_26, liquid_glass_ios_27, one_ui_9 or classic; liquid_glass reads as iOS 26)'
+        description: 'Design to record (liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive, one_ui_9 or classic; liquid_glass reads as iOS 26)'
         default: liquid_glass
 
 permissions:

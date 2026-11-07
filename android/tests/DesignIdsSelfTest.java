@@ -18,6 +18,18 @@ public final class DesignIdsSelfTest {
         check(DesignIds.label("liquid_glass").equals("Liquid Glass (iOS 26-inspired)"), "label 26");
         check(DesignIds.label("liquid_glass_ios_27").equals("Liquid Glass (iOS 27-inspired)"), "label 27");
         check(DesignIds.label("classic").equals("One UI 8.5"), "label classic");
+        check(DesignIds.normalize("material_3_expressive", true).equals(DesignIds.MATERIAL_3_EXPRESSIVE), "expressive kept");
+        check(DesignIds.isMaterialExpressive("material_3_expressive") && !DesignIds.isMaterialExpressive("classic"), "expressive id");
+        check(DesignIds.label("material_3_expressive").equals("Material 3 Expressive"), "label expressive");
+        // First-run suggestion: advisory, and never a One UI version guessed from Android's.
+        check(DesignIds.MATERIAL_3_EXPRESSIVE.equals(DesignIds.suggestFor("Google", "google", 0)), "Pixel");
+        check(DesignIds.MATERIAL_3_EXPRESSIVE.equals(DesignIds.suggestFor("Google", null, 0)), "Google maker");
+        check(DesignIds.ONE_UI_9.equals(DesignIds.suggestFor("samsung", "samsung", 90000)), "One UI 9 reported");
+        check(DesignIds.ONE_UI_9.equals(DesignIds.suggestFor("samsung", "samsung", 90100)), "One UI 9.1 reported");
+        check(DesignIds.CLASSIC.equals(DesignIds.suggestFor("samsung", "samsung", 80500)), "One UI 8.5 reported");
+        check(DesignIds.CLASSIC.equals(DesignIds.suggestFor("samsung", "samsung", 0)), "One UI unknown stays default");
+        check(DesignIds.suggestFor("OnePlus", "OnePlus", 0) == null, "others keep default");
+        check(DesignIds.suggestFor(null, null, 0) == null, "nothing known");
         System.out.println("Design ids keep legacy Liquid Glass on the iOS 26-inspired look.");
     }
 

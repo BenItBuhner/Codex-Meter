@@ -105,6 +105,7 @@ javac -encoding UTF-8 -d "$OUT" \
 java -ea -cp "$OUT" dev.bennett.codexmeter.DesignIdsSelfTest
 grep -q '<item>liquid_glass_ios_26</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 grep -q '<item>liquid_glass_ios_27</item>' "$ROOT/app/src/main/res/values/arrays.xml"
+grep -q '<item>material_3_expressive</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.9.0-alpha.17"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"

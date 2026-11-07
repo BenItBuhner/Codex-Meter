@@ -6,7 +6,8 @@
 #
 #   android/ci/record-design-gallery.sh <debug APK> <output dir> [design]
 #
-# design: liquid_glass (default), one_ui_9 or classic.
+# design: liquid_glass (default), liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive,
+# one_ui_9 or classic.
 set -euo pipefail
 
 APK="${1:?debug APK required}"

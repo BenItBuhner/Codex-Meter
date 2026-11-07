@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A usage window's wavy bar: Material 3 Expressive's wavy linear progress indicator. -->
+<com.google.android.material.progressindicator.LinearProgressIndicator xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Material3Expressive.LinearProgressIndicator.Wavy"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="14dp"
+    android:max="100" />
