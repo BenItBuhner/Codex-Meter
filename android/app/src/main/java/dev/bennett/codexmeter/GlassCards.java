@@ -55,7 +55,7 @@ final class GlassCards {
         } else {
             other(activity, provider, snapshot, now, d.cards);
         }
-        if (ModelSpeedStore.isVisible(activity, provider)) {
+        if (signedIn && ModelSpeedStore.isVisible(activity, provider)) {
             d.cards.add(speed(activity, provider));
         }
         return d;
@@ -85,6 +85,8 @@ final class GlassCards {
         c.stats.add(new String[] {"Latency", ModelSpeed.latencyText(e == null ? Double.NaN : e.latencyMs)});
         c.stats.add(new String[] {"Uptime", ModelSpeed.uptimeText(e == null ? Double.NaN : e.uptime30m)});
         c.summary = speed.sourceLine() + ". " + ModelSpeed.DISCLAIMER;
+        c.value = "Change model";
+        c.onPress = () -> a.chooseSpeedModel(provider);
         return c;
     }
 
