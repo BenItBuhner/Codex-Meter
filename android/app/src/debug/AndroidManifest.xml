@@ -8,5 +8,9 @@
             android:name="dev.bennett.codexmeter.UsagePaceDemoActivity"
             android:exported="true"
             android:theme="@style/AppTheme" />
+        <provider
+            android:name="dev.bennett.codexmeter.MainThreadWatch"
+            android:authorities="${applicationId}.mainthreadwatch"
+            android:exported="false" />
     </application>
 </manifest>
