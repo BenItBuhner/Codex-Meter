@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **Priority** is now a tab of its own, first in the bar next to your providers, in every design (One UI, One UI 9, Material 3 Expressive and Liquid Glass). It shows a summary, the limits to watch with their pace and estimates, every other limit, each provider's official status, warnings, new models and a tip, across all signed-in providers. It is on by default; turn it off in Settings, Refresh & usage, Priority tab. Pull down on it to refresh every provider at once. The Priority card is gone from the provider pages, which show their own status card again.
+
 ### Fixed
 
 - **Liquid Glass** is back to how it looked and ran in 2.9.0-alpha.17. The iOS 26 and iOS 27 edge changes in 2.9.0-alpha.18 looked wrong and made scrolling and refreshes slow, with occasional freezes. Android.

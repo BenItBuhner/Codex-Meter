@@ -137,6 +137,9 @@ public final class UsagePaceDemoActivity extends Activity {
             }
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
+            // Opens on the Priority tab only when asked, so other scenes start on Codex as before.
+            PriorityPrefs.setViewEnabled(this, true);
+            PriorityPrefs.setTabSelected(this, getIntent().getBooleanExtra("open_priority", false));
             String newModels = getIntent().getStringExtra("demo_new_models");
             if (newModels != null && !newModels.isEmpty()) {
                 seedNewModels(newModels, now);

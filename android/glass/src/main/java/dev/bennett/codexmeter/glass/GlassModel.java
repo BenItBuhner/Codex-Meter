@@ -32,7 +32,9 @@ public final class GlassModel {
             /** a title over label and value lines ({@link #stats}), with a note under them */
             STATS,
             /** a paragraph of secondary text in a card */
-            NOTE
+            NOTE,
+            /** a section label ({@link #title}) over the cards that follow it */
+            HEADING
         }
 
         public final Kind kind;

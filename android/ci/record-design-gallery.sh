@@ -7,8 +7,9 @@
 #   android/ci/record-design-gallery.sh <debug APK> <output dir> [design] [scenes]
 #
 # design: liquid_glass (default), liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive,
-# one_ui_9 or classic. scenes: all (default), or new_models for only the New models card (with a
-# relevant model, then with only irrelevant ones), the Notifications toggle and the Refresh note.
+# one_ui_9 or classic. scenes: all (default), new_models for only the New models card (with a
+# relevant model, then with only irrelevant ones), the Notifications toggle and the Refresh note, or
+# priority for only the Priority tab (top to bottom, then a provider tab and back).
 set -euo pipefail
 
 APK="${1:?debug APK required}"
@@ -149,6 +150,32 @@ new_models_scenes() {
   done
 }
 
+# The Priority tab, first in the bar: its page top to bottom, a provider tab, and back.
+priority_scenes() {
+  for THEME in light dark; do
+    demo --ez open_priority true --es demo_new_models relevant
+    shot "$THEME-40-priority" 6
+    for k in 1 2 3 4; do
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+      shot "$THEME-40-priority-scroll-$k" 2
+    done
+    # Liquid Glass's bar is one view, tapped by position; the other designs reopen on Codex.
+    if tap_tab 1 4; then
+      shot "$THEME-41-provider-without-priority-card" 4
+      { tap_tab 0 4 && shot "$THEME-42-priority-again" 4; } || true
+    else
+      demo
+      shot "$THEME-41-provider-without-priority-card" 6
+    fi
+  done
+}
+
+if [[ "$SCENES" == priority ]]; then
+  priority_scenes
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
+
 if [[ "$SCENES" == new_models ]]; then
   new_models_scenes
   adb logcat -d -b crash > "$OUT/crash-log.txt" || true
@@ -165,8 +192,8 @@ for THEME in light dark; do
   sleep 2
   pull_refresh "$THEME-02b-pull"
   sleep 2
-  { tap_tab 1 3 && shot "$THEME-04-claude" 3; } || true
-  { tap_tab 2 3 && shot "$THEME-05-cursor" 3; } || true
+  { tap_tab 2 4 && shot "$THEME-04-claude" 3; } || true
+  { tap_tab 3 4 && shot "$THEME-05-cursor" 3; } || true
   pull_refresh "$THEME-05b-pull-short-page"
   demo --ez resume_live_settings true
   shot "$THEME-06-settings" 5
@@ -194,7 +221,9 @@ for THEME in light dark; do
   { tap_desc "Clear local history" && shot "$THEME-17-alert" 4; } || true
 done
 
-# One take in light: dashboard, menu open and closed, provider tabs, scrolling.
+priority_scenes
+
+# One take in light: dashboard, menu open and closed, the Priority tab, provider tabs, scrolling.
 THEME=light
 demo
 sleep 5
@@ -205,9 +234,11 @@ adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 700; sleep
 adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 3 / 4)) 700; sleep 2
 tap_desc "More" || true; sleep 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
-tap_tab 1 3 || true; sleep 3
-tap_tab 2 3 || true; sleep 3
-tap_tab 0 3 || true; sleep 3
+tap_tab 0 4 || true; sleep 3
+adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 700; sleep 2
+tap_tab 2 4 || true; sleep 3
+tap_tab 3 4 || true; sleep 3
+tap_tab 1 4 || true; sleep 3
 tap_desc "More" || true; sleep 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
 wait "$REC" || true

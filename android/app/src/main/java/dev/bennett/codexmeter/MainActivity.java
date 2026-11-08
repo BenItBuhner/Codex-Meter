@@ -70,6 +70,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private UsageProvider launchSignInProvider = UsageProvider.CODEX;
     /** Provider whose usage the dashboard shows; switched from the One UI bottom tabs. */
     private UsageProvider provider = UsageProvider.DEFAULT;
+    /**
+     * The Priority tab is showing instead of {@link #provider}'s dashboard. Only true while the tab
+     * is turned on (Settings); {@link #provider} keeps the last provider for when it is left.
+     */
+    private boolean onPriority;
     private BottomTabLayout providerTabs;
     /** Menu slots in {@code res/menu/provider_tabs.xml}, filled in tab order. */
     private static final int[] TAB_SLOTS = {
@@ -82,6 +87,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             R.id.provider_tab_21, R.id.provider_tab_22, R.id.provider_tab_23};
     /** Providers currently shown in the tab slots, in order. */
     private List<UsageProvider> tabProviders = new ArrayList<>();
+    /** Slot 0 holds the Priority tab, ahead of the providers. */
+    private boolean tabPriority;
     /** Slots still in the tab menu; the layout inflates all of them. */
     private int menuSlots = TAB_SLOTS.length;
     private Ui.Header header;
@@ -145,6 +152,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.glass = new GlassApp(this, super::dispatchTouchEvent);
             this.glass.start(bundle);
             this.provider = ProviderPreferences.getSelected(this);
+            this.onPriority = PriorityPrefs.isViewEnabled(this) && PriorityPrefs.isTabSelected(this);
             applyEnabledProviders();
             handleLaunchIntent(getIntent());
             WidgetUpgradeRepair.runIfNeeded(this);
@@ -156,6 +164,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (expressiveDesign) {
             this.expressive = new ExpressiveDashboard(this, this.dark);
             this.provider = ProviderPreferences.getSelected(this);
+            this.onPriority = PriorityPrefs.isViewEnabled(this) && PriorityPrefs.isTabSelected(this);
             applyEnabledProviders();
             handleLaunchIntent(getIntent());
             WidgetUpgradeRepair.runIfNeeded(this);
@@ -169,9 +178,10 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         this.content = page.content;
         this.header = page.header;
         if (page.oneUi9 != null) {
-            this.oneUi9Bar = new OneUi9ProviderBar(page.oneUi9, this::selectProvider);
+            this.oneUi9Bar = new OneUi9ProviderBar(page.oneUi9, this::selectProvider, this::selectPriority);
         }
         this.provider = ProviderPreferences.getSelected(this);
+        this.onPriority = PriorityPrefs.isViewEnabled(this) && PriorityPrefs.isTabSelected(this);
         setUpProviderTabs();
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
         int refreshAccent = Ui.accent(this, this.dark);
@@ -375,6 +385,16 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         }
     }
 
+    /** True while the Priority tab is showing. */
+    boolean onPriorityTab() {
+        return this.onPriority;
+    }
+
+    /** The Priority tab is in the bar: turned on, and at least one provider to cover. */
+    boolean priorityTabShown() {
+        return PriorityPrefs.isViewEnabled(this) && !ProviderPreferences.getEnabled(this).isEmpty();
+    }
+
     void glassRefresh() {
         refreshFromPull();
     }
@@ -387,7 +407,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
     /** Shows the spinner exactly while the selected tab's provider has a refresh running. */
     private void showRefreshing() {
-        setRefreshing(this.refreshes.running(this.provider.id, System.currentTimeMillis()));
+        long now = System.currentTimeMillis();
+        setRefreshing(this.onPriority ? this.refreshes.anyRunning(now) : this.refreshes.running(this.provider.id, now));
     }
 
     private boolean alive() {
@@ -436,15 +457,16 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (requestedProvider != null) {
             intent.removeExtra(EXTRA_PROVIDER);
             UsageProvider requested = UsageProvider.fromId(requestedProvider);
-            if (requested != this.provider
+            if ((requested != this.provider || this.onPriority)
                     && ProviderPreferences.getEnabled(this).contains(requested)) {
                 this.provider = requested;
+                setPriority(false);
                 ProviderPreferences.setSelected(this, requested);
                 if (this.providerTabs != null) {
                     this.providerTabs.setSelectedItem(tabId(requested));
                 }
                 if (this.oneUi9Bar != null) {
-                    this.oneUi9Bar.update(ProviderPreferences.getEnabled(this), requested);
+                    this.oneUi9Bar.update(ProviderPreferences.getEnabled(this), requested, priorityTabShown(), false);
                 }
             }
         }
@@ -519,6 +541,13 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
     /** Tabs and the "More" grid both land here. */
     private boolean onProviderTabClicked(MenuItem item) {
+        if (this.tabPriority && item.getItemId() == TAB_SLOTS[0]) {
+            selectPriority();
+            if (this.providerTabs != null) {
+                this.providerTabs.setSelectedItem(item.getItemId());
+            }
+            return true;
+        }
         UsageProvider selected = providerForTab(item.getItemId());
         if (selected != null) {
             selectProvider(selected);
@@ -530,14 +559,14 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     /**
-     * Fills the tab slots with the providers turned on in Settings → Providers, in the order
-     * chosen there, and hides the tabs entirely when only one is on. A tab turned off while
-     * selected falls back to the first provider still on.
+     * Fills the tab slots with the Priority tab (when it is on) and the providers turned on in
+     * Settings → Providers, in the order chosen there, and hides the tabs entirely when there is
+     * only one. A tab turned off while selected falls back to the first provider still on.
      *
-     * <p>Up to four providers get a tab each. With five or more, One UI's BottomTabLayout keeps
+     * <p>Up to four tabs show side by side. With five or more, One UI's BottomTabLayout keeps
      * the first three as tabs and moves the rest into its stock "More" grid
      * ({@link ProviderTabs}). It counts hidden menu items when deciding, so unused slots are
-     * removed from the menu, and the menu is re-inflated when the set of providers changes.
+     * removed from the menu, and the menu is re-inflated when the set of tabs changes.
      */
     private void applyEnabledProviders() {
         List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
@@ -546,16 +575,23 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.provider = visible;
             ProviderPreferences.setSelected(this, visible);
         }
+        boolean withPriority = priorityTabShown();
+        if (this.onPriority && !withPriority) {
+            // The tab was turned off while it was showing: back to the provider it came from.
+            setPriority(false);
+        }
         if (this.oneUi9Bar != null) {
-            this.oneUi9Bar.update(enabled, this.provider);
+            this.oneUi9Bar.update(enabled, this.provider, withPriority, this.onPriority);
             return;
         }
         if (this.providerTabs == null) {
             return;
         }
-        if (!enabled.equals(this.tabProviders)) {
+        if (!enabled.equals(this.tabProviders) || withPriority != this.tabPriority) {
             this.tabProviders = new ArrayList<>(enabled);
-            int needed = Math.min(enabled.size(), TAB_SLOTS.length);
+            this.tabPriority = withPriority;
+            int offset = withPriority ? 1 : 0;
+            int needed = Math.min(enabled.size() + offset, TAB_SLOTS.length);
             if (this.menuSlots < needed) {
                 // Removed slots can't come back one by one, so start from a full menu again.
                 for (int slot = 0; slot < this.menuSlots; slot++) {
@@ -566,7 +602,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
             for (int slot = 0; slot < needed; slot++) {
                 MenuItem item = this.providerTabs.findMenuItem(TAB_SLOTS[slot]);
-                UsageProvider tabProvider = enabled.get(slot);
+                if (slot < offset) {
+                    item.setTitle(PriorityPage.TITLE);
+                    item.setIcon(R.drawable.ic_priority);
+                    continue;
+                }
+                UsageProvider tabProvider = enabled.get(slot - offset);
                 item.setTitle(tabProvider.displayName);
                 item.setIcon(ProvidersActivity.iconRes(tabProvider));
             }
@@ -575,33 +616,35 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
             this.menuSlots = needed;
         }
-        this.providerTabs.setSelectedItem(tabId(this.provider));
-        this.providerTabs.setVisibility(ProviderTabs.showsBar(enabled.size())
+        this.providerTabs.setSelectedItem(this.onPriority ? TAB_SLOTS[0] : tabId(this.provider));
+        this.providerTabs.setVisibility(ProviderTabs.showsBar(enabled.size() + (withPriority ? 1 : 0))
                 ? View.VISIBLE : View.GONE);
     }
 
     /** Tab slot showing {@code provider}; slots follow the order from Settings → Providers. */
     private int tabId(UsageProvider provider) {
-        int index = this.tabProviders.indexOf(provider);
+        int index = this.tabProviders.indexOf(provider) + (this.tabPriority ? 1 : 0);
         return TAB_SLOTS[Math.max(0, Math.min(index, TAB_SLOTS.length - 1))];
     }
 
     private UsageProvider providerForTab(int itemId) {
-        for (int slot = 0; slot < TAB_SLOTS.length && slot < this.tabProviders.size(); slot++) {
+        int offset = this.tabPriority ? 1 : 0;
+        for (int slot = offset; slot < TAB_SLOTS.length && slot - offset < this.tabProviders.size(); slot++) {
             if (TAB_SLOTS[slot] == itemId) {
-                return this.tabProviders.get(slot);
+                return this.tabProviders.get(slot - offset);
             }
         }
         return null;
     }
 
     private void selectProvider(UsageProvider selected) {
-        if (selected == this.provider) {
+        if (selected == this.provider && !this.onPriority) {
             return;
         }
         DiagnosticLog.info(this, "user", "provider_selected", "provider", selected.id);
         this.provider = selected;
         ProviderPreferences.setSelected(this, selected);
+        setPriority(false);
         showRefreshing();
         rebuild();
         refreshSelectedProviderIfStale();
@@ -609,26 +652,49 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         checkProviderStatus();
     }
 
+    /** Shows the Priority tab (from any design's bar). */
+    void selectPriority() {
+        if (this.onPriority || !priorityTabShown()) {
+            return;
+        }
+        DiagnosticLog.info(this, "user", "priority_selected");
+        setPriority(true);
+        showRefreshing();
+        rebuild();
+        refreshSelectedProviderIfStale();
+        checkProviderStatus();
+    }
+
+    private void setPriority(boolean on) {
+        if (this.onPriority != on) {
+            this.onPriority = on;
+            PriorityPrefs.setTabSelected(this, on);
+        }
+    }
+
     /**
      * Claude usage is never fetched in the background (its usage route rate-limits hard), so the
      * tab refreshes itself when opened with data older than a few minutes.
      */
     private void refreshSelectedProviderIfStale() {
-        if (this.provider == UsageProvider.CLAUDE_CODE
-                && SecureTokenStore.isSignedIn(this, UsageProvider.CLAUDE_CODE)
-                && AppPreferences.getRefreshOnLaunch(this)
-                && ClaudeUsageApi.isStale(this)) {
-            refreshProvider(UsageProvider.CLAUDE_CODE, "tab");
-        } else if (this.provider == UsageProvider.CURSOR
-                && SecureTokenStore.isSignedIn(this, UsageProvider.CURSOR)
-                && AppPreferences.getRefreshOnLaunch(this)
-                && CursorUsageApi.isStale(this)) {
-            refreshProvider(UsageProvider.CURSOR, "tab");
-        } else if (ProviderUsageApi.handles(this.provider)
-                && SecureTokenStore.isSignedIn(this, this.provider)
-                && AppPreferences.getRefreshOnLaunch(this)
-                && ProviderUsageApi.isStale(this, this.provider)) {
-            refreshProvider(this.provider, "tab");
+        if (!this.onPriority) {
+            refreshIfStale(this.provider);
+            return;
+        }
+        // The Priority tab covers every signed-in provider, so each one's own rule applies.
+        for (UsageProvider p : ProviderPreferences.getEnabled(this)) {
+            refreshIfStale(p);
+        }
+    }
+
+    private void refreshIfStale(UsageProvider target) {
+        if (!SecureTokenStore.isSignedIn(this, target) || !AppPreferences.getRefreshOnLaunch(this)) {
+            return;
+        }
+        if (target == UsageProvider.CLAUDE_CODE ? ClaudeUsageApi.isStale(this)
+                : target == UsageProvider.CURSOR ? CursorUsageApi.isStale(this)
+                : ProviderUsageApi.handles(target) && ProviderUsageApi.isStale(this, target)) {
+            refreshProvider(target, "tab");
         }
     }
 
@@ -637,7 +703,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (this.header == null) {
             return;
         }
-        String title = this.provider.displayName;
+        String title = this.onPriority ? PriorityPage.TITLE : this.provider.displayName;
         CharSequence current = this.header.getTitle();
         if (current == null || !title.contentEquals(current)) {
             this.header.setTitle(title);
@@ -654,10 +720,14 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             return;
         }
         applyProviderTitle();
+        if (this.content != null && this.onPriority) {
+            this.content.removeAllViews();
+            buildPriorityPage();
+            return;
+        }
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
             buildProviderDashboard(this.provider);
-            addNewModelsCard();
             addModelSpeedCard(this.provider);
             return;
         }
@@ -668,15 +738,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.content.addView(buildUpdateCard(update));
                 Ui.addSpacer(this.content, 20);
             }
-            if (!addPriorityCard()) {
-                addStatusCard(UsageProvider.CODEX);
-            }
+            addStatusCard(UsageProvider.CODEX);
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
                 this.content.addView(dashboard);
                 Ui.addSpacer(this.content, 20);
             }
-            addNewModelsCard();
             boolean signedIn = SecureTokenStore.isSignedIn(this);
             if (!signedIn) {
                 Button signIn = Ui.nativePrimaryButton(this,
@@ -872,7 +939,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             watched.add(target);
         }
         if (PriorityPrefs.isViewEnabled(this)) {
-            for (UsageProvider p : this.tabProviders) {
+            for (UsageProvider p : ProviderPreferences.getEnabled(this)) {
                 if (!watched.contains(p) && SecureTokenStore.isSignedIn(this, p)) {
                     watched.add(p);
                 }
@@ -911,8 +978,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     List<PriorityView.Item> priorityItems() {
         long now = System.currentTimeMillis();
         List<PriorityView.ProviderFacts> facts = new ArrayList<>();
-        List<UsageProvider> providers = this.tabProviders.isEmpty()
-                ? java.util.Collections.singletonList(this.provider) : this.tabProviders;
+        // Every provider turned on, whichever design (and tab bar) is showing.
+        List<UsageProvider> providers = ProviderPreferences.getEnabled(this);
         for (UsageProvider p : providers) {
             if (p == null || !SecureTokenStore.isSignedIn(this, p)) {
                 continue;
@@ -960,48 +1027,107 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     /**
-     * The Priority card: what needs attention across the signed-in tabs, most urgent first.
-     * Returns false (and draws nothing) when it is off or nothing needs attention.
+     * The Priority tab in the One UI designs: the same content as {@link GlassCards#priorityPage},
+     * drawn with the One UI cards (meters keep their wave).
      */
-    private boolean addPriorityCard() {
-        if (!PriorityPrefs.isViewEnabled(this)) {
-            return false;
+    private void buildPriorityPage() {
+        GitHubRelease update = UpdatePreferences.availableUpdate(this);
+        if (update != null) {
+            this.content.addView(buildUpdateCard(update));
+            Ui.addSpacer(this.content, 20);
         }
-        List<PriorityView.Item> items = priorityItems();
-        if (!PriorityView.needsAttention(items)) {
-            return false;
+        PriorityPage page = PriorityPage.build(this);
+        if (!page.signedInAnywhere()) {
+            TextView empty = Ui.text(this,
+                    "Sign in to a provider to see its limits, service status and new models here.",
+                    14.0f, Ui.secondaryText(this.dark));
+            empty.setGravity(Gravity.CENTER);
+            this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
+            return;
         }
-        PriorityView.Prose prose = PrioritySummary.cached(this, items);
-        LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, "Priority", 17, Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
-        TextView summary = Ui.text(this, PriorityPrefs.summaryLine(this, items, prose), 15,
-                Ui.mainText(this.dark));
+        LinearLayout overview = Ui.card(this, this.dark);
+        overview.addView(sectionLabel("Overview", 0));
+        TextView summary = Ui.text(this, page.summary, 17, Ui.mainText(this.dark));
+        summary.setTypeface(Ui.mediumTypeface(this));
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
-        sp.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 4));
-        card.addView(summary, sp);
-        for (PriorityView.Item item : items) {
-            if (item.kind == PriorityView.Kind.TIP) {
-                continue;
+        sp.setMargins(0, Ui.dp(this, 6), 0, 0);
+        overview.addView(summary, sp);
+        if (!page.tip.isEmpty()) {
+            TextView tip = Ui.text(this, page.tip, 14, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
+            tp.setMargins(0, Ui.dp(this, 8), 0, 0);
+            overview.addView(tip, tp);
+        }
+        this.content.addView(overview);
+        Ui.addSpacer(this.content, 20);
+        for (PriorityView.Item alert : page.alerts) {
+            LinearLayout card = Ui.card(this, this.dark);
+            card.addView(sectionLabel(alert.kind == PriorityView.Kind.DOWNTIME
+                    ? "Official incident" : "Performance warning", 0));
+            TextView title = Ui.text(this, alert.title, 16, alert.kind == PriorityView.Kind.DOWNTIME
+                    ? Ui.danger(this.dark) : Ui.warning(this.dark));
+            title.setTypeface(Ui.mediumTypeface(this));
+            LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-1, -2);
+            ap.setMargins(0, Ui.dp(this, 6), 0, 0);
+            card.addView(title, ap);
+            if (!alert.detail.isEmpty()) {
+                card.addView(Ui.text(this, alert.detail, 13, Ui.secondaryText(this.dark)));
             }
-            int color = item.kind == PriorityView.Kind.DOWNTIME || item.exhausted ? Ui.danger(this.dark)
-                    : item.urgent ? Ui.warning(this.dark) : Ui.mainText(this.dark);
-            TextView row = Ui.text(this, item.title, 14, color);
-            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-            rp.setMargins(0, Ui.dp(this, 8), 0, 0);
-            card.addView(row, rp);
-            if (!item.detail.isEmpty()) {
-                card.addView(Ui.text(this, item.detail, 13, Ui.secondaryText(this.dark)));
+            this.content.addView(card);
+            Ui.addSpacer(this.content, 20);
+        }
+        boolean inverted = false;
+        if (!page.watch.isEmpty()) {
+            this.content.addView(sectionLabel("Limits to watch", 10));
+            for (PriorityPage.Limit l : page.watch) {
+                this.content.addView(buildMetricCard(l.provider, l.title(), l.snapshot, l.window, inverted));
+                Ui.addSpacer(this.content, 20);
+                inverted = !inverted;
             }
         }
-        TextView tip = Ui.text(this, PriorityPrefs.tipLine(items, prose), 13, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
-        tp.setMargins(0, Ui.dp(this, 10), 0, 0);
-        card.addView(tip, tp);
-        this.content.addView(card);
-        Ui.addSpacer(this.content, 20);
-        return true;
+        if (!page.others.isEmpty()) {
+            this.content.addView(sectionLabel(page.watch.isEmpty() ? "Your limits" : "Other limits", 10));
+            for (PriorityPage.Limit l : page.others) {
+                this.content.addView(buildMetricCard(l.provider, l.title(), l.snapshot, l.window, inverted));
+                Ui.addSpacer(this.content, 20);
+                inverted = !inverted;
+            }
+        }
+        if (!page.statuses.isEmpty()) {
+            LinearLayout card = Ui.card(this, this.dark);
+            card.addView(sectionLabel("Service status", 0));
+            for (PriorityPage.Status st : page.statuses) {
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                TextView name = Ui.text(this, st.provider.displayName, 15, Ui.mainText(this.dark));
+                row.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
+                TextView value = Ui.text(this, st.label(), 15, st.problem()
+                        ? Ui.warning(this.dark) : Ui.secondaryText(this.dark));
+                row.addView(value, new LinearLayout.LayoutParams(-2, -2));
+                LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+                rp.setMargins(0, Ui.dp(this, 10), 0, 0);
+                card.addView(row, rp);
+            }
+            TextView note = Ui.text(this, "From each provider's official status page.", 13,
+                    Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
+            np.setMargins(0, Ui.dp(this, 10), 0, 0);
+            card.addView(note, np);
+            this.content.addView(card);
+            Ui.addSpacer(this.content, 20);
+        }
+        addNewModelsCard();
+    }
+
+    /** A small label over a group of cards, or at the top of a card. */
+    private TextView sectionLabel(String text, int sideMarginDp) {
+        TextView label = Ui.text(this, text, 14, Ui.accent(this, this.dark));
+        label.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.setMargins(Ui.dp(this, sideMarginDp), 0, Ui.dp(this, sideMarginDp),
+                Ui.dp(this, sideMarginDp > 0 ? 8 : 0));
+        label.setLayoutParams(lp);
+        return label;
     }
 
     /** An official incident on one of the provider's components; nothing for "unknown". */
@@ -1188,6 +1314,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
     private LinearLayout buildMetricCard(String label, UsageSnapshot snapshot, UsageWindow window,
             boolean invertedWave) {
+        return buildMetricCard(this.provider, label, snapshot, window, invertedWave);
+    }
+
+    private LinearLayout buildMetricCard(UsageProvider owner, String label, UsageSnapshot snapshot,
+            UsageWindow window, boolean invertedWave) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(0, 0, 0, 0);
         card.setMinimumHeight(Ui.dp(this, 103.0f));
@@ -1201,7 +1332,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             window = new UsageWindow(0, window.windowSeconds, 0L, 0L);
             reset = "Reset passed · refresh to update";
         }
-        UsagePace.Assessment pace = UsagePacePreferences.assess(this, this.provider, snapshot,
+        UsagePace.Assessment pace = UsagePacePreferences.assess(this, owner, snapshot,
                 window, now);
         UsageWaveView wave = new UsageWaveView(this);
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
@@ -1767,6 +1898,10 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     private void refreshFromPull() {
+        if (this.onPriority) {
+            refreshPriority();
+            return;
+        }
         if (this.provider != UsageProvider.CODEX) {
             if (!SecureTokenStore.isSignedIn(this, this.provider)) {
                 showRefreshing();
@@ -1786,6 +1921,32 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return;
         }
+        refreshCodex("pull");
+    }
+
+    /** A pull on the Priority tab refreshes every signed-in provider it covers, side by side. */
+    private void refreshPriority() {
+        boolean any = false;
+        for (UsageProvider p : ProviderPreferences.getEnabled(this)) {
+            if (!SecureTokenStore.isSignedIn(this, p)) {
+                continue;
+            }
+            any = true;
+            if (p == UsageProvider.CODEX) {
+                DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", "priority");
+                refreshCodex("priority");
+            } else {
+                refreshProvider(p, "priority");
+            }
+        }
+        showRefreshing();
+        if (!any) {
+            Toast.makeText(this, "Sign in to a provider to refresh usage.", Toast.LENGTH_SHORT).show();
+        }
+        checkProviderStatus();
+    }
+
+    private void refreshCodex(String source) {
         final RefreshTracker.Run run = this.refreshes.begin(UsageProvider.CODEX.id, System.currentTimeMillis());
         showRefreshing();
         if (run == null) {
@@ -1798,7 +1959,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
                     DiagnosticLog.info(applicationContext, "user",
-                            "manual_refresh_finished", "source", "pull");
+                            "manual_refresh_finished", "source", source);
                     this.refreshes.end(run);
                     if (alive()) {
                         showRefreshing();
@@ -1807,7 +1968,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 });
             } catch (Exception e) {
                 DiagnosticLog.error(applicationContext, "user", "manual_refresh_failed", e,
-                        "source", "pull");
+                        "source", source);
                 AppPreferences.setLastError(applicationContext, safeMessage(e));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
@@ -1847,9 +2008,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.content.addView(buildUpdateCard(update));
             Ui.addSpacer(this.content, 20);
         }
-        if (!addPriorityCard()) {
-            addStatusCard(target);
-        }
+        addStatusCard(target);
         boolean signedIn = SecureTokenStore.isSignedIn(this, target);
         if (!signedIn) {
             this.content.addView(buildProviderIntroCard(target));

@@ -134,9 +134,11 @@ final class ExpressiveDashboard {
         this.pull.setRefreshing(on);
     }
 
-    /** Draws the selected provider's cards and the provider tabs. */
+    /** Draws the selected tab's cards (a provider's, or the Priority page) and the tabs. */
     void render(UsageProvider provider, List<UsageProvider> enabled) {
-        GlassModel.Dashboard model = GlassCards.build(this.activity, provider);
+        boolean priority = this.activity.onPriorityTab();
+        GlassModel.Dashboard model = priority ? GlassCards.priorityPage(this.activity)
+                : GlassCards.build(this.activity, provider);
         this.title.setText(model.title);
         this.subtitle.setText(model.subtitle == null ? "" : model.subtitle);
         this.subtitle.setVisibility(model.subtitle == null ? View.INVISIBLE : View.VISIBLE);
@@ -144,12 +146,17 @@ final class ExpressiveDashboard {
         List<GlassModel.Card> list = model.cards;
         for (int i = 0; i < list.size(); i++) {
             GlassModel.Card c = list.get(i);
+            if (c.kind == GlassModel.Card.Kind.HEADING) {
+                this.cards.addView(heading(c.title));
+                continue;
+            }
             // Meters in a row form one segmented group: large outer corners, small inner ones.
             boolean joinsPrev = i > 0 && grouped(c) && grouped(list.get(i - 1));
             boolean joinsNext = i + 1 < list.size() && grouped(c) && grouped(list.get(i + 1));
             this.cards.addView(card(c, joinsPrev, joinsNext));
         }
-        renderTabs(provider, enabled);
+        this.root.findViewById(R.id.expressive_edit).setVisibility(priority ? View.GONE : View.VISIBLE);
+        renderTabs(priority ? null : provider, enabled);
     }
 
     private static boolean grouped(GlassModel.Card c) {
@@ -158,8 +165,22 @@ final class ExpressiveDashboard {
 
     private void renderTabs(UsageProvider selected, List<UsageProvider> enabled) {
         this.tabs.removeAllViews();
-        this.toolbar.setVisibility(enabled.size() > 1 ? View.VISIBLE : View.GONE);
+        boolean withPriority = this.activity.priorityTabShown();
+        this.toolbar.setVisibility(enabled.size() + (withPriority ? 1 : 0) > 1 ? View.VISIBLE : View.GONE);
         LayoutInflater inflater = LayoutInflater.from(this.activity);
+        if (withPriority) {
+            // The Priority tab leads, selected when no provider is (selected == null).
+            boolean on = selected == null;
+            MaterialButton tab = (MaterialButton) inflater.inflate(
+                    on ? R.layout.expressive_tab_selected : R.layout.expressive_tab, this.tabs, false);
+            tab.setIconResource(R.drawable.ic_priority);
+            tab.setContentDescription(PriorityPage.TITLE);
+            if (on) {
+                tab.setText(PriorityPage.TITLE);
+            }
+            tab.setOnClickListener(v -> this.activity.selectPriority());
+            this.tabs.addView(tab);
+        }
         for (UsageProvider provider : enabled) {
             boolean on = provider == selected;
             MaterialButton tab = (MaterialButton) inflater.inflate(
@@ -433,6 +454,16 @@ final class ExpressiveDashboard {
         if (view != null && android.os.Build.VERSION.SDK_INT >= 28) {
             view.setTypeface(android.graphics.Typeface.create(view.getTypeface(), weight, false));
         }
+        return view;
+    }
+
+    /** A section label over the cards that follow it (the Priority page's groups). */
+    private View heading(String text) {
+        TextView view = text(text, R.attr.textAppearanceTitleSmallEmphasized, R.attr.colorPrimary);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(Ui.dp(this.activity, 16), Ui.dp(this.activity, 8), Ui.dp(this.activity, 16),
+                Ui.dp(this.activity, 8));
+        view.setLayoutParams(params);
         return view;
     }
 
