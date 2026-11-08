@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.21 — 2026-11-08
+
 ### Changed
 
 - **Priority** shows only what needs you: official incidents, significant slowdowns, the limits that are running out early and still have some left, and new models. Limits that are already used up and the "Other limits" list are gone; when nothing needs attention it says so in one line.
