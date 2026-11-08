@@ -2,9 +2,16 @@
 
 ## Unreleased
 
+### Changed
+
+- **Priority** is plainer: no overview or tip, and no list of services that are fine. It shows official incidents and significant slowdowns when there are any, the limits to watch, your other limits and new models. Android.
+- The **model speed card** is gone from the provider pages. Instead, the app follows public OpenRouter speed for the newest few models of each signed-in maker (Codex, Claude Code and Grok) and warns on the Priority tab only when one runs at least twice as slow as usual, or fails often, against its own recent history. It never shows "Insufficient data". Turn it off in Settings › Refresh & dashboard › Model slowdown warnings. Android.
+- **New models** now covers every signed-in provider that offers models from the big makers: Cursor, Copilot, Windsurf and Cline (OpenAI, Anthropic, Google and xAI), Factory, Amp, Codebuff and Warp (OpenAI, Anthropic and Google), Antigravity (Google and Anthropic), Devin and Augment (Anthropic and OpenAI) and Kiro (Anthropic). It is still an explicit list per provider, matched by exact maker, never by name. Android.
+
 ### Fixed
 
 - **Liquid Glass freezes**: the screens redraw on almost every change, and each redraw did slow work on the main thread. It decrypted every provider's sign-in through the Android Keystore, asked the system for the app's own version, re-read every meter's usage history from scratch, and asked for placed lock-screen widgets. Each answer is now kept until it changes. Scheduling background refreshes, update checks, widget repair and the Wear sync at launch and when leaving the app no longer blocks the screen either; it runs on a background thread. The update screen redrew the whole app for every 8 KB downloaded and now redraws at most once per percent. Android.
+- Claude Code no longer says "No 5-hour limit on this plan". While no session is running, Claude lists the 5-hour limit with no number, and the app read that as a plan without one; it now shows the 5-hour limit as unused. Android.
 
 ## 2.9.0-alpha.19 — 2026-11-08
 

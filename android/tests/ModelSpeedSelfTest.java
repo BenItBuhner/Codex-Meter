@@ -5,7 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
-/** OpenRouter endpoint metadata: null metrics stay "Insufficient data", first-party preferred. */
+/** OpenRouter endpoint metadata: null metrics stay missing, first-party preferred, slowdowns only when significant. */
 public final class ModelSpeedSelfTest {
     private static final long NOW = 1_794_000_000_000L;
 
@@ -14,10 +14,11 @@ public final class ModelSpeedSelfTest {
         percentileObjectsAndNumbers();
         firstPartyEndpointPreferred();
         nothingReportedIsInsufficient();
+        slowdowns();
         garbage();
         modelList();
         safeIds();
-        System.out.println("Model speed: OpenRouter endpoints, insufficient data, model list and ids verified.");
+        System.out.println("Model speed: OpenRouter endpoints, missing data, slowdowns, model list and ids verified.");
     }
 
     private static String fixture(String name) throws Exception {
@@ -39,11 +40,9 @@ public final class ModelSpeedSelfTest {
         ModelSpeed.Endpoint e = s.featured();
         check(e != null && e.provider.equals("Anthropic"), "Anthropic's own endpoint featured: " + (e == null ? null : e.provider));
         check(Double.isNaN(e.throughput) && Double.isNaN(e.latencyMs), "null metrics are NaN, not zero");
-        check(ModelSpeed.throughputText(e.throughput).equals("Insufficient data"), "throughput copy");
-        check(ModelSpeed.latencyText(e.latencyMs).equals("Insufficient data"), "latency copy");
-        check(ModelSpeed.uptimeText(e.uptime30m).equals("100%"), "uptime " + ModelSpeed.uptimeText(e.uptime30m));
+        check(ModelSpeed.slowdown(s, java.util.Collections.<double[]>emptyList()) == null,
+                "no figures, no warning (never \"insufficient data\")");
         check(s.sourceLine().equals("OpenRouter, via Anthropic, last 30 minutes"), s.sourceLine());
-        check(ModelSpeed.DISCLAIMER.contains("not the speed of your own subscription"), "disclaimer");
     }
 
     private static String endpoints(String... items) {
@@ -61,10 +60,8 @@ public final class ModelSpeedSelfTest {
                 endpoint("OpenAI", "openai", "{\"p50\":71.6,\"p90\":40}", "{\"p50\":820,\"p90\":2000}", "99.4")), NOW);
         ModelSpeed.Endpoint e = s.featured();
         check(e.throughput == 71.6 && e.latencyMs == 820, "p50 used");
-        check(ModelSpeed.throughputText(e.throughput).equals("72 tokens/s"), ModelSpeed.throughputText(e.throughput));
-        check(ModelSpeed.latencyText(e.latencyMs).equals("820 ms"), "ms");
-        check(ModelSpeed.latencyText(1530).equals("1.5 s"), "seconds");
-        check(ModelSpeed.uptimeText(e.uptime30m).equals("99.4%"), "uptime");
+        check(ModelSpeed.seconds(e.latencyMs).equals("820 ms"), "ms");
+        check(ModelSpeed.seconds(1530).equals("1.5 s"), "seconds");
         ModelSpeed n = ModelSpeed.parse(endpoints(endpoint("OpenAI", "openai", "55", "-1", "null")), NOW);
         check(n.featured().throughput == 55 && Double.isNaN(n.featured().latencyMs), "plain number; negative is no data");
     }
@@ -85,6 +82,31 @@ public final class ModelSpeedSelfTest {
         ModelSpeed s = ModelSpeed.parse(endpoints(endpoint("OpenAI", "openai", "null", "null", "null")), NOW);
         check(s.featured() == null, "no featured endpoint");
         check(s.sourceLine().startsWith("No OpenRouter endpoint"), s.sourceLine());
+    }
+
+    private static java.util.List<double[]> usual(double tps, double latency, int n) {
+        java.util.List<double[]> h = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            h.add(new double[] {tps + (i % 3) - 1, latency + 10 * (i % 2)});
+        }
+        return h;
+    }
+
+    private static void slowdowns() {
+        ModelSpeed normal = ModelSpeed.parse(endpoints(endpoint("OpenAI", "openai", "70", "800", "99.8")), NOW);
+        check(ModelSpeed.slowdown(normal, usual(72, 790, 10)) == null, "normal: nothing");
+        ModelSpeed slow = ModelSpeed.parse(endpoints(endpoint("OpenAI", "openai", "30", "820", "99.8")), NOW);
+        ModelSpeed.Slowdown d = ModelSpeed.slowdown(slow, usual(72, 790, 10));
+        check(d != null && d.title.equals("GPT-6 Luna is running slower than usual"), "half speed warns: " + (d == null ? null : d.title));
+        check(d.detail.startsWith("30 tokens/s, usually 72"), d.detail);
+        check(ModelSpeed.slowdown(slow, usual(72, 790, 5)) == null, "too little history: nothing");
+        ModelSpeed mild = ModelSpeed.parse(endpoints(endpoint("OpenAI", "openai", "45", "900", "99.8")), NOW);
+        check(ModelSpeed.slowdown(mild, usual(72, 790, 10)) == null, "a mild dip is not significant");
+        ModelSpeed late = ModelSpeed.parse(endpoints(endpoint("OpenAI", "openai", "70", "2400", "99.8")), NOW);
+        ModelSpeed.Slowdown l = ModelSpeed.slowdown(late, usual(72, 790, 10));
+        check(l != null && l.title.contains("slow to start"), "slow first token warns");
+        ModelSpeed failing = ModelSpeed.parse(endpoints(endpoint("OpenAI", "openai", "70", "800", "80")), NOW);
+        check(ModelSpeed.slowdown(failing, java.util.Collections.<double[]>emptyList()) != null, "low uptime warns without history");
     }
 
     private static void garbage() {

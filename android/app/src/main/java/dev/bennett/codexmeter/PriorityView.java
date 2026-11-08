@@ -37,14 +37,15 @@ public final class PriorityView {
     public static final class ProviderFacts {
         public final String providerName;
         public final ProviderStatus status;
-        public final ModelSpeed speed;
+        /** Significant slowdowns of the provider's models (empty when they run as usual). */
+        public final List<ModelSpeed.Slowdown> slowdowns;
         public final UsageSnapshot snapshot;
 
-        public ProviderFacts(String providerName, ProviderStatus status, ModelSpeed speed,
+        public ProviderFacts(String providerName, ProviderStatus status, List<ModelSpeed.Slowdown> slowdowns,
                 UsageSnapshot snapshot) {
             this.providerName = providerName == null ? "" : providerName;
             this.status = status;
-            this.speed = speed;
+            this.slowdowns = slowdowns == null ? java.util.Collections.<ModelSpeed.Slowdown>emptyList() : slowdowns;
             this.snapshot = snapshot;
         }
     }
@@ -100,14 +101,9 @@ public final class PriorityView {
                             s.detail(), -s.state.severity, -1, false, false, true));
                 }
             }
-            ModelSpeed.Endpoint e = p.speed == null ? null : p.speed.featured();
-            if (e != null && !Double.isNaN(e.uptime30m) && e.uptime30m < UPTIME_WARNING) {
-                performance.add(new Item(Kind.PERFORMANCE_WARNING, p.providerName,
-                        p.speed.modelName + " is less reliable right now",
-                        "OpenRouter measured " + ModelSpeed.uptimeText(e.uptime30m)
-                                + " uptime over the last 30 minutes, " + p.speed.sourceLine()
-                                + ". Public figures, not your subscription.",
-                        e.uptime30m, -1, false, false, true));
+            for (ModelSpeed.Slowdown slow : p.slowdowns) {
+                performance.add(new Item(Kind.PERFORMANCE_WARNING, p.providerName, slow.title, slow.detail,
+                        -slow.factor, -1, false, false, true));
             }
             UsageSnapshot snap = p.snapshot;
             if (snap == null) {

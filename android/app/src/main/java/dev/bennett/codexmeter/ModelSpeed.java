@@ -16,8 +16,9 @@ import org.json.JSONObject;
  * prompts, and never labels these numbers as subscription performance.
  *
  * <p>OpenRouter leaves {@code throughput_last_30m} and {@code latency_last_30m} null when it has
- * too few samples; those show as "Insufficient data", never as zero. Pure Java so the self-tests
- * cover it.
+ * too few samples; those are missing (NaN), never zero, and never shown. Only a significant
+ * slowdown against the model's own recent history is ever surfaced ({@link #slowdown}). Pure Java
+ * so the self-tests cover it.
  */
 public final class ModelSpeed {
 
@@ -146,25 +147,82 @@ public final class ModelSpeed {
         }
     }
 
-    public static String throughputText(double tps) {
-        return Double.isNaN(tps) ? "Insufficient data" : Math.round(tps) + " tokens/s";
+    /** A model running much slower than it usually does (public OpenRouter figures). */
+    public static final class Slowdown {
+        public final String modelName;
+        public final String title;
+        public final String detail;
+        /** How much worse than usual, for ordering: 2 means twice as slow. */
+        public final double factor;
+
+        Slowdown(String modelName, String title, String detail, double factor) {
+            this.modelName = modelName;
+            this.title = title;
+            this.detail = detail;
+            this.factor = factor;
+        }
     }
 
-    public static String latencyText(double ms) {
-        if (Double.isNaN(ms)) {
-            return "Insufficient data";
+    /** Samples needed before "usual" means anything. */
+    static final int MIN_BASELINE = 6;
+    /** Throughput under half its usual median, or first-token latency over twice its usual. */
+    static final double SLOW_FACTOR = 2.0;
+    /** Uptime under this over the last 30 minutes counts on its own. */
+    static final double UPTIME_FLOOR = 90.0;
+
+    /**
+     * A significant slowdown of {@code now} against {@code earlier} samples ({throughput, latency}),
+     * or null when the figures are normal, missing or there is too little history to tell.
+     */
+    public static Slowdown slowdown(ModelSpeed now, List<double[]> earlier) {
+        Endpoint e = now == null ? null : now.featured();
+        if (e == null) {
+            return null;
         }
+        String via = " (OpenRouter, via " + e.provider + ", last 30 minutes; public figures, not your subscription)";
+        if (!Double.isNaN(e.uptime30m) && e.uptime30m < UPTIME_FLOOR) {
+            return new Slowdown(now.modelName, now.modelName + " is failing more often than usual",
+                    String.format(Locale.US, "%.0f%% of requests succeeded", e.uptime30m) + via,
+                    100.0 / Math.max(1.0, e.uptime30m));
+        }
+        double usualTps = median(earlier, 0);
+        double usualLatency = median(earlier, 1);
+        double tpsFactor = Double.isNaN(e.throughput) || Double.isNaN(usualTps) || e.throughput <= 0
+                ? 0 : usualTps / e.throughput;
+        double latencyFactor = Double.isNaN(e.latencyMs) || Double.isNaN(usualLatency) || usualLatency <= 0
+                ? 0 : e.latencyMs / usualLatency;
+        if (tpsFactor >= SLOW_FACTOR && tpsFactor >= latencyFactor) {
+            return new Slowdown(now.modelName, now.modelName + " is running slower than usual",
+                    Math.round(e.throughput) + " tokens/s, usually " + Math.round(usualTps) + via, tpsFactor);
+        }
+        if (latencyFactor >= SLOW_FACTOR) {
+            return new Slowdown(now.modelName, now.modelName + " is slow to start responding",
+                    seconds(e.latencyMs) + " to the first token, usually " + seconds(usualLatency) + via,
+                    latencyFactor);
+        }
+        return null;
+    }
+
+    /** The median of column {@code k} over samples that have it, or NaN under MIN_BASELINE. */
+    static double median(List<double[]> samples, int k) {
+        List<Double> v = new ArrayList<>();
+        if (samples != null) {
+            for (double[] s : samples) {
+                if (s != null && s.length > k && !Double.isNaN(s[k]) && s[k] > 0) {
+                    v.add(s[k]);
+                }
+            }
+        }
+        if (v.size() < MIN_BASELINE) {
+            return Double.NaN;
+        }
+        Collections.sort(v);
+        int n = v.size();
+        return n % 2 == 1 ? v.get(n / 2) : (v.get(n / 2 - 1) + v.get(n / 2)) / 2;
+    }
+
+    static String seconds(double ms) {
         return ms < 1000 ? Math.round(ms) + " ms" : String.format(Locale.US, "%.1f s", ms / 1000d);
-    }
-
-    public static String uptimeText(double uptime) {
-        if (Double.isNaN(uptime)) {
-            return "Insufficient data";
-        }
-        if (uptime >= 99.95) {
-            return "100%";
-        }
-        return String.format(Locale.US, "%.1f%%", uptime);
     }
 
     /** "via Anthropic" or "via Google Vertex", the endpoint the figures come from. */
