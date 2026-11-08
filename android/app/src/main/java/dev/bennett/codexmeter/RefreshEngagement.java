@@ -68,6 +68,11 @@ public final class RefreshEngagement {
         return Math.max(0.0d, score);
     }
 
+    /** When the app was last opened (debounced), or 0 if never. */
+    public static long lastOpenAt(Context context) {
+        return prefs(context).getLong(KEY_LAST_OPEN_AT, 0L);
+    }
+
     private static double decayedScore(SharedPreferences prefs, long nowMillis) {
         double stored = Double.longBitsToDouble(prefs.getLong(
                 KEY_SCORE, Double.doubleToRawLongBits(0.0d)));
