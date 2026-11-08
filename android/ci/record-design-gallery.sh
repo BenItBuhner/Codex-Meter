@@ -175,6 +175,8 @@ priority_scenes() {
 # comparing menu motion. Saves menu-<theme>.mp4 and a shot with the menu open.
 menu_scenes() {
   for THEME in light dark; do
+    demo
+    sleep 4
     demo --es open_settings_page refresh_usage
     sleep 5
     adb shell screenrecord --time-limit 16 "/sdcard/menu-$THEME.mp4" &
