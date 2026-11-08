@@ -143,7 +143,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             Ui.applySelectedTheme(this);
         }
         super.onCreate(bundle);
-        PhoneWearSync.pushAll(this);
+        Context wearApp = getApplicationContext();
+        housekeeping(() -> PhoneWearSync.pushAll(wearApp));
         if (routeToOnboarding(getIntent())) {
             return;
         }
@@ -155,10 +156,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.onPriority = PriorityPrefs.isViewEnabled(this) && PriorityPrefs.isTabSelected(this);
             applyEnabledProviders();
             handleLaunchIntent(getIntent());
-            WidgetUpgradeRepair.runIfNeeded(this);
             rebuild();
-            RefreshScheduler.schedulePeriodic(this);
-            ReleaseUpdateScheduler.ensureScheduled(this);
+            startupHousekeeping();
             return;
         }
         if (expressiveDesign) {
@@ -167,10 +166,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.onPriority = PriorityPrefs.isViewEnabled(this) && PriorityPrefs.isTabSelected(this);
             applyEnabledProviders();
             handleLaunchIntent(getIntent());
-            WidgetUpgradeRepair.runIfNeeded(this);
             rebuild();
-            RefreshScheduler.schedulePeriodic(this);
-            ReleaseUpdateScheduler.ensureScheduled(this);
+            startupHousekeeping();
             return;
         }
         Ui.Page page = Ui.installPage(this, "Codex Meter", false,
@@ -190,10 +187,39 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         this.swipeRefresh.setProgressBackgroundColorSchemeColor(Ui.cardColor(this, this.dark));
         this.swipeRefresh.setOnRefreshListener(this::refreshFromPull);
         handleLaunchIntent(getIntent());
-        WidgetUpgradeRepair.runIfNeeded(this);
         rebuild();
-        RefreshScheduler.schedulePeriodic(this);
-        ReleaseUpdateScheduler.ensureScheduled(this);
+        startupHousekeeping();
+    }
+
+    /**
+     * JobScheduler, AppWidgetManager, Keystore and Wear calls are IPCs that took tens to hundreds
+     * of milliseconds each on the main thread, at launch and every time the app went to the
+     * background. They run in order on one background thread instead.
+     */
+    private static final java.util.concurrent.ExecutorService HOUSEKEEPING =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "housekeeping");
+                t.setDaemon(true);
+                return t;
+            });
+
+    static void housekeeping(Runnable work) {
+        HOUSEKEEPING.execute(() -> {
+            try {
+                work.run();
+            } catch (RuntimeException e) {
+                android.util.Log.w("CodexMeter", "housekeeping failed", e);
+            }
+        });
+    }
+
+    private void startupHousekeeping() {
+        Context app = getApplicationContext();
+        housekeeping(() -> {
+            WidgetUpgradeRepair.runIfNeeded(app);
+            RefreshScheduler.schedulePeriodic(app);
+            ReleaseUpdateScheduler.ensureScheduled(app);
+        });
     }
 
     @Override
@@ -315,7 +341,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     protected void onStop() {
         RefreshEngagement.onBackground(this);
         if (AppPreferences.getAutomaticRefresh(this)) {
-            RefreshScheduler.schedulePeriodic(this);
+            Context app = getApplicationContext();
+            housekeeping(() -> RefreshScheduler.schedulePeriodic(app));
         }
         if (this.receiverRegistered) {
             try {
