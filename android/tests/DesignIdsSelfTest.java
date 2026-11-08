@@ -1,22 +1,23 @@
 package dev.bennett.codexmeter;
 
-/** App design ids: legacy values keep their look, unknown ones fall back, labels say "inspired". */
+/** App design ids: both former Liquid Glass looks read as the one Liquid Glass, unknown ones fall back. */
 public final class DesignIdsSelfTest {
     public static void main(String[] args) {
-        // The single Liquid Glass id saved before the split stays on the iOS 26-inspired look.
-        check(DesignIds.normalize("liquid_glass", false).equals(DesignIds.LIQUID_GLASS_IOS_26), "legacy glass reads as iOS 26");
-        check(DesignIds.forSave("liquid_glass").equals(DesignIds.LIQUID_GLASS_IOS_26), "legacy glass saves as iOS 26");
-        check(DesignIds.normalize("liquid_glass_ios_27", false).equals(DesignIds.LIQUID_GLASS_IOS_27), "iOS 27 kept");
-        check(DesignIds.normalize("liquid_glass_ios_26", true).equals(DesignIds.LIQUID_GLASS_IOS_26), "saved design beats the old switch");
+        // Liquid Glass is one design: the two former looks (iOS 26- and 27-inspired) both read as it.
+        check(DesignIds.normalize("liquid_glass", false).equals(DesignIds.LIQUID_GLASS), "Liquid Glass kept");
+        check(DesignIds.normalize("liquid_glass_ios_26", false).equals(DesignIds.LIQUID_GLASS), "iOS 26 look moves to Liquid Glass");
+        check(DesignIds.normalize("liquid_glass_ios_27", false).equals(DesignIds.LIQUID_GLASS), "iOS 27 look moves to Liquid Glass");
+        check(DesignIds.forSave("liquid_glass_ios_26").equals(DesignIds.LIQUID_GLASS), "former look saves as Liquid Glass");
+        check(DesignIds.normalize("liquid_glass_ios_26", true).equals(DesignIds.LIQUID_GLASS), "saved design beats the old switch");
         check(DesignIds.normalize(null, true).equals(DesignIds.ONE_UI_9), "old One UI 9 switch");
         check(DesignIds.normalize(null, false).equals(DesignIds.CLASSIC), "nothing saved is classic");
         check(DesignIds.normalize("bogus", false).equals(DesignIds.CLASSIC), "unknown is classic");
         check(DesignIds.forSave(null).equals(DesignIds.CLASSIC), "null saves classic");
         check(DesignIds.isLiquidGlass("liquid_glass") && DesignIds.isLiquidGlass("liquid_glass_ios_26")
                 && DesignIds.isLiquidGlass("liquid_glass_ios_27") && !DesignIds.isLiquidGlass("one_ui_9"), "glass family");
-        check(DesignIds.isIos27("liquid_glass_ios_27") && !DesignIds.isIos27("liquid_glass"), "iOS 27 only when chosen");
-        check(DesignIds.label("liquid_glass").equals("Liquid Glass (iOS 26-inspired)"), "label 26");
-        check(DesignIds.label("liquid_glass_ios_27").equals("Liquid Glass (iOS 27-inspired)"), "label 27");
+        check(DesignIds.label("liquid_glass").equals("Liquid Glass"), "label");
+        check(DesignIds.label("liquid_glass_ios_26").equals("Liquid Glass")
+                && DesignIds.label("liquid_glass_ios_27").equals("Liquid Glass"), "former looks label as Liquid Glass");
         check(DesignIds.label("classic").equals("One UI 8.5"), "label classic");
         check(DesignIds.normalize("material_3_expressive", true).equals(DesignIds.MATERIAL_3_EXPRESSIVE), "expressive kept");
         check(DesignIds.isMaterialExpressive("material_3_expressive") && !DesignIds.isMaterialExpressive("classic"), "expressive id");
@@ -30,7 +31,7 @@ public final class DesignIdsSelfTest {
         check(DesignIds.CLASSIC.equals(DesignIds.suggestFor("samsung", "samsung", 0)), "One UI unknown stays default");
         check(DesignIds.suggestFor("OnePlus", "OnePlus", 0) == null, "others keep default");
         check(DesignIds.suggestFor(null, null, 0) == null, "nothing known");
-        System.out.println("Design ids keep legacy Liquid Glass on the iOS 26-inspired look.");
+        System.out.println("Design ids move both former Liquid Glass looks to the one Liquid Glass.");
     }
 
     private static void check(boolean ok, String what) {

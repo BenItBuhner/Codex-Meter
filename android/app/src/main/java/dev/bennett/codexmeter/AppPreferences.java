@@ -27,9 +27,7 @@ public final class AppPreferences {
     public static final String DESIGN_CLASSIC = "classic";
     public static final String DESIGN_ONE_UI_9 = "one_ui_9";
     /** Either Liquid Glass look; saved by installs from before the two looks, read as iOS 26. */
-    public static final String DESIGN_LIQUID_GLASS = DesignIds.LIQUID_GLASS_LEGACY;
-    public static final String DESIGN_LIQUID_GLASS_IOS_26 = DesignIds.LIQUID_GLASS_IOS_26;
-    public static final String DESIGN_LIQUID_GLASS_IOS_27 = DesignIds.LIQUID_GLASS_IOS_27;
+    public static final String DESIGN_LIQUID_GLASS = DesignIds.LIQUID_GLASS;
     public static final String DESIGN_MATERIAL_3_EXPRESSIVE = DesignIds.MATERIAL_3_EXPRESSIVE;
     /** Set once a new install's first-run design suggestion has been looked at ("" for none). */
     private static final String KEY_DESIGN_SUGGESTED = "design_suggested_on_first_run";
@@ -473,8 +471,13 @@ public final class AppPreferences {
      */
     public static String getDesign(Context context) {
         SharedPreferences prefs = prefs(context);
-        return DesignIds.normalize(prefs.getString(KEY_APP_DESIGN, null),
-                prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false));
+        String saved = prefs.getString(KEY_APP_DESIGN, null);
+        String design = DesignIds.normalize(saved, prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false));
+        // Either of the two former Liquid Glass looks is saved as the one Liquid Glass design.
+        if (saved != null && !saved.equals(design) && DesignIds.isLiquidGlass(saved)) {
+            prefs.edit().putString(KEY_APP_DESIGN, design).apply();
+        }
+        return design;
     }
 
     public static void setDesign(Context context, String design) {
@@ -545,12 +548,7 @@ public final class AppPreferences {
         }
     }
 
-    /** True for the iOS 27-inspired Liquid Glass look. */
-    public static boolean isLiquidGlassIos27(Context context) {
-        return DesignIds.isIos27(getDesign(context));
-    }
-
-    /** The iOS 27-inspired look's tint, 0 (ultra clear) to 100 (fully tinted). */
+    /** Liquid Glass's tint, 0 (ultra clear) to 100 (fully tinted). */
     public static int getGlassTintLevel(Context context) {
         return Math.max(0, Math.min(100, prefs(context).getInt(KEY_GLASS_TINT, 25)));
     }

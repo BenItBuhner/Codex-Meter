@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -62,13 +63,16 @@ public final class WidgetRenderer {
             try {
                 WidgetOptions widgetOptionsLoadWidgetOptions = AppPreferences.loadWidgetOptions(context, i);
                 Bundle appWidgetOptions = appWidgetManager.getAppWidgetOptions(i);
+                // Liquid Glass: the widget sits on Glassé's glass once it is baked (null until then).
+                Bitmap glass = WidgetGlass.forWidget(context, appWidgetManager, i,
+                        widgetOptionsLoadWidgetOptions, chooseDark(context, widgetOptionsLoadWidgetOptions));
                 if (Build.VERSION.SDK_INT >= 31) {
-                    remoteViewsBuildViews = buildResponsiveWidget(context, i, widgetOptionsLoadWidgetOptions);
+                    remoteViewsBuildViews = buildResponsiveWidget(context, i, widgetOptionsLoadWidgetOptions, glass);
                 } else {
-                    remoteViewsBuildViews = buildViews(context, i, widgetOptionsLoadWidgetOptions,
+                    remoteViewsBuildViews = onGlass(context, buildViews(context, i, widgetOptionsLoadWidgetOptions,
                             styleForSize(context, appWidgetOptions, widgetOptionsLoadWidgetOptions,
                                     ProviderPreferences.getWidgetProviders(context, i)),
-                            appWidgetOptions);
+                            appWidgetOptions), glass);
                 }
                 appWidgetManager.updateAppWidget(i, remoteViewsBuildViews);
             } catch (RuntimeException e) {
@@ -85,8 +89,13 @@ public final class WidgetRenderer {
         }
     }
 
+    private static RemoteViews onGlass(Context context, RemoteViews views, Bitmap glass) {
+        return glass == null ? views : WidgetGlass.wrap(context, views, glass);
+    }
+
     @SuppressLint({"NewApi", "UseRequiresApi"})
-    private static RemoteViews buildResponsiveWidget(Context context, int i, WidgetOptions widgetOptions) {
+    private static RemoteViews buildResponsiveWidget(Context context, int i, WidgetOptions widgetOptions,
+            Bitmap glass) {
         LinkedHashMap<SizeF, RemoteViews> linkedHashMap = new LinkedHashMap<>();
         List<UsageProvider> providers = ProviderPreferences.getWidgetProviders(context, i);
         boolean single = providers.size() == 1 && widgetOptions.singleMetric();
@@ -95,19 +104,19 @@ public final class WidgetRenderer {
                 single ? WidgetMeters.VISUAL_RINGS : WidgetMeters.VISUAL_FOUR_DIALS, single);
         String tallStyle = preferVisualStyle(widgetOptions,
                 single ? WidgetMeters.VISUAL_DIALS : WidgetMeters.VISUAL_BATTERY_LIST, single);
-        linkedHashMap.put(new SizeF(110.0f, 60.0f),
+        linkedHashMap.put(new SizeF(110.0f, 60.0f), onGlass(context,
                 buildViews(context, i, widgetOptions, compactStyle,
-                        sizeBundle(110, 70), GRAPHIC_STANDARD, providers));
-        linkedHashMap.put(new SizeF(250.0f, 60.0f),
+                        sizeBundle(110, 70), GRAPHIC_STANDARD, providers), glass));
+        linkedHashMap.put(new SizeF(250.0f, 60.0f), onGlass(context,
                 buildViews(context, i, widgetOptions, wideShortStyle,
-                        sizeBundle(250, 70), GRAPHIC_STANDARD, providers));
-        linkedHashMap.put(new SizeF(110.0f, 130.0f),
+                        sizeBundle(250, 70), GRAPHIC_STANDARD, providers), glass));
+        linkedHashMap.put(new SizeF(110.0f, 130.0f), onGlass(context,
                 buildViews(context, i, widgetOptions, tallStyle,
-                        sizeBundle(110, 156), GRAPHIC_STANDARD, providers));
-        linkedHashMap.put(new SizeF(250.0f, 130.0f),
+                        sizeBundle(110, 156), GRAPHIC_STANDARD, providers), glass));
+        linkedHashMap.put(new SizeF(250.0f, 130.0f), onGlass(context,
                 buildViews(context, i, widgetOptions, tallStyle,
                         sizeBundle(250, 156),
-                        single ? GRAPHIC_LARGE : GRAPHIC_STANDARD, providers));
+                        single ? GRAPHIC_LARGE : GRAPHIC_STANDARD, providers), glass));
         return new RemoteViews(linkedHashMap);
     }
 

@@ -15,6 +15,7 @@ import android.widget.FrameLayout;
 import android.widget.RemoteViews;
 import android.widget.Toast;
 import dev.bennett.codexmeter.glass.GlassModel;
+import dev.bennett.codexmeter.glass.GlassWidgetArt;
 import dev.bennett.codexmeter.glass.GlassModel.Row;
 import dev.bennett.codexmeter.glass.GlassModel.Section;
 import java.util.ArrayList;
@@ -530,15 +531,8 @@ final class GlassWidgetScreens {
                 WidgetOptions options = options();
                 RemoteViews remote = WidgetRenderer.buildPreview(c, appWidgetId, options, size, providers);
                 FrameLayout surface = new FrameLayout(c);
-                GradientDrawable bg = new GradientDrawable();
                 boolean dark = WidgetOptions.THEME_DARK.equals(options.theme)
                         || (!WidgetOptions.THEME_LIGHT.equals(options.theme) && Ui.isDark(c));
-                int alpha = Math.round(options.opacity * 2.55f);
-                bg.setColor(dark ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
-                bg.setCornerRadius(28 * density);
-                surface.setBackground(bg);
-                View widget = remote.apply(c.getApplicationContext(), surface);
-                surface.addView(widget, new FrameLayout.LayoutParams(-1, -1));
                 int inset = Math.round(14 * density);
                 int maxW = boxW - 2 * inset;
                 int maxH = boxH - 2 * inset;
@@ -549,9 +543,8 @@ final class GlassWidgetScreens {
                     h = maxH;
                     w = Math.max(1, Math.round(h * aspect()));
                 }
-                surface.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
-                        View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY));
-                surface.layout(0, 0, w, h);
+                int x = (boxW - w) / 2;
+                int y = (boxH - h) / 2;
                 Bitmap bitmap = Bitmap.createBitmap(boxW, boxH, Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bitmap);
                 Drawable backdrop = c.getDrawable(R.drawable.codex_meter_icon_bg);
@@ -565,8 +558,31 @@ final class GlassWidgetScreens {
                     backdrop.setBounds((boxW - dw) / 2, (boxH - dh) / 2, (boxW + dw) / 2, (boxH + dh) / 2);
                     backdrop.draw(canvas);
                 }
+                // The home-screen widget sits on Glassé's glass: here it refracts the preview's backdrop.
+                // Baked off the main thread; until it is ready the preview shows the plain fill.
+                Bitmap glass = WidgetGlass.forPreview(bitmap, x, y, w, h, density, dark, options.opacity,
+                        rerender);
+                if (glass != null) {
+                    canvas.drawBitmap(glass, x, y, null);
+                } else {
+                    GradientDrawable bg = new GradientDrawable();
+                    int alpha = Math.round(options.opacity * 2.55f);
+                    bg.setColor(dark ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
+                    bg.setCornerRadius(28 * density);
+                    surface.setBackground(bg);
+                }
+                View widget = remote.apply(c.getApplicationContext(), surface);
+                surface.addView(widget, new FrameLayout.LayoutParams(-1, -1));
+                if (glass != null) {
+                    // inside the glass, as on the home screen (widget_glass_frame's inset)
+                    int pad = Math.round((float) (GlassWidgetArt.MARGIN * density));
+                    surface.setPadding(pad, pad, pad, pad);
+                }
+                surface.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY));
+                surface.layout(0, 0, w, h);
                 canvas.save();
-                canvas.translate((boxW - w) / 2f, (boxH - h) / 2f);
+                canvas.translate(x, y);
                 surface.draw(canvas);
                 canvas.restore();
                 return GlassScreens.png(bitmap);

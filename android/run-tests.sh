@@ -126,8 +126,10 @@ javac -encoding UTF-8 -d "$OUT" \
 java -ea -cp "$OUT" dev.bennett.codexmeter.DesignIdsSelfTest
 java -ea -cp "$OUT" dev.bennett.codexmeter.RefreshTrackerSelfTest
 java -ea -cp "$OUT" dev.bennett.codexmeter.UpdateFlowSelfTest
-grep -q '<item>liquid_glass_ios_26</item>' "$ROOT/app/src/main/res/values/arrays.xml"
-grep -q '<item>liquid_glass_ios_27</item>' "$ROOT/app/src/main/res/values/arrays.xml"
+grep -q '<item>liquid_glass</item>' "$ROOT/app/src/main/res/values/arrays.xml"
+if grep -q 'liquid_glass_ios_2\|inspired)</item>' "$ROOT/app/src/main/res/values/arrays.xml"; then
+  echo "App design list still offers two Liquid Glass looks" >&2; exit 1
+fi
 grep -q '<item>material_3_expressive</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 # New-model discovery: anonymous catalogs, off-by-default notification, Refresh-screen note.
 grep -q 'android:key="new_models_ui"' "$ROOT/app/src/main/res/xml/preferences_settings_notifications.xml"

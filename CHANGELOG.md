@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- **Liquid Glass** is one design again, called just **Liquid Glass**, with the iOS 27-inspired look: more diffused glass, darker edges, brighter highlights, an even band behind the top bar once content scrolls under it, and the **Glass tint** slider. If you used either Liquid Glass look, you're moved to it automatically. Android.
+- Liquid Glass runs on Glassé's latest version. Its glass now has one physical rim everywhere (bars, buttons, switches and sliders), with no warped lens edges. On a page with a sideways-scrolling row, swiping right from the row's start goes back instead of being caught by the row. Android.
+- On **foldables and tablets**, Liquid Glass keeps the dashboard and Settings in a readable centred column, and the tab bar keeps its phone size in the middle instead of stretching across the screen. Android.
+- **Home-screen widgets** in the Liquid Glass design sit on Liquid Glass, with Glassé's rim, highlights and shadow over a frosted fill that follows the widget's background setting. The widget settings preview shows the glass refracting the backdrop behind it. Android cannot show a widget the wallpaper behind it without full file access, which Codex Meter doesn't ask for, so the widget itself doesn't refract the wallpaper. Android.
+
 ## 2.9.0-alpha.21 — 2026-11-08
 
 ### Changed

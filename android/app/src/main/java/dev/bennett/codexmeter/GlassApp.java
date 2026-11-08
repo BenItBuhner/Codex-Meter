@@ -100,14 +100,9 @@ final class GlassApp implements GlassSource {
         }
     }
 
-    /**
-     * Sets the glass material for the saved look: iOS 26-inspired (Glassé's own material, as the
-     * design always drew) or iOS 27-inspired with its tint, then the accessibility switches.
-     */
+    /** Sets the glass material: the saved tint, then the accessibility switches. */
     static void applyLook(Context context) {
         GlassLook.apply(new GlassLook.Options(
-                AppPreferences.isLiquidGlassIos27(context)
-                        ? GlassLook.Generation.IOS_27 : GlassLook.Generation.IOS_26,
                 AppPreferences.getGlassTintLevel(context) / 100.0,
                 AppPreferences.isGlassReduceTransparency(context),
                 AppPreferences.isGlassIncreaseContrast(context)));

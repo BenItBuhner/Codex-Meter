@@ -6,10 +6,11 @@
 #
 #   android/ci/record-design-gallery.sh <debug APK> <output dir> [design] [scenes]
 #
-# design: liquid_glass (default), liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive,
-# one_ui_9 or classic. scenes: all (default), new_models for only the New models card (with a
-# relevant model, then with only irrelevant ones), the Notifications toggle and the Refresh note, or
-# priority for only the Priority tab (top to bottom, then a provider tab and back).
+# design: liquid_glass (default), material_3_expressive, one_ui_9 or classic. scenes: all (default),
+# new_models for only the New models card (with a relevant model, then with only irrelevant ones),
+# the Notifications toggle and the Refresh note, priority for only the Priority tab (top to bottom,
+# then a provider tab and back), perf for the Liquid Glass navigation pass, or wide for foldable and
+# tablet screen sizes (the emulator's display resized).
 set -euo pipefail
 
 APK="${1:?debug APK required}"
@@ -257,6 +258,61 @@ perf_scenes() {
   sleep 2
   adb pull /sdcard/perf.mp4 "$OUT/perf-light.mp4" >/dev/null && echo "Saved perf-light.mp4"
 }
+
+# Foldable and tablet sizes on the same emulator (wm size / density): the dashboard, scrolled, pulled to
+# refresh, Settings and a Settings page, and the widget settings with its glass preview, in light and dark,
+# with each size's main-thread stalls in perf-summary.txt and one recording per size.
+wide_scenes() {
+  local spec name px dpi
+  for spec in "foldable:1856x2160:420" "tablet-portrait:1600x2560:320" "tablet-landscape:2560x1600:320"; do
+    IFS=: read -r name px dpi <<<"$spec"
+    adb shell wm size "$px"
+    adb shell wm density "$dpi"
+    sleep 3
+    W="${px%x*}"; H="${px#*x}"
+    for THEME in light dark; do
+      demo
+      sleep 6
+      adb logcat -c || true
+      if [[ "$THEME" == light ]]; then
+        adb shell screenrecord --time-limit 60 "/sdcard/wide-$name.mp4" &
+        WREC=$!
+        sleep 2
+      fi
+      shot "wide-$name-$THEME-01-dashboard" 1
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
+      shot "wide-$name-$THEME-02-scrolled" 2
+      for _ in 1 2; do adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 300; sleep 1; done
+      pull_refresh "wide-$name-$THEME-03-pull"
+      stall_report "wide-$name-$THEME-dashboard"
+      demo --ez resume_live_settings true
+      shot "wide-$name-$THEME-04-settings" 5
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 500
+      shot "wide-$name-$THEME-05-settings-scrolled" 2
+      demo --es open_settings_page appearance
+      shot "wide-$name-$THEME-06-appearance" 5
+      demo --es open_widget_metric five_hour
+      shot "wide-$name-$THEME-07-widget-settings" 6
+      stall_report "wide-$name-$THEME-settings"
+      if [[ "$THEME" == light ]]; then
+        kill -INT "$WREC" 2>/dev/null || true
+        sleep 2
+        adb pull "/sdcard/wide-$name.mp4" "$OUT/wide-$name.mp4" >/dev/null && echo "Saved wide-$name.mp4"
+      fi
+    done
+  done
+  adb shell wm size reset
+  adb shell wm density reset
+  sleep 3
+  size="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
+  W="${size%x*}"; H="${size#*x}"
+}
+
+if [[ "$SCENES" == wide ]]; then
+  wide_scenes
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
 
 if [[ "$SCENES" == perf ]]; then
   perf_scenes

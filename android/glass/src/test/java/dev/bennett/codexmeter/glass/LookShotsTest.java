@@ -2,7 +2,6 @@ package dev.bennett.codexmeter.glass;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.benitbuhner.glasse.core.GlassStyle;
@@ -13,9 +12,9 @@ import org.junit.After;
 import org.junit.Test;
 
 /**
- * The two Liquid Glass looks share every screen. The iOS 26-inspired look keeps Glassé's own
- * material (no defaults), so it draws exactly as before; iOS 27 and the accessibility switches set
- * material defaults. With {@code -Dcap.out=<dir>} it also renders the dashboard in each look.
+ * Liquid Glass's one look (iOS 27-inspired): its tint runs from ultra clear to fully tinted, and the
+ * accessibility switches win over it. With {@code -Dcap.out=<dir>} it also renders the dashboard at
+ * the tint's ends and with Reduce Transparency.
  */
 public class LookShotsTest {
     private static final double W = 393;
@@ -23,18 +22,18 @@ public class LookShotsTest {
 
     @After
     public void reset() {
-        GlassLook.apply(new GlassLook.Options(GlassLook.Generation.IOS_26, GlassLook.DEFAULT_TINT, false, false));
+        GlassLook.apply(new GlassLook.Options(GlassLook.DEFAULT_TINT, false, false));
     }
 
     @Test
-    public void ios26KeepsGlasseDefaults() {
-        assertNull(GlassLook.style(new GlassLook.Options(GlassLook.Generation.IOS_26, 1.0, false, false)));
+    public void theLookSetsMaterialDefaults() {
+        assertNotNull(GlassLook.style(new GlassLook.Options(GlassLook.DEFAULT_TINT, false, false)));
     }
 
     @Test
-    public void ios27TintRunsFromUltraClearToFullyTinted() {
-        GlassStyle clear = GlassLook.style(new GlassLook.Options(GlassLook.Generation.IOS_27, 0.0, false, false));
-        GlassStyle tinted = GlassLook.style(new GlassLook.Options(GlassLook.Generation.IOS_27, 1.0, false, false));
+    public void tintRunsFromUltraClearToFullyTinted() {
+        GlassStyle clear = GlassLook.style(new GlassLook.Options(0.0, false, false));
+        GlassStyle tinted = GlassLook.style(new GlassLook.Options(1.0, false, false));
         assertEquals(GlassLook.CLEAREST_TINT_ALPHA, clear.tintAlpha, 1e-9);
         assertEquals(GlassLook.FULL_TINT_ALPHA, tinted.tintAlpha, 1e-9);
         assertTrue(tinted.blur > clear.blur);
@@ -42,11 +41,10 @@ public class LookShotsTest {
 
     @Test
     public void accessibilityWinsOverTheLook() {
-        GlassStyle reduced = GlassLook.style(new GlassLook.Options(GlassLook.Generation.IOS_27, 0.0, true, false));
+        GlassStyle reduced = GlassLook.style(new GlassLook.Options(0.0, true, false));
         assertTrue(reduced.tintAlpha > 0.9);
         assertEquals(0.0, reduced.aberration, 1e-9);
-        GlassStyle contrast = GlassLook.style(new GlassLook.Options(GlassLook.Generation.IOS_26, 0.0, false, true));
-        assertNotNull(contrast);
+        GlassStyle contrast = GlassLook.style(new GlassLook.Options(0.0, false, true));
         assertTrue(contrast.tintAlpha >= 0.45);
     }
 
@@ -58,11 +56,10 @@ public class LookShotsTest {
         }
         String scheme = System.getProperty("cap.scheme", "light");
         Object[][] looks = {
-                {"ios26", new GlassLook.Options(GlassLook.Generation.IOS_26, GlassLook.DEFAULT_TINT, false, false)},
-                {"ios27", new GlassLook.Options(GlassLook.Generation.IOS_27, GlassLook.DEFAULT_TINT, false, false)},
-                {"ios27-clear", new GlassLook.Options(GlassLook.Generation.IOS_27, 0.0, false, false)},
-                {"ios27-tinted", new GlassLook.Options(GlassLook.Generation.IOS_27, 1.0, false, false)},
-                {"reduce-transparency", new GlassLook.Options(GlassLook.Generation.IOS_27, GlassLook.DEFAULT_TINT, true, false)},
+                {"default", new GlassLook.Options(GlassLook.DEFAULT_TINT, false, false)},
+                {"clear", new GlassLook.Options(0.0, false, false)},
+                {"tinted", new GlassLook.Options(1.0, false, false)},
+                {"reduce-transparency", new GlassLook.Options(GlassLook.DEFAULT_TINT, true, false)},
         };
         for (Object[] look : looks) {
             GlassLook.apply((GlassLook.Options) look[1]);
