@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- The two **Liquid Glass** looks now differ the way iOS does. iOS 26 sets Glassé's iOS 26 look: a soft blur that fades out under the top bar and behind the tab bar. iOS 27 sets Glassé's iOS 27 look: a solid blurred band with a hairline under the top bar once you scroll, and the same band behind the tab bar only while there is more content below it. Its glass also has a more defined edge with less drop shadow, and lighter glass in dark mode. The Clear and Tinted transparency choices now change the glass visibly. Before this, both looks used Glassé's default look and looked almost the same. Android.
+
 ## 2.9.0-alpha.18 — 2026-11-08
 
 ### Added

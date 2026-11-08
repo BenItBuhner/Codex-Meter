@@ -127,10 +127,12 @@ public final class CodexGlass {
         KTheme t = Kit.useTheme();
         int version = useSource(kit, src);
         State<Boolean> past = R.useState(false);
+        State<Boolean> below = R.useState(true);
         State<Boolean> min = R.useState(false);
         State<Boolean> more = R.useState(false);
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> {
             past.set(y > 46);
+            below.set(contentBelow(y, s));
             min.set(s.minimized);
         });
 
@@ -138,6 +140,7 @@ public final class CodexGlass {
         String selected = src.selectedTab();
         R.useEffectRun(R.deps(selected), () -> {
             past.set(false);
+            below.set(true);
             min.set(false);
         });
         GlassModel.Dashboard d = src.dashboard();
@@ -184,12 +187,8 @@ public final class CodexGlass {
                 GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", 16, "tail", 150,
                         "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
                         "refreshing", src.refreshing()), body.toArray()),
-                EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
-                // iOS 27-inspired: once content scrolls under the floating bars, the bar's own band
-                // gets an even backdrop (a second fade over just the bar) instead of only the soft fade.
-                GlassLook.uniformToolbar() ? EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg,
-                        "shown", past.get())) : null,
-                EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
+                topEdge(t, bg, past.get()),
+                bottomEdge(t, bg, below.get()),
                 GlassNavBar(P.of("title", d.title, "titleVisible", past.get(), "trailing", trailing)),
                 kitTabs.size() >= 2 ? GlassTabBar(P.of(
                         "key", tabKey.toString(),
@@ -323,6 +322,91 @@ public final class CodexGlass {
         }
     }
 
+    /** True while there is content under the bottom bars (the list can still scroll down). */
+    private static boolean contentBelow(double y, com.benitbuhner.glasse.ui.Scroller s) {
+        Double max = s.max.invoke();
+        return max == null || max - y > 8;
+    }
+
+    /**
+     * The top scroll edge. iOS 26-inspired: a progressive blur (strongest under the bar, easing to
+     * nothing) under Glassé's progressive fade, which is only a colour ramp on its own. iOS
+     * 27-inspired: Glassé's "rect" edge, a uniform blurred band just the height of the bar with a
+     * hairline under it, shown once content scrolls under the floating bar.
+     */
+    static El topEdge(KTheme t, double[] bg, boolean past) {
+        if (GlassLook.hardEdges()) {
+            return EdgeFade(P.of("edge", "top", "effect", "rect", "h", t.T + 56, "color", bg, "shown", past));
+        }
+        double h = t.T + 92;
+        return Box(P.of("abs", true, "left", 0, "right", 0, "top", 0, "h", h, "pointerEvents", "none"),
+                past ? progressiveBlur(true) : null,
+                EdgeFade(P.of("edge", "top", "effect", "progressive", "h", h, "color", bg, "shown", past)));
+    }
+
+    /**
+     * The bottom scroll edge. iOS 26-inspired: always the soft progressive blur and fade behind the
+     * tab bar. iOS 27-inspired: no fade; a uniform band behind the bar only while content runs
+     * under it, gone at the end of the list. Glassé's "rect" edge has no bottom variant, so the
+     * band is drawn here with the same blur, tint and hairline it uses at the top.
+     */
+    static El bottomEdge(KTheme t, double[] bg, boolean contentBelow) {
+        if (GlassLook.hardEdges()) {
+            if (!contentBelow) {
+                return null;
+            }
+            boolean dark = "dark".equals(t.scheme);
+            String tint = "rgba(" + (int) Math.round(bg[0] * 255) + "," + (int) Math.round(bg[1] * 255) + ","
+                    + (int) Math.round(bg[2] * 255) + "," + (dark ? "0.7" : "0.82") + ")";
+            String hair = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.11)";
+            return Draw(P.of("abs", true, "left", 0, "right", 0, "bottom", 0, "h", t.B + 84,
+                    "pointerEvents", "none", "tint", tint, "hair", hair,
+                    "draw", (NodeDraw) (cv, w, h, n, ax, ay) -> {
+                        cv.save();
+                        cv.clipRect(Sk.rect(0, 0, w, h));
+                        Sk.INSTANCE.saveLayer(cv, null, Sk.rect(0, 0, w, h), BAND_BLUR);
+                        cv.restore();
+                        cv.drawRect(Sk.rect(0, 0, w, h), Sk.paint(Sk.color(n.props.s("tint"))));
+                        cv.drawRect(Sk.rect(0, 0, w, 1), Sk.paint(Sk.color(n.props.s("hair"))));
+                        cv.restore();
+                    }));
+        }
+        double h = t.B + 110;
+        return Box(P.of("abs", true, "left", 0, "right", 0, "bottom", 0, "h", h, "pointerEvents", "none"),
+                progressiveBlur(false),
+                EdgeFade(P.of("edge", "bottom", "effect", "progressive", "h", h, "color", bg)));
+    }
+
+    private static final org.jetbrains.skia.ImageFilter BAND_BLUR =
+            org.jetbrains.skia.ImageFilter.Companion.makeBlur(10f, 10f, org.jetbrains.skia.FilterTileMode.CLAMP,
+                    null, null);
+    private static final int BLUR_STEPS = 8;
+    private static final org.jetbrains.skia.ImageFilter[] STEP_BLUR = new org.jetbrains.skia.ImageFilter[BLUR_STEPS];
+    static {
+        for (int i = 0; i < BLUR_STEPS; i++) {
+            float r = 12f * (1f - i / (float) BLUR_STEPS);
+            STEP_BLUR[i] = org.jetbrains.skia.ImageFilter.Companion.makeBlur(r, r,
+                    org.jetbrains.skia.FilterTileMode.CLAMP, null, null);
+        }
+    }
+
+    /** A blur that is strongest at the screen edge and steps down to nothing across the box. */
+    private static El progressiveBlur(boolean top) {
+        return Draw(P.of("fill", true, "abs", true, "left", 0, "right", 0, "top", 0, "bottom", 0,
+                "pointerEvents", "none",
+                "draw", (NodeDraw) (cv, w, h, n, ax, ay) -> {
+                    double step = h / BLUR_STEPS;
+                    for (int i = 0; i < BLUR_STEPS; i++) {
+                        double y0 = top ? i * step : h - (i + 1) * step;
+                        cv.save();
+                        cv.clipRect(Sk.rect(0, y0, w, step));
+                        Sk.INSTANCE.saveLayer(cv, null, Sk.rect(0, y0, w, step), STEP_BLUR[i]);
+                        cv.restore();
+                        cv.restore();
+                    }
+                }));
+    }
+
     /**
      * A usage window: its name and reset time, what's left in large type with a ring gauge, a
      * capsule bar, and the pace as a row of its own (orange when it runs out early).
@@ -416,10 +500,14 @@ public final class CodexGlass {
         String start = props.s("start");
         State<List<String>> stack = R.useState(Collections.singletonList(start != null ? start : ROOT));
         State<Boolean> past = R.useState(false);
+        State<Boolean> below = R.useState(true);
         State<String> query = R.useState("");
         // the page whose reorderable lists are in edit mode (≡ handles), "" for none
         State<String> editing = R.useState("");
-        OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> past.set(y > 46));
+        OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> {
+            past.set(y > 46);
+            below.set(contentBelow(y, s));
+        });
         OnStr push = R.useMemo(R.deps(), () -> (OnStr) id -> stack.update(s -> {
             List<String> n = new ArrayList<>(s);
             n.add(id);
@@ -431,6 +519,7 @@ public final class CodexGlass {
         String top = pages.get(pages.size() - 1);
         R.useEffectRun(R.deps(top), () -> {
             past.set(false);
+            below.set(true);
             src.shown(top);
         });
         R.useEffectRun(R.deps(version), () -> {
@@ -489,12 +578,8 @@ public final class CodexGlass {
         double[] bg = t.pal.groupedRGB;
         return Box(P.of("fill", true, "bg", t.pal.grouped),
                 Stack(P.of("onPop", pop, "bg", t.pal.grouped), els),
-                EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
-                // iOS 27-inspired: once content scrolls under the floating bars, the bar's own band
-                // gets an even backdrop (a second fade over just the bar) instead of only the soft fade.
-                GlassLook.uniformToolbar() ? EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg,
-                        "shown", past.get())) : null,
-                EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
+                topEdge(t, bg, past.get()),
+                bottomEdge(t, bg, below.get()),
                 GlassNavBar(P.of("title", titleOf(src, top), "titleVisible", sub || past.get(),
                         "trailing", actions.isEmpty() ? null : actions,
                         "onBack", (Runnable) () -> {
