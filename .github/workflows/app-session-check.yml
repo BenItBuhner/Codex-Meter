@@ -1,0 +1,183 @@
+name: Show in AI apps check
+
+# Installs the debug app plus two code-free stand-in apps that use the ChatGPT and Claude package
+# names, turns on app detection, and checks the live notification appears while each is open and
+# goes when it is left: from a cold start, after opening Codex Meter itself, and after the app is
+# reinstalled in place (an update). Records the run; fails if any step fails.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/project-thread-3j2kcp-nowbar-*']
+  pull_request:
+    branches: [alpha, main]
+    paths: ['.github/workflows/app-session-check.yml', '.github/app-session-shots/**',
+            'android/app/src/main/java/dev/bennett/codexmeter/AppSession*.java',
+            'android/app/src/main/java/dev/bennett/codexmeter/NowBar*.java',
+            'android/app/src/main/java/dev/bennett/codexmeter/MainActivity.java',
+            'android/app/src/main/AndroidManifest.xml']
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android SDK platforms
+        shell: bash
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Add the debug-only sample-data seeder
+        shell: bash
+        run: |
+          set -euo pipefail
+          DBG=android/app/src/debug
+          cp .github/app-session-shots/DebugSeedActivity.java "$DBG/java/dev/bennett/codexmeter/"
+          python3 - "$DBG/AndroidManifest.xml" <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p).read()
+          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.DebugSeedActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay"/>\n    </application>')
+          open(p, 'w').write(s)
+          PY
+
+      - name: Build debug APK and stand-in apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          bash .github/app-session-shots/make-stub.sh com.anthropic.claude "Claude (test stand-in)" "$RUNNER_TEMP/claude.apk"
+          bash .github/app-session-shots/make-stub.sh com.openai.chatgpt "ChatGPT (test stand-in)" "$RUNNER_TEMP/chatgpt.apk"
+          cd android
+          for i in 1 2 3; do
+            ./gradlew --no-daemon :app:assembleDebug && exit 0
+            sleep $((i * 15))
+          done
+          exit 1
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Write check script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/check.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          PKG=dev.bennett.codexmeter
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          OUT="$GITHUB_WORKSPACE/shots"
+          mkdir -p "$OUT"
+          adb install -r "$APK"
+          adb install -r "$RUNNER_TEMP/claude.apk"
+          adb install -r "$RUNNER_TEMP/chatgpt.apk"
+          adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
+          adb shell cmd connectivity airplane-mode enable || true
+          adb shell settings put global hide_error_dialogs 1 || true
+          shot() { sleep "${2:-1}"; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
+          a11y_on() {
+            adb shell appops set $PKG ACCESS_RESTRICTED_SETTINGS allow || true
+            adb shell settings put secure enabled_accessibility_services $PKG/dev.bennett.codexmeter.AppSessionService
+            adb shell settings put secure accessibility_enabled 1
+            sleep 3
+          }
+          adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es open none
+          sleep 2
+          a11y_on
+          adb shell input keyevent HOME; sleep 2
+          present() { adb shell dumpsys notification --noredact | grep -q "pkg=$PKG.*id=8610"; }
+          await() {
+            local want=$1 t0=$(date +%s%3N) now got
+            for i in $(seq 1 120); do
+              if present; then got=shown; else got=hidden; fi
+              now=$(date +%s%3N)
+              if [[ $got == $want ]]; then echo "$((now - t0))"; return 0; fi
+              sleep 0.05
+            done
+            echo "TIMEOUT"; return 1
+          }
+          RESULTS="$OUT/results.md"
+          echo "| # | Step | Expected | Result | Seen after (ms) |" > "$RESULTS"
+          echo "|---|---|---|---|---|" >> "$RESULTS"
+          N=0; FAILS=0
+          step() {
+            local label="$1" want="$2"; shift 2
+            N=$((N + 1))
+            adb shell log -t CodexHarness "'step $N $want $label'"
+            "$@"
+            local ms; ms=$(await "$want")
+            local ok=PASS; [[ "$ms" == TIMEOUT ]] && { ok=FAIL; FAILS=$((FAILS + 1)); }
+            echo "| $N | $label | $want | $ok | $ms |" | tee -a "$RESULTS"
+          }
+          open_claude() { adb shell am start -n com.anthropic.claude/android.app.Activity >/dev/null; }
+          open_chatgpt() { adb shell am start -n com.openai.chatgpt/android.app.Activity >/dev/null; }
+          open_meter() { adb shell am start -W -n $PKG/.MainActivity >/dev/null; sleep 4; }
+          home() { adb shell input keyevent HOME; }
+          adb shell "screenrecord --time-limit 180 --size 540x1200 /sdcard/now-bar-apps.mp4" & REC=$!
+          sleep 2
+          step "Cold open Claude" shown open_claude
+          shot n01-claude 1
+          step "Home" hidden home
+          step "Open ChatGPT" shown open_chatgpt
+          shot n02-chatgpt 1
+          step "Home" hidden home
+          step "Open Codex Meter itself" hidden open_meter
+          shot n03-codex-meter 0
+          step "Home" hidden home
+          step "Open Claude after Codex Meter" shown open_claude
+          shot n04-claude-after-meter 1
+          step "Home" hidden home
+          # An update: the same APK installed in place, as the in-app updater does.
+          adb install -r "$APK"; sleep 4
+          adb shell settings get secure enabled_accessibility_services | tee "$OUT/a11y-after-update.txt"
+          step "Open Claude after an update" shown open_claude
+          shot n05-claude-after-update 1
+          step "Home" hidden home
+          step "Open Codex Meter after the update" hidden open_meter
+          step "Home" hidden home
+          step "Open ChatGPT after opening Codex Meter" shown open_chatgpt
+          shot n06-chatgpt-after-update 1
+          step "Home" hidden home
+          sleep 1
+          adb shell pkill -INT screenrecord; wait $REC 2>/dev/null; sleep 2
+          adb pull /sdcard/now-bar-apps.mp4 "$OUT/now-bar-apps.mp4" >/dev/null || true
+          adb logcat -d -v threadtime | grep -E "CodexAppSession|CodexNowBar|CodexHarness|DiagnosticLog|FATAL|AndroidRuntime" > "$OUT/logcat.txt" || true
+          cat "$RESULTS"
+          echo "$FAILS failed" | tee -a "$RESULTS"
+          [[ $FAILS == 0 ]]
+          SH
+          chmod +x "$RUNNER_TEMP/check.sh"
+
+      - name: Run the check on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          script: bash ${{ runner.temp }}/check.sh
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: now-bar-apps
+          path: shots/
+          if-no-files-found: warn
+          retention-days: 14
