@@ -21,6 +21,13 @@ public final class SecureTokenStore {
     private static final String KEY_ALIAS = "codex_meter_auth_key_v1";
     private static final String KEY_BLOB = "blob";
     private static final Object LOCK = new Object();
+    /**
+     * Whether each provider has usable tokens, by prefs file. Asking means a Keystore decrypt,
+     * which the screens did on the main thread for every provider on every redraw; the answer only
+     * changes on save and clear, which keep it current.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Boolean> SIGNED_IN =
+            new java.util.concurrent.ConcurrentHashMap<>();
     private static final String PREFS = "secure_auth_v1";
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
 
@@ -45,7 +52,8 @@ public final class SecureTokenStore {
     }
 
     public static boolean isSignedIn(Context context, UsageProvider provider) {
-        return load(context, provider) != null;
+        Boolean known = SIGNED_IN.get(prefsName(provider));
+        return known != null ? known : load(context, provider) != null;
     }
 
     /** Each provider gets its own prefs file and Keystore key so sign-outs never cross over. */
@@ -70,6 +78,7 @@ public final class SecureTokenStore {
             if (!context.getSharedPreferences(prefsName(provider), 0).edit().putString(KEY_BLOB, jSONObject.toString()).commit()) {
                 throw new Exception("Could not persist encrypted credentials.");
             }
+            SIGNED_IN.put(prefsName(provider), authTokens.isUsable());
         }
     }
 
@@ -95,12 +104,14 @@ public final class SecureTokenStore {
                     sharedPreferences.edit().remove(KEY_BLOB).commit();
                 }
             }
+            SIGNED_IN.put(prefsName(provider), authTokens != null);
         }
         return authTokens;
     }
 
     public static void clear(Context context, UsageProvider provider) {
         synchronized (LOCK) {
+            SIGNED_IN.put(prefsName(provider), false);
             context.getSharedPreferences(prefsName(provider), 0).edit().clear().commit();
             try {
                 KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");

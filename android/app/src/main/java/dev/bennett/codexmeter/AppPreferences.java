@@ -118,11 +118,26 @@ public final class AppPreferences {
         prefs(context).edit().remove(KEY_ERROR).remove(KEY_ERROR_AT).apply();
     }
 
+    /**
+     * The last parsed history for each key with the text it came from. The screens read every
+     * meter's history on every redraw; parsing hundreds of samples each time stalled the main
+     * thread. UsageHistory is immutable, so the parsed copy is shared until the text changes.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Object[]> HISTORY_CACHE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     public static UsageHistory loadUsageHistory(Context context, String kind) {
-        String stored = prefs(context).getString(historyKey(kind), null);
+        String key = historyKey(kind);
+        String stored = prefs(context).getString(key, null);
         if (stored == null || stored.isEmpty()) return UsageHistory.empty(kind);
+        Object[] cached = HISTORY_CACHE.get(key);
+        if (cached != null && cached[0] == stored) {
+            return (UsageHistory) cached[1];
+        }
         try {
-            return UsageHistory.fromJson(new JSONObject(stored), kind);
+            UsageHistory parsed = UsageHistory.fromJson(new JSONObject(stored), kind);
+            HISTORY_CACHE.put(key, new Object[] {stored, parsed});
+            return parsed;
         } catch (Exception ignored) {
             return UsageHistory.empty(kind);
         }

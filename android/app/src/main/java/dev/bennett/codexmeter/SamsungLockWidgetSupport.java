@@ -133,7 +133,23 @@ final class SamsungLockWidgetSupport {
         }
     }
 
+    /** Placed widgets, asked of AppWidgetManager at most every few seconds (an IPC per provider). */
+    private static volatile List<LockInstance> placedCache;
+    private static volatile long placedAt;
+
     static List<LockInstance> placedWidgets(Context context) {
+        long now = android.os.SystemClock.uptimeMillis();
+        List<LockInstance> cached = placedCache;
+        if (cached != null && now - placedAt < 5_000L) {
+            return new ArrayList<>(cached);
+        }
+        List<LockInstance> fresh = placedWidgetsNow(context);
+        placedCache = fresh;
+        placedAt = now;
+        return new ArrayList<>(fresh);
+    }
+
+    private static List<LockInstance> placedWidgetsNow(Context context) {
         ArrayList arrayList = new ArrayList();
         if (context != null) {
             Context contextApplication = application(context);

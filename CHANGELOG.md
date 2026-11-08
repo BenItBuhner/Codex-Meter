@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- **Liquid Glass freezes**: the screens redraw on almost every change, and each redraw did slow work on the main thread. It decrypted every provider's sign-in through the Android Keystore, asked the system for the app's own version, re-read every meter's usage history from scratch, and asked for placed lock-screen widgets. Each answer is now kept until it changes. Scheduling background refreshes, update checks, widget repair and the Wear sync at launch and when leaving the app no longer blocks the screen either; it runs on a background thread. The update screen redrew the whole app for every 8 KB downloaded and now redraws at most once per percent. Android.
 - Claude Code no longer says "No 5-hour limit on this plan". While no session is running, Claude lists the 5-hour limit with no number, and the app read that as a plan without one; it now shows the 5-hour limit as unused. Android.
 
 ## 2.9.0-alpha.19 — 2026-11-08

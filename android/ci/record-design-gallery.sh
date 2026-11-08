@@ -170,6 +170,91 @@ priority_scenes() {
   done
 }
 
+# Taps the view with text or description $1, scrolling down up to three times to find it.
+tap_scroll() {
+  local k
+  for k in 0 1 2 3; do
+    if tap_desc "$1" 2>/dev/null; then return 0; fi
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 400
+    sleep 1
+  done
+  echo "no view for $1" >&2
+  return 1
+}
+
+# Main-thread stalls logged by the debug build's MainThreadWatch since the last call, as
+# "<count> stalls, <total> ms, worst <ms> ms" (and the gfxinfo jank line).
+stall_report() {
+  adb logcat -d -s MainThreadWatch:W > "$OUT/stalls-$1.txt" || true
+  python3 - "$OUT/stalls-$1.txt" "$1" <<'PY' | tee -a "$OUT/perf-summary.txt"
+import re, sys
+text = open(sys.argv[1], errors="replace").read()
+stalls = [int(m) for m in re.findall(r"stall (\d+)ms", text)]
+print(f"{sys.argv[2]}: {len(stalls)} stalls, {sum(stalls)} ms, worst {max(stalls) if stalls else 0} ms")
+PY
+  adb shell dumpsys gfxinfo "$PKG" | grep -E "Total frames|Janky frames|percentile" | sed "s/^/  /" | tee -a "$OUT/perf-summary.txt" || true
+  adb logcat -c || true
+  adb shell dumpsys gfxinfo "$PKG" reset >/dev/null || true
+}
+
+# Liquid Glass navigation pass for frame timing: Settings and each of its pages and back, the
+# dashboard tabs, Updates with a check, and back home. Recorded on video, with each step's
+# main-thread stalls (MainThreadWatch, debug builds) and gfxinfo jank in perf-summary.txt.
+perf_scenes() {
+  THEME=light
+  demo
+  sleep 8
+  adb logcat -c || true
+  adb shell dumpsys gfxinfo "$PKG" reset >/dev/null || true
+  adb shell screenrecord --time-limit 180 /sdcard/perf.mp4 &
+  local rec=$!
+  sleep 2
+  local page
+  for k in 1 2; do
+    { tap_tab $k 4 && sleep 2; } || true
+  done
+  { tap_tab 0 4 && sleep 2; } || true
+  stall_report tabs
+  tap_desc "More" || true; sleep 1.5
+  tap_desc "Settings" || true; sleep 3
+  stall_report open-settings
+  adb exec-out uiautomator dump /dev/tty > "$OUT/settings-ui.xml" 2>/dev/null || true
+  for page in "Accounts" "Dashboard tabs" "Notifications" "Lock screen widgets" "Refresh & dashboard" \
+      "Appearance" "Updates" "Privacy" "About Codex Meter"; do
+    if tap_scroll "$page"; then
+      sleep 2.5
+      shot "perf-$(echo "$page" | tr -c 'a-zA-Z' '-')" 0
+      adb shell input keyevent KEYCODE_BACK
+      sleep 2
+    fi
+    stall_report "page-$(echo "$page" | tr -c 'a-zA-Z' '-')"
+  done
+  adb shell input keyevent KEYCODE_BACK; sleep 3
+  stall_report back-home
+  tap_desc "More" || true; sleep 1.5
+  tap_desc "Settings" || true; sleep 3
+  if tap_scroll "Updates"; then
+    sleep 2
+    tap_scroll "Check for updates" || true
+    sleep 8
+    shot perf-update 0
+    adb shell input keyevent KEYCODE_BACK; sleep 2
+    adb shell input keyevent KEYCODE_BACK; sleep 2
+  fi
+  adb shell input keyevent KEYCODE_BACK; sleep 3
+  stall_report update
+  kill -INT "$rec" 2>/dev/null || true
+  wait "$rec" || true
+  sleep 2
+  adb pull /sdcard/perf.mp4 "$OUT/perf-light.mp4" >/dev/null && echo "Saved perf-light.mp4"
+}
+
+if [[ "$SCENES" == perf ]]; then
+  perf_scenes
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
+
 if [[ "$SCENES" == priority ]]; then
   priority_scenes
   adb logcat -d -b crash > "$OUT/crash-log.txt" || true

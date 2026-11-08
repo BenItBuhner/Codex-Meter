@@ -202,15 +202,23 @@ public final class UpdatePreferences {
                 channel(context));
     }
 
+    /** The running app's version can't change while it runs; asking PackageManager is an IPC. */
+    private static volatile String installedVersion;
+
     public static String installedVersion(Context context) {
-        try {
-            String version = context.getPackageManager()
-                    .getPackageInfo(context.getPackageName(), 0).versionName;
-            return version == null || version.trim().isEmpty()
-                    ? AppConstants.VERSION_NAME : version;
-        } catch (Exception exception) {
-            return AppConstants.VERSION_NAME;
+        String cached = installedVersion;
+        if (cached != null) {
+            return cached;
         }
+        String version;
+        try {
+            version = context.getPackageManager()
+                    .getPackageInfo(context.getPackageName(), 0).versionName;
+        } catch (Exception exception) {
+            version = null;
+        }
+        installedVersion = version == null || version.trim().isEmpty() ? AppConstants.VERSION_NAME : version;
+        return installedVersion;
     }
 
     public static void setInstallError(Context context, String error) {
