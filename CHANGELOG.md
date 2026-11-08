@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.18 — 2026-11-08
+
 ### Added
 
 - A **Material 3 Expressive** design in Settings › Appearance › App design, alongside One UI 8.5, One UI 9 and both Liquid Glass looks. Its dashboard uses Google's Material Components Expressive views: a large header, rounded cards with wavy usage bars, a loading indicator while refreshing, and a floating toolbar of provider tabs. It shows the same cards as the other designs. Material You and light, dark or system theme work with it as they do elsewhere. For now Settings and the other pages open in their One UI form. Android.
@@ -12,6 +14,7 @@
 - Liquid Glass has **Reduce transparency** and **Increase contrast** switches under Settings › Appearance, in both looks. Increase contrast starts on when Android's own contrast setting is high. Android.
 - **Model speed reference** on the Codex, Claude Code and Grok tabs: pick a model and see its public throughput, latency and uptime on OpenRouter over the last 30 minutes, refreshed about every 45 minutes while the app is open. Figures OpenRouter hasn't measured read "Insufficient data". These are OpenRouter's numbers for the model, not your subscription's speed: the app sends no test prompts and has no timing of your own requests. Hide the card from its model picker or Settings › Refresh & dashboard › Model speed reference. Android.
 - Service status on the dashboard. When the official status page reports a problem with a component the provider depends on, such as Claude Code (not the Claude API) or Grok Bot, a card above the meters names that component and the incident, and tapping it opens the status page. It uses OpenAI's, Anthropic's and Cursor's own status feeds and SpaceXSI's incident feed for Grok, checked about every 5 minutes while the app is open and never in the background. If a feed can't be read, the app treats the status as unknown and doesn't call it an outage. Antigravity has no official status feed, so it shows none. Android.
+- The Windows tray now follows SpaceXSI's Grok desktop app (Grok Bot) while it is in front, as it already did for ChatGPT or Codex, Claude and Cursor. It recognizes the app by its process name, written with or without a space, and otherwise by the app's product or publisher name (Anthropic, Anysphere, SpaceXAI or xAI). Unrelated apps with similar names, such as "Claudette" or "Precursor", don't match. Windows.
 
 ### Changed
 
