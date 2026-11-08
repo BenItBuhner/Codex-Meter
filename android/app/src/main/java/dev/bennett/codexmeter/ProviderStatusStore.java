@@ -127,6 +127,22 @@ public final class ProviderStatusStore {
         return reparse(context, provider, body, now);
     }
 
+    /**
+     * Debug builds' demo only: stores {@code body} as {@code provider}'s feed, fetched now, so the
+     * dashboard shows it without a network request for the next poll interval.
+     */
+    static void seedFeedForDemo(Context context, UsageProvider provider, String body) {
+        ProviderStatusSources.Source source = ProviderStatusSources.forProvider(provider);
+        if (source == null) {
+            return;
+        }
+        String key = StatusPollPolicy.feedKey(source.feedUrl);
+        long now = System.currentTimeMillis();
+        prefs(context).edit().putString(key + "_body", body).putLong(key + "_fetched", now)
+                .putLong(key + "_attempt", now).putInt(key + "_failures", 0).commit();
+        reparse(context, provider, body, now);
+    }
+
     /** {@code checkedAt}: when the feed body was last fetched, which the card shows. */
     private static boolean reparse(Context context, UsageProvider provider, String body, long checkedAt) {
         if (body == null) {

@@ -153,6 +153,21 @@ for THEME in light dark; do
   { tap_desc "Clear local history" && shot "$THEME-17-alert" 4; } || true
 done
 
+# Review scenes: a (made-up) Claude Code incident with the Priority view, the dashboard scrolled
+# down to the model speed card, and Claude Code on an Ultra plan with no 5-hour limit.
+for THEME in light dark; do
+  demo --ez demo_incident true
+  shot "$THEME-20-incident" 8
+  for k in 1 2 3 4; do
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+    shot "$THEME-21-scroll-$k" 2
+  done
+  demo --ez demo_incident true --es claude_scenario ultra
+  shot "$THEME-22-claude-ultra" 6
+  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+  shot "$THEME-23-claude-ultra-scrolled" 2
+done
+
 # One take in light: dashboard, menu open and closed, provider tabs, scrolling.
 THEME=light
 demo

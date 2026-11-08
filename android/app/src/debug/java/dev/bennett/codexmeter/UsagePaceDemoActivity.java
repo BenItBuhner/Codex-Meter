@@ -135,6 +135,20 @@ public final class UsagePaceDemoActivity extends Activity {
             if (getIntent().getBooleanExtra("demo_providers", false)) {
                 seedProviders(now);
             }
+            if (getIntent().getBooleanExtra("demo_incident", false)) {
+                // A made-up Claude Code incident, so screenshots can show the status card.
+                ProviderStatusStore.seedFeedForDemo(this, UsageProvider.CLAUDE_CODE,
+                        "{\"page\":{\"name\":\"Claude\"},\"components\":["
+                        + "{\"name\":\"claude.ai\",\"status\":\"operational\"},"
+                        + "{\"name\":\"Claude API (api.anthropic.com)\",\"status\":\"operational\"},"
+                        + "{\"name\":\"Claude Code\",\"status\":\"partial_outage\"}],"
+                        + "\"incidents\":[{\"name\":\"Demo: elevated errors in Claude Code\","
+                        + "\"status\":\"investigating\",\"impact\":\"major\","
+                        + "\"shortlink\":\"https://status.claude.com\","
+                        + "\"started_at\":\"" + java.time.Instant.ofEpochMilli(now - 1_500_000L)
+                        + "\",\"components\":[{\"name\":\"Claude Code\","
+                        + "\"status\":\"partial_outage\"}]}],\"scheduled_maintenances\":[]}");
+            }
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
             boolean livePreview = getIntent().getBooleanExtra("start_live_preview", false);
