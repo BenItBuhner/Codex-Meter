@@ -42,6 +42,11 @@ shot() {
   echo "Saved $1.png"
 }
 
+# Taps at fractions ($1, $2) of the screen.
+at() {
+  adb shell input tap "$(python3 -c "print(round($1 * $W))")" "$(python3 -c "print(round($2 * $H))")"
+}
+
 demo() {
   adb shell am force-stop "$PKG"
   adb shell am start -W -n "$DEMO" --es design "$DESIGN" --es theme "$THEME" \
@@ -183,7 +188,7 @@ tap_scroll() {
 }
 
 # Main-thread stalls logged by the debug build's MainThreadWatch since the last call, as
-# "<count> stalls, <total> ms, worst <ms> ms" (and the gfxinfo jank line).
+# "<count> stalls, <total> ms, worst <ms> ms".
 stall_report() {
   adb logcat -d -s MainThreadWatch:W > "$OUT/stalls-$1.txt" || true
   python3 - "$OUT/stalls-$1.txt" "$1" <<'PY' | tee -a "$OUT/perf-summary.txt"
@@ -192,59 +197,58 @@ text = open(sys.argv[1], errors="replace").read()
 stalls = [int(m) for m in re.findall(r"stall (\d+)ms", text)]
 print(f"{sys.argv[2]}: {len(stalls)} stalls, {sum(stalls)} ms, worst {max(stalls) if stalls else 0} ms")
 PY
-  adb shell dumpsys gfxinfo "$PKG" | grep -E "Total frames|Janky frames|percentile" | sed "s/^/  /" | tee -a "$OUT/perf-summary.txt" || true
   adb logcat -c || true
-  adb shell dumpsys gfxinfo "$PKG" reset >/dev/null || true
 }
 
-# Liquid Glass navigation pass for frame timing: Settings and each of its pages and back, the
-# dashboard tabs, Updates with a check, and back home. Recorded on video, with each step's
-# main-thread stalls (MainThreadWatch, debug builds) and gfxinfo jank in perf-summary.txt.
+# Liquid Glass navigation pass for main-thread stalls: the tabs, Settings and each of its pages and back, the
+# dashboard tabs, back home, and the update screen from the dashboard banner. Recorded on video, with each step's
+# main-thread stalls (MainThreadWatch, debug builds) in perf-summary.txt. (gfxinfo sees no frames:
+# Glassé draws through Skia.)
 perf_scenes() {
   THEME=light
   demo
   sleep 8
   adb logcat -c || true
-  adb shell dumpsys gfxinfo "$PKG" reset >/dev/null || true
   adb shell screenrecord --time-limit 180 /sdcard/perf.mp4 &
   local rec=$!
   sleep 2
-  local page
-  for k in 1 2; do
-    { tap_tab $k 4 && sleep 2; } || true
+  # Glassé draws the whole screen on one surface, so nothing is in the accessibility tree:
+  # every tap is by position, as fractions of the screen (measured on a 1080x2400 phone), and
+  # every step leaves a shot so the pass shows where it went.
+  local k row
+  for k in 0.39 0.61 0.84 0.16 0.39; do
+    at "$k" 0.922; sleep 2.5
   done
-  { tap_tab 0 4 && sleep 2; } || true
+  shot perf-01-tabs 0
   stall_report tabs
-  tap_desc "More" || true; sleep 1.5
-  tap_desc "Settings" || true; sleep 3
+  at 0.906 0.091; sleep 3
+  shot perf-02-settings 0
   stall_report open-settings
-  adb exec-out uiautomator dump /dev/tty > "$OUT/settings-ui.xml" 2>/dev/null || true
-  for page in "Accounts" "Dashboard tabs" "Notifications" "Lock screen widgets" "Refresh & dashboard" \
-      "Appearance" "Updates" "Privacy" "About Codex Meter"; do
-    if tap_scroll "$page"; then
-      sleep 2.5
-      shot "perf-$(echo "$page" | tr -c 'a-zA-Z' '-')" 0
-      adb shell input keyevent KEYCODE_BACK
-      sleep 2
-    fi
-    stall_report "page-$(echo "$page" | tr -c 'a-zA-Z' '-')"
+  for row in "Accounts:0.242" "Dashboard-tabs:0.300" "Notifications:0.465" "Lock-screen-widgets:0.522" \
+      "Refresh-and-dashboard:0.629" "Appearance:0.745" "Updates:0.851"; do
+    at 0.4 "${row#*:}"; sleep 2.5
+    shot "perf-03-${row%%:*}" 0
+    adb shell input keyevent KEYCODE_BACK; sleep 2
+    stall_report "page-${row%%:*}"
+  done
+  for k in 1 2; do adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 400; sleep 1; done
+  shot perf-04-settings-bottom 0
+  for row in "Privacy:0.747" "About:0.828"; do
+    at 0.4 "${row#*:}"; sleep 2.5
+    shot "perf-05-${row%%:*}" 0
+    adb shell input keyevent KEYCODE_BACK; sleep 2
+    stall_report "page-${row%%:*}"
   done
   adb shell input keyevent KEYCODE_BACK; sleep 3
+  shot perf-06-back-home 0
   stall_report back-home
-  tap_desc "More" || true; sleep 1.5
-  tap_desc "Settings" || true; sleep 3
-  if tap_scroll "Updates"; then
-    sleep 2
-    tap_scroll "Check for updates" || true
-    sleep 8
-    shot perf-update 0
-    adb shell input keyevent KEYCODE_BACK; sleep 2
-    adb shell input keyevent KEYCODE_BACK; sleep 2
-  fi
+  # The update flow: the dashboard's "Review update" banner (demo data offers 2.8.0), then back.
+  at 0.5 0.37; sleep 4
+  shot perf-07-update 0
   adb shell input keyevent KEYCODE_BACK; sleep 3
+  shot perf-08-home-again 0
   stall_report update
   kill -INT "$rec" 2>/dev/null || true
-  wait "$rec" || true
   sleep 2
   adb pull /sdcard/perf.mp4 "$OUT/perf-light.mp4" >/dev/null && echo "Saved perf-light.mp4"
 }
