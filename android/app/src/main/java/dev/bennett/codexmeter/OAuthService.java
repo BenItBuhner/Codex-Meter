@@ -51,7 +51,19 @@ public final class OAuthService extends Service {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ServerSocket serverSocket;
-    private volatile boolean cancelled;
+    /**
+     * One sign-in attempt. The service runs at most one at a time; cancelling or replacing an
+     * attempt marks it cancelled for good, so its thread stops even after a new attempt starts
+     * (a single shared flag used to be reset by the next attempt and revive the old loop).
+     */
+    private static final class Attempt {
+        volatile boolean cancelled;
+    }
+
+    /** The attempt the service is running, or null when idle. */
+    private volatile Attempt current;
+    /** The attempt the calling flow thread belongs to; null on the main thread. */
+    private final ThreadLocal<Attempt> mine = new ThreadLocal<>();
     private volatile UsageProvider provider = UsageProvider.CODEX;
 
     @Override
@@ -87,14 +99,17 @@ public final class OAuthService extends Service {
             return START_NOT_STICKY;
         }
         if (running.compareAndSet(false, true)) {
-            cancelled = false;
+            Attempt attempt = new Attempt();
+            this.current = attempt;
             provider = requested;
             ProviderPreferences.setPendingSignIn(this, requested);
             startForegroundCompat(buildNotification("Preparing secure sign-in…", null));
-            executor.execute(new Runnable() {
-                @Override
-                public void run() {
+            executor.execute(() -> {
+                mine.set(attempt);
+                try {
                     runFlow();
+                } finally {
+                    mine.remove();
                 }
             });
         } else {
@@ -149,7 +164,7 @@ public final class OAuthService extends Service {
             updateNotification("Complete sign-in in your browser", authUrl);
             broadcastReady(authUrl);
 
-            while (!cancelled) {
+            while (!cancelled()) {
                 try {
                     browser = serverSocket.accept();
                 } catch (SocketTimeoutException timeout) {
@@ -246,7 +261,7 @@ public final class OAuthService extends Service {
                     // The callback connection may already be gone.
                 }
             }
-            if (!cancelled) {
+            if (!cancelled()) {
                 String message = cleanMessage(exception);
                 AppPreferences.setOAuthPending(this, false, "");
                 broadcastResult(false, message);
@@ -271,7 +286,7 @@ public final class OAuthService extends Service {
             AppPreferences.setOAuthPending(this, true, authUrl);
             updateNotification("Complete sign-in in your browser", authUrl);
             broadcastReady(authUrl);
-            AuthTokens tokens = CursorUsageApi.pollForTokens(this, login, () -> cancelled);
+            AuthTokens tokens = CursorUsageApi.pollForTokens(this, login, this::cancelled);
             updateNotification("Securing your Cursor session…", null);
             SecureTokenStore.save(this, flowProvider, tokens);
             credentialsCommitted = true;
@@ -298,7 +313,7 @@ public final class OAuthService extends Service {
                 ProviderPreferences.setLastError(this, flowProvider, cleanMessage(exception));
                 broadcastResult(true, "Signed in. Usage can be refreshed from the app.");
                 safeWidgetUpdate();
-            } else if (!cancelled) {
+            } else if (!cancelled()) {
                 broadcastResult(false, cleanMessage(exception));
             }
         }
@@ -327,7 +342,7 @@ public final class OAuthService extends Service {
                 updateNotification("Complete sign-in in your browser", authUrl);
                 broadcastReady(authUrl);
                 tokens = null;
-                while (!cancelled && tokens == null) {
+                while (!cancelled() && tokens == null) {
                     try {
                         browser = serverSocket.accept();
                     } catch (SocketTimeoutException timeout) {
@@ -426,7 +441,7 @@ public final class OAuthService extends Service {
                 ProviderPreferences.setLastError(this, flowProvider, cleanMessage(exception));
                 broadcastResult(true, "Connected. Usage can be refreshed from the app.");
                 safeWidgetUpdate();
-            } else if (!cancelled) {
+            } else if (!cancelled()) {
                 broadcastResult(false, cleanMessage(exception));
             }
         } finally {
@@ -443,9 +458,9 @@ public final class OAuthService extends Service {
                 + Math.min(code.expiresInSeconds, 30L * 60L) * 1000L;
         long interval = code.intervalSeconds;
         int failures = 0;
-        while (!cancelled) {
+        while (!cancelled()) {
             Thread.sleep(interval * 1000L);
-            if (cancelled) break;
+            if (cancelled()) break;
             if (android.os.SystemClock.elapsedRealtime() > deadline) {
                 throw new Exception("The code expired before it was entered. Start again.");
             }
@@ -611,8 +626,30 @@ public final class OAuthService extends Service {
         socket.getOutputStream().flush();
     }
 
+    /**
+     * True when the calling flow should stop: its attempt was cancelled or replaced by a newer
+     * one. On the main thread, true when no attempt is running.
+     */
+    private boolean cancelled() {
+        Attempt own = mine.get();
+        Attempt active = this.current;
+        if (own == null) {
+            return active == null || active.cancelled;
+        }
+        return own.cancelled || own != active;
+    }
+
+    /** A flow thread whose attempt was replaced must not touch the newer attempt's service state. */
+    private boolean superseded() {
+        Attempt own = mine.get();
+        return own != null && own != this.current;
+    }
+
     private void cancelFlow(String message, boolean broadcast) {
-        cancelled = true;
+        Attempt attempt = this.current;
+        if (attempt != null) {
+            attempt.cancelled = true;
+        }
         AppPreferences.setOAuthPending(this, false, "");
         closeServer();
         if (broadcast) {
@@ -622,6 +659,10 @@ public final class OAuthService extends Service {
     }
 
     private void finishService() {
+        if (superseded()) {
+            return;
+        }
+        this.current = null;
         running.set(false);
         try {
             stopForeground(STOP_FOREGROUND_REMOVE);
@@ -662,6 +703,9 @@ public final class OAuthService extends Service {
     }
 
     private void broadcastResult(boolean success, String message) {
+        if (superseded()) {
+            return;
+        }
         Intent intent = new Intent(AppConstants.ACTION_OAUTH_RESULT)
                 .setPackage(getPackageName())
                 .putExtra(EXTRA_PROVIDER, provider.id)

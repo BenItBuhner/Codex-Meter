@@ -969,3 +969,6 @@ grep -q 'One UI Watch' \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
 
 echo "Parser, updater, OAuth, onboarding, reset-credit, alert, widget, and Wear sync source checks passed."
+# Sign-in attempts: a cancelled or replaced attempt stays cancelled and can't stop the newer one.
+grep -q 'return own.cancelled || own != active;' "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
+grep -q 'if (superseded()) {' "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthService.java"
