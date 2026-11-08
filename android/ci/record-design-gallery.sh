@@ -22,6 +22,8 @@ mkdir -p "$OUT"
 adb wait-for-device
 until [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]]; do sleep 2; done
 adb shell settings put system screen_off_timeout 1800000 || true
+# A slow emulator's launcher sometimes hits an ANR, and its dialog covers every later shot.
+adb shell settings put global hide_error_dialogs 1 || true
 adb shell svc power stayon true || true
 adb shell settings put global window_animation_scale 1 || true
 adb shell settings put global transition_animation_scale 1 || true
