@@ -265,7 +265,7 @@ final class ExpressiveSettings {
         if (r.entries == null) {
             return;
         }
-        new MaterialAlertDialogBuilder(this.ctx)
+        new MaterialAlertDialogBuilder(this.ctx, R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                 .setTitle(r.title)
                 .setSingleChoiceItems(r.entries, r.selected, (dialog, which) -> {
                     dialog.dismiss();
@@ -284,7 +284,7 @@ final class ExpressiveSettings {
         FrameLayout box = new FrameLayout(this.ctx);
         box.setPadding(dp(24), dp(8), dp(24), 0);
         box.addView(field);
-        new MaterialAlertDialogBuilder(this.ctx)
+        new MaterialAlertDialogBuilder(this.ctx, R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                 .setTitle(r.title)
                 .setView(box)
                 .setPositiveButton("Save", (dialog, which) -> {
