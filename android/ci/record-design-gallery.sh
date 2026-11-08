@@ -9,7 +9,8 @@
 # design: liquid_glass (default), liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive,
 # one_ui_9 or classic. scenes: all (default), new_models for only the New models card (with a
 # relevant model, then with only irrelevant ones), the Notifications toggle and the Refresh note, or
-# priority for only the Priority tab (top to bottom, then a provider tab and back).
+# priority for only the Priority tab (top to bottom, then a provider tab and back), or menus for a pop-up
+# menu opened and closed on video.
 set -euo pipefail
 
 APK="${1:?debug APK required}"
@@ -169,6 +170,33 @@ priority_scenes() {
     fi
   done
 }
+
+# A pop-up menu (Settings, Refresh usage) opened and closed three times on video, light and dark, for
+# comparing menu motion. Saves menu-<theme>.mp4 and a shot with the menu open.
+menu_scenes() {
+  for THEME in light dark; do
+    demo --es open_settings_page refresh_usage
+    sleep 5
+    adb shell screenrecord --time-limit 16 "/sdcard/menu-$THEME.mp4" &
+    local rec=$!
+    sleep 2
+    for k in 1 2 3; do
+      tap_desc "Refresh usage" || true
+      if (( k == 3 )); then shot "$THEME-50-menu-open" 1.5; else sleep 1.5; fi
+      adb shell input keyevent KEYCODE_BACK
+      sleep 1.5
+    done
+    wait "$rec" || true
+    sleep 2
+    adb pull "/sdcard/menu-$THEME.mp4" "$OUT/menu-$THEME.mp4" >/dev/null && echo "Saved menu-$THEME.mp4"
+  done
+}
+
+if [[ "$SCENES" == menus ]]; then
+  menu_scenes
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
 
 if [[ "$SCENES" == priority ]]; then
   priority_scenes
