@@ -208,6 +208,16 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem edit = menu.findItem(MENU_REORDER);
+        if (edit != null) {
+            // The Priority page has no layout of its own to edit.
+            edit.setVisible(!this.onPriority);
+        }
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == MENU_SETTINGS) {
             DiagnosticLog.info(this, "user", "settings_opened");
@@ -669,6 +679,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (this.onPriority != on) {
             this.onPriority = on;
             PriorityPrefs.setTabSelected(this, on);
+            invalidateOptionsMenu();
         }
     }
 
