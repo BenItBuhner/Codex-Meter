@@ -265,15 +265,55 @@ final class ExpressiveSettings {
         if (r.entries == null) {
             return;
         }
-        new MaterialAlertDialogBuilder(this.ctx, R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle(r.title)
-                .setSingleChoiceItems(r.entries, r.selected, (dialog, which) -> {
-                    dialog.dismiss();
-                    this.settings.choose(this.page, r.key, which);
-                    this.root.post(this::render);
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        // The list is built here, not with setSingleChoiceItems: the activity's One UI base
+        // theme styles the stock list rows, which made them white on white in light mode.
+        LinearLayout list = new LinearLayout(this.ctx);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(12), dp(4), dp(12), 0);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this.ctx);
+        scroll.addView(list);
+        androidx.appcompat.app.AlertDialog dialog =
+                new MaterialAlertDialogBuilder(this.ctx, R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                        .setTitle(r.title)
+                        .setView(scroll)
+                        .setNegativeButton("Cancel", null)
+                        .create();
+        int text = color(R.attr.colorOnSurface);
+        android.content.res.ColorStateList tint = new android.content.res.ColorStateList(
+                new int[][] {{android.R.attr.state_checked}, {}},
+                new int[] {color(R.attr.colorPrimary), color(R.attr.colorOnSurfaceVariant)});
+        for (int i = 0; i < r.entries.length; i++) {
+            final int which = i;
+            com.google.android.material.radiobutton.MaterialRadioButton b =
+                    new com.google.android.material.radiobutton.MaterialRadioButton(this.ctx);
+            b.setText(r.entries[i]);
+            b.setTextColor(text);
+            b.setButtonTintList(tint);
+            b.setChecked(i == r.selected);
+            b.setMinHeight(dp(48));
+            b.setPadding(dp(12), 0, 0, 0);
+            b.setOnClickListener(v -> {
+                dialog.dismiss();
+                this.settings.choose(this.page, r.key, which);
+                this.root.post(this::render);
+            });
+            list.addView(b, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+        dialog.show();
+        tintButtons(dialog);
+    }
+
+    /** Dialog buttons in the design's primary color, not the One UI base theme's accent. */
+    private void tintButtons(androidx.appcompat.app.AlertDialog dialog) {
+        int primary = color(R.attr.colorPrimary);
+        for (int id : new int[] {android.content.DialogInterface.BUTTON_POSITIVE,
+                android.content.DialogInterface.BUTTON_NEGATIVE}) {
+            android.widget.Button b = dialog.getButton(id);
+            if (b != null) {
+                b.setTextColor(primary);
+            }
+        }
     }
 
     private void edit(Row r) {
@@ -284,17 +324,20 @@ final class ExpressiveSettings {
         FrameLayout box = new FrameLayout(this.ctx);
         box.setPadding(dp(24), dp(8), dp(24), 0);
         box.addView(field);
-        new MaterialAlertDialogBuilder(this.ctx, R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+        field.setTextColor(color(R.attr.colorOnSurface));
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this.ctx, R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                 .setTitle(r.title)
                 .setView(box)
-                .setPositiveButton("Save", (dialog, which) -> {
+                .setPositiveButton("Save", (d, which) -> {
                     if (r.onText != null) {
                         r.onText.on(field.getText().toString());
                     }
                     this.root.post(this::render);
                 })
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+        dialog.show();
+        tintButtons(dialog);
     }
 
     /** A few short options as a connected button group (light, dark, system). */
