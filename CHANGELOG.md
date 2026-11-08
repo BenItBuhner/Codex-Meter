@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Liquid Glass** is back to how it looked and ran in 2.9.0-alpha.17. The iOS 26 and iOS 27 edge changes in 2.9.0-alpha.18 looked wrong and made scrolling and refreshes slow, with occasional freezes. Android.
+
 ## 2.9.0-alpha.18 — 2026-11-08
 
 ### Added
