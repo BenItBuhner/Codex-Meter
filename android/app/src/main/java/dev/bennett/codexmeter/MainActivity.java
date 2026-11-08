@@ -219,6 +219,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             WidgetUpgradeRepair.runIfNeeded(app);
             RefreshScheduler.schedulePeriodic(app);
             ReleaseUpdateScheduler.ensureScheduled(app);
+            AppSessionHealth.check(app);
         });
     }
 
@@ -273,6 +274,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        Context health = getApplicationContext();
+        housekeeping(() -> AppSessionHealth.check(health));
         refreshModelSpeed();
         refreshModelDiscovery();
         checkProviderStatus();
