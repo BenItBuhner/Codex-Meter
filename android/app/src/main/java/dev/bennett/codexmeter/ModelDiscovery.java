@@ -94,9 +94,10 @@ public final class ModelDiscovery {
     }
 
     /**
-     * The explicit mapping from a connected provider to the catalog models it makes relevant.
-     * Providers not listed here (Cursor, Antigravity, Copilot, Factory, Devin, Windsurf, Augment,
-     * Cline, Kiro, Amp, Codebuff, v0, Warp) unlock nothing.
+     * The explicit mapping from a connected provider to the catalog models it makes relevant: a
+     * model maker's own subscription covers that maker's models (OpenRouter author slugs), and a
+     * tool that offers several makers' models covers exactly the makers it documents offering.
+     * Nothing is matched by name, and a provider missing here unlocks nothing.
      */
     public static List<Scope> scopesFor(UsageProvider provider) {
         if (provider == null) {
@@ -111,6 +112,23 @@ public final class ModelDiscovery {
                 return Collections.singletonList(new Scope(Source.OPENROUTER, "anthropic"));
             case GROK:
                 return Collections.singletonList(new Scope(Source.OPENROUTER, "x-ai"));
+            case CURSOR:
+            case COPILOT:
+            case WINDSURF:
+            case CLINE:
+                return authors("openai", "anthropic", "google", "x-ai");
+            case FACTORY:
+            case AMP:
+            case CODEBUFF:
+            case WARP:
+                return authors("openai", "anthropic", "google");
+            case ANTIGRAVITY:
+                return authors("google", "anthropic");
+            case DEVIN:
+            case AUGMENT:
+                return authors("anthropic", "openai");
+            case KIRO:
+                return authors("anthropic");
             case MINIMAX:
                 return Collections.singletonList(new Scope(Source.OPENROUTER, "minimax"));
             case KIMI:
@@ -128,6 +146,14 @@ public final class ModelDiscovery {
             default:
                 return Collections.emptyList();
         }
+    }
+
+    private static List<Scope> authors(String... slugs) {
+        List<Scope> out = new ArrayList<>();
+        for (String slug : slugs) {
+            out.add(new Scope(Source.OPENROUTER, slug));
+        }
+        return out;
     }
 
     /** The union of the connected providers' scopes; empty means nothing is fetched or shown. */

@@ -32,8 +32,8 @@
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             android:key="model_speed_reference_ui"
-            android:summary="Public OpenRouter speed for a model you pick, on the Codex, Claude Code and Grok tabs. Not your subscription's own speed."
-            android:title="Model speed reference" />
+            android:summary="On the Priority tab only when a Codex, Claude Code or Grok model runs much slower than usual, from public OpenRouter figures for each maker's newest models. Not your subscription's own speed."
+            android:title="Model slowdown warnings" />
     </PreferenceCategory>
 
     <PreferenceCategory

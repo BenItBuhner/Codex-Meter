@@ -14,8 +14,11 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * The reference model each provider tab shows, and its cached OpenRouter figures. Requests go to
- * OpenRouter's public model metadata only, without a key, account data or prompts.
+ * Public OpenRouter speed figures for each signed-in provider's newest models ({@link #TRACKED} per
+ * maker), and a rolling history of them, so the Priority tab can warn when a model runs much slower
+ * than it usually does. Nothing is shown on the provider pages, and nothing at all while the figures
+ * are normal or too few. Requests go to OpenRouter's public model metadata only, without a key,
+ * account data or prompts.
  */
 public final class ModelSpeedStore {
     private static final String PREFS = "model_speed";
@@ -32,7 +35,12 @@ public final class ModelSpeedStore {
         return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    /** Whether the tab shows the speed card at all (people can hide it from its picker). */
+    /** How many of each maker's newest models are followed. */
+    static final int TRACKED = 3;
+    /** Samples kept per model (about a day and a half at one every 45 minutes). */
+    static final int HISTORY = 48;
+
+    /** Whether speed warnings are on for this provider (Settings › Refresh & dashboard). */
     public static boolean isVisible(Context context, UsageProvider provider) {
         return ModelSpeed.authorFor(provider) != null
                 && !prefs(context).getBoolean("hidden_" + provider.id, false);
@@ -42,32 +50,60 @@ public final class ModelSpeedStore {
         prefs(context).edit().putBoolean("hidden_" + provider.id, hidden).apply();
     }
 
-    /** The chosen model id, or "" when none was chosen yet (no default is guessed). */
-    public static String selectedModel(Context context, UsageProvider provider) {
-        return prefs(context).getString("model_" + provider.id, "");
+    /** The followed models: the maker's newest, from the cached catalog list (no network). */
+    public static List<ModelSpeed.Choice> tracked(Context context, UsageProvider provider) {
+        List<ModelSpeed.Choice> all = cachedChoices(context, provider);
+        return all.size() > TRACKED ? new ArrayList<>(all.subList(0, TRACKED)) : all;
     }
 
-    public static void selectModel(Context context, UsageProvider provider, String modelId) {
-        if (!ModelSpeed.isSafeModelId(modelId)) {
-            return;
-        }
-        prefs(context).edit().putString("model_" + provider.id, modelId)
-                .remove("attempt_" + provider.id).remove("failures_" + provider.id).apply();
-    }
-
-    public static ModelSpeed load(Context context, UsageProvider provider) {
-        String model = selectedModel(context, provider);
+    public static ModelSpeed load(Context context, String model) {
         String body = prefs(context).getString("body_" + model, null);
-        if (model.isEmpty() || body == null) {
-            return null;
-        }
-        return ModelSpeed.parse(body, prefs(context).getLong("fetched_" + model, 0L));
+        return body == null ? null : ModelSpeed.parse(body, prefs(context).getLong("fetched_" + model, 0L));
     }
 
-    /** Fetches the selected model's figures when due; call off the main thread. True if changed. */
+    /** The model's earlier samples, oldest first: {throughput, latency ms}, NaN when missing. */
+    static List<double[]> history(Context context, String model) {
+        List<double[]> out = new ArrayList<>();
+        try {
+            JSONArray a = new JSONArray(prefs(context).getString("hist_" + model, "[]"));
+            for (int i = 0; i < a.length(); i++) {
+                JSONArray x = a.getJSONArray(i);
+                out.add(new double[] {x.optDouble(1, Double.NaN), x.optDouble(2, Double.NaN)});
+            }
+        } catch (Exception ignored) {
+            // A bad history only means no baseline yet.
+        }
+        return out;
+    }
+
+    /** Significant slowdowns of the provider's followed models right now; empty when normal. */
+    public static List<ModelSpeed.Slowdown> slowdowns(Context context, UsageProvider provider, long now) {
+        List<ModelSpeed.Slowdown> out = new ArrayList<>();
+        if (!isVisible(context, provider)) {
+            return out;
+        }
+        for (ModelSpeed.Choice c : tracked(context, provider)) {
+            ModelSpeed speed = load(context, c.id);
+            if (speed == null || now - speed.fetchedAtMillis > 2 * REFRESH_MS) {
+                continue; // too old to call current
+            }
+            List<double[]> h = history(context, c.id);
+            // the latest sample is the current one; the baseline is everything before it
+            ModelSpeed.Slowdown slow = ModelSpeed.slowdown(speed,
+                    h.isEmpty() ? h : h.subList(0, h.size() - 1));
+            if (slow != null) {
+                out.add(slow);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Fetches the followed models' figures when due and adds them to their history; call off the
+     * main thread. True if anything changed.
+     */
     public static boolean refreshIfDue(Context context, UsageProvider provider) {
-        String model = selectedModel(context, provider);
-        if (!isVisible(context, provider) || !ModelSpeed.isSafeModelId(model)) {
+        if (!isVisible(context, provider)) {
             return false;
         }
         SharedPreferences p = prefs(context);
@@ -80,27 +116,48 @@ public final class ModelSpeedStore {
             return false;
         }
         p.edit().putLong("attempt_" + provider.id, now).apply();
-        try {
-            String body = get(ModelSpeed.endpointsUrl(model));
-            if (body == null || ModelSpeed.parse(body, now) == null) {
-                p.edit().putInt("failures_" + provider.id, failures + 1).apply();
-                return false;
-            }
-            p.edit().putInt("failures_" + provider.id, 0).putString("body_" + model, body)
-                    .putLong("fetched_" + model, now).apply();
-            return true;
-        } catch (Exception e) {
-            p.edit().putInt("failures_" + provider.id, failures + 1).apply();
-            DiagnosticLog.warn(context, "speed", "endpoints_failed", "error", e.getClass().getSimpleName());
-            return false;
+        List<ModelSpeed.Choice> models = choices(context, provider);
+        if (models.size() > TRACKED) {
+            models = models.subList(0, TRACKED);
         }
+        boolean changed = false;
+        boolean failed = models.isEmpty();
+        for (ModelSpeed.Choice c : models) {
+            if (!ModelSpeed.isSafeModelId(c.id)) {
+                continue;
+            }
+            try {
+                String body = get(ModelSpeed.endpointsUrl(c.id));
+                ModelSpeed speed = body == null ? null : ModelSpeed.parse(body, now);
+                if (speed == null) {
+                    failed = true;
+                    continue;
+                }
+                ModelSpeed.Endpoint e = speed.featured();
+                JSONArray h = new JSONArray(p.getString("hist_" + c.id, "[]"));
+                h.put(new JSONArray().put(now).put(e == null || Double.isNaN(e.throughput) ? JSONObject.NULL : e.throughput)
+                        .put(e == null || Double.isNaN(e.latencyMs) ? JSONObject.NULL : e.latencyMs));
+                JSONArray kept = new JSONArray();
+                for (int i = Math.max(0, h.length() - HISTORY); i < h.length(); i++) {
+                    kept.put(h.get(i));
+                }
+                p.edit().putString("body_" + c.id, body).putLong("fetched_" + c.id, now)
+                        .putString("hist_" + c.id, kept.toString()).apply();
+                changed = true;
+            } catch (Exception e) {
+                failed = true;
+                DiagnosticLog.warn(context, "speed", "endpoints_failed", "error", e.getClass().getSimpleName());
+            }
+        }
+        p.edit().putInt("failures_" + provider.id, failed && !changed ? failures + 1 : 0).apply();
+        return changed;
     }
 
     /**
      * The picker's models for {@code provider}'s maker, newest first, cached for a day. Blocking;
      * call off the main thread. Empty when OpenRouter can't be reached and nothing is cached.
      */
-    public static List<ModelSpeed.Choice> choices(Context context, UsageProvider provider) {
+    static List<ModelSpeed.Choice> choices(Context context, UsageProvider provider) {
         String author = ModelSpeed.authorFor(provider);
         List<ModelSpeed.Choice> out = new ArrayList<>();
         if (author == null) {
@@ -125,6 +182,16 @@ public final class ModelSpeedStore {
                 DiagnosticLog.warn(context, "speed", "models_failed", "error", e.getClass().getSimpleName());
             }
         }
+        return parseChoices(cached);
+    }
+
+    private static List<ModelSpeed.Choice> cachedChoices(Context context, UsageProvider provider) {
+        String author = ModelSpeed.authorFor(provider);
+        return author == null ? new ArrayList<>() : parseChoices(prefs(context).getString("choices_" + author, null));
+    }
+
+    private static List<ModelSpeed.Choice> parseChoices(String cached) {
+        List<ModelSpeed.Choice> out = new ArrayList<>();
         if (cached != null) {
             try {
                 JSONArray list = new JSONArray(cached);
@@ -133,7 +200,7 @@ public final class ModelSpeedStore {
                     out.add(new ModelSpeed.Choice(o.getString("id"), o.getString("name")));
                 }
             } catch (Exception ignored) {
-                // A bad cache just means an empty picker until the next fetch.
+                // A bad cache just means nothing followed until the next fetch.
             }
         }
         return out;

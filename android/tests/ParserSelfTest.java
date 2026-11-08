@@ -2904,6 +2904,21 @@ public final class ParserSelfTest {
                         && "Pro".equals(ClaudeUsageParser.currentPlanName("Pro")),
                 "saved Claude badges are renamed");
 
+        // No session running: Claude still lists the 5-hour limit, without a number. That is a
+        // 5-hour limit with nothing used, not a plan without one.
+        UsageSnapshot idle = ClaudeUsageParser.parse(
+                "{\"five_hour\":{\"utilization\":null,\"resets_at\":null},"
+                        + "\"seven_day\":{\"utilization\":10,\"resets_at\":null},"
+                        + "\"limits\":[{\"kind\":\"session\",\"group\":\"session\",\"percent\":null,"
+                        + "\"resets_at\":null,\"scope\":null}]}", "Max", 4L);
+        check(idle.fiveHour != null && idle.fiveHour.usedPercent == 0 && !idle.fiveHour.showsResetCountdown(),
+                "an idle Claude 5-hour limit reads as unused, not missing");
+        UsageSnapshot idleRow = ClaudeUsageParser.parse(
+                "{\"five_hour\":null,\"limits\":[{\"kind\":\"session\",\"group\":\"session\","
+                        + "\"percent\":null,\"scope\":null},{\"kind\":\"weekly_all\",\"group\":\"weekly\","
+                        + "\"percent\":5,\"scope\":null}]}", "Max", 4L);
+        check(idleRow.fiveHour != null && idleRow.fiveHour.usedPercent == 0, "an idle session row counts too");
+
         // Verified Ultra: five_hour is null and limits[] has no session row. Usage must still load.
         UsageSnapshot ultra = ClaudeUsageParser.parse(
                 "{\"five_hour\":null,\"seven_day\":{\"utilization\":47.0,"

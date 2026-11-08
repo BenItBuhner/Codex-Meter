@@ -66,9 +66,6 @@ final class GlassCards {
         } else {
             other(activity, provider, snapshot, now, d.cards);
         }
-        if (signedIn && ModelSpeedStore.isVisible(activity, provider)) {
-            d.cards.add(speed(activity, provider));
-        }
         return d;
     }
 
@@ -99,34 +96,6 @@ final class GlassCards {
         return c;
     }
 
-    /** Public OpenRouter figures for the model people picked; tapping changes or hides it. */
-    private static Card speed(MainActivity a, UsageProvider provider) {
-        String model = ModelSpeedStore.selectedModel(a, provider);
-        ModelSpeed speed = ModelSpeedStore.load(a, provider);
-        if (model.isEmpty() || speed == null) {
-            Card c = new Card(Card.Kind.LINK);
-            c.title = "Model speed reference";
-            c.value = model.isEmpty() ? "Choose" : null;
-            c.summary = model.isEmpty()
-                    ? "Pick a model to see how it is running on OpenRouter. " + ModelSpeed.DISCLAIMER
-                    : model + " · loading figures from OpenRouter…";
-            c.icon = "waveform";
-            c.color = "#5856d6";
-            c.onPress = () -> a.chooseSpeedModel(provider);
-            return c;
-        }
-        ModelSpeed.Endpoint e = speed.featured();
-        Card c = new Card(Card.Kind.STATS);
-        c.detail = "Model speed reference";
-        c.title = speed.modelName;
-        c.stats.add(new String[] {"Throughput", ModelSpeed.throughputText(e == null ? Double.NaN : e.throughput)});
-        c.stats.add(new String[] {"Latency", ModelSpeed.latencyText(e == null ? Double.NaN : e.latencyMs)});
-        c.stats.add(new String[] {"Uptime", ModelSpeed.uptimeText(e == null ? Double.NaN : e.uptime30m)});
-        c.summary = speed.sourceLine() + ". " + ModelSpeed.DISCLAIMER;
-        c.value = "Change model";
-        c.onPress = () -> a.chooseSpeedModel(provider);
-        return c;
-    }
 
     /**
      * The Priority tab: the summary, the limits to watch with their pace, every other limit, each
@@ -142,16 +111,11 @@ final class GlassCards {
         PriorityPage page = PriorityPage.build(a);
         if (!page.signedInAnywhere()) {
             Card empty = new Card(Card.Kind.MESSAGE);
-            empty.title = "Sign in to a provider to see its limits, service status and new models here.";
+            empty.title = "Sign in to a provider to see the limits to watch here.";
             d.cards.add(empty);
             return d;
         }
         d.subtitle = names(page.providers);
-        Card overview = new Card(Card.Kind.NOTE);
-        overview.detail = "Overview";
-        overview.title = page.summary;
-        overview.summary = page.tip;
-        d.cards.add(overview);
         for (PriorityView.Item alert : page.alerts) {
             Card c = new Card(Card.Kind.NOTE);
             c.detail = alert.kind == PriorityView.Kind.DOWNTIME ? "Official incident" : "Performance warning";
@@ -171,15 +135,6 @@ final class GlassCards {
             for (PriorityPage.Limit l : page.others) {
                 d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
             }
-        }
-        if (!page.statuses.isEmpty()) {
-            Card s = new Card(Card.Kind.STATS);
-            s.title = "Service status";
-            for (PriorityPage.Status st : page.statuses) {
-                s.stats.add(new String[] {st.provider.displayName, st.label()});
-            }
-            s.summary = "From each provider's official status page.";
-            d.cards.add(s);
         }
         Card models = newModels(a);
         if (models != null) {
@@ -319,11 +274,6 @@ final class GlassCards {
             anyUsage = snapshot.fiveHour != null || snapshot.weekly != null
                     || snapshot.monthly != null || !snapshot.additionalLimits.isEmpty()
                     || (snapshot.usageCredits != null && snapshot.usageCredits.shouldDisplay());
-            if (target == UsageProvider.CLAUDE_CODE && snapshot.fiveHour == null && snapshot.weekly != null) {
-                Card note = new Card(Card.Kind.MESSAGE);
-                note.title = ClaudeUsageParser.NO_SESSION_LIMIT_NOTE;
-                out.add(note);
-            }
             for (String key : DashboardSections.resolveOrder(
                     ProviderPreferences.getDashboardOrder(a, target), available)) {
                 if (DashboardSections.FIVE_HOUR.equals(key)) {

@@ -67,13 +67,23 @@ public final class ModelDiscoverySelfTest {
         check(!ModelDiscovery.relevant(go, OR, "openai/gpt-6"), "OpenCode Go doesn't unlock OpenRouter");
         check(ModelDiscovery.sourcesNeeded(allow(UsageProvider.KILO)).equals(EnumSet.of(ModelDiscovery.Source.KILO)),
                 "Kilo fetches only its own catalog");
-        for (UsageProvider p : new UsageProvider[] {UsageProvider.CURSOR, UsageProvider.ANTIGRAVITY,
-                UsageProvider.COPILOT, UsageProvider.FACTORY, UsageProvider.DEVIN, UsageProvider.WINDSURF,
-                UsageProvider.AUGMENT, UsageProvider.CLINE, UsageProvider.KIRO, UsageProvider.AMP,
-                UsageProvider.CODEBUFF, UsageProvider.WARP}) {
-            check(ModelDiscovery.scopesFor(p).isEmpty(), p + " unlocks nothing");
+        // tools that offer several makers' models cover exactly those makers, by exact author slug
+        List<ModelDiscovery.Scope> cursor = allow(UsageProvider.CURSOR);
+        check(ModelDiscovery.relevant(cursor, OR, "anthropic/claude-x") && ModelDiscovery.relevant(cursor, OR, "google/gemini-4")
+                && ModelDiscovery.relevant(cursor, OR, "openai/gpt-6") && ModelDiscovery.relevant(cursor, OR, "x-ai/grok-5"),
+                "Cursor covers the makers it offers");
+        check(!ModelDiscovery.relevant(cursor, OR, "qwen/qwen-4") && !ModelDiscovery.relevant(cursor, OR, "google-research/x"),
+                "Cursor: nothing else, exact slugs only");
+        check(ModelDiscovery.relevant(allow(UsageProvider.ANTIGRAVITY), OR, "google/gemini-4")
+                && !ModelDiscovery.relevant(allow(UsageProvider.ANTIGRAVITY), OR, "x-ai/grok-5"), "Antigravity: Google and Anthropic");
+        check(ModelDiscovery.relevant(allow(UsageProvider.KIRO), OR, "anthropic/claude-x")
+                && !ModelDiscovery.relevant(allow(UsageProvider.KIRO), OR, "openai/gpt-6"), "Kiro: Anthropic only");
+        for (UsageProvider p : UsageProvider.values()) {
+            for (ModelDiscovery.Scope sc : ModelDiscovery.scopesFor(p)) {
+                check(sc.author == null || sc.author.matches("[a-z0-9-]+"), p + " has an explicit author slug");
+            }
         }
-        check(allow(UsageProvider.CURSOR, UsageProvider.ANTIGRAVITY).isEmpty(), "nothing mapped → nothing");
+        check(ModelDiscovery.sourcesNeeded(allow(UsageProvider.CURSOR)).equals(EnumSet.of(OR)), "Cursor reads OpenRouter only");
         check(ModelDiscovery.allowlist(Collections.<UsageProvider>emptyList()).isEmpty(), "none connected");
         List<ModelDiscovery.Scope> both = allow(UsageProvider.CODEX, UsageProvider.CLAUDE_CODE, UsageProvider.CODEX);
         check(both.size() == 2, "union without duplicates");
@@ -203,7 +213,7 @@ public final class ModelDiscoverySelfTest {
         check(codex.size() == 1 && codex.get(0).id.equals("openai/gpt-6"), "relevant model shown, Google hidden");
         check(ModelDiscovery.cardItems(s, allow(UsageProvider.CLAUDE_CODE), t).isEmpty(),
                 "Claude alone: nothing relevant, no card");
-        check(ModelDiscovery.cardItems(s, allow(UsageProvider.CURSOR), t).isEmpty(), "Cursor: no card");
+        check(ModelDiscovery.cardItems(s, allow(UsageProvider.CURSOR), t).size() == 2, "Cursor: OpenAI and Google");
         check(ModelDiscovery.cardItems(s, allow(UsageProvider.OPENROUTER), t).size() == 2, "OpenRouter: both");
         check(ModelDiscovery.cardItems(s, allow(UsageProvider.CODEX), t + ModelDiscovery.CARD_DAYS_MS).isEmpty(),
                 "leaves the card after a week");
