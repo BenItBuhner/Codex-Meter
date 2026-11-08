@@ -8,6 +8,7 @@ public final class RefreshTrackerSelfTest {
         stuckRunTimesOut();
         lateEndOfStuckRunIsIgnored();
         endTwiceIsHarmless();
+        anyRunningCoversEveryProvider();
         System.out.println("Refresh tracker: joins repeat pulls, per-provider runs, stuck runs time out.");
     }
 
@@ -64,5 +65,19 @@ public final class RefreshTrackerSelfTest {
         check(t.running("codex", 2), "the newer run is untouched");
         check(!t.end(null), "null is ignored");
         t.end(b);
+    }
+
+    private static void anyRunningCoversEveryProvider() {
+        RefreshTracker t = new RefreshTracker();
+        check(!t.anyRunning(0), "nothing running at first");
+        RefreshTracker.Run codex = t.begin("codex", 0);
+        RefreshTracker.Run cursor = t.begin("cursor", 0);
+        check(t.anyRunning(1), "the Priority tab spins while any provider refreshes");
+        t.end(codex);
+        check(t.anyRunning(2), "still spinning while Cursor runs");
+        t.end(cursor);
+        check(!t.anyRunning(3), "and stops once all are done");
+        t.begin("claude_code", 0);
+        check(!t.anyRunning(RefreshTracker.STUCK_MS), "a stuck run doesn't hold the spinner");
     }
 }

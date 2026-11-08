@@ -11,13 +11,25 @@ final class PriorityPrefs {
         return context.getApplicationContext().getSharedPreferences("priority_summary", Context.MODE_PRIVATE);
     }
 
-    /** The Priority card itself: on by default; it only appears when something needs attention. */
+    /**
+     * The Priority tab, ahead of the provider tabs in every design: on by default. Off removes the
+     * tab (and the New models list, which lives on it).
+     */
     static boolean isViewEnabled(Context context) {
         return prefs(context).getBoolean("view", true);
     }
 
     static void setViewEnabled(Context context, boolean on) {
         prefs(context).edit().putBoolean("view", on).apply();
+    }
+
+    /** The Priority tab was the one showing when the app was last left, so it opens there again. */
+    static boolean isTabSelected(Context context) {
+        return prefs(context).getBoolean("tab_selected", false);
+    }
+
+    static void setTabSelected(Context context, boolean selected) {
+        prefs(context).edit().putBoolean("tab_selected", selected).apply();
     }
 
     /** Greeting (added here, never sent) plus the written or the local summary. */

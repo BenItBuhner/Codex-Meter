@@ -41,8 +41,8 @@
         android:title="Priority">
         <SwitchPreferenceCompat
             android:key="priority_view_ui"
-            android:summary="A card at the top of the dashboard when something needs attention: official incidents first, then performance warnings, then limits running out"
-            android:title="Priority view" />
+            android:summary="A tab before your providers with everything that needs attention: limits running out and their pace, every other limit, official status, warnings and new models"
+            android:title="Priority tab" />
         <EditTextPreference
             android:key="priority_name_ui"
             android:title="Your name for the greeting" />

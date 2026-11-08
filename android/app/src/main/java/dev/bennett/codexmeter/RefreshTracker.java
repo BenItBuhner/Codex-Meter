@@ -79,4 +79,14 @@ final class RefreshTracker {
     boolean running(String key, long now) {
         return phase(key, now) == Phase.RUNNING;
     }
+
+    /** True while any provider is refreshing (the Priority tab's spinner, which covers them all). */
+    boolean anyRunning(long now) {
+        for (String key : this.slots.keySet()) {
+            if (running(key, now)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

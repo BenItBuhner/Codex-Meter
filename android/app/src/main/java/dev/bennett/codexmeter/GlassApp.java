@@ -370,6 +370,9 @@ final class GlassApp implements GlassSource {
     @Override
     public List<GlassModel.Tab> tabs() {
         List<GlassModel.Tab> tabs = new ArrayList<>();
+        if (main().priorityTabShown()) {
+            tabs.add(new GlassModel.Tab(PriorityPage.TAB_ID, PriorityPage.TITLE, "flag"));
+        }
         for (UsageProvider provider : ProviderPreferences.getEnabled(activity)) {
             tabs.add(new GlassModel.Tab(provider.id, provider.displayName, "provider_" + provider.id));
         }
@@ -378,17 +381,22 @@ final class GlassApp implements GlassSource {
 
     @Override
     public String selectedTab() {
-        return main().glassProvider().id;
+        return main().onPriorityTab() ? PriorityPage.TAB_ID : main().glassProvider().id;
     }
 
     @Override
     public void selectTab(String id) {
-        main().glassSelectProvider(UsageProvider.fromId(id));
+        if (PriorityPage.TAB_ID.equals(id)) {
+            main().selectPriority();
+        } else {
+            main().glassSelectProvider(UsageProvider.fromId(id));
+        }
     }
 
     @Override
     public GlassModel.Dashboard dashboard() {
-        return GlassCards.build(main(), main().glassProvider());
+        return main().onPriorityTab() ? GlassCards.priorityPage(main())
+                : GlassCards.build(main(), main().glassProvider());
     }
 
     @Override
@@ -405,7 +413,10 @@ final class GlassApp implements GlassSource {
     @Override
     public List<MenuEntry> menu() {
         List<MenuEntry> menu = new ArrayList<>();
-        menu.add(new MenuEntry("Edit dashboard", "squarePencil", false, main()::glassEditDashboard));
+        if (!main().onPriorityTab()) {
+            // The Priority page has no layout of its own to edit.
+            menu.add(new MenuEntry("Edit dashboard", "squarePencil", false, main()::glassEditDashboard));
+        }
         menu.add(new MenuEntry("Settings", "gearshape", false, () -> {
             DiagnosticLog.info(activity, "user", "settings_opened");
             openSettings("root", false);

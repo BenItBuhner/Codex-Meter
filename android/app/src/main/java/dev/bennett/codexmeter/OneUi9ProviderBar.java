@@ -37,14 +37,19 @@ final class OneUi9ProviderBar implements ProviderBar {
     private final OneUi9Page page;
     private final BottomNavigationView nav;
     private final Consumer<UsageProvider> onSelected;
+    private final Runnable onPriority;
     private final int gap;
+    /** The bar's entries in order; {@code null} is the Priority tab. */
     private List<UsageProvider> providers = new ArrayList<>();
     private UsageProvider selected;
+    /** Nothing selected yet (so a first select always applies, even of the Priority tab). */
+    private boolean selectedSet;
     private boolean syncing;
 
-    OneUi9ProviderBar(OneUi9Page page, Consumer<UsageProvider> onSelected) {
+    OneUi9ProviderBar(OneUi9Page page, Consumer<UsageProvider> onSelected, Runnable onPriority) {
         this.page = page;
         this.onSelected = onSelected;
+        this.onPriority = onPriority;
         this.gap = Ui.dp(page.activity, 16.0f);
         this.nav = (BottomNavigationView) LayoutInflater.from(page.activity)
                 .inflate(R.layout.oneui9_provider_bar, page.root, false);
@@ -108,39 +113,49 @@ final class OneUi9ProviderBar implements ProviderBar {
         }
     }
 
-    /** Shows {@code enabled} providers in order with {@code current} selected. */
+    /**
+     * Shows the Priority tab (when {@code withPriority}) and the {@code enabled} providers in order,
+     * with the Priority tab selected when {@code onPriority}, else {@code current}.
+     */
     @Override
-    public void update(List<UsageProvider> enabled, UsageProvider current) {
-        if (!enabled.equals(providers)) {
-            providers = new ArrayList<>(enabled);
+    public void update(List<UsageProvider> enabled, UsageProvider current, boolean withPriority,
+            boolean onPriority) {
+        List<UsageProvider> entries = new ArrayList<>();
+        if (withPriority) {
+            entries.add(null);
+        }
+        entries.addAll(enabled);
+        if (!entries.equals(providers)) {
+            providers = entries;
             Menu menu = nav.getMenu();
             menu.clear();
-            int own = ProviderTabs.ownTabs(enabled.size());
+            int own = ProviderTabs.ownTabs(entries.size());
             for (int i = 0; i < own; i++) {
-                UsageProvider provider = enabled.get(i);
+                UsageProvider provider = entries.get(i);
                 // SESL moves items without SHOW_AS_ACTION_ALWAYS into its own overflow.
-                menu.add(Menu.NONE, i + 1, i, provider.displayName)
-                        .setIcon(ProvidersActivity.iconRes(provider))
+                menu.add(Menu.NONE, i + 1, i, provider == null ? PriorityPage.TITLE : provider.displayName)
+                        .setIcon(provider == null ? R.drawable.ic_priority : ProvidersActivity.iconRes(provider))
                         .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
             }
-            if (ProviderTabs.showsMore(enabled.size())) {
+            if (ProviderTabs.showsMore(entries.size())) {
                 menu.add(Menu.NONE, MORE_ID, own, R.string.oneui9_more_providers)
                         .setIcon(R.drawable.ic_oui_apps_outline)
                         .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
             }
             menu.setGroupCheckable(Menu.NONE, true, true);
-            nav.setVisibility(ProviderTabs.showsBar(enabled.size()) ? View.VISIBLE : View.GONE);
-            selected = null;
+            nav.setVisibility(ProviderTabs.showsBar(entries.size()) ? View.VISIBLE : View.GONE);
+            selectedSet = false;
         }
-        select(current);
+        select(withPriority && onPriority ? null : current);
         reserveRoom();
     }
 
     private void select(UsageProvider provider) {
-        if (provider == selected && provider != null) {
+        if (selectedSet && provider == selected) {
             return;
         }
         selected = provider;
+        selectedSet = true;
         int index = providers.indexOf(provider);
         int own = ProviderTabs.ownTabs(providers.size());
         int id = index < 0 ? 0 : (index < own ? index + 1 : MORE_ID);
@@ -167,7 +182,8 @@ final class OneUi9ProviderBar implements ProviderBar {
         int index = item.getItemId() - 1;
         if (index >= 0 && index < providers.size()) {
             selected = providers.get(index);
-            onSelected.accept(selected);
+            selectedSet = true;
+            pick(selected);
             nav.post(this::styleLabels);
             return true;
         }
@@ -180,7 +196,7 @@ final class OneUi9ProviderBar implements ProviderBar {
         CharSequence[] names = new CharSequence[rest.size()];
         int checked = -1;
         for (int i = 0; i < rest.size(); i++) {
-            names[i] = rest.get(i).displayName;
+            names[i] = rest.get(i) == null ? PriorityPage.TITLE : rest.get(i).displayName;
             if (rest.get(i) == selected) {
                 checked = i;
             }
@@ -190,12 +206,20 @@ final class OneUi9ProviderBar implements ProviderBar {
                 .setSingleChoiceItems(names, checked, (dialog, which) -> {
                     dialog.dismiss();
                     UsageProvider picked = rest.get(which);
-                    selected = null;
+                    selectedSet = false;
                     select(picked);
-                    onSelected.accept(picked);
+                    pick(picked);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private void pick(UsageProvider entry) {
+        if (entry == null) {
+            onPriority.run();
+        } else {
+            onSelected.accept(entry);
+        }
     }
 
     /** One UI bolds the selected tab's label; SESL9 keeps every label the same weight. */

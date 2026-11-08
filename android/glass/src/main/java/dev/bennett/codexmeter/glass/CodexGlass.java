@@ -301,6 +301,10 @@ public final class CodexGlass {
                                         "color", t.pal.label), c.title) : null,
                                 Text(P.of("size", 15, "lh", 20, "lines", 40, "color", t.pal.label2),
                                         c.summary == null ? "" : c.summary)));
+            case HEADING:
+                // like a grouped list's section header, for a run of cards that have none of their own
+                return Text(P.of("key", key, "size", 13, "ls", -0.08, "lines", 1, "ml", 16, "mr", 16,
+                        "mt", 6, "mb", 7, "color", t.pal.label2), c.title.toUpperCase(java.util.Locale.ROOT));
             case SIGN_IN:
                 return Box(P.of("key", key, "align", "center", "padT", 24, "padX", 8),
                         Box(P.of("w", 72, "h", 72, "r", 18, "bg", tile(c.color), "align", "center",

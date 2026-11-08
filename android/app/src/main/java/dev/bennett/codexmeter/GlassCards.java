@@ -23,11 +23,7 @@ final class GlassCards {
         if (update != null) {
             d.cards.add(update(activity, update));
         }
-        Card priority = priority(activity);
-        if (priority != null) {
-            d.cards.add(priority);
-        }
-        ProviderStatus status = priority != null ? null : ProviderStatusStore.load(activity, provider);
+        ProviderStatus status = ProviderStatusStore.load(activity, provider);
         if (status != null && status.shouldShowCard()) {
             // Official incidents only; "status unknown" and our own failed requests stay out.
             Card s = new Card(Card.Kind.NOTE);
@@ -69,10 +65,6 @@ final class GlassCards {
             codex(activity, snapshot, now, d.cards);
         } else {
             other(activity, provider, snapshot, now, d.cards);
-        }
-        Card models = newModels(activity);
-        if (models != null) {
-            d.cards.add(models);
         }
         if (signedIn && ModelSpeedStore.isVisible(activity, provider)) {
             d.cards.add(speed(activity, provider));
@@ -136,35 +128,82 @@ final class GlassCards {
         return c;
     }
 
-    /** What needs attention across the signed-in tabs, or null when nothing does (or it's off). */
-    private static Card priority(MainActivity a) {
-        if (!PriorityPrefs.isViewEnabled(a)) {
-            return null;
+    /**
+     * The Priority tab: the summary, the limits to watch with their pace, every other limit, each
+     * provider's official status, warnings, new models and a tip, across the signed-in providers.
+     */
+    static GlassModel.Dashboard priorityPage(MainActivity a) {
+        GlassModel.Dashboard d = new GlassModel.Dashboard();
+        d.title = PriorityPage.TITLE;
+        GitHubRelease update = UpdatePreferences.availableUpdate(a);
+        if (update != null) {
+            d.cards.add(update(a, update));
         }
-        List<PriorityView.Item> items = a.priorityItems();
-        if (!PriorityView.needsAttention(items)) {
-            return null;
+        PriorityPage page = PriorityPage.build(a);
+        if (!page.signedInAnywhere()) {
+            Card empty = new Card(Card.Kind.MESSAGE);
+            empty.title = "Sign in to a provider to see its limits, service status and new models here.";
+            d.cards.add(empty);
+            return d;
         }
-        PriorityView.Prose prose = PrioritySummary.cached(a, items);
-        Card c = new Card(Card.Kind.NOTE);
-        c.detail = "Priority";
-        c.title = PriorityPrefs.summaryLine(a, items, prose);
-        StringBuilder lines = new StringBuilder();
-        for (PriorityView.Item item : items) {
-            if (item.kind == PriorityView.Kind.TIP) {
-                continue;
+        d.subtitle = names(page.providers);
+        Card overview = new Card(Card.Kind.NOTE);
+        overview.detail = "Overview";
+        overview.title = page.summary;
+        overview.summary = page.tip;
+        d.cards.add(overview);
+        for (PriorityView.Item alert : page.alerts) {
+            Card c = new Card(Card.Kind.NOTE);
+            c.detail = alert.kind == PriorityView.Kind.DOWNTIME ? "Official incident" : "Performance warning";
+            c.title = alert.title;
+            c.summary = alert.detail;
+            d.cards.add(c);
+        }
+        long now = System.currentTimeMillis();
+        if (!page.watch.isEmpty()) {
+            d.cards.add(heading("Limits to watch"));
+            for (PriorityPage.Limit l : page.watch) {
+                d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
             }
-            lines.append(lines.length() == 0 ? "" : "\n").append("• ").append(item.title);
-            if (!item.detail.isEmpty()) {
-                lines.append("\n   ").append(item.detail);
+        }
+        if (!page.others.isEmpty()) {
+            d.cards.add(heading(page.watch.isEmpty() ? "Your limits" : "Other limits"));
+            for (PriorityPage.Limit l : page.others) {
+                d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
             }
         }
-        String tip = PriorityPrefs.tipLine(items, prose);
-        if (!tip.isEmpty()) {
-            lines.append("\n\n").append(tip);
+        if (!page.statuses.isEmpty()) {
+            Card s = new Card(Card.Kind.STATS);
+            s.title = "Service status";
+            for (PriorityPage.Status st : page.statuses) {
+                s.stats.add(new String[] {st.provider.displayName, st.label()});
+            }
+            s.summary = "From each provider's official status page.";
+            d.cards.add(s);
         }
-        c.summary = lines.toString();
+        Card models = newModels(a);
+        if (models != null) {
+            d.cards.add(models);
+        }
+        return d;
+    }
+
+    private static Card heading(String title) {
+        Card c = new Card(Card.Kind.HEADING);
+        c.title = title;
         return c;
+    }
+
+    /** "Codex, Claude Code, and Cursor"; two read "Codex and Cursor". */
+    static String names(List<UsageProvider> providers) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < providers.size(); i++) {
+            if (i > 0) {
+                b.append(i == providers.size() - 1 ? (providers.size() > 2 ? ", and " : " and ") : ", ");
+            }
+            b.append(providers.get(i).displayName);
+        }
+        return b.toString();
     }
 
     private static void codex(MainActivity a, UsageSnapshot snapshot, long now, List<Card> out) {
