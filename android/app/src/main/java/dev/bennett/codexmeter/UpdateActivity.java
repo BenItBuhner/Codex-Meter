@@ -33,9 +33,7 @@ public final class UpdateActivity extends AppCompatActivity {
     private GitHubRelease release;
     private ProgressBar progress;
     private TextView status;
-    private boolean waitingForInstallPermission;
-    private boolean operationRunning;
-    private boolean startInstallPending;
+    private final UpdateFlow flow = new UpdateFlow();
     private boolean dark;
 
     @Override
@@ -50,7 +48,7 @@ public final class UpdateActivity extends AppCompatActivity {
         String requested = getIntent().getStringExtra(EXTRA_VERSION);
         release = UpdatePreferences.findVersion(this, requested);
         boolean force = getIntent().getBooleanExtra(EXTRA_FORCE_CHECK, false);
-        startInstallPending = getIntent().getBooleanExtra(EXTRA_START_INSTALL, false);
+        flow.requestAutoInstall(getIntent().getBooleanExtra(EXTRA_START_INSTALL, false));
         UpdateNotificationManager.dismiss(this);
         if (release == null || force) {
             checkReleases(requested);
@@ -64,7 +62,7 @@ public final class UpdateActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         String requested = intent.getStringExtra(EXTRA_VERSION);
-        startInstallPending = intent.getBooleanExtra(EXTRA_START_INSTALL, false);
+        flow.requestAutoInstall(intent.getBooleanExtra(EXTRA_START_INSTALL, false));
         UpdateNotificationManager.dismiss(this);
         if (requested != null && !requested.trim().isEmpty()) {
             release = UpdatePreferences.findVersion(this, requested);
@@ -79,12 +77,11 @@ public final class UpdateActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (waitingForInstallPermission && canInstallPackages()) {
-            waitingForInstallPermission = false;
+        if (flow.returnedWithPermission(canInstallPackages())) {
             beginInstall();
             return;
         }
-        if (status != null && !operationRunning) {
+        if (status != null && !flow.busy()) {
             String error = UpdatePreferences.installError(this);
             if (!error.isEmpty()) {
                 setStatus(error, Ui.danger(dark));
@@ -105,7 +102,9 @@ public final class UpdateActivity extends AppCompatActivity {
     }
 
     private void checkReleases(String requestedVersion) {
-        operationRunning = true;
+        if (!flow.check()) {
+            return; // already checking or installing
+        }
         content.removeAllViews();
         content.addView(Ui.indeterminateLoading(this, "Checking for updates"));
         executor.execute(() -> {
@@ -118,13 +117,13 @@ public final class UpdateActivity extends AppCompatActivity {
                 }
                 GitHubRelease result = selected;
                 postUi(() -> {
-                    operationRunning = false;
+                    flow.checked();
                     release = result;
                     render();
                 });
             } catch (Exception exception) {
                 postUi(() -> {
-                    operationRunning = false;
+                    flow.checked();
                     renderError(ReleaseUpdateClient.safeMessage(exception));
                 });
             }
@@ -236,16 +235,13 @@ public final class UpdateActivity extends AppCompatActivity {
         historyParams.setMargins(0, Ui.dp(this, 20), 0, 0);
         content.addView(history, historyParams);
 
-        if (startInstallPending && (comparison > 0 || returnToStable) && !irreversible) {
-            startInstallPending = false;
+        if (flow.takeAutoInstall() && (comparison > 0 || returnToStable) && !irreversible) {
             content.post(this::requestInstall);
-        } else {
-            startInstallPending = false;
         }
     }
 
     private void renderError(String message) {
-        startInstallPending = false;
+        flow.takeAutoInstall();
         content.removeAllViews();
         LinearLayout card = Ui.card(this, dark);
         TextView title = Ui.text(this, "Update check unavailable", 20, Ui.mainText(dark));
@@ -269,25 +265,25 @@ public final class UpdateActivity extends AppCompatActivity {
     }
 
     private void requestInstall() {
-        if (operationRunning || release == null
+        if (flow.phase() != UpdateFlow.Phase.IDLE || release == null
                 || ReleaseUpdatePolicy.isIrreversible(release.version)) {
             return;
         }
         UpdatePreferences.setInstallError(this, "");
         if (!canInstallPackages()) {
-            waitingForInstallPermission = true;
+            flow.askPermission();
             new AppDialog(this)
                     .setTitle("Allow app installs")
                     .setMessage("Android requires permission for Codex Meter to hand its verified "
                             + "GitHub APK to the system installer. You still approve every update.")
-                    .setNegativeButton("Cancel", (dialog, which) ->
-                            waitingForInstallPermission = false)
+                    .setNegativeButton("Cancel", (dialog, which) -> flow.permissionDeclined())
+                    .setOnCancelListener(dialog -> flow.permissionDeclined())
                     .setPositiveButton("Open settings", (dialog, which) -> {
                         try {
                             startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                                     Uri.parse("package:" + getPackageName())));
                         } catch (RuntimeException exception) {
-                            waitingForInstallPermission = false;
+                            flow.permissionDeclined();
                             Toast.makeText(this, "Could not open install permission settings.",
                                     Toast.LENGTH_LONG).show();
                         }
@@ -303,11 +299,9 @@ public final class UpdateActivity extends AppCompatActivity {
     }
 
     private void beginInstall() {
-        if (operationRunning || release == null
-                || ReleaseUpdatePolicy.isIrreversible(release.version)) {
+        if (release == null || ReleaseUpdatePolicy.isIrreversible(release.version) || !flow.install()) {
             return;
         }
-        operationRunning = true;
         progress.setVisibility(View.VISIBLE);
         progress.setProgress(0);
         setStatus(getString(R.string.update_downloading), Ui.secondaryText(dark));
@@ -325,7 +319,7 @@ public final class UpdateActivity extends AppCompatActivity {
                         Ui.secondaryText(dark)));
                 UpdateInstaller.commit(getApplicationContext(), prepared);
                 postUi(() -> {
-                    operationRunning = false;
+                    flow.installed();
                     setStatus(getString(R.string.update_waiting_for_installer),
                             Ui.secondaryText(dark));
                 });
@@ -333,7 +327,7 @@ public final class UpdateActivity extends AppCompatActivity {
                 UpdatePreferences.setInstallError(getApplicationContext(),
                         safeMessage(exception));
                 postUi(() -> {
-                    operationRunning = false;
+                    flow.installed();
                     progress.setVisibility(View.GONE);
                     setStatus(safeMessage(exception), Ui.danger(dark));
                 });
