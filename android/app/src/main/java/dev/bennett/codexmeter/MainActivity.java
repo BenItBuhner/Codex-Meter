@@ -1031,18 +1031,16 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.content.addView(card);
             Ui.addSpacer(this.content, 20);
         }
+        if (page.allClear()) {
+            TextView clear = Ui.text(this, PriorityPage.ALL_CLEAR, 14.0f, Ui.secondaryText(this.dark));
+            clear.setGravity(Gravity.CENTER);
+            this.content.addView(clear, new LinearLayout.LayoutParams(-1, -2));
+            Ui.addSpacer(this.content, 20);
+        }
         boolean inverted = false;
         if (!page.watch.isEmpty()) {
             this.content.addView(sectionLabel("Limits to watch", 10));
             for (PriorityPage.Limit l : page.watch) {
-                this.content.addView(buildMetricCard(l.provider, l.title(), l.snapshot, l.window, inverted));
-                Ui.addSpacer(this.content, 20);
-                inverted = !inverted;
-            }
-        }
-        if (!page.others.isEmpty()) {
-            this.content.addView(sectionLabel(page.watch.isEmpty() ? "Your limits" : "Other limits", 10));
-            for (PriorityPage.Limit l : page.others) {
                 this.content.addView(buildMetricCard(l.provider, l.title(), l.snapshot, l.window, inverted));
                 Ui.addSpacer(this.content, 20);
                 inverted = !inverted;

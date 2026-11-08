@@ -19,6 +19,7 @@ public final class PriorityViewSelfTest {
         proseIsValidatedAgainstTheClosedSchema();
         greetingIsLocal();
         summaryTtl();
+        usedUpLimitsAreNotWatched();
         System.out.println("Priority view: order, local facts, closed prose schema and TTL verified.");
     }
 
@@ -134,5 +135,12 @@ public final class PriorityViewSelfTest {
         check(body.getInt("max_tokens") <= 120, "bounded");
         check(body.getJSONArray("messages").length() == 2, "fixed instructions plus facts only");
         check(body.getJSONArray("messages").getJSONObject(0).getString("content").equals(PriorityView.INSTRUCTIONS), "fixed");
+    }
+
+    private static void usedUpLimitsAreNotWatched() {
+        check(PriorityView.worthWatching(12, true), "running out early with some left is watched");
+        check(!PriorityView.worthWatching(0, true), "a used-up limit is not watched");
+        check(!PriorityView.worthWatching(0, false), "a used-up limit is not watched");
+        check(!PriorityView.worthWatching(80, false), "a limit on pace is not watched");
     }
 }

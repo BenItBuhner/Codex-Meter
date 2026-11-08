@@ -158,7 +158,8 @@ new_models_scenes() {
 # The Priority tab, first in the bar: its page top to bottom, a provider tab, and back.
 priority_scenes() {
   for THEME in light dark; do
-    demo --ez open_priority true --es demo_new_models relevant
+    # Cursor's monthly limit is used up: it is gone, so it is not under Limits to watch.
+    demo --ez open_priority true --es demo_new_models relevant --ez demo_cursor_used_up true
     shot "$THEME-40-priority" 6
     for k in 1 2 3 4; do
       adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
@@ -172,6 +173,10 @@ priority_scenes() {
       demo
       shot "$THEME-41-provider-without-priority-card" 6
     fi
+    demo --es open_provider claude_code
+    shot "$THEME-43-claude-code" 6
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+    shot "$THEME-43-claude-code-scrolled" 2
   done
 }
 

@@ -152,9 +152,15 @@ public final class UsagePaceDemoActivity extends Activity {
             if (livePreview && !NowBarManager.startPreview(this)) {
                 throw new IllegalStateException("Could not start live notification preview");
             }
-            startActivity(new Intent(this,
-                    livePreview ? SettingsActivity.class : MainActivity.class)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            Intent next = new Intent(this, livePreview ? SettingsActivity.class : MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+            String openProvider = getIntent().getStringExtra("open_provider");
+            if (openProvider != null && !livePreview) {
+                ProviderPreferences.setSelected(this, UsageProvider.fromId(openProvider));
+                PriorityPrefs.setTabSelected(this, false);
+                next.putExtra(MainActivity.EXTRA_PROVIDER, openProvider);
+            }
+            startActivity(next);
         } catch (Exception exception) {
             throw new IllegalStateException("Could not seed usage pace demo", exception);
         } finally {
@@ -230,7 +236,8 @@ public final class UsagePaceDemoActivity extends Activity {
                 + "\"weekly\":" + window(34, 604800, nowSeconds + 5 * 86400) + ","
                 + "\"fetched_at\":" + (now - 600000) + "}";
         String cursor = "{\"plan_type\":\"pro\",\"allowed\":true,\"limit_reached\":false,"
-                + "\"monthly\":" + window(27, 2592000, nowSeconds + 11 * 86400) + ","
+                + "\"monthly\":" + window(getIntent().getBooleanExtra("demo_cursor_used_up", false)
+                        ? 100 : 27, 2592000, nowSeconds + 11 * 86400) + ","
                 + "\"fetched_at\":" + (now - 900000) + "}";
         seedProvider(UsageProvider.CLAUDE_CODE, claude);
         seedProvider(UsageProvider.CURSOR, cursor);

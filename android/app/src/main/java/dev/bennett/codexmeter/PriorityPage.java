@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * The Priority tab's content, worked out once from what is already on the device and then drawn by
  * every design (One UI, One UI 9, Material 3 Expressive and Liquid Glass): official incidents and
- * significant slowdowns when there are any, the limits to watch with their pace, the other limits,
- * and new models when there are any. Nothing is shown just to fill the page.
+ * significant slowdowns when there are any, the limits to watch, and new models when there are
+ * any. Limits that are fine or already used up are not shown; nothing is shown just to fill it.
  *
  * <p>Only providers that are turned on in Settings, Providers, and signed in take part.
  */
@@ -26,23 +26,21 @@ final class PriorityPage {
         final UsageWindow window;
         /** 0 to 100. */
         final int left;
-        final boolean exhausted;
         /** Running out before it resets, at the pace since the window started. */
         final boolean fast;
 
         Limit(UsageProvider provider, String label, UsageSnapshot snapshot, UsageWindow window, int left,
-                boolean exhausted, boolean fast) {
+                boolean fast) {
             this.provider = provider;
             this.label = label;
             this.snapshot = snapshot;
             this.window = window;
             this.left = left;
-            this.exhausted = exhausted;
             this.fast = fast;
         }
 
         boolean watch() {
-            return exhausted || fast;
+            return PriorityView.worthWatching(left, fast);
         }
 
         /** "Codex · Weekly". */
@@ -53,15 +51,20 @@ final class PriorityPage {
 
     /** Signed-in providers that take part, in tab order. */
     final List<UsageProvider> providers = new ArrayList<>();
-    /** Used up or running out early, most urgent first. */
+    /** Running out early with some still left, least left first. */
     final List<Limit> watch = new ArrayList<>();
-    /** Every other limit, least left first. */
-    final List<Limit> others = new ArrayList<>();
     /** Official incidents and performance warnings, most severe first. */
     final List<PriorityView.Item> alerts = new ArrayList<>();
 
     boolean signedInAnywhere() {
         return !providers.isEmpty();
+    }
+
+    /** Shown when no limit is running out early and nothing is wrong. */
+    static final String ALL_CLEAR = "Nothing needs attention right now.";
+
+    boolean allClear() {
+        return watch.isEmpty() && alerts.isEmpty();
     }
 
     static PriorityPage build(MainActivity a) {
@@ -82,7 +85,12 @@ final class PriorityPage {
                 add(a, limits, p, "Monthly", snapshot, snapshot.monthly, now);
             }
         }
-        split(limits, page.watch, page.others);
+        for (Limit l : limits) {
+            if (l.watch()) {
+                page.watch.add(l);
+            }
+        }
+        Collections.sort(page.watch, (x, y) -> Integer.compare(x.left, y.left));
         List<PriorityView.Item> items = a.priorityItems();
         for (PriorityView.Item item : items) {
             if (item.kind == PriorityView.Kind.DOWNTIME || item.kind == PriorityView.Kind.PERFORMANCE_WARNING) {
@@ -108,19 +116,6 @@ final class PriorityPage {
         }
         int left = Math.max(0, Math.min(100, w.remainingPercent()));
         UsagePace.Assessment pace = UsagePacePreferences.assess(a, p, snapshot, w, now);
-        out.add(new Limit(p, label, snapshot, w, left, left <= 0, left > 0 && pace != null && pace.accelerated));
-    }
-
-    /**
-     * Splits limits into the ones to watch (used up first, then running out early) and the rest,
-     * each with the least left first. Ties keep tab order. Pure, for the self-test.
-     */
-    static void split(List<Limit> all, List<Limit> watch, List<Limit> others) {
-        for (Limit l : all) {
-            (l.watch() ? watch : others).add(l);
-        }
-        Collections.sort(watch, (x, y) -> x.exhausted != y.exhausted ? (x.exhausted ? -1 : 1)
-                : Integer.compare(x.left, y.left));
-        Collections.sort(others, (x, y) -> Integer.compare(x.left, y.left));
+        out.add(new Limit(p, label, snapshot, w, left, pace != null && pace.accelerated));
     }
 }
