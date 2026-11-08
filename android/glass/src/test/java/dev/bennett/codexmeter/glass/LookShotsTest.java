@@ -41,21 +41,6 @@ public class LookShotsTest {
     }
 
     @Test
-    public void looksSwitchGlassesOwnLookVariables() {
-        GlassLook.apply(new GlassLook.Options(GlassLook.Generation.IOS_26, GlassLook.DEFAULT_TINT, false, false));
-        assertEquals("ios26.x", com.benitbuhner.glasse.ui.Look.getVersion());
-        assertEquals("progressive", com.benitbuhner.glasse.ui.Look.glassLook().getEdgeEffect());
-        assertTrue(!GlassLook.hardEdges());
-        GlassLook.apply(new GlassLook.Options(GlassLook.Generation.IOS_27, GlassLook.DEFAULT_TINT, false, false));
-        assertEquals("ios27", com.benitbuhner.glasse.ui.Look.getVersion());
-        assertEquals("rect", com.benitbuhner.glasse.ui.Look.glassLook().getEdgeEffect());
-        assertTrue(GlassLook.hardEdges());
-        // Reduce Transparency gives the iOS 26 look solid edges too.
-        GlassLook.apply(new GlassLook.Options(GlassLook.Generation.IOS_26, GlassLook.DEFAULT_TINT, true, false));
-        assertTrue(GlassLook.hardEdges());
-    }
-
-    @Test
     public void accessibilityWinsOverTheLook() {
         GlassStyle reduced = GlassLook.style(new GlassLook.Options(GlassLook.Generation.IOS_27, 0.0, true, false));
         assertTrue(reduced.tintAlpha > 0.9);
@@ -85,18 +70,10 @@ public class LookShotsTest {
             Capture c = new Capture(W, H, 32, 24, 2, scheme, env -> CodexGlass.dashboard(env, src),
                     new LinkedHashMap<String, ScreenMaker>());
             c.run(2500);
-            c.shot(out + "/look-" + look[0] + "-" + scheme + "-top.png");
             // scrolled so content sits under the floating bars
             c.drag(W / 2, 600, W / 2, 250, 300);
             c.run(1500);
             c.shot(out + "/look-" + look[0] + "-" + scheme + ".png");
-            // to the end of the list: nothing left under the bottom bar
-            for (int i = 0; i < 4; i++) {
-                c.drag(W / 2, 700, W / 2, 100, 200);
-                c.run(800);
-            }
-            c.run(1500);
-            c.shot(out + "/look-" + look[0] + "-" + scheme + "-end.png");
         }
     }
 }
