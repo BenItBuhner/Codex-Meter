@@ -18,10 +18,10 @@ on:
   workflow_dispatch:
     inputs:
       design:
-        description: 'Design to record (liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive, one_ui_9 or classic; liquid_glass reads as iOS 26)'
+        description: 'Design to record (liquid_glass, material_3_expressive, one_ui_9 or classic)'
         default: liquid_glass
       scenes:
-        description: 'all, or new_models for only the New models card and its settings'
+        description: 'all, new_models, priority, perf (Liquid Glass navigation pass) or wide (foldable and tablet sizes)'
         default: all
 
 permissions:
