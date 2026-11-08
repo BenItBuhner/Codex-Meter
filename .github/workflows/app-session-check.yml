@@ -154,6 +154,14 @@ jobs:
           step "Open ChatGPT after opening Codex Meter" shown open_chatgpt
           shot n06-chatgpt-after-update 1
           step "Home" hidden home
+          # Claude with no session running lists its 5-hour limit with no numbers (new in alpha.20).
+          adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity --es open none --es claude idle; sleep 2
+          home; sleep 1
+          step "Open Claude with no session running" shown open_claude
+          shot n07-claude-idle 1
+          step "Home" hidden home
+          step "Open ChatGPT with Claude idle" shown open_chatgpt
+          step "Home" hidden home
           sleep 1
           adb shell pkill -INT screenrecord; wait $REC 2>/dev/null; sleep 2
           adb pull /sdcard/now-bar-apps.mp4 "$OUT/now-bar-apps.mp4" >/dev/null || true

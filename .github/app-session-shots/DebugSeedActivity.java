@@ -27,6 +27,7 @@ public class DebugSeedActivity extends Activity {
         String open = getIntent().getStringExtra("open");
         String design = getIntent().getStringExtra("design");
         boolean reseed = !"no".equals(getIntent().getStringExtra("reseed"));
+        claudeIdle = "idle".equals(getIntent().getStringExtra("claude"));
         try {
             if (!reseed) throw new SkipSeed();
             long now = System.currentTimeMillis();
@@ -74,6 +75,9 @@ public class DebugSeedActivity extends Activity {
         return java.time.Instant.ofEpochSecond(epochSeconds).toString();
     }
 
+    /** claude=idle: Claude lists its 5-hour limit with no numbers, as it does with no session running. */
+    private boolean claudeIdle;
+
     private void seed(UsageProvider provider, long now, long s) throws Exception {
         SecureTokenStore.save(this, provider, new AuthTokens("demo", "demo", "",
                 now + 30L * 86_400_000L, "", "demo@example.com"));
@@ -88,8 +92,10 @@ public class DebugSeedActivity extends Activity {
             return;
         }
         UsageSnapshot snapshot = provider == UsageProvider.CLAUDE_CODE
-                ? ClaudeUsageParser.parse("{\"five_hour\":{\"utilization\":42.0,"
-                        + "\"resets_at\":\"" + iso(s + 7920) + "\"},\"seven_day\":{"
+                ? ClaudeUsageParser.parse("{\"five_hour\":" + (claudeIdle
+                        ? "{\"utilization\":null,\"resets_at\":null}"
+                        : "{\"utilization\":42.0,\"resets_at\":\"" + iso(s + 7920) + "\"}")
+                        + ",\"seven_day\":{"
                         + "\"utilization\":68.0,\"resets_at\":\"" + iso(s + 266000) + "\"}}",
                         "Max 5x", now)
                 : new UsageSnapshot("Pro", true, false, null, null,
