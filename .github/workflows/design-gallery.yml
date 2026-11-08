@@ -20,6 +20,9 @@ on:
       design:
         description: 'Design to record (liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive, one_ui_9 or classic; liquid_glass reads as iOS 26)'
         default: liquid_glass
+      scenes:
+        description: 'all, or new_models for only the New models card and its settings'
+        default: all
 
 permissions:
   contents: read
@@ -81,7 +84,7 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-window -gpu swangle_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
-          script: ./android/ci/record-design-gallery.sh android/app/build/outputs/apk/debug/app-debug.apk design-gallery ${{ github.event.inputs.design || 'liquid_glass' }}
+          script: ./android/ci/record-design-gallery.sh android/app/build/outputs/apk/debug/app-debug.apk design-gallery ${{ github.event.inputs.design || 'liquid_glass' }} ${{ github.event.inputs.scenes || 'all' }}
 
       - name: Upload gallery
         if: success() || failure()

@@ -54,6 +54,16 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        android:key="notification_new_models_category"
+        android:title="Models">
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="new_models_ui"
+            android:summary="A quiet digest when a public catalog lists a new model for a provider you use. Never an alarm sound."
+            android:title="New models" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="notification_troubleshooting_category"
         android:title="Troubleshooting">
         <Preference

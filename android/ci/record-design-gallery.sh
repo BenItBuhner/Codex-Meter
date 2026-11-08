@@ -4,15 +4,17 @@
 # and dark: dashboard, scrolled, pull to refresh (checked in the log), another provider tab, Settings, Appearance and
 # widget settings.
 #
-#   android/ci/record-design-gallery.sh <debug APK> <output dir> [design]
+#   android/ci/record-design-gallery.sh <debug APK> <output dir> [design] [scenes]
 #
 # design: liquid_glass (default), liquid_glass_ios_26, liquid_glass_ios_27, material_3_expressive,
-# one_ui_9 or classic.
+# one_ui_9 or classic. scenes: all (default), or new_models for only the New models card (with a
+# relevant model, then with only irrelevant ones), the Notifications toggle and the Refresh note.
 set -euo pipefail
 
 APK="${1:?debug APK required}"
 OUT="${2:?gallery directory required}"
 DESIGN="${3:-liquid_glass}"
+SCENES="${4:-all}"
 PKG=dev.bennett.codexmeter
 DEMO="$PKG/.UsagePaceDemoActivity"
 mkdir -p "$OUT"
@@ -113,6 +115,43 @@ reorder_tabs() {
 
 size="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
 W="${size%x*}"; H="${size#*x}"
+
+# The Priority view's New models card and its two settings. Seeded catalog records only; the
+# app's own catalog check waits 30 minutes after the seeded success, so nothing is fetched.
+new_models_scenes() {
+  for THEME in light dark; do
+    demo --es demo_new_models relevant
+    shot "$THEME-30-new-models" 6
+    for k in 1 2 3; do
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+      shot "$THEME-30-new-models-scroll-$k" 2
+    done
+    demo --es demo_new_models irrelevant
+    shot "$THEME-31-irrelevant-hidden" 6
+    for k in 1 2 3; do
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+      shot "$THEME-31-irrelevant-hidden-scroll-$k" 2
+    done
+    demo --ez demo_notifications_on true
+    sleep 3
+    demo --ez demo_notifications_on true --es open_settings_page notifications
+    shot "$THEME-32-notifications" 5
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+    shot "$THEME-32-notifications-scrolled" 2
+    demo --es open_settings_page refresh_usage
+    shot "$THEME-33-refresh" 5
+    for k in 1 2; do
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
+      shot "$THEME-33-refresh-scrolled-$k" 2
+    done
+  done
+}
+
+if [[ "$SCENES" == new_models ]]; then
+  new_models_scenes
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
 
 for THEME in light dark; do
   demo

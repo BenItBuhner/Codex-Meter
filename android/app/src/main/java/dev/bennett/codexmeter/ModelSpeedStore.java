@@ -139,7 +139,34 @@ public final class ModelSpeedStore {
         return out;
     }
 
-    private static String get(String url) throws java.io.IOException {
+    /**
+     * Refreshes the picker's cached lists from a full catalog body the new-model check already
+     * fetched, so the two never download the same catalog twice in a row.
+     */
+    static void cacheChoices(Context context, String body, long now) {
+        SharedPreferences.Editor edit = prefs(context).edit();
+        for (UsageProvider provider : new UsageProvider[] {UsageProvider.CODEX, UsageProvider.CLAUDE_CODE,
+                UsageProvider.GROK}) {
+            String author = ModelSpeed.authorFor(provider);
+            List<ModelSpeed.Choice> fresh = ModelSpeed.modelsBy(body, author, 30);
+            if (fresh.isEmpty()) {
+                continue;
+            }
+            JSONArray list = new JSONArray();
+            try {
+                for (ModelSpeed.Choice c : fresh) {
+                    list.put(new JSONObject().put("id", c.id).put("name", c.name));
+                }
+            } catch (org.json.JSONException e) {
+                continue;
+            }
+            edit.putString("choices_" + author, list.toString()).putLong("choices_at_" + author, now);
+        }
+        edit.apply();
+    }
+
+    /** An anonymous GET: no key, cookie or account header is ever attached. */
+    static String get(String url) throws java.io.IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         try {
             connection.setConnectTimeout(TIMEOUT_MS);
