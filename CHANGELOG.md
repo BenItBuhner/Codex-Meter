@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- **New models** in the Priority view: a grouped card after your meters lists models newly added to public catalogs for the providers you have connected. OpenAI models show for Codex, Anthropic models for Claude Code, xAI models for Grok, MiniMax, Moonshot and Z.ai models for MiniMax, Kimi and Z.ai, and OpenRouter's whole catalog only if OpenRouter is connected. OpenCode Go, Kilo, Chutes and Synthetic show their own public catalogs when connected. Cursor, Antigravity and the other services add nothing. Each entry reads like "New on OpenRouter: GPT-6", with the note that newly listed isn't necessarily newly released and that your subscription's access isn't verified. Dismiss clears the card. The catalogs are fetched without any of your keys. The app checks about every 30 minutes while you're using it, hourly otherwise, every two hours overnight, and less often after days away. It never checks just because usage refreshes run more often. The first catalog the app sees is taken as the starting point and announces nothing. A model must be seen twice before it counts. Renamed aliases, free or batch variants, price changes and long-listed models are not announced, and a failed check never reads as models being removed. Android.
+- An optional **New models** notification under Settings › Notifications, off by default. It sends one grouped, deduplicated digest using your silent or ordinary delivery style, and never the alarm sound. Turning it on doesn't replay models you already missed. The Refresh & dashboard screen explains how the check works. Android.
+
 ### Changed
 
 - **Material 3 Expressive** looks finished. Usage bars now show the moving Expressive wave, with a stop dot at the end of the track. A window that is running out early turns the bar and its pace pill red. Meters sit together as one grouped list, cards carry their label at the top, and the title and numbers use heavier type. Pulling down on the dashboard refreshes, with Expressive's loading indicator. Settings now open in the same design: Material switches, sliders, choice dialogs and grouped rows, running the same settings as the other designs. The other pages, such as Providers or Usage history, still open in their One UI form. Android.
