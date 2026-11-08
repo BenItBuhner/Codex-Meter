@@ -7,6 +7,7 @@
 - **Liquid Glass** is back to how it looked and ran in 2.9.0-alpha.17. The iOS 26 and iOS 27 edge changes in 2.9.0-alpha.18 looked wrong and made scrolling and refreshes slow, with occasional freezes. Android.
 - Refreshes no longer wait behind background lookups (service status, model catalogs and model speed), which run on their own thread now. The dashboard no longer re-reads the whole saved model catalog on every redraw, which slowed scrolling and refreshes. Android.
 - Pulling to refresh again while a refresh is running now joins it instead of queueing another full refresh. The spinner follows the tab you are on, so a finished refresh for another tab no longer hides it, and a refresh that hangs stops spinning after 90 seconds so you can pull again. Android.
+- The in-app update screen tracks one step at a time, in both One UI and Liquid Glass: a second tap can no longer start a second download or check, and backing out of the install-permission prompt no longer starts an install later on its own. Android.
 - Cancelling a sign-in and starting another right away no longer revives the cancelled one in the background, which could leave the new sign-in waiting or stop it when the old one gave up. Android.
 
 ## 2.9.0-alpha.18 — 2026-11-08
