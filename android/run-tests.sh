@@ -120,9 +120,12 @@ javac -encoding UTF-8 -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DesignIds.java" \
   "$ROOT/tests/DesignIdsSelfTest.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RefreshTracker.java" \
-  "$ROOT/tests/RefreshTrackerSelfTest.java"
+  "$ROOT/tests/RefreshTrackerSelfTest.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateFlow.java" \
+  "$ROOT/tests/UpdateFlowSelfTest.java"
 java -ea -cp "$OUT" dev.bennett.codexmeter.DesignIdsSelfTest
 java -ea -cp "$OUT" dev.bennett.codexmeter.RefreshTrackerSelfTest
+java -ea -cp "$OUT" dev.bennett.codexmeter.UpdateFlowSelfTest
 grep -q '<item>liquid_glass_ios_26</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 grep -q '<item>liquid_glass_ios_27</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 grep -q '<item>material_3_expressive</item>' "$ROOT/app/src/main/res/values/arrays.xml"
