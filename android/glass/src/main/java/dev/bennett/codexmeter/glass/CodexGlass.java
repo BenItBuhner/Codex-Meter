@@ -79,6 +79,15 @@ public final class CodexGlass {
     private static final String MORE = "more";
     private static final String CHOICE = "choice:";
     private static final Unit U = Unit.INSTANCE;
+    /**
+     * On a wide window (tablet, unfolded foldable) pages keep a readable column this wide, centred,
+     * as Glassé's own pages and iPadOS do; on a phone the 16 pt gutter wins.
+     */
+    static final double READABLE_W = 720;
+
+    static double readablePad(double width) {
+        return Math.max(16, Math.round((width - READABLE_W) / 2));
+    }
 
     public static Screen dashboard(Env env, GlassSource source) {
         GlassIcons.register();
@@ -181,14 +190,13 @@ public final class CodexGlass {
 
         double[] bg = t.pal.groupedRGB;
         return Box(P.of("fill", true, "bg", t.pal.grouped),
-                GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", 16, "tail", 150,
+                GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", readablePad(t.W), "tail", 150,
                         "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
                         "refreshing", src.refreshing()), body.toArray()),
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
-                // iOS 27-inspired: once content scrolls under the floating bars, the bar's own band
-                // gets an even backdrop (a second fade over just the bar) instead of only the soft fade.
-                GlassLook.uniformToolbar() ? EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg,
-                        "shown", past.get())) : null,
+                // Once content scrolls under the floating bars, the bar's own band gets an even
+                // backdrop (a second fade over just the bar) instead of only the soft fade.
+                EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                 GlassNavBar(P.of("title", d.title, "titleVisible", past.get(), "trailing", trailing)),
                 kitTabs.size() >= 2 ? GlassTabBar(P.of(
@@ -494,10 +502,9 @@ public final class CodexGlass {
         return Box(P.of("fill", true, "bg", t.pal.grouped),
                 Stack(P.of("onPop", pop, "bg", t.pal.grouped), els),
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
-                // iOS 27-inspired: once content scrolls under the floating bars, the bar's own band
-                // gets an even backdrop (a second fade over just the bar) instead of only the soft fade.
-                GlassLook.uniformToolbar() ? EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg,
-                        "shown", past.get())) : null,
+                // Once content scrolls under the floating bars, the bar's own band gets an even
+                // backdrop (a second fade over just the bar) instead of only the soft fade.
+                EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                 GlassNavBar(P.of("title", titleOf(src, top), "titleVisible", sub || past.get(),
                         "trailing", actions.isEmpty() ? null : actions,
@@ -579,11 +586,11 @@ public final class CodexGlass {
                 }
                 body.add(ListSection(P.of("footer", row.summary), rows));
             }
-            return Page(P.of("onScroll", p.get("onScroll"), "tail", 60), body);
+            return Page(P.of("onScroll", p.get("onScroll"), "tail", 60, "maxW", READABLE_W), body);
         }
         GlassModel.Page page = src.page(id);
         if (page == null) {
-            return Page(P.of("onScroll", p.get("onScroll")));
+            return Page(P.of("onScroll", p.get("onScroll"), "maxW", READABLE_W));
         }
         body.add(LargeTitle(page.title, page.intro != null ? 6.0 : 18.0));
         if (page.intro != null) {
@@ -601,7 +608,7 @@ public final class CodexGlass {
                 }
             }
         }
-        return Page(P.of("onScroll", p.get("onScroll"), "tail", root ? 110 : 60), body);
+        return Page(P.of("onScroll", p.get("onScroll"), "tail", root ? 110 : 60, "maxW", READABLE_W), body);
     };
 
     private static boolean reorderable(GlassModel.Page page) {
