@@ -21,6 +21,7 @@ public class WideWindowTest {
     private static final Object[][] SIZES = {
             {"phone", 393.0, 852.0},
             {"foldable", 673.0, 841.0},
+            {"foldable-420dpi", 707.0, 823.0},
             {"tablet-portrait", 800.0, 1280.0},
             {"tablet-landscape", 1280.0, 800.0},
     };
@@ -62,6 +63,30 @@ public class WideWindowTest {
             if (out != null) {
                 c.shot(out + "/wide-" + name + "-settings-" + scheme + ".png");
             }
+        }
+    }
+
+    /** A drag up scrolls the dashboard on a phone and both foldable sizes (the sample dashboard fits a tablet). */
+    @Test
+    public void wideDashboardsScroll() {
+        for (Object[] size : SIZES) {
+            String name = (String) size[0];
+            double w = (Double) size[1];
+            double h = (Double) size[2];
+            if (h > 900) {
+                continue;
+            }
+            FakeSource src = new FakeSource();
+            Map<String, ScreenMaker> makers = new LinkedHashMap<>();
+            makers.put(CodexGlass.DASHBOARD, env -> CodexGlass.dashboard(env, src));
+            Capture c = new Capture(w, h, 32, 24, 1, "light", env -> CodexGlass.dashboard(env, src), makers);
+            c.host.open(CodexGlass.DASHBOARD, true);
+            c.run(2500);
+            byte[] before = c.image().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG, 100, 6).getBytes();
+            c.drag(w / 2, h * 3 / 4, w / 2, h / 3, 600);
+            c.run(1500);
+            byte[] after = c.image().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG, 100, 6).getBytes();
+            assertTrue(name + " dashboard did not scroll", !java.util.Arrays.equals(before, after));
         }
     }
 
