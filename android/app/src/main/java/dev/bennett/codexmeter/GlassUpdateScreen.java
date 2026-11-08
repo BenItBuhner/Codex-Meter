@@ -232,13 +232,24 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
         setStatus(app.getString(R.string.update_downloading), false);
         screens.executor.execute(() -> {
             try {
+                // The download reports every 8 KB read. Redrawing the whole glass app for each one
+                // queued thousands of frames and froze it; draw at most one step per percent.
+                int[] shown = {-1};
                 UpdateInstaller.PreparedUpdate prepared = UpdateInstaller.prepare(app, target,
-                        (downloaded, total) -> activity().runOnUiThread(() -> {
-                            if (total > 0L) {
-                                progress = Math.min(1d, downloaded / (double) total);
-                                changed();
+                        (downloaded, total) -> {
+                            if (total <= 0L) {
+                                return;
                             }
-                        }));
+                            int percent = (int) Math.min(100L, downloaded * 100L / total);
+                            if (percent == shown[0]) {
+                                return;
+                            }
+                            shown[0] = percent;
+                            activity().runOnUiThread(() -> {
+                                progress = percent / 100d;
+                                changed();
+                            });
+                        });
                 activity().runOnUiThread(() -> setStatus(app.getString(R.string.update_opening_installer), false));
                 UpdateInstaller.commit(app, prepared);
                 activity().runOnUiThread(() -> {
