@@ -2,6 +2,7 @@ package dev.bennett.codexmeter.glass;
 
 import com.benitbuhner.glasse.core.GlassStyle;
 import com.benitbuhner.glasse.core.GlassStyles;
+import com.benitbuhner.glasse.ui.Look;
 
 /**
  * Which Liquid Glass look the screens draw: the iOS 26-inspired look (the design as it shipped) or
@@ -52,14 +53,26 @@ public final class GlassLook {
         return current;
     }
 
-    /** Makes {@code options} the look of every glass surface drawn from now on. */
+    /**
+     * Makes {@code options} the look of every glass surface drawn from now on: Glassé's own look
+     * version (its edge effect, frost and other look variables) and the material defaults.
+     */
     public static void apply(Options options) {
         current = options;
+        Look.setGlassVersion(glasseVersion(options));
         GlassStyles.setDefaults(style(options));
     }
 
-    /** True when the floating bars get a uniform backdrop once content scrolls under them. */
-    public static boolean uniformToolbar() {
+    /** Glassé's look preset: "ios26.x" (progressive edges) or "ios27" (rect edges, frosted). */
+    public static String glasseVersion(Options o) {
+        return o.generation == Generation.IOS_27 ? "ios27" : "ios26.x";
+    }
+
+    /**
+     * True when the scroll edges are uniform bands rather than soft fades: the iOS 27-inspired
+     * look, and Reduce Transparency in either look.
+     */
+    public static boolean hardEdges() {
         Options o = current;
         return o.generation == Generation.IOS_27 || o.reduceTransparency;
     }
@@ -76,13 +89,14 @@ public final class GlassLook {
                     // more blur and saturation: busy backgrounds diffuse instead of showing through sharply
                     .blur(2.4 + 6.0 * o.tint)
                     .saturation(1.45)
-                    // a brighter highlight and darker, heavier edges than iOS 26
+                    // a brighter highlight and a darker, more defined edge in place of the drop shadow
                     .specular(1.35)
-                    .shadow(1.15)
+                    .shadow(0.55)
                     .bezel(18.0)
                     .tintAlpha(alpha)
                     .light(GlassStyle.EMPTY.tint("#ffffff"))
-                    .dark(GlassStyle.EMPTY.tint("#1c1c1e"));
+                    // iOS 27's dark-mode glass is much lighter than iOS 26's
+                    .dark(GlassStyle.EMPTY.tint("#48484a"));
         }
         if (o.increaseContrast) {
             GlassStyle contrast = GlassStyle.EMPTY
