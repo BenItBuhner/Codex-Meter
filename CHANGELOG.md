@@ -6,6 +6,7 @@
 
 - **Liquid Glass** is back to how it looked and ran in 2.9.0-alpha.17. The iOS 26 and iOS 27 edge changes in 2.9.0-alpha.18 looked wrong and made scrolling and refreshes slow, with occasional freezes. Android.
 - Refreshes no longer wait behind background lookups (service status, model catalogs and model speed), which run on their own thread now. The dashboard no longer re-reads the whole saved model catalog on every redraw, which slowed scrolling and refreshes. Android.
+- Pulling to refresh again while a refresh is running now joins it instead of queueing another full refresh. The spinner follows the tab you are on, so a finished refresh for another tab no longer hides it, and a refresh that hangs stops spinning after 90 seconds so you can pull again. Android.
 
 ## 2.9.0-alpha.18 — 2026-11-08
 

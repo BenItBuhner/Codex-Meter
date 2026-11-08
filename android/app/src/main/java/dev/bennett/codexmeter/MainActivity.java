@@ -60,6 +60,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     /** Background lookups (status pages, model catalogs, speed) so they never hold up a usage refresh. */
     private final ExecutorService lookups = Executors.newSingleThreadExecutor();
+    /** Which providers have an on-screen refresh running; the spinner follows the shown tab's. */
+    private final RefreshTracker refreshes = new RefreshTracker();
     private final android.os.Handler statusHandler =
             new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable statusTick = this::checkProviderStatus;
@@ -374,7 +376,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     void glassRefresh() {
-        setRefreshing(true);
         refreshFromPull();
     }
 
@@ -382,6 +383,15 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         DiagnosticLog.info(this, "user", "dashboard_editor_opened");
         Ui.startSecondaryActivity(this, new Intent(this, DashboardReorderActivity.class)
                 .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, this.provider.id));
+    }
+
+    /** Shows the spinner exactly while the selected tab's provider has a refresh running. */
+    private void showRefreshing() {
+        setRefreshing(this.refreshes.running(this.provider.id, System.currentTimeMillis()));
+    }
+
+    private boolean alive() {
+        return !isFinishing() && !isDestroyed();
     }
 
     private void setRefreshing(boolean refreshing) {
@@ -592,7 +602,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         DiagnosticLog.info(this, "user", "provider_selected", "provider", selected.id);
         this.provider = selected;
         ProviderPreferences.setSelected(this, selected);
-        setRefreshing(false);
+        showRefreshing();
         rebuild();
         refreshSelectedProviderIfStale();
         refreshModelSpeed();
@@ -608,19 +618,16 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 && SecureTokenStore.isSignedIn(this, UsageProvider.CLAUDE_CODE)
                 && AppPreferences.getRefreshOnLaunch(this)
                 && ClaudeUsageApi.isStale(this)) {
-            setRefreshing(true);
             refreshProvider(UsageProvider.CLAUDE_CODE, "tab");
         } else if (this.provider == UsageProvider.CURSOR
                 && SecureTokenStore.isSignedIn(this, UsageProvider.CURSOR)
                 && AppPreferences.getRefreshOnLaunch(this)
                 && CursorUsageApi.isStale(this)) {
-            setRefreshing(true);
             refreshProvider(UsageProvider.CURSOR, "tab");
         } else if (ProviderUsageApi.handles(this.provider)
                 && SecureTokenStore.isSignedIn(this, this.provider)
                 && AppPreferences.getRefreshOnLaunch(this)
                 && ProviderUsageApi.isStale(this, this.provider)) {
-            setRefreshing(true);
             refreshProvider(this.provider, "tab");
         }
     }
@@ -1762,7 +1769,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private void refreshFromPull() {
         if (this.provider != UsageProvider.CODEX) {
             if (!SecureTokenStore.isSignedIn(this, this.provider)) {
-                setRefreshing(false);
+                showRefreshing();
                 Toast.makeText(this, this.provider.signInLabel() + " to refresh usage.",
                         Toast.LENGTH_SHORT).show();
                 return;
@@ -1774,10 +1781,15 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (!SecureTokenStore.isSignedIn(this)) {
             DiagnosticLog.warn(this, "user", "manual_refresh_rejected",
                     "source", "pull", "reason", "signed_out");
-            setRefreshing(false);
+            showRefreshing();
             Toast.makeText(this, "Sign in from Settings to refresh usage.", Toast.LENGTH_SHORT).show();
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return;
+        }
+        final RefreshTracker.Run run = this.refreshes.begin(UsageProvider.CODEX.id, System.currentTimeMillis());
+        showRefreshing();
+        if (run == null) {
+            return; // a refresh is already running; this pull joins it
         }
         final Context applicationContext = getApplicationContext();
         this.executor.execute(() -> {
@@ -1787,8 +1799,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 runOnUiThread(() -> {
                     DiagnosticLog.info(applicationContext, "user",
                             "manual_refresh_finished", "source", "pull");
-                    setRefreshing(false);
-                    rebuild();
+                    this.refreshes.end(run);
+                    if (alive()) {
+                        showRefreshing();
+                        rebuild();
+                    }
                 });
             } catch (Exception e) {
                 DiagnosticLog.error(applicationContext, "user", "manual_refresh_failed", e,
@@ -1796,9 +1811,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 AppPreferences.setLastError(applicationContext, safeMessage(e));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
-                    setRefreshing(false);
-                    Toast.makeText(this, safeMessage(e), Toast.LENGTH_LONG).show();
-                    rebuild();
+                    this.refreshes.end(run);
+                    if (alive()) {
+                        showRefreshing();
+                        Toast.makeText(this, safeMessage(e), Toast.LENGTH_LONG).show();
+                        rebuild();
+                    }
                 });
             }
         });
@@ -1996,6 +2014,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private void refreshProvider(UsageProvider target, String source) {
         DiagnosticLog.info(this, "user", "manual_refresh_requested", "source", source,
                 "provider", target.id);
+        final RefreshTracker.Run run = this.refreshes.begin(target.id, System.currentTimeMillis());
+        showRefreshing();
+        if (run == null) {
+            return; // already refreshing this provider
+        }
         final Context applicationContext = getApplicationContext();
         this.executor.execute(() -> {
             String failure = null;
@@ -2013,7 +2036,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
             final String message = failure;
             runOnUiThread(() -> {
-                setRefreshing(false);
+                this.refreshes.end(run);
+                if (!alive()) {
+                    return;
+                }
+                showRefreshing();
                 if (message != null && !"tab".equals(source)) {
                     Toast.makeText(this, message, Toast.LENGTH_LONG).show();
                 }
