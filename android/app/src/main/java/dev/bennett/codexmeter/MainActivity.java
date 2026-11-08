@@ -224,6 +224,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     protected void onResume() {
         super.onResume();
         refreshModelSpeed();
+        refreshModelDiscovery();
         checkProviderStatus();
         if (this.glass != null) {
             this.glass.onResume();
@@ -646,6 +647,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
             buildProviderDashboard(this.provider);
+            addNewModelsCard();
             addModelSpeedCard(this.provider);
             return;
         }
@@ -664,6 +666,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.content.addView(dashboard);
                 Ui.addSpacer(this.content, 20);
             }
+            addNewModelsCard();
             boolean signedIn = SecureTokenStore.isSignedIn(this);
             if (!signedIn) {
                 Button signIn = Ui.nativePrimaryButton(this,
@@ -706,6 +709,63 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         } catch (java.util.concurrent.RejectedExecutionException ignored) {
             // Closing.
         }
+    }
+
+    /** Checks the public model catalogs on their own clock (at most every 30 minutes on open). */
+    void refreshModelDiscovery() {
+        if (this.executor.isShutdown()) {
+            return;
+        }
+        Context app = getApplicationContext();
+        try {
+            this.executor.execute(() -> {
+                if (ModelDiscoveryStore.refreshIfDue(app, true)) {
+                    runOnUiThread(() -> {
+                        if (!isFinishing() && !isDestroyed()) {
+                            rebuild();
+                        }
+                    });
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // Closing.
+        }
+    }
+
+    /**
+     * The Priority view's "New models" card, after the meters: one grouped, dismissible list of
+     * models newly listed for the connected providers. Nothing when none are relevant.
+     */
+    private void addNewModelsCard() {
+        if (!PriorityPrefs.isViewEnabled(this)) {
+            return;
+        }
+        List<ModelDiscovery.Entry> items = ModelDiscoveryStore.cardItems(this);
+        if (items.isEmpty()) {
+            return;
+        }
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, "New models", 17, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        for (ModelDiscovery.Entry e : items) {
+            TextView row = Ui.text(this, e.label(), 14, Ui.mainText(this.dark));
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+            rp.setMargins(0, Ui.dp(this, 8), 0, 0);
+            card.addView(row, rp);
+        }
+        TextView note = Ui.text(this, ModelDiscovery.CARD_NOTE, 13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
+        np.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 12));
+        card.addView(note, np);
+        Button dismiss = Ui.nativePrimaryButton(this, "Dismiss");
+        dismiss.setOnClickListener(view -> {
+            ModelDiscoveryStore.dismiss(this, items);
+            rebuild();
+        });
+        card.addView(dismiss, new LinearLayout.LayoutParams(-1, Ui.dp(this, 52)));
+        this.content.addView(card);
+        Ui.addSpacer(this.content, 20);
     }
 
     /** Lets people pick the reference model (newest first) or hide the card. */

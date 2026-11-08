@@ -98,6 +98,14 @@ public final class UsageRefreshJobService extends JobService {
                         RefreshScheduler.scheduleAtNextReset(app, UsageApi.refreshAndCache(app));
                         AppPreferences.recordRefreshSuccess(app);
                     }
+                    // The catalog check keeps its own, much slower clock; frequent usage jobs
+                    // only give it a chance to run when it is due.
+                    try {
+                        ModelDiscoveryStore.refreshIfDue(app, false);
+                    } catch (RuntimeException e) {
+                        DiagnosticLog.warn(app, "models", "discovery_failed", "error",
+                                e.getClass().getSimpleName());
+                    }
                     WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
                     DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
                             "refresh_job_succeeded",

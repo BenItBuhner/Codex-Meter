@@ -50,6 +50,12 @@
             android:defaultValue="false"
             android:key="priority_written_summary_ui"
             android:title="Written summary" />
+        <Preference
+            android:key="new_models_info_ui"
+            android:selectable="false"
+            android:summary="@string/new_models_refresh_note"
+            android:title="New models"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>

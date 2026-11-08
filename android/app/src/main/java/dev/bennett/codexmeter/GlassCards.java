@@ -70,10 +70,41 @@ final class GlassCards {
         } else {
             other(activity, provider, snapshot, now, d.cards);
         }
+        Card models = newModels(activity);
+        if (models != null) {
+            d.cards.add(models);
+        }
         if (signedIn && ModelSpeedStore.isVisible(activity, provider)) {
             d.cards.add(speed(activity, provider));
         }
         return d;
+    }
+
+    /**
+     * The Priority view's "New models" card: models newly listed for the connected providers,
+     * grouped, after the meters. Null when there is nothing relevant (or the view is off).
+     */
+    private static Card newModels(MainActivity a) {
+        if (!PriorityPrefs.isViewEnabled(a)) {
+            return null;
+        }
+        List<ModelDiscovery.Entry> items = ModelDiscoveryStore.cardItems(a);
+        if (items.isEmpty()) {
+            return null;
+        }
+        Card c = new Card(Card.Kind.STATS);
+        c.detail = "New models";
+        c.title = "New models";
+        for (ModelDiscovery.Entry e : items) {
+            c.stats.add(new String[] {e.name, e.source.newOn()});
+        }
+        c.summary = ModelDiscovery.CARD_NOTE;
+        c.value = "Dismiss";
+        c.onPress = () -> {
+            ModelDiscoveryStore.dismiss(a, items);
+            a.rebuild();
+        };
+        return c;
     }
 
     /** Public OpenRouter figures for the model people picked; tapping changes or hides it. */

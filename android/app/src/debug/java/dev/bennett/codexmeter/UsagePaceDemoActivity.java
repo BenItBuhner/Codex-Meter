@@ -137,6 +137,14 @@ public final class UsagePaceDemoActivity extends Activity {
             }
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
+            String newModels = getIntent().getStringExtra("demo_new_models");
+            if (newModels != null && !newModels.isEmpty()) {
+                seedNewModels(newModels, now);
+            }
+            if (getIntent().getBooleanExtra("demo_notifications_on", false)) {
+                ResetAlertPreferences.save(this, ResetAlertPreferences.STYLE_NOTIFICATION,
+                        ResetAlertPreferences.getMetric(this), ResetAlertPreferences.getThreshold(this));
+            }
             boolean livePreview = getIntent().getBooleanExtra("start_live_preview", false);
             if (livePreview && !NowBarManager.startPreview(this)) {
                 throw new IllegalStateException("Could not start live notification preview");
@@ -183,6 +191,32 @@ public final class UsagePaceDemoActivity extends Activity {
         }
         AppPreferences.setRefreshOnLaunch(this, false);
         AppPreferences.completeOnboarding(this);
+    }
+
+    /**
+     * A catalog record for the "New models" card. "relevant" adds an OpenAI model (Codex is
+     * signed in) next to a Google one; "irrelevant" adds only models no connected provider maps
+     * to, so the card stays hidden. Both seed the baseline first, like a real first fetch.
+     */
+    private void seedNewModels(String mode, long now) {
+        ModelDiscovery.State state = new ModelDiscovery.State();
+        java.util.List<ModelDiscovery.Model> base = Arrays.asList(
+                new ModelDiscovery.Model("openai/gpt-5.5", "GPT-5.5", "", 0L, ""),
+                new ModelDiscovery.Model("google/gemini-3-pro", "Gemini 3 Pro", "", 0L, ""));
+        ModelDiscovery.observe(state, ModelDiscovery.Source.OPENROUTER, ModelDiscoveryStore.ACCOUNT,
+                base, true, now - TimeUnit.HOURS.toMillis(3));
+        java.util.List<ModelDiscovery.Model> later = new java.util.ArrayList<>(base);
+        if ("relevant".equals(mode)) {
+            later.add(new ModelDiscovery.Model("openai/gpt-5.6-codex", "GPT-5.6-Codex", "", 0L, ""));
+        }
+        later.add(new ModelDiscovery.Model("google/gemini-3.5-flash", "Gemini 3.5 Flash", "", 0L, ""));
+        later.add(new ModelDiscovery.Model("qwen/qwen3.8-coder", "Qwen3.8 Coder", "", 0L, ""));
+        ModelDiscovery.observe(state, ModelDiscovery.Source.OPENROUTER, ModelDiscoveryStore.ACCOUNT,
+                later, true, now - TimeUnit.HOURS.toMillis(2));
+        ModelDiscovery.observe(state, ModelDiscovery.Source.OPENROUTER, ModelDiscoveryStore.ACCOUNT,
+                later, true, now - TimeUnit.HOURS.toMillis(1));
+        ModelDiscoveryStore.seedForDemo(this, state);
+        PriorityPrefs.setViewEnabled(this, true);
     }
 
     /** Signs Claude Code and Cursor in with demo usage, so the dashboard shows provider tabs. */

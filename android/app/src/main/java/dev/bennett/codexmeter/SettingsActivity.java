@@ -1359,6 +1359,16 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            SwitchPreferenceCompat newModels = findPreference("new_models_ui");
+            if (newModels != null) {
+                newModels.setPersistent(false);
+                newModels.setChecked(ModelDiscoveryStore.notifyEnabled(requireContext()));
+                newModels.setOnPreferenceChangeListener((preference, value) -> {
+                    ModelDiscoveryStore.setNotifyEnabled(requireContext(), (Boolean) value);
+                    return true;
+                });
+            }
+
             SwitchPreferenceCompat unexpectedRefills = findPreference("unexpected_refills_ui");
             unexpectedRefills.setPersistent(false);
             unexpectedRefills.setChecked(ResetAlertPreferences.unexpectedRefillsEnabled(requireContext()));
@@ -1429,6 +1439,10 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             if (notificationTroubleshootingCategory != null) {
                 notificationTroubleshootingCategory.setVisible(enabled);
+            }
+            Preference newModelsCategory = findPreference("notification_new_models_category");
+            if (newModelsCategory != null) {
+                newModelsCategory.setVisible(enabled);
             }
         }
 

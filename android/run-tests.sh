@@ -92,6 +92,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelSpeed.java" \
   "$ROOT/tests/ModelSpeedSelfTest.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelDiscovery.java" \
+  "$ROOT/tests/ModelDiscoverySelfTest.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/PriorityView.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/PrioritySummaryRules.java" \
   "$ROOT/tests/PriorityViewSelfTest.java" \
@@ -109,6 +111,7 @@ java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderParsersSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.WatchProvidersSelfTest
 java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ModelSpeedSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ModelDiscoverySelfTest
 java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ProviderStatusSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.PriorityViewSelfTest
@@ -120,6 +123,13 @@ java -ea -cp "$OUT" dev.bennett.codexmeter.DesignIdsSelfTest
 grep -q '<item>liquid_glass_ios_26</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 grep -q '<item>liquid_glass_ios_27</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 grep -q '<item>material_3_expressive</item>' "$ROOT/app/src/main/res/values/arrays.xml"
+# New-model discovery: anonymous catalogs, off-by-default notification, Refresh-screen note.
+grep -q 'android:key="new_models_ui"' "$ROOT/app/src/main/res/xml/preferences_settings_notifications.xml"
+grep -q 'new_models_info_ui' "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
+grep -q 'ModelDiscoveryStore.refreshIfDue(app, false)' \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageRefreshJobService.java"
+! grep -q 'Authorization' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelDiscoveryStore.java"
+! grep -q 'Authorization' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelSpeedStore.java"
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.9.0-alpha.18"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
