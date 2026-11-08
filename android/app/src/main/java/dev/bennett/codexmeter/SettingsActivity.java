@@ -688,8 +688,8 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         /**
-         * Liquid Glass's own settings: the iOS 27-inspired look's tint, and the accessibility
-         * switches both looks follow. Hidden in the One UI designs.
+         * Liquid Glass's own settings: its tint and the accessibility switches. Hidden in the
+         * other designs.
          */
         private void bindGlassLook() {
             Context context = requireContext();
@@ -702,7 +702,7 @@ public final class SettingsActivity extends AppCompatActivity {
             SeekBarPreference tint = findPreference(AppPreferences.KEY_GLASS_TINT);
             SwitchPreferenceCompat reduce = findPreference(AppPreferences.KEY_GLASS_REDUCE_TRANSPARENCY);
             SwitchPreferenceCompat contrast = findPreference(AppPreferences.KEY_GLASS_INCREASE_CONTRAST);
-            tint.setVisible(glass && AppPreferences.isLiquidGlassIos27(context));
+            tint.setVisible(glass);
             tint.setSummary("From ultra clear to fully tinted");
             tint.setValue(AppPreferences.getGlassTintLevel(context));
             boolean reduced = AppPreferences.isGlassReduceTransparency(context);
