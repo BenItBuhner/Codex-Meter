@@ -58,6 +58,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private boolean dark;
     private boolean receiverRegistered;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    /** Background lookups (status pages, model catalogs, speed) so they never hold up a usage refresh. */
+    private final ExecutorService lookups = Executors.newSingleThreadExecutor();
     private final android.os.Handler statusHandler =
             new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable statusTick = this::checkProviderStatus;
@@ -400,6 +402,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.glass.onDestroy();
         }
         this.executor.shutdownNow();
+        this.lookups.shutdownNow();
         super.onDestroy();
     }
 
@@ -692,12 +695,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     void refreshModelSpeed() {
         UsageProvider target = this.provider;
         if (target == null || !ModelSpeedStore.isVisible(this, target)
-                || ModelSpeedStore.selectedModel(this, target).isEmpty() || this.executor.isShutdown()) {
+                || ModelSpeedStore.selectedModel(this, target).isEmpty() || this.lookups.isShutdown()) {
             return;
         }
         Context app = getApplicationContext();
         try {
-            this.executor.execute(() -> {
+            this.lookups.execute(() -> {
                 if (ModelSpeedStore.refreshIfDue(app, target)) {
                     runOnUiThread(() -> {
                         if (!isFinishing() && !isDestroyed() && this.provider == target) {
@@ -713,12 +716,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
     /** Checks the public model catalogs on their own clock (at most every 30 minutes on open). */
     void refreshModelDiscovery() {
-        if (this.executor.isShutdown()) {
+        if (this.lookups.isShutdown()) {
             return;
         }
         Context app = getApplicationContext();
         try {
-            this.executor.execute(() -> {
+            this.lookups.execute(() -> {
                 if (ModelDiscoveryStore.refreshIfDue(app, true)) {
                     runOnUiThread(() -> {
                         if (!isFinishing() && !isDestroyed()) {
@@ -868,10 +871,10 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 }
             }
         }
-        if (!this.executor.isShutdown()) {
+        if (!this.lookups.isShutdown()) {
             Context app = getApplicationContext();
             try {
-                this.executor.execute(() -> {
+                this.lookups.execute(() -> {
                     boolean changed = false;
                     for (UsageProvider p : watched) {
                         if (ProviderStatusSources.forProvider(p) != null) {

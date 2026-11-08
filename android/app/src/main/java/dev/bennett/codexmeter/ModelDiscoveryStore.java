@@ -43,6 +43,25 @@ public final class ModelDiscoveryStore {
         return out;
     }
 
+    /** The last state parsed for reading, and the stored text it came from. */
+    private static String readRaw;
+    private static ModelDiscovery.State readState;
+
+    /**
+     * The saved state for read-only use, parsed again only when it changes. The dashboard reads it
+     * on every rebuild, so parsing the whole catalog each time made scrolling and refreshes slow.
+     */
+    private static ModelDiscovery.State peek(Context context) {
+        synchronized (LOCK) {
+            String raw = prefs(context).getString(KEY_STATE, null);
+            if (readState == null || raw == null || !raw.equals(readRaw)) {
+                readState = ModelDiscovery.State.fromJson(raw);
+                readRaw = raw;
+            }
+            return readState;
+        }
+    }
+
     static ModelDiscovery.State load(Context context) {
         synchronized (LOCK) {
             return ModelDiscovery.State.fromJson(prefs(context).getString(KEY_STATE, null));
@@ -61,7 +80,7 @@ public final class ModelDiscoveryStore {
         if (allow.isEmpty()) {
             return new ArrayList<>();
         }
-        return ModelDiscovery.cardItems(load(context), allow, System.currentTimeMillis());
+        return ModelDiscovery.cardItems(peek(context), allow, System.currentTimeMillis());
     }
 
     public static void dismiss(Context context, List<ModelDiscovery.Entry> shown) {
