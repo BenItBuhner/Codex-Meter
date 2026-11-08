@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- **Material 3 Expressive** looks finished. Usage bars now show the moving Expressive wave, with a stop dot at the end of the track. A window that is running out early turns the bar and its pace pill red. Meters sit together as one grouped list, cards carry their label at the top, and the title and numbers use heavier type. Pulling down on the dashboard refreshes, with Expressive's loading indicator. Settings now open in the same design: Material switches, sliders, choice dialogs and grouped rows, running the same settings as the other designs. The other pages, such as Providers or Usage history, still open in their One UI form. Android.
+
 ## 2.9.0-alpha.18 — 2026-11-08
 
 ### Added

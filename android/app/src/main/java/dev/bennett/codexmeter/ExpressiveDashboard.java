@@ -21,25 +21,28 @@ import com.google.android.material.color.DynamicColors;
 import com.google.android.material.color.DynamicColorsOptions;
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.loadingindicator.LoadingIndicator;
-import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.shape.ShapeAppearanceModel;
 import dev.bennett.codexmeter.glass.GlassModel;
 import java.util.List;
 
 /**
  * The Material 3 Expressive design's dashboard, drawn with Material Components' own Expressive
- * views: a large flexible header, filled cards with wavy progress bars, a loading indicator while
- * refreshing, and a floating toolbar of provider tabs.
+ * views: a large header, filled cards (meters grouped as one segmented list) with wavy progress
+ * bars, pull to refresh with the contained loading indicator, and a floating toolbar of provider
+ * tabs. Settings use the same design ({@link ExpressiveSettings}).
  *
  * <p>It shows the same cards as Liquid Glass ({@link GlassCards}), so both designs always list the
- * same things. Settings and the secondary pages open as the One UI pages for now.
+ * same things.
  */
 final class ExpressiveDashboard {
     /** The One UI blue the app uses when Material You is off, as the color scheme's seed. */
     private static final int SEED = 0xFF0381FE;
 
     private final MainActivity activity;
+    private final boolean dark;
     private final View root;
     private final NestedScrollView scroll;
+    private final ExpressivePull pull;
     private final TextView title;
     private final TextView subtitle;
     private final LoadingIndicator loading;
@@ -53,7 +56,7 @@ final class ExpressiveDashboard {
      * before {@code super.onCreate}: Material You takes the wallpaper colors, otherwise the scheme
      * is built from the app's blue. Light or dark follows the app's theme setting.
      */
-    static void applyTheme(MainActivity activity) {
+    static void applyTheme(android.app.Activity activity) {
         Ui.applySelectedTheme(activity);
         activity.setTheme(R.style.AppTheme_Expressive);
         if (AppPreferences.isMaterialYouEnabled(activity)) {
@@ -64,17 +67,35 @@ final class ExpressiveDashboard {
         }
     }
 
+    /**
+     * A context with the Expressive theme and colors, for Expressive views inside an activity
+     * that keeps another theme (Settings, whose preference fragments need the One UI theme).
+     */
+    static android.content.Context themed(android.content.Context base) {
+        android.content.Context themed = new android.view.ContextThemeWrapper(base, R.style.AppTheme_Expressive);
+        if (AppPreferences.isMaterialYouEnabled(base)) {
+            return DynamicColors.wrapContextIfAvailable(themed);
+        }
+        return DynamicColors.wrapContextIfAvailable(themed,
+                new DynamicColorsOptions.Builder().setContentBasedSource(SEED).build());
+    }
+
     ExpressiveDashboard(MainActivity activity, boolean dark) {
         this.activity = activity;
+        this.dark = dark;
         this.root = LayoutInflater.from(activity).inflate(R.layout.expressive_dashboard, null);
         activity.setContentView(this.root);
         this.scroll = this.root.findViewById(R.id.expressive_scroll);
+        this.pull = this.root.findViewById(R.id.expressive_pull);
         this.title = this.root.findViewById(R.id.expressive_title);
         this.subtitle = this.root.findViewById(R.id.expressive_subtitle);
         this.loading = this.root.findViewById(R.id.expressive_loading);
         this.cards = this.root.findViewById(R.id.expressive_cards);
         this.tabs = this.root.findViewById(R.id.expressive_tabs);
         this.toolbar = this.root.findViewById(R.id.expressive_toolbar);
+        this.root.setBackgroundColor(color(dark ? R.attr.colorSurface : R.attr.colorSurfaceContainer));
+        weight(this.title, 560);
+        this.pull.setup(this.scroll, this.loading, activity::glassRefresh);
 
         WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
         WindowCompat.getInsetsController(activity.getWindow(), this.root)
@@ -110,7 +131,7 @@ final class ExpressiveDashboard {
             return;
         }
         this.refreshing = on;
-        this.loading.setVisibility(on ? View.VISIBLE : View.GONE);
+        this.pull.setRefreshing(on);
     }
 
     /** Draws the selected provider's cards and the provider tabs. */
@@ -120,10 +141,19 @@ final class ExpressiveDashboard {
         this.subtitle.setText(model.subtitle == null ? "" : model.subtitle);
         this.subtitle.setVisibility(model.subtitle == null ? View.INVISIBLE : View.VISIBLE);
         this.cards.removeAllViews();
-        for (GlassModel.Card card : model.cards) {
-            this.cards.addView(card(card));
+        List<GlassModel.Card> list = model.cards;
+        for (int i = 0; i < list.size(); i++) {
+            GlassModel.Card c = list.get(i);
+            // Meters in a row form one segmented group: large outer corners, small inner ones.
+            boolean joinsPrev = i > 0 && grouped(c) && grouped(list.get(i - 1));
+            boolean joinsNext = i + 1 < list.size() && grouped(c) && grouped(list.get(i + 1));
+            this.cards.addView(card(c, joinsPrev, joinsNext));
         }
         renderTabs(provider, enabled);
+    }
+
+    private static boolean grouped(GlassModel.Card c) {
+        return c.kind == GlassModel.Card.Kind.METER;
     }
 
     private void renderTabs(UsageProvider selected, List<UsageProvider> enabled) {
@@ -144,10 +174,27 @@ final class ExpressiveDashboard {
         }
     }
 
-    private View card(GlassModel.Card c) {
+    private int cardColor() {
+        return color(this.dark ? R.attr.colorSurfaceContainerHigh : R.attr.colorSurfaceContainerLowest);
+    }
+
+    private View card(GlassModel.Card c, boolean joinsPrev, boolean joinsNext) {
         LayoutInflater inflater = LayoutInflater.from(this.activity);
         MaterialCardView card = (MaterialCardView) inflater.inflate(R.layout.expressive_card,
                 this.cards, false);
+        card.setCardBackgroundColor(cardColor());
+        float big = Ui.dp(this.activity, 28);
+        float small = Ui.dp(this.activity, 8);
+        card.setShapeAppearanceModel(ShapeAppearanceModel.builder()
+                .setTopLeftCornerSize(joinsPrev ? small : big).setTopRightCornerSize(joinsPrev ? small : big)
+                .setBottomLeftCornerSize(joinsNext ? small : big)
+                .setBottomRightCornerSize(joinsNext ? small : big).build());
+        ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) card.getLayoutParams();
+        if (margins == null) {
+            margins = new ViewGroup.MarginLayoutParams(-1, -2);
+        }
+        margins.bottomMargin = Ui.dp(this.activity, joinsNext ? 3 : 14);
+        card.setLayoutParams(margins);
         LinearLayout body = card.findViewById(R.id.expressive_card_body);
         switch (c.kind) {
             case METER:
@@ -158,8 +205,8 @@ final class ExpressiveDashboard {
                 boolean hasBars = c.startLabel != null && !c.startLabel.isEmpty();
                 if (hasBars) {
                     body.addView(new Bars(this.activity, c.bars, color(R.attr.colorPrimary),
-                                    color(R.attr.colorSurfaceContainerHighest)),
-                            new LinearLayout.LayoutParams(-1, Ui.dp(this.activity, 72)));
+                                    color(R.attr.colorSecondaryContainer)),
+                            new LinearLayout.LayoutParams(-1, Ui.dp(this.activity, 88)));
                     body.addView(ends(c.startLabel, c.endLabel));
                 }
                 line(body, c.summary, R.attr.textAppearanceBodyMedium,
@@ -177,7 +224,7 @@ final class ExpressiveDashboard {
                     body.addView(statRow(row[0], row.length > 1 ? row[1] : ""));
                 }
                 line(body, c.summary, R.attr.textAppearanceBodyMedium,
-                        R.attr.colorOnSurfaceVariant, 10);
+                        R.attr.colorOnSurfaceVariant, 12);
                 if (c.onPress != null) {
                     button(body, c.value == null || c.value.isEmpty() ? "More" : c.value,
                             c.onPress, true, false);
@@ -197,21 +244,23 @@ final class ExpressiveDashboard {
                 if (c.kind == GlassModel.Card.Kind.UPDATE) {
                     card.setCardBackgroundColor(color(c.warning
                             ? R.attr.colorErrorContainer
-                            : R.attr.colorPrimaryContainer));
+                            : R.attr.colorSecondaryContainer));
                     onColor = c.warning ? R.attr.colorOnErrorContainer
-                            : R.attr.colorOnPrimaryContainer;
+                            : R.attr.colorOnSecondaryContainer;
                     onVariant = onColor;
                 }
-                line(body, c.title, R.attr.textAppearanceHeadlineSmall, onColor, 0);
-                line(body, c.summary, R.attr.textAppearanceBodyLarge, onVariant, 8);
+                weight(line(body, c.title, R.attr.textAppearanceTitleLarge, onColor, 0), 560);
+                line(body, c.summary, R.attr.textAppearanceBodyMedium, onVariant, 6);
                 if (c.button != null && c.onPress != null) {
                     button(body, c.button, c.onPress, false, !c.buttonEnabled);
                 }
                 if (c.progress >= 0) {
-                    LinearProgressIndicator bar = (LinearProgressIndicator) inflater.inflate(
-                            R.layout.expressive_meter, body, false);
-                    bar.setProgressCompat((int) Math.round(c.progress * 100), false);
-                    body.addView(bar);
+                    ExpressiveWave bar = new ExpressiveWave(this.activity, color(R.attr.colorPrimary),
+                            color(R.attr.colorSurfaceContainerHighest));
+                    bar.setFraction(c.progress);
+                    LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, -2);
+                    bp.topMargin = Ui.dp(this.activity, 14);
+                    body.addView(bar, bp);
                 }
                 break;
             case LINK:
@@ -225,8 +274,18 @@ final class ExpressiveDashboard {
                     card.setOnClickListener(v -> c.onPress.run());
                 }
                 break;
-            case MESSAGE:
             case NOTE:
+                // An overline ("Priority", "Service status") above the message, like M3 cards.
+                line(body, c.detail, R.attr.textAppearanceLabelLargeEmphasized, R.attr.colorPrimary, 0);
+                weight(line(body, c.title, R.attr.textAppearanceTitleMedium, R.attr.colorOnSurface,
+                        c.detail == null ? 0 : 6), 560);
+                line(body, c.summary, R.attr.textAppearanceBodyMedium,
+                        R.attr.colorOnSurfaceVariant, 8);
+                if (c.onPress != null) {
+                    card.setOnClickListener(v -> c.onPress.run());
+                }
+                break;
+            case MESSAGE:
             case CHART:
             default:
                 card.setCardBackgroundColor(color(R.attr.colorSurfaceContainerHigh));
@@ -249,45 +308,74 @@ final class ExpressiveDashboard {
         return card;
     }
 
-    /** A usage window: name, % left in large type, the wavy bar, reset time and pace. */
+    /**
+     * A usage window: its name and reset time on one line, what's left in large type, the wavy
+     * bar, and the pace as a tonal pill (error colors when it runs out early).
+     */
     private void meter(LinearLayout body, GlassModel.Card c) {
-        line(body, c.title, R.attr.textAppearanceTitleMedium,
-                R.attr.colorOnSurfaceVariant, 0);
-        TextView value = line(body, c.value + " left",
-                R.attr.textAppearanceDisplaySmallEmphasized,
-                c.fast ? R.attr.colorError
-                        : R.attr.colorOnSurface, 2);
-        value.setContentDescription(c.title + ", " + c.value + " left");
-        LinearProgressIndicator bar = (LinearProgressIndicator) LayoutInflater.from(this.activity)
-                .inflate(R.layout.expressive_meter, body, false);
-        bar.setProgressCompat((int) Math.round(Math.max(0, Math.min(1, c.remaining)) * 100), false);
-        if (c.fast) {
-            bar.setIndicatorColor(color(R.attr.colorError));
+        LinearLayout top = new LinearLayout(this.activity);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView name = text(c.title, R.attr.textAppearanceTitleMediumEmphasized, R.attr.colorOnSurface);
+        weight(name, 560);
+        top.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
+        if (c.detail != null && !c.detail.isEmpty()) {
+            top.addView(text(c.detail, R.attr.textAppearanceLabelLarge, R.attr.colorOnSurfaceVariant),
+                    new LinearLayout.LayoutParams(-2, -2));
         }
-        // The wave is the Expressive bar's own; it flattens as the window empties.
-        bar.setWavelengthDeterminate(Ui.dp(this.activity, 32));
-        bar.setWaveAmplitude(c.remaining < 0.08 ? 0 : Ui.dp(this.activity, 3));
-        body.addView(bar);
-        line(body, c.detail, R.attr.textAppearanceBodyMedium,
-                R.attr.colorOnSurfaceVariant, 12);
+        body.addView(top, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout amount = new LinearLayout(this.activity);
+        amount.setGravity(Gravity.BOTTOM);
+        boolean empty = c.remaining <= 0.001;
+        TextView value = text(c.value, R.attr.textAppearanceDisplayMediumEmphasized,
+                empty ? R.attr.colorError : R.attr.colorOnSurface);
+        weight(value, 600);
+        value.setIncludeFontPadding(false);
+        amount.addView(value, new LinearLayout.LayoutParams(-2, -2));
+        TextView left = text(" left", R.attr.textAppearanceTitleMedium, R.attr.colorOnSurfaceVariant);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+        lp.bottomMargin = Ui.dp(this.activity, 6);
+        amount.addView(left, lp);
+        amount.setContentDescription(c.title + ", " + c.value + " left");
+        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-1, -2);
+        ap.topMargin = Ui.dp(this.activity, 10);
+        body.addView(amount, ap);
+
+        ExpressiveWave bar = new ExpressiveWave(this.activity,
+                color(c.fast || empty ? R.attr.colorError : R.attr.colorPrimary),
+                color(c.fast || empty ? R.attr.colorErrorContainer : R.attr.colorSecondaryContainer));
+        bar.setFraction(c.remaining);
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, -2);
+        bp.topMargin = Ui.dp(this.activity, 12);
+        body.addView(bar, bp);
+
         if (c.paceLabel != null && c.pace != null) {
-            line(body, c.paceLabel + " · " + c.pace,
-                    R.attr.textAppearanceLabelLarge,
-                    c.fast ? R.attr.colorError
-                            : R.attr.colorPrimary, 4);
+            TextView pill = text(c.paceLabel + " · " + c.pace, R.attr.textAppearanceLabelLarge,
+                    c.fast ? R.attr.colorOnErrorContainer : R.attr.colorOnSecondaryContainer);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setCornerRadius(Ui.dp(this.activity, 16));
+            bg.setColor(color(c.fast ? R.attr.colorErrorContainer : R.attr.colorSecondaryContainer));
+            pill.setBackground(bg);
+            int px = Ui.dp(this.activity, 12);
+            int py = Ui.dp(this.activity, 6);
+            pill.setPadding(px, py, px, py);
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, -2);
+            pp.topMargin = Ui.dp(this.activity, 14);
+            body.addView(pill, pp);
         }
         line(body, c.summary, R.attr.textAppearanceBodySmall,
-                R.attr.colorOnSurfaceVariant, 4);
+                R.attr.colorOnSurfaceVariant, 8);
     }
 
     private void header(LinearLayout body, String name, String value) {
         LinearLayout row = new LinearLayout(this.activity);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView left = text(name, R.attr.textAppearanceTitleMedium,
+        TextView left = text(name, R.attr.textAppearanceTitleMediumEmphasized,
                 R.attr.colorOnSurface);
+        weight(left, 560);
         row.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
         if (value != null && !value.isEmpty()) {
-            TextView right = text(value, R.attr.textAppearanceTitleMedium,
+            TextView right = text(value, R.attr.textAppearanceLabelLarge,
                     R.attr.colorPrimary);
             row.addView(right, new LinearLayout.LayoutParams(-2, -2));
         }
@@ -296,16 +384,16 @@ final class ExpressiveDashboard {
 
     private View statRow(String label, String value) {
         LinearLayout row = new LinearLayout(this.activity);
-        row.setPadding(0, Ui.dp(this.activity, 8), 0, 0);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Ui.dp(this.activity, 10), 0, 0);
         row.addView(text(label, R.attr.textAppearanceBodyLarge,
-                R.attr.colorOnSurfaceVariant),
-                new LinearLayout.LayoutParams(0, -2, 1f));
-        row.addView(text(value, R.attr.textAppearanceTitleMedium,
                 R.attr.colorOnSurface),
+                new LinearLayout.LayoutParams(0, -2, 1f));
+        row.addView(text(value, R.attr.textAppearanceLabelLarge,
+                R.attr.colorOnSurfaceVariant),
                 new LinearLayout.LayoutParams(-2, -2));
         return row;
     }
-
     private View ends(String start, String end) {
         LinearLayout row = new LinearLayout(this.activity);
         row.setPadding(0, Ui.dp(this.activity, 6), 0, 0);
@@ -337,6 +425,14 @@ final class ExpressiveDashboard {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.topMargin = Ui.dp(this.activity, top);
         body.addView(view, params);
+        return view;
+    }
+
+    /** Sets a variable weight (the theme's emphasized styles fall back to regular weight). */
+    static TextView weight(TextView view, int weight) {
+        if (view != null && android.os.Build.VERSION.SDK_INT >= 28) {
+            view.setTypeface(android.graphics.Typeface.create(view.getTypeface(), weight, false));
+        }
         return view;
     }
 
