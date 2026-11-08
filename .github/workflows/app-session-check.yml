@@ -6,12 +6,11 @@ name: Show in AI apps check
 # reinstalled in place (an update). Records the run; fails if any step fails.
 on:
   workflow_dispatch:
-  push:
-    branches: ['claude/project-thread-3j2kcp-nowbar-*']
   pull_request:
     branches: [alpha, main]
     paths: ['.github/workflows/app-session-check.yml', '.github/app-session-shots/**',
             'android/app/src/main/java/dev/bennett/codexmeter/AppSession*.java',
+            'android/app/src/main/java/dev/bennett/codexmeter/BootReceiver.java',
             'android/app/src/main/java/dev/bennett/codexmeter/NowBar*.java',
             'android/app/src/main/java/dev/bennett/codexmeter/MainActivity.java',
             'android/app/src/main/AndroidManifest.xml']
@@ -161,6 +160,22 @@ jobs:
           shot n07-claude-idle 1
           step "Home" hidden home
           step "Open ChatGPT with Claude idle" shown open_chatgpt
+          step "Home" hidden home
+          # Android turns app detection off (as some phones do around an update): opening Codex Meter
+          # posts "Show in AI apps is off"; turning detection back on clears it.
+          warned() { adb shell dumpsys notification --noredact | grep -q "pkg=$PKG.*id=7320"; }
+          adb shell settings put secure enabled_accessibility_services '""'; sleep 2
+          open_meter; sleep 3
+          N=$((N + 1)); if warned; then r=PASS; else r=FAIL; FAILS=$((FAILS + 1)); fi
+          echo "| $N | Detection off in Android, open Codex Meter | warning shown | $r | |" | tee -a "$RESULTS"
+          adb shell cmd statusbar expand-notifications; shot n08-detection-off-warning 2
+          adb shell cmd statusbar collapse; home; sleep 1
+          a11y_on
+          open_meter; sleep 3
+          N=$((N + 1)); if warned; then r=FAIL; FAILS=$((FAILS + 1)); else r=PASS; fi
+          echo "| $N | Detection back on, open Codex Meter | warning gone | $r | |" | tee -a "$RESULTS"
+          home; sleep 1
+          step "Open Claude after turning detection back on" shown open_claude
           step "Home" hidden home
           sleep 1
           adb shell pkill -INT screenrecord; wait $REC 2>/dev/null; sleep 2

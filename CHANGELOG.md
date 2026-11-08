@@ -6,6 +6,10 @@
 
 - **Priority** shows only what needs you: official incidents, significant slowdowns, the limits that are running out early and still have some left, and new models. Limits that are already used up and the "Other limits" list are gone; when nothing needs attention it says so in one line.
 
+### Fixed
+
+- **Show in AI apps**: when Android turns off Codex Meter's app detection (some phones do around an update), the live notification silently stopped appearing in AI apps. Codex Meter now checks after an update, a restart and whenever it opens, and if detection is off while the feature is on, a notification says so and opens the setting.
+
 ## 2.9.0-alpha.20 — 2026-11-08
 
 ### Changed
