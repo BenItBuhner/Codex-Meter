@@ -81,11 +81,27 @@ public final class SettingsActivity extends AppCompatActivity {
             overridePendingTransition(0, 0);
             return;
         }
+        if (AppPreferences.isMaterialExpressiveDesign(this)) {
+            // Material 3 Expressive draws the same preferences with Material views.
+            this.expressive = new ExpressiveSettings(this, page, pageTitle(page));
+            return;
+        }
         Ui.installSettingsPage(this, pageTitle(page));
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, SettingsFragment.newInstance(page))
                     .commit();
+        }
+    }
+
+    private ExpressiveSettings expressive;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (this.expressive != null) {
+            // Values can change on pages opened from here; draw after the fragment's own onResume.
+            getWindow().getDecorView().post(this.expressive::render);
         }
     }
 

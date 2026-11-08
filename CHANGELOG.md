@@ -10,6 +10,7 @@
 ### Changed
 
 - The two **Liquid Glass** looks now differ the way iOS does. iOS 26 sets Glassé's iOS 26 look: a soft blur that fades out under the top bar and behind the tab bar. iOS 27 sets Glassé's iOS 27 look: a solid blurred band with a hairline under the top bar once you scroll, and the same band behind the tab bar only while there is more content below it. Its glass also has a more defined edge with less drop shadow, and lighter glass in dark mode. The Clear and Tinted transparency choices now change the glass visibly. Before this, both looks used Glassé's default look and looked almost the same. Android.
+- **Material 3 Expressive** looks finished. Usage bars now show the moving Expressive wave, with a stop dot at the end of the track. A window that is running out early turns the bar and its pace pill red. Meters sit together as one grouped list, cards carry their label at the top, and the title and numbers use heavier type. Pulling down on the dashboard refreshes, with Expressive's loading indicator. Settings now open in the same design: Material switches, sliders, choice dialogs and grouped rows, running the same settings as the other designs. The other pages, such as Providers or Usage history, still open in their One UI form. Android.
 
 ## 2.9.0-alpha.18 — 2026-11-08
 

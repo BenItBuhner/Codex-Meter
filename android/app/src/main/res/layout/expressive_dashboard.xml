@@ -6,7 +6,12 @@
     android:id="@+id/expressive_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurfaceContainer">
+    android:background="?attr/colorSurface">
+
+    <dev.bennett.codexmeter.ExpressivePull
+        android:id="@+id/expressive_pull"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
     <androidx.core.widget.NestedScrollView
         android:id="@+id/expressive_scroll"
@@ -59,8 +64,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:layout_marginTop="40dp"
-                android:textAppearance="?attr/textAppearanceDisplaySmallEmphasized"
+                android:layout_marginTop="12dp"
+                android:textAppearance="?attr/textAppearanceDisplayMediumEmphasized"
                 android:textColor="?attr/colorOnSurface" />
 
             <TextView
@@ -69,19 +74,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="4dp"
-                android:layout_marginBottom="20dp"
+                android:layout_marginBottom="24dp"
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textColor="?attr/colorOnSurfaceVariant" />
-
-            <com.google.android.material.loadingindicator.LoadingIndicator
-                android:id="@+id/expressive_loading"
-                style="@style/Widget.Material3.LoadingIndicator.Contained"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="16dp"
-                android:contentDescription="Refreshing"
-                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/expressive_cards"
@@ -90,6 +85,17 @@
                 android:orientation="vertical" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+        <!-- Pull to refresh (and any refresh): Expressive's contained loading indicator. -->
+        <com.google.android.material.loadingindicator.LoadingIndicator
+            android:id="@+id/expressive_loading"
+            style="@style/Widget.Material3.LoadingIndicator.Contained"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:contentDescription="Refreshing"
+            android:visibility="invisible" />
+    </dev.bennett.codexmeter.ExpressivePull>
 
     <com.google.android.material.floatingtoolbar.FloatingToolbarLayout
         android:id="@+id/expressive_toolbar"
