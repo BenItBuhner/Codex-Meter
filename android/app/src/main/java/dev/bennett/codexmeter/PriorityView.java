@@ -19,6 +19,14 @@ import org.json.JSONObject;
 public final class PriorityView {
     private PriorityView() {}
 
+    /**
+     * Whether a limit belongs under Limits to watch: it still has some left and, at the pace since
+     * its window started, runs out before it resets. A used-up limit has nothing left to watch.
+     */
+    static boolean worthWatching(int leftPercent, boolean runningOutEarly) {
+        return leftPercent > 0 && runningOutEarly;
+    }
+
     /** The closed card types. Nothing else is ever drawn. */
     public enum Kind {
         DOWNTIME("downtime"),

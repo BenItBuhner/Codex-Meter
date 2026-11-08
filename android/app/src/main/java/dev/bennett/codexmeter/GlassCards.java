@@ -98,8 +98,8 @@ final class GlassCards {
 
 
     /**
-     * The Priority tab: the summary, the limits to watch with their pace, every other limit, each
-     * provider's official status, warnings, new models and a tip, across the signed-in providers.
+     * The Priority tab: official incidents and significant slowdowns, the limits to watch, and new
+     * models, across the signed-in providers. See {@link PriorityPage}.
      */
     static GlassModel.Dashboard priorityPage(MainActivity a) {
         GlassModel.Dashboard d = new GlassModel.Dashboard();
@@ -124,15 +124,14 @@ final class GlassCards {
             d.cards.add(c);
         }
         long now = System.currentTimeMillis();
+        if (page.allClear()) {
+            Card clear = new Card(Card.Kind.MESSAGE);
+            clear.title = PriorityPage.ALL_CLEAR;
+            d.cards.add(clear);
+        }
         if (!page.watch.isEmpty()) {
             d.cards.add(heading("Limits to watch"));
             for (PriorityPage.Limit l : page.watch) {
-                d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
-            }
-        }
-        if (!page.others.isEmpty()) {
-            d.cards.add(heading(page.watch.isEmpty() ? "Your limits" : "Other limits"));
-            for (PriorityPage.Limit l : page.others) {
                 d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
             }
         }
