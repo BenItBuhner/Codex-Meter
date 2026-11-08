@@ -706,7 +706,11 @@ public final class CodexGlass {
                                         "color", t.pal.label2), value) : null,
                                 Icon(P.of("name", "chevronUpDown", "size", 15, "color", t.pal.label2)))),
                 GlassPopupMenu(P.of("open", open.get(), "onClose", (Runnable) () -> open.set(false),
-                        "items", items, "width", 280)));
+                        "items", items, "width", 280,
+                        // iOS 27 look: the spring morph out of the row (Glassé's "morph", after
+                        // rit3zh/expo-glass-custom-menu); iOS 26 keeps the measured pop-up
+                        "motion", GlassLook.current().generation == GlassLook.Generation.IOS_27
+                                ? "morph" : "select")));
     };
 
     private static El row(GlassModel.Row r, String pageId, GlassSource src, OnStr push, KTheme t) {
