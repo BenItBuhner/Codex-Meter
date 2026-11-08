@@ -35,9 +35,6 @@ public final class ClaudeUsageParser {
     public static final long SEVEN_DAY_SECONDS = 7L * 24L * 60L * 60L;
     public static final long MONTH_SECONDS = 30L * 24L * 60L * 60L;
     static final String LIMIT_ID_PREFIX = "claude_";
-    /** Shown where the 5-hour meter would be when the plan has none (verified Ultra). */
-    public static final String NO_SESSION_LIMIT_NOTE =
-            "No 5-hour limit on this plan. Only the weekly limits apply.";
     /** Older top-level spellings of a Fable-only weekly allocation. */
     private static final String[] LEGACY_FABLE_KEYS = {
             "seven_day_fable", "fable_seven_day", "fable_weekly"};
@@ -52,6 +49,9 @@ public final class ClaudeUsageParser {
         UsageWindow weekly = null;
         List<UsageLimit> extra = new ArrayList<>();
         java.util.Set<String> seen = new java.util.HashSet<>();
+        // Claude sends the session row (or five_hour) with no number while no session is running;
+        // that is a 5-hour limit with nothing used, not a plan without one.
+        boolean sessionListed = root.optJSONObject("five_hour") != null;
 
         JSONArray rows = root.optJSONArray("limits");
         if (rows != null) {
@@ -65,6 +65,7 @@ public final class ClaudeUsageParser {
                 if (scopeObject != null && scopeObject.toString().toLowerCase(Locale.ROOT)
                         .contains("\"all models\"")) continue;
                 String scope = scopeName(scopeObject);
+                if (scope.isEmpty() && "session".equals(kind)) sessionListed = true;
                 UsageWindow window = meter(row, windowSeconds(kind, group));
                 if (window == null) continue;
                 if (scope.isEmpty() && "session".equals(kind) && fiveHour == null) {
@@ -84,6 +85,7 @@ public final class ClaudeUsageParser {
 
         if (fiveHour == null) fiveHour = window(root.optJSONObject("five_hour"), FIVE_HOUR_SECONDS);
         if (weekly == null) weekly = window(root.optJSONObject("seven_day"), SEVEN_DAY_SECONDS);
+        if (fiveHour == null && sessionListed) fiveHour = new UsageWindow(0, FIVE_HOUR_SECONDS, 0L, 0L);
         String fableId = LIMIT_ID_PREFIX + "weekly_scoped_fable";
         if (!seen.contains(fableId)) {
             for (String key : LEGACY_FABLE_KEYS) {

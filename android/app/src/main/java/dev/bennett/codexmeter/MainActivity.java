@@ -739,7 +739,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (this.content != null && this.provider != UsageProvider.CODEX) {
             this.content.removeAllViews();
             buildProviderDashboard(this.provider);
-            addModelSpeedCard(this.provider);
             return;
         }
         if (this.content != null) {
@@ -764,7 +763,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
             }
-            addModelSpeedCard(UsageProvider.CODEX);
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
@@ -776,19 +774,33 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         }
     }
 
-    /** Fetches the tab's reference model figures from OpenRouter when due, then redraws. */
+    /**
+     * Fetches the newest models' public OpenRouter speed for every signed-in provider when due, so
+     * the Priority tab can warn about a significant slowdown; redraws only when Priority shows.
+     */
     void refreshModelSpeed() {
-        UsageProvider target = this.provider;
-        if (target == null || !ModelSpeedStore.isVisible(this, target)
-                || ModelSpeedStore.selectedModel(this, target).isEmpty() || this.lookups.isShutdown()) {
+        if (this.lookups.isShutdown()) {
+            return;
+        }
+        List<UsageProvider> targets = new ArrayList<>();
+        for (UsageProvider p : ProviderPreferences.getEnabled(this)) {
+            if (ModelSpeedStore.isVisible(this, p) && SecureTokenStore.isSignedIn(this, p)) {
+                targets.add(p);
+            }
+        }
+        if (targets.isEmpty()) {
             return;
         }
         Context app = getApplicationContext();
         try {
             this.lookups.execute(() -> {
-                if (ModelSpeedStore.refreshIfDue(app, target)) {
+                boolean changed = false;
+                for (UsageProvider p : targets) {
+                    changed |= ModelSpeedStore.refreshIfDue(app, p);
+                }
+                if (changed) {
                     runOnUiThread(() -> {
-                        if (!isFinishing() && !isDestroyed() && this.provider == target) {
+                        if (!isFinishing() && !isDestroyed() && onPriorityTab()) {
                             rebuild();
                         }
                     });
@@ -856,86 +868,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         Ui.addSpacer(this.content, 20);
     }
 
-    /** Lets people pick the reference model (newest first) or hide the card. */
-    void chooseSpeedModel(UsageProvider target) {
-        Context app = getApplicationContext();
-        try {
-            this.executor.execute(() -> {
-                List<ModelSpeed.Choice> choices = ModelSpeedStore.choices(app, target);
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) {
-                        return;
-                    }
-                    String selected = ModelSpeedStore.selectedModel(this, target);
-                    String[] labels = new String[choices.size() + 1];
-                    int checked = -1;
-                    for (int i = 0; i < choices.size(); i++) {
-                        labels[i] = choices.get(i).name;
-                        if (choices.get(i).id.equals(selected)) {
-                            checked = i;
-                        }
-                    }
-                    labels[choices.size()] = "Hide this card";
-                    if (choices.isEmpty()) {
-                        Toast.makeText(this, "Couldn't load OpenRouter's model list. Try again later.",
-                                Toast.LENGTH_SHORT).show();
-                    }
-                    OneUiChoiceDialog.show(this, "Reference model", labels, checked, which -> {
-                        if (which >= choices.size()) {
-                            ModelSpeedStore.setHidden(this, target, true);
-                        } else {
-                            ModelSpeedStore.selectModel(this, target, choices.get(which).id);
-                            refreshModelSpeed();
-                        }
-                        rebuild();
-                    });
-                });
-            });
-        } catch (java.util.concurrent.RejectedExecutionException ignored) {
-            // Closing.
-        }
-    }
-
-    /**
-     * Public OpenRouter speed for a model people picked, clearly labelled as a reference and not
-     * their subscription's speed. Null metrics read "Insufficient data".
-     */
-    private void addModelSpeedCard(UsageProvider target) {
-        if (!ModelSpeedStore.isVisible(this, target) || !SecureTokenStore.isSignedIn(this, target)) {
-            return;
-        }
-        LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, "Model speed reference", 17, Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
-        ModelSpeed speed = ModelSpeedStore.load(this, target);
-        String model = ModelSpeedStore.selectedModel(this, target);
-        StringBuilder text = new StringBuilder();
-        if (model.isEmpty()) {
-            text.append("Pick a model to see how it is running on OpenRouter right now. ")
-                    .append(ModelSpeed.DISCLAIMER);
-        } else if (speed == null) {
-            text.append(model).append("\nLoading figures from OpenRouter…");
-        } else {
-            ModelSpeed.Endpoint e = speed.featured();
-            text.append(speed.modelName)
-                    .append("\nThroughput: ").append(ModelSpeed.throughputText(e == null ? Double.NaN : e.throughput))
-                    .append("\nLatency: ").append(ModelSpeed.latencyText(e == null ? Double.NaN : e.latencyMs))
-                    .append("\nUptime: ").append(ModelSpeed.uptimeText(e == null ? Double.NaN : e.uptime30m))
-                    .append("\n").append(speed.sourceLine())
-                    .append("\n").append(ModelSpeed.DISCLAIMER);
-        }
-        TextView body = Ui.text(this, text.toString(), 13, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(-1, -2);
-        bodyParams.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 12));
-        card.addView(body, bodyParams);
-        Button choose = Ui.nativePrimaryButton(this, model.isEmpty() ? "Choose model" : "Change model");
-        choose.setOnClickListener(view -> chooseSpeedModel(target));
-        card.addView(choose, new LinearLayout.LayoutParams(-1, Ui.dp(this, 52)));
-        Ui.addSpacer(this.content, 20);
-        this.content.addView(card);
-    }
-
     /**
      * Asks the selected provider's official status feed again when {@link StatusPollPolicy}
      * allows (about every 5 minutes while the dashboard is open), and redraws if it changed.
@@ -999,8 +931,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             if (status != null && now - status.checkedAtMillis > StatusPollPolicy.MAX_BACKOFF_MS) {
                 status = null;
             }
-            ModelSpeed speed = ModelSpeedStore.isVisible(this, p) ? ModelSpeedStore.load(this, p) : null;
-            facts.add(new PriorityView.ProviderFacts(p.displayName, status, speed,
+            facts.add(new PriorityView.ProviderFacts(p.displayName, status,
+                    ModelSpeedStore.slowdowns(this, p, now),
                     ProviderPreferences.loadSnapshot(this, p)));
         }
         String pace = UsagePacePreferences.isEnabled(this)
@@ -1050,27 +982,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         PriorityPage page = PriorityPage.build(this);
         if (!page.signedInAnywhere()) {
             TextView empty = Ui.text(this,
-                    "Sign in to a provider to see its limits, service status and new models here.",
+                    "Sign in to a provider to see the limits to watch here.",
                     14.0f, Ui.secondaryText(this.dark));
             empty.setGravity(Gravity.CENTER);
             this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
             return;
         }
-        LinearLayout overview = Ui.card(this, this.dark);
-        overview.addView(sectionLabel("Overview", 0));
-        TextView summary = Ui.text(this, page.summary, 17, Ui.mainText(this.dark));
-        summary.setTypeface(Ui.mediumTypeface(this));
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
-        sp.setMargins(0, Ui.dp(this, 6), 0, 0);
-        overview.addView(summary, sp);
-        if (!page.tip.isEmpty()) {
-            TextView tip = Ui.text(this, page.tip, 14, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
-            tp.setMargins(0, Ui.dp(this, 8), 0, 0);
-            overview.addView(tip, tp);
-        }
-        this.content.addView(overview);
-        Ui.addSpacer(this.content, 20);
         for (PriorityView.Item alert : page.alerts) {
             LinearLayout card = Ui.card(this, this.dark);
             card.addView(sectionLabel(alert.kind == PriorityView.Kind.DOWNTIME
@@ -1103,29 +1020,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 Ui.addSpacer(this.content, 20);
                 inverted = !inverted;
             }
-        }
-        if (!page.statuses.isEmpty()) {
-            LinearLayout card = Ui.card(this, this.dark);
-            card.addView(sectionLabel("Service status", 0));
-            for (PriorityPage.Status st : page.statuses) {
-                LinearLayout row = new LinearLayout(this);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                TextView name = Ui.text(this, st.provider.displayName, 15, Ui.mainText(this.dark));
-                row.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
-                TextView value = Ui.text(this, st.label(), 15, st.problem()
-                        ? Ui.warning(this.dark) : Ui.secondaryText(this.dark));
-                row.addView(value, new LinearLayout.LayoutParams(-2, -2));
-                LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-                rp.setMargins(0, Ui.dp(this, 10), 0, 0);
-                card.addView(row, rp);
-            }
-            TextView note = Ui.text(this, "From each provider's official status page.", 13,
-                    Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
-            np.setMargins(0, Ui.dp(this, 10), 0, 0);
-            card.addView(note, np);
-            this.content.addView(card);
-            Ui.addSpacer(this.content, 20);
         }
         addNewModelsCard();
     }
@@ -2119,18 +2013,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                     }
                 }
             }
-        }
-        if (anyUsage && target == UsageProvider.CLAUDE_CODE && snapshot.fiveHour == null
-                && snapshot.weekly != null) {
-            // Verified Ultra accounts have no 5-hour limit since October 2026; say so instead of
-            // leaving people to wonder where the card went.
-            TextView note = Ui.text(this, ClaudeUsageParser.NO_SESSION_LIMIT_NOTE, 13.0f,
-                    Ui.secondaryText(this.dark));
-            note.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
-            noteParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10),
-                    Ui.dp(this, 12));
-            column.addView(note, 0, noteParams);
         }
         if (!anyUsage) {
             TextView empty = Ui.text(this, "Pull down to load your " + target.displayName
