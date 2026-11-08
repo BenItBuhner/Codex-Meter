@@ -15,11 +15,8 @@ import java.util.List;
 final class GlassUpdateScreen extends GlassScreens.Screen {
     private GitHubRelease release;
     private String requested;
-    private boolean checking;
     private String checkError;
-    private boolean operationRunning;
-    private boolean waitingForPermission;
-    private boolean startInstallPending;
+    private final UpdateFlow flow = new UpdateFlow();
     private double progress = -1;
     private String status;
     private boolean statusError;
@@ -33,9 +30,9 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
         Context c = activity();
         requested = intent == null ? null : intent.getStringExtra(UpdateActivity.EXTRA_VERSION);
         boolean force = intent != null && intent.getBooleanExtra(UpdateActivity.EXTRA_FORCE_CHECK, false);
-        startInstallPending = intent != null && intent.getBooleanExtra(UpdateActivity.EXTRA_START_INSTALL, false);
+        flow.requestAutoInstall(intent != null && intent.getBooleanExtra(UpdateActivity.EXTRA_START_INSTALL, false));
         UpdateNotificationManager.dismiss(c);
-        if (!operationRunning) {
+        if (!flow.busy()) {
             progress = -1;
             status = null;
         }
@@ -50,12 +47,11 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
     /** The activity came back (from the install permission screen, say). */
     @Override
     void resumed() {
-        if (waitingForPermission && canInstall()) {
-            waitingForPermission = false;
+        if (flow.returnedWithPermission(canInstall())) {
             beginInstall();
             return;
         }
-        if (!operationRunning) {
+        if (!flow.busy()) {
             String error = UpdatePreferences.installError(activity());
             if (!error.isEmpty() && release != null) {
                 setStatus(error, true);
@@ -64,9 +60,10 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
     }
 
     private void check() {
-        checking = true;
+        if (!flow.check()) {
+            return; // already checking or installing
+        }
         checkError = null;
-        operationRunning = true;
         changed();
         Context app = activity().getApplicationContext();
         String version = requested;
@@ -79,8 +76,7 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
                 }
                 GitHubRelease result = selected;
                 activity().runOnUiThread(() -> {
-                    checking = false;
-                    operationRunning = false;
+                    flow.checked();
                     release = result;
                     if (release == null) {
                         String error = UpdatePreferences.lastError(app);
@@ -91,10 +87,9 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
                 });
             } catch (Exception e) {
                 activity().runOnUiThread(() -> {
-                    checking = false;
-                    operationRunning = false;
+                    flow.checked();
                     checkError = ReleaseUpdateClient.safeMessage(e);
-                    startInstallPending = false;
+                    flow.takeAutoInstall();
                     changed();
                 });
             }
@@ -102,11 +97,9 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
     }
 
     private void maybeStartInstall() {
-        if (!startInstallPending || release == null) {
-            startInstallPending = false;
+        if (!flow.takeAutoInstall() || release == null) {
             return;
         }
-        startInstallPending = false;
         String installed = UpdatePreferences.installedVersion(activity());
         boolean upgrade = ReleaseVersion.compare(release.version, installed) > 0
                 || UpdateChannel.isReturnToStable(release, installed);
@@ -119,7 +112,7 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
     GlassModel.Page page() {
         Context c = activity();
         GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "update", "App update");
-        if (checking) {
+        if (flow.phase() == UpdateFlow.Phase.CHECKING) {
             Card wait = new Card(Card.Kind.MESSAGE);
             wait.title = "Checking for updates…";
             page.sections.add(GlassScreens.cards(wait));
@@ -162,7 +155,7 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
             card.button = returnToStable ? "Return to stable"
                     : comparison < 0 ? "Download older APK"
                     : comparison == 0 ? "Verify and reinstall" : "Download and install";
-            card.buttonEnabled = !operationRunning;
+            card.buttonEnabled = !flow.busy();
             card.onPress = () -> {
                 if (comparison < 0 && !returnToStable) {
                     confirmOlderDownload();
@@ -200,23 +193,25 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
 
     private void requestInstall() {
         Context c = activity();
-        if (operationRunning || release == null || ReleaseUpdatePolicy.isIrreversible(release.version)) {
+        if (flow.phase() != UpdateFlow.Phase.IDLE || release == null
+                || ReleaseUpdatePolicy.isIrreversible(release.version)) {
             return;
         }
         UpdatePreferences.setInstallError(c, "");
         if (!canInstall()) {
-            waitingForPermission = true;
+            flow.askPermission();
             new AppDialog(c)
                     .setTitle("Allow app installs")
                     .setMessage("Android requires permission for Codex Meter to hand its verified "
                             + "GitHub APK to the system installer. You still approve every update.")
-                    .setNegativeButton("Cancel", (dialog, which) -> waitingForPermission = false)
+                    .setNegativeButton("Cancel", (dialog, which) -> flow.permissionDeclined())
+                    .setOnCancelListener(dialog -> flow.permissionDeclined())
                     .setPositiveButton("Open settings", (dialog, which) -> {
                         try {
                             c.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                                     Uri.parse("package:" + c.getPackageName())));
                         } catch (RuntimeException e) {
-                            waitingForPermission = false;
+                            flow.permissionDeclined();
                             Toast.makeText(c, "Could not open install permission settings.",
                                     Toast.LENGTH_LONG).show();
                         }
@@ -228,12 +223,11 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
     }
 
     private void beginInstall() {
-        if (operationRunning || release == null || ReleaseUpdatePolicy.isIrreversible(release.version)) {
+        if (release == null || ReleaseUpdatePolicy.isIrreversible(release.version) || !flow.install()) {
             return;
         }
         Context app = activity().getApplicationContext();
         GitHubRelease target = release;
-        operationRunning = true;
         progress = 0;
         setStatus(app.getString(R.string.update_downloading), false);
         screens.executor.execute(() -> {
@@ -248,14 +242,14 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
                 activity().runOnUiThread(() -> setStatus(app.getString(R.string.update_opening_installer), false));
                 UpdateInstaller.commit(app, prepared);
                 activity().runOnUiThread(() -> {
-                    operationRunning = false;
+                    flow.installed();
                     setStatus(app.getString(R.string.update_waiting_for_installer), false);
                 });
             } catch (Exception e) {
                 String message = safeMessage(e);
                 UpdatePreferences.setInstallError(app, message);
                 activity().runOnUiThread(() -> {
-                    operationRunning = false;
+                    flow.installed();
                     progress = -1;
                     setStatus(message, true);
                 });
