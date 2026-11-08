@@ -118,8 +118,11 @@ java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.PriorityViewSelfTest
 
 javac -encoding UTF-8 -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DesignIds.java" \
-  "$ROOT/tests/DesignIdsSelfTest.java"
+  "$ROOT/tests/DesignIdsSelfTest.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/RefreshTracker.java" \
+  "$ROOT/tests/RefreshTrackerSelfTest.java"
 java -ea -cp "$OUT" dev.bennett.codexmeter.DesignIdsSelfTest
+java -ea -cp "$OUT" dev.bennett.codexmeter.RefreshTrackerSelfTest
 grep -q '<item>liquid_glass_ios_26</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 grep -q '<item>liquid_glass_ios_27</item>' "$ROOT/app/src/main/res/values/arrays.xml"
 grep -q '<item>material_3_expressive</item>' "$ROOT/app/src/main/res/values/arrays.xml"
