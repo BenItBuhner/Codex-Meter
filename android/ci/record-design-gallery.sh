@@ -166,10 +166,16 @@ priority_scenes() {
     shot "$THEME-40-priority" 6
     # The always-on "usage is back" notification, in the shade.
     demo --ez open_priority true --ez demo_refill_notification true
-    sleep 3
-    adb shell cmd statusbar expand-notifications || true
+    sleep 4
+    adb shell dumpsys notification --noredact 2>/dev/null | grep -A3 'usage_back' \
+      > "$OUT/$THEME-44-usage-back-notification.txt" || true
+    # Pull the shade down from the top edge (the statusbar command alone does nothing on some images).
+    adb shell input swipe $((W / 2)) 2 $((W / 2)) $((H * 3 / 4)) 500
+    sleep 1
+    adb shell input swipe $((W / 2)) 2 $((W / 2)) $((H * 3 / 4)) 500
     shot "$THEME-44-usage-back-notification" 3
     adb shell cmd statusbar collapse || true
+    adb shell input keyevent KEYCODE_BACK || true
     demo --ez open_priority true --es demo_new_models relevant --ez demo_cursor_used_up true \
       --ez demo_claude_used_up true
     sleep 4
