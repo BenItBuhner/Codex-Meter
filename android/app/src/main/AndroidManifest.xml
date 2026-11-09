@@ -279,6 +279,9 @@
             android:name="dev.bennett.codexmeter.ResetAlertReceiver"
             android:exported="false"/>
         <receiver
+            android:name="dev.bennett.codexmeter.UsageRefillAlerts$Receiver"
+            android:exported="false"/>
+        <receiver
             android:name="dev.bennett.codexmeter.UpdateInstallReceiver"
             android:exported="false"/>
         <receiver

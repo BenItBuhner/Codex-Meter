@@ -74,6 +74,7 @@ public final class ProviderAccounts {
         AuthTokens tokens = SecureTokenStore.load(app, provider);
         boolean pending = ProviderPreferences.isSignInPending(app, provider);
         SecureTokenStore.clear(app, provider);
+        UsageRefillAlerts.clear(app, provider);
         if (provider == UsageProvider.CODEX) {
             AppPreferences.clearSnapshot(app);
             RefreshScheduler.cancelAll(app);

@@ -98,8 +98,9 @@ final class GlassCards {
 
 
     /**
-     * The Priority tab: official incidents and significant slowdowns, the limits to watch, and new
-     * models, across the signed-in providers. See {@link PriorityPage}.
+     * The Priority tab: official incidents and significant slowdowns, the limits to watch, the
+     * used-up limits with their reset times, and new models, across the signed-in providers. See
+     * {@link PriorityPage}.
      */
     static GlassModel.Dashboard priorityPage(MainActivity a) {
         GlassModel.Dashboard d = new GlassModel.Dashboard();
@@ -134,6 +135,17 @@ final class GlassCards {
             for (PriorityPage.Limit l : page.watch) {
                 d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
             }
+        }
+        if (!page.usedUp.isEmpty()) {
+            // Used-up limits and when each resets, as one grouped list like New models.
+            Card used = new Card(Card.Kind.STATS);
+            used.detail = PriorityPage.USED_UP;
+            used.title = PriorityPage.USED_UP;
+            for (PriorityPage.Limit l : page.usedUp) {
+                used.stats.add(new String[] {l.title(), l.resetText(a, now)});
+            }
+            used.summary = PriorityPage.USED_UP_NOTE;
+            d.cards.add(used);
         }
         Card models = newModels(a);
         if (models != null) {

@@ -21,6 +21,7 @@ public final class BootReceiver extends BroadcastReceiver {
                     AppPreferences.loadResetCredits(context));
             ResetCreditExpiryApplyReceiver.evaluateAsync(context);
             ClaudeResetExpiryReceiver.schedule(context);
+            UsageRefillAlerts.rescheduleAll(context);
             NowBarManager.restore(context);
             AppSessionHealth.check(context);
             if ("android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {

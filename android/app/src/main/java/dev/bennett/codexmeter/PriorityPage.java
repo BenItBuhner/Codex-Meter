@@ -8,8 +8,9 @@ import java.util.List;
 /**
  * The Priority tab's content, worked out once from what is already on the device and then drawn by
  * every design (One UI, One UI 9, Material 3 Expressive and Liquid Glass): official incidents and
- * significant slowdowns when there are any, the limits to watch, and new models when there are
- * any. Limits that are fine or already used up are not shown; nothing is shown just to fill it.
+ * significant slowdowns when there are any, the limits to watch, the used-up limits with when each
+ * one resets, and new models when there are any. Limits that are fine are not shown; nothing is
+ * shown just to fill it.
  *
  * <p>Only providers that are turned on in Settings, Providers, and signed in take part.
  */
@@ -43,6 +44,19 @@ final class PriorityPage {
             return PriorityView.worthWatching(left, fast);
         }
 
+        /** When it resets, in milliseconds; 0 when the provider did not say. */
+        long resetAt() {
+            long at = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+            return Math.max(0L, at);
+        }
+
+        /** "Resets 4:14 PM", "Resets tomorrow 9:00 AM", "Resets Nov 3", or "Reset time unknown". */
+        String resetText(Context context, long now) {
+            String text = NowBarCopy.resetClockText(window, snapshot.fetchedAtMillis, now,
+                    android.text.format.DateFormat.is24HourFormat(context), null, null);
+            return text != null ? text : "Reset time unknown";
+        }
+
         /** "Codex · Weekly". */
         String title() {
             return provider.displayName + " · " + label;
@@ -53,6 +67,8 @@ final class PriorityPage {
     final List<UsageProvider> providers = new ArrayList<>();
     /** Running out early with some still left, least left first. */
     final List<Limit> watch = new ArrayList<>();
+    /** Used up until they reset, soonest reset first. Never under {@link #watch}. */
+    final List<Limit> usedUp = new ArrayList<>();
     /** Official incidents and performance warnings, most severe first. */
     final List<PriorityView.Item> alerts = new ArrayList<>();
 
@@ -60,11 +76,15 @@ final class PriorityPage {
         return !providers.isEmpty();
     }
 
-    /** Shown when no limit is running out early and nothing is wrong. */
+    /** Shown when no limit is running out early or used up, and nothing is wrong. */
     static final String ALL_CLEAR = "Nothing needs attention right now.";
+    /** The heading over {@link #usedUp}. */
+    static final String USED_UP = "Used up";
+    /** Under the used-up limits: the always-on alert, see {@link UsageRefillAlerts}. */
+    static final String USED_UP_NOTE = "You'll get a notification when each one is back.";
 
     boolean allClear() {
-        return watch.isEmpty() && alerts.isEmpty();
+        return watch.isEmpty() && usedUp.isEmpty() && alerts.isEmpty();
     }
 
     static PriorityPage build(MainActivity a) {
@@ -88,9 +108,13 @@ final class PriorityPage {
         for (Limit l : limits) {
             if (l.watch()) {
                 page.watch.add(l);
+            } else if (l.left <= 0) {
+                page.usedUp.add(l);
             }
         }
         Collections.sort(page.watch, (x, y) -> Integer.compare(x.left, y.left));
+        Collections.sort(page.usedUp, (x, y) -> Long.compare(PriorityView.resetOrder(x.resetAt()),
+                PriorityView.resetOrder(y.resetAt())));
         List<PriorityView.Item> items = a.priorityItems();
         for (PriorityView.Item item : items) {
             if (item.kind == PriorityView.Kind.DOWNTIME || item.kind == PriorityView.Kind.PERFORMANCE_WARNING) {

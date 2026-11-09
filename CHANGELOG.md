@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- **Usage is back** notification: when any signed-in provider's 5-hour, weekly or monthly limit hits 0%, Codex Meter tells you once it resets, at the reset time the provider gave, or sooner if a refresh shows it refilled. It is always on and has no setting; it only needs Android's notification permission, which the app asks for the first time a limit is used up. If the optional Codex reset alarm is on too, you get one notification, not two. Android.
+- **Priority** lists used-up limits again, under **Used up**, with when each one resets (soonest first) instead of a meter. They still stay out of **Limits to watch**. Android.
+
 ### Changed
 
 - **Liquid Glass** is one design again, called just **Liquid Glass**, with the iOS 27-inspired look: more diffused glass, darker edges, brighter highlights, an even band behind the top bar once content scrolls under it, and the **Glass tint** slider. If you used either Liquid Glass look, you're moved to it automatically. Android.

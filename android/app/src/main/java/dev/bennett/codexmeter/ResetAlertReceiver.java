@@ -13,8 +13,12 @@ public final class ResetAlertReceiver extends BroadcastReceiver {
             if (!"weekly".equals(stringExtra) && !"monthly".equals(stringExtra)) {
                 stringExtra = "five_hour";
             }
-            if (stillRelevant(context, stringExtra, intent.getLongExtra("reset_at", 0L))) {
-                ResetNotificationManager.showResetNotification(context, stringExtra);
+            long resetAt = intent.getLongExtra("reset_at", 0L);
+            if (stillRelevant(context, stringExtra, resetAt)) {
+                // A used-up limit gets the always-on "usage is back" alert instead of this one.
+                if (!UsageRefillAlerts.coversCodex(context, stringExtra, resetAt)) {
+                    ResetNotificationManager.showResetNotification(context, stringExtra);
+                }
                 RefreshScheduler.scheduleImmediate(context);
                 WidgetRenderer.updateAll(context);
             }

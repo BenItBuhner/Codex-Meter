@@ -61,6 +61,7 @@ public final class UsageApi {
                 PhoneWearSync.pushUsage(context, usageSnapshot);
                 NowBarManager.onUsageUpdated(context, usageSnapshot);
                 ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
+                UsageRefillAlerts.onUsageSaved(context, UsageProvider.CODEX, usageSnapshot);
                 try {
                     ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);
                 } catch (RuntimeException exception) {
