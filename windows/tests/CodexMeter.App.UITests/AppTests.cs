@@ -17,6 +17,18 @@ public class AppTests
     }
 
     [Fact]
+    public void TitleBarIsAsTallAsTheCaptionButtons()
+    {
+        using var app = new AppSession();
+        var scale = GetDpiForWindow(app.Window.Properties.NativeWindowHandle.Value) / 96.0;
+        // The window uses the tall (48px) caption buttons, so the title bar must be 48px too.
+        Assert.InRange(app.Find("AppTitleBar").BoundingRectangle.Height, 47 * scale, 49 * scale);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
+
+    [Fact]
     public void CodexDashboardShowsMetersAndResets()
     {
         using var app = new AppSession("--page", "codex");
