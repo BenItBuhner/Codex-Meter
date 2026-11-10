@@ -353,6 +353,7 @@ launch_scenes() {
   shot() {
     sleep "${2:-3}"
     no_anr
+    clean_bar
     plain_shot "$1" 0.5
   }
   story() { demo --es demo_story launch "$@"; }
@@ -399,6 +400,7 @@ launch_scenes() {
   story
   sleep 7
   no_anr
+  clean_bar
   adb shell screenrecord --bit-rate 12000000 --time-limit 45 /sdcard/launch.mp4 &
   local rec=$!
   sleep 2
