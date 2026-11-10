@@ -198,7 +198,8 @@ public final class CodexGlass {
                 // backdrop (a second fade over just the bar) instead of only the soft fade.
                 EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
-                GlassNavBar(P.of("title", d.title, "titleVisible", past.get(), "trailing", trailing)),
+                GlassNavBar(P.of("key", navKey(t), "title", d.title, "titleVisible", past.get(),
+                        "trailing", trailing)),
                 kitTabs.size() >= 2 ? GlassTabBar(P.of(
                         "key", tabKey.toString(),
                         "tabs", kitTabs,
@@ -491,6 +492,17 @@ public final class CodexGlass {
             }
         }
 
+        String navTitle = titleOf(src, top);
+        double labelsWidth = 0;
+        if (topPage != null) {
+            if (reorderable(topPage)) {
+                labelsWidth += buttonWidth(top.equals(editing.get()) ? "Done" : "Edit");
+            }
+            for (GlassModel.Action a : topPage.actions) {
+                labelsWidth += buttonWidth(a.icon != null ? null : a.label);
+            }
+        }
+
         List<El> els = new ArrayList<>();
         for (String id : pages) {
             els.add(Box(P.of("key", id, "fill", true),
@@ -506,7 +518,8 @@ public final class CodexGlass {
                 // backdrop (a second fade over just the bar) instead of only the soft fade.
                 EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
-                GlassNavBar(P.of("title", titleOf(src, top), "titleVisible", sub || past.get(),
+                GlassNavBar(P.of("key", navKey(t), "title", navTitle, "titleVisible",
+                        (sub || past.get()) && navTitleFits(navTitle, labelsWidth, sub, t.W),
                         "trailing", actions.isEmpty() ? null : actions,
                         "onBack", (Runnable) () -> {
                             if (!kit.back()) {
@@ -524,6 +537,33 @@ public final class CodexGlass {
                                 "onChange", (OnStr) query::set))) : null,
                 R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", SETTINGS, "v", version)));
     };
+
+    /**
+     * The nav bar is built again when the window's size or its status bar inset changes, so its
+     * buttons never keep a place worked out for the old window (on a foldable they could stay
+     * under the status bar).
+     */
+    static String navKey(com.benitbuhner.glasse.kit.KTheme t) {
+        return "nav:" + Math.round(t.W) + ":" + Math.round(t.T);
+    }
+
+    /** About how wide a nav bar button is, in dp: a 44dp icon button, or a label with its padding. */
+    static double buttonWidth(String label) {
+        return (label == null ? 44 : Math.max(44, label.length() * 10.0 + 32)) + 8;
+    }
+
+    /**
+     * Whether the small centred title has room between the Back button and the buttons on the
+     * right. A long title next to Edit and Save (the widget screens on a phone) would run under
+     * them, so it stays hidden there; the large title on the page still names the screen.
+     */
+    static boolean navTitleFits(String title, double trailingWidth, boolean back, double width) {
+        if (title == null || title.isEmpty()) {
+            return true;
+        }
+        double side = 16 + Math.max(back ? 52 : 0, trailingWidth) + 8;
+        return title.length() * 9.5 / 2 <= width / 2 - side;
+    }
 
     private static String titleOf(GlassSource src, String id) {
         if (id.startsWith(CHOICE)) {
