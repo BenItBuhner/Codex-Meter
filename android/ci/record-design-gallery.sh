@@ -9,7 +9,7 @@
 # design: liquid_glass (default), material_3_expressive, one_ui_9 or classic. scenes: all (default),
 # new_models for only the New models card (with a relevant model, then with only irrelevant ones),
 # the Notifications toggle and the Refresh note, priority for only the Priority tab (top to bottom,
-# then a provider tab and back), launch for the release pictures and clip (a clean status bar, no
+# then a provider tab and back), launch (or launch_priority for the Priority tab's states) for the release pictures and clip (a clean status bar, no
 # update card, the launch story's numbers), perf for the Liquid Glass navigation pass, or wide for foldable and
 # tablet screen sizes (the emulator's display resized).
 set -euo pipefail
@@ -364,6 +364,34 @@ launch_scenes() {
     if [[ "$THEME" == dark ]]; then adb shell cmd uimode night yes; else adb shell cmd uimode night no; fi
     sleep 2
     clean_bar
+    if [[ "$SCENES" == launch_priority ]]; then
+      # The Priority tab's states, one launch each, without a network (the seeded incident and
+      # slow model stay as they are): calm, one limit running out, an incident, and everything.
+      adb shell svc wifi disable || true
+      adb shell svc data disable || true
+      story --ez open_priority true
+      shot "$THEME-20-priority-calm" 7
+      story --ez open_priority true --ez story_early true
+      shot "$THEME-21-priority-running-out" 7
+      story --es open_provider claude_code --ez story_early true
+      shot "$THEME-22-claude-code-running-out" 7
+      story --ez open_priority true --ez story_outage true
+      shot "$THEME-23-priority-outage" 7
+      story --ez open_priority true --ez story_slow true --es demo_new_models relevant
+      shot "$THEME-24-priority-slow-and-new-models" 7
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
+      shot "$THEME-24-priority-slow-and-new-models-scrolled" 2
+      story --ez open_priority true --ez story_early true --ez story_outage true --ez story_slow true \
+        --es demo_new_models relevant --ez demo_cursor_used_up true
+      shot "$THEME-25-priority-everything" 7
+      for k in 1 2; do
+        adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
+        shot "$THEME-25-priority-everything-scroll-$k" 2
+      done
+      adb shell svc wifi enable || true
+      adb shell svc data enable || true
+      continue
+    fi
     story
     shot "$THEME-01-codex" 7
     adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
@@ -393,6 +421,10 @@ launch_scenes() {
     shot "$THEME-13-claude-ultra" 8
   done
   adb shell cmd uimode night no
+  if [[ "$SCENES" == launch_priority ]]; then
+    sysui exit || true
+    return 0
+  fi
 
   # One take in light: the dashboard scrolling, a pull to refresh, each tab, Settings and back.
   THEME=light
@@ -445,7 +477,7 @@ launch_scenes() {
   sysui exit || true
 }
 
-if [[ "$SCENES" == launch ]]; then
+if [[ "$SCENES" == launch || "$SCENES" == launch_priority ]]; then
   launch_scenes
   adb logcat -d -b crash > "$OUT/crash-log.txt" || true
   exit 0

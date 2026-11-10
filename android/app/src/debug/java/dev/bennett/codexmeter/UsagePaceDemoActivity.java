@@ -90,8 +90,9 @@ public final class UsagePaceDemoActivity extends Activity {
             String creditsBalance = getIntent().getStringExtra("credits_balance");
             boolean creditsNone = getIntent().getBooleanExtra("credits_none", false);
             long now = System.currentTimeMillis();
-            long fiveHourReset = now - TimeUnit.HOURS.toMillis(1)
-                    + TimeUnit.HOURS.toMillis(5);
+            long fiveHourReset = "launch".equals(getIntent().getStringExtra("demo_story"))
+                    ? now + TimeUnit.HOURS.toMillis(2)
+                    : now - TimeUnit.HOURS.toMillis(1) + TimeUnit.HOURS.toMillis(5);
             // "launch" (demo_story) is the state for release pictures: a weekly limit that is four
             // days in and on pace, and no update card (the debug build would offer the stable one).
             boolean launchStory = "launch".equals(getIntent().getStringExtra("demo_story"));
@@ -113,9 +114,9 @@ public final class UsagePaceDemoActivity extends Activity {
                             true,
                             false,
                             new UsageWindow(24, TimeUnit.HOURS.toSeconds(5), 0L,
-                                    (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
+                                    (now + TimeUnit.HOURS.toMillis(launchStory ? 2 : 3)) / 1000L),
                             new UsageWindow(42, TimeUnit.DAYS.toSeconds(7), 0L,
-                                    (now + TimeUnit.DAYS.toMillis(5)) / 1000L))),
+                                    (now + TimeUnit.DAYS.toMillis(launchStory ? 3 : 5)) / 1000L))),
                     creditsNone
                             ? new UsageCredits(false, false, "")
                             : new UsageCredits(true, false,
@@ -144,6 +145,9 @@ public final class UsagePaceDemoActivity extends Activity {
             }
             if (getIntent().getBooleanExtra("demo_providers", false)) {
                 seedProviders(now);
+            }
+            if (launchStory) {
+                seedStoryExtras(now);
             }
             UsagePacePreferences.setEnabled(this, true);
             UsagePacePreferences.setSensitivity(this, UsagePace.BALANCED);
@@ -245,10 +249,14 @@ public final class UsagePaceDemoActivity extends Activity {
     /** Signs Claude Code and Cursor in with demo usage, so the dashboard shows provider tabs. */
     private void seedProviders(long now) throws Exception {
         long nowSeconds = now / 1000L;
+        boolean story = "launch".equals(getIntent().getStringExtra("demo_story"));
+        // story_early: Claude Code's weekly limit is nearly gone two days before it resets.
+        boolean early = getIntent().getBooleanExtra("story_early", false);
         String claude = "{\"plan_type\":\"max\",\"allowed\":true,\"limit_reached\":false,"
                 + "\"five_hour\":" + window(getIntent().getBooleanExtra("demo_claude_used_up", false)
                         ? 100 : 71, 18000, nowSeconds + 52 * 60) + ","
-                + "\"weekly\":" + window(34, 604800, nowSeconds + 5 * 86400) + ","
+                + "\"weekly\":" + (early ? window(82, 604800, nowSeconds + 2 * 86400 + 4 * 3600)
+                        : window(34, 604800, nowSeconds + (story ? 3 : 5) * 86400)) + ","
                 + "\"fetched_at\":" + (now - 600000) + "}";
         String cursor = "{\"plan_type\":\"pro\",\"allowed\":true,\"limit_reached\":false,"
                 + "\"monthly\":" + window(getIntent().getBooleanExtra("demo_cursor_used_up", false)
@@ -259,6 +267,47 @@ public final class UsagePaceDemoActivity extends Activity {
         ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CODEX,
                 UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR));
         ProviderPreferences.setSelected(this, UsageProvider.CODEX);
+    }
+
+    /**
+     * The launch story's optional incident (story_outage) and slow model (story_slow). Both stores
+     * are written as a finished check would leave them, so the scenes need no network.
+     */
+    private void seedStoryExtras(long now) throws Exception {
+        android.content.SharedPreferences status = getSharedPreferences("provider_status", MODE_PRIVATE);
+        android.content.SharedPreferences speed = getSharedPreferences("model_speed", MODE_PRIVATE);
+        status.edit().clear().commit();
+        speed.edit().clear().commit();
+        if (getIntent().getBooleanExtra("story_outage", false)) {
+            ProviderStatus outage = new ProviderStatus(UsageProvider.CLAUDE_CODE.id,
+                    ProviderStatus.State.PARTIAL_OUTAGE,
+                    Arrays.asList(new ProviderStatus.Issue("Claude Code", ProviderStatus.State.PARTIAL_OUTAGE,
+                            "Elevated error rates on Claude Code", "https://status.claude.com",
+                            now - TimeUnit.MINUTES.toMillis(18))),
+                    "https://status.claude.com", now);
+            status.edit().putString("status_" + UsageProvider.CLAUDE_CODE.id, outage.toJson().toString())
+                    .commit();
+        }
+        if (getIntent().getBooleanExtra("story_slow", false)) {
+            String model = "openai/gpt-5.5";
+            org.json.JSONArray history = new org.json.JSONArray();
+            for (int i = 9; i >= 1; i--) {
+                history.put(new org.json.JSONArray().put(now - TimeUnit.MINUTES.toMillis(45L * i))
+                        .put(72 + i % 3).put(820));
+            }
+            history.put(new org.json.JSONArray().put(now).put(31).put(900));
+            speed.edit()
+                    .putString("choices_openai", "[{\"id\":\"" + model + "\",\"name\":\"GPT-5.5\"}]")
+                    .putLong("choices_at_openai", now)
+                    .putLong("attempt_" + UsageProvider.CODEX.id, now)
+                    .putString("body_" + model, "{\"data\":{\"id\":\"" + model
+                            + "\",\"name\":\"OpenAI: GPT-5.5\",\"endpoints\":[{\"provider_name\":\"OpenAI\","
+                            + "\"tag\":\"openai\",\"throughput_last_30m\":31,\"latency_last_30m\":900,"
+                            + "\"uptime_last_30m\":99.6,\"uptime_last_1d\":99.8}]}}")
+                    .putLong("fetched_" + model, now)
+                    .putString("hist_" + model, history.toString())
+                    .commit();
+        }
     }
 
     private void seedProvider(UsageProvider provider, String json) throws Exception {
