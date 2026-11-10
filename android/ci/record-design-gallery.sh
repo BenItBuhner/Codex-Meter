@@ -338,7 +338,22 @@ launch_scenes() {
     sysui notifications -e visible false
     sysui battery -e level 100 -e plugged false
     sysui network -e wifi show -e level 4
-    sysui network -e mobile show -e datatype none -e level 4
+    sysui network -e mobile hide
+  }
+  # The emulator's launcher sometimes stops responding, and its dialog would cover the shot: tap Wait.
+  local plain_shot
+  plain_shot="$(declare -f shot)"
+  eval "${plain_shot/shot/plain_shot}"
+  no_anr() {
+    if adb shell dumpsys window windows | grep -q "Application Not Responding"; then
+      at 0.3 0.568
+      sleep 1
+    fi
+  }
+  shot() {
+    sleep "${2:-3}"
+    no_anr
+    plain_shot "$1" 0.5
   }
   story() { demo --es demo_story launch "$@"; }
   adb shell pm clear "$PKG" >/dev/null
@@ -383,6 +398,7 @@ launch_scenes() {
   adb shell pm clear "$PKG" >/dev/null
   story
   sleep 7
+  no_anr
   adb shell screenrecord --bit-rate 12000000 --time-limit 45 /sdcard/launch.mp4 &
   local rec=$!
   sleep 2
@@ -391,9 +407,15 @@ launch_scenes() {
   adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 500; sleep 1
   adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 500; sleep 2
   adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 2 / 3)) 1200; sleep 4
-  local k
-  for k in 0.61 0.84 0.16 0.39; do
-    at "$k" 0.922; sleep 3
+  # Claude Code, Cursor, Priority and Codex on the tab bar, by position (Liquid Glass has no
+  # accessibility tree), which each design lays out differently.
+  local k taps="0.61 0.84 0.16 0.39" bar=0.922
+  case "$DESIGN" in
+    material_3_expressive) taps="0.60 0.75 0.25 0.38" ;;
+    classic) taps="0.61 0.88 0.12 0.35"; bar=0.945 ;;
+  esac
+  for k in $taps; do
+    at "$k" "$bar"; sleep 3
   done
   adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 900; sleep 2
   adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 3 / 4)) 900; sleep 2
