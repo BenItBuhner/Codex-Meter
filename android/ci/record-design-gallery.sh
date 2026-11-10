@@ -364,6 +364,33 @@ launch_scenes() {
     if [[ "$THEME" == dark ]]; then adb shell cmd uimode night yes; else adb shell cmd uimode night no; fi
     sleep 2
     clean_bar
+    if [[ "$SCENES" == launch_new ]]; then
+      # What 2.9.0-alpha.22 added: used-up limits, good news and what is coming up on Priority,
+      # and the notifications for a surprise refill, newly saved resets and usage being back.
+      adb shell svc wifi disable || true
+      adb shell svc data disable || true
+      story --ez open_priority true --ez demo_claude_used_up true --ez demo_cursor_used_up true
+      shot "$THEME-30-priority-used-up" 7
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
+      shot "$THEME-30-priority-used-up-scrolled" 2
+      story --ez open_priority true --ez story_news true
+      shot "$THEME-31-priority-good-news" 7
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
+      shot "$THEME-31-priority-good-news-scrolled" 2
+      story --ez open_priority true --ez story_news true --ez story_notify true \
+        --ez demo_refill_notification true
+      sleep 5
+      clean_bar
+      adb shell input swipe $((W / 2)) 2 $((W / 2)) $((H * 3 / 4)) 500
+      sleep 1
+      adb shell input swipe $((W / 2)) 2 $((W / 2)) $((H * 3 / 4)) 500
+      plain_shot "$THEME-32-notifications" 3
+      adb shell cmd statusbar collapse || true
+      adb shell input keyevent KEYCODE_BACK || true
+      adb shell svc wifi enable || true
+      adb shell svc data enable || true
+      continue
+    fi
     if [[ "$SCENES" == launch_priority ]]; then
       # The Priority tab's states, one launch each, without a network (the seeded incident and
       # slow model stay as they are): calm, one limit running out, an incident, and everything.
@@ -421,7 +448,7 @@ launch_scenes() {
     shot "$THEME-13-claude-ultra" 8
   done
   adb shell cmd uimode night no
-  if [[ "$SCENES" == launch_priority ]]; then
+  if [[ "$SCENES" == launch_priority || "$SCENES" == launch_new ]]; then
     sysui exit || true
     return 0
   fi
@@ -477,7 +504,7 @@ launch_scenes() {
   sysui exit || true
 }
 
-if [[ "$SCENES" == launch || "$SCENES" == launch_priority ]]; then
+if [[ "$SCENES" == launch || "$SCENES" == launch_priority || "$SCENES" == launch_new ]]; then
   launch_scenes
   adb logcat -d -b crash > "$OUT/crash-log.txt" || true
   exit 0

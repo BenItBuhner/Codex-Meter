@@ -278,6 +278,26 @@ public final class UsagePaceDemoActivity extends Activity {
         android.content.SharedPreferences speed = getSharedPreferences("model_speed", MODE_PRIVATE);
         status.edit().clear().commit();
         speed.edit().clear().commit();
+        // story_news: a surprise refill and newly saved resets, as a refresh would have found them.
+        getSharedPreferences("codex_meter_provider_events_v1", MODE_PRIVATE).edit().remove("events").commit();
+        if (getIntent().getBooleanExtra("story_news", false)) {
+            java.util.Map<String, Integer> added = new java.util.LinkedHashMap<>();
+            added.put("Fable reset", 2);
+            ProviderEvents.Event[] events = {
+                ProviderEvents.newSavedResets(UsageProvider.CLAUDE_CODE, added, 2, "in 6 days",
+                        now - TimeUnit.HOURS.toMillis(3)),
+                ProviderEvents.surpriseRefill(UsageProvider.CLAUDE_CODE, Arrays.asList("Weekly"),
+                        now - TimeUnit.MINUTES.toMillis(12)),
+            };
+            for (ProviderEvents.Event event : events) {
+                ProviderAlerts.remember(getApplicationContext(), event);
+                if (getIntent().getBooleanExtra("story_notify", false)) {
+                    ResetNotificationManager.postAccountActivity(getApplicationContext(),
+                            UsageProvider.CLAUDE_CODE, ProviderEvents.NEW_RESETS.equals(event.kind) ? 1 : 0,
+                            event.title, event.detail);
+                }
+            }
+        }
         if (getIntent().getBooleanExtra("story_outage", false)) {
             ProviderStatus outage = new ProviderStatus(UsageProvider.CLAUDE_CODE.id,
                     ProviderStatus.State.PARTIAL_OUTAGE,
