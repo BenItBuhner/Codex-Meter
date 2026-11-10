@@ -9,8 +9,10 @@ import java.util.List;
  * The Priority tab's content, worked out once from what is already on the device and then drawn by
  * every design (One UI, One UI 9, Material 3 Expressive and Liquid Glass): official incidents and
  * significant slowdowns when there are any, the limits to watch, the used-up limits with when each
- * one resets, and new models when there are any. Limits that are fine are not shown; nothing is
- * shown just to fill it.
+ * one resets, and new models when there are any. It also carries the good news of the last day
+ * (a limit that refilled early, newly saved resets), saved resets that can be used on a used-up
+ * limit, and what is coming up in the next three days (a monthly limit renewing, saved resets
+ * expiring). Limits that are fine are not shown; nothing is shown just to fill it.
  *
  * <p>Only providers that are turned on in Settings, Providers, and signed in take part.
  */
@@ -63,6 +65,19 @@ final class PriorityPage {
         }
     }
 
+    /** One line of a grouped list: what it is on the left, the short fact on the right. */
+    static final class Note {
+        final UsageProvider provider;
+        final String title;
+        final String value;
+
+        Note(UsageProvider provider, String title, String value) {
+            this.provider = provider;
+            this.title = title;
+            this.value = value;
+        }
+    }
+
     /** Signed-in providers that take part, in tab order. */
     final List<UsageProvider> providers = new ArrayList<>();
     /** Running out early with some still left, least left first. */
@@ -71,6 +86,17 @@ final class PriorityPage {
     final List<Limit> usedUp = new ArrayList<>();
     /** Official incidents and performance warnings, most severe first. */
     final List<PriorityView.Item> alerts = new ArrayList<>();
+
+    /** The last day's surprise refills and newly saved resets, newest first. */
+    final List<Note> news = new ArrayList<>();
+    /** Saved resets of a provider that has a used-up limit they can refill. */
+    final List<Note> ready = new ArrayList<>();
+    /** Monthly limits renewing and saved resets expiring within three days, soonest first. */
+    final List<Note> comingUp = new ArrayList<>();
+
+    static final String NEWS = "Good news";
+    static final String READY = "Saved resets you can use";
+    static final String COMING_UP = "Coming up";
 
     boolean signedInAnywhere() {
         return !providers.isEmpty();
@@ -84,7 +110,8 @@ final class PriorityPage {
     static final String USED_UP_NOTE = "You'll get a notification when each one is back.";
 
     boolean allClear() {
-        return watch.isEmpty() && usedUp.isEmpty() && alerts.isEmpty();
+        return watch.isEmpty() && usedUp.isEmpty() && alerts.isEmpty() && news.isEmpty() && ready.isEmpty()
+                && comingUp.isEmpty();
     }
 
     static PriorityPage build(MainActivity a) {
@@ -115,6 +142,7 @@ final class PriorityPage {
         Collections.sort(page.watch, (x, y) -> Integer.compare(x.left, y.left));
         Collections.sort(page.usedUp, (x, y) -> Long.compare(PriorityView.resetOrder(x.resetAt()),
                 PriorityView.resetOrder(y.resetAt())));
+        addNotes(a, page, limits, now);
         List<PriorityView.Item> items = a.priorityItems();
         for (PriorityView.Item item : items) {
             if (item.kind == PriorityView.Kind.DOWNTIME || item.kind == PriorityView.Kind.PERFORMANCE_WARNING) {
@@ -122,6 +150,55 @@ final class PriorityPage {
             }
         }
         return page;
+    }
+
+    private static void addNotes(MainActivity a, PriorityPage page, List<Limit> limits, long now) {
+        for (ProviderEvents.Event e : ProviderAlerts.recent(a)) {
+            UsageProvider p = UsageProvider.fromId(e.provider);
+            if (p != null && p.id.equals(e.provider) && page.providers.contains(p) && !e.line.isEmpty()) {
+                page.news.add(new Note(p, p.displayName + " · " + e.line, ProviderEvents.ago(e.at, now)));
+            }
+        }
+        // Soonest first: each entry is {when, note}.
+        List<Object[]> soon = new ArrayList<>();
+        java.util.Set<UsageProvider> renewing = new java.util.HashSet<>();
+        for (Limit l : limits) {
+            boolean monthly = "Monthly".equals(l.label) || "Monthly".equals(MainActivity.cadenceLabel(l.window));
+            if (monthly && l.left > 0 && !renewing.contains(l.provider)
+                    && ProviderEvents.renewsSoon(l.window, l.snapshot.fetchedAtMillis, now)) {
+                renewing.add(l.provider);
+                soon.add(new Object[] {l.resetAt(), new Note(l.provider, l.provider.displayName + " · Monthly limit",
+                        "Renews in " + ProviderEvents.duration(l.resetAt() - now) + " · " + l.left + "% left")});
+            }
+        }
+        for (UsageProvider p : page.providers) {
+            ClaudeSavedResets saved = p == UsageProvider.CLAUDE_CODE ? ProviderPreferences.loadSavedResets(a, p) : null;
+            ResetCreditsSnapshot credits = p == UsageProvider.CODEX ? AppPreferences.loadResetCredits(a)
+                    : saved == null ? null : saved.toResetCreditsSnapshot(now);
+            int available = credits == null ? 0 : credits.availableCount;
+            if (available <= 0) {
+                continue;
+            }
+            String what = saved != null ? saved.inventoryLabel(now)
+                    : available + " reset credit" + (available == 1 ? "" : "s");
+            String title = p.displayName + " · " + what;
+            boolean usedUp = false;
+            for (Limit l : page.usedUp) {
+                usedUp |= l.provider == p;
+            }
+            if (usedUp && (saved == null || saved.usableGrant(now) != null)) {
+                page.ready.add(new Note(p, title, "Ready to use"));
+            }
+            long expiry = credits.nextExpiryMillis(now);
+            if (expiry > now && expiry - now <= ProviderEvents.EXPIRY_SOON_MS) {
+                soon.add(new Object[] {expiry, new Note(p, title,
+                        (available == 1 ? "Expires in " : "Next expires in ") + ProviderEvents.duration(expiry - now))});
+            }
+        }
+        Collections.sort(soon, (x, y) -> Long.compare((Long) x[0], (Long) y[0]));
+        for (Object[] entry : soon) {
+            page.comingUp.add((Note) entry[1]);
+        }
     }
 
     static UsageSnapshot snapshot(Context context, UsageProvider p) {

@@ -99,6 +99,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/PrioritySummaryRules.java" \
   "$ROOT/tests/PriorityViewSelfTest.java" \
   "$ROOT/tests/UsageRefillSelfTest.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderEvents.java" \
+  "$ROOT/tests/ProviderEventsSelfTest.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderStatus.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderStatusSources.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/StatusPollPolicy.java" \
@@ -118,6 +120,7 @@ java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ProviderStatusSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.PriorityViewSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.UsageRefillSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderEventsSelfTest
 
 javac -encoding UTF-8 -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DesignIds.java" \

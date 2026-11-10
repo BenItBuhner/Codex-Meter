@@ -29,6 +29,11 @@ import org.json.JSONObject;
  * only works at a usage limit ({@code use_requires_limit}); the server then answers
  * {@code not_limited} and nothing is used. Anthropic does not document any of this, so parsing
  * is defensive and an absent or malformed block simply means "no saved resets".
+ *
+ * <p>Some resets only cover one model's limit (claude.ai lists them as "Fable reset"). How the
+ * server marks those is not documented either, so {@link #scopeOf} looks in every place it could
+ * be: a {@code scope} or {@code model} field shaped like the usage rows', a model-only
+ * {@code clears} list, an unknown {@code type}, or a label such as "Fable reset".
  */
 public final class ClaudeSavedResets {
     public static final String PROGRAM = "cedar_ember";
@@ -71,10 +76,19 @@ public final class ClaudeSavedResets {
         /** "session", "weekly", "full", or empty. */
         public final String type;
         public final String unavailableReason;
+        /** The one model this reset covers ("Fable"), or empty when it covers every model. */
+        public final String scope;
 
         public Grant(String id, String label, int resetsTotal, int resetsLeft, long endsAtMillis,
                 List<String> clears, boolean paused, boolean usableNow, boolean useRequiresLimit,
                 String type, String unavailableReason) {
+            this(id, label, resetsTotal, resetsLeft, endsAtMillis, clears, paused, usableNow,
+                    useRequiresLimit, type, unavailableReason, "");
+        }
+
+        public Grant(String id, String label, int resetsTotal, int resetsLeft, long endsAtMillis,
+                List<String> clears, boolean paused, boolean usableNow, boolean useRequiresLimit,
+                String type, String unavailableReason, String scope) {
             this.id = safe(id);
             this.label = safe(label);
             this.resetsTotal = Math.max(0, resetsTotal);
@@ -87,6 +101,12 @@ public final class ClaudeSavedResets {
             this.useRequiresLimit = useRequiresLimit;
             this.type = safe(type);
             this.unavailableReason = safe(unavailableReason);
+            this.scope = safe(scope).trim();
+        }
+
+        /** True for a reset that only covers one model's limit. */
+        public boolean modelOnly() {
+            return !scope.isEmpty();
         }
 
         public boolean hasResets(long nowMillis) {
@@ -97,15 +117,19 @@ public final class ClaudeSavedResets {
             return clears.contains("five_hour") || "session".equals(type) || "full".equals(type);
         }
 
+        /** Whether it refills the all-models weekly limit; a model-only reset does not. */
         public boolean clearsWeekly() {
             for (String limit : clears) {
-                if (limit.startsWith("seven_day")) return true;
+                if (limit.equals("seven_day") || (!modelOnly() && limit.startsWith("seven_day"))) {
+                    return true;
+                }
             }
             return "weekly".equals(type) || "full".equals(type);
         }
 
-        /** "5-hour limit", "weekly limit", or "5-hour and weekly limits". */
+        /** "5-hour limit", "weekly limit", "5-hour and weekly limits", or "Fable limit". */
         public String clearsLabel() {
+            if (modelOnly()) return scope + " limit";
             boolean session = clearsFiveHour();
             boolean weekly = clearsWeekly();
             if (session && weekly) return "5-hour and weekly limits";
@@ -114,8 +138,12 @@ public final class ClaudeSavedResets {
             return "usage limit";
         }
 
-        /** The dashboard's name for it, matching claude.ai ("Full reset", "Session reset"). */
+        /**
+         * The dashboard's name for it, matching claude.ai ("Full reset", "Session reset", and
+         * "Fable reset" for one that only covers that model).
+         */
         public String title() {
+            if (modelOnly()) return scope + " reset";
             switch (type) {
                 case "full":
                     return "Full reset";
@@ -141,6 +169,7 @@ public final class ClaudeSavedResets {
             json.put("use_requires_limit", useRequiresLimit);
             json.put("type", type);
             json.put("unavailable_reason", unavailableReason);
+            json.put("scope", scope);
             return json;
         }
 
@@ -151,8 +180,80 @@ public final class ClaudeSavedResets {
                     json.optLong("ends_at_millis", 0L), strings(json.optJSONArray("clears")),
                     json.optBoolean("paused", false), json.optBoolean("usable_now", false),
                     json.optBoolean("use_requires_limit", true), json.optString("type", ""),
-                    json.optString("unavailable_reason", ""));
+                    json.optString("unavailable_reason", ""), json.optString("scope", ""));
         }
+    }
+
+    private static final List<String> GENERIC_NAMES = java.util.Arrays.asList(
+            "", "limit", "limits", "full", "session", "weekly", "usage", "rate limit", "saved",
+            "free", "bonus", "all", "all models", "oauth apps", "overage", "five hour",
+            "seven day");
+
+    /**
+     * The model a grant row is limited to ("Fable"), or empty when it covers every model. See the
+     * class comment for where it looks.
+     */
+    static String scopeOf(JSONObject row, String type, String label, List<String> clears) {
+        Object scope = row == null ? null : row.opt("scope");
+        String name = modelName(scope);
+        if (name.isEmpty() && row != null) name = modelName(row.opt("model"));
+        if (name.isEmpty() && row != null) name = named(optString(row, "model_display_name"));
+        if (name.isEmpty()) name = scopeFromClears(clears);
+        if (name.isEmpty() && type != null && !type.isEmpty() && !"session".equals(type)
+                && !"weekly".equals(type) && !"full".equals(type)) {
+            name = named(type.replaceFirst("^(weekly_scoped_|seven_day_|model_|scoped_)", "")
+                    .replaceFirst("(_weekly|_seven_day|_reset|_only)$", ""));
+        }
+        if (name.isEmpty() && label != null) {
+            java.util.regex.Matcher m = LABEL_SCOPE.matcher(label.trim());
+            if (m.matches()) name = named(m.group(1));
+        }
+        return name;
+    }
+
+    private static final Pattern LABEL_SCOPE =
+            Pattern.compile("(?i)^([\\p{L}][\\p{L}\\p{N}.-]{1,23})(?:[ -]only)? reset$");
+
+    /** A model named by a {@code {"model":{"display_name":"Fable"}}} object or a plain string. */
+    private static String modelName(Object value) {
+        if (value instanceof String) return named((String) value);
+        if (!(value instanceof JSONObject)) return "";
+        JSONObject object = (JSONObject) value;
+        Object inner = object.opt("model");
+        if (inner != null && inner != JSONObject.NULL) {
+            String name = modelName(inner);
+            if (!name.isEmpty()) return name;
+        }
+        for (String key : new String[] {"display_name", "name", "id"}) {
+            String name = named(optString(object, key));
+            if (!name.isEmpty()) return name;
+        }
+        return "";
+    }
+
+    /** The one model every entry of {@code clears} names, when none is an all-models limit. */
+    static String scopeFromClears(List<String> clears) {
+        String found = "";
+        if (clears == null) return "";
+        for (String limit : clears) {
+            String name = named(limit.replaceFirst("^(weekly_scoped_|seven_day_|weekly_)", "")
+                    .replaceFirst("(_seven_day|_weekly)$", ""));
+            if (name.isEmpty() || (!found.isEmpty() && !found.equals(name))) return "";
+            found = name;
+        }
+        return found;
+    }
+
+    /** "fable_5" as "Fable 5"; empty for words that do not name a model. */
+    private static String named(String raw) {
+        String words = safe(raw).replace('_', ' ').replace('-', ' ').trim().replaceAll("\\s+", " ");
+        if (words.length() > 24 || GENERIC_NAMES.contains(words.toLowerCase(Locale.ROOT))) return "";
+        StringBuilder out = new StringBuilder();
+        for (String word : words.split(" ")) {
+            if (out.length() > 0) out.append(' ');
+            out.append(word.substring(0, 1).toUpperCase(Locale.ROOT)).append(word.substring(1));
+        }
+        return out.toString();
     }
 
     /**
@@ -178,13 +279,16 @@ public final class ClaudeSavedResets {
                 if (row == null) continue;
                 String id = row.optString("id", "");
                 if (!GRANT_ID.matcher(id).matches() || !row.has("resets_left")) continue;
-                grants.add(new Grant(id, row.optString("label", ""),
+                List<String> clears = strings(row.optJSONArray("clears"));
+                String type = optString(row, "type");
+                String label = row.optString("label", "");
+                grants.add(new Grant(id, label,
                         row.optInt("resets_total", 0), row.optInt("resets_left", 0),
-                        parseTime(optString(row, "ends_at")),
-                        strings(row.optJSONArray("clears")),
+                        parseTime(optString(row, "ends_at")), clears,
                         row.optBoolean("paused", false), row.optBoolean("usable_now", false),
-                        row.optBoolean("use_requires_limit", true), optString(row, "type"),
-                        optString(row, "unavailable_reason")));
+                        row.optBoolean("use_requires_limit", true), type,
+                        optString(row, "unavailable_reason"),
+                        scopeOf(row, type, label, clears)));
             }
         }
         String next = optString(block, "next_grant_id");
@@ -227,6 +331,41 @@ public final class ClaudeSavedResets {
             }
         }
         return new ResetCreditsSnapshot(credits.size(), credits, fetchedAtMillis);
+    }
+
+    /**
+     * What is saved, by kind: "3 Fable resets", "1 Full reset", or "2 Fable resets and 1 Full
+     * reset". Empty when nothing is left.
+     */
+    public String inventoryLabel(long nowMillis) {
+        java.util.LinkedHashMap<String, Integer> counts = new java.util.LinkedHashMap<>();
+        for (Grant grant : grants) {
+            if (!grant.hasResets(nowMillis)) continue;
+            Integer had = counts.get(grant.title());
+            counts.put(grant.title(), (had == null ? 0 : had) + grant.resetsLeft);
+        }
+        return countsLabel(counts);
+    }
+
+    /** "3 Fable resets available", or "No resets available". */
+    public String availableTitle(long nowMillis) {
+        String inventory = inventoryLabel(nowMillis);
+        return inventory.isEmpty() ? "No resets available" : inventory + " available";
+    }
+
+    /** {"Fable reset": 3, "Full reset": 1} as "3 Fable resets and 1 Full reset". */
+    static String countsLabel(java.util.Map<String, Integer> counts) {
+        List<String> parts = new ArrayList<>();
+        for (java.util.Map.Entry<String, Integer> entry : counts.entrySet()) {
+            int count = entry.getValue();
+            if (count > 0) parts.add(count + " " + entry.getKey() + (count == 1 ? "" : "s"));
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < parts.size(); i++) {
+            if (i > 0) out.append(i == parts.size() - 1 ? " and " : ", ");
+            out.append(parts.get(i));
+        }
+        return out.toString();
     }
 
     /** Earliest expiry among grants that still hold resets, or 0 when none expire. */
@@ -298,7 +437,9 @@ public final class ClaudeSavedResets {
             case "cooldown":
                 return "Available again after a short cooldown";
             default:
-                return "Works once you hit a usage limit";
+                return next != null && next.modelOnly()
+                        ? "Works once you hit your " + next.scope + " limit"
+                        : "Works once you hit a usage limit";
         }
     }
 
@@ -313,7 +454,8 @@ public final class ClaudeSavedResets {
             if (grant.id.equals(grantId)) {
                 updated.add(new Grant(grant.id, grant.label, grant.resetsTotal,
                         grant.resetsLeft - 1, grant.endsAtMillis, grant.clears, grant.paused,
-                        false, grant.useRequiresLimit, grant.type, grant.unavailableReason));
+                        false, grant.useRequiresLimit, grant.type, grant.unavailableReason,
+                        grant.scope));
             } else {
                 updated.add(grant);
             }

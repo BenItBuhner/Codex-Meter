@@ -6,6 +6,9 @@
 
 - **Usage is back** notification: when any signed-in provider's 5-hour, weekly or monthly limit hits 0%, Codex Meter tells you once it resets, at the reset time the provider gave, or sooner if a refresh shows it refilled. It is always on and has no setting; it only needs Android's notification permission, which the app asks for the first time a limit is used up. If the optional Codex reset alarm is on too, you get one notification, not two. Android.
 - **Priority** lists used-up limits again, under **Used up**, with when each one resets (soonest first) instead of a meter. They still stay out of **Limits to watch**. Android.
+- **Surprise refills and new saved resets** now notify for every provider, not only Codex. A limit that jumps back to 100% before its scheduled reset (Claude Code, Cursor and the rest, including a model limit such as Claude's Fable-only one) and newly saved Claude Code resets each send a notification that opens that provider's tab. They follow **Settings > Notifications > Surprise limit refills** and **New reset credits**. A reset you spend yourself is not announced as a surprise. Android.
+- **Priority** has three new lists, each shown only when it has something: **Good news** (the last day's surprise refills and new saved resets or reset credits), **Saved resets you can use** (when a limit is used up and that provider has a reset banked), and **Coming up** (a monthly limit that renews within three days with what is left on it, and saved resets that expire within three days). Android.
+- **Claude Code resets are named by what they reset.** A reset that only covers one model shows as **Fable reset** (as on claude.ai) instead of **Full reset**, the reset screens count them by kind ("3 Fable resets available"), and say "Works once you hit your Fable limit". A model-only reset is no longer treated as a weekly reset by **Use a reset when usage is low**. Android.
 
 ### Changed
 

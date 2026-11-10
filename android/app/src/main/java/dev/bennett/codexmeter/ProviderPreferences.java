@@ -231,6 +231,7 @@ public final class ProviderPreferences {
             return AppPreferences.saveSnapshot(context, snapshot);
         }
         boolean saved;
+        UsageSnapshot previous = loadSnapshot(context, provider);
         try {
             saved = prefs(context).edit()
                     .putString(provider.id + SUFFIX_SNAPSHOT, snapshot.toJson().toString())
@@ -244,6 +245,7 @@ public final class ProviderPreferences {
         // while their app is open.
         if (saved) NowBarManager.onProviderUsageUpdated(context, provider, snapshot);
         if (saved) UsageRefillAlerts.onUsageSaved(context, provider, snapshot);
+        if (saved) ProviderAlerts.onUsageSaved(context, provider, previous, snapshot);
         if (saved) PhoneWearSync.pushProviders(context);
         return saved;
     }
@@ -289,6 +291,7 @@ public final class ProviderPreferences {
 
     public static void saveSavedResets(Context context, UsageProvider provider,
             ClaudeSavedResets resets) {
+        ProviderAlerts.onSavedResetsChanging(context, provider, loadSavedResets(context, provider), resets);
         SharedPreferences.Editor editor = prefs(context).edit();
         try {
             if (resets == null) {

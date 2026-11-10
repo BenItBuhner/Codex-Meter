@@ -130,6 +130,7 @@ final class GlassCards {
             clear.title = PriorityPage.ALL_CLEAR;
             d.cards.add(clear);
         }
+        addNotes(d, PriorityPage.NEWS, page.news);
         if (!page.watch.isEmpty()) {
             d.cards.add(heading("Limits to watch"));
             for (PriorityPage.Limit l : page.watch) {
@@ -147,11 +148,27 @@ final class GlassCards {
             used.summary = PriorityPage.USED_UP_NOTE;
             d.cards.add(used);
         }
+        addNotes(d, PriorityPage.READY, page.ready);
+        addNotes(d, PriorityPage.COMING_UP, page.comingUp);
         Card models = newModels(a);
         if (models != null) {
             d.cards.add(models);
         }
         return d;
+    }
+
+    /** A grouped list on Priority, like Used up; nothing when the list is empty. */
+    private static void addNotes(GlassModel.Dashboard d, String title, List<PriorityPage.Note> notes) {
+        if (notes.isEmpty()) {
+            return;
+        }
+        Card c = new Card(Card.Kind.STATS);
+        c.detail = title;
+        c.title = title;
+        for (PriorityPage.Note n : notes) {
+            c.stats.add(new String[] {n.title, n.value});
+        }
+        d.cards.add(c);
     }
 
     private static Card heading(String title) {
