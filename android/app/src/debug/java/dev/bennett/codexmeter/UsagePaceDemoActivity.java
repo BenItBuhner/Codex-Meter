@@ -92,12 +92,19 @@ public final class UsagePaceDemoActivity extends Activity {
             long now = System.currentTimeMillis();
             long fiveHourReset = now - TimeUnit.HOURS.toMillis(1)
                     + TimeUnit.HOURS.toMillis(5);
-            long weeklyReset = now - TimeUnit.HOURS.toMillis(1)
-                    + TimeUnit.DAYS.toMillis(7);
+            // "launch" (demo_story) is the state for release pictures: a weekly limit that is four
+            // days in and on pace, and no update card (the debug build would offer the stable one).
+            boolean launchStory = "launch".equals(getIntent().getStringExtra("demo_story"));
+            long weeklyReset = launchStory
+                    ? now + TimeUnit.DAYS.toMillis(3) + TimeUnit.HOURS.toMillis(2)
+                    : now - TimeUnit.HOURS.toMillis(1) + TimeUnit.DAYS.toMillis(7);
+            if (launchStory) {
+                UpdatePreferences.setAutomaticChecks(this, false);
+            }
             UsageSnapshot snapshot = new UsageSnapshot("pro", true, false,
                     new UsageWindow(37, TimeUnit.HOURS.toSeconds(5), 0L,
                             fiveHourReset / 1000L),
-                    new UsageWindow(61, TimeUnit.DAYS.toSeconds(7), 0L,
+                    new UsageWindow(launchStory ? 48 : 61, TimeUnit.DAYS.toSeconds(7), 0L,
                             weeklyReset / 1000L),
                     Arrays.asList(new UsageLimit(
                             "codex-spark",

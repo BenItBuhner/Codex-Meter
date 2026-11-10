@@ -9,7 +9,8 @@
 # design: liquid_glass (default), material_3_expressive, one_ui_9 or classic. scenes: all (default),
 # new_models for only the New models card (with a relevant model, then with only irrelevant ones),
 # the Notifications toggle and the Refresh note, priority for only the Priority tab (top to bottom,
-# then a provider tab and back), perf for the Liquid Glass navigation pass, or wide for foldable and
+# then a provider tab and back), launch for the release pictures and clip (a clean status bar, no
+# update card, the launch story's numbers), perf for the Liquid Glass navigation pass, or wide for foldable and
 # tablet screen sizes (the emulator's display resized).
 set -euo pipefail
 
@@ -324,6 +325,107 @@ wide_scenes() {
   size="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
   W="${size%x*}"; H="${size#*x}"
 }
+
+# Release pictures: the status bar in SystemUI's demo mode (9:41, full signal and battery, no
+# notification icons), the launch story's data, each screen in light and dark, a foldable
+# dashboard, and one clip in light.
+launch_scenes() {
+  adb shell settings put global sysui_demo_allowed 1
+  sysui() { adb shell am broadcast -a com.android.systemui.demo -e command "$@" >/dev/null; }
+  clean_bar() {
+    sysui enter
+    sysui clock -e hhmm 0941
+    sysui notifications -e visible false
+    sysui battery -e level 100 -e plugged false
+    sysui network -e wifi show -e level 4
+    sysui network -e mobile show -e datatype none -e level 4
+  }
+  story() { demo --es demo_story launch "$@"; }
+  adb shell pm clear "$PKG" >/dev/null
+  adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+  clean_bar
+  for THEME in light dark; do
+    if [[ "$THEME" == dark ]]; then adb shell cmd uimode night yes; else adb shell cmd uimode night no; fi
+    sleep 2
+    clean_bar
+    story
+    shot "$THEME-01-codex" 7
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
+    shot "$THEME-02-codex-scrolled" 2
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 600
+    shot "$THEME-03-codex-scrolled-more" 2
+    story --es open_provider claude_code
+    shot "$THEME-04-claude-code" 6
+    story --es open_provider cursor
+    shot "$THEME-05-cursor" 6
+    story --es open_activity AddAccountActivity
+    shot "$THEME-06-add-account" 6
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 900
+    shot "$THEME-07-add-account-scrolled" 2
+    adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 900
+    shot "$THEME-08-add-account-scrolled-more" 2
+    story --es open_settings_page appearance
+    shot "$THEME-09-appearance" 5
+    story --es open_widget_metric five_hour
+    shot "$THEME-10-widget-settings" 6
+    story --ez open_usage_history true
+    shot "$THEME-11-usage-history" 5
+    story --ez resume_live_settings true
+    shot "$THEME-12-settings" 5
+    adb shell am force-stop "$PKG"
+    adb shell am start -W -n "$DEMO" --es design "$DESIGN" --es theme "$THEME" --es claude_scenario ultra >/dev/null
+    shot "$THEME-13-claude-ultra" 8
+  done
+  adb shell cmd uimode night no
+
+  # One take in light: the dashboard scrolling, a pull to refresh, each tab, Settings and back.
+  THEME=light
+  adb shell pm clear "$PKG" >/dev/null
+  story
+  sleep 7
+  adb shell screenrecord --bit-rate 12000000 --time-limit 45 /sdcard/launch.mp4 &
+  local rec=$!
+  sleep 2
+  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 900; sleep 2
+  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 900; sleep 2
+  adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 500; sleep 1
+  adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 500; sleep 2
+  adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 2 / 3)) 1200; sleep 4
+  local k
+  for k in 0.61 0.84 0.16 0.39; do
+    at "$k" 0.922; sleep 3
+  done
+  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 900; sleep 2
+  adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 3 / 4)) 900; sleep 2
+  wait "$rec" || true
+  sleep 2
+  adb pull /sdcard/launch.mp4 "$OUT/launch-walk-light.mp4" >/dev/null && echo "Saved launch-walk-light.mp4"
+
+  # A foldable's inner screen and a tablet.
+  local spec name px dpi
+  for spec in "foldable:1856x2160:420" "tablet-landscape:2560x1600:320"; do
+    IFS=: read -r name px dpi <<<"$spec"
+    adb shell wm size "$px"
+    adb shell wm density "$dpi"
+    sleep 4
+    clean_bar
+    for THEME in light dark; do
+      story
+      shot "$name-$THEME-01-codex" 8
+      story --es open_widget_metric five_hour
+      shot "$name-$THEME-02-widget-settings" 7
+    done
+  done
+  adb shell wm size reset
+  adb shell wm density reset
+  sysui exit || true
+}
+
+if [[ "$SCENES" == launch ]]; then
+  launch_scenes
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
 
 if [[ "$SCENES" == wide ]]; then
   wide_scenes
