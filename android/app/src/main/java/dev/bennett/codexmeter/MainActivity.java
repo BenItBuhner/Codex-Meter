@@ -657,9 +657,25 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
             this.menuSlots = needed;
         }
+        clearStaleMoreTabTouch();
         this.providerTabs.setSelectedItem(this.onPriority ? TAB_SLOTS[0] : tabId(this.provider));
         this.providerTabs.setVisibility(ProviderTabs.showsBar(enabled.size() + (withPriority ? 1 : 0))
                 ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * Stops an ordinary tab from opening the "More" grid. One UI's BottomTabLayout puts a touch
+     * listener on its "More" tab, and TabLayout reuses tab views without clearing it, so after the
+     * menu shrinks to four tabs or fewer a provider's tab could inherit that listener. Tapping it
+     * then opened a "More" grid with nothing in it, which crashed.
+     */
+    private void clearStaleMoreTabTouch() {
+        for (int i = 0; i < this.providerTabs.getTabCount(); i++) {
+            com.google.android.material.tabs.TabLayout.Tab tab = this.providerTabs.getTabAt(i);
+            if (tab != null && this.providerTabs.findMenuItem(tab.getId()) != null) {
+                tab.view.setOnTouchListener(null);
+            }
+        }
     }
 
     /** Tab slot showing {@code provider}; slots follow the order from Settings → Providers. */

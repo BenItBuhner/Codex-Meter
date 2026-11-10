@@ -37,7 +37,7 @@ jobs:
 
       # SESL9 ships Java 24 bytecode, which older javac can't read.
       - name: Set up Java 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
@@ -189,7 +189,7 @@ jobs:
           ref: ${{ github.head_ref }}
 
       - name: Set up Java 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'

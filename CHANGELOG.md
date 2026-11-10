@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.9.0-alpha.22 — 2026-11-10
+
 ### Added
 
 - **Usage is back** notification: when any signed-in provider's 5-hour, weekly or monthly limit hits 0%, Codex Meter tells you once it resets, at the reset time the provider gave, or sooner if a refresh shows it refilled. It is always on and has no setting; it only needs Android's notification permission, which the app asks for the first time a limit is used up. If the optional Codex reset alarm is on too, you get one notification, not two. Android.
@@ -17,6 +19,12 @@
 - Liquid Glass moves to Glassé's newest version again: pop-up menus are frosted like iOS 26.0, glass controls give haptic feedback (following the phone's touch feedback setting), and a press lights the glass under your finger. Android.
 - On **foldables and tablets**, Liquid Glass keeps the dashboard and Settings in a readable centred column, and the tab bar keeps its phone size in the middle instead of stretching across the screen. Android.
 - **Home-screen widgets** in the Liquid Glass design sit on Liquid Glass, with Glassé's rim, highlights and shadow over a frosted fill that follows the widget's background setting. The widget settings preview shows the glass refracting the backdrop behind it. Android cannot show a widget the wallpaper behind it without full file access, which Codex Meter doesn't ask for, so the widget itself doesn't refract the wallpaper. Android.
+
+### Fixed
+
+- **One UI 8.5 design**: tapping a bottom tab could crash the app when there were four tabs or fewer. The tab could try to open an empty "More" list; it now just switches tabs. Android.
+- **Liquid Glass on foldables**: the Edit and Settings buttons at the top could sit under the status bar after the window changed size. They now move with the status bar. Android.
+- **Liquid Glass widget settings**: the small "Customize widget" title at the top no longer runs under the Edit and Save buttons on a phone; it shows only where there is room. Android.
 
 ## 2.9.0-alpha.21 — 2026-11-08
 
