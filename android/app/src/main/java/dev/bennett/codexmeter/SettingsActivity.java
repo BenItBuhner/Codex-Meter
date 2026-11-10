@@ -979,6 +979,9 @@ public final class SettingsActivity extends AppCompatActivity {
             ResetCreditsSnapshot credits = saved.toResetCreditsSnapshot(now);
             String status = resetStatus(context, credits.availableCount,
                     credits.nextExpiryMillis(now), now);
+            if (credits.availableCount > 0) {
+                status = status.replaceFirst("^\\d+ resets? available", saved.availableTitle(now));
+            }
             if (credits.availableCount > 0 && saved.usableGrant(now) == null) {
                 status += "\n" + saved.unavailableMessage(now);
             }

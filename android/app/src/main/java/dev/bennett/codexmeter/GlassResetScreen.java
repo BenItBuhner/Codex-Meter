@@ -58,13 +58,15 @@ final class GlassResetScreen extends GlassScreens.Screen {
         ResetCreditsSnapshot snapshot = credits();
         int available = snapshot == null ? 0 : snapshot.availableCount;
         long now = System.currentTimeMillis();
+        ClaudeSavedResets saved = claude() ? ProviderPreferences.loadSavedResets(c, provider) : null;
         List<RateLimitResetCredit> credits = snapshot == null
                 ? Collections.<RateLimitResetCredit>emptyList() : snapshot.availableCreditsByExpiry(now);
         long nextExpiry = snapshot == null ? 0L : snapshot.nextExpiryMillis(now);
 
         Section summary = GlassScreens.section("Available credits");
         Row count = GlassScreens.row(Row.Kind.INFO, "available",
-                available <= 0 ? "No resets available"
+                claude() && saved != null ? saved.availableTitle(now)
+                        : available <= 0 ? "No resets available"
                         : available == 1 ? "1 reset available" : available + " resets available",
                 nextExpiry > 0L
                         ? "Next expires " + UsageFormat.absolute(c, nextExpiry, now) + " · "
@@ -102,7 +104,6 @@ final class GlassResetScreen extends GlassScreens.Screen {
         String error = claude() ? "" : AppPreferences.getVisibleResetCreditsError(c);
         String heldBack = "";
         if (claude() && available > 0) {
-            ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(c, provider);
             heldBack = saved == null ? "" : saved.unavailableMessage(now);
         }
         StringBuilder footer = new StringBuilder(

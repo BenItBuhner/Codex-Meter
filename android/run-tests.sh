@@ -55,6 +55,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearProvidersState.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageRefill.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
@@ -97,6 +98,9 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/PriorityView.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/PrioritySummaryRules.java" \
   "$ROOT/tests/PriorityViewSelfTest.java" \
+  "$ROOT/tests/UsageRefillSelfTest.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderEvents.java" \
+  "$ROOT/tests/ProviderEventsSelfTest.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderStatus.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderStatusSources.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/StatusPollPolicy.java" \
@@ -115,6 +119,8 @@ java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ModelDiscoverySelfTest
 java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ProviderStatusSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.PriorityViewSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.UsageRefillSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderEventsSelfTest
 
 javac -encoding UTF-8 -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DesignIds.java" \

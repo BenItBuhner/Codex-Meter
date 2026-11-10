@@ -3,7 +3,7 @@
   "component": {
     "group": "com.github.BenItBuhner.Glasse",
     "module": "glasse-android",
-    "version": "bdd4970826",
+    "version": "f1b84bcf24",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -27,14 +27,14 @@
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasskit",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasse-assets",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
@@ -54,13 +54,13 @@
       ],
       "files": [
         {
-          "name": "glasse-android-bdd4970826.aar",
-          "url": "glasse-android-bdd4970826.aar",
-          "size": 19125029,
-          "sha512": "444388a99bd583856297e3e5f9070113f53863ab0a62989727a5f857c80ce06a51e35866e1234dd88ed01b17245e44696725c6a92d2234132a47bc82def3a722",
-          "sha256": "4b230eaed87485452dcdef940f87b579bfd7a62004cbe98812d9733ff10d582f",
-          "sha1": "481ed97d1a99d979895842139d36cc499685414c",
-          "md5": "70d6a8059c52697210e891e3b99289ba"
+          "name": "glasse-android-f1b84bcf24.aar",
+          "url": "glasse-android-f1b84bcf24.aar",
+          "size": 19130247,
+          "sha512": "eb9b31165b484d4e7a7110d208cc6fe0e379c86c7007e9c2d5a8bb08baf14d61f85106fa804cc1f1d6574654f097ed0b29474ba62b787ac061f86e94cd7077e4",
+          "sha256": "1ddc8d79fcf17d7a66d3d1c75ac01cebb5b3b8d155e8e624a30965b509d72f00",
+          "sha1": "3de189b261099fe1721ff6e5f31e97bc2fdcc4ce",
+          "md5": "82769e799b08d2b9bfbc186fad04dd47"
         }
       ]
     },
@@ -77,14 +77,14 @@
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasskit",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasse-assets",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
@@ -104,13 +104,13 @@
       ],
       "files": [
         {
-          "name": "glasse-android-bdd4970826.aar",
-          "url": "glasse-android-bdd4970826.aar",
-          "size": 19125029,
-          "sha512": "444388a99bd583856297e3e5f9070113f53863ab0a62989727a5f857c80ce06a51e35866e1234dd88ed01b17245e44696725c6a92d2234132a47bc82def3a722",
-          "sha256": "4b230eaed87485452dcdef940f87b579bfd7a62004cbe98812d9733ff10d582f",
-          "sha1": "481ed97d1a99d979895842139d36cc499685414c",
-          "md5": "70d6a8059c52697210e891e3b99289ba"
+          "name": "glasse-android-f1b84bcf24.aar",
+          "url": "glasse-android-f1b84bcf24.aar",
+          "size": 19130247,
+          "sha512": "eb9b31165b484d4e7a7110d208cc6fe0e379c86c7007e9c2d5a8bb08baf14d61f85106fa804cc1f1d6574654f097ed0b29474ba62b787ac061f86e94cd7077e4",
+          "sha256": "1ddc8d79fcf17d7a66d3d1c75ac01cebb5b3b8d155e8e624a30965b509d72f00",
+          "sha1": "3de189b261099fe1721ff6e5f31e97bc2fdcc4ce",
+          "md5": "82769e799b08d2b9bfbc186fad04dd47"
         }
       ]
     }

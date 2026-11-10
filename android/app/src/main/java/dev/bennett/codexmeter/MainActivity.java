@@ -279,6 +279,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         refreshModelSpeed();
         refreshModelDiscovery();
         checkProviderStatus();
+        UsageRefillAlerts.askForPermissionIfNeeded(this);
         if (this.glass != null) {
             this.glass.onResume();
             this.glass.applyTheme();
@@ -1040,6 +1041,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.content.addView(clear, new LinearLayout.LayoutParams(-1, -2));
             Ui.addSpacer(this.content, 20);
         }
+        addNotesCard(PriorityPage.NEWS, page.news);
         boolean inverted = false;
         if (!page.watch.isEmpty()) {
             this.content.addView(sectionLabel("Limits to watch", 10));
@@ -1049,7 +1051,70 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 inverted = !inverted;
             }
         }
+        addUsedUpCard(page);
+        addNotesCard(PriorityPage.READY, page.ready);
+        addNotesCard(PriorityPage.COMING_UP, page.comingUp);
         addNewModelsCard();
+    }
+
+    /**
+     * The used-up limits on Priority, in one card: each limit and when it resets, soonest first,
+     * with a note that the "usage is back" notification follows. Nothing when none is used up.
+     */
+    private void addUsedUpCard(PriorityPage page) {
+        if (page.usedUp.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, PriorityPage.USED_UP, 17, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        for (PriorityPage.Limit l : page.usedUp) {
+            LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+            row.addView(Ui.text(this, l.title(), 14, Ui.mainText(this.dark)),
+                    new LinearLayout.LayoutParams(0, -2, 1.0f));
+            TextView when = Ui.text(this, l.resetText(this, now), 14, Ui.secondaryText(this.dark));
+            when.setGravity(Gravity.END);
+            LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(-2, -2);
+            wp.setMargins(Ui.dp(this, 12), 0, 0, 0);
+            row.addView(when, wp);
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+            rp.setMargins(0, Ui.dp(this, 10), 0, 0);
+            card.addView(row, rp);
+        }
+        TextView note = Ui.text(this, PriorityPage.USED_UP_NOTE, 13, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
+        np.setMargins(0, Ui.dp(this, 12), 0, 0);
+        card.addView(note, np);
+        this.content.addView(card);
+        Ui.addSpacer(this.content, 20);
+    }
+
+    /** A titled list on Priority, drawn like the used-up card. Nothing when the list is empty. */
+    private void addNotesCard(String heading, List<PriorityPage.Note> notes) {
+        if (notes.isEmpty()) {
+            return;
+        }
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, heading, 17, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        for (PriorityPage.Note n : notes) {
+            LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+            row.addView(Ui.text(this, n.title, 14, Ui.mainText(this.dark)),
+                    new LinearLayout.LayoutParams(0, -2, 1.0f));
+            TextView value = Ui.text(this, n.value, 14, Ui.secondaryText(this.dark));
+            value.setGravity(Gravity.END);
+            LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, -2);
+            vp.setMargins(Ui.dp(this, 12), 0, 0, 0);
+            row.addView(value, vp);
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+            rp.setMargins(0, Ui.dp(this, 10), 0, 0);
+            card.addView(row, rp);
+        }
+        this.content.addView(card);
+        Ui.addSpacer(this.content, 20);
     }
 
     /** A small label over a group of cards, or at the top of a card. */
@@ -1615,7 +1680,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
         card.addView(buildIconDetailRow(R.drawable.ic_oui_battery,
-                resetCreditsTitle(signedIn, available),
+                signedIn && saved != null ? saved.availableTitle(now)
+                        : resetCreditsTitle(signedIn, available),
                 resetCreditsSummary(signedIn, available, nextExpiry, now)));
 
         if (signedIn) {

@@ -159,9 +159,26 @@ new_models_scenes() {
 # The Priority tab, first in the bar: its page top to bottom, a provider tab, and back.
 priority_scenes() {
   for THEME in light dark; do
-    # Cursor's monthly limit is used up: it is gone, so it is not under Limits to watch.
-    demo --ez open_priority true --es demo_new_models relevant --ez demo_cursor_used_up true
+    # Claude Code's 5-hour and Cursor's monthly limits are used up: not under Limits to watch,
+    # but listed under Used up with when each resets.
+    demo --ez open_priority true --es demo_new_models relevant --ez demo_cursor_used_up true \
+      --ez demo_claude_used_up true
     shot "$THEME-40-priority" 6
+    # The always-on "usage is back" notification, in the shade.
+    demo --ez open_priority true --ez demo_refill_notification true
+    sleep 4
+    adb shell dumpsys notification --noredact 2>/dev/null | grep -A3 'usage_back' \
+      > "$OUT/$THEME-44-usage-back-notification.txt" || true
+    # Pull the shade down from the top edge (the statusbar command alone does nothing on some images).
+    adb shell input swipe $((W / 2)) 2 $((W / 2)) $((H * 3 / 4)) 500
+    sleep 1
+    adb shell input swipe $((W / 2)) 2 $((W / 2)) $((H * 3 / 4)) 500
+    shot "$THEME-44-usage-back-notification" 3
+    adb shell cmd statusbar collapse || true
+    adb shell input keyevent KEYCODE_BACK || true
+    demo --ez open_priority true --es demo_new_models relevant --ez demo_cursor_used_up true \
+      --ez demo_claude_used_up true
+    sleep 4
     for k in 1 2 3 4; do
       adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 600
       shot "$THEME-40-priority-scroll-$k" 2

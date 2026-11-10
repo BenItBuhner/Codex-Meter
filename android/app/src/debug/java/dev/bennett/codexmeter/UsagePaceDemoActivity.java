@@ -131,6 +131,10 @@ public final class UsagePaceDemoActivity extends Activity {
             AppPreferences.setRefreshOnLaunch(this, false);
             AppPreferences.setDashboardVisibility(this, true, true, true, true, true, true, true);
             AppPreferences.completeOnboarding(this);
+            // Each scene starts with nothing waiting to reset, so reseeding never posts "usage is back".
+            for (UsageProvider p : UsageProvider.values()) {
+                UsageRefillAlerts.clear(this, p);
+            }
             if (getIntent().getBooleanExtra("demo_providers", false)) {
                 seedProviders(now);
             }
@@ -146,6 +150,10 @@ public final class UsagePaceDemoActivity extends Activity {
             if (getIntent().getBooleanExtra("demo_notifications_on", false)) {
                 ResetAlertPreferences.save(this, ResetAlertPreferences.STYLE_NOTIFICATION,
                         ResetAlertPreferences.getMetric(this), ResetAlertPreferences.getThreshold(this));
+            }
+            if (getIntent().getBooleanExtra("demo_refill_notification", false)) {
+                // The always-on "usage is back" alert as it reads at a reset time.
+                UsageRefillAlerts.post(this, UsageProvider.CLAUDE_CODE, 0, "5-hour", -1);
             }
             boolean livePreview = getIntent().getBooleanExtra("start_live_preview", false);
             if (livePreview && !NowBarManager.startPreview(this)) {
@@ -231,7 +239,8 @@ public final class UsagePaceDemoActivity extends Activity {
     private void seedProviders(long now) throws Exception {
         long nowSeconds = now / 1000L;
         String claude = "{\"plan_type\":\"max\",\"allowed\":true,\"limit_reached\":false,"
-                + "\"five_hour\":" + window(71, 18000, nowSeconds + 52 * 60) + ","
+                + "\"five_hour\":" + window(getIntent().getBooleanExtra("demo_claude_used_up", false)
+                        ? 100 : 71, 18000, nowSeconds + 52 * 60) + ","
                 + "\"weekly\":" + window(34, 604800, nowSeconds + 5 * 86400) + ","
                 + "\"fetched_at\":" + (now - 600000) + "}";
         String cursor = "{\"plan_type\":\"pro\",\"allowed\":true,\"limit_reached\":false,"

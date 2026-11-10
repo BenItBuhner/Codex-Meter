@@ -47,6 +47,7 @@ public final class ResetNotificationManager {
     private static final int NOTIFICATION_REFILL_WEEKLY = 74512;
     private static final int NOTIFICATION_REFILL_BOTH = 74513;
     private static final int NOTIFICATION_REFILL_MONTHLY = 74514;
+    private static final int NOTIFICATION_PROVIDER_ACTIVITY_BASE = 76000;
     private static final Object EXPIRY_STATE_LOCK = new Object();
 
     private ResetNotificationManager() {
@@ -62,6 +63,7 @@ public final class ResetNotificationManager {
         int unexpectedRefills = suppressUserResetRefills(context,
                 CelebrationDetector.detectUnexpectedRefills(previous, snapshot),
                 snapshot.fetchedAtMillis);
+        ProviderAlerts.onCodexRefill(context, unexpectedRefills, snapshot.fetchedAtMillis);
         if (!ResetAlertPreferences.enabled(context)) return;
         String metric = ResetAlertPreferences.getMetric(context);
         if (!ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
@@ -101,6 +103,7 @@ public final class ResetNotificationManager {
     }
 
     private static void onResetCreditCountUpdated(Context context, int current) {
+        ProviderAlerts.onCodexCreditCount(context, current);
         SharedPreferences state = state(context);
         if (!state.contains(KEY_CREDIT_COUNT)) {
             state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
@@ -328,6 +331,38 @@ public final class ResetNotificationManager {
         if (notificationManager != null && notificationId >= NOTIFICATION_CREDIT_EXPIRY_BASE) {
             notificationManager.cancel(notificationId);
         }
+    }
+
+    /**
+     * A surprise refill or newly saved resets on any provider, in the same channel and delivery
+     * style as the Codex ones. Tapping it opens that provider's tab. {@code kind} is 0 for a
+     * refill and 1 for new resets, so the two do not replace each other.
+     */
+    static boolean postAccountActivity(Context context, UsageProvider provider, int kind, String title,
+            String text) {
+        if (context == null || provider == null || !ResetAlertPreferences.enabled(context)) return false;
+        NotificationManager manager = manager(context);
+        if (manager == null) return false;
+        String channel = createChannel(manager, ResetAlertPreferences.getStyle(context));
+        if (!canPost(context, manager, channel)) return false;
+        int id = NOTIFICATION_PROVIDER_ACTIVITY_BASE + provider.ordinal() * 2 + kind;
+        PendingIntent open = PendingIntent.getActivity(context, id,
+                new Intent(context, MainActivity.class)
+                        .putExtra(MainActivity.EXTRA_PROVIDER, provider.id)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        manager.notify(id, new Notification.Builder(context, channel)
+                .setSmallIcon(R.drawable.ic_reset_notification)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(new Notification.BigTextStyle().bigText(text))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setShowWhen(true)
+                .build());
+        return true;
     }
 
     public static boolean sendTestNotification(Context context) {

@@ -33,6 +33,7 @@ public final class ClaudeResetApi {
         synchronized (CLAIM_LOCK) {
             result = claim(app, grantId);
             if (result.applied()) {
+                ProviderAlerts.markUserReset(app, PROVIDER);
                 ClaudeSavedResets cached = ProviderPreferences.loadSavedResets(app, PROVIDER);
                 if (cached != null) {
                     ProviderPreferences.saveSavedResets(app, PROVIDER, cached.afterUse(grantId));

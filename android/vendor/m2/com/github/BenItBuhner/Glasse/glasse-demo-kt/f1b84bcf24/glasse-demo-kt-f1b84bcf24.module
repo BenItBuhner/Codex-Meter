@@ -3,7 +3,7 @@
   "component": {
     "group": "com.github.BenItBuhner.Glasse",
     "module": "glasse-demo-kt",
-    "version": "bdd4970826",
+    "version": "f1b84bcf24",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -30,14 +30,14 @@
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasskit",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasse-assets",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
@@ -50,13 +50,13 @@
       ],
       "files": [
         {
-          "name": "glasse-demo-kt-bdd4970826.jar",
-          "url": "glasse-demo-kt-bdd4970826.jar",
-          "size": 150451,
-          "sha512": "2f96d75596ef1adee297d10b35e90a2b99495c530d3ce096d5e4b4e7f5968944769a0456e8f07c4d1ba2e671e0245eb33bed645fabddac7550b1c9f3d9f3762f",
-          "sha256": "7f9fc7b5cca5cefeb7890e2fcb6fabe05a21f73f8fac2ec4e73281118adf2504",
-          "sha1": "52561ee2d56f098cfca436e7f696b4c2c4e2156f",
-          "md5": "ef964b892ecf746e44bd955e4e2d2abd"
+          "name": "glasse-demo-kt-f1b84bcf24.jar",
+          "url": "glasse-demo-kt-f1b84bcf24.jar",
+          "size": 171253,
+          "sha512": "7696c43f14a4d49c8dde68b2b5666258d3567d87ef124d850790c6d77a7984161a4ac8bb2625f2e07caa304e24cf994b60a9b4928ea4947e0b21fefb184fd20d",
+          "sha256": "241e09a920527ad0ac00d1f52b87bf161702a17ae2d435c29d8014bf9b5f8195",
+          "sha1": "4f579570476d717eeb4cf1ed281d4a2629086f2a",
+          "md5": "4580ddd7fcfbf0c60e0ee4f64b18b1f3"
         }
       ]
     },
@@ -76,14 +76,14 @@
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasskit",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasse-assets",
           "version": {
-            "requires": "bdd4970826"
+            "requires": "f1b84bcf24"
           }
         },
         {
@@ -96,13 +96,13 @@
       ],
       "files": [
         {
-          "name": "glasse-demo-kt-bdd4970826.jar",
-          "url": "glasse-demo-kt-bdd4970826.jar",
-          "size": 150451,
-          "sha512": "2f96d75596ef1adee297d10b35e90a2b99495c530d3ce096d5e4b4e7f5968944769a0456e8f07c4d1ba2e671e0245eb33bed645fabddac7550b1c9f3d9f3762f",
-          "sha256": "7f9fc7b5cca5cefeb7890e2fcb6fabe05a21f73f8fac2ec4e73281118adf2504",
-          "sha1": "52561ee2d56f098cfca436e7f696b4c2c4e2156f",
-          "md5": "ef964b892ecf746e44bd955e4e2d2abd"
+          "name": "glasse-demo-kt-f1b84bcf24.jar",
+          "url": "glasse-demo-kt-f1b84bcf24.jar",
+          "size": 171253,
+          "sha512": "7696c43f14a4d49c8dde68b2b5666258d3567d87ef124d850790c6d77a7984161a4ac8bb2625f2e07caa304e24cf994b60a9b4928ea4947e0b21fefb184fd20d",
+          "sha256": "241e09a920527ad0ac00d1f52b87bf161702a17ae2d435c29d8014bf9b5f8195",
+          "sha1": "4f579570476d717eeb4cf1ed281d4a2629086f2a",
+          "md5": "4580ddd7fcfbf0c60e0ee4f64b18b1f3"
         }
       ]
     }

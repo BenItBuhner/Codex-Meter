@@ -95,11 +95,14 @@ public final class ResetCreditActivity extends AppCompatActivity {
                 : snapshot.availableCreditsByExpiry(now);
         long nextExpiry = snapshot == null ? 0L : snapshot.nextExpiryMillis(now);
 
+        ClaudeSavedResets claudeResets = claude()
+                ? ProviderPreferences.loadSavedResets(this, this.provider) : null;
         this.content.addView(Ui.separator(this, "Available credits"));
         RoundedLinearLayout summaryCard = Ui.seslRowCard(this, this.dark);
         summaryCard.addView(Ui.actionRow(
                 this,
-                available <= 0
+                claudeResets != null ? claudeResets.availableTitle(now)
+                        : available <= 0
                         ? "No resets available"
                         : (available == 1 ? "1 reset available" : available + " resets available"),
                 summaryText(available, nextExpiry, now),

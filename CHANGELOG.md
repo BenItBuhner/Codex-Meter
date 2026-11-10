@@ -2,10 +2,19 @@
 
 ## Unreleased
 
+### Added
+
+- **Usage is back** notification: when any signed-in provider's 5-hour, weekly or monthly limit hits 0%, Codex Meter tells you once it resets, at the reset time the provider gave, or sooner if a refresh shows it refilled. It is always on and has no setting; it only needs Android's notification permission, which the app asks for the first time a limit is used up. If the optional Codex reset alarm is on too, you get one notification, not two. Android.
+- **Priority** lists used-up limits again, under **Used up**, with when each one resets (soonest first) instead of a meter. They still stay out of **Limits to watch**. Android.
+- **Surprise refills and new saved resets** now notify for every provider, not only Codex. A limit that jumps back to 100% before its scheduled reset (Claude Code, Cursor and the rest, including a model limit such as Claude's Fable-only one) and newly saved Claude Code resets each send a notification that opens that provider's tab. They follow **Settings > Notifications > Surprise limit refills** and **New reset credits**. A reset you spend yourself is not announced as a surprise. Android.
+- **Priority** has three new lists, each shown only when it has something: **Good news** (the last day's surprise refills and new saved resets or reset credits), **Saved resets you can use** (when a limit is used up and that provider has a reset banked), and **Coming up** (a monthly limit that renews within three days with what is left on it, and saved resets that expire within three days). Android.
+- **Claude Code resets are named by what they reset.** A reset that only covers one model shows as **Fable reset** (as on claude.ai) instead of **Full reset**, the reset screens count them by kind ("3 Fable resets available"), and say "Works once you hit your Fable limit". A model-only reset is no longer treated as a weekly reset by **Use a reset when usage is low**. Android.
+
 ### Changed
 
 - **Liquid Glass** is one design again, called just **Liquid Glass**, with the iOS 27-inspired look: more diffused glass, darker edges, brighter highlights, an even band behind the top bar once content scrolls under it, and the **Glass tint** slider. If you used either Liquid Glass look, you're moved to it automatically. Android.
 - Liquid Glass runs on Glassé's latest version. Its glass now has one physical rim everywhere (bars, buttons, switches and sliders), with no warped lens edges. On a page with a sideways-scrolling row, swiping right from the row's start goes back instead of being caught by the row. Android.
+- Liquid Glass moves to Glassé's newest version again: pop-up menus are frosted like iOS 26.0, glass controls give haptic feedback (following the phone's touch feedback setting), and a press lights the glass under your finger. Android.
 - On **foldables and tablets**, Liquid Glass keeps the dashboard and Settings in a readable centred column, and the tab bar keeps its phone size in the middle instead of stretching across the screen. Android.
 - **Home-screen widgets** in the Liquid Glass design sit on Liquid Glass, with Glassé's rim, highlights and shadow over a frosted fill that follows the widget's background setting. The widget settings preview shows the glass refracting the backdrop behind it. Android cannot show a widget the wallpaper behind it without full file access, which Codex Meter doesn't ask for, so the widget itself doesn't refract the wallpaper. Android.
 

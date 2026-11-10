@@ -27,6 +27,11 @@ public final class PriorityView {
         return leftPercent > 0 && runningOutEarly;
     }
 
+    /** Sort key for used-up limits: soonest reset first, an unknown reset (0 or less) last. */
+    static long resetOrder(long resetAtMillis) {
+        return resetAtMillis > 0L ? resetAtMillis : Long.MAX_VALUE;
+    }
+
     /** The closed card types. Nothing else is ever drawn. */
     public enum Kind {
         DOWNTIME("downtime"),
