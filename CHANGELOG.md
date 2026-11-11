@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.23 — 2026-11-11
 
 ### Added
 
