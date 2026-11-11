@@ -9,8 +9,8 @@ import java.util.List;
  * The Priority tab's content, worked out once from what is already on the device and then drawn by
  * every design (One UI, One UI 9, Material 3 Expressive and Liquid Glass): official incidents and
  * significant slowdowns when there are any, the limits to watch, the used-up limits with when each
- * one resets, and new models when there are any. It also carries the good news of the last day
- * (a limit that refilled early, newly saved resets), saved resets that can be used on a used-up
+ * one resets, and new models when there are any. It also carries the last day's activity (a limit
+ * that refilled early, saved resets added or used), which the person can dismiss, saved resets that can be used on a used-up
  * limit, and what is coming up in the next three days (a monthly limit renewing, saved resets
  * expiring). Limits that are fine are not shown; nothing is shown just to fill it.
  *
@@ -70,11 +70,22 @@ final class PriorityPage {
         final UsageProvider provider;
         final String title;
         final String value;
+        /** The kept event behind it, for dismissing ({@link ProviderAlerts#dismiss}); null when it can't be. */
+        final String eventKey;
 
         Note(UsageProvider provider, String title, String value) {
+            this(provider, title, value, null);
+        }
+
+        Note(UsageProvider provider, String title, String value, String eventKey) {
             this.provider = provider;
             this.title = title;
             this.value = value;
+            this.eventKey = eventKey;
+        }
+
+        boolean dismissible() {
+            return eventKey != null;
         }
     }
 
@@ -87,14 +98,16 @@ final class PriorityPage {
     /** Official incidents and performance warnings, most severe first. */
     final List<PriorityView.Item> alerts = new ArrayList<>();
 
-    /** The last day's surprise refills and newly saved resets, newest first. */
+    /** The last day's surprise refills and saved resets added or used, newest first. Dismissible. */
     final List<Note> news = new ArrayList<>();
     /** Saved resets of a provider that has a used-up limit they can refill. */
     final List<Note> ready = new ArrayList<>();
     /** Monthly limits renewing and saved resets expiring within three days, soonest first. */
     final List<Note> comingUp = new ArrayList<>();
 
-    static final String NEWS = "Good news";
+    static final String NEWS = "Recent activity";
+    /** Under {@link #NEWS}: how to clear it. */
+    static final String NEWS_HINT = "Swipe a row left, or touch and hold it, to dismiss it.";
     static final String READY = "Saved resets you can use";
     static final String COMING_UP = "Coming up";
 
@@ -156,7 +169,7 @@ final class PriorityPage {
         for (ProviderEvents.Event e : ProviderAlerts.recent(a)) {
             UsageProvider p = UsageProvider.fromId(e.provider);
             if (p != null && p.id.equals(e.provider) && page.providers.contains(p) && !e.line.isEmpty()) {
-                page.news.add(new Note(p, p.displayName + " · " + e.line, ProviderEvents.ago(e.at, now)));
+                page.news.add(new Note(p, p.displayName + " · " + e.line, ProviderEvents.ago(e.at, now), e.key()));
             }
         }
         // Soonest first: each entry is {when, note}.

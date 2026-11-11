@@ -26,8 +26,11 @@ open_claude() {
   adb shell am force-stop "$PKG"
   adb shell input keyevent KEYCODE_WAKEUP
   adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es claude_scenario "$1" \
-    --es design "${2:-classic}" >/dev/null
+    --es design "${2:-classic}" --es claude_open "${3:-}" >/dev/null
 }
+
+W=$(adb shell wm size | grep -o '[0-9]*x[0-9]*' | tail -1 | cut -dx -f1)
+H=$(adb shell wm size | grep -o '[0-9]*x[0-9]*' | tail -1 | cut -dx -f2)
 
 for theme in light dark; do
   if [[ "$theme" == dark ]]; then adb shell cmd uimode night yes; else adb shell cmd uimode night no; fi
@@ -39,6 +42,19 @@ for theme in light dark; do
   open_claude ultra liquid_glass;         shot "$theme-05-glass-ultra" 8
   open_claude sign_in_again liquid_glass; shot "$theme-06-glass-sign-in-again"
   open_claude expired liquid_glass;       shot "$theme-07-glass-reset-passed"
+  # Saved resets of three kinds: the reset screen to pick one, and Priority's Recent activity
+  # (a Fable reset used, the Fable refill put down to it, a Weekly reset added).
+  for design in liquid_glass classic material_3_expressive one_ui_9; do
+    open_claude resets "$design" reset;    shot "$theme-08-$design-reset-choose" 8
+    open_claude resets "$design" priority; shot "$theme-09-$design-priority-activity" 8
+  done
+  # Liquid Glass: swipe the first activity row left, then touch and hold the next one.
+  open_claude resets liquid_glass priority; sleep 8
+  ROW_Y=$((H * 27 / 100))
+  adb shell input swipe $((W * 9 / 10)) $ROW_Y $((W / 10)) $ROW_Y 250
+  shot "$theme-10-glass-priority-swiped" 3
+  adb shell input swipe $((W / 2)) $ROW_Y $((W / 2)) $ROW_Y 1200
+  shot "$theme-11-glass-priority-hold" 3
 done
 
 adb logcat -d -b crash > "$OUT/logcat-crash.txt" || true

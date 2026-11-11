@@ -5,6 +5,9 @@ on:
     branches: [main, alpha]
     paths:
       - 'android/app/src/main/java/dev/bennett/codexmeter/Claude*.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/*Reset*.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/Priority*.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/Provider*.java'
       - 'android/app/src/debug/**'
       - 'android/ci/record-claude-gallery.sh'
       - '.github/workflows/claude-gallery.yml'

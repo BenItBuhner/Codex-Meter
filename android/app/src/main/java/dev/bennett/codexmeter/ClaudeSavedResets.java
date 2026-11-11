@@ -139,6 +139,42 @@ public final class ClaudeSavedResets {
         }
 
         /**
+         * What using it does, in a sentence: "Refills only your Fable limit. Your 5-hour and
+         * weekly limits stay as they are."
+         */
+        public String refillsText() {
+            if (modelOnly()) {
+                return "Refills only your " + scope + " limit. Your 5-hour and weekly limits stay as they are.";
+            }
+            boolean session = clearsFiveHour();
+            boolean weekly = clearsWeekly();
+            if (session && weekly) return "Refills your 5-hour and weekly limits.";
+            if (weekly) return "Refills your weekly limit. Your 5-hour limit stays as it is.";
+            if (session) return "Refills your 5-hour limit. Your weekly limit stays as it is.";
+            return "Refills a usage limit you've hit.";
+        }
+
+        /** Why it can't be used right now, in words, or empty when the server says it can. */
+        public String heldText() {
+            if (usableNow) return "";
+            switch (unavailableReason) {
+                case "blocked_seven_day":
+                    return "Your weekly limit is blocking you, and this reset doesn't clear it";
+                case "blocked_five_hour":
+                    return "Your 5-hour limit is blocking you, and this reset doesn't clear it";
+                case "blocked_opus":
+                case "blocked_sonnet":
+                case "blocked_other":
+                    return "A model limit this reset doesn't clear is blocking you";
+                case "cooldown":
+                    return "Available again after a short cooldown";
+                default:
+                    return modelOnly() ? "Works once you hit your " + scope + " limit"
+                            : "Works once you hit a usage limit";
+            }
+        }
+
+        /**
          * The dashboard's name for it, matching claude.ai ("Full reset", "Session reset", and
          * "Fable reset" for one that only covers that model).
          */
@@ -424,23 +460,123 @@ public final class ClaudeSavedResets {
         if (usableGrant(nowMillis) != null) return "";
         if (cooldownUntilMillis > nowMillis) return "Available again after a short cooldown";
         Grant next = nextGrant(nowMillis);
-        String reason = next == null ? "" : next.unavailableReason;
-        switch (reason) {
-            case "blocked_seven_day":
-                return "Your weekly limit is blocking you, and this reset doesn't clear it";
-            case "blocked_five_hour":
-                return "Your 5-hour limit is blocking you, and this reset doesn't clear it";
-            case "blocked_opus":
-            case "blocked_sonnet":
-            case "blocked_other":
-                return "A model limit this reset doesn't clear is blocking you";
-            case "cooldown":
-                return "Available again after a short cooldown";
-            default:
-                return next != null && next.modelOnly()
-                        ? "Works once you hit your " + next.scope + " limit"
-                        : "Works once you hit a usage limit";
+        if (next == null) return "Works once you hit a usage limit";
+        String held = next.heldText();
+        return held.isEmpty() ? "Works once you hit a usage limit" : held;
+    }
+
+    /**
+     * One kind of saved reset the person can pick on the reset screen: all the grants of the same
+     * kind ("Full reset", "Fable reset") put together, with how many are left, when the first of
+     * them expires, what using one refills, and the grant a claim would spend.
+     */
+    public static final class Choice {
+        public final String key;
+        public final String title;
+        /** "Refills only your Fable limit. ..." */
+        public final String refills;
+        /** "Fable limit", "5-hour and weekly limits". */
+        public final String clearsLabel;
+        public final boolean modelOnly;
+        public final int count;
+        /** Earliest expiry among its grants, 0 when none expire. */
+        public final long nextExpiryMillis;
+        /** The grant a claim spends: the server's next one, else the soonest to expire that can be used. */
+        public final String grantId;
+        public final boolean usableNow;
+        /** Why it can't be used right now; empty when it can. */
+        public final String held;
+
+        Choice(String key, String title, String refills, String clearsLabel, boolean modelOnly, int count,
+                long nextExpiryMillis, String grantId, boolean usableNow, String held) {
+            this.key = key;
+            this.title = title;
+            this.refills = refills;
+            this.clearsLabel = clearsLabel;
+            this.modelOnly = modelOnly;
+            this.count = count;
+            this.nextExpiryMillis = nextExpiryMillis;
+            this.grantId = grantId;
+            this.usableNow = usableNow;
+            this.held = held;
         }
+
+        /** "Fable reset" for one, "3 Full resets" for more. */
+        public String countedTitle() {
+            return count == 1 ? title : count + " " + title + "s";
+        }
+    }
+
+    private static String choiceKey(Grant grant) {
+        return grant.title() + "|" + grant.scope + "|" + grant.clearsFiveHour() + "|" + grant.clearsWeekly();
+    }
+
+    /**
+     * The kinds of reset that can still be spent, in the order claude.ai lists them: the one the
+     * server would spend next first, then by soonest expiry.
+     */
+    public List<Choice> choices(long nowMillis) {
+        java.util.LinkedHashMap<String, List<Grant>> groups = new java.util.LinkedHashMap<>();
+        List<Grant> live = new ArrayList<>();
+        for (Grant grant : grants) {
+            if (grant.hasResets(nowMillis)) live.add(grant);
+        }
+        Collections.sort(live, (a, b) -> Long.compare(expiryOrder(a), expiryOrder(b)));
+        Grant next = nextGrant(nowMillis);
+        if (next != null) {
+            groups.put(choiceKey(next), new ArrayList<Grant>());
+        }
+        for (Grant grant : live) {
+            List<Grant> group = groups.get(choiceKey(grant));
+            if (group == null) {
+                group = new ArrayList<>();
+                groups.put(choiceKey(grant), group);
+            }
+            group.add(grant);
+        }
+        boolean open = eligible && cooldownUntilMillis <= nowMillis;
+        List<Choice> out = new ArrayList<>();
+        for (java.util.Map.Entry<String, List<Grant>> entry : groups.entrySet()) {
+            List<Grant> group = entry.getValue();
+            if (group.isEmpty()) continue;
+            Grant spend = null;
+            for (Grant grant : group) {
+                if (grant.usableNow && (spend == null || grant.id.equals(nextGrantId))) spend = grant;
+            }
+            boolean usable = open && spend != null;
+            if (spend == null) spend = group.get(0);
+            int count = 0;
+            long expiry = 0L;
+            for (Grant grant : group) {
+                count += grant.resetsLeft;
+                if (grant.endsAtMillis > 0L && (expiry == 0L || grant.endsAtMillis < expiry)) expiry = grant.endsAtMillis;
+            }
+            String held = usable ? "" : !eligible ? "Anthropic isn't offering resets on this account right now"
+                    : cooldownUntilMillis > nowMillis ? "Available again after a short cooldown"
+                    : spend.heldText();
+            out.add(new Choice(entry.getKey(), spend.title(), spend.refillsText(), spend.clearsLabel(),
+                    spend.modelOnly(), count, expiry, spend.id, usable, held));
+        }
+        return out;
+    }
+
+    /** The choice the reset screen starts on: the one a plain "use a reset" would spend. */
+    public static Choice defaultChoice(List<Choice> choices) {
+        if (choices == null || choices.isEmpty()) return null;
+        for (Choice c : choices) {
+            if (c.usableNow) return c;
+        }
+        return choices.get(0);
+    }
+
+    /** The choice with {@code key}, else {@link #defaultChoice}. */
+    public static Choice choice(List<Choice> choices, String key) {
+        if (choices != null && key != null) {
+            for (Choice c : choices) {
+                if (c.key.equals(key)) return c;
+            }
+        }
+        return defaultChoice(choices);
     }
 
     private static long expiryOrder(Grant grant) {

@@ -70,7 +70,7 @@ public class ShotsTest {
                 .compile("text ([-0-9.]+),([-0-9.]+),([-0-9.]+),([-0-9.]+) \"(.*)\"");
         for (String line : dump.split("\n")) {
             java.util.regex.Matcher m = re.matcher(line.trim());
-            if (m.matches() && label.startsWith(m.group(5))) {
+            if (m.matches() && !m.group(5).isEmpty() && label.startsWith(m.group(5))) {
                 double y = Double.parseDouble(m.group(2)) + Double.parseDouble(m.group(4)) / 2;
                 if (y > TOP + 70 && y < H) {
                     found = y;

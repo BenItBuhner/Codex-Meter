@@ -130,7 +130,7 @@ final class GlassCards {
             clear.title = PriorityPage.ALL_CLEAR;
             d.cards.add(clear);
         }
-        addNotes(d, PriorityPage.NEWS, page.news);
+        addNotes(a, d, PriorityPage.NEWS, page.news);
         if (!page.watch.isEmpty()) {
             d.cards.add(heading("Limits to watch"));
             for (PriorityPage.Limit l : page.watch) {
@@ -148,8 +148,8 @@ final class GlassCards {
             used.summary = PriorityPage.USED_UP_NOTE;
             d.cards.add(used);
         }
-        addNotes(d, PriorityPage.READY, page.ready);
-        addNotes(d, PriorityPage.COMING_UP, page.comingUp);
+        addNotes(a, d, PriorityPage.READY, page.ready);
+        addNotes(a, d, PriorityPage.COMING_UP, page.comingUp);
         Card models = newModels(a);
         if (models != null) {
             d.cards.add(models);
@@ -157,16 +157,43 @@ final class GlassCards {
         return d;
     }
 
-    /** A grouped list on Priority, like Used up; nothing when the list is empty. */
-    private static void addNotes(GlassModel.Dashboard d, String title, List<PriorityPage.Note> notes) {
+    /**
+     * A grouped list on Priority, like Used up; nothing when the list is empty. Rows for kept
+     * events (Recent activity) can be dismissed.
+     */
+    private static void addNotes(MainActivity a, GlassModel.Dashboard d, String title, List<PriorityPage.Note> notes) {
         if (notes.isEmpty()) {
             return;
         }
         Card c = new Card(Card.Kind.STATS);
         c.detail = title;
         c.title = title;
+        int dismissible = 0;
         for (PriorityPage.Note n : notes) {
-            c.stats.add(new String[] {n.title, n.value});
+            String key = n.eventKey;
+            String prefix = n.provider.displayName + " · ";
+            if (key != null && n.title.startsWith(prefix)) {
+                // two lines: what happened, then the provider and when
+                c.stats.add(new String[] {n.title.substring(prefix.length()), prefix + n.value});
+            } else {
+                c.stats.add(new String[] {n.title, n.value});
+            }
+            c.statDismiss.add(key == null ? null : () -> {
+                ProviderAlerts.dismiss(a, key);
+                a.rebuild();
+            });
+            if (key != null) {
+                dismissible++;
+            }
+        }
+        if (dismissible > 1) {
+            c.dismissAll = () -> {
+                ProviderAlerts.dismissAll(a);
+                a.rebuild();
+            };
+        }
+        if (dismissible > 0) {
+            c.summary = PriorityPage.NEWS_HINT;
         }
         d.cards.add(c);
     }

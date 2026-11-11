@@ -25,7 +25,12 @@ public final class ProviderEventsSelfTest {
         resetCreditCountRise();
         eventsAreKeptForADay();
         monthlyLimitRenewingSoon();
-        System.out.println("Provider events: surprise refills, new saved resets, reset names and renewals verified.");
+        usedResetsAreFound();
+        aFableResetExplainsTheFableRefill();
+        aUseFoundLaterFoldsInTheEarlierSurprise();
+        eventsCanBeDismissed();
+        resetKindsToChooseFrom();
+        System.out.println("Provider events: surprise refills, new and used saved resets, reset choices, dismissing and renewals verified.");
     }
 
     private static void check(boolean condition, String message) {
@@ -185,5 +190,114 @@ public final class ProviderEventsSelfTest {
         check(!ProviderEvents.renewsSoon(null, NOW, NOW), "no limit");
         check(ProviderEvents.duration(2 * DAY + 4 * HOUR).equals("2d 4h"), "days");
         check(ProviderEvents.duration(5 * HOUR + 12 * 60_000L).equals("5h 12m"), "hours");
+    }
+
+    private static UsageLimit fable(int used, long resetAt) {
+        return new UsageLimit("claude_weekly_scoped_fable", "Fable only", "", true, used >= 100,
+                weekly(used, resetAt), null);
+    }
+
+    private static void usedResetsAreFound() throws Exception {
+        ClaudeSavedResets before = saved(grant("g_1", 2, "\"type\":\"full\""), grant("g_2", 1, "\"model\":\"fable\""));
+        ClaudeSavedResets fableGone = saved(grant("g_1", 2, "\"type\":\"full\""));
+        List<ProviderEvents.Use> used = ProviderEvents.usedSavedResets(before, fableGone, NOW);
+        check(used.size() == 1 && used.get(0).title.equals("Fable reset") && used.get(0).scope.equals("Fable"),
+                "a Fable grant gone before it expired was used: " + used.size());
+        ClaudeSavedResets oneFewer = saved(grant("g_1", 1, "\"type\":\"full\""), grant("g_2", 1, "\"model\":\"fable\""));
+        used = ProviderEvents.usedSavedResets(before, oneFewer, NOW);
+        check(used.size() == 1 && used.get(0).title.equals("Full reset") && used.get(0).fiveHour && used.get(0).weekly,
+                "a grant holding one fewer was used");
+        check(ProviderEvents.usedSavedResets(before, before, NOW).isEmpty(), "nothing changed, nothing used");
+        check(ProviderEvents.usedSavedResets(null, before, NOW).isEmpty(), "first list says nothing");
+        ClaudeSavedResets closed = ClaudeSavedResets.fromApiJson(new JSONObject("{\"eligible\":false,\"grants\":[]}"), NOW);
+        check(ProviderEvents.usedSavedResets(before, closed, NOW).isEmpty(), "an account no longer offered resets used none");
+        ProviderEvents.Event e = ProviderEvents.resetUsed(UsageProvider.CLAUDE_CODE,
+                ProviderEvents.usedSavedResets(before, fableGone, NOW), null, NOW);
+        check(e.line.equals("Fable reset used"), e.line);
+        check(e.detail.equals("It refills your Fable limit only."), e.detail);
+        check(e.kind.equals(ProviderEvents.RESET_USED), "kind");
+    }
+
+    private static void aFableResetExplainsTheFableRefill() {
+        UsageSnapshot before = snapshot(null, weekly(40, NOW + 2 * DAY), Collections.singletonList(fable(100, NOW + 2 * DAY)), NOW - HOUR);
+        UsageSnapshot after = snapshot(null, weekly(40, NOW + 2 * DAY), Collections.singletonList(fable(0, NOW + 7 * DAY)), NOW);
+        List<String> labels = ProviderEvents.refilledEarly(before, after, "5-hour");
+        ProviderEvents.Use fableUse = new ProviderEvents.Use("Fable reset", "Fable", false, false, "Fable limit", NOW - 20 * 60_000L);
+        List<String> rest = new ArrayList<>();
+        List<ProviderEvents.Use> by = new ArrayList<>();
+        List<String> explained = ProviderEvents.explainedByUses(labels, "5-hour", Collections.singletonList(fableUse), NOW, rest, by);
+        check(explained.equals(Collections.singletonList("Fable only")) && rest.isEmpty() && by.size() == 1,
+                "the Fable refill is the Fable reset's doing: " + explained + rest);
+        ProviderEvents.Event e = ProviderEvents.resetUsed(UsageProvider.CLAUDE_CODE, by, explained, NOW);
+        check(e.line.equals("Fable reset used · Fable only refilled"), e.line);
+        // a Fable reset does not explain a weekly refill
+        explained = ProviderEvents.explainedByUses(Arrays.asList("Weekly"), "5-hour", Collections.singletonList(fableUse), NOW, rest, null);
+        check(explained.isEmpty() && rest.contains("Weekly"), "a Fable reset leaves the weekly limit a surprise");
+        // a full reset explains the 5-hour, weekly and model limits
+        ProviderEvents.Use full = new ProviderEvents.Use("Full reset", "", true, true, "5-hour and weekly limits", NOW - HOUR);
+        List<String> rest2 = new ArrayList<>();
+        explained = ProviderEvents.explainedByUses(Arrays.asList("5-hour", "Weekly", "Fable only"), "5-hour",
+                Collections.singletonList(full), NOW, rest2, null);
+        check(explained.size() == 3 && rest2.isEmpty(), "a full reset explains them all: " + explained);
+        // a session reset explains only the 5-hour limit
+        ProviderEvents.Use session = new ProviderEvents.Use("Session reset", "", true, false, "5-hour limit", NOW - HOUR);
+        List<String> rest3 = new ArrayList<>();
+        explained = ProviderEvents.explainedByUses(Arrays.asList("5-hour", "Weekly"), "5-hour",
+                Collections.singletonList(session), NOW, rest3, null);
+        check(explained.equals(Collections.singletonList("5-hour")) && rest3.equals(Collections.singletonList("Weekly")),
+                "a session reset explains the 5-hour limit only");
+        // a use from long ago explains nothing
+        ProviderEvents.Use old = new ProviderEvents.Use("Fable reset", "Fable", false, false, "Fable limit", NOW - 7 * HOUR);
+        check(ProviderEvents.explainedByUses(labels, "5-hour", Collections.singletonList(old), NOW, new ArrayList<String>(), null)
+                .isEmpty(), "too old to explain it");
+    }
+
+    private static void aUseFoundLaterFoldsInTheEarlierSurprise() {
+        ProviderEvents.Event surprise = ProviderEvents.surpriseRefill(UsageProvider.CLAUDE_CODE,
+                Collections.singletonList("Fable only"), NOW - 30 * 60_000L);
+        ProviderEvents.Event other = ProviderEvents.surpriseRefill(UsageProvider.CURSOR,
+                Collections.singletonList("Monthly"), NOW - 40 * 60_000L);
+        List<ProviderEvents.Use> uses = Collections.singletonList(
+                new ProviderEvents.Use("Fable reset", "Fable", false, false, "Fable limit", NOW));
+        ProviderEvents.Event use = ProviderEvents.resetUsed(UsageProvider.CLAUDE_CODE, uses, null, NOW);
+        List<ProviderEvents.Event> out = ProviderEvents.explainEarlierRefills(Arrays.asList(surprise, other), use, uses, NOW);
+        check(out.size() == 2, "the surprise is folded into the use: " + out.size());
+        check(out.get(0).line.equals("Fable reset used · Fable only refilled"), out.get(0).line);
+        check(out.get(1).provider.equals("cursor"), "another provider's refill stays");
+        // stored events keep their labels
+        ProviderEvents.Event back = ProviderEvents.fromJson(ProviderEvents.toJson(Collections.singletonList(surprise))).get(0);
+        check(back.labels.equals(Collections.singletonList("Fable only")), "labels survive being saved");
+    }
+
+    private static void eventsCanBeDismissed() {
+        ProviderEvents.Event a = new ProviderEvents.Event(ProviderEvents.SURPRISE_REFILL, "claude_code", "Fable only refilled early",
+                "A", "", NOW - HOUR);
+        ProviderEvents.Event b = new ProviderEvents.Event(ProviderEvents.NEW_RESETS, "claude_code", "1 Weekly reset added",
+                "B", "", NOW - 9 * HOUR);
+        List<ProviderEvents.Event> left = ProviderEvents.without(Arrays.asList(a, b), a.key());
+        check(left.size() == 1 && left.get(0).title.equals("B"), "dismissing removes that one only");
+        check(!a.key().equals(b.key()), "keys differ");
+    }
+
+    private static void resetKindsToChooseFrom() throws Exception {
+        ClaudeSavedResets s = ClaudeSavedResets.fromApiJson(new JSONObject("{\"eligible\":true,\"grants\":["
+                + grant("g_1", 2, "\"type\":\"full\"") + ","
+                + "{\"id\":\"g_2\",\"resets_total\":1,\"resets_left\":1,\"ends_at\":\"2070-01-01T00:00:00Z\",\"usable_now\":false,"
+                + "\"unavailable_reason\":\"needs_limit\",\"model\":\"fable\"},"
+                + grant("g_3", 1, "\"type\":\"full\"") + "],\"next_grant_id\":\"g_3\"}"), NOW);
+        List<ClaudeSavedResets.Choice> choices = s.choices(NOW);
+        check(choices.size() == 2, "two kinds: " + choices.size());
+        ClaudeSavedResets.Choice full = choices.get(0);
+        check(full.title.equals("Full reset") && full.count == 3 && full.usableNow, "full resets together, first");
+        check(full.grantId.equals("g_3"), "the server's next grant is the one spent: " + full.grantId);
+        check(full.refills.equals("Refills your 5-hour and weekly limits."), full.refills);
+        check(full.countedTitle().equals("3 Full resets"), full.countedTitle());
+        ClaudeSavedResets.Choice fable = choices.get(1);
+        check(fable.title.equals("Fable reset") && !fable.usableNow && fable.held.equals("Works once you hit your Fable limit"),
+                "a held Fable reset says why: " + fable.held);
+        check(fable.refills.startsWith("Refills only your Fable limit."), fable.refills);
+        check(ClaudeSavedResets.choice(choices, fable.key) == fable, "picking a kind");
+        check(ClaudeSavedResets.choice(choices, "gone") == full, "an unknown pick falls back to the usable one");
+        check(saved().choices(NOW).isEmpty(), "none");
     }
 }

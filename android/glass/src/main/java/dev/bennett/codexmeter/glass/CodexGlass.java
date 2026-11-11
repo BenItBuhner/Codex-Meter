@@ -21,7 +21,9 @@ import static com.benitbuhner.glasse.kit.KitUi.BarChart;
 import static com.benitbuhner.glasse.kit.KitControls.ActivityIndicator;
 import static com.benitbuhner.glasse.kit.KitControls.ProgressBar;
 import static com.benitbuhner.glasse.kit.KitControls.TextFieldRow;
+import static com.benitbuhner.glasse.kit.KitPopup.ContextMenu;
 import static com.benitbuhner.glasse.kit.KitPopup.GlassPopupMenu;
+import static com.benitbuhner.glasse.kit.KitLists.SwipeRow;
 import static com.benitbuhner.glasse.kit.KitUi.GlassAlert;
 import static com.benitbuhner.glasse.kit.KitUi.GlassNavBar;
 import static com.benitbuhner.glasse.kit.KitUi.GlassSearchField;
@@ -143,13 +145,16 @@ public final class CodexGlass {
             min.set(s.minimized);
         });
 
-        List<GlassModel.Tab> tabs = src.tabs();
+        // The model and the cards are built only when the source changes or the tab does: scrolling
+        // flips past/min, and those renders reuse the same card elements, which the kit then skips
+        // instead of reading every snapshot again and diffing the whole page.
+        List<GlassModel.Tab> tabs = R.useMemo(R.deps(version), src::tabs);
         String selected = src.selectedTab();
         R.useEffectRun(R.deps(selected), () -> {
             past.set(false);
             min.set(false);
         });
-        GlassModel.Dashboard d = src.dashboard();
+        GlassModel.Dashboard d = R.useMemo(R.deps(version, selected), src::dashboard);
 
         // Up to four providers get a tab each; with more, the first three and More (iOS's rule).
         boolean showsMore = tabs.size() > 4;
@@ -170,23 +175,29 @@ public final class CodexGlass {
 
         // The bar's buttons (Edit dashboard, Settings): each its own glass button, side by side like
         // iOS's toolbar items. Pull the page down to refresh.
-        List<El> trailing = new ArrayList<>();
-        for (GlassSource.MenuEntry entry : src.menu()) {
-            if (entry != null) {
-                trailing.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
-                        "icon", entry.icon, "onPress", entry.onSelect)));
+        List<El> trailing = R.useMemo(R.deps(version, selected), () -> {
+            List<El> out = new ArrayList<>();
+            for (GlassSource.MenuEntry entry : src.menu()) {
+                if (entry != null) {
+                    out.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
+                            "icon", entry.icon, "onPress", entry.onSelect)));
+                }
             }
-        }
+            return out;
+        });
 
-        List<Object> body = new ArrayList<>();
-        body.add(LargeTitle(d.title, d.subtitle != null ? 2.0 : 18.0));
-        if (d.subtitle != null) {
-            body.add(Text(P.of("size", 15, "ls", -0.2, "lines", 1, "mb", 18, "color", t.pal.label2),
-                    d.subtitle));
-        }
-        for (int i = 0; i < d.cards.size(); i++) {
-            body.add(card(d.cards.get(i), t, "c" + i));
-        }
+        List<Object> body = R.useMemo(R.deps(d, t), () -> {
+            List<Object> out = new ArrayList<>();
+            out.add(LargeTitle(d.title, d.subtitle != null ? 2.0 : 18.0));
+            if (d.subtitle != null) {
+                out.add(Text(P.of("size", 15, "ls", -0.2, "lines", 1, "mb", 18, "color", t.pal.label2),
+                        d.subtitle));
+            }
+            for (int i = 0; i < d.cards.size(); i++) {
+                out.add(card(d.cards.get(i), t, "c" + i));
+            }
+            return out;
+        });
 
         double[] bg = t.pal.groupedRGB;
         return Box(P.of("fill", true, "bg", t.pal.grouped),
@@ -286,23 +297,8 @@ public final class CodexGlass {
                                         "color", c.fast ? red(t) : t.pal.label2), c.value) : null));
             case CHART:
                 return GlassChart.card(c, key);
-            case STATS: {
-                // label and value rows, like a Settings detail list
-                List<El> rows = new ArrayList<>();
-                for (int i = 0; i < c.stats.size(); i++) {
-                    String[] stat = c.stats.get(i);
-                    rows.add(ListRow(P.of("key", "s" + i, "h", stat[0].length() + stat[1].length() > 36 ? 66 : 52,
-                            "label", Text(P.of("size", 17, "ls", -0.34, "lines", 2, "color", t.pal.label), stat[0])),
-                            Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label2), stat[1])));
-                }
-                if (c.onPress != null) {
-                    // a closing row that acts on the card ("Change model")
-                    rows.add(ListRow(P.of("key", "press", "label", c.value != null ? c.value : "More",
-                            "chevron", true, "onPress", c.onPress)));
-                }
-                String header = c.title != null ? c.title : c.detail;
-                return ListSection(P.of("key", key, "header", header, "footer", c.summary), rows);
-            }
+            case STATS:
+                return stats(c, t, key);
             case NOTE:
                 return ListSection(P.of("key", key, "header", c.detail),
                         ListPad(P.of("padY", 14),
@@ -334,6 +330,70 @@ public final class CodexGlass {
                 return Text(P.of("key", key, "size", 15, "lh", 20, "lines", 6, "align", "center",
                         "mt", 24, "ml", 24, "mr", 24, "mb", 18, "color", t.pal.label2), c.title);
         }
+    }
+
+    /**
+     * Label and value rows, like a Settings detail list, in one grouped card. Rows the app lets the
+     * person dismiss (Priority's Recent activity) swipe left to a Dismiss capsule, and a touch and
+     * hold opens a menu with Dismiss (and Dismiss all). The hairlines between rows are drawn in
+     * the rows themselves, 0.5 pt at their top edge, so a row that wraps can never stretch one
+     * into a grey bar.
+     */
+    private static El stats(GlassModel.Card c, KTheme t, String key) {
+        List<El> rows = new ArrayList<>();
+        int n = c.stats.size() + (c.onPress != null ? 1 : 0);
+        for (int i = 0; i < c.stats.size(); i++) {
+            String[] stat = c.stats.get(i);
+            Runnable dismiss = i < c.statDismiss.size() ? c.statDismiss.get(i) : null;
+            String title = stat[0];
+            String value = stat.length > 1 ? stat[1] : "";
+            El row;
+            if (dismiss != null) {
+                // two lines: what happened, then where and when ("Claude Code · 32m ago")
+                double h = 66;
+                El content = Box(P.of("flex", 1, "gap", 2),
+                        Text(P.of("size", 17, "ls", -0.34, "lh", 22, "lines", 1, "color", t.pal.label), title),
+                        Text(P.of("size", 13, "lh", 16.5, "lines", 1, "color", t.pal.label2), value));
+                List<PopupItem> items = new ArrayList<>();
+                items.add(new PopupItem("Dismiss").icon("xmark").onSelect(dismiss));
+                if (c.dismissAll != null) {
+                    items.add(new PopupItem("Dismiss all").icon("trash").destructive(true).onSelect(c.dismissAll));
+                }
+                row = ContextMenu(P.of("key", "s" + i + ":" + title, "h", h, "r", 22, "items", items),
+                        SwipeRow(P.of("h", h, "label", "Dismiss", "onDelete", dismiss), content));
+            } else {
+                double h = title.length() + value.length() > 36 ? 66 : 52;
+                row = ListRow(P.of("key", "s" + i, "h", h,
+                                "label", Text(P.of("size", 17, "ls", -0.34, "lines", 2, "color", t.pal.label), title)),
+                        Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label2), value));
+            }
+            rows.add(withHairline(row, i > 0, t, "r" + i + ":" + title));
+        }
+        if (c.onPress != null) {
+            // a closing row that acts on the card ("Change model")
+            rows.add(withHairline(ListRow(P.of("key", "press", "label", c.value != null ? c.value : "More",
+                    "chevron", true, "onPress", c.onPress)), n > 1, t, "press"));
+        }
+        String header = c.title != null ? c.title : c.detail;
+        String footer = c.summary;
+        return Box(P.of("key", key, "mb", 22),
+                header != null && !header.isEmpty() ? Text(P.of("size", 13, "weight", 500, "ls", 0.26, "ml", 16,
+                        "mb", 7, "color", t.pal.label2), header.toUpperCase(java.util.Locale.ROOT)) : null,
+                Box(P.of("bg", t.pal.cell, "r", 22, "clip", true), rows),
+                footer != null && !footer.isEmpty() ? Text(P.of("size", 13, "lh", 17.55, "lines", 6, "ml", 16,
+                        "mr", 16, "mt", 8, "color", t.pal.label2), footer) : null);
+    }
+
+    /** A grouped-list row with the hairline above it drawn over its top edge (none for the first). */
+    private static El withHairline(El row, boolean line, KTheme t, String key) {
+        if (!line) {
+            return Box(P.of("key", key), row);
+        }
+        return Box(P.of("key", key), row,
+                Draw(P.of("abs", true, "left", 16, "right", 0, "top", 0, "h", 1, "pointerEvents", "none",
+                        "color", t.pal.sep, "draw", (NodeDraw) (cv, w, h, nd, ax, ay) ->
+                                cv.drawRect(org.jetbrains.skia.Rect.makeXYWH(0f, 0f, (float) w, 0.5f),
+                                        Sk.paint(Sk.color(nd.props.s("color")))))));
     }
 
     /**
@@ -473,7 +533,7 @@ public final class CodexGlass {
         });
         Env env = kit.scene.env;
         boolean sub = pages.size() > 1 || !ROOT.equals(top);
-        GlassModel.Page topPage = top.startsWith(CHOICE) ? null : src.page(top);
+        GlassModel.Page topPage = R.useMemo(R.deps(version, top), () -> top.startsWith(CHOICE) ? null : src.page(top));
         List<El> actions = new ArrayList<>();
         if (topPage != null && reorderable(topPage)) {
             // iOS: Edit shows the reorder handles, Done (filled) puts them away
@@ -492,7 +552,7 @@ public final class CodexGlass {
             }
         }
 
-        String navTitle = titleOf(src, top);
+        String navTitle = R.useMemo(R.deps(version, top), () -> titleOf(src, top));
         double labelsWidth = 0;
         if (topPage != null) {
             if (reorderable(topPage)) {
@@ -506,7 +566,7 @@ public final class CodexGlass {
         List<El> els = new ArrayList<>();
         for (String id : pages) {
             els.add(Box(P.of("key", id, "fill", true),
-                    R.h(CodexGlass.SettingsPage, P.of("id", id, "src", src, "v", version, "onScroll", onScroll,
+                    R.h(CodexGlass.SettingsPageMemo, P.of("id", id, "src", src, "v", version, "onScroll", onScroll,
                             "editing", id.equals(editing.get()),
                             "push", push, "query", ROOT.equals(id) ? query.get() : ""))));
         }
@@ -596,6 +656,16 @@ public final class CodexGlass {
             }
         }
         return null;
+    }
+
+    /**
+     * {@link #SettingsPage} redrawn only when its props change (the source's version among them),
+     * so a scroll that moves the nav bar title does not build every page in the stack again.
+     */
+    private static final com.benitbuhner.glasse.kit.Memo SettingsPageMemo;
+
+    static {
+        SettingsPageMemo = R.memo(p -> CodexGlass.SettingsPage.render(p));
     }
 
     private static final Comp SettingsPage = p -> {

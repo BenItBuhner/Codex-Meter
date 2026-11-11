@@ -141,16 +141,18 @@ public final class ClaudeUsageApi {
                         && snapshot.additionalLimits.isEmpty()) {
                     throw new Exception("Anthropic returned no recognizable Claude Code usage data.");
                 }
-                if (!ProviderPreferences.saveSnapshot(context, PROVIDER, snapshot)) {
-                    throw new Exception("Usage was received, but it could not be saved on this device.");
-                }
-                UsageHistoryRecorder.record(context, PROVIDER, snapshot);
+                // Saved resets first: a reset used since the last refresh (here, in Claude Code or
+                // on claude.ai) is then known when the usage below shows the limit it refilled.
                 ClaudeSavedResets savedResets = plainOnly
                         ? ProviderPreferences.loadSavedResets(context, PROVIDER)
                         : ClaudeSavedResets.fromUsageBody(usage.body, snapshot.fetchedAtMillis);
                 if (!plainOnly) {
                     ProviderPreferences.saveSavedResets(context, PROVIDER, savedResets);
                 }
+                if (!ProviderPreferences.saveSnapshot(context, PROVIDER, snapshot)) {
+                    throw new Exception("Usage was received, but it could not be saved on this device.");
+                }
+                UsageHistoryRecorder.record(context, PROVIDER, snapshot);
                 DiagnosticLog.info(context, "refresh", "claude_usage_refresh_succeeded",
                         "duration_ms", SystemClock.elapsedRealtime() - started,
                         "five_hour", snapshot.fiveHour != null,
