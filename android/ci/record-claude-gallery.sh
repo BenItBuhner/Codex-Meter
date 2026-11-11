@@ -56,7 +56,9 @@ for theme in light dark; do
   done
   # Liquid Glass: swipe the first activity row left, then touch and hold the next one.
   open_claude resets liquid_glass priority; sleep 8
-  ROW_Y=$((H * 27 / 100))
+  # The first Recent activity row sits below the update card, about three quarters down the screen;
+  # after the swipe the next row moves up into its place.
+  ROW_Y=$((H * 745 / 1000))
   adb shell input swipe $((W * 9 / 10)) $ROW_Y $((W / 10)) $ROW_Y 250
   shot "$theme-10-glass-priority-swiped" 3
   adb shell input swipe $((W / 2)) $ROW_Y $((W / 2)) $ROW_Y 1200
