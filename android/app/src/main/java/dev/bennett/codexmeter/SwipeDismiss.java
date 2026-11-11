@@ -104,7 +104,8 @@ final class SwipeDismiss {
                         boolean fling = Math.abs(vx) > minFling && Math.signum(vx) == Math.signum(dx);
                         if (e.getActionMasked() == MotionEvent.ACTION_UP
                                 && (Math.abs(dx) > v.getWidth() * DISMISS_SHARE || fling)) {
-                            v.performHapticFeedback(HapticFeedbackConstants.CONFIRM);
+                            v.performHapticFeedback(android.os.Build.VERSION.SDK_INT >= 30
+                                    ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY);
                             slideAway(v, dx < 0 ? -1 : 1, onDismiss);
                         } else {
                             v.animate().translationX(0f).alpha(1f).setDuration(180).start();
