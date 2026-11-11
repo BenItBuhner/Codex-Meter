@@ -1116,6 +1116,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         TextView title = Ui.text(this, heading, 17, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
+        int dismissible = 0;
+        for (PriorityPage.Note n : notes) {
+            if (n.dismissible()) {
+                dismissible++;
+            }
+        }
         for (PriorityPage.Note n : notes) {
             LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
             row.addView(Ui.text(this, n.title, 14, Ui.mainText(this.dark)),
@@ -1126,8 +1132,27 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             vp.setMargins(Ui.dp(this, 12), 0, 0, 0);
             row.addView(value, vp);
             LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-            rp.setMargins(0, Ui.dp(this, 10), 0, 0);
+            rp.setMargins(0, Ui.dp(this, n.dismissible() ? 4 : 10), 0, 0);
+            if (n.dismissible()) {
+                // a taller touch target, so the swipe and the hold are easy to start
+                row.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
+                row.setMinimumHeight(Ui.dp(this, 40));
+                String key = n.eventKey;
+                SwipeDismiss.attach(row, () -> {
+                    ProviderAlerts.dismiss(this, key);
+                    rebuild();
+                }, dismissible > 1 ? () -> {
+                    ProviderAlerts.dismissAll(this);
+                    rebuild();
+                } : null);
+            }
             card.addView(row, rp);
+        }
+        if (dismissible > 0) {
+            TextView hint = Ui.text(this, PriorityPage.NEWS_HINT, 12, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
+            hp.setMargins(0, Ui.dp(this, 10), 0, 0);
+            card.addView(hint, hp);
         }
         this.content.addView(card);
         Ui.addSpacer(this.content, 20);
@@ -1702,9 +1727,10 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
         if (signedIn) {
             card.setOnClickListener(view -> openResetCredits(target));
-            Button button = Ui.nativePrimaryButton(this,
-                    available > 0 ? "Use 1 reset" : "No resets available");
-            button.setEnabled(available > 0 && usableNow);
+            // Claude Code has several kinds of reset; its screen lets the person pick one.
+            Button button = Ui.nativePrimaryButton(this, available <= 0 ? "No resets available"
+                    : claude ? "Choose a reset" : "Use 1 reset");
+            button.setEnabled(available > 0 && (claude || usableNow));
             button.setOnClickListener(view -> openResetCredits(target));
             LinearLayout.LayoutParams buttonParams =
                     new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));

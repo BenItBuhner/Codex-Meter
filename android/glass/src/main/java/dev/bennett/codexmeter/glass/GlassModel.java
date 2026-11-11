@@ -69,6 +69,13 @@ public final class GlassModel {
         public Chart chart;
         /** STATS: label and value pairs. */
         public final List<String[]> stats = new ArrayList<>();
+        /**
+         * STATS: per row, what dismissing it does (a swipe left, or touch and hold for a menu); a
+         * null entry, or a list shorter than {@link #stats}, leaves that row fixed.
+         */
+        public final List<Runnable> statDismiss = new ArrayList<>();
+        /** STATS: "Dismiss all" in a row's hold menu; null for none. */
+        public Runnable dismissAll;
 
         public Card(Kind kind) {
             this.kind = kind;

@@ -74,10 +74,17 @@ public final class UsagePaceDemoActivity extends Activity {
         if (claudeScenario != null && !claudeScenario.isEmpty()) {
             try {
                 seedClaude(claudeScenario);
-                startActivity(new Intent(this, MainActivity.class)
-                        .putExtra(MainActivity.EXTRA_PROVIDER, UsageProvider.CLAUDE_CODE.id)
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                | Intent.FLAG_ACTIVITY_NEW_TASK));
+                // "claude_open": "priority" opens the Priority tab, "reset" the reset screen.
+                String open = getIntent().getStringExtra("claude_open");
+                PriorityPrefs.setViewEnabled(this, true);
+                PriorityPrefs.setTabSelected(this, "priority".equals(open));
+                Intent next = "reset".equals(open)
+                        ? ResetCreditActivity.intent(this, UsageProvider.CLAUDE_CODE)
+                        : new Intent(this, MainActivity.class)
+                                .putExtra(MainActivity.EXTRA_PROVIDER, "priority".equals(open)
+                                        ? null : UsageProvider.CLAUDE_CODE.id);
+                startActivity(next.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        | Intent.FLAG_ACTIVITY_NEW_TASK));
             } catch (Exception exception) {
                 throw new IllegalStateException("Could not seed Claude demo", exception);
             } finally {
@@ -179,7 +186,9 @@ public final class UsagePaceDemoActivity extends Activity {
      * Claude Code states for screenshots: "ultra" (no 5-hour limit, profile says Ultra),
      * "legacy_badge" (a badge saved as "Max 20x" before the rename), "sign_in_again" (Anthropic
      * rejected the refresh token) and "expired" (the saved weekly window reset since the last
-     * refresh). Data is marked fresh so opening the tab does not hit the network.
+     * refresh) and "resets" (saved resets of three kinds and the Priority tab's recent activity,
+     * see {@link #seedClaudeResets}). Data is marked fresh so opening the tab does not hit the
+     * network.
      */
     private void seedClaude(String scenario) throws Exception {
         long now = System.currentTimeMillis();
@@ -205,8 +214,52 @@ public final class UsagePaceDemoActivity extends Activity {
             ProviderPreferences.setLastError(this, UsageProvider.CLAUDE_CODE,
                     ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE);
         }
+        if ("resets".equals(scenario)) {
+            seedClaudeResets(now, weeklyReset);
+        }
         AppPreferences.setRefreshOnLaunch(this, false);
         AppPreferences.completeOnboarding(this);
+    }
+
+    /**
+     * Saved resets of three kinds (two Full, a Weekly and a held Fable reset), and the Priority
+     * tab's Recent activity as the app works it out: a Fable reset used elsewhere, then the Fable
+     * limit refilling (put down to that reset, not a surprise), and a Weekly reset added.
+     */
+    private void seedClaudeResets(long now, long weeklyReset) throws Exception {
+        UsageProvider p = UsageProvider.CLAUDE_CODE;
+        ProviderAlerts.clear(this, p);
+        ProviderPreferences.saveSavedResets(this, p, null);
+        long expires = now + TimeUnit.DAYS.toMillis(119);
+        String full = "{\"id\":\"g_full\",\"type\":\"full\",\"resets_total\":2,\"resets_left\":2,"
+                + "\"usable_now\":true,\"ends_at\":\"" + java.time.Instant.ofEpochMilli(expires) + "\"}";
+        String weekly = "{\"id\":\"g_week\",\"type\":\"weekly\",\"clears\":[\"seven_day\"],\"resets_total\":1,"
+                + "\"resets_left\":1,\"usable_now\":true,\"ends_at\":\""
+                + java.time.Instant.ofEpochMilli(expires + TimeUnit.DAYS.toMillis(4)) + "\"}";
+        String fable2 = "{\"id\":\"g_fable\",\"model\":\"fable\",\"type\":\"full\",\"resets_total\":2,\"resets_left\":2,"
+                + "\"usable_now\":false,\"unavailable_reason\":\"needs_limit\",\"ends_at\":\""
+                + java.time.Instant.ofEpochMilli(now + TimeUnit.DAYS.toMillis(30)) + "\"}";
+        String fable1 = fable2.replace("\"resets_left\":2", "\"resets_left\":1");
+        // The first list is only remembered; the next one has a Fable reset fewer (used on claude.ai).
+        ProviderPreferences.saveSavedResets(this, p, ClaudeSavedResets.fromApiJson(new org.json.JSONObject(
+                "{\"eligible\":true,\"grants\":[" + full + "," + fable2 + "]}"), now));
+        ProviderPreferences.saveSavedResets(this, p, ClaudeSavedResets.fromApiJson(new org.json.JSONObject(
+                "{\"eligible\":true,\"grants\":[" + full + "," + fable1 + "]}"), now));
+        // The Fable limit was used up, and is back before its reset time.
+        long weekSeconds = TimeUnit.DAYS.toSeconds(7);
+        ProviderPreferences.saveSnapshot(this, p, new UsageSnapshot("Ultra", true, false, null,
+                new UsageWindow(4, weekSeconds, 0L, weeklyReset / 1000L),
+                Arrays.asList(new UsageLimit(ClaudeUsageParser.LIMIT_ID_PREFIX + "weekly_scoped_fable",
+                        "Fable only", "", true, true, new UsageWindow(100, weekSeconds, 0L, weeklyReset / 1000L),
+                        null)), null, -1, now - 60_000L));
+        ProviderPreferences.saveSnapshot(this, p, new UsageSnapshot("Ultra", true, false, null,
+                new UsageWindow(4, weekSeconds, 0L, weeklyReset / 1000L),
+                Arrays.asList(new UsageLimit(ClaudeUsageParser.LIMIT_ID_PREFIX + "weekly_scoped_fable",
+                        "Fable only", "", true, false, new UsageWindow(0, weekSeconds, 0L,
+                                (now + 7 * TimeUnit.DAYS.toMillis(1)) / 1000L), null)), null, -1, now));
+        ProviderPreferences.saveSavedResets(this, p, ClaudeSavedResets.fromApiJson(new org.json.JSONObject(
+                "{\"eligible\":true,\"next_grant_id\":\"g_full\",\"grants\":[" + full + "," + weekly + ","
+                        + fable1 + "]}"), now));
     }
 
     /**

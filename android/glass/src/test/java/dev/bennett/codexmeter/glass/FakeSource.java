@@ -84,8 +84,58 @@ final class FakeSource implements GlassSource {
         changed();
     }
 
+    /** the Priority tab, with Recent activity like the person's phone showed */
+    boolean priority;
+    /** Recent activity rows dismissed so far */
+    final List<Integer> dismissed = new ArrayList<>();
+
+    private GlassModel.Dashboard priorityDashboard() {
+        GlassModel.Dashboard d = new GlassModel.Dashboard();
+        d.title = "Priority";
+        d.subtitle = "Claude Code and Cursor";
+        GlassModel.Card news = new GlassModel.Card(GlassModel.Card.Kind.STATS);
+        news.title = "Recent activity";
+        news.detail = news.title;
+        String[][] rows = {{"Fable reset used · Fable only refilled", "Claude Code · 32m ago"},
+                {"1 Weekly reset added", "Claude Code · 9h ago"}};
+        for (int i = 0; i < rows.length; i++) {
+            if (dismissed.contains(i)) {
+                continue;
+            }
+            int index = i;
+            news.stats.add(rows[i]);
+            news.statDismiss.add(() -> {
+                dismissed.add(index);
+                changed();
+            });
+        }
+        news.dismissAll = () -> {
+            dismissed.add(0);
+            dismissed.add(1);
+            changed();
+        };
+        news.summary = "Swipe a row left, or touch and hold it, to dismiss it.";
+        if (!news.stats.isEmpty()) {
+            d.cards.add(news);
+        }
+        GlassModel.Card used = new GlassModel.Card(GlassModel.Card.Kind.STATS);
+        used.title = "Used up";
+        used.detail = used.title;
+        used.stats.add(new String[] {"Cursor · Monthly", "Resets Dec 1"});
+        used.summary = "You'll get a notification when each one is back.";
+        d.cards.add(used);
+        return d;
+    }
+
+    /** how many times the dashboard model was built */
+    int dashboardBuilds;
+
     @Override
     public GlassModel.Dashboard dashboard() {
+        dashboardBuilds++;
+        if (priority) {
+            return priorityDashboard();
+        }
         GlassModel.Dashboard d = new GlassModel.Dashboard();
         d.title = "codex".equals(selected) ? "Codex" : "Claude Code";
         d.subtitle = "Updated 2 minutes ago";

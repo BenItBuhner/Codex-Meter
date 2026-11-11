@@ -30,6 +30,8 @@ public final class ResetCreditActivity extends AppCompatActivity {
     private Button useButton;
     /** Codex by default; Claude Code reuses this screen for its saved resets. */
     private UsageProvider provider = UsageProvider.CODEX;
+    /** The kind of Claude Code reset picked ({@link ClaudeSavedResets.Choice#key}); null for the default. */
+    private String picked;
 
     /** Opens the reset screen for {@code provider} (Codex or Claude Code). */
     public static Intent intent(Context context, UsageProvider provider) {
@@ -87,6 +89,10 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
     public void rebuild() {
         this.content.removeAllViews();
+        if (claude()) {
+            rebuildClaude();
+            return;
+        }
         ResetCreditsSnapshot snapshot = loadCredits();
         int available = snapshot == null ? 0 : snapshot.availableCount;
         long now = System.currentTimeMillis();
@@ -158,6 +164,95 @@ public final class ResetCreditActivity extends AppCompatActivity {
         useButtonParams.setMargins(0, Ui.dp(this, 22.0f), 0, Ui.dp(this, 8.0f));
         this.useButton.setOnClickListener(view -> confirmUse());
         this.content.addView(this.useButton, useButtonParams);
+    }
+
+    /**
+     * Claude Code: one row per kind of saved reset (Full, Session, Weekly, Fable...), each saying
+     * what it refills, how many are left and when they expire. Tapping one picks it, and the button
+     * uses that kind.
+     */
+    private void rebuildClaude() {
+        long now = System.currentTimeMillis();
+        ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(this, this.provider);
+        List<ClaudeSavedResets.Choice> choices = saved == null
+                ? Collections.<ClaudeSavedResets.Choice>emptyList() : saved.choices(now);
+        ClaudeSavedResets.Choice choice = ClaudeSavedResets.choice(choices, this.picked);
+        int available = saved == null ? 0 : saved.availableCount(now);
+        long nextExpiry = saved == null ? 0L : saved.nextExpiryMillis(now);
+        this.content.addView(Ui.separator(this, available > 0 ? "Choose a reset" : "Saved resets"));
+        RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
+        if (choices.isEmpty()) {
+            card.addView(Ui.actionRow(this, "No saved resets",
+                    "Anthropic gives these out from time to time. New ones show up here and on Priority.",
+                    0, null));
+        }
+        for (int i = 0; i < choices.size(); i++) {
+            ClaudeSavedResets.Choice option = choices.get(i);
+            CardItemView row = Ui.actionRow(this, option.countedTitle(),
+                    GlassResetScreen.choiceSummary(this, option, now), 0, view -> {
+                        this.picked = option.key;
+                        rebuild();
+                    });
+            row.setShowTopDivider(i > 0);
+            boolean on = choice != null && option.key.equals(choice.key);
+            android.widget.ImageView end = row.getEndImageView();
+            if (end != null) {
+                end.setImageResource(R.drawable.ic_reset_choice_check);
+                end.setVisibility(on ? android.view.View.VISIBLE : android.view.View.INVISIBLE);
+            }
+            row.setContentDescription(option.countedTitle() + (on ? ", selected" : ""));
+            card.addView(row);
+        }
+        this.content.addView(card);
+        String autoUse = autoUseSummary(this, true, nextExpiry > 0L);
+        String held = choice != null && !choice.usableNow ? choice.held + "." : "";
+        String note = autoUse.isEmpty() ? held : held.isEmpty() ? autoUse : held + "\n\n" + autoUse;
+        if (!note.isEmpty()) {
+            Ui.addSpacer(this.content, 8);
+            android.widget.TextView noteText = Ui.text(this, note, 13.0f, Ui.secondaryText(this.dark));
+            int inset = Ui.dp(this, 24.0f);
+            noteText.setPadding(inset, 0, inset, 0);
+            this.content.addView(noteText);
+        }
+        this.useButton = Ui.nativePrimaryButton(this,
+                choice == null ? "No resets available" : "Use a " + choice.title);
+        this.useButton.setEnabled(choice != null && choice.usableNow && signedIn());
+        LinearLayout.LayoutParams useButtonParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
+        useButtonParams.setMargins(0, Ui.dp(this, 22.0f), 0, Ui.dp(this, 8.0f));
+        this.useButton.setOnClickListener(view -> confirmClaude(choice));
+        this.content.addView(this.useButton, useButtonParams);
+    }
+
+    private void confirmClaude(ClaudeSavedResets.Choice choice) {
+        if (choice == null) {
+            return;
+        }
+        new AppDialog(this)
+                .setTitle("Use a " + choice.title + "?")
+                .setMessage(choice.refills + " This can't be undone.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Use " + choice.title, (dialog, which) -> consumeClaude(choice.grantId))
+                .show();
+    }
+
+    private void consumeClaude(String grantId) {
+        if (this.useButton != null) {
+            this.useButton.setEnabled(false);
+            this.useButton.setText("Applying…");
+        }
+        final Context app = getApplicationContext();
+        this.executor.execute(() -> {
+            ClaudeSavedResets.ClaimResult result = ClaudeResetApi.use(app, grantId, "reset_screen");
+            runOnUiThread(() -> {
+                Toast.makeText(this, result.userMessage(), Toast.LENGTH_LONG).show();
+                if (result.applied()) {
+                    finish();
+                } else {
+                    rebuild();
+                }
+            });
+        });
     }
 
     private String summaryText(int available, long nextExpiry, long now) {
@@ -344,6 +439,11 @@ public final class ResetCreditActivity extends AppCompatActivity {
         }
         String strTrim = message.trim();
         return strTrim.length() > 240 ? strTrim.substring(0, 240) : strTrim;
+    }
+
+    /** "Refills your Fable limit only", "Refills your 5-hour and weekly limits": a row's first line. */
+    static String refillsShort(ClaudeSavedResets.Choice choice) {
+        return "Refills your " + choice.clearsLabel + (choice.modelOnly ? " only" : "");
     }
 
     /** One line describing the automatic-use rules that are on, or empty when none are. */

@@ -1,6 +1,23 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.23 — 2026-11-11
+
+### Added
+
+- **Dismiss Priority activity.** Swipe a row of **Recent activity** left, or touch and hold it for **Dismiss** and **Dismiss all**, and it's gone for good. Works in every design. Android.
+- **Pick which Claude Code reset to use.** The reset screen lists your saved resets by kind (**Full reset**, **Weekly reset**, **Session reset**, **Fable reset**...), each with what it refills, how many are left and when they expire. Tap one to pick it; the button says which one you're using ("Use a Fable reset"), and the confirmation spells out what it refills and what it leaves alone. A kind that can't be used yet says why ("Works once you hit your Fable limit"). Android.
+- **Codex Meter knows when you used a saved reset**, in the app, in Claude Code or on claude.ai. Priority shows "Fable reset used", and the limit it refills is put down to it ("Fable reset used · Fable only refilled") instead of a "refilled early" surprise and notification. A Fable reset only explains the Fable limit; a full reset explains the 5-hour, weekly and model limits; a session reset only the 5-hour one. Android.
+
+### Changed
+
+- **Priority**: **Good news** is now **Recent activity**. In Liquid Glass each row reads what happened on the first line and the provider and when on the second. Android.
+- **Liquid Glass scrolls more smoothly.** Scrolling no longer rebuilds the dashboard (it used to read every provider's saved usage again each time the title moved into the bar or the tab bar shrank), and Settings pages are no longer rebuilt while you scroll them. Glassé is already at its newest version. Android.
+- The Claude Code **Reset credits** card's button reads **Choose a reset** and opens the reset screen. Android.
+
+### Fixed
+
+- **Liquid Glass home-screen widgets** no longer show a cut-off dark band under the glass: the launcher clipped Glassé's large drop shadow at the widget's edge. The glass now has a thin contact shadow that fits inside the widget. Android.
+- **Liquid Glass Priority**: a grey bar could show between two rows of a list when a row wrapped. The line between rows is now drawn as a hairline in the row itself. Android.
 
 ## 2.9.0-alpha.22 — 2026-11-10
 

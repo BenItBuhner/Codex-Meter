@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The check on the picked kind of saved reset (Claude Code reset screen). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?android:attr/colorAccent">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9.2,16.6 L4.9,12.3 L3.5,13.7 L9.2,19.4 L20.6,8 L19.2,6.6 Z" />
+</vector>

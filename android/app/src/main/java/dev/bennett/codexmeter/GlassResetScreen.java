@@ -9,10 +9,16 @@ import dev.bennett.codexmeter.glass.GlassModel.Section;
 import java.util.Collections;
 import java.util.List;
 
-/** Reset credits in Liquid Glass (ResetCreditActivity): what's available, when it expires, and using one. */
+/**
+ * Reset credits in Liquid Glass (ResetCreditActivity): what's available, when it expires, and using
+ * one. Claude Code lists its saved resets by kind (Full, Session, Weekly, Fable...) with what each
+ * refills, and the person picks which one to use.
+ */
 final class GlassResetScreen extends GlassScreens.Screen {
     private final UsageProvider provider;
     private boolean applying;
+    /** The kind of Claude Code reset picked ({@link ClaudeSavedResets.Choice#key}); null for the default. */
+    private String picked;
     private int notificationId = -1;
 
     GlassResetScreen(GlassScreens screens, UsageProvider provider) {
@@ -52,6 +58,9 @@ final class GlassResetScreen extends GlassScreens.Screen {
 
     @Override
     GlassModel.Page page() {
+        if (claude()) {
+            return claudePage();
+        }
         Context c = activity();
         GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "reset:" + provider.id,
                 provider.displayName + " reset");
@@ -130,6 +139,111 @@ final class GlassResetScreen extends GlassScreens.Screen {
         use.rows.add(button);
         page.sections.add(use);
         return page;
+    }
+
+    /** A tile per kind of reset: the same colors and marks the reset cards use. */
+    static String choiceIcon(ClaudeSavedResets.Choice choice) {
+        if (choice.modelOnly) return "starFill";
+        if (choice.clearsLabel.startsWith("5-hour and")) return "bolt";
+        if (choice.clearsLabel.startsWith("weekly")) return "calendar";
+        return "clock";
+    }
+
+    static String choiceColor(ClaudeSavedResets.Choice choice) {
+        if (choice.modelOnly) return "#d97757";
+        if (choice.clearsLabel.startsWith("5-hour and")) return "#007aff";
+        if (choice.clearsLabel.startsWith("weekly")) return "#5856d6";
+        return "#34c759";
+    }
+
+    /** "3 left · expires Tue, Mar 9 (in 119d 9h)" under a reset kind's name. */
+    static String choiceSummary(Context c, ClaudeSavedResets.Choice choice, long now) {
+        StringBuilder b = new StringBuilder(ResetCreditActivity.refillsShort(choice));
+        b.append('\n').append(choice.count).append(" left");
+        if (choice.nextExpiryMillis > 0L) {
+            b.append(" · ").append(choice.count == 1 ? "expires " : "next expires ")
+                    .append(UsageFormat.absolute(c, choice.nextExpiryMillis, now));
+        }
+        if (!choice.held.isEmpty()) {
+            b.append('\n').append(choice.held);
+        }
+        return b.toString();
+    }
+
+    /**
+     * Claude Code: one row per kind of saved reset, each saying what it refills, how many are left
+     * and when they expire; the picked one has a check, and the button names it.
+     */
+    private GlassModel.Page claudePage() {
+        Context c = activity();
+        long now = System.currentTimeMillis();
+        GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "reset:" + provider.id,
+                provider.displayName + " reset");
+        ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(c, provider);
+        List<ClaudeSavedResets.Choice> choices = saved == null
+                ? Collections.<ClaudeSavedResets.Choice>emptyList() : saved.choices(now);
+        ClaudeSavedResets.Choice choice = ClaudeSavedResets.choice(choices, picked);
+        int available = saved == null ? 0 : saved.availableCount(now);
+        long nextExpiry = saved == null ? 0L : saved.nextExpiryMillis(now);
+        page.intro = available <= 0 ? null
+                : (available == 1 ? "You have 1 saved reset. " : "You have " + available + " saved resets. ")
+                        + "Pick which kind to use: each refills different limits.";
+
+        Section pick = GlassScreens.section(available > 0 ? "Choose a reset" : "Saved resets");
+        if (choices.isEmpty()) {
+            pick.rows.add(GlassScreens.row(Row.Kind.INFO, "none", "No saved resets",
+                    "Anthropic gives these out from time to time. New ones show up here and on Priority."));
+        }
+        for (ClaudeSavedResets.Choice option : choices) {
+            Row row = GlassScreens.row(Row.Kind.RADIO, "choice:" + option.key, option.countedTitle(),
+                    choiceSummary(c, option, now));
+            row.icon = choiceIcon(option);
+            row.color = choiceColor(option);
+            row.checked = choice != null && option.key.equals(choice.key);
+            row.onPress = () -> {
+                picked = option.key;
+                changed();
+            };
+            pick.rows.add(row);
+        }
+        String auto = ResetCreditActivity.autoUseSummary(c, true, nextExpiry > 0L);
+        pick.footer = auto.isEmpty() ? null : auto;
+        page.sections.add(pick);
+
+        Section use = GlassScreens.section(null);
+        String label = applying ? "Applying…" : choice == null ? "No resets available"
+                : "Use a " + choice.title;
+        Row button = GlassScreens.row(Row.Kind.BUTTON, "use", label, null);
+        button.enabled = !applying && choice != null && choice.usableNow && signedIn();
+        button.onPress = () -> confirmClaude(choice);
+        use.rows.add(button);
+        if (choice != null && !choice.usableNow && !choice.held.isEmpty()) {
+            use.footer = choice.held + ".";
+        }
+        page.sections.add(use);
+        return page;
+    }
+
+    private void confirmClaude(ClaudeSavedResets.Choice choice) {
+        if (choice == null) {
+            return;
+        }
+        new AppDialog(activity())
+                .setTitle("Use a " + choice.title + "?")
+                .setMessage(choice.refills + " This can't be undone.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Use " + choice.title, (dialog, which) -> consumeClaude(choice.grantId))
+                .show();
+    }
+
+    private void consumeClaude(String grantId) {
+        Context app = activity().getApplicationContext();
+        applying = true;
+        changed();
+        screens.executor.execute(() -> {
+            ClaudeSavedResets.ClaimResult result = ClaudeResetApi.use(app, grantId, "reset_screen");
+            activity().runOnUiThread(() -> done(result.userMessage(), result.applied()));
+        });
     }
 
     private void refreshIfNeeded() {

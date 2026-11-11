@@ -241,8 +241,15 @@ final class ExpressiveDashboard {
                 break;
             case STATS:
                 header(body, c.title, null);
-                for (String[] row : c.stats) {
-                    body.addView(statRow(row[0], row.length > 1 ? row[1] : ""));
+                for (int i = 0; i < c.stats.size(); i++) {
+                    String[] row = c.stats.get(i);
+                    View statRow = statRow(row[0], row.length > 1 ? row[1] : "");
+                    Runnable dismiss = i < c.statDismiss.size() ? c.statDismiss.get(i) : null;
+                    if (dismiss != null) {
+                        statRow.setPadding(0, Ui.dp(this.activity, 8), 0, Ui.dp(this.activity, 8));
+                        SwipeDismiss.attach(statRow, dismiss, c.dismissAll);
+                    }
+                    body.addView(statRow);
                 }
                 line(body, c.summary, R.attr.textAppearanceBodyMedium,
                         R.attr.colorOnSurfaceVariant, 12);

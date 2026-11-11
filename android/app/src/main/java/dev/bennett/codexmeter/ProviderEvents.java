@@ -10,9 +10,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Good news about a provider's limits, worked out by comparing one refresh with the one before:
- * a limit that refilled before its scheduled reset, and newly saved resets or reset credits. Kept
- * free of Android so the rules can be tested. {@link ProviderAlerts} turns each event into a
+ * Recent activity on a provider's limits, worked out by comparing one refresh with the one before:
+ * a limit that refilled before its scheduled reset, newly saved resets or reset credits, and a
+ * saved reset that was used (in this app, in Claude Code or on claude.ai). A refill that a used
+ * reset explains is put down to that reset, not called a surprise. Kept free of Android so the
+ * rules can be tested. {@link ProviderAlerts} turns each event into a
  * notification and keeps the recent ones for the Priority tab.
  */
 final class ProviderEvents {
@@ -20,6 +22,9 @@ final class ProviderEvents {
 
     static final String SURPRISE_REFILL = "surprise_refill";
     static final String NEW_RESETS = "new_resets";
+    static final String RESET_USED = "reset_used";
+    /** How long after a saved reset is used a refill is still put down to it. */
+    static final long USE_EXPLAINS_MS = 6L * 60L * 60L * 1000L;
     /** How long an event stays on the Priority tab. */
     static final long KEEP_MS = 24L * 60L * 60L * 1000L;
     static final int MAX_KEPT = 12;
@@ -33,27 +38,98 @@ final class ProviderEvents {
         final String title;
         final String detail;
         final long at;
+        /** The limits it is about ("Weekly", "Fable only"), for a surprise refill; else empty. */
+        final List<String> labels;
 
         Event(String kind, String provider, String line, String title, String detail, long at) {
+            this(kind, provider, line, title, detail, at, null);
+        }
+
+        Event(String kind, String provider, String line, String title, String detail, long at, List<String> labels) {
             this.kind = kind == null ? "" : kind;
             this.provider = provider == null ? "" : provider;
             this.line = line == null ? "" : line;
             this.title = title == null ? "" : title;
             this.detail = detail == null ? "" : detail;
             this.at = at;
+            this.labels = labels == null ? new ArrayList<String>() : new ArrayList<>(labels);
+        }
+
+        /** Names this event among the kept ones, so the person can dismiss it. */
+        String key() {
+            return kind + "|" + provider + "|" + at + "|" + line;
         }
 
         JSONObject toJson() throws JSONException {
             return new JSONObject().put("kind", kind).put("provider", provider).put("line", line)
                     .put("title", title)
-                    .put("detail", detail).put("at", at);
+                    .put("detail", detail).put("at", at).put("labels", new JSONArray(labels));
         }
 
         static Event fromJson(JSONObject o) {
             if (o == null || o.optString("title", "").isEmpty()) return null;
+            List<String> labels = new ArrayList<>();
+            JSONArray array = o.optJSONArray("labels");
+            for (int i = 0; array != null && i < array.length(); i++) {
+                String label = array.optString(i, "");
+                if (!label.isEmpty()) labels.add(label);
+            }
             return new Event(o.optString("kind", ""), o.optString("provider", ""), o.optString("line", ""),
                     o.optString("title", ""),
-                    o.optString("detail", ""), o.optLong("at", 0L));
+                    o.optString("detail", ""), o.optLong("at", 0L), labels);
+        }
+    }
+
+    /**
+     * One saved reset that was used: what it was called ("Fable reset"), the one model it covers
+     * ("Fable", or empty for every model), and which of the all-models limits it refills.
+     */
+    static final class Use {
+        final String title;
+        final String scope;
+        final boolean fiveHour;
+        final boolean weekly;
+        final String clearsLabel;
+        final long at;
+
+        Use(String title, String scope, boolean fiveHour, boolean weekly, String clearsLabel, long at) {
+            this.title = title == null ? "" : title;
+            this.scope = scope == null ? "" : scope.trim();
+            this.fiveHour = fiveHour;
+            this.weekly = weekly;
+            this.clearsLabel = clearsLabel == null ? "" : clearsLabel;
+            this.at = at;
+        }
+
+        static Use of(ClaudeSavedResets.Grant grant, long at) {
+            return new Use(grant.title(), grant.scope, grant.clearsFiveHour(), grant.clearsWeekly(),
+                    grant.clearsLabel(), at);
+        }
+
+        /**
+         * Whether this reset refills the limit a refill row names: "5-hour" (or the provider's own
+         * short cadence), "Weekly", "Monthly", or a model limit such as "Fable only". A reset for
+         * one model covers only the limit named for it; an all-models weekly or full reset covers
+         * the weekly limits, the model ones included.
+         */
+        boolean covers(String label, boolean fiveHourLabel) {
+            if (label == null || label.isEmpty()) return false;
+            if (!scope.isEmpty()) {
+                return label.toLowerCase(Locale.ROOT).contains(scope.toLowerCase(Locale.ROOT));
+            }
+            if (fiveHourLabel) return fiveHour;
+            return weekly;
+        }
+
+        JSONObject toJson() throws JSONException {
+            return new JSONObject().put("title", title).put("scope", scope).put("five_hour", fiveHour)
+                    .put("weekly", weekly).put("clears", clearsLabel).put("at", at);
+        }
+
+        static Use fromJson(JSONObject o) {
+            if (o == null) return null;
+            return new Use(o.optString("title", ""), o.optString("scope", ""), o.optBoolean("five_hour", false),
+                    o.optBoolean("weekly", false), o.optString("clears", ""), o.optLong("at", 0L));
         }
     }
 
@@ -85,6 +161,92 @@ final class ProviderEvents {
         return out;
     }
 
+    /**
+     * True for the 5-hour row of {@link #refilledEarly}: the provider's short cadence label, which
+     * is always listed first.
+     */
+    static boolean isFiveHourLabel(List<String> labels, int index, String shortLabel) {
+        String five = shortLabel == null || shortLabel.isEmpty() ? "5-hour" : shortLabel;
+        return index == 0 && five.equals(labels.get(0));
+    }
+
+    /**
+     * Splits {@code labels} (from {@link #refilledEarly}) into the ones a saved reset used in the
+     * last {@link #USE_EXPLAINS_MS} explains and the rest. Returns the explained ones; {@code rest}
+     * receives the others. {@code explainedBy} receives the first reset that explains each.
+     */
+    static List<String> explainedByUses(List<String> labels, String shortLabel, List<Use> uses, long now,
+            List<String> rest, List<Use> explainedBy) {
+        List<String> explained = new ArrayList<>();
+        for (int i = 0; labels != null && i < labels.size(); i++) {
+            String label = labels.get(i);
+            boolean five = isFiveHourLabel(labels, i, shortLabel);
+            Use by = null;
+            for (Use u : uses == null ? new ArrayList<Use>() : uses) {
+                if (u != null && u.at <= now + 60_000L && now - u.at <= USE_EXPLAINS_MS && u.covers(label, five)) {
+                    by = u;
+                    break;
+                }
+            }
+            if (by != null) {
+                explained.add(label);
+                if (explainedBy != null && !explainedBy.contains(by)) explainedBy.add(by);
+            } else if (rest != null) {
+                rest.add(label);
+            }
+        }
+        return explained;
+    }
+
+    /**
+     * Saved resets used since the last list: a grant that holds fewer resets than before, or one
+     * that is gone before it expired while the person can still be offered resets. A grant that
+     * expired, or a list that came back without the program, says nothing.
+     */
+    static List<Use> usedSavedResets(ClaudeSavedResets previous, ClaudeSavedResets current, long now) {
+        List<Use> out = new ArrayList<>();
+        if (previous == null || current == null) return out;
+        for (ClaudeSavedResets.Grant old : previous.grants) {
+            if (!old.hasResets(now)) continue;
+            ClaudeSavedResets.Grant still = null;
+            for (ClaudeSavedResets.Grant g : current.grants) {
+                if (g.id.equals(old.id)) still = g;
+            }
+            int fewer;
+            if (still != null) {
+                fewer = old.resetsLeft - still.resetsLeft;
+            } else {
+                fewer = current.eligible && (old.endsAtMillis <= 0L || old.endsAtMillis > now + 60_000L)
+                        ? old.resetsLeft : 0;
+            }
+            for (int i = 0; i < fewer; i++) out.add(Use.of(old, now));
+        }
+        return out;
+    }
+
+    /**
+     * "Fable reset used" for the Priority tab. {@code refilled} are the limits seen refilling
+     * after it, or empty when none were seen yet. Null when nothing was used.
+     */
+    static Event resetUsed(UsageProvider provider, List<Use> uses, List<String> refilled, long at) {
+        if (provider == null || uses == null || uses.isEmpty()) return null;
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (Use u : uses) {
+            Integer had = counts.get(u.title);
+            counts.put(u.title, (had == null ? 0 : had) + 1);
+        }
+        String what = ClaudeSavedResets.countsLabel(counts);
+        if (uses.size() == 1) what = uses.get(0).title;
+        String line = what + " used" + (refilled == null || refilled.isEmpty() ? ""
+                : " · " + join(refilled) + " refilled");
+        Use first = uses.get(0);
+        String detail = uses.size() == 1 && !first.clearsLabel.isEmpty()
+                ? "It refills your " + first.clearsLabel + (first.scope.isEmpty() ? "." : " only.")
+                : "";
+        return new Event(RESET_USED, provider.id, line, provider.displayName + ": " + what + " used", detail, at,
+                refilled);
+    }
+
     /** Null when nothing refilled early. */
     static Event surpriseRefill(UsageProvider provider, List<String> labels, long at) {
         if (provider == null || labels == null || labels.isEmpty()) return null;
@@ -97,7 +259,7 @@ final class ProviderEvents {
             detail = "Your " + join(names) + " limits jumped back to 100% before their scheduled resets.";
         }
         return new Event(SURPRISE_REFILL, provider.id, join(labels) + " refilled early",
-                "Surprise " + provider.displayName + " refill", detail, at);
+                "Surprise " + provider.displayName + " refill", detail, at, labels);
     }
 
     /** "Fable only" stays as it is; "Weekly" reads "weekly". */
@@ -164,6 +326,61 @@ final class ProviderEvents {
         if (event != null) out.add(event);
         if (events != null) out.addAll(events);
         return recent(out, now);
+    }
+
+    /** {@code events} without the one {@link Event#key} names. */
+    static List<Event> without(List<Event> events, String key) {
+        List<Event> out = new ArrayList<>();
+        if (events == null) return out;
+        for (Event e : events) {
+            if (e != null && !e.key().equals(key)) out.add(e);
+        }
+        return out;
+    }
+
+    /**
+     * After a saved reset turns out to have been used, the provider's recent surprise refills it
+     * explains are folded into it: explained limits leave the surprise (which goes when none are
+     * left) and are listed on the returned use event. {@code useEvent} is the new "reset used"
+     * event; the result holds it, updated, plus everything else.
+     */
+    static List<Event> explainEarlierRefills(List<Event> events, Event useEvent, List<Use> uses, long now) {
+        List<Event> out = new ArrayList<>();
+        if (useEvent == null) {
+            if (events != null) out.addAll(events);
+            return out;
+        }
+        List<String> refilled = new ArrayList<>(useEvent.labels);
+        for (Event e : events == null ? new ArrayList<Event>() : events) {
+            if (e == null) continue;
+            boolean candidate = SURPRISE_REFILL.equals(e.kind) && e.provider.equals(useEvent.provider)
+                    && !e.labels.isEmpty() && now - e.at <= USE_EXPLAINS_MS && e.at <= now + 60_000L;
+            if (!candidate) {
+                out.add(e);
+                continue;
+            }
+            List<String> rest = new ArrayList<>();
+            // Earlier refills: the reset was used before the refresh that found them, so any time within
+            // the window counts.
+            List<Use> anyTime = new ArrayList<>();
+            for (Use u : uses) anyTime.add(new Use(u.title, u.scope, u.fiveHour, u.weekly, u.clearsLabel, e.at));
+            List<String> explained = explainedByUses(e.labels, "", anyTime, e.at, rest, null);
+            if (explained.isEmpty()) {
+                out.add(e);
+                continue;
+            }
+            for (String label : explained) {
+                if (!refilled.contains(label)) refilled.add(label);
+            }
+            if (!rest.isEmpty()) {
+                Event left = surpriseRefill(UsageProvider.fromId(e.provider), rest, e.at);
+                if (left != null) out.add(left);
+            }
+        }
+        UsageProvider p = UsageProvider.fromId(useEvent.provider);
+        Event merged = p == null ? useEvent : resetUsed(p, uses, refilled, useEvent.at);
+        out.add(0, merged == null ? useEvent : merged);
+        return out;
     }
 
     /** The events from the last {@link #KEEP_MS}, newest first. */

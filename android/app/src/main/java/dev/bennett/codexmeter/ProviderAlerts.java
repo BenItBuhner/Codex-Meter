@@ -6,9 +6,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Surprise refills and newly saved resets for every provider, not only Codex: each refresh is
- * compared with the one before ({@link ProviderEvents}), and what it finds is sent as a
- * notification and kept for a day for the Priority tab.
+ * Surprise refills, newly saved resets and used resets for every provider, not only Codex: each
+ * refresh is compared with the one before ({@link ProviderEvents}), and what it finds is sent as a
+ * notification and kept for a day for the Priority tab, until the person dismisses it there.
+ *
+ * <p>A saved reset that was used (here, in Claude Code or on claude.ai) is remembered for a few
+ * hours, so the refill it causes reads "Fable reset used · Fable only refilled" instead of a
+ * surprise.
  *
  * <p>The notifications follow Settings, Notifications: "Surprise limit refills" and "New reset
  * credits". The Priority tab shows the events either way.
@@ -22,6 +26,7 @@ final class ProviderAlerts {
     private static final String SUFFIX_RESETS_SEEN = ".saved_resets_seen";
     private static final String SUFFIX_RESETS_LAST = ".saved_resets_last";
     private static final String SUFFIX_USER_RESET_UNTIL = ".user_reset_until";
+    private static final String SUFFIX_USES = ".saved_resets_used";
     /** After the person spends a reset, a full limit is their doing, not a surprise. */
     private static final long USER_RESET_QUIET_MS = 15L * 60L * 1000L;
     private static final Object LOCK = new Object();
@@ -37,8 +42,17 @@ final class ProviderAlerts {
             }
             String shortLabel = provider == UsageProvider.CODEX || current.fiveHour == null ? "5-hour"
                     : MainActivity.cadenceLabel(current.fiveHour);
-            ProviderEvents.Event event = ProviderEvents.surpriseRefill(provider,
-                    ProviderEvents.refilledEarly(previous, current, shortLabel), current.fetchedAtMillis);
+            List<String> labels = ProviderEvents.refilledEarly(previous, current, shortLabel);
+            if (labels.isEmpty()) return;
+            List<String> rest = new java.util.ArrayList<>();
+            List<ProviderEvents.Use> by = new java.util.ArrayList<>();
+            List<String> explained = ProviderEvents.explainedByUses(labels, shortLabel, uses(app, provider),
+                    current.fetchedAtMillis, rest, by);
+            if (!explained.isEmpty()) {
+                // A reset the person used refilled these: say so on the use, and send nothing.
+                attachRefills(app, provider, by, explained, current.fetchedAtMillis);
+            }
+            ProviderEvents.Event event = ProviderEvents.surpriseRefill(provider, rest, current.fetchedAtMillis);
             if (event == null) return;
             remember(app, event);
             if (ResetAlertPreferences.unexpectedRefillsEnabled(app)) {
@@ -105,6 +119,8 @@ final class ProviderAlerts {
             editor.apply();
             if (!known) return;
             long now = System.currentTimeMillis();
+            List<ProviderEvents.Use> used = ProviderEvents.usedSavedResets(previous, current, now);
+            if (!used.isEmpty()) onResetsUsed(app, provider, used, now);
             Map<String, Integer> added = ProviderEvents.addedSavedResets(previous, current, now);
             if (added.isEmpty()) return;
             long expiry = current.nextExpiryMillis(now);
@@ -118,6 +134,100 @@ final class ProviderAlerts {
         } catch (RuntimeException e) {
             DiagnosticLog.error(app, "notifications", "provider_new_resets_alert_failed", e);
         }
+    }
+
+    /**
+     * Saved resets were used: remember them for {@link ProviderEvents#USE_EXPLAINS_MS}, list the
+     * use on Priority, and fold in any surprise refill they already explain.
+     */
+    private static void onResetsUsed(Context app, UsageProvider provider, List<ProviderEvents.Use> used, long now) {
+        synchronized (LOCK) {
+            SharedPreferences s = state(app);
+            List<ProviderEvents.Use> all = new java.util.ArrayList<>(used);
+            all.addAll(uses(app, provider));
+            org.json.JSONArray array = new org.json.JSONArray();
+            for (ProviderEvents.Use u : all) {
+                if (now - u.at > ProviderEvents.USE_EXPLAINS_MS) continue;
+                try {
+                    array.put(u.toJson());
+                } catch (org.json.JSONException ignored) {
+                    // Only non-finite numbers throw; there are none.
+                }
+            }
+            ProviderEvents.Event event = ProviderEvents.resetUsed(provider, used, null, now);
+            List<ProviderEvents.Event> events = ProviderEvents.explainEarlierRefills(
+                    ProviderEvents.fromJson(s.getString(KEY_EVENTS, "")), event, used, now);
+            s.edit().putString(provider.id + SUFFIX_USES, array.toString())
+                    .putString(KEY_EVENTS, ProviderEvents.toJson(ProviderEvents.recent(events, now))).apply();
+        }
+        DiagnosticLog.info(app, "notifications", "provider_reset_used", "provider", provider.id, "count", used.size());
+    }
+
+    /** Adds refilled limits to the newest "reset used" event of the provider. */
+    private static void attachRefills(Context app, UsageProvider provider, List<ProviderEvents.Use> by,
+            List<String> refilled, long at) {
+        synchronized (LOCK) {
+            SharedPreferences s = state(app);
+            List<ProviderEvents.Event> events = ProviderEvents.fromJson(s.getString(KEY_EVENTS, ""));
+            List<ProviderEvents.Event> out = new java.util.ArrayList<>();
+            boolean done = false;
+            for (ProviderEvents.Event e : ProviderEvents.recent(events, at)) {
+                if (!done && ProviderEvents.RESET_USED.equals(e.kind) && provider.id.equals(e.provider)) {
+                    List<String> labels = new java.util.ArrayList<>(e.labels);
+                    for (String label : refilled) {
+                        if (!labels.contains(label)) labels.add(label);
+                    }
+                    ProviderEvents.Event merged = ProviderEvents.resetUsed(provider, by, labels, e.at);
+                    out.add(merged != null ? merged : e);
+                    done = true;
+                } else {
+                    out.add(e);
+                }
+            }
+            if (!done) {
+                ProviderEvents.Event e = ProviderEvents.resetUsed(provider, by, refilled, at);
+                if (e != null) out.add(0, e);
+            }
+            s.edit().putString(KEY_EVENTS, ProviderEvents.toJson(ProviderEvents.recent(out, at))).apply();
+        }
+    }
+
+    /** Saved resets used in the last few hours, newest first. */
+    static List<ProviderEvents.Use> uses(Context context, UsageProvider provider) {
+        List<ProviderEvents.Use> out = new java.util.ArrayList<>();
+        try {
+            org.json.JSONArray array = new org.json.JSONArray(
+                    state(app(context)).getString(provider.id + SUFFIX_USES, "[]"));
+            for (int i = 0; i < array.length(); i++) {
+                ProviderEvents.Use u = ProviderEvents.Use.fromJson(array.optJSONObject(i));
+                if (u != null) out.add(u);
+            }
+        } catch (org.json.JSONException ignored) {
+            // Nothing readable is nothing remembered.
+        }
+        return out;
+    }
+
+    /** Removes one event from Priority for good: the person dismissed it. */
+    static void dismiss(Context context, String key) {
+        if (context == null || key == null) return;
+        Context app = app(context);
+        synchronized (LOCK) {
+            SharedPreferences s = state(app);
+            s.edit().putString(KEY_EVENTS, ProviderEvents.toJson(ProviderEvents.without(
+                    ProviderEvents.fromJson(s.getString(KEY_EVENTS, "")), key))).apply();
+        }
+        DiagnosticLog.info(app, "user", "priority_event_dismissed");
+    }
+
+    /** Removes every kept event from Priority. */
+    static void dismissAll(Context context) {
+        if (context == null) return;
+        Context app = app(context);
+        synchronized (LOCK) {
+            state(app).edit().putString(KEY_EVENTS, "[]").apply();
+        }
+        DiagnosticLog.info(app, "user", "priority_events_dismissed_all");
     }
 
     /** The person just spent a reset on this provider. */
@@ -145,7 +255,7 @@ final class ProviderAlerts {
             }
             SharedPreferences.Editor editor = state(app).edit().putString(KEY_EVENTS, ProviderEvents.toJson(kept))
                     .remove(provider.id + SUFFIX_RESETS_SEEN).remove(provider.id + SUFFIX_RESETS_LAST)
-                    .remove(provider.id + SUFFIX_USER_RESET_UNTIL);
+                    .remove(provider.id + SUFFIX_USER_RESET_UNTIL).remove(provider.id + SUFFIX_USES);
             if (provider == UsageProvider.CODEX) editor.remove(KEY_CODEX_CREDITS);
             editor.apply();
         }
