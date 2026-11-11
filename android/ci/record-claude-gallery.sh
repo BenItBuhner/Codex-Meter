@@ -25,8 +25,12 @@ shot() {
 open_claude() {
   adb shell am force-stop "$PKG"
   adb shell input keyevent KEYCODE_WAKEUP
+  # adb shell joins its arguments into one string, so an empty value would vanish and leave
+  # "--es claude_open" without an argument: only pass the extra when there is a page to open.
+  local open_args=""
+  if [ -n "${3:-}" ]; then open_args="--es claude_open $3"; fi
   adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es claude_scenario "$1" \
-    --es design "${2:-classic}" --es claude_open "${3:-}" >/dev/null
+    --es design "${2:-classic}" $open_args >/dev/null
 }
 
 W=$(adb shell wm size | grep -o '[0-9]*x[0-9]*' | tail -1 | cut -dx -f1)
