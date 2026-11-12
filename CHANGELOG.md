@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.0-alpha.24 — 2026-11-12
+
+### Fixed
+
+- **The live monitor starts for Claude Code and every other provider, not only Codex.** Turning on **Live monitor** with no Codex account always said "Refresh your signed-in usage before starting the monitor", because it only ever looked at Codex usage. It now follows Codex when Codex has limits to show, otherwise the dashboard tab you have open, otherwise your first signed-in provider that does, and the notification shows that provider's name and icon. **When allowance is low** and **When usage is fast** work the same way, so they start the monitor for Claude Code-only accounts too. If no account has limits yet, the message says so. Android.
+
 ## 2.9.0-alpha.23 — 2026-11-11
 
 ### Added

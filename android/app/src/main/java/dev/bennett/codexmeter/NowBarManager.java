@@ -77,10 +77,11 @@ public final class NowBarManager {
     private static boolean startInternal(Context context, String reason, String triggerFocus,
             long requestedUntil) {
         DiagnosticLog.info(context, "now_bar", "start_requested", "reason", reason);
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-        if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
+        UsageProvider provider = monitorProvider(context);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(context, provider);
+        if (!hasWindows(snapshot)) {
             DiagnosticLog.warn(context, "now_bar", "start_rejected",
-                    "reason", "missing_usage");
+                    "reason", "missing_usage", "provider", provider.id);
             return false;
         }
         long now = System.currentTimeMillis();
@@ -102,9 +103,14 @@ public final class NowBarManager {
                                 snapshot.fetchedAtMillis, now))
                 : null;
         saveState(context, false, until, focus, true, autoTrigger, reason);
+        state(context).edit()
+                .putString(KEY_APP_PROVIDER, provider.id)
+                .remove(KEY_APP_PACKAGE)
+                .apply();
         if (post(context, snapshot, until, false)) {
             DiagnosticLog.info(context, "now_bar", "started",
                     "reason", reason,
+                    "provider", provider.id,
                     "focus", focus,
                     "until", until);
             PhoneWearSync.pushSettings(context);
@@ -133,51 +139,75 @@ public final class NowBarManager {
         return false;
     }
 
+    /** Codex usage refreshed. */
     public static synchronized void onUsageUpdated(Context context, UsageSnapshot snapshot) {
-        if (isPreview(context)) return;
+        onProviderUsageUpdated(context, UsageProvider.CODEX, snapshot);
+    }
+
+    /**
+     * {@code provider}'s usage refreshed: keeps a monitor showing that provider current, or
+     * checks the auto-start triggers when it is the provider the monitor would follow.
+     */
+    public static synchronized void onProviderUsageUpdated(Context context,
+            UsageProvider provider, UsageSnapshot snapshot) {
+        if (context == null || provider == null || isPreview(context)) return;
         if (isAppSession(context)) {
-            onProviderUsageUpdated(context, UsageProvider.CODEX, snapshot);
+            if (activeProvider(context) == provider) updateAppSession(context, snapshot);
             return;
         }
         if (hasStoredActiveState(context)) {
-            if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
-                stop(context, false);
-                return;
-            }
-            long now = System.currentTimeMillis();
-            if (START_ACCELERATED.equals(sessionStartReason(context))) {
-                int acceleratedWindow = acceleratedWindow(context, snapshot, now);
-                if (acceleratedWindow == UsagePace.WINDOW_NONE) {
-                    stop(context, false);
-                    maybeAutoStart(context, snapshot);
-                    return;
-                }
-                String focus = focusForPaceWindow(acceleratedWindow);
-                long acceleratedUntil = acceleratedUntil(context, snapshot, focus, now);
-                if (acceleratedUntil <= now) {
-                    stop(context, false);
-                    maybeAutoStart(context, snapshot);
-                    return;
-                }
-                saveState(context, false, acceleratedUntil, focus, true, focus,
-                        START_ACCELERATED);
-            }
-            long until = activeUntil(context);
-            if (until <= now) {
-                stop(context, false);
-                return;
-            }
-            if (!post(context, snapshot, until, false)) stop(context, false);
+            if (activeProvider(context) == provider) updateMonitor(context, snapshot);
             return;
         }
-        maybeAutoStart(context, snapshot);
+        if (monitorProvider(context) == provider) maybeAutoStart(context, provider, snapshot);
+    }
+
+    private static void updateMonitor(Context context, UsageSnapshot snapshot) {
+        if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
+            stop(context, false);
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (START_ACCELERATED.equals(sessionStartReason(context))) {
+            int acceleratedWindow = acceleratedWindow(context, snapshot, now);
+            if (acceleratedWindow == UsagePace.WINDOW_NONE) {
+                stop(context, false);
+                maybeAutoStart(context);
+                return;
+            }
+            String focus = focusForPaceWindow(acceleratedWindow);
+            long acceleratedUntil = acceleratedUntil(context, activeProvider(context), snapshot,
+                    focus, now);
+            if (acceleratedUntil <= now) {
+                stop(context, false);
+                maybeAutoStart(context);
+                return;
+            }
+            saveState(context, false, acceleratedUntil, focus, true, focus,
+                    START_ACCELERATED);
+        }
+        long until = activeUntil(context);
+        if (until <= now) {
+            stop(context, false);
+            return;
+        }
+        if (!post(context, snapshot, until, false)) stop(context, false);
+    }
+
+    /** Checks the auto-start triggers against the {@link #monitorProvider}'s saved usage. */
+    public static synchronized boolean maybeAutoStart(Context context) {
+        if (context == null) return false;
+        UsageProvider provider = monitorProvider(context);
+        return maybeAutoStart(context, provider,
+                ProviderPreferences.loadSnapshot(context, provider));
     }
 
     /**
      * Starts the live monitor when auto-start is enabled, notifications are allowed,
      * the user has not dismissed the current window, and remaining usage meets the threshold.
      */
-    public static synchronized boolean maybeAutoStart(Context context, UsageSnapshot snapshot) {
+    private static boolean maybeAutoStart(Context context, UsageProvider provider,
+            UsageSnapshot snapshot) {
         if (context == null || isActive(context) || isPreview(context)) return false;
         boolean lowEnabled = NowBarPreferences.isAutoStartEnabled(context);
         boolean paceEnabled = UsagePacePreferences.areWarningsEnabled(context)
@@ -192,7 +222,7 @@ public final class NowBarManager {
         int acceleratedWindow = acceleratedWindow(context, snapshot, now);
         if (!paceEnabled || acceleratedWindow == UsagePace.WINDOW_NONE) return false;
         String focus = focusForPaceWindow(acceleratedWindow);
-        long until = acceleratedUntil(context, snapshot, focus, now);
+        long until = acceleratedUntil(context, provider, snapshot, focus, now);
         return until > now && startInternal(context, START_ACCELERATED, focus, until);
     }
 
@@ -243,15 +273,11 @@ public final class NowBarManager {
         if (context == null || !isAppSession(context)) return;
         DiagnosticLog.info(context, "app_session", "ended");
         stop(context, false);
-        maybeAutoStart(context, AppPreferences.loadSnapshot(context));
+        maybeAutoStart(context);
     }
 
     /** Keeps an app session current when its provider's usage refreshes. */
-    public static synchronized void onProviderUsageUpdated(Context context,
-            UsageProvider provider, UsageSnapshot snapshot) {
-        if (context == null || !isAppSession(context) || activeProvider(context) != provider) {
-            return;
-        }
+    private static void updateAppSession(Context context, UsageSnapshot snapshot) {
         if (!hasWindows(snapshot)) {
             stop(context, false);
             return;
@@ -272,10 +298,33 @@ public final class NowBarManager {
         return hasStoredActiveState(context) && START_APP.equals(sessionStartReason(context));
     }
 
-    /** The provider the monitor shows: Codex unless an app session picked another. */
+    /**
+     * The provider the monitor shows: the one it started with. Monitors saved before the
+     * provider was recorded showed Codex.
+     */
     public static UsageProvider activeProvider(Context context) {
-        if (!START_APP.equals(sessionStartReason(context))) return UsageProvider.CODEX;
-        return UsageProvider.fromId(state(context).getString(KEY_APP_PROVIDER, null));
+        String id = state(context).getString(KEY_APP_PROVIDER, null);
+        return id == null ? UsageProvider.CODEX : UsageProvider.fromId(id);
+    }
+
+    /**
+     * The provider a manual, low-allowance, or fast-usage monitor follows: Codex when it is
+     * signed in with limits to show, otherwise the selected dashboard tab, otherwise the first
+     * signed-in provider (in tab order) that has limits. Codex when nothing has any yet.
+     */
+    public static UsageProvider monitorProvider(Context context) {
+        if (canMonitor(context, UsageProvider.CODEX)) return UsageProvider.CODEX;
+        UsageProvider selected = ProviderPreferences.getSelected(context);
+        if (canMonitor(context, selected)) return selected;
+        for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
+            if (canMonitor(context, provider)) return provider;
+        }
+        return UsageProvider.CODEX;
+    }
+
+    private static boolean canMonitor(Context context, UsageProvider provider) {
+        return provider != null && ProviderAccounts.isSignedIn(context, provider)
+                && hasWindows(ProviderPreferences.loadSnapshot(context, provider));
     }
 
     private static UsageSnapshot loadActiveSnapshot(Context context) {
@@ -293,13 +342,13 @@ public final class NowBarManager {
     }
 
     public static synchronized void onPaceSettingsChanged(Context context) {
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
         if (START_ACCELERATED.equals(sessionStartReason(context))) {
-            onUsageUpdated(context, snapshot);
+            onProviderUsageUpdated(context, activeProvider(context),
+                    loadActiveSnapshot(context));
         } else if (hasStoredActiveState(context)) {
             repostActive(context);
         } else {
-            maybeAutoStart(context, snapshot);
+            maybeAutoStart(context);
         }
     }
 
@@ -316,11 +365,11 @@ public final class NowBarManager {
                 if (!startPreviewWithEnd(context, until)) stop(context, false);
                 else return;
             } else {
-                UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-                if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
+                UsageSnapshot snapshot = loadActiveSnapshot(context);
+                if (!hasWindows(snapshot)) {
                     stop(context, false);
                 } else if (START_ACCELERATED.equals(sessionStartReason(context))) {
-                    onUsageUpdated(context, snapshot);
+                    onProviderUsageUpdated(context, activeProvider(context), snapshot);
                     if (isActive(context)) return;
                 } else if (!post(context, snapshot, until, false)) {
                     stop(context, false);
@@ -329,7 +378,7 @@ public final class NowBarManager {
                 }
             }
         }
-        maybeAutoStart(context, AppPreferences.loadSnapshot(context));
+        maybeAutoStart(context);
     }
 
     public static synchronized boolean repostActive(Context context) {
@@ -824,7 +873,7 @@ public final class NowBarManager {
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                 "Codex live monitor", NotificationManager.IMPORTANCE_DEFAULT);
         channel.setDescription(
-                "Codex allowance monitor that ends at the next reset; may start from Settings or when remaining usage hits your threshold");
+                "Usage monitor that ends at the next reset; may start from Settings or when remaining usage hits your threshold");
         channel.setSound(null, null);
         channel.enableVibration(false);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
@@ -885,15 +934,15 @@ public final class NowBarManager {
                 ? NowBarPercentMode.WEEKLY : NowBarPercentMode.FIVE_HOUR;
     }
 
-    private static long acceleratedUntil(Context context, UsageSnapshot snapshot, String focus,
-            long now) {
+    private static long acceleratedUntil(Context context, UsageProvider provider,
+            UsageSnapshot snapshot, String focus, long now) {
         if (snapshot == null) return 0L;
         UsageWindow window = NowBarPercentMode.selectWindow(focus,
                 UsageSnapshot.currentWindow(snapshot.fiveHour, snapshot.fetchedAtMillis, now),
                 UsageSnapshot.currentWindow(snapshot.longWindow(), snapshot.fetchedAtMillis,
                         now));
         UsagePace.Assessment assessment = UsagePacePreferences.assess(
-                context, snapshot, window, now);
+                context, provider, snapshot, window, now);
         return assessment.accelerated ? assessment.resetAtMillis : 0L;
     }
 
