@@ -346,8 +346,11 @@ public final class CodexGlass {
             List<RailButton> railButtons = new ArrayList<>();
             for (GlassSource.MenuEntry entry : src.menu()) {
                 if (entry != null) {
-                    railButtons.add(new RailButton("gearshape".equals(entry.icon) ? LEAD : "b:" + entry.icon,
-                            entry.icon, entry.onSelect, false));
+                    boolean lead = "gearshape".equals(entry.icon);
+                    // Settings leads the column, in Back's place: opening it swaps the symbol where it stands
+                    // and the other buttons merge up into it, so no glass has to travel
+                    railButtons.add(lead ? 0 : railButtons.size(),
+                            new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon, entry.onSelect, false));
                 }
             }
             if (shared) {
