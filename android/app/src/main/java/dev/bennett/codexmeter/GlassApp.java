@@ -142,6 +142,7 @@ final class GlassApp implements GlassSource {
 
     void start(Bundle state) {
         glasse.start(true);
+        CodexGlass.attach(glasse.getHost());
         // The settings pages' own fragments live here, out of sight: their preferences are the model.
         FrameLayout fragments = new FrameLayout(activity);
         fragments.setId(R.id.glass_fragments);

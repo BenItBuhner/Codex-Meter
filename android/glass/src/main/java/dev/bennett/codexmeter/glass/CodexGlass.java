@@ -37,6 +37,10 @@ import static com.benitbuhner.glasse.kit.Adaptive.DuoRail;
 import static com.benitbuhner.glasse.kit.Adaptive.Inset;
 
 import com.benitbuhner.glasse.kit.AlertAction;
+import com.benitbuhner.glasse.ui.Haptic;
+import com.benitbuhner.glasse.ui.Host;
+import com.benitbuhner.glasse.ui.RailButton;
+import com.benitbuhner.glasse.ui.TabView;
 import com.benitbuhner.glasse.kit.Comp;
 import com.benitbuhner.glasse.kit.El;
 import com.benitbuhner.glasse.kit.KTheme;
@@ -135,11 +139,33 @@ public final class CodexGlass {
 
     /** A rail tab's height, and the gap between the column's buttons (Glassé's DuoRail). */
     static final double RAIL_TAB = 54;
-    private static final double RAIL_GAP = 10;
 
-    /** How tall {@code buttons} glass buttons stand in the column. */
+    /** How tall the column's buttons stand: one glass column, a tab's height per button. */
     private static double buttonsHeight(int buttons) {
-        return buttons <= 0 ? 0 : buttons * 44 + (buttons - 1) * RAIL_GAP;
+        return buttons <= 0 ? 0 : buttons * RAIL_TAB + 8;
+    }
+
+    static {
+        // The tab bar's tick per tab (and the Duo rail's): Android's selection tick is faint, so a
+        // drag along the tabs plays a firm tick instead.
+        TabView.setTICK(Haptic.RIGID);
+    }
+
+    /**
+     * Keeps the Duo column still while Settings slides in or is swiped away: only the page beside
+     * it moves, and the column cross-fades between the dashboard's buttons and tabs and Settings'.
+     */
+    public static void attach(Host host) {
+        host.fixedRight = () -> railWidth(host.env.getW(), host.env.getH());
+    }
+
+    /** A tab's name short enough for the rail's 56 dp tab: its first word ("Claude Code": Claude). */
+    static String railLabel(String label) {
+        if (label == null || label.length() <= 8) {
+            return label;
+        }
+        int space = label.indexOf(' ');
+        return space > 0 ? label.substring(0, space) : label;
     }
 
     /**
@@ -295,7 +321,13 @@ public final class CodexGlass {
             // Duo: the page beside the right-edge column, which holds the bar's buttons and the tabs
             List<TopTab> railTabs = new ArrayList<>();
             for (Tab tab : kitTabs) {
-                railTabs.add(new TopTab(tab.id, tab.label, tab.icon));
+                railTabs.add(new TopTab(tab.id, railLabel(tab.label), tab.icon));
+            }
+            List<RailButton> railButtons = new ArrayList<>();
+            for (GlassSource.MenuEntry entry : src.menu()) {
+                if (entry != null) {
+                    railButtons.add(new RailButton("b:" + entry.icon, entry.icon, entry.onSelect, false));
+                }
             }
             return Box(P.of("fill", true, "bg", t.pal.grouped),
                     Inset(P.of("key", "duo-page", "right", rail),
@@ -308,8 +340,8 @@ public final class CodexGlass {
                             EdgeFade(P.of("edge", "bottom", "h", t.B + 40, "color", bg)),
                             GlassNavBar(P.of("key", navKey(t) + ":duo", "title", d.title,
                                     "titleVisible", past.get()))),
-                    duoColumn(t, rail, trailing.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
-                            P.of("actions", trailing.isEmpty() ? null : trailing,
+                    duoColumn(t, rail, railButtons.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
+                            P.of("buttons", railButtons,
                             "tabs", railTabs.size() >= 2 ? railTabs : null,
                             "value", value, "onChange", pickTab)),
                     showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
@@ -706,6 +738,19 @@ public final class CodexGlass {
         };
         double rail = rail(t);
         if (rail > 0) {
+            // the column has room for icons only: Edit is a pencil (Done a check), Save a check
+            List<RailButton> railButtons = new ArrayList<>();
+            if (topPage != null && reorderable(topPage)) {
+                boolean on = top.equals(editing.get());
+                railButtons.add(new RailButton("edit", on ? "check" : "edit",
+                        () -> editing.set(on ? "" : top), on));
+            }
+            if (topPage != null) {
+                for (GlassModel.Action a : topPage.actions) {
+                    railButtons.add(new RailButton("a:" + a.label,
+                            a.icon != null ? a.icon : a.prominent ? "check" : "more", a.onPress, a.prominent));
+                }
+            }
             // Duo: Back and the page's buttons stand in the right-edge column; the pages, their bar
             // (title only) and the search field lay out beside it
             return Box(P.of("fill", true, "bg", t.pal.grouped),
@@ -723,8 +768,8 @@ public final class CodexGlass {
                                             "pointerEvents", sub ? "none" : null),
                                     GlassSearchField(P.of("placeholder", "Search", "value", query.get(),
                                             "onChange", (OnStr) query::set))) : null),
-                    duoColumn(t, rail, 1 + actions.size(), 0,
-                            P.of("onBack", back, "actions", actions.isEmpty() ? null : actions)),
+                    duoColumn(t, rail, 1 + railButtons.size(), 0,
+                            P.of("onBack", back, "buttons", railButtons)),
                     R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", SETTINGS, "v", version)));
         }
         return Box(P.of("fill", true, "bg", t.pal.grouped),

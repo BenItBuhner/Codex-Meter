@@ -36,6 +36,20 @@ public class DuoLayoutTest {
     }
 
     @Test
+    public void railLabelsAreShortEnoughForTheColumn() {
+        org.junit.Assert.assertEquals("Claude", CodexGlass.railLabel("Claude Code"));
+        org.junit.Assert.assertEquals("Cursor", CodexGlass.railLabel("Cursor"));
+        org.junit.Assert.assertEquals("Priority", CodexGlass.railLabel("Priority"));
+    }
+
+    @Test
+    public void tabTicksAreFirm() {
+        CodexGlass.railLabel("");
+        org.junit.Assert.assertEquals(com.benitbuhner.glasse.ui.Haptic.RIGID,
+                com.benitbuhner.glasse.ui.TabView.getTICK());
+    }
+
+    @Test
     public void railOnlyOnWideScreens() {
         assertTrue(CodexGlass.wide(FOLD8_W, FOLD8_H));
         assertTrue(CodexGlass.wide(704, 933));
