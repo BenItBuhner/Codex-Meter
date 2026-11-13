@@ -186,6 +186,9 @@ public final class CodexGlass {
     static volatile RailState dashboardRail;
     static volatile RailState settingsRail;
 
+    /** The glass identity the dashboard's Settings button and Settings' Back share. */
+    static final String LEAD = "lead";
+
     /**
      * Where the column's buttons start. The iPhone Duo keeps its status at the top of the column
      * and its buttons below it; Android's status bar runs along the top of the screen instead, so
@@ -344,8 +347,11 @@ public final class CodexGlass {
             List<RailButton> railButtons = new ArrayList<>();
             for (GlassSource.MenuEntry entry : src.menu()) {
                 if (entry != null) {
-                    // the same buttons, icons and order as the dashboard's bar
-                    railButtons.add(new RailButton("b:" + entry.icon, entry.icon, entry.onSelect, false));
+                    // the same buttons, icons and order as the dashboard's bar; Settings is the glass
+                    // Settings' Back takes over (LEAD), so opening Settings merges Edit into it the way
+                    // the bar merges Edit into Settings, and its symbol swaps to Back
+                    boolean lead = "gearshape".equals(entry.icon);
+                    railButtons.add(new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon, entry.onSelect, false));
                 }
             }
             if (shared) {
@@ -762,9 +768,10 @@ public final class CodexGlass {
         double rail = rail(t);
         if (rail > 0) {
             // the column has room for icons only: Edit is the app's pencil (the dashboard's Edit), Done
-            // and Save a check. Back leads; a page's buttons split out of it and merge back into it
+            // and Save a check. Back leads, the dashboard's Settings glass become Back; a page's buttons
+            // split out of it and merge back into it
             List<RailButton> railButtons = new ArrayList<>();
-            railButtons.add(new RailButton("back", "back", back, false));
+            railButtons.add(new RailButton(LEAD, "back", back, false));
             if (topPage != null && reorderable(topPage)) {
                 boolean on = top.equals(editing.get());
                 railButtons.add(new RailButton("edit", on ? "check" : "squarePencil",

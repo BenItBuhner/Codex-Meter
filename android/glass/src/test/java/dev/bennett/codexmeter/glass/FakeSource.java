@@ -207,6 +207,9 @@ final class FakeSource implements GlassSource {
 
     @Override
     public List<MenuEntry> menu() {
+        if (noEdit) {
+            return Arrays.asList(new MenuEntry("Settings", "gearshape", false, null));
+        }
         return Arrays.asList(
                 new MenuEntry("Edit dashboard", "squarePencil", false, null),
                 new MenuEntry("Settings", "gearshape", false, () -> {
@@ -400,6 +403,13 @@ final class FakeSource implements GlassSource {
     Nav nav;
     /** what the dashboard's Settings button does (a demo opens Settings with it) */
     Runnable onSettings;
+    /** The app drops Edit on the Priority page: Edit merges into Settings. */
+    boolean noEdit;
+
+    void setNoEdit(boolean on) {
+        noEdit = on;
+        changed();
+    }
 
     /** opens a Settings page as a row tap would */
     void navigate(Nav n) {

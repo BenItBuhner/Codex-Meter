@@ -126,7 +126,7 @@ dependencies {
     // The Liquid Glass design: Codex Meter's glass screens (:glass) on Glassé's Android host. Glassé
     // is private, so it is built from a commit and vendored in vendor/m2 (ci/vendor-glasse.sh).
     implementation(project(":glass"))
-    implementation("com.github.BenItBuhner.Glasse:glasse-android:d5e90f3131")
+    implementation("com.github.BenItBuhner.Glasse:glasse-android:2e2b8e8dcf")
     sesl9.forEach { (module, pinned) ->
         implementation(module) { version { strictly(pinned) } }
     }
