@@ -6,6 +6,7 @@ import SwiftUI
 struct ClaudeDashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.drawsBarsInSimulatedRail) private var drawsBarsInSimulatedRail
 
     var body: some View {
         @Bindable var claude = model.claude
@@ -50,31 +51,33 @@ struct ClaudeDashboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Claude Code")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if claude.phase != .signedOut {
-                    NavigationLink {
-                        DashboardEditView(provider: .claudeCode)
-                    } label: {
-                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
+            if !drawsBarsInSimulatedRail {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if claude.phase != .signedOut {
+                        NavigationLink {
+                            DashboardEditView(provider: .claudeCode)
+                        } label: {
+                            Label("Edit dashboard", systemImage: "slider.horizontal.3")
+                        }
+
+                        Button {
+                            Task { await model.claude.refresh() }
+                        } label: {
+                            if claude.isRefreshing {
+                                ProgressView()
+                            } else {
+                                Label("Refresh", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        .disabled(claude.isRefreshing)
+                        .accessibilityLabel(claude.isRefreshing ? "Refreshing Claude usage" : "Refresh Claude usage")
                     }
 
                     Button {
-                        Task { await model.claude.refresh() }
+                        model.isShowingSettings = true
                     } label: {
-                        if claude.isRefreshing {
-                            ProgressView()
-                        } else {
-                            Label("Refresh", systemImage: "arrow.clockwise")
-                        }
+                        Label("Settings", systemImage: "gearshape")
                     }
-                    .disabled(claude.isRefreshing)
-                    .accessibilityLabel(claude.isRefreshing ? "Refreshing Claude usage" : "Refresh Claude usage")
-                }
-
-                Button {
-                    model.isShowingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
                 }
             }
         }

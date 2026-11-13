@@ -13,6 +13,7 @@ import UIKit
 struct AddedProviderDashboardView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.drawsBarsInSimulatedRail) private var drawsBarsInSimulatedRail
     let provider: UsageProvider
     @State private var isShowingSignIn = false
 
@@ -67,31 +68,33 @@ struct AddedProviderDashboardView: View {
         }
         .background(Color(.systemGroupedBackground))
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if state.phase != .signedOut {
-                    NavigationLink {
-                        DashboardEditView(provider: provider)
-                    } label: {
-                        Label("Edit dashboard", systemImage: "slider.horizontal.3")
-                    }
-
-                    Button {
-                        Task { await state.refresh() }
-                    } label: {
-                        if state.isRefreshing {
-                            ProgressView()
-                        } else {
-                            Label("Refresh", systemImage: "arrow.clockwise")
+            if !drawsBarsInSimulatedRail {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if state.phase != .signedOut {
+                        NavigationLink {
+                            DashboardEditView(provider: provider)
+                        } label: {
+                            Label("Edit dashboard", systemImage: "slider.horizontal.3")
                         }
+
+                        Button {
+                            Task { await state.refresh() }
+                        } label: {
+                            if state.isRefreshing {
+                                ProgressView()
+                            } else {
+                                Label("Refresh", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        .disabled(state.isRefreshing)
+                        .accessibilityLabel(state.isRefreshing
+                            ? "Refreshing \(provider.displayName) usage" : "Refresh \(provider.displayName) usage")
                     }
-                    .disabled(state.isRefreshing)
-                    .accessibilityLabel(state.isRefreshing
-                        ? "Refreshing \(provider.displayName) usage" : "Refresh \(provider.displayName) usage")
-                }
-                Button {
-                    model.isShowingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
+                    Button {
+                        model.isShowingSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
                 }
             }
         }

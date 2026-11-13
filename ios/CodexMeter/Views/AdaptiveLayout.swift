@@ -11,6 +11,10 @@ private struct DashboardColumnsKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
+    /// UI tests only: the simulated iPhone Duo draws the toolbar and tabs in its status rail
+    /// (as iOS 27.1 lays them out vertically), so dashboards leave the top toolbar empty.
+    @Entry var drawsBarsInSimulatedRail = false
+
     /// Cards per row for the dashboard being laid out. One unless a dashboard measured more.
     var dashboardColumns: Int {
         get { self[DashboardColumnsKey.self] }

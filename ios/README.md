@@ -34,10 +34,46 @@ The app is universal and adapts to the window it gets rather than to the device:
 - **Keyboard and pointer.** ⌘1–⌘9 jump to a tab, ⇧⌘] / ⇧⌘[ move between tabs, ⌘R
   refreshes the visible tab and ⌘, opens Settings; they show in the iPadOS menu bar and
   the ⌘ shortcut overlay. Hovering with a trackpad scrubs the history charts.
-- The app keeps one window (`UIApplicationSupportsMultipleScenes` is off): sheets and
-  the selected tab live on the shared `AppModel`, so a second window would mirror them.
-- `IPadLayoutTests` (skipped on iPhone) checks the columns, sidebar and shortcuts. CI runs
-  it with `ci/record-ipad-gallery.sh` on several iPad sizes and uploads `ipad-gallery`.
+- **Multiple windows.** `UIApplicationSupportsMultipleScenes` is on and the scene is a
+  `WindowGroup(for: UsageProvider.self)`. Data and settings stay on the shared `AppModel`;
+  each window keeps its own tab (`@SceneStorage`). ⌘1–⌘9 and ⇧⌘] / ⇧⌘[ switch the tab of the
+  window in front (it publishes its tabs with `focusedSceneValue`), and `model.selectedProvider`
+  follows that window so ⌘R and foreground refreshes act on it. `WindowRegistry` pins the
+  model's sheets (Settings, sign-in, reset, setup) to the window in front when they open, so
+  other windows never mirror them. Usage → Open in New Window (⌥⌘N) opens the front tab in
+  a new window.
+- `IPadLayoutTests` (skipped on iPhone) checks the columns, sidebar, shortcuts, a second
+  window, and Split View / Slide Over / Stage Manager widths from 320 to 981 pt (simulated
+  in DEBUG with `-ui-testing-window-width`, since a test can't drag a simulator window).
+  CI runs it with `ci/record-ipad-gallery.sh` on several iPad sizes and uploads
+  `ipad-gallery`.
+
+## iPhone Duo
+
+iPhone Duo keeps the status bar and Dynamic Island in a rail down the trailing (right) edge of
+both displays. Apps built with the iOS 27.1 SDK get their toolbar buttons and tab bar laid out
+vertically in that rail, top down: Dynamic Island, status, toolbar, tabs. The app is ready
+for that:
+
+- Every toolbar item and tab has both a title and an icon, which iOS needs to stack it
+  vertically (a title-only item stays horizontal and leaves the rail empty).
+- Nothing sizes itself from the screen, the device idiom or the orientation, as Apple's
+  guide asks. Layout follows the width the dashboard gets: folded (about 382 pt beside the
+  rail, compact width) is one column; open (about 867 pt, regular width and height) is two
+  columns, split down the middle where the fold is.
+- Folding mid-session resizes the window and the cards re-flow; the tab you are on stays.
+- Two windows side by side work on the open display the same way they do on iPad.
+
+**Release builds must use Xcode 27.1 or later.** Built with Xcode 26, iOS shows the app at
+iPhone size in the middle of the open display and none of the vertical bars appear. Check
+on the iPhone Duo simulator in Xcode 27.1 before shipping.
+
+`IPadLayoutTests.testDuoFoldsAndUnfoldsWithoutLosingPlace` checks both poses and folds and
+unfolds while running (`-ui-testing-duo folded|open`, then ⌃⌥⌘F). GitHub's macOS 26 runners
+have Xcode 26 only, so it runs on an iPad simulator: `SimulatedWindow` lays the app out at
+the Duo's window sizes and draws the trailing rail itself, with the dashboard's real
+Refresh and Settings actions and the provider tabs, while the dashboards leave their top
+toolbar empty. The stills land in `ipad-gallery`.
 
 ## Claude Code tab
 

@@ -68,6 +68,20 @@ for still in "$OUT_DIR"/*landscape*.png "$OUT_DIR"/14-*.png; do
     sips -r 270 "$still" >/dev/null
   fi
 done
+# The iPhone Duo stills show a simulated phone window against the left edge of
+# the iPad screen, vertically centered (466 x 678 pt folded, 951 x 669 pt open,
+# at 2x); crop them to the window plus a 24 pt margin so they read like the phone.
+crop_duo() { # still, crop height, crop width (pixels)
+  local height
+  height="$(sips -g pixelHeight "$1" | awk '/pixelHeight/ {print $2}')"
+  sips -c "$2" "$3" --cropOffset $(( (height - $2) / 2 )) 0 "$1" >/dev/null
+}
+for still in "$OUT_DIR"/*duo-folded*.png; do
+  [[ -f "$still" ]] && crop_duo "$still" 1452 980
+done
+for still in "$OUT_DIR"/*duo-open*.png; do
+  [[ -f "$still" ]] && crop_duo "$still" 1434 1950
+done
 xcrun simctl status_bar "$UDID" clear >/dev/null 2>&1 || true
 xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 
