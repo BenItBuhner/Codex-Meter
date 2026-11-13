@@ -4,8 +4,8 @@
 
 ### Changed
 
-- **The Duo column works like Apple's.** Its buttons are small glass circles as thin as the tab column, and its tabs are icons only, with no names under them. Android.
-- **The Duo column stays put and its glass morphs, instead of sliding or fading.** Settings now leads the column, in Back's place: opening it turns the gear into Back where it stands, and Edit melts up into it while the tab column slides down out of the way. A page's own buttons split out of Back as it opens and merge back into it as you leave (About's GitHub and App info, Dashboard tabs' Edit). Every button keeps its size the whole way through. Closing Settings runs it all in reverse. A back swipe slides the page and brings the tabs up under your finger, and the buttons change once, when you let go. Android.
+- **The Duo column works like Apple's.** Its buttons are the standard small glass circles, and its tabs are icons only, with no names under them. Android.
+- **The Duo column stays put and its glass morphs, instead of sliding or fading.** Settings now leads the column, in Back's place: opening it turns the gear into Back where it stands, and Edit melts up into it while the tab column slides down out of the way. A page's own buttons split out of Back as it opens and merge back into it as you leave (About's GitHub and App info, Dashboard tabs' Edit). Closing Settings runs it all in reverse. A back swipe slides the page and brings the tabs up under your finger, and the buttons change once, when you let go. Android.
 - **A firmer tick** for each tab you drag across, in the column and in the bottom tab bar. Android.
 
 ## 2.9.0-alpha.26 — 2026-11-13
