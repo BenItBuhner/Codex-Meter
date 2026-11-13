@@ -722,6 +722,15 @@ public final class SettingsActivity extends AppCompatActivity {
                 AppPreferences.setGlassIncreaseContrast(requireContext(), (Boolean) value);
                 return true;
             });
+            SwitchPreferenceCompat duo = findPreference(AppPreferences.KEY_GLASS_DUO_LAYOUT);
+            if (duo != null) {
+                duo.setPersistent(false);
+                duo.setChecked(AppPreferences.isGlassDuoLayout(context));
+                duo.setOnPreferenceChangeListener((preference, value) -> {
+                    AppPreferences.setGlassDuoLayout(requireContext(), (Boolean) value);
+                    return true;
+                });
+            }
         }
 
         /** Relaunches the app on Settings → Appearance in a fresh process. */

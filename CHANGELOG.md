@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Duo layout for wide screens** in Liquid Glass, built on Glassé's new Duo interface. On an unfolded Galaxy Z Fold 8, a tablet or another wide screen, Back, the toolbar buttons (Edit dashboard, Settings, a page's Edit or Save) and the provider tabs move into a column on the right edge, and the page keeps its readable column beside it, so everything you tap sits under your right thumb. It's on by default; turn it off under **Settings > Appearance > Liquid Glass > Duo layout** to get the top bar and bottom tab bar back. Phones, including a folded Fold's cover screen, keep the usual layout. Android.
+
 ## 2.9.0-alpha.24 — 2026-11-12
 
 ### Fixed
