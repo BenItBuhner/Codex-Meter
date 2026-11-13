@@ -3,7 +3,7 @@
   "component": {
     "group": "com.github.BenItBuhner.Glasse",
     "module": "glasse-assets",
-    "version": "f1b84bcf24",
+    "version": "84df1cde13",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -25,8 +25,8 @@
       },
       "files": [
         {
-          "name": "glasse-assets-f1b84bcf24.jar",
-          "url": "glasse-assets-f1b84bcf24.jar",
+          "name": "glasse-assets-84df1cde13.jar",
+          "url": "glasse-assets-84df1cde13.jar",
           "size": 2204371,
           "sha512": "bb60ab4ff5efdeb3bddd65ba549644798717d90f8e4fde78b638c03dd4ba18c42210e7e5c6abc9df6b61ffdd840816b6dc8d9b97e644b30b48fd364cad5df4ec",
           "sha256": "c779444d6ebfc4661dcbe8a41b2690cd296c55b26b5eceaf4488ac0a65bed48d",
@@ -46,8 +46,8 @@
       },
       "files": [
         {
-          "name": "glasse-assets-f1b84bcf24.jar",
-          "url": "glasse-assets-f1b84bcf24.jar",
+          "name": "glasse-assets-84df1cde13.jar",
+          "url": "glasse-assets-84df1cde13.jar",
           "size": 2204371,
           "sha512": "bb60ab4ff5efdeb3bddd65ba549644798717d90f8e4fde78b638c03dd4ba18c42210e7e5c6abc9df6b61ffdd840816b6dc8d9b97e644b30b48fd364cad5df4ec",
           "sha256": "c779444d6ebfc4661dcbe8a41b2690cd296c55b26b5eceaf4488ac0a65bed48d",

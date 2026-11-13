@@ -80,4 +80,15 @@
         <item>7x6</item>
         <item>7x7</item>
     </array>
+    <!-- Liquid Glass's Duo layout: where Back, the toolbar and the tabs move to the right-edge column -->
+    <string-array name="glass_duo_entries">
+        <item>Off</item>
+        <item>Wide screens</item>
+        <item>Always</item>
+    </string-array>
+    <string-array name="glass_duo_values">
+        <item>off</item>
+        <item>wide</item>
+        <item>always</item>
+    </string-array>
 </resources>
