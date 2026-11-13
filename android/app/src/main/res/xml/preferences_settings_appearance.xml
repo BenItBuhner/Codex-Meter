@@ -49,6 +49,11 @@
             android:key="glass_increase_contrast"
             android:summary="Darker edges and a stronger tint behind text and controls"
             android:title="Increase contrast" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="glass_duo_layout"
+            android:summary="On wide screens, such as an unfolded Galaxy Z Fold, Back, the toolbar and the tabs move to a column on the right edge"
+            android:title="Duo layout" />
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -656,7 +656,9 @@ public final class NowBarManager {
         // One layout for every surface: headline, reset line, provider name, and a short
         // percentage chip. Samsung's Now Bar and Android's live notification read the same.
         String text = NowBarCopy.secondaryLine(resetText, estimate, otherText);
+        // Tapping opens the dashboard tab of the provider this notification shows.
         Intent open = new Intent(context, MainActivity.class)
+                .putExtra(MainActivity.EXTRA_PROVIDER, provider.id)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);

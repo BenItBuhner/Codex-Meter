@@ -106,6 +106,7 @@ final class GlassApp implements GlassSource {
                 AppPreferences.getGlassTintLevel(context) / 100.0,
                 AppPreferences.isGlassReduceTransparency(context),
                 AppPreferences.isGlassIncreaseContrast(context)));
+        CodexGlass.setDuoLayout(AppPreferences.isGlassDuoLayout(context));
     }
 
     private MainActivity main() {
@@ -286,6 +287,13 @@ final class GlassApp implements GlassSource {
             glasse.getHost().open(CodexGlass.SETTINGS, instant);
         }
         changed();
+    }
+
+    /** Closes glass Settings when it is open, back to the dashboard. */
+    void showDashboard() {
+        if (landing == null && CodexGlass.SETTINGS.equals(glasse.getHost().app)) {
+            glasse.getHost().close();
+        }
     }
 
     /** Tells the screens to draw again from the app's current state. */

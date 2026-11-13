@@ -1,0 +1,116 @@
+name: Open routing check
+
+# Checks where taps open the app, on an emulator, and records it: a home-screen widget opens the
+# app as the user left it (never a provider's tab), and the live notification opens the dashboard
+# tab of the provider it shows. Runs for One UI 9 and Liquid Glass; fails if any step fails.
+on:
+  workflow_dispatch:
+    inputs:
+      designs:
+        description: 'Designs to check (space separated)'
+        required: false
+        default: 'one_ui_9 liquid_glass'
+  pull_request:
+    branches: [alpha, main]
+    paths: ['.github/workflows/open-routing-check.yml', '.github/open-routing/**',
+            'android/app/src/main/java/dev/bennett/codexmeter/AppOpenActivity.java',
+            'android/app/src/main/java/dev/bennett/codexmeter/MainActivity.java',
+            'android/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java',
+            'android/app/src/main/java/dev/bennett/codexmeter/WidgetRenderer.java',
+            'android/app/src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java',
+            'android/app/src/main/AndroidManifest.xml']
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: open-routing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android SDK platforms
+        shell: bash
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Add the debug-only check helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          DBG=android/app/src/debug
+          cp .github/open-routing/RoutingHarnessActivity.java "$DBG/java/dev/bennett/codexmeter/"
+          python3 - "$DBG/AndroidManifest.xml" android/app/src/main/res/xml/codex_widget_info.xml <<'PY'
+          import sys
+          manifest, widget = sys.argv[1], sys.argv[2]
+          s = open(manifest).read()
+          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.RoutingHarnessActivity" android:exported="true" android:taskAffinity="" android:excludeFromRecents="true" android:theme="@android:style/Theme.NoDisplay"/>\n    </application>')
+          open(manifest, 'w').write(s)
+          # The check adds the widget from a script; its settings screen would wait for a tap.
+          w = open(widget).read()
+          w = w.replace('android:configure="dev.bennett.codexmeter.WidgetConfigActivity"', '')
+          open(widget, 'w').write(w)
+          PY
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd android
+          for i in 1 2 3; do
+            ./gradlew --no-daemon :app:assembleDebug && exit 0
+            sleep $((i * 15))
+          done
+          exit 1
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the check on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          script: bash .github/open-routing/check.sh android/app/build/outputs/apk/debug/app-debug.apk open-routing ${{ github.event.inputs.designs || 'one_ui_9 liquid_glass' }}
+
+      - name: Join the recordings
+        if: always()
+        shell: bash
+        run: |
+          cd open-routing 2>/dev/null || exit 0
+          ls *.mp4 >/dev/null 2>&1 || exit 0
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; } || exit 0
+          : > list.txt
+          for f in widget-one_ui_9.mp4 live-one_ui_9.mp4 widget-liquid_glass.mp4 live-liquid_glass.mp4; do
+            [[ -s "$f" ]] && echo "file '$f'" >> list.txt
+          done
+          ffmpeg -loglevel error -f concat -safe 0 -i list.txt -c copy open-routing-demo.mp4 || true
+          rm -f list.txt
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: open-routing
+          path: open-routing/
+          if-no-files-found: warn
+          retention-days: 14
