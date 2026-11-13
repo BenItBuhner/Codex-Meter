@@ -24,6 +24,7 @@ namespace CodexMeter.App;
 public sealed class MainWindow : Window
 {
     private const string AddTag = "add";
+    private const double TallTitleBarHeight = 48;
     private readonly AppState state;
     private readonly Grid root = new();
     private readonly TitleBar titleBar;
@@ -50,6 +51,10 @@ public sealed class MainWindow : Window
             IsBackButtonVisible = false,
             IsPaneToggleButtonVisible = true,
         };
+        // The TitleBar control is 32px tall unless it has content, but the caption buttons are the
+        // tall 48px ones (set below), so Close hung 16px below the bar. Make the bar 48px to match.
+        titleBar.Resources["TitleBarCompactHeight"] = TallTitleBarHeight;
+        titleBar.MinHeight = TallTitleBarHeight;
         AutomationProperties.SetAutomationId(titleBar, "AppTitleBar");
         root.Children.Add(titleBar);
 

@@ -21,4 +21,8 @@ internal static partial class NativeMethods
     internal static partial int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out Rect value, int size);
 
     internal const int DwmwaExtendedFrameBounds = 9;
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetCursorPos(int x, int y);
 }
