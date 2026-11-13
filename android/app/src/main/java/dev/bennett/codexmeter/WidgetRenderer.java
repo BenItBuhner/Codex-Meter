@@ -199,9 +199,6 @@ public final class WidgetRenderer {
         remoteViews.setTextViewText(R.id.widget_title, multi ? "USAGE"
                 : provider == UsageProvider.CODEX ? context.getString(R.string.widget_title)
                 : provider.accountName.toUpperCase(java.util.Locale.ROOT));
-        if (provider != UsageProvider.CODEX) {
-            applyProviderOpenIntent(context, remoteViews, i, provider);
-        }
         if (STYLE_MICRO.equals(str)) {
             renderMicro(remoteViews, widgetOptions, zChooseDark, widgetStateFrom, slots);
         } else if (WidgetOptions.STYLE_RINGS.equals(str)) {
@@ -225,23 +222,6 @@ public final class WidgetRenderer {
             remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
         }
         return remoteViews;
-    }
-
-    /** Widgets for other providers open the dashboard on that provider's tab. */
-    private static void applyProviderOpenIntent(Context context, RemoteViews remoteViews, int i,
-            UsageProvider provider) {
-        if (WidgetOptions.TAP_REFRESH.equals(AppPreferences.getWidgetTapAction(context, i))) {
-            return;
-        }
-        remoteViews.setOnClickPendingIntent(android.R.id.background,
-                PendingIntent.getActivity(context, 74000 + i,
-                        new Intent(context, (Class<?>) MainActivity.class)
-                                .setAction("dev.bennett.codexmeter.action.WIDGET_OPEN")
-                                .setData(widgetUri(i, "root-open-" + provider.id))
-                                .putExtra(MainActivity.EXTRA_PROVIDER, provider.id)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                                        | Intent.FLAG_ACTIVITY_CLEAR_TOP),
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 
     private static RemoteViews buildFallback(Context context, int i) {
@@ -360,11 +340,9 @@ public final class WidgetRenderer {
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else {
+            // Opens the app as the user left it, never a particular provider's tab.
             rootAction = PendingIntent.getActivity(context, 74000 + i,
-                    new Intent(context, (Class<?>) MainActivity.class)
-                            .setAction("dev.bennett.codexmeter.action.WIDGET_OPEN")
-                            .setData(widgetUri(i, "root-open"))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                    AppOpenActivity.widgetIntent(context, widgetUri(i, "root-open")),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
         remoteViews.setOnClickPendingIntent(android.R.id.background, rootAction);

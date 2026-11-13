@@ -498,6 +498,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (requestedProvider != null) {
             intent.removeExtra(EXTRA_PROVIDER);
             UsageProvider requested = UsageProvider.fromId(requestedProvider);
+            if (this.glass != null) {
+                // A tap that names a provider (the live notification) lands on its dashboard,
+                // not on a glass Settings page left open.
+                this.glass.showDashboard();
+            }
             if ((requested != this.provider || this.onPriority)
                     && ProviderPreferences.getEnabled(this).contains(requested)) {
                 this.provider = requested;

@@ -289,6 +289,13 @@ final class GlassApp implements GlassSource {
         changed();
     }
 
+    /** Closes glass Settings when it is open, back to the dashboard. */
+    void showDashboard() {
+        if (landing == null && CodexGlass.SETTINGS.equals(glasse.getHost().app)) {
+            glasse.getHost().close();
+        }
+    }
+
     /** Tells the screens to draw again from the app's current state. */
     void changed() {
         for (Runnable listener : listeners) {

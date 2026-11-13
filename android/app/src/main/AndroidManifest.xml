@@ -54,6 +54,14 @@
                     android:pathPrefix="/complete"/>
             </intent-filter>
         </activity>
+        <!-- Widget taps: brings the app back as it was left (see AppOpenActivity). -->
+        <activity
+            android:name="dev.bennett.codexmeter.AppOpenActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay"/>
         <activity
             android:name="dev.bennett.codexmeter.OnboardingActivity"
             android:exported="false"
