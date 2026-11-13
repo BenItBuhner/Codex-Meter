@@ -539,7 +539,7 @@ grep -q 'NowBarCopy.focusCriticalText' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'NowBarCopy.limitText' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
-grep -q 'NowBarCopy.chipExpandedText' \
+grep -q '"chipExpandedText", chipText' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'NowBarCopy.focusCriticalText' \
   "$ROOT/wear/src/main/java/dev/bennett/codexmeter/WearOngoingMonitor.java"

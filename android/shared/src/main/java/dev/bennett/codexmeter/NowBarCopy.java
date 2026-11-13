@@ -38,35 +38,6 @@ public final class NowBarCopy {
     }
 
     /**
-     * Samsung expanded-chip label: {@code Codex · 5-hour 12%} or, when exhausted,
-     * {@code Codex · Weekly 2d 4h}. {@code windowLabel} names the focused window
-     * ({@code "5-hour"}, {@code "Weekly"}, or {@code "Monthly"}).
-     */
-    public static String chipExpandedText(String windowLabel, UsageWindow window,
-            long observedAtMillis, long nowMillis) {
-        return chipExpandedText("Codex", windowLabel, window, observedAtMillis, nowMillis);
-    }
-
-    /** {@link #chipExpandedText(String, UsageWindow, long, long)} for any provider. */
-    public static String chipExpandedText(String providerName, String windowLabel,
-            UsageWindow window, long observedAtMillis, long nowMillis) {
-        String name = providerName == null || providerName.isEmpty() ? "Codex" : providerName;
-        String focusLabel = (windowLabel == null || windowLabel.isEmpty()
-                ? "5-hour" : windowLabel) + " ";
-        if (window == null) {
-            return name + " · " + focusLabel + "unavailable";
-        }
-        int remaining = window.remainingPercent();
-        if (remaining > 0) {
-            return name + " · " + focusLabel + remaining + "%";
-        }
-        String duration = resetDurationText(window, observedAtMillis, nowMillis);
-        return duration == null
-                ? name + " · " + focusLabel + "0%"
-                : name + " · " + focusLabel + duration;
-    }
-
-    /**
      * The one secondary line every live surface shows under the headline, so the Samsung Now
      * Bar card and the Android live notification read the same: when the window resets, plus
      * a pace warning when there is one. The other window only fills in when the reset time is
@@ -117,16 +88,15 @@ public final class NowBarCopy {
     }
 
     /**
-     * Live notification title for the focused window, percentage first: {@code 48% left · Weekly},
-     * or {@code Used up · Weekly} once nothing is left. Samsung's Now Bar pill shows this title
-     * and cuts it off after a few characters, so the number has to lead.
+     * Live notification title for the focused window: {@code Weekly · 48% left}, or
+     * {@code Weekly · used up} once nothing is left.
      */
     public static String headline(String label, UsageWindow window) {
         if (window == null) {
-            return "Unavailable · " + label;
+            return label + " · unavailable";
         }
         int remaining = window.remainingPercent();
-        return remaining > 0 ? remaining + "% left · " + label : "Used up · " + label;
+        return remaining > 0 ? label + " · " + remaining + "% left" : label + " · used up";
     }
 
     /**
