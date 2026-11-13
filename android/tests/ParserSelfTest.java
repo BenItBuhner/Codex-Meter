@@ -418,6 +418,22 @@ public final class ParserSelfTest {
         check(NowBarDisplayMode.notificationContractChanged(
                         null, true, NowBarDisplayMode.ANDROID_LIVE_UPDATE, true),
                 "missing posted contract is refreshed");
+        check(NowBarDisplayMode.BOTH.equals(NowBarDisplayMode.normalize("both")),
+                "Both is a saved display mode");
+        check(NowBarDisplayMode.BOTH.equals(NowBarDisplayMode.resolve(
+                        NowBarDisplayMode.BOTH, true, 36, false)),
+                "explicit Both override is preserved");
+        check(NowBarDisplayMode.usesSamsungPayload(NowBarDisplayMode.SAMSUNG_COMPATIBILITY)
+                        && !NowBarDisplayMode.usesAndroidLiveUpdate(
+                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY),
+                "Now Bar only carries the Samsung payload");
+        check(!NowBarDisplayMode.usesSamsungPayload(NowBarDisplayMode.ANDROID_LIVE_UPDATE)
+                        && NowBarDisplayMode.usesAndroidLiveUpdate(
+                        NowBarDisplayMode.ANDROID_LIVE_UPDATE),
+                "live notification only requests Android promotion");
+        check(NowBarDisplayMode.usesSamsungPayload(NowBarDisplayMode.BOTH)
+                        && NowBarDisplayMode.usesAndroidLiveUpdate(NowBarDisplayMode.BOTH),
+                "Both carries the Samsung payload and requests Android promotion");
         System.out.println("Now Bar display mode isolates Android and Samsung notification paths.");
     }
 
@@ -679,6 +695,18 @@ public final class ParserSelfTest {
         check("Codex · Monthly 60%".equals(
                         NowBarCopy.chipExpandedText("Monthly", remaining, observed, now)),
                 "monthly chip names the free-tier window");
+        check("Claude Code · Weekly 60%".equals(NowBarCopy.chipExpandedText(
+                        "Claude Code", "Weekly", remaining, observed, now)),
+                "chip names the monitored provider, not always Codex");
+        check("Resets 4:14 PM".equals(NowBarCopy.secondaryLine(
+                        "Resets 4:14 PM", "", "5-hour: 60% left")),
+                "secondary line is the reset time alone, like the Samsung Now Bar");
+        check("Resets 4:14 PM · Runs out in 2h".equals(NowBarCopy.secondaryLine(
+                        "Resets 4:14 PM", "Runs out in 2h", "5-hour: 60% left")),
+                "secondary line keeps a pace warning");
+        check("5-hour: 60% left".equals(NowBarCopy.secondaryLine(
+                        null, "", "5-hour: 60% left")),
+                "secondary line falls back to the other window without a reset time");
 
         check("5-hour: 60% left".equals(
                         NowBarCopy.limitText("5-hour", remaining, observed, now)),

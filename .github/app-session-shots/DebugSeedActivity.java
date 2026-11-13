@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * Debug-only (temporary screenshot job): seeds Codex, Claude Code and Cursor sample usage,
  * turns on "Show in AI apps", then opens a screen. Extras: open (main|now_bar|app_sessions|none),
- * design (oneui9|classic), sessions (on|off).
+ * design (oneui9|classic), sessions (on|off), mode (Now Bar "Show as" value), monitor (start).
  */
 public class DebugSeedActivity extends Activity {
     @Override
@@ -58,6 +58,14 @@ public class DebugSeedActivity extends Activity {
             // Only open the screen.
         } catch (Exception e) {
             Log.e("DebugSeed", "seed failed", e);
+        }
+        // Live monitor check: mode=<Now Bar display mode> saves "Show as";
+        // monitor=start (re)starts the live monitor on the seeded Codex usage.
+        String mode = getIntent().getStringExtra("mode");
+        if (mode != null) NowBarPreferences.setDisplayMode(this, mode);
+        if ("start".equals(getIntent().getStringExtra("monitor"))) {
+            Log.i("DebugSeed", "monitor start=" + NowBarManager.start(this)
+                    + " mode=" + NowBarManager.postedDisplayMode(this));
         }
         if ("none".equals(open)) {
             finish();

@@ -1,10 +1,16 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.25 — 2026-11-13
 
 ### Added
 
 - **Duo layout for wide screens** in Liquid Glass, built on Glassé's new Duo interface. On an unfolded Galaxy Z Fold 8, a tablet or another wide screen, Back, the toolbar buttons (Edit dashboard, Settings, a page's Edit or Save) and the provider tabs move into a column on the right edge, and the page keeps its readable column beside it, so everything you tap sits under your right thumb. It's on by default; turn it off under **Settings > Appearance > Liquid Glass > Duo layout** to get the top bar and bottom tab bar back. Phones, including a folded Fold's cover screen, keep the usual layout. Android.
+- **Choose how the live monitor shows: Settings > Now Bar > Show as.** **Automatic** (the default) shows it once, as a Samsung Now Bar or an Android live notification, whichever your phone supports. You can also pick **Now Bar**, **Live notification** or **Both**, for phones that show it twice or not at all. Android.
+
+### Changed
+
+- **The Now Bar and the live notification look the same.** Both show the headline ("Weekly · 96% left"), when it resets, and the provider's name. The status bar chip shows a short percentage ("W 96%") instead of a cut-off "Weekly…", even on phones that turn the Now Bar into a second live notification. Android.
+- **Widgets open the app where you left it.** Tapping a home or lock-screen widget brings Codex Meter back on the same tab and page, or starts it fresh, instead of closing what you had open. Tapping the live notification opens the dashboard tab of the provider it shows. Android.
 
 ## 2.9.0-alpha.24 — 2026-11-12
 

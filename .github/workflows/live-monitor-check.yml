@@ -1,0 +1,219 @@
+name: Live monitor surfaces check
+
+# Starts the live monitor in each "Show as" choice (Now Bar, Live notification, Both), picks the
+# choice from Settings the way a user would, and records the status-bar chip, the notification
+# shade and what each notification carries. Fails if a choice posts the wrong payloads or the
+# chip text is missing. Records the run and uploads it.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [alpha, main]
+    paths: ['.github/workflows/live-monitor-check.yml', '.github/app-session-shots/**',
+            'android/app/src/main/java/dev/bennett/codexmeter/NowBar*.java',
+            'android/shared/src/main/java/dev/bennett/codexmeter/NowBar*.java',
+            'android/app/src/main/res/xml/preferences_settings_now_bar.xml']
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android SDK platforms
+        shell: bash
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Add the debug-only sample-data seeder
+        shell: bash
+        run: |
+          set -euo pipefail
+          DBG=android/app/src/debug
+          cp .github/app-session-shots/DebugSeedActivity.java "$DBG/java/dev/bennett/codexmeter/"
+          python3 - "$DBG/AndroidManifest.xml" <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p).read()
+          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.DebugSeedActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay"/>\n    </application>')
+          open(p, 'w').write(s)
+          PY
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd android
+          for i in 1 2 3; do
+            ./gradlew --no-daemon :app:assembleDebug && exit 0
+            sleep $((i * 15))
+          done
+          exit 1
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Write check script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/tap.py" <<'PY'
+          # Prints "x y" for the centre of the first node whose text matches argv[2] exactly.
+          import re, sys
+          xml = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+          for node in re.finditer(r'<node [^>]*>', xml):
+              n = node.group(0)
+              t = re.search(r' text="([^"]*)"', n)
+              b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+              if t and b and t.group(1) == sys.argv[2]:
+                  x1, y1, x2, y2 = map(int, b.groups())
+                  print((x1 + x2) // 2, (y1 + y2) // 2)
+                  sys.exit(0)
+          sys.exit(1)
+          PY
+          cat > "$RUNNER_TEMP/check.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          PKG=dev.bennett.codexmeter
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          OUT="$GITHUB_WORKSPACE/shots"
+          mkdir -p "$OUT"
+          adb install -r "$APK"
+          adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
+          adb shell cmd connectivity airplane-mode enable || true
+          adb shell settings put global hide_error_dialogs 1 || true
+          shot() { sleep "${2:-1}"; adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
+          seed() { adb shell am start -W -n $PKG/dev.bennett.codexmeter.DebugSeedActivity "$@" >/dev/null; sleep 2; }
+          tap_text() {
+            local label="$1" xy
+            for attempt in 1 2 3 4 5; do
+              adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+              adb pull /sdcard/ui.xml "$RUNNER_TEMP/ui.xml" >/dev/null 2>&1
+              if xy=$(python3 "$RUNNER_TEMP/tap.py" "$RUNNER_TEMP/ui.xml" "$label"); then
+                adb shell input tap $xy; sleep 1.5; return 0
+              fi
+              adb shell input swipe 540 1700 540 900 300; sleep 1
+            done
+            echo "could not find '$label'"; return 1
+          }
+          # The live monitor notification's record, as the system holds it.
+          record() {
+            adb shell dumpsys notification --noredact | awk -v pkg="$PKG" '
+              /NotificationRecord\(/ { keep = index($0, "pkg=" pkg) && index($0, "id=8610") }
+              keep { print }'
+          }
+          RESULTS="$OUT/results.md"
+          echo "| # | Show as | Check | Result |" > "$RESULTS"
+          echo "|---|---|---|---|" >> "$RESULTS"
+          N=0; FAILS=0
+          check() {
+            local mode="$1" label="$2" ok="$3"
+            N=$((N + 1))
+            local r=PASS; [[ $ok == 1 ]] || { r=FAIL; FAILS=$((FAILS + 1)); }
+            echo "| $N | $mode | $label | $r |" | tee -a "$RESULTS"
+          }
+          has() { grep -q -- "$2" "$1" && echo 1 || echo 0; }
+          hasnt() { grep -q -- "$2" "$1" && echo 0 || echo 1; }
+
+          # Allow live notifications for the app, as a user would on its promotion page.
+          adb shell am start -a android.settings.APP_NOTIFICATION_PROMOTION_SETTINGS \
+            --es android.provider.extra.APP_PACKAGE $PKG >/dev/null 2>&1 || true
+          sleep 3
+          shot s00-promotion-page 0
+          adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+          adb pull /sdcard/ui.xml "$RUNNER_TEMP/ui.xml" >/dev/null 2>&1
+          python3 - "$RUNNER_TEMP/ui.xml" > "$RUNNER_TEMP/switch.txt" <<'PY2' || true
+          import re, sys
+          xml = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+          for n in re.findall(r'<node [^>]*>', xml):
+              if 'android.widget.Switch' in n and 'checked="false"' in n:
+                  x1, y1, x2, y2 = map(int, re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n).groups())
+                  print((x1 + x2) // 2, (y1 + y2) // 2); break
+          PY2
+          if [[ -s "$RUNNER_TEMP/switch.txt" ]]; then adb shell input tap $(cat "$RUNNER_TEMP/switch.txt"); sleep 1; fi
+          shot s00-promotion-allowed 0
+          adb shell input keyevent HOME; sleep 1
+
+          # Seed Codex usage (weekly 39% left, 5-hour 63% left) and start in Automatic.
+          seed --es open none --es mode auto --es monitor start
+          adb shell input keyevent HOME; sleep 2
+          adb shell "screenrecord --time-limit 180 --size 540x1200 /sdcard/live-monitor.mp4" & REC=$!
+          sleep 2
+          shot s00-automatic-home 1
+
+          # Pick each choice in Settings → Live monitor → Show as, as a user would.
+          for pair in "Live notification:android_live_update" "Now Bar:samsung_compatibility" "Both:both"; do
+            name="${pair%%:*}"; value="${pair##*:}"
+            seed --es reseed no --es open now_bar
+            sleep 2
+            tap_text "Show as"
+            shot "s-$value-1-picker" 0.5
+            tap_text "$name"
+            shot "s-$value-2-settings" 0.5
+            adb shell input keyevent HOME; sleep 2
+            shot "s-$value-3-status-chip" 1
+            adb shell cmd statusbar expand-notifications
+            shot "s-$value-4-shade" 2
+            adb shell cmd statusbar collapse; sleep 1
+            record > "$OUT/record-$value.txt"
+            f="$OUT/record-$value.txt"
+            check "$name" "notification posted" "$(has "$f" 'NotificationRecord')"
+            check "$name" "short chip text set" "$(has "$f" 'android.shortCriticalText=String (W 39%)')"
+            check "$name" "provider line (Codex)" "$(has "$f" 'android.subText=String (Codex)')"
+            check "$name" "headline" "$(has "$f" 'android.title=String (Weekly · 39% left)')"
+            case "$value" in
+              samsung_compatibility)
+                check "$name" "Now Bar payload" "$(has "$f" 'android.ongoingActivityNoti.nowbarPrimaryInfo')"
+                check "$name" "no live notification request" "$(hasnt "$f" 'android.requestPromotedOngoing=Boolean (true)')" ;;
+              android_live_update)
+                check "$name" "live notification request" "$(has "$f" 'android.requestPromotedOngoing=Boolean (true)')"
+                check "$name" "no Now Bar payload" "$(hasnt "$f" 'android.ongoingActivityNoti')" ;;
+              both)
+                check "$name" "Now Bar payload" "$(has "$f" 'android.ongoingActivityNoti.nowbarPrimaryInfo')"
+                check "$name" "live notification request" "$(has "$f" 'android.requestPromotedOngoing=Boolean (true)')" ;;
+            esac
+            # Exactly one monitor notification, whatever the choice.
+            count=$(adb shell dumpsys notification --noredact | grep -c "NotificationRecord(.*pkg=$PKG.*id=8610")
+            check "$name" "one notification ($count)" "$([[ $count == 1 ]] && echo 1 || echo 0)"
+          done
+          sleep 1
+          adb shell pkill -INT screenrecord; wait $REC 2>/dev/null; sleep 2
+          adb pull /sdcard/live-monitor.mp4 "$OUT/live-monitor.mp4" >/dev/null || true
+          adb logcat -d -v threadtime | grep -E "CodexNowBar|DebugSeed|FATAL|AndroidRuntime" > "$OUT/logcat.txt" || true
+          cat "$RESULTS"
+          echo "$FAILS failed" | tee -a "$RESULTS"
+          [[ $FAILS == 0 ]]
+          SH
+          chmod +x "$RUNNER_TEMP/check.sh"
+
+      - name: Run the check on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          script: bash ${{ runner.temp }}/check.sh
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: live-monitor-surfaces
+          path: shots/
+          if-no-files-found: warn
+          retention-days: 14

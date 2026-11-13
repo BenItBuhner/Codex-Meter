@@ -45,8 +45,7 @@
             android:entries="@array/now_bar_display_mode_entries"
             android:entryValues="@array/now_bar_display_mode_values"
             android:key="now_bar_display_mode_ui"
-            android:title="Live display mode"
-            app:useSimpleSummaryProvider="true" />
+            android:title="Show as" />
         <ListPreference
             android:entries="@array/now_bar_percent_mode_entries"
             android:entryValues="@array/now_bar_percent_mode_values"
