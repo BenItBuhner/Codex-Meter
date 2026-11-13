@@ -359,7 +359,7 @@ duo_scenes() {
         adb shell input tap $((W - 42 * d / 160)) $(( (24 + 8 + 22) * d / 160 ))
         shot "fold8-$layout-$THEME-02c-back-from-rail" 3
       fi
-      demo --ez duo_layout "$on" --es open_provider claude
+      demo --ez duo_layout "$on" --es open_provider claude_code
       shot "fold8-$layout-$THEME-03-claude" 6
       demo --ez duo_layout "$on" --ez resume_live_settings true
       shot "fold8-$layout-$THEME-04-settings" 5
