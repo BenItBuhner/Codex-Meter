@@ -724,9 +724,9 @@ public final class ParserSelfTest {
                         NowBarCopy.limitText("5-hour", null, observed, now)),
                 "missing window stays unavailable");
 
-        check("Weekly · 60% left".equals(NowBarCopy.headline("Weekly", remaining)),
+        check("60% left · Weekly".equals(NowBarCopy.headline("Weekly", remaining)),
                 "live notification headline names the window and what is left");
-        check("5-hour · used up".equals(NowBarCopy.headline("5-hour", exhaustedHours)),
+        check("Used up · 5-hour".equals(NowBarCopy.headline("5-hour", exhaustedHours)),
                 "live notification headline says used up at 0%");
         java.util.TimeZone utc = java.util.TimeZone.getTimeZone("UTC");
         // now is Tue Nov 14 2023 22:13 UTC.

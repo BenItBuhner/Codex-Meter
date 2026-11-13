@@ -174,7 +174,7 @@ jobs:
             check "$name" "notification posted" "$(has "$f" 'NotificationRecord')"
             check "$name" "short chip text set" "$(has "$f" 'android.shortCriticalText=String (W 39%)')"
             check "$name" "provider line (Codex)" "$(has "$f" 'android.subText=String (Codex)')"
-            check "$name" "headline" "$(has "$f" 'android.title=String (Weekly · 39% left)')"
+            check "$name" "headline" "$(has "$f" 'android.title=String (39% left · Weekly)')"
             case "$value" in
               samsung_compatibility)
                 check "$name" "Now Bar payload" "$(has "$f" 'android.ongoingActivityNoti.nowbarPrimaryInfo')"

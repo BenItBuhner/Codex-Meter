@@ -117,15 +117,16 @@ public final class NowBarCopy {
     }
 
     /**
-     * Live notification title for the focused window: {@code Weekly · 48% left}, or
-     * {@code Weekly · used up} once nothing is left.
+     * Live notification title for the focused window, percentage first: {@code 48% left · Weekly},
+     * or {@code Used up · Weekly} once nothing is left. Samsung's Now Bar pill shows this title
+     * and cuts it off after a few characters, so the number has to lead.
      */
     public static String headline(String label, UsageWindow window) {
         if (window == null) {
-            return label + " · unavailable";
+            return "Unavailable · " + label;
         }
         int remaining = window.remainingPercent();
-        return remaining > 0 ? label + " · " + remaining + "% left" : label + " · used up";
+        return remaining > 0 ? remaining + "% left · " + label : "Used up · " + label;
     }
 
     /**
