@@ -162,7 +162,18 @@ jobs:
             sleep 2
             tap_text "Show as"
             shot "s-$value-1-picker" 0.5
+            before=$(adb logcat -d | grep -c "Posting live monitor: mode=$value ")
             tap_text "$name"
+            # Wait for the choice to repost the monitor; pick it again once if the tap was lost.
+            for attempt in 1 2; do
+              for i in $(seq 1 20); do
+                now=$(adb logcat -d | grep -c "Posting live monitor: mode=$value ")
+                (( now > before )) && break 2
+                sleep 0.5
+              done
+              tap_text "Show as" && tap_text "$name"
+            done
+            sleep 1
             shot "s-$value-2-settings" 0.5
             adb shell input keyevent HOME; sleep 2
             shot "s-$value-3-status-chip" 1
