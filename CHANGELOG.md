@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.26 — 2026-11-13
 
 ### Changed
 
 - **Duo layout works on phones too.** **Settings > Appearance > Liquid Glass > Duo layout** is now a choice: **Off**, **Wide screens** (the default: an unfolded Galaxy Z Fold 8, a tablet) or **Always**, which also puts Back, the toolbar buttons and the tabs in the right-hand column on a phone or a folded Fold's cover screen. Android.
 - **The Duo column's tabs move like the tab bar.** Tap another provider and the glass lens slides over to it; touch and drag along the column and it follows your finger, ticks past each tab and springs onto the one you let go of, stretching past the ends. Android.
 - **Back and the Duo buttons sit lower,** about a quarter of the way down the screen instead of under the status bar, so they're in reach of your thumb. Android.
+
+### Fixed
+
+- **The Now Bar pill shows the same "W 54%" as the live notification chip.** With **Show as: Now Bar**, Samsung's status bar pill scrolled "Claude Code · Weekly 54%" and was often cut off at "Weekly…". It now shows the short percentage in every **Show as** choice. Android.
 
 ## 2.9.0-alpha.25 — 2026-11-13
 
