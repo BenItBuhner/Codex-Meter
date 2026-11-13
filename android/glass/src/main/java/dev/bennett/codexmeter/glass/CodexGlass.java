@@ -33,6 +33,8 @@ import static com.benitbuhner.glasse.kit.KitUi.ListRow;
 import static com.benitbuhner.glasse.kit.KitLists.ReorderList;
 import static com.benitbuhner.glasse.kit.KitUi.ListSection;
 import static com.benitbuhner.glasse.kit.KitUi.Page;
+import static com.benitbuhner.glasse.kit.Adaptive.DuoRail;
+import static com.benitbuhner.glasse.kit.Adaptive.Inset;
 
 import com.benitbuhner.glasse.kit.AlertAction;
 import com.benitbuhner.glasse.kit.Comp;
@@ -52,6 +54,7 @@ import com.benitbuhner.glasse.kit.PopupItem;
 import com.benitbuhner.glasse.kit.R;
 import com.benitbuhner.glasse.kit.Ref;
 import com.benitbuhner.glasse.kit.State;
+import com.benitbuhner.glasse.kit.TopTab;
 import com.benitbuhner.glasse.port.Sk;
 import com.benitbuhner.glasse.ui.Env;
 import com.benitbuhner.glasse.ui.MenuItem;
@@ -89,6 +92,52 @@ public final class CodexGlass {
 
     static double readablePad(double width) {
         return Math.max(16, Math.round((width - READABLE_W) / 2));
+    }
+
+    // =================================================================== Duo layout
+
+    /**
+     * The Duo layout (Settings › Appearance › Liquid Glass): on a wide screen, Glassé's iPhone Duo
+     * interface. Back, the toolbar buttons and the tabs leave the top and bottom bars and stand in
+     * a column on the screen's right edge ({@link com.benitbuhner.glasse.kit.Adaptive#DuoRail}),
+     * and the pages lay out beside it. Made for an unfolded Galaxy Z Fold 8 (about 933 x 704 dp),
+     * whose inner screen is close to the iPhone Duo's open one (951 x 669 pt).
+     */
+    private static volatile boolean duoLayout = true;
+
+    public static void setDuoLayout(boolean on) {
+        duoLayout = on;
+    }
+
+    public static boolean duoLayout() {
+        return duoLayout;
+    }
+
+    /** Wide enough for the Duo layout: Glassé's own rule for leaving the phone layout. */
+    static boolean wide(double w, double h) {
+        return w >= 600 && Math.min(w, h) >= 500;
+    }
+
+    /** The right-edge column's width on this screen, or 0 where the phone bars stay. */
+    static double rail(KTheme t) {
+        return railWidth(t.W, t.H);
+    }
+
+    static double railWidth(double w, double h) {
+        return duoLayout && wide(w, h) ? Kit.railW("duo-open") : 0;
+    }
+
+    /**
+     * Glassé's DuoRail in the column at the right edge, from just under Android's status bar to
+     * the bottom: {@code props} are DuoRail's (onBack, actions, tabs, value, onChange). The rail
+     * is given a theme as wide as the column, so it lays out from the column's own left edge.
+     */
+    private static El duoColumn(KTheme t, double rail, P props) {
+        KTheme column = t.with(rail, 0.0, rail);
+        double top = t.T + 8;
+        return Box(P.of("key", "duo-rail", "abs", true, "left", t.W - rail, "top", top, "w", rail,
+                        "h", Math.max(0, t.H - top)),
+                R.h(Kit.ThemeCtx.Provider, P.of("value", column), DuoRail(props.with("accent", ACCENT))));
     }
 
     public static Screen dashboard(Env env, GlassSource source) {
@@ -200,6 +249,42 @@ public final class CodexGlass {
         });
 
         double[] bg = t.pal.groupedRGB;
+        OnStr pickTab = id -> {
+            if (MORE.equals(id)) {
+                more.set(true);
+            } else {
+                src.selectTab(id);
+            }
+        };
+        double rail = rail(t);
+        if (rail > 0) {
+            // Duo: the page beside the right-edge column, which holds the bar's buttons and the tabs
+            List<TopTab> railTabs = new ArrayList<>();
+            for (Tab tab : kitTabs) {
+                railTabs.add(new TopTab(tab.id, tab.label, tab.icon));
+            }
+            return Box(P.of("fill", true, "bg", t.pal.grouped),
+                    Inset(P.of("key", "duo-page", "right", rail),
+                            GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64,
+                                    "padX", readablePad(t.W - rail), "tail", 110,
+                                    "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
+                                    "refreshing", src.refreshing()), body.toArray()),
+                            EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
+                            EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
+                            EdgeFade(P.of("edge", "bottom", "h", t.B + 40, "color", bg)),
+                            GlassNavBar(P.of("key", navKey(t) + ":duo", "title", d.title,
+                                    "titleVisible", past.get()))),
+                    duoColumn(t, rail, P.of("actions", trailing.isEmpty() ? null : trailing,
+                            "tabs", railTabs.size() >= 2 ? railTabs : null,
+                            "value", value, "onChange", pickTab)),
+                    showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
+                            "title", "More", "detents", new double[] {sheetDetent(t, tabs.size() - own, 0, false)}),
+                            moreList(tabs.subList(own, tabs.size()), selected, t, id -> {
+                                src.selectTab(id);
+                                more.set(false);
+                            })) : null,
+                    R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", DASHBOARD, "v", version)));
+        }
         return Box(P.of("fill", true, "bg", t.pal.grouped),
                 GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", readablePad(t.W), "tail", 150,
                         "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
@@ -215,13 +300,7 @@ public final class CodexGlass {
                         "key", tabKey.toString(),
                         "tabs", kitTabs,
                         "value", value,
-                        "onChange", (OnStr) id -> {
-                            if (MORE.equals(id)) {
-                                more.set(true);
-                            } else {
-                                src.selectTab(id);
-                            }
-                        },
+                        "onChange", pickTab,
                         "minimized", min.get(),
                         "onExpand", (Runnable) () -> min.set(false))) : null,
                 showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
@@ -571,6 +650,37 @@ public final class CodexGlass {
                             "push", push, "query", ROOT.equals(id) ? query.get() : ""))));
         }
         double[] bg = t.pal.groupedRGB;
+        Runnable back = () -> {
+            if (!kit.back()) {
+                if (start != null) {
+                    src.closeSettings();
+                } else {
+                    env.getBack().invoke();
+                }
+            }
+        };
+        double rail = rail(t);
+        if (rail > 0) {
+            // Duo: Back and the page's buttons stand in the right-edge column; the pages, their bar
+            // (title only) and the search field lay out beside it
+            return Box(P.of("fill", true, "bg", t.pal.grouped),
+                    Inset(P.of("key", "duo-page", "right", rail),
+                            Stack(P.of("onPop", pop, "bg", t.pal.grouped), els),
+                            EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
+                            EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
+                            EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
+                            GlassNavBar(P.of("key", navKey(t) + ":duo", "title", navTitle, "titleVisible",
+                                    (sub || past.get()) && navTitleFits(navTitle, 0, false, t.W - rail))),
+                            ROOT.equals(pages.get(0)) ? Anim(P.of("abs", true,
+                                            "left", readablePad(t.W - rail), "right", readablePad(t.W - rail),
+                                            "bottom", t.B + 14,
+                                            "to", P.of("opacity", sub ? 0 : 1, "scale", sub ? 0.96 : 1),
+                                            "pointerEvents", sub ? "none" : null),
+                                    GlassSearchField(P.of("placeholder", "Search", "value", query.get(),
+                                            "onChange", (OnStr) query::set))) : null),
+                    duoColumn(t, rail, P.of("onBack", back, "actions", actions.isEmpty() ? null : actions)),
+                    R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", SETTINGS, "v", version)));
+        }
         return Box(P.of("fill", true, "bg", t.pal.grouped),
                 Stack(P.of("onPop", pop, "bg", t.pal.grouped), els),
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
@@ -581,15 +691,7 @@ public final class CodexGlass {
                 GlassNavBar(P.of("key", navKey(t), "title", navTitle, "titleVisible",
                         (sub || past.get()) && navTitleFits(navTitle, labelsWidth, sub, t.W),
                         "trailing", actions.isEmpty() ? null : actions,
-                        "onBack", (Runnable) () -> {
-                            if (!kit.back()) {
-                                if (start != null) {
-                                    src.closeSettings();
-                                } else {
-                                    env.getBack().invoke();
-                                }
-                            }
-                        })),
+                        "onBack", back)),
                 ROOT.equals(pages.get(0)) ? Anim(P.of("abs", true, "left", 16, "right", 16, "bottom", t.B + 14,
                                 "to", P.of("opacity", sub ? 0 : 1, "scale", sub ? 0.96 : 1),
                                 "pointerEvents", sub ? "none" : null),

@@ -49,10 +49,11 @@ public class WideWindowTest {
                     env -> CodexGlass.dashboard(env, src), makers);
             c.host.open(CodexGlass.DASHBOARD, true);
             c.run(2500);
-            double[] cards = textSpan(c, CodexGlass.DASHBOARD);
-            // content keeps to the readable column, centred
-            assertTrue(name + " content left " + cards[0], cards[0] >= CodexGlass.readablePad(w) - 1);
-            assertTrue(name + " content right " + cards[1], cards[1] <= w - CodexGlass.readablePad(w) + 1);
+            // content keeps to the readable column, centred beside the Duo layout's right-edge column
+            double room = w - CodexGlass.railWidth(w, h);
+            double[] cards = textSpan(c, CodexGlass.DASHBOARD, room);
+            assertTrue(name + " content left " + cards[0], cards[0] >= CodexGlass.readablePad(room) - 1);
+            assertTrue(name + " content right " + cards[1], cards[1] <= room - CodexGlass.readablePad(room) + 1);
             if (out != null) {
                 c.shot(out + "/wide-" + name + "-dashboard-" + scheme + ".png");
             }
@@ -90,8 +91,8 @@ public class WideWindowTest {
         }
     }
 
-    /** The leftmost and rightmost edge of any text on the dashboard page below the nav bar. */
-    private static double[] textSpan(Capture c, String app) {
+    /** The leftmost and rightmost edge of any text on the dashboard page below the nav bar. {@code room}: text from here on is the Duo layout's right-edge column (its tab labels), not the page. */
+    private static double[] textSpan(Capture c, String app, double room) {
         com.benitbuhner.glasse.ui.Screen s = c.host.apps.get(app);
         com.benitbuhner.glasse.kit.KitScreen kit = (com.benitbuhner.glasse.kit.KitScreen) s;
         kit.scene.layout();
@@ -107,7 +108,7 @@ public class WideWindowTest {
             double y = Double.parseDouble(m.group(2));
             double tw = Double.parseDouble(m.group(3));
             // below the nav bar and above the tab bar
-            if (y > 140 && y < 600) {
+            if (y > 140 && y < 600 && x < room) {
                 left = Math.min(left, x);
                 right = Math.max(right, x + tw);
             }

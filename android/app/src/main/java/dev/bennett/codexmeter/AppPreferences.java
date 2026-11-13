@@ -35,6 +35,7 @@ public final class AppPreferences {
     static final String KEY_GLASS_TINT = "glass_tint_level";
     static final String KEY_GLASS_REDUCE_TRANSPARENCY = "glass_reduce_transparency";
     static final String KEY_GLASS_INCREASE_CONTRAST = "glass_increase_contrast";
+    static final String KEY_GLASS_DUO_LAYOUT = "glass_duo_layout";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
@@ -563,6 +564,18 @@ public final class AppPreferences {
 
     public static void setGlassIncreaseContrast(Context context, boolean on) {
         prefs(context).edit().putBoolean(KEY_GLASS_INCREASE_CONTRAST, on).apply();
+    }
+
+    /**
+     * Liquid Glass's Duo layout: on a wide screen (an unfolded Galaxy Z Fold, a tablet) Back, the
+     * toolbar buttons and the tabs stand in a column on the right edge. On by default.
+     */
+    public static boolean isGlassDuoLayout(Context context) {
+        return prefs(context).getBoolean(KEY_GLASS_DUO_LAYOUT, true);
+    }
+
+    public static void setGlassDuoLayout(Context context, boolean on) {
+        prefs(context).edit().putBoolean(KEY_GLASS_DUO_LAYOUT, on).apply();
     }
 
     public static boolean isGlassReduceTransparency(Context context) {
