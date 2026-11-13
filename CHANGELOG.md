@@ -1,12 +1,17 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.27 — 2026-11-13
 
 ### Changed
 
-- **The Duo column works like Apple's.** Its buttons are the standard small glass circles, its tab bar is a narrow capsule as wide as those buttons, and its tabs are icons only, with no names under them. Its buttons are the same icons, in the same order, as the dashboard's bar: Edit is the app's pencil. Android.
-- **The Duo column stays put and its glass morphs, instead of sliding or fading.** Like the iPhone Duo's side bar, the column stays where it is while pages slide beside it. Opening Settings, Edit and the gear melt into Back at the top of the column while the tab column slides down out of the way. A page's own buttons split out of Back as it opens and merge back into it as you leave (About's GitHub and App info, Dashboard tabs' Edit). Closing Settings runs it all in reverse. A back swipe slides the page and brings the tabs up under your finger, and the buttons change once, when you let go. The glass morphs the same way it does on a page, with no swelling. Android.
-- **A firmer tick** for each tab you drag across, in the column and in the bottom tab bar. Android.
+- **The Duo column works like the iPhone Duo's side bar.** It stays still while pages slide beside it, and its buttons morph in place with the same merge as the top bar: opening Settings, Edit merges into the gear and the gear becomes Back. Buttons are the standard glass circles, the tab bar is a narrow capsule of icons, and the icons and order match the dashboard's bar. Android.
+- **A firmer tick** for each tab you drag across, in the Duo column and the bottom tab bar. Android.
+
+### Fixed
+
+- **Swiping back inside Settings** slides the page all the way off the screen, following your finger, instead of stopping under the Duo column and vanishing. Android.
+- **Update checks work again** when releases list many builds; they no longer fail with "GitHub returned too much release metadata". Android.
+- **New models only lists makers you use.** Cursor, Copilot and other multi-maker tools no longer bring in Google, OpenAI or xAI launches. Android.
 
 ## 2.9.0-alpha.26 — 2026-11-13
 
