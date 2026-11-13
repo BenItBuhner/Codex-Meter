@@ -686,18 +686,6 @@ public final class ParserSelfTest {
         check("0%".equals(NowBarCopy.focusCriticalText("", exhaustedNoReset, observed, now)),
                 "exhausted window without reset time falls back to 0%");
 
-        check("Codex · 5-hour 60%".equals(
-                        NowBarCopy.chipExpandedText("5-hour", remaining, observed, now)),
-                "chip keeps percentage while allowance remains");
-        check("Codex · Weekly 2d 4h".equals(
-                        NowBarCopy.chipExpandedText("Weekly", exhaustedDays, observed, now)),
-                "exhausted chip shows that window's reset duration");
-        check("Codex · Monthly 60%".equals(
-                        NowBarCopy.chipExpandedText("Monthly", remaining, observed, now)),
-                "monthly chip names the free-tier window");
-        check("Claude Code · Weekly 60%".equals(NowBarCopy.chipExpandedText(
-                        "Claude Code", "Weekly", remaining, observed, now)),
-                "chip names the monitored provider, not always Codex");
         check("Resets 4:14 PM".equals(NowBarCopy.secondaryLine(
                         "Resets 4:14 PM", "", "5-hour: 60% left")),
                 "secondary line is the reset time alone, like the Samsung Now Bar");

@@ -699,9 +699,8 @@ public final class NowBarManager {
         boolean samsungPayload = NowBarDisplayMode.usesSamsungPayload(displayMode);
         boolean androidLiveUpdate = NowBarDisplayMode.usesAndroidLiveUpdate(displayMode);
         if (samsungPayload) {
-            applySamsungCompatibility(context, builder, provider, used,
-                    progressWindow, weeklyFocus, longLabel, until, now, observedAt,
-                    accelerated, title, text);
+            applySamsungCompatibility(context, builder, provider, used, focusCritical,
+                    until, now, accelerated, title, text);
         }
         if (androidLiveUpdate) {
             Bundle promotionExtras = new Bundle();
@@ -788,9 +787,8 @@ public final class NowBarManager {
     }
 
     private static void applySamsungCompatibility(Context context, Notification.Builder builder,
-            UsageProvider provider, int used, UsageWindow progressWindow, boolean weeklyFocus,
-            String longLabel, long until, long now, long observedAt, boolean accelerated,
-            String title, String text) {
+            UsageProvider provider, int used, String chipText, long until, long now,
+            boolean accelerated, String title, String text) {
         // Chip sits on the accent fill → always-light Codex mark.
         // Expanded Now Bar: pick an explicit light/dark resource at post time. Night-qualified
         // drawables can resolve wrong inside Samsung SystemUI (separate process / config).
@@ -806,9 +804,9 @@ public final class NowBarManager {
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", chipIcon);
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
                 accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254));
-        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
-                NowBarCopy.chipExpandedText(provider.displayName,
-                        weeklyFocus ? longLabel : "5-hour", progressWindow, observedAt, now));
+        // The status-bar pill: the same short text as the Android live notification chip
+        // ("W 54%"), so every Show as choice shows the same pill.
+        extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText", chipText);
         // The expanded card and the Now Bar pill carry the same headline and line as the
         // standard notification, so whichever surface firmware draws, it reads the same.
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo", title);

@@ -38,35 +38,6 @@ public final class NowBarCopy {
     }
 
     /**
-     * Samsung expanded-chip label: {@code Codex · 5-hour 12%} or, when exhausted,
-     * {@code Codex · Weekly 2d 4h}. {@code windowLabel} names the focused window
-     * ({@code "5-hour"}, {@code "Weekly"}, or {@code "Monthly"}).
-     */
-    public static String chipExpandedText(String windowLabel, UsageWindow window,
-            long observedAtMillis, long nowMillis) {
-        return chipExpandedText("Codex", windowLabel, window, observedAtMillis, nowMillis);
-    }
-
-    /** {@link #chipExpandedText(String, UsageWindow, long, long)} for any provider. */
-    public static String chipExpandedText(String providerName, String windowLabel,
-            UsageWindow window, long observedAtMillis, long nowMillis) {
-        String name = providerName == null || providerName.isEmpty() ? "Codex" : providerName;
-        String focusLabel = (windowLabel == null || windowLabel.isEmpty()
-                ? "5-hour" : windowLabel) + " ";
-        if (window == null) {
-            return name + " · " + focusLabel + "unavailable";
-        }
-        int remaining = window.remainingPercent();
-        if (remaining > 0) {
-            return name + " · " + focusLabel + remaining + "%";
-        }
-        String duration = resetDurationText(window, observedAtMillis, nowMillis);
-        return duration == null
-                ? name + " · " + focusLabel + "0%"
-                : name + " · " + focusLabel + duration;
-    }
-
-    /**
      * The one secondary line every live surface shows under the headline, so the Samsung Now
      * Bar card and the Android live notification read the same: when the window resets, plus
      * a pace warning when there is one. The other window only fills in when the reset time is
