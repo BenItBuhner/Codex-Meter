@@ -2297,6 +2297,66 @@ public final class ParserSelfTest {
                 "local fixture rejected by production parser");
         check(GitHubReleaseParser.parse(localFixture, true).size() == 1,
                 "local fixture accepted only in explicit debug mode");
+        testCompactReleaseListing(json);
+    }
+
+    /** GitHub lists every build of every release; the cache keeps only what the updater reads. */
+    private static void testCompactReleaseListing(String json) throws Exception {
+        String compact = GitHubReleaseParser.compact(json);
+        java.util.List<GitHubRelease> original = GitHubReleaseParser.parse(json);
+        java.util.List<GitHubRelease> compacted = GitHubReleaseParser.parse(compact);
+        check(original.size() == compacted.size(), "compaction keeps every installable release");
+        for (int index = 0; index < original.size(); index++) {
+            GitHubRelease left = original.get(index);
+            GitHubRelease right = compacted.get(index);
+            check(left.version.equals(right.version) && left.apkUrl.equals(right.apkUrl)
+                            && left.checksumUrl.equals(right.checksumUrl)
+                            && left.apkSize == right.apkSize && left.notes.equals(right.notes)
+                            && left.pageUrl.equals(right.pageUrl)
+                            && left.prerelease == right.prerelease,
+                    "compaction keeps release fields for " + left.version);
+        }
+        check(!compact.contains("v9.0.0"), "compaction drops drafts");
+
+        // Shape of a real release: 17 builds, each asset carrying its uploader profile.
+        StringBuilder uploader = new StringBuilder("{");
+        for (int field = 0; field < 20; field++) {
+            if (field > 0) uploader.append(',');
+            uploader.append("\"field").append(field)
+                    .append("\":\"https://api.github.com/users/someone/something\"");
+        }
+        uploader.append('}');
+        StringBuilder listing = new StringBuilder("[");
+        int releases = 40;
+        for (int index = 0; index < releases; index++) {
+            String tag = "v2.9.0-alpha." + (releases - index);
+            String release = releaseJson(tag, false, true, true, true);
+            StringBuilder extra = new StringBuilder();
+            for (int asset = 0; asset < 15; asset++) {
+                extra.append(",{\"name\":\"CodexMeter-desktop-").append(asset)
+                        .append(".zip\",\"size\":5,\"browser_download_url\":\"")
+                        .append(GitHubReleaseSource.REPOSITORY_URL)
+                        .append("/releases/download/x/y.zip\",\"uploader\":")
+                        .append(uploader).append('}');
+            }
+            int assetsEnd = release.lastIndexOf("]}");
+            release = release.substring(0, assetsEnd) + extra + release.substring(assetsEnd);
+            if (index > 0) listing.append(',');
+            listing.append(release);
+        }
+        listing.append(']');
+        check(listing.length() > 512 * 1024, "fixture exceeds the old raw response cap");
+        String trimmed = GitHubReleaseParser.compact(listing.toString());
+        check(trimmed.length() < 64 * 1024,
+                "compacted listing is small: " + trimmed.length());
+        java.util.List<GitHubRelease> parsed = GitHubReleaseParser.parse(trimmed);
+        check(parsed.size() == GitHubReleaseParser.MAX_RELEASES,
+                "compaction keeps at most one page of releases");
+        check("2.9.0-alpha.40".equals(parsed.get(0).version),
+                "newest release survives compaction");
+        check(!trimmed.contains("uploader") && !trimmed.contains("desktop"),
+                "compaction drops other builds and uploader profiles");
+        check(GitHubReleaseParser.compact(trimmed).equals(trimmed), "compaction is stable");
     }
 
     private static void testUpdateChannel() throws Exception {

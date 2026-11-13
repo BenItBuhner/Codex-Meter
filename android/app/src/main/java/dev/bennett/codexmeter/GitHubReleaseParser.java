@@ -13,6 +13,8 @@ import org.json.JSONObject;
 /** Parses only release entries that match the repository's signed APK release contract. */
 public final class GitHubReleaseParser {
     private static final int MAX_NOTES = 6000;
+    /** Matches the page size the release endpoint requests; anything beyond it is ignored. */
+    static final int MAX_RELEASES = 30;
 
     private GitHubReleaseParser() {
     }
@@ -88,6 +90,61 @@ public final class GitHubReleaseParser {
             }
         });
         return Collections.unmodifiableList(parsed);
+    }
+
+    /**
+     * Reduces GitHub's release listing to the few fields {@link #parse} reads.
+     *
+     * <p>Each published release lists every desktop, phone and watch build with its uploader
+     * profile, digests and download counts, so the raw listing grows by roughly 30 KB per
+     * release no matter how short its notes are. Only the release's own fields, its phone APK
+     * and its SHA256SUMS.txt are kept, and notes are capped, so the cached result stays small
+     * and its size no longer tracks how many builds a release ships.
+     */
+    public static String compact(String json) throws Exception {
+        JSONArray releases = new JSONArray(json == null ? "[]" : json);
+        JSONArray compact = new JSONArray();
+        for (int index = 0; index < releases.length() && compact.length() < MAX_RELEASES;
+                index++) {
+            JSONObject release = releases.optJSONObject(index);
+            if (release == null || release.optBoolean("draft", false)) {
+                continue;
+            }
+            String tag = clean(release.optString("tag_name", ""), 100);
+            ReleaseVersion version = ReleaseVersion.parse(tag);
+            if (version == null) {
+                continue;
+            }
+            String expectedApk = "CodexMeter-" + version.normalized() + ".apk";
+            JSONArray keptAssets = new JSONArray();
+            JSONArray assets = release.optJSONArray("assets");
+            if (assets != null) {
+                for (int assetIndex = 0; assetIndex < assets.length(); assetIndex++) {
+                    JSONObject asset = assets.optJSONObject(assetIndex);
+                    if (asset == null) {
+                        continue;
+                    }
+                    String name = asset.optString("name", "");
+                    if (expectedApk.equals(name) || "SHA256SUMS.txt".equals(name)) {
+                        keptAssets.put(new JSONObject()
+                                .put("name", name)
+                                .put("browser_download_url",
+                                        clean(asset.optString("browser_download_url", ""), 500))
+                                .put("size", asset.optLong("size", -1L)));
+                    }
+                }
+            }
+            compact.put(new JSONObject()
+                    .put("tag_name", tag)
+                    .put("name", clean(release.optString("name", ""), 160))
+                    .put("body", clean(release.optString("body", ""), MAX_NOTES))
+                    .put("draft", false)
+                    .put("prerelease", release.optBoolean("prerelease", false))
+                    .put("published_at", clean(release.optString("published_at", ""), 80))
+                    .put("html_url", clean(release.optString("html_url", ""), 500))
+                    .put("assets", keptAssets));
+        }
+        return compact.toString();
     }
 
     public static GitHubRelease latestStable(List<GitHubRelease> releases) {
