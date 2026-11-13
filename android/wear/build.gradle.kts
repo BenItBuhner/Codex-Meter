@@ -58,6 +58,6 @@ dependencies {
     implementation("androidx.wear.protolayout:protolayout-expression:1.4.2")
     implementation("androidx.concurrent:concurrent-futures:1.3.0")
     implementation("androidx.core:core:1.19.1")
-    implementation("com.google.guava:guava:33.7.2-android")
+    implementation("com.google.guava:guava:33.8.0-android")
     implementation("androidx.wear.watchface:watchface-complications-data-source:1.3.0")
 }
