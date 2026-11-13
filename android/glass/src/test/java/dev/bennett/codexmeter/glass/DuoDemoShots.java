@@ -74,8 +74,8 @@ public class DuoDemoShots {
         drag(x, tab0 + 2 * CodexGlass.RAIL_TAB, x, tab0, 40);
         c.host.up(x, tab0);
         step(45);
-        // the gear (the first button, where Back goes) opens Settings: it becomes Back, Edit merges into it, the tabs slide away
-        tap(x, buttons + 22);
+        // the gear (the second button, under Edit) opens Settings, which pushes in with its own column
+        tap(x, buttons + 22 + 54);
         step(70);
         // About: GitHub and App info split out of Back, then merge back into it
         src.navigate(new GlassSource.Nav(false, "x:about"));
@@ -87,11 +87,11 @@ public class DuoDemoShots {
         step(60);
         tap(x, buttons + 22);
         step(60);
-        // Back on Settings' first page closes it: Back becomes the gear again, Edit splits out, the tabs come back
+        // Back on Settings' first page closes it
         tap(x, buttons + 22);
         step(80);
         // the app's back swipe: open Settings, drag from the left edge, back and forth, let go
-        tap(x, buttons + 22);
+        tap(x, buttons + 22 + 54);
         step(70);
         c.host.down(12, h / 2);
         drag(12, h / 2, w * 0.45, h / 2, 40);
@@ -101,7 +101,7 @@ public class DuoDemoShots {
         c.host.up(w * 0.6, h / 2);
         step(80);
         // the system's predictive back: once cancelled, then committed
-        tap(x, buttons + 22);
+        tap(x, buttons + 22 + 54);
         step(70);
         c.host.backStart();
         for (int i = 1; i <= 24; i++) {

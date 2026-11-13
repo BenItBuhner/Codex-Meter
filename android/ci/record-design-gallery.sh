@@ -365,9 +365,9 @@ swipe_back() {
   sleep 2
   local x d
   for x in 1 2; do
-    # the rail's Settings gear: the first of the dashboard's 44 dp circles, about 27% down
+    # the rail's Settings gear: the second of the dashboard's 44 dp circles (10 dp apart), about 27% down
     d="$(adb shell wm density | grep -oE '[0-9]+' | tail -1)"
-    adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + 22 * d / 160))
+    adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (22 + 54) * d / 160))
     sleep 3
     if [[ "$x" == 1 ]]; then
       adb shell input swipe 2 $((H / 2)) $((W * 45 / 100)) $((H / 2)) 1400
@@ -411,9 +411,9 @@ duo_scenes() {
         swipe_back fold8-duo-swipe-back-light wide
         demo --es duo_layout "$mode"
         sleep 5
-        # the rail's buttons start about 27% down the screen, 44 dp circles 10 dp apart: Settings, Edit;
-        # in Settings, the gear has become Back where it stood
-        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + 22 * d / 160))
+        # the rail's buttons start about 27% down the screen, 44 dp circles 10 dp apart: Edit, Settings;
+        # in Settings, Back is the first
+        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (22 + 54) * d / 160))
         shot "fold8-$layout-$THEME-02b-settings-from-rail" 4
         adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + 22 * d / 160))
         shot "fold8-$layout-$THEME-02c-back-from-rail" 3

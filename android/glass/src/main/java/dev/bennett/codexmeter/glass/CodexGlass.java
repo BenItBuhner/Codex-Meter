@@ -154,11 +154,12 @@ public final class CodexGlass {
     }
 
     /**
-     * One Duo column for the dashboard and Settings, drawn over both (Glassé's Host overlay): it
-     * never slides with a page. Opening Settings, the gear's glass becomes Back and Edit merges into
-     * it while the tab bar slides down off the screen; a page's own buttons split out of Back; a
-     * back swipe slides the tab bar back up with the finger, and the buttons morph back once it lets
-     * go. The dashboard and Settings publish what the column shows ({@link RailState}).
+     * One Duo column for the dashboard and Settings, drawn over both (Glassé's Host overlay), like
+     * the iPhone Duo's vertical bar: it stays where it is while the pages slide beside it, and its
+     * buttons morph in place from page to page (one glass group keyed by identity). The tab bar
+     * belongs to the dashboard: it slides down off the screen as Settings pushes in and comes back
+     * up with a back swipe, following the finger. The dashboard and Settings publish what the column
+     * shows ({@link RailState}).
      */
     public static void attach(Host host) {
         shared = true;
@@ -184,9 +185,6 @@ public final class CodexGlass {
     static boolean shared;
     static volatile RailState dashboardRail;
     static volatile RailState settingsRail;
-
-    /** The glass identity Back and the dashboard's Settings button share: the gear becomes Back. */
-    static final String LEAD = "lead";
 
     /**
      * Where the column's buttons start. The iPhone Duo keeps its status at the top of the column
@@ -346,11 +344,8 @@ public final class CodexGlass {
             List<RailButton> railButtons = new ArrayList<>();
             for (GlassSource.MenuEntry entry : src.menu()) {
                 if (entry != null) {
-                    boolean lead = "gearshape".equals(entry.icon);
-                    // Settings leads the column, in Back's place: opening it swaps the symbol where it stands
-                    // and the other buttons merge up into it, so no glass has to travel
-                    railButtons.add(lead ? 0 : railButtons.size(),
-                            new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon, entry.onSelect, false));
+                    // the same buttons, icons and order as the dashboard's bar
+                    railButtons.add(new RailButton("b:" + entry.icon, entry.icon, entry.onSelect, false));
                 }
             }
             if (shared) {
@@ -766,14 +761,13 @@ public final class CodexGlass {
         };
         double rail = rail(t);
         if (rail > 0) {
-            // the column has room for icons only: Edit is a pencil (Done a check), Save a check.
-            // Back shares the dashboard's gear's identity, so the gear's glass becomes it; the page's
-            // buttons split out of it
+            // the column has room for icons only: Edit is the app's pencil (the dashboard's Edit), Done
+            // and Save a check. Back leads; a page's buttons split out of it and merge back into it
             List<RailButton> railButtons = new ArrayList<>();
-            railButtons.add(new RailButton(LEAD, "back", back, false));
+            railButtons.add(new RailButton("back", "back", back, false));
             if (topPage != null && reorderable(topPage)) {
                 boolean on = top.equals(editing.get());
-                railButtons.add(new RailButton("edit", on ? "check" : "edit",
+                railButtons.add(new RailButton("edit", on ? "check" : "squarePencil",
                         () -> editing.set(on ? "" : top), on));
             }
             if (topPage != null) {

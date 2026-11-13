@@ -13,17 +13,20 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.jetbrains.skia.Canvas;
+import org.jetbrains.skia.Picture;
 
 /**
  * The Duo column drawn once over the dashboard and Settings (Glassé's Host overlay), so it never
- * slides with a page. Its buttons are one glass group keyed by identity: when Settings comes up the
- * dashboard's gear morphs into Back (the same identity, its icon swapping) and Edit merges into it;
- * a Settings page's own buttons split out of Back and merge back into it. The tab bar belongs to
- * the dashboard: it slides down off the screen as Settings pushes in and comes back up with a back
+ * slides with a page, like the iPhone Duo's vertical bar. Its buttons are one glass group keyed by
+ * identity, morphing in place with Glassé's toolbar morph; its glass samples the pages under it
+ * (Screen.under), so it takes the same fused path as glass over a page. The tab bar belongs to the
+ * dashboard: it slides down off the screen as Settings pushes in and comes back up with a back
  * swipe, following the finger.
  */
 final class RailOverlay implements Screen {
     private static volatile boolean dirty = true;
+    /** The column's width when it last rendered. */
+    private static volatile double railW;
     private final Host host;
     private final KitScreen kit;
     private double lastV = -1;
@@ -44,6 +47,7 @@ final class RailOverlay implements Screen {
     private static com.benitbuhner.glasse.kit.El layer(Host host) {
         KTheme t = Kit.useTheme();
         double rail = CodexGlass.rail(t);
+        railW = rail;
         if (rail <= 0) {
             return null;
         }
@@ -65,6 +69,15 @@ final class RailOverlay implements Screen {
                         "value", dash != null ? dash.value : null,
                         "onChange", dash != null ? dash.onChange : null,
                         "tabsShift", shift)));
+    }
+
+    @Override
+    public void under(Picture pic) {
+        // the column's strip, with room for a morph's swell: the part of the pages its glass samples
+        double rail = railW;
+        double m = 24;
+        kit.glassArea = new double[] {host.env.getW() - rail - m, 0, rail + m, host.env.getH()};
+        kit.under(pic);
     }
 
     @Override
