@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **The Duo column's buttons match its tabs.** Back and a page's own buttons now sit together in one glass column as wide as the tab column, as icons only (About's GitHub button is the GitHub logo). Switching tabs or pages resizes the column smoothly and cross-fades the icons, instead of buttons growing and shrinking. Android.
+- **Swiping back keeps the Duo column still.** Closing Settings with a back swipe slides only the page; the column stays put and fades from Settings' buttons to the dashboard's, instead of sliding off with the page. Android.
+- **Shorter tab names in the Duo column** ("Claude" instead of a squeezed "Claude Code"), and a **firmer tick** for each tab you drag across, in the column and in the bottom tab bar. Android.
+
 ## 2.9.0-alpha.26 — 2026-11-13
 
 ### Changed

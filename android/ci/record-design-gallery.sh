@@ -353,6 +353,35 @@ rail_motion() {
   adb pull "/sdcard/$name.mp4" "$OUT/$name.mp4" >/dev/null && echo "Saved $name.mp4"
 }
 
+# Settings opened from the dashboard, then closed with the system back gesture from the left edge,
+# recorded: the page slides while the Duo column stays put and cross-fades. Once slowly with a
+# pause, once quickly.
+swipe_back() {
+  local name="$1"
+  demo --es duo_layout "$2"
+  sleep 6
+  adb shell screenrecord --time-limit 40 "/sdcard/$name.mp4" &
+  local rec=$!
+  sleep 2
+  local x d
+  for x in 1 2; do
+    # the rail's Settings button: the last of the dashboard's buttons, about 27% down
+    d="$(adb shell wm density | grep -oE '[0-9]+' | tail -1)"
+    adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (54 + 27 + 4) * d / 160))
+    sleep 3
+    if [[ "$x" == 1 ]]; then
+      adb shell input swipe 2 $((H / 2)) $((W * 45 / 100)) $((H / 2)) 1400
+    else
+      adb shell input swipe 2 $((H / 2)) $((W * 30 / 100)) $((H / 2)) 250
+    fi
+    sleep 3
+  done
+  adb shell pkill -INT screenrecord || true
+  wait "$rec" 2>/dev/null || true
+  sleep 2
+  adb pull "/sdcard/$name.mp4" "$OUT/$name.mp4" >/dev/null && echo "Saved $name.mp4"
+}
+
 # Liquid Glass's Duo layout on a Galaxy Z Fold 8's unfolded inner screen (2448 x 1848 at 420 dpi,
 # about 933 x 704 dp; not the Fold 8 Ultra's 2504 x 2256): the dashboard, scrolled, the rail's
 # Settings and Back, another provider, Settings and Appearance (where the Duo choice is), in light and
@@ -379,10 +408,14 @@ duo_scenes() {
       sleep 1
       if [[ "$layout" == duo && "$THEME" == light ]]; then
         rail_motion "$d" fold8-duo-rail-light
-        # the rail's buttons start about 27% down the screen: Back, then Settings under it
-        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (44 + 10 + 22) * d / 160))
+        swipe_back fold8-duo-swipe-back-light wide
+        demo --es duo_layout "$mode"
+        sleep 5
+        # the rail's buttons start about 27% down the screen, one 54 dp slot each: Edit, Settings;
+        # in Settings, Back is the first
+        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (4 + 54 + 27) * d / 160))
         shot "fold8-$layout-$THEME-02b-settings-from-rail" 4
-        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + 22 * d / 160))
+        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (4 + 27) * d / 160))
         shot "fold8-$layout-$THEME-02c-back-from-rail" 3
       fi
       demo --es duo_layout "$mode" --es open_provider claude_code
@@ -409,7 +442,11 @@ duo_scenes() {
     shot "phone-duo-$THEME-02-scrolled" 2
     adb shell input swipe $((W / 3)) $((H / 4)) $((W / 3)) $((H * 3 / 4)) 600
     sleep 1
-    [[ "$THEME" == light ]] && rail_motion "$d" phone-duo-rail-light
+    if [[ "$THEME" == light ]]; then
+      rail_motion "$d" phone-duo-rail-light
+    else
+      swipe_back phone-duo-swipe-back-dark always
+    fi
     demo --es duo_layout always --es open_provider claude_code
     shot "phone-duo-$THEME-03-claude" 6
     demo --es duo_layout always --es open_settings_page appearance

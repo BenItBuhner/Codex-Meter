@@ -409,7 +409,7 @@ final class GlassScreens {
                 josh = png(c, R.drawable.codex_profile_avatar, px);
             }
             GlassModel.Page page = new GlassModel.Page(PREFIX + "about", "About");
-            page.actions.add(new GlassModel.Action("GitHub", null, false,
+            page.actions.add(new GlassModel.Action("GitHub", "github", false,
                     () -> screens.openUrl(GitHubReleaseSource.REPOSITORY_URL, "No browser can open GitHub.")));
             page.actions.add(new GlassModel.Action("App info", "info", false, () -> c.startActivity(
                     new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,

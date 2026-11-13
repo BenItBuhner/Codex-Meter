@@ -16,6 +16,8 @@ public class InsetChangeTest {
     /** A foldable window whose status bar inset arrives after the first frame. */
     @Test
     public void navButtonsMoveBelowAStatusBarThatArrivesLate() {
+        // the top bar's buttons (Duo would put them in the right-edge column)
+        CodexGlass.setDuoMode(CodexGlass.DUO_OFF);
         FakeSource src = new FakeSource();
         Map<String, ScreenMaker> makers = new LinkedHashMap<>();
         makers.put(CodexGlass.DASHBOARD, env -> CodexGlass.dashboard(env, src));
@@ -32,6 +34,7 @@ public class InsetChangeTest {
             buttons++;
             assertTrue("nav button at " + m.group(1), Double.parseDouble(m.group(1)) >= 52);
         }
+        CodexGlass.setDuoMode(CodexGlass.DUO_WIDE);
         assertTrue("no nav buttons found", buttons >= 2);
     }
 
