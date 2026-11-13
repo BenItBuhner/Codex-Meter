@@ -1,12 +1,17 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.27 — 2026-11-13
 
 ### Changed
 
-- **The Duo column's buttons match its tabs.** Back and a page's own buttons now sit together in one glass column as wide as the tab column, as icons only (About's GitHub button is the GitHub logo). Switching tabs or pages resizes the column smoothly and cross-fades the icons, instead of buttons growing and shrinking. Android.
-- **Swiping back keeps the Duo column still.** Closing Settings with a back swipe slides only the page; the column stays put and fades from Settings' buttons to the dashboard's, instead of sliding off with the page. Android.
-- **Shorter tab names in the Duo column** ("Claude" instead of a squeezed "Claude Code"), and a **firmer tick** for each tab you drag across, in the column and in the bottom tab bar. Android.
+- **The Duo column works like the iPhone Duo's side bar.** It stays still while pages slide beside it, and its buttons morph in place with the same merge as the top bar: opening Settings, Edit merges into the gear and the gear becomes Back. Buttons are the standard glass circles, the tab bar is a narrow capsule of icons, and the icons and order match the dashboard's bar. Android.
+- **A firmer tick** for each tab you drag across, in the Duo column and the bottom tab bar. Android.
+
+### Fixed
+
+- **Swiping back inside Settings** slides the page all the way off the screen, following your finger, instead of stopping under the Duo column and vanishing. Android.
+- **Update checks work again** when releases list many builds; they no longer fail with "GitHub returned too much release metadata". Android.
+- **New models only lists makers you use.** Cursor, Copilot and other multi-maker tools no longer bring in Google, OpenAI or xAI launches. Android.
 
 ## 2.9.0-alpha.26 — 2026-11-13
 

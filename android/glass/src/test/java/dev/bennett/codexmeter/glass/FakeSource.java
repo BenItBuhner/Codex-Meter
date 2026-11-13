@@ -207,9 +207,16 @@ final class FakeSource implements GlassSource {
 
     @Override
     public List<MenuEntry> menu() {
+        if (noEdit) {
+            return Arrays.asList(new MenuEntry("Settings", "gearshape", false, null));
+        }
         return Arrays.asList(
                 new MenuEntry("Edit dashboard", "squarePencil", false, null),
-                new MenuEntry("Settings", "gearshape", false, null));
+                new MenuEntry("Settings", "gearshape", false, () -> {
+                    if (onSettings != null) {
+                        onSettings.run();
+                    }
+                }));
     }
 
     private static GlassModel.Row link(String key, String title, String icon, String color, String page) {
@@ -250,7 +257,7 @@ final class FakeSource implements GlassSource {
                 app.rows.add(link("settings_privacy", "Privacy", "hand", "#007aff", "privacy"));
                 p.sections.add(app);
                 GlassModel.Section about = new GlassModel.Section(null);
-                about.rows.add(link("about_codex_meter", "About Codex Meter", "info", "#8e8e93", null));
+                about.rows.add(link("about_codex_meter", "About Codex Meter", "info", "#8e8e93", "x:about"));
                 p.sections.add(about);
                 return p;
             }
@@ -329,6 +336,15 @@ final class FakeSource implements GlassSource {
                 return history();
             case "x:tabs":
                 return tabsPage();
+            case "x:about": {
+                GlassModel.Page p = new GlassModel.Page(id, "About");
+                p.actions.add(new GlassModel.Action("GitHub", "github", false, () -> { }));
+                p.actions.add(new GlassModel.Action("App info", "info", false, () -> { }));
+                GlassModel.Section app = new GlassModel.Section(null);
+                app.rows.add(link("about_app", "Codex Meter", "info", "#007aff", null));
+                p.sections.add(app);
+                return p;
+            }
             case "x:widget":
                 return widgetPage();
             default: {
@@ -378,7 +394,27 @@ final class FakeSource implements GlassSource {
 
     @Override
     public Nav takeNav() {
-        return null;
+        Nav n = nav;
+        nav = null;
+        return n;
+    }
+
+    /** the next navigation Settings takes (a demo opens a page with it) */
+    Nav nav;
+    /** what the dashboard's Settings button does (a demo opens Settings with it) */
+    Runnable onSettings;
+    /** The app drops Edit on the Priority page: Edit merges into Settings. */
+    boolean noEdit;
+
+    void setNoEdit(boolean on) {
+        noEdit = on;
+        changed();
+    }
+
+    /** opens a Settings page as a row tap would */
+    void navigate(Nav n) {
+        nav = n;
+        changed();
     }
 
     @Override

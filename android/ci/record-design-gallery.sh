@@ -327,12 +327,12 @@ wide_scenes() {
 }
 
 # Taps and drags on the Duo rail's tabs (the right-edge column), in dp from the bottom-right corner:
-# the last tab's center sits 63 dp above the bottom edge (24 dp gesture bar, 8 dp gap, 4 dp padding,
-# half a 54 dp tab). Records the lens sliding to a tapped tab, a slow drag across every tab and back,
+# the last tab's center sits 62 dp above the bottom edge (24 dp gesture bar, 8 dp gap, 4 dp padding,
+# half a 52 dp tab). Records the lens sliding to a tapped tab, a slow drag across every tab and back,
 # and a pull past the end that rubber-bands.
 rail_motion() {
   local d="$1" name="$2" x y0 tab
-  x=$((W - 42 * d / 160)); y0=$((H - 63 * d / 160)); tab=$((54 * d / 160))
+  x=$((W - 42 * d / 160)); y0=$((H - 62 * d / 160)); tab=$((52 * d / 160))
   adb shell screenrecord --time-limit 40 "/sdcard/$name.mp4" &
   local rec=$!
   sleep 2
@@ -354,8 +354,8 @@ rail_motion() {
 }
 
 # Settings opened from the dashboard, then closed with the system back gesture from the left edge,
-# recorded: the page slides while the Duo column stays put and cross-fades. Once slowly with a
-# pause, once quickly.
+# recorded: the page slides while the Duo column stays put, Back turns back into the gear, Edit
+# splits out of it and the tabs slide back up. Once slowly with a pause, once quickly.
 swipe_back() {
   local name="$1"
   demo --es duo_layout "$2"
@@ -365,9 +365,9 @@ swipe_back() {
   sleep 2
   local x d
   for x in 1 2; do
-    # the rail's Settings button: the last of the dashboard's buttons, about 27% down
+    # the rail's Settings gear: the second of the dashboard's 44 dp circles (10 dp apart), about 27% down
     d="$(adb shell wm density | grep -oE '[0-9]+' | tail -1)"
-    adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (54 + 27 + 4) * d / 160))
+    adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (22 + 54) * d / 160))
     sleep 3
     if [[ "$x" == 1 ]]; then
       adb shell input swipe 2 $((H / 2)) $((W * 45 / 100)) $((H / 2)) 1400
@@ -411,11 +411,11 @@ duo_scenes() {
         swipe_back fold8-duo-swipe-back-light wide
         demo --es duo_layout "$mode"
         sleep 5
-        # the rail's buttons start about 27% down the screen, one 54 dp slot each: Edit, Settings;
+        # the rail's buttons start about 27% down the screen, 44 dp circles 10 dp apart: Edit, Settings;
         # in Settings, Back is the first
-        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (4 + 54 + 27) * d / 160))
+        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (22 + 54) * d / 160))
         shot "fold8-$layout-$THEME-02b-settings-from-rail" 4
-        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (4 + 27) * d / 160))
+        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + 22 * d / 160))
         shot "fold8-$layout-$THEME-02c-back-from-rail" 3
       fi
       demo --es duo_layout "$mode" --es open_provider claude_code

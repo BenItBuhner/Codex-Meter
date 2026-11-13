@@ -39,7 +39,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 30
-        versionName = "2.9.0-alpha.26"
+        versionName = "2.9.0-alpha.27"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -126,7 +126,7 @@ dependencies {
     // The Liquid Glass design: Codex Meter's glass screens (:glass) on Glassé's Android host. Glassé
     // is private, so it is built from a commit and vendored in vendor/m2 (ci/vendor-glasse.sh).
     implementation(project(":glass"))
-    implementation("com.github.BenItBuhner.Glasse:glasse-android:263e784d50")
+    implementation("com.github.BenItBuhner.Glasse:glasse-android:2e2b8e8dcf")
     sesl9.forEach { (module, pinned) ->
         implementation(module) { version { strictly(pinned) } }
     }

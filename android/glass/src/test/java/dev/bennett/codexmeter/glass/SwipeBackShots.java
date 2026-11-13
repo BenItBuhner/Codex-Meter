@@ -38,5 +38,6 @@ public class SwipeBackShots {
         c.host.backCommit(true, -0.5);
         for (int i = 0; i < 50; i++) { c.run(1000.0 / 60); shot.run(); }
         CodexGlass.setDuoMode(CodexGlass.DUO_WIDE);
+        CodexGlass.shared = false;
     }
 }

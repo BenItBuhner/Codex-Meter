@@ -137,12 +137,14 @@ public final class CodexGlass {
         return on ? Kit.railW("duo-open") : 0;
     }
 
-    /** A rail tab's height, and the gap between the column's buttons (Glassé's DuoRail). */
-    static final double RAIL_TAB = 54;
+    /** A rail tab's height, and a rail button's size and spacing: Glassé's standard glass buttons in DuoRail's group. */
+    static final double RAIL_TAB = com.benitbuhner.glasse.ui.RailTabView.IH;
+    private static final double RAIL_BUTTON = 44;
+    private static final double RAIL_GAP = 10;
 
-    /** How tall the column's buttons stand: one glass column, a tab's height per button. */
+    /** How tall {@code buttons} glass circles stand in the column. */
     private static double buttonsHeight(int buttons) {
-        return buttons <= 0 ? 0 : buttons * RAIL_TAB + 8;
+        return buttons <= 0 ? 0 : buttons * RAIL_BUTTON + (buttons - 1) * RAIL_GAP;
     }
 
     static {
@@ -152,21 +154,40 @@ public final class CodexGlass {
     }
 
     /**
-     * Keeps the Duo column still while Settings slides in or is swiped away: only the page beside
-     * it moves, and the column cross-fades between the dashboard's buttons and tabs and Settings'.
+     * One Duo column for the dashboard and Settings, drawn over both (Glassé's Host overlay), like
+     * the iPhone Duo's vertical bar: it stays where it is while the pages slide beside it, and its
+     * buttons morph in place from page to page (one glass group keyed by identity). The tab bar
+     * belongs to the dashboard: it slides down off the screen as Settings pushes in and comes back
+     * up with a back swipe, following the finger. The dashboard and Settings publish what the column
+     * shows ({@link RailState}).
      */
     public static void attach(Host host) {
-        host.fixedRight = () -> railWidth(host.env.getW(), host.env.getH());
+        shared = true;
+        host.overlay = new RailOverlay(host);
     }
 
-    /** A tab's name short enough for the rail's 56 dp tab: its first word ("Claude Code": Claude). */
-    static String railLabel(String label) {
-        if (label == null || label.length() <= 8) {
-            return label;
+    /** What a screen's Duo column shows: its buttons (by glass identity), tabs and selected tab. */
+    static final class RailState {
+        final List<RailButton> buttons;
+        final List<TopTab> tabs;
+        final String value;
+        final OnStr onChange;
+
+        RailState(List<RailButton> buttons, List<TopTab> tabs, String value, OnStr onChange) {
+            this.buttons = buttons;
+            this.tabs = tabs;
+            this.value = value;
+            this.onChange = onChange;
         }
-        int space = label.indexOf(' ');
-        return space > 0 ? label.substring(0, space) : label;
     }
+
+    /** The column is drawn once over both screens (attach); without it each screen draws its own. */
+    static boolean shared;
+    static volatile RailState dashboardRail;
+    static volatile RailState settingsRail;
+
+    /** The glass identity the dashboard's Settings button and Settings' Back share. */
+    static final String LEAD = "lead";
 
     /**
      * Where the column's buttons start. The iPhone Duo keeps its status at the top of the column
@@ -191,7 +212,7 @@ public final class CodexGlass {
      * Glassé's DuoRail at the screen's right edge: {@code props} are DuoRail's (onBack, actions,
      * tabs, value, onChange); {@code buttons} counts the glass buttons it stands at the top.
      */
-    private static El duoColumn(KTheme t, double rail, int buttons, int tabs, P props) {
+    static El duoColumn(KTheme t, double rail, int buttons, int tabs, P props) {
         KTheme column = t.with(t.W, null, rail);
         double top = railTop(t.H, t.T, t.B, buttons, tabs);
         return R.h(Kit.ThemeCtx.Provider, P.of("key", "duo-rail", "value", column),
@@ -321,13 +342,21 @@ public final class CodexGlass {
             // Duo: the page beside the right-edge column, which holds the bar's buttons and the tabs
             List<TopTab> railTabs = new ArrayList<>();
             for (Tab tab : kitTabs) {
-                railTabs.add(new TopTab(tab.id, railLabel(tab.label), tab.icon));
+                railTabs.add(new TopTab(tab.id, tab.label, tab.icon));
             }
             List<RailButton> railButtons = new ArrayList<>();
             for (GlassSource.MenuEntry entry : src.menu()) {
                 if (entry != null) {
-                    railButtons.add(new RailButton("b:" + entry.icon, entry.icon, entry.onSelect, false));
+                    // the same buttons, icons and order as the dashboard's bar; Settings is the glass
+                    // Settings' Back takes over (LEAD), so opening Settings merges Edit into it the way
+                    // the bar merges Edit into Settings, and its symbol swaps to Back
+                    boolean lead = "gearshape".equals(entry.icon);
+                    railButtons.add(new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon, entry.onSelect, false));
                 }
+            }
+            if (shared) {
+                dashboardRail = new RailState(railButtons, railTabs.size() >= 2 ? railTabs : null, value, pickTab);
+                RailOverlay.changed();
             }
             return Box(P.of("fill", true, "bg", t.pal.grouped),
                     Inset(P.of("key", "duo-page", "right", rail),
@@ -340,7 +369,7 @@ public final class CodexGlass {
                             EdgeFade(P.of("edge", "bottom", "h", t.B + 40, "color", bg)),
                             GlassNavBar(P.of("key", navKey(t) + ":duo", "title", d.title,
                                     "titleVisible", past.get()))),
-                    duoColumn(t, rail, railButtons.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
+                    shared ? null : duoColumn(t, rail, railButtons.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
                             P.of("buttons", railButtons,
                             "tabs", railTabs.size() >= 2 ? railTabs : null,
                             "value", value, "onChange", pickTab)),
@@ -738,11 +767,14 @@ public final class CodexGlass {
         };
         double rail = rail(t);
         if (rail > 0) {
-            // the column has room for icons only: Edit is a pencil (Done a check), Save a check
+            // the column has room for icons only: Edit is the app's pencil (the dashboard's Edit), Done
+            // and Save a check. Back leads, the dashboard's Settings glass become Back; a page's buttons
+            // split out of it and merge back into it
             List<RailButton> railButtons = new ArrayList<>();
+            railButtons.add(new RailButton(LEAD, "back", back, false));
             if (topPage != null && reorderable(topPage)) {
                 boolean on = top.equals(editing.get());
-                railButtons.add(new RailButton("edit", on ? "check" : "edit",
+                railButtons.add(new RailButton("edit", on ? "check" : "squarePencil",
                         () -> editing.set(on ? "" : top), on));
             }
             if (topPage != null) {
@@ -750,6 +782,10 @@ public final class CodexGlass {
                     railButtons.add(new RailButton("a:" + a.label,
                             a.icon != null ? a.icon : a.prominent ? "check" : "more", a.onPress, a.prominent));
                 }
+            }
+            if (shared) {
+                settingsRail = new RailState(railButtons, null, null, null);
+                RailOverlay.changed();
             }
             // Duo: Back and the page's buttons stand in the right-edge column; the pages, their bar
             // (title only) and the search field lay out beside it
@@ -768,8 +804,7 @@ public final class CodexGlass {
                                             "pointerEvents", sub ? "none" : null),
                                     GlassSearchField(P.of("placeholder", "Search", "value", query.get(),
                                             "onChange", (OnStr) query::set))) : null),
-                    duoColumn(t, rail, 1 + railButtons.size(), 0,
-                            P.of("onBack", back, "buttons", railButtons)),
+                    shared ? null : duoColumn(t, rail, railButtons.size(), 0, P.of("buttons", railButtons)),
                     R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", SETTINGS, "v", version)));
         }
         return Box(P.of("fill", true, "bg", t.pal.grouped),
