@@ -137,10 +137,10 @@ public final class CodexGlass {
         return on ? Kit.railW("duo-open") : 0;
     }
 
-    /** A rail tab's height and a rail button's size (Glassé's DuoRail: icon tabs, glass circles). */
+    /** A rail tab's height, and a rail button's size and spacing: Glassé's standard glass buttons in DuoRail's group. */
     static final double RAIL_TAB = com.benitbuhner.glasse.ui.RailTabView.IH;
-    private static final double RAIL_BUTTON = com.benitbuhner.glasse.ui.RailTabView.BW;
-    private static final double RAIL_GAP = 12;
+    private static final double RAIL_BUTTON = 44;
+    private static final double RAIL_GAP = 10;
 
     /** How tall {@code buttons} glass circles stand in the column. */
     private static double buttonsHeight(int buttons) {
