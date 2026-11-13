@@ -86,5 +86,5 @@
     <string name="provider_claude_code">Claude Code</string>
     <string name="provider_cursor">Cursor</string>
     <string name="oneui9_more_providers">More</string>
-    <string name="new_models_refresh_note">The Priority view lists models newly added to public catalogs (OpenRouter, OpenCode Go, Kilo, Chutes, Synthetic) for the providers you have connected, such as OpenAI models for Codex or Anthropic models for Claude Code. Catalogs are checked without your keys, on their own schedule: about every 30 minutes while you use the app, hourly otherwise, and less often overnight or after days away. Newly listed does not mean newly released or included in your plan.</string>
+    <string name="new_models_refresh_note">The Priority view lists models newly added to public catalogs (OpenRouter, OpenCode Go, Kilo, Chutes, Synthetic) for the providers you have connected, such as OpenAI models for Codex or Anthropic models for Claude Code. Tools that offer many makers\' models, like Cursor or Copilot, don\'t add those makers. Catalogs are checked without your keys, on their own schedule: about every 30 minutes while you use the app, hourly otherwise, and less often overnight or after days away. Newly listed does not mean newly released or included in your plan.</string>
 </resources>

@@ -23,6 +23,7 @@ public final class ModelDiscoverySelfTest {
         notLaunches();
         cardSurface();
         notificationSurface();
+        claudeAndCursorSeeNoGemini();
         cadence();
         roundTrip();
         System.out.println("Model discovery: allowlist, baselines, safeguards, card, digest and cadence verified.");
@@ -67,23 +68,42 @@ public final class ModelDiscoverySelfTest {
         check(!ModelDiscovery.relevant(go, OR, "openai/gpt-6"), "OpenCode Go doesn't unlock OpenRouter");
         check(ModelDiscovery.sourcesNeeded(allow(UsageProvider.KILO)).equals(EnumSet.of(ModelDiscovery.Source.KILO)),
                 "Kilo fetches only its own catalog");
-        // tools that offer several makers' models cover exactly those makers, by exact author slug
-        List<ModelDiscovery.Scope> cursor = allow(UsageProvider.CURSOR);
-        check(ModelDiscovery.relevant(cursor, OR, "anthropic/claude-x") && ModelDiscovery.relevant(cursor, OR, "google/gemini-4")
-                && ModelDiscovery.relevant(cursor, OR, "openai/gpt-6") && ModelDiscovery.relevant(cursor, OR, "x-ai/grok-5"),
-                "Cursor covers the makers it offers");
-        check(!ModelDiscovery.relevant(cursor, OR, "qwen/qwen-4") && !ModelDiscovery.relevant(cursor, OR, "google-research/x"),
-                "Cursor: nothing else, exact slugs only");
+        // Coding tools that resell other makers' models unlock nothing on their own.
+        for (UsageProvider tool : new UsageProvider[] {UsageProvider.CURSOR, UsageProvider.COPILOT,
+                UsageProvider.WINDSURF, UsageProvider.CLINE, UsageProvider.FACTORY, UsageProvider.AMP,
+                UsageProvider.CODEBUFF, UsageProvider.WARP, UsageProvider.DEVIN, UsageProvider.AUGMENT,
+                UsageProvider.KIRO}) {
+            check(ModelDiscovery.scopesFor(tool).isEmpty(), tool + " unlocks no maker's models");
+        }
         check(ModelDiscovery.relevant(allow(UsageProvider.ANTIGRAVITY), OR, "google/gemini-4")
-                && !ModelDiscovery.relevant(allow(UsageProvider.ANTIGRAVITY), OR, "x-ai/grok-5"), "Antigravity: Google and Anthropic");
-        check(ModelDiscovery.relevant(allow(UsageProvider.KIRO), OR, "anthropic/claude-x")
-                && !ModelDiscovery.relevant(allow(UsageProvider.KIRO), OR, "openai/gpt-6"), "Kiro: Anthropic only");
+                && !ModelDiscovery.relevant(allow(UsageProvider.ANTIGRAVITY), OR, "anthropic/claude-x"),
+                "Antigravity is Google's own: Google only");
+        check(!ModelDiscovery.relevant(allow(UsageProvider.ANTIGRAVITY), OR, "google-research/x"),
+                "Antigravity: exact slug only");
+        // The reported case: Claude Code plus Cursor never shows Gemini.
+        List<ModelDiscovery.Scope> claudeCursor = allow(UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR);
+        check(ModelDiscovery.relevant(claudeCursor, OR, "anthropic/claude-x"), "Claude Code + Cursor: Anthropic");
+        check(!ModelDiscovery.relevant(claudeCursor, OR, "google/gemini-4-hydrogen")
+                && !ModelDiscovery.relevant(claudeCursor, OR, "openai/gpt-6")
+                && !ModelDiscovery.relevant(claudeCursor, OR, "x-ai/grok-5"),
+                "Claude Code + Cursor: no Google, OpenAI or xAI");
+        // Every scope is either a whole catalog people subscribe to or exactly one maker.
+        for (UsageProvider p : UsageProvider.values()) {
+            List<ModelDiscovery.Scope> scopes = ModelDiscovery.scopesFor(p);
+            check(scopes.size() <= 1, p + " covers at most one maker or catalog");
+            for (ModelDiscovery.Scope sc : scopes) {
+                check(sc.author != null || sc.source.id.equals(p.id),
+                        p + " covers a whole catalog only if it is that catalog");
+            }
+        }
         for (UsageProvider p : UsageProvider.values()) {
             for (ModelDiscovery.Scope sc : ModelDiscovery.scopesFor(p)) {
                 check(sc.author == null || sc.author.matches("[a-z0-9-]+"), p + " has an explicit author slug");
             }
         }
-        check(ModelDiscovery.sourcesNeeded(allow(UsageProvider.CURSOR)).equals(EnumSet.of(OR)), "Cursor reads OpenRouter only");
+        check(ModelDiscovery.sourcesNeeded(allow(UsageProvider.CURSOR)).isEmpty(), "Cursor alone fetches nothing");
+        check(ModelDiscovery.sourcesNeeded(allow(UsageProvider.ANTIGRAVITY)).equals(EnumSet.of(OR)),
+                "Antigravity reads OpenRouter only");
         check(ModelDiscovery.allowlist(Collections.<UsageProvider>emptyList()).isEmpty(), "none connected");
         List<ModelDiscovery.Scope> both = allow(UsageProvider.CODEX, UsageProvider.CLAUDE_CODE, UsageProvider.CODEX);
         check(both.size() == 2, "union without duplicates");
@@ -213,7 +233,10 @@ public final class ModelDiscoverySelfTest {
         check(codex.size() == 1 && codex.get(0).id.equals("openai/gpt-6"), "relevant model shown, Google hidden");
         check(ModelDiscovery.cardItems(s, allow(UsageProvider.CLAUDE_CODE), t).isEmpty(),
                 "Claude alone: nothing relevant, no card");
-        check(ModelDiscovery.cardItems(s, allow(UsageProvider.CURSOR), t).size() == 2, "Cursor: OpenAI and Google");
+        check(ModelDiscovery.cardItems(s, allow(UsageProvider.CURSOR), t).isEmpty(), "Cursor alone: no card");
+        List<ModelDiscovery.Entry> claudeCursor = ModelDiscovery.cardItems(s,
+                allow(UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR), t);
+        check(claudeCursor.isEmpty(), "Claude Code + Cursor: Gemini and GPT hidden");
         check(ModelDiscovery.cardItems(s, allow(UsageProvider.OPENROUTER), t).size() == 2, "OpenRouter: both");
         check(ModelDiscovery.cardItems(s, allow(UsageProvider.CODEX), t + ModelDiscovery.CARD_DAYS_MS).isEmpty(),
                 "leaves the card after a week");
@@ -223,6 +246,30 @@ public final class ModelDiscoverySelfTest {
                 "dismissing hides only what was shown");
         check(ModelDiscovery.CARD_NOTE.contains("not verified")
                 && ModelDiscovery.CARD_NOTE.contains("not necessarily newly released"), "card note");
+    }
+
+    /**
+     * The reported case, end to end on OpenRouter's real ids: someone with Claude Code and Cursor
+     * signed in saw "New on OpenRouter: Gemini 4 Hydrogen". Only the Anthropic launch may show.
+     */
+    private static void claudeAndCursorSeeNoGemini() {
+        ModelDiscovery.State s = new ModelDiscovery.State();
+        ModelDiscovery.observe(s, OR, "public", list("anthropic/claude-5", "google/gemini-4-carbon"), true, NOW);
+        ModelDiscovery.markAllNotified(s);
+        List<ModelDiscovery.Model> next = list("anthropic/claude-5", "google/gemini-4-carbon",
+                "google/gemini-4-hydrogen", "google/gemini-4-hydrogen:batch", "anthropic/claude-5.1",
+                "openai/gpt-6");
+        ModelDiscovery.observe(s, OR, "public", next, true, NOW + HOUR);
+        ModelDiscovery.observe(s, OR, "public", next, true, NOW + 2 * HOUR);
+        List<ModelDiscovery.Scope> claudeCursor = allow(UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR);
+        List<ModelDiscovery.Entry> card = ModelDiscovery.cardItems(s, claudeCursor, NOW + 2 * HOUR);
+        check(card.size() == 1 && card.get(0).id.equals("anthropic/claude-5.1"),
+                "card shows only the Anthropic launch, was " + card.size());
+        List<ModelDiscovery.Entry> digest = ModelDiscovery.takeDigest(s, claudeCursor, NOW + 2 * HOUR);
+        check(digest.size() == 1 && digest.get(0).id.equals("anthropic/claude-5.1"), "digest: Anthropic only");
+        check(!ModelDiscovery.digestText(digest).contains("Gemini"), "no Gemini in the notification");
+        check(ModelDiscovery.cardItems(s, allow(UsageProvider.CLAUDE_CODE), NOW + 2 * HOUR).size() == 1,
+                "Cursor adds nothing to Claude Code");
     }
 
     private static void notificationSurface() {
