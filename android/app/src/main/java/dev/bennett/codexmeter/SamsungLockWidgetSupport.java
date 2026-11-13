@@ -773,20 +773,18 @@ final class SamsungLockWidgetSupport {
             UsageProvider provider) {
         boolean z2 = lockWidgetOptions.showResetAction && z && i3 > 0;
         String target = z2 ? "reset" : "open";
-        Intent intentAddFlags = new Intent(context,
-                (Class<?>) (z2 ? ResetCreditActivity.class : MainActivity.class))
-                .setAction("dev.bennett.codexmeter.action.LOCK_WIDGET_"
-                        + target.toUpperCase(Locale.US))
-                .setData(Uri.parse("codexmeter://widget/lock/v" + AppConstants.VERSION_CODE + "/"
-                        + i2 + "/"
-                        + shape.name().toLowerCase(Locale.US) + "/"
-                        + style.name().toLowerCase(Locale.US)
-                        + "/" + target))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        if (!z2) {
-            // Open the dashboard on the widget's (first) provider tab.
-            intentAddFlags.putExtra(MainActivity.EXTRA_PROVIDER, provider.id);
-        }
+        Uri tag = Uri.parse("codexmeter://widget/lock/v" + AppConstants.VERSION_CODE + "/"
+                + i2 + "/"
+                + shape.name().toLowerCase(Locale.US) + "/"
+                + style.name().toLowerCase(Locale.US)
+                + "/" + target);
+        // Open opens the app as the user left it, never a particular provider's tab.
+        Intent intentAddFlags = z2
+                ? new Intent(context, (Class<?>) ResetCreditActivity.class)
+                        .setAction("dev.bennett.codexmeter.action.LOCK_WIDGET_RESET")
+                        .setData(tag)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                : AppOpenActivity.widgetIntent(context, tag);
         if (i2 == 0) {
             i2 = 0;
         }
