@@ -77,7 +77,14 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
         print((x1 + x2) // 2, (y1 + y2) // 2)
         break
 ')
-  [[ -n "$xy" ]] || { echo "no widget on the home screen" >&2; return 1; }
+  if [[ -z "$xy" ]]; then
+    # The launcher's view tree is often not readable (the dump comes back empty); the pinned
+    # widget sits in the top-left cells of the first home page (see 01-home-with-claude-widget).
+    adb exec-out cat /sdcard/ui.xml > "$OUT/home-dump.xml" 2>/dev/null || true
+    echo "widget not in the view dump; tapping its home-screen position" >&2
+    at 0.27 0.15
+    return 0
+  fi
   adb shell input tap $xy
 }
 
