@@ -106,7 +106,7 @@ final class GlassApp implements GlassSource {
                 AppPreferences.getGlassTintLevel(context) / 100.0,
                 AppPreferences.isGlassReduceTransparency(context),
                 AppPreferences.isGlassIncreaseContrast(context)));
-        CodexGlass.setDuoLayout(AppPreferences.isGlassDuoLayout(context));
+        CodexGlass.setDuoMode(AppPreferences.getGlassDuoMode(context));
     }
 
     private MainActivity main() {

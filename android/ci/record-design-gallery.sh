@@ -11,7 +11,7 @@
 # the Notifications toggle and the Refresh note, priority for only the Priority tab (top to bottom,
 # then a provider tab and back), perf for the Liquid Glass navigation pass, wide for foldable and
 # tablet screen sizes (the emulator's display resized), or duo for Liquid Glass's Duo layout on a
-# Galaxy Z Fold 8's inner screen, next to the standard layout.
+# Galaxy Z Fold 8's inner screen, next to the standard layout, and on the phone with Duo set to Always.
 set -euo pipefail
 
 APK="${1:?debug APK required}"
@@ -326,52 +326,73 @@ wide_scenes() {
   W="${size%x*}"; H="${size#*x}"
 }
 
+# Taps and drags on the Duo rail's tabs (the right-edge column), in dp from the bottom-right corner:
+# the last tab's center sits 63 dp above the bottom edge (24 dp gesture bar, 8 dp gap, 4 dp padding,
+# half a 54 dp tab). Records the lens sliding to a tapped tab, a slow drag across every tab and back,
+# and a pull past the end that rubber-bands.
+rail_motion() {
+  local d="$1" name="$2" x y0 tab
+  x=$((W - 42 * d / 160)); y0=$((H - 63 * d / 160)); tab=$((54 * d / 160))
+  adb shell screenrecord --time-limit 40 "/sdcard/$name.mp4" &
+  local rec=$!
+  sleep 2
+  adb shell input tap "$x" $((y0 - 2 * tab))
+  sleep 2
+  adb shell input tap "$x" "$y0"
+  sleep 2
+  adb shell input swipe "$x" "$y0" "$x" $((y0 - 3 * tab)) 1500
+  sleep 2
+  adb shell input swipe "$x" $((y0 - 3 * tab)) "$x" "$y0" 1500
+  sleep 2
+  adb shell input swipe "$x" "$y0" "$x" $((y0 + 2 * tab)) 600
+  sleep 3
+  # stop screenrecord on the device so it finishes the file (killing the local adb cuts it short)
+  adb shell pkill -INT screenrecord || true
+  wait "$rec" 2>/dev/null || true
+  sleep 2
+  adb pull "/sdcard/$name.mp4" "$OUT/$name.mp4" >/dev/null && echo "Saved $name.mp4"
+}
+
 # Liquid Glass's Duo layout on a Galaxy Z Fold 8's unfolded inner screen (2448 x 1848 at 420 dpi,
-# about 933 x 704 dp; not the Fold 8 Ultra's 2504 x 2256): the dashboard, scrolled, another provider,
-# Settings and Appearance (where the switch is), in light and dark, with the layout on and then off
-# for comparison, and one recording of the Duo layout in light.
+# about 933 x 704 dp; not the Fold 8 Ultra's 2504 x 2256): the dashboard, scrolled, the rail's
+# Settings and Back, another provider, Settings and Appearance (where the Duo choice is), in light and
+# dark, with Duo on (Wide screens) and then off for comparison, plus a recording of the rail's tabs
+# moving. Then the phone (the emulator's own screen) with Duo set to Always, like the folded cover
+# screen: the same shots and a rail recording.
 duo_scenes() {
-  local layout on d
+  local layout mode d
   adb shell wm size 2448x1848
   adb shell wm density 420
   sleep 3
   W=2448; H=1848; d=420
   for layout in duo standard; do
-    [[ "$layout" == duo ]] && on=true || on=false
+    [[ "$layout" == duo ]] && mode=wide || mode=off
     for THEME in light dark; do
-      demo --ez duo_layout "$on"
+      demo --es duo_layout "$mode"
+      # the first start after the resize draws late
       sleep 6
-      if [[ "$layout" == duo && "$THEME" == light ]]; then
-        adb shell screenrecord --time-limit 90 /sdcard/fold8-duo.mp4 &
-        DREC=$!
-        sleep 2
-      fi
+      [[ "$layout" == duo && "$THEME" == light ]] && sleep 6
       shot "fold8-$layout-$THEME-01-dashboard" 1
       adb shell input swipe $((W / 3)) $((H * 3 / 4)) $((W / 3)) $((H / 4)) 600
       shot "fold8-$layout-$THEME-02-scrolled" 2
       adb shell input swipe $((W / 3)) $((H / 4)) $((W / 3)) $((H * 3 / 4)) 600
       sleep 1
       if [[ "$layout" == duo && "$THEME" == light ]]; then
-        # the rail's settings button: the second of the toolbar buttons, under the status bar
-        adb shell input tap $((W - 42 * d / 160)) $(( (24 + 8 + 44 + 10 + 22) * d / 160 ))
+        rail_motion "$d" fold8-duo-rail-light
+        # the rail's buttons start about 27% down the screen: Back, then Settings under it
+        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + (44 + 10 + 22) * d / 160))
         shot "fold8-$layout-$THEME-02b-settings-from-rail" 4
-        # the rail's Back
-        adb shell input tap $((W - 42 * d / 160)) $(( (24 + 8 + 22) * d / 160 ))
+        adb shell input tap $((W - 42 * d / 160)) $((H * 27 / 100 + 22 * d / 160))
         shot "fold8-$layout-$THEME-02c-back-from-rail" 3
       fi
-      demo --ez duo_layout "$on" --es open_provider claude_code
+      demo --es duo_layout "$mode" --es open_provider claude_code
       shot "fold8-$layout-$THEME-03-claude" 6
-      demo --ez duo_layout "$on" --ez resume_live_settings true
+      demo --es duo_layout "$mode" --ez resume_live_settings true
       shot "fold8-$layout-$THEME-04-settings" 5
-      demo --ez duo_layout "$on" --es open_settings_page appearance
+      demo --es duo_layout "$mode" --es open_settings_page appearance
       shot "fold8-$layout-$THEME-05-appearance" 5
       adb shell input swipe $((W / 3)) $((H * 3 / 4)) $((W / 3)) $((H / 4)) 500
       shot "fold8-$layout-$THEME-06-appearance-scrolled" 2
-      if [[ "$layout" == duo && "$THEME" == light ]]; then
-        kill -INT "$DREC" 2>/dev/null || true
-        sleep 2
-        adb pull /sdcard/fold8-duo.mp4 "$OUT/fold8-duo-light.mp4" >/dev/null && echo "Saved fold8-duo-light.mp4"
-      fi
     done
   done
   adb shell wm size reset
@@ -379,6 +400,22 @@ duo_scenes() {
   sleep 3
   size="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
   W="${size%x*}"; H="${size#*x}"
+  d="$(adb shell wm density | grep -oE '[0-9]+' | tail -1)"
+  for THEME in light dark; do
+    demo --es duo_layout always
+    sleep 6
+    shot "phone-duo-$THEME-01-dashboard" 1
+    adb shell input swipe $((W / 3)) $((H * 3 / 4)) $((W / 3)) $((H / 4)) 600
+    shot "phone-duo-$THEME-02-scrolled" 2
+    adb shell input swipe $((W / 3)) $((H / 4)) $((W / 3)) $((H * 3 / 4)) 600
+    sleep 1
+    [[ "$THEME" == light ]] && rail_motion "$d" phone-duo-rail-light
+    demo --es duo_layout always --es open_provider claude_code
+    shot "phone-duo-$THEME-03-claude" 6
+    demo --es duo_layout always --es open_settings_page appearance
+    shot "phone-duo-$THEME-04-appearance" 5
+  done
+  demo --es duo_layout wide
 }
 
 if [[ "$SCENES" == duo ]]; then

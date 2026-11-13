@@ -25,11 +25,14 @@ import org.junit.Test;
 public class DuoLayoutTest {
     static final double FOLD8_W = 933;
     static final double FOLD8_H = 704;
+    /** a Galaxy phone (and about a folded Fold 8's cover screen's width) */
+    static final double PHONE_W = 412;
+    static final double PHONE_H = 915;
     private static final double RAIL = 84;
 
     @After
     public void restore() {
-        CodexGlass.setDuoLayout(true);
+        CodexGlass.setDuoMode(CodexGlass.DUO_WIDE);
     }
 
     @Test
@@ -41,18 +44,55 @@ public class DuoLayoutTest {
     }
 
     @Test
+    public void alwaysPutsTheRailOnPhones() {
+        CodexGlass.setDuoMode(CodexGlass.DUO_WIDE);
+        assertEquals(0, CodexGlass.railWidth(PHONE_W, PHONE_H), 0);
+        CodexGlass.setDuoMode(CodexGlass.DUO_ALWAYS);
+        assertEquals(RAIL, CodexGlass.railWidth(PHONE_W, PHONE_H), 0);
+        CodexGlass.setDuoMode(CodexGlass.DUO_OFF);
+        assertEquals(0, CodexGlass.railWidth(FOLD8_W, FOLD8_H), 0);
+    }
+
+    /** Back starts about a quarter of the way down (thumb reach), not by the status bar. */
+    @Test
+    public void railButtonsSitWithinThumbReach() {
+        double top = CodexGlass.railTop(FOLD8_H, 32, 24, 2, 4);
+        assertTrue("rail top " + top, top >= FOLD8_H * 0.25 && top <= FOLD8_H * 0.3);
+        double phone = CodexGlass.railTop(PHONE_H, 48, 24, 2, 4);
+        assertTrue("phone rail top " + phone, phone >= PHONE_H * 0.25);
+        // a short window gives the tabs their room first, never going under the status bar
+        double shortTop = CodexGlass.railTop(400, 32, 24, 2, 4);
+        assertTrue(shortTop >= 44);
+        assertTrue(CodexGlass.railTabsFit(400, 32, 24, 2) >= 2);
+    }
+
+    /** A tap on another rail tab flies the selection there (frames in between differ), as the bottom bar does. */
+    @Test
+    public void railSelectionSlides() {
+        FakeSource src = new FakeSource();
+        Capture c = capture(true, "light", CodexGlass.DASHBOARD, src);
+        String before = src.selectedTab();
+        // the rail's tabs: the column at the right edge, the second tab from the top of the tab capsule
+        double x = FOLD8_W - RAIL / 2;
+        int n = Math.min(src.tabs().size(), CodexGlass.railTabsFit(FOLD8_H, 32, 24, 2));
+        double tabsTop = FOLD8_H - 24 - 8 - (n * CodexGlass.RAIL_TAB + 8);
+        c.tap(x, tabsTop + 4 + CodexGlass.RAIL_TAB * 1.5, 80.0);
+        c.run(60);
+        byte[] mid = c.image().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG, 100, 6).getBytes();
+        c.run(1500);
+        byte[] end = c.image().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG, 100, 6).getBytes();
+        assertFalse("tab did not change", before.equals(src.selectedTab()));
+        assertFalse("no frame between the tabs", java.util.Arrays.equals(mid, end));
+    }
+
+    @Test
     public void fold8DashboardKeepsThePageBesideTheRail() {
         Capture c = capture(true, "light", CodexGlass.DASHBOARD);
         List<double[]> texts = texts(c, CodexGlass.DASHBOARD);
-        boolean inRail = false;
+        // the rail's tabs are drawn by Glassé's RailTabView (no text nodes); every page text stays left of it
         for (double[] t : texts) {
-            if (t[0] >= FOLD8_W - RAIL - 1) {
-                inRail = true; // the tab labels
-            } else {
-                assertTrue("page text runs under the rail at x " + (t[0] + t[2]), t[0] + t[2] <= FOLD8_W - RAIL + 1);
-            }
+            assertTrue("page text runs under the rail at x " + (t[0] + t[2]), t[0] + t[2] <= FOLD8_W - RAIL + 1);
         }
-        assertTrue("no tab labels in the right-edge column", inRail);
     }
 
     @Test
@@ -74,6 +114,20 @@ public class DuoLayoutTest {
             return;
         }
         for (String scheme : new String[] {"light", "dark"}) {
+            CodexGlass.setDuoMode(CodexGlass.DUO_ALWAYS);
+            FakeSource ps = new FakeSource();
+            Map<String, ScreenMaker> pm = new LinkedHashMap<>();
+            pm.put(CodexGlass.SETTINGS, env -> CodexGlass.settings(env, ps));
+            pm.put(CodexGlass.DASHBOARD, env -> CodexGlass.dashboard(env, ps));
+            Capture pc = new Capture(PHONE_W, PHONE_H, 48, 24, 2, scheme, env -> CodexGlass.dashboard(env, ps), pm);
+            pc.host.open(CodexGlass.DASHBOARD, true);
+            pc.run(2500);
+            pc.shot(out + "/phone-always-" + scheme + "-01-dashboard.png");
+            pc.host.close();
+            pc.run(1500);
+            pc.host.open(CodexGlass.SETTINGS, true);
+            pc.run(2500);
+            pc.shot(out + "/phone-always-" + scheme + "-02-settings.png");
             for (boolean duo : new boolean[] {true, false}) {
                 String tag = (duo ? "duo" : "standard") + "-" + scheme;
                 Capture c = capture(duo, scheme, CodexGlass.DASHBOARD);
@@ -88,8 +142,11 @@ public class DuoLayoutTest {
     }
 
     private static Capture capture(boolean duo, String scheme, String app) {
-        CodexGlass.setDuoLayout(duo);
-        FakeSource src = new FakeSource();
+        return capture(duo, scheme, app, new FakeSource());
+    }
+
+    private static Capture capture(boolean duo, String scheme, String app, FakeSource src) {
+        CodexGlass.setDuoMode(duo ? CodexGlass.DUO_WIDE : CodexGlass.DUO_OFF);
         Map<String, ScreenMaker> makers = new LinkedHashMap<>();
         makers.put(CodexGlass.SETTINGS, env -> CodexGlass.settings(env, src));
         makers.put(CodexGlass.DASHBOARD, env -> CodexGlass.dashboard(env, src));

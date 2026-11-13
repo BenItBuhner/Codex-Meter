@@ -722,14 +722,29 @@ public final class SettingsActivity extends AppCompatActivity {
                 AppPreferences.setGlassIncreaseContrast(requireContext(), (Boolean) value);
                 return true;
             });
-            SwitchPreferenceCompat duo = findPreference(AppPreferences.KEY_GLASS_DUO_LAYOUT);
+            ListPreference duo = findPreference(AppPreferences.KEY_GLASS_DUO_MODE);
             if (duo != null) {
                 duo.setPersistent(false);
-                duo.setChecked(AppPreferences.isGlassDuoLayout(context));
+                duo.setValue(AppPreferences.getGlassDuoMode(context));
+                duo.setSummary(duoSummary(AppPreferences.getGlassDuoMode(context)));
                 duo.setOnPreferenceChangeListener((preference, value) -> {
-                    AppPreferences.setGlassDuoLayout(requireContext(), (Boolean) value);
+                    String mode = String.valueOf(value);
+                    AppPreferences.setGlassDuoMode(requireContext(), mode);
+                    duo.setSummary(duoSummary(mode));
                     return true;
                 });
+            }
+        }
+
+        /** What the Duo layout choice does, under its row. */
+        private static String duoSummary(String mode) {
+            switch (mode) {
+                case "off":
+                    return "Off: the top bar and the bottom tab bar stay where they are";
+                case "always":
+                    return "On every screen, phones included: Back, the toolbar and the tabs stand in a column on the right edge";
+                default:
+                    return "On wide screens, such as an unfolded Galaxy Z Fold, Back, the toolbar and the tabs stand in a column on the right edge";
             }
         }
 

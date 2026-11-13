@@ -22,9 +22,10 @@ public final class UsagePaceDemoActivity extends Activity {
         if (theme != null && !theme.isEmpty()) {
             AppPreferences.setAppTheme(this, theme);
         }
-        // Optional: Liquid Glass's Duo layout on wide screens (on by default).
-        if (getIntent().hasExtra("duo_layout")) {
-            AppPreferences.setGlassDuoLayout(this, getIntent().getBooleanExtra("duo_layout", true));
+        // Optional: Liquid Glass's Duo layout ("off", "wide" (the default) or "always").
+        String duoMode = getIntent().getStringExtra("duo_layout");
+        if (duoMode != null && !duoMode.isEmpty()) {
+            AppPreferences.setGlassDuoMode(this, duoMode);
         }
         String settingsPage = getIntent().getStringExtra("open_settings_page");
         if (settingsPage != null && !settingsPage.isEmpty()) {
