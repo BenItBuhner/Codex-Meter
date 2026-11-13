@@ -51,15 +51,33 @@ public enum UsagePace {
         now: Date = Date(),
         sensitivity: UsagePaceSensitivity = .balanced
     ) -> UsagePaceAssessment {
+        // History only refines the estimate when it describes this same window.
+        let matchingHistory = history.flatMap { history -> UsageHistory? in
+            guard let window,
+                  let latest = history.samples.last,
+                  let resetAt = window.effectiveResetDate(relativeTo: observedAt),
+                  UsageWindow.sameResetWindow(
+                      leftReset: latest.resetAt,
+                      leftWindowSeconds: latest.windowSeconds,
+                      rightReset: resetAt,
+                      rightWindowSeconds: window.windowSeconds
+                  ) else {
+                return nil
+            }
+            return history
+        }
+        // A saved reset partway through the window restarts the average from the reset.
+        let usageStart = matchingHistory?.inWindowResetAt.flatMap { $0 < observedAt ? $0 : nil }
         let baseline = baselineAssessment(
             window: window,
+            usageStart: usageStart,
             observedAt: observedAt,
             now: now,
             sensitivity: sensitivity
         )
         guard baseline.isAvailable,
               let window,
-              let history,
+              let history = matchingHistory,
               history.observedBurnRate > 0 else {
             return baseline
         }
@@ -145,6 +163,7 @@ public enum UsagePace {
 
     private static func baselineAssessment(
         window: UsageWindow?,
+        usageStart: Date? = nil,
         observedAt: Date,
         now: Date,
         sensitivity: UsagePaceSensitivity
@@ -161,7 +180,8 @@ public enum UsagePace {
         }
 
         let windowDuration = TimeInterval(window.windowSeconds)
-        let windowStart = resetAt.addingTimeInterval(-windowDuration)
+        let fullWindowStart = resetAt.addingTimeInterval(-windowDuration)
+        let windowStart = usageStart.map { max($0, fullWindowStart) } ?? fullWindowStart
         let elapsed = observedAt.timeIntervalSince(windowStart)
         guard elapsed.isFinite,
               elapsed > 0,

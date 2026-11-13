@@ -58,7 +58,12 @@ public final class UsageStats {
         long windowStart = last.resetAtMillis - last.windowSeconds * 1000L;
         double averageRate = 0d;
         long span = last.observedAtMillis - first.observedAtMillis;
-        int burned = last.usedPercent - first.usedPercent;
+        // Count only increases so a saved reset partway through the window (usage drops to zero
+        // and climbs again) does not cancel out the usage before it.
+        int burned = 0;
+        for (int i = 1; i < samples.size(); i++) {
+            burned += Math.max(0, samples.get(i).usedPercent - samples.get(i - 1).usedPercent);
+        }
         if (span > 0L && burned > 0) {
             averageRate = burned / hours(span);
         }

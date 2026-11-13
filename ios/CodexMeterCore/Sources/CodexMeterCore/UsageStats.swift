@@ -29,7 +29,10 @@ public enum UsageStats {
         let windowStart = last.resetAt.addingTimeInterval(-TimeInterval(last.windowSeconds))
         var averageRate = 0.0
         let span = last.observedAt.timeIntervalSince(first.observedAt)
-        let burned = last.usedPercent - first.usedPercent
+        // Count only increases so a saved reset partway through the window (usage drops to
+        // zero and climbs again) does not cancel out the usage before it.
+        let burned = zip(samples, samples.dropFirst())
+            .reduce(0) { $0 + max(0, $1.1.usedPercent - $1.0.usedPercent) }
         if span > 0, burned > 0 {
             averageRate = Double(burned) / hours(span)
         }

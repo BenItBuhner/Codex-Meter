@@ -67,6 +67,49 @@ public final class UsageHistory {
         return Collections.unmodifiableList(result);
     }
 
+    /**
+     * When usage was reset partway through the latest window without moving its reset time, or 0
+     * when it was not. Claude Code saved resets work this way: usage drops back to zero but the
+     * weekly deadline stays put, so the full-window average would count the time before the reset
+     * against usage that started after it. The reset is placed halfway between the last sample
+     * before the drop and the first sample after it, or at that first sample when it still reads
+     * zero.
+     */
+    public long inWindowResetAtMillis() {
+        List<UsageSample> current = currentWindowSamples();
+        for (int i = current.size() - 1; i > 0; i--) {
+            UsageSample before = current.get(i - 1);
+            UsageSample after = current.get(i);
+            if (isResetDrop(before, after)) {
+                if (after.usedPercent <= 0) return after.observedAtMillis;
+                return before.observedAtMillis
+                        + (after.observedAtMillis - before.observedAtMillis) / 2L;
+            }
+        }
+        return 0L;
+    }
+
+    /** Latest-window samples taken after the most recent in-window reset, oldest to newest. */
+    public List<UsageSample> samplesSinceInWindowReset() {
+        List<UsageSample> current = currentWindowSamples();
+        for (int i = current.size() - 1; i > 0; i--) {
+            if (isResetDrop(current.get(i - 1), current.get(i))) {
+                return Collections.unmodifiableList(
+                        new ArrayList<>(current.subList(i, current.size())));
+            }
+        }
+        return current;
+    }
+
+    /**
+     * Usage only falls inside a window when it is reset. A small dip is treated as rounding noise
+     * unless it lands on zero.
+     */
+    private static boolean isResetDrop(UsageSample before, UsageSample after) {
+        if (after.usedPercent >= before.usedPercent) return false;
+        return after.usedPercent <= 0 || before.usedPercent - after.usedPercent >= 3;
+    }
+
     /** Most recent reset windows, oldest to newest, for normalized historical overlays. */
     public List<List<UsageSample>> recentWindows(int maximum) {
         if (samples.isEmpty() || maximum <= 0) return Collections.emptyList();
@@ -103,7 +146,7 @@ public final class UsageHistory {
      * time and percentage points to avoid magnifying refresh jitter.
      */
     public double observedBurnRate() {
-        List<UsageSample> current = currentWindowSamples();
+        List<UsageSample> current = samplesSinceInWindowReset();
         if (current.size() < 2) return 0d;
         UsageSample latest = current.get(current.size() - 1);
         long minimumSpan = FIVE_HOUR.equals(kind)
