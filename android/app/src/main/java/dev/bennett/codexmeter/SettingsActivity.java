@@ -1807,7 +1807,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 // distinguish them, and routing by the Samsung fallback would prevent users
                 // from enabling Android Live Updates here.
                 if (Build.VERSION.SDK_INT >= 36
-                        && !NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
+                        && NowBarDisplayMode.usesAndroidLiveUpdate(
                         NowBarPreferences.getDisplayMode(requireContext()))) {
                     Intent promotion = new Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName());
@@ -2216,10 +2216,13 @@ public final class SettingsActivity extends AppCompatActivity {
                         + " app session"
                         : NowBarManager.activeProvider(requireContext()).displayName
                         + " live monitor";
+                String postedMode = NowBarManager.postedDisplayMode(requireContext());
                 boolean samsungCompatibility = NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
-                        NowBarManager.postedDisplayMode(requireContext()));
+                        postedMode);
                 String state = samsungCompatibility
-                        ? "using Samsung compatibility"
+                        ? "shown in the Now Bar"
+                        : NowBarDisplayMode.BOTH.equals(postedMode)
+                        ? "shown in the Now Bar and as a live notification"
                         : Build.VERSION.SDK_INT >= 36
                         ? (NowBarManager.isPromoted(requireContext())
                         ? "promoted as a Live Update"
@@ -2255,6 +2258,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (nowBarDisplayModePreference != null) {
                 nowBarDisplayModePreference.setValue(
                         NowBarPreferences.getDisplayMode(requireContext()));
+                nowBarDisplayModePreference.setSummary(displayModeSummary());
             }
             if (nowBarPercentModePreference != null) {
                 nowBarPercentModePreference.setValue(
@@ -2268,8 +2272,8 @@ public final class SettingsActivity extends AppCompatActivity {
                         NowBarManager.postedDisplayMode(requireContext()))) {
                     summary = NowBarDisplayMode.AUTO.equals(
                             NowBarPreferences.getDisplayMode(requireContext()))
-                            ? "Automatic · using Samsung fallback until Android access is allowed"
-                            : "Samsung compatibility selected · firmware support required";
+                            ? "Automatic · using the Now Bar until Android access is allowed"
+                            : "Now Bar selected · needs Samsung firmware support";
                 } else if (Build.VERSION.SDK_INT < 36) {
                     summary = "Notifications allowed · Live display depends on your device";
                 } else if (!NowBarManager.canPostPromotedNotifications(requireContext())) {
@@ -2283,6 +2287,25 @@ public final class SettingsActivity extends AppCompatActivity {
                 }
                 nowBarPermissionPreference.setSummary(summary);
             }
+        }
+
+        /**
+         * Says which surface the monitor uses, so it is clear that only one shows unless Both
+         * is picked: "Automatic · Now Bar", "Live notification", "Now Bar and live notification".
+         */
+        private String displayModeSummary() {
+            String selected = NowBarPreferences.getDisplayMode(requireContext());
+            String resolved = NowBarManager.resolvedDisplayMode(requireContext());
+            String surface = NowBarDisplayMode.BOTH.equals(resolved)
+                    ? "Now Bar and live notification"
+                    : NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(resolved)
+                    ? "Now Bar" : "Live notification";
+            if (NowBarDisplayMode.AUTO.equals(selected)) {
+                return "Automatic · " + surface;
+            }
+            return NowBarDisplayMode.BOTH.equals(resolved)
+                    ? surface + " · if your phone shows two, pick one"
+                    : surface;
         }
 
         private void setNotificationsEnabled(boolean enabled) {

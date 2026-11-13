@@ -598,7 +598,7 @@ grep -q 'android.ongoingActivityNoti.' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'applySamsungCompatibility' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
-grep -q 'NowBarDisplayMode.ANDROID_LIVE_UPDATE' \
+grep -q 'NowBarDisplayMode.usesAndroidLiveUpdate' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
 grep -q 'setDeleteIntent(stopIntent)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"

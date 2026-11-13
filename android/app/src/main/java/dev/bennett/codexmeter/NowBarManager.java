@@ -572,6 +572,11 @@ public final class NowBarManager {
         return posted == null ? resolveDisplayMode(context) : NowBarDisplayMode.normalize(posted);
     }
 
+    /** The surface the next post will use, after Automatic picks one. */
+    public static String resolvedDisplayMode(Context context) {
+        return resolveDisplayMode(context);
+    }
+
     private static String resolveDisplayMode(Context context) {
         return NowBarDisplayMode.resolve(NowBarPreferences.getDisplayMode(context),
                 isSamsungDevice(), Build.VERSION.SDK_INT,
@@ -648,13 +653,9 @@ public final class NowBarManager {
         UsageWindow otherWindow = weeklyFocus ? fiveHour : weekly;
         String otherText = otherWindow == null ? ""
                 : weeklyFocus ? fiveHourText : weeklyText;
-        StringBuilder body = new StringBuilder(resetText == null ? "" : resetText);
-        String tail = estimate.isEmpty() ? otherText : estimate;
-        if (!tail.isEmpty()) {
-            if (body.length() > 0) body.append(" · ");
-            body.append(tail);
-        }
-        String text = body.toString();
+        // One layout for every surface: headline, reset line, provider name, and a short
+        // percentage chip. Samsung's Now Bar and Android's live notification read the same.
+        String text = NowBarCopy.secondaryLine(resetText, estimate, otherText);
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
@@ -674,7 +675,7 @@ public final class NowBarManager {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
                 .setContentText(text)
-                .setSubText(provider.displayName)
+                .setSubText(preview ? "Now Bar preview" : provider.displayName)
                 .setContentIntent(contentIntent)
                 .setDeleteIntent(stopIntent)
                 .setOngoing(true)
@@ -693,18 +694,26 @@ public final class NowBarManager {
             // Other providers show their own mark, flattened to a white bitmap.
             builder.setSmallIcon(providerMark(context, provider, Color.WHITE));
         }
-        if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(displayMode)) {
-            applySamsungCompatibility(context, builder, provider, fiveHour, weekly, longLabel,
-                    used,
-                    progressWindow, weeklyFocus, until, now, observedAt, preview,
-                    accelerated, title, text, resetText);
-        } else {
+        boolean samsungPayload = NowBarDisplayMode.usesSamsungPayload(displayMode);
+        boolean androidLiveUpdate = NowBarDisplayMode.usesAndroidLiveUpdate(displayMode);
+        if (samsungPayload) {
+            applySamsungCompatibility(context, builder, provider, used,
+                    progressWindow, weeklyFocus, longLabel, until, now, observedAt,
+                    accelerated, title, text);
+        }
+        if (androidLiveUpdate) {
             Bundle promotionExtras = new Bundle();
             promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
             builder.addExtras(promotionExtras);
             if (Build.VERSION.SDK_INT >= 36) {
-                Api36.applyLiveUpdateStyle(context, builder, used, focusCritical, accelerated);
+                Api36.applyLiveUpdateStyle(context, builder, used, accelerated);
             }
+        }
+        if (Build.VERSION.SDK_INT >= 36) {
+            // Always give the status chip its short text. Some firmware promotes the Now Bar
+            // payload into a live notification on its own; without this its chip falls back
+            // to the headline and shows a truncated "Weekly…".
+            Api36.applyChipText(builder, focusCritical);
         }
         Notification builtNotification;
         boolean legacyColorizedFallback = false;
@@ -714,7 +723,7 @@ public final class NowBarManager {
             // releases reject colorized Live Updates. Trust the running framework's predicate:
             // use the modern uncolorized contract first and retry only where it is required.
             if (Build.VERSION.SDK_INT >= 36
-                    && NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(displayMode)
+                    && androidLiveUpdate
                     && !Api36.hasPromotableCharacteristics(builtNotification)) {
                 builder.setColorized(true);
                 Notification colorizedCandidate = builder.build();
@@ -751,8 +760,7 @@ public final class NowBarManager {
                     .putBoolean(KEY_POSTED_PROMOTION_ALLOWED,
                             canPostPromotedNotifications(context))
                     .apply();
-            if (Build.VERSION.SDK_INT >= 36
-                    && NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(displayMode)) {
+            if (Build.VERSION.SDK_INT >= 36 && androidLiveUpdate) {
                 new Handler(Looper.getMainLooper()).postDelayed(
                         () -> Api36.logPostedPromotionState(manager, NOTIFICATION_ID), 1000L);
             }
@@ -778,10 +786,9 @@ public final class NowBarManager {
     }
 
     private static void applySamsungCompatibility(Context context, Notification.Builder builder,
-            UsageProvider provider, UsageWindow fiveHour, UsageWindow weekly, String longLabel, int used,
-            UsageWindow progressWindow,
-            boolean weeklyFocus, long until, long now, long observedAt, boolean preview,
-            boolean accelerated, String title, String text, String resetText) {
+            UsageProvider provider, int used, UsageWindow progressWindow, boolean weeklyFocus,
+            String longLabel, long until, long now, long observedAt, boolean accelerated,
+            String title, String text) {
         // Chip sits on the accent fill → always-light Codex mark.
         // Expanded Now Bar: pick an explicit light/dark resource at post time. Night-qualified
         // drawables can resolve wrong inside Samsung SystemUI (separate process / config).
@@ -798,8 +805,10 @@ public final class NowBarManager {
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
                 accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254));
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
-                NowBarCopy.chipExpandedText(weeklyFocus ? longLabel : "5-hour",
-                        progressWindow, observedAt, now));
+                NowBarCopy.chipExpandedText(provider.displayName,
+                        weeklyFocus ? longLabel : "5-hour", progressWindow, observedAt, now));
+        // The expanded card and the Now Bar pill carry the same headline and line as the
+        // standard notification, so whichever surface firmware draws, it reads the same.
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "primaryInfo", title);
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "secondaryInfo", text);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "description",
@@ -809,11 +818,9 @@ public final class NowBarManager {
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "progressSegments.icon", progressDot);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "nowbarIcon", nowBarIcon);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarPrimaryInfo", title);
-        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo",
-                resetText == null ? text : resetText);
+        extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarSecondaryInfo", text);
         extras.putString(SAMSUNG_ONGOING_PREFIX + "nowbarIconType", "progress");
         builder.addExtras(extras)
-                .setSubText(preview ? "Now Bar preview" : provider.displayName)
                 .setProgress(100, used, false)
                 .setCategory(Notification.CATEGORY_STATUS)
                 .setShowWhen(true)
@@ -1003,7 +1010,7 @@ public final class NowBarManager {
     @RequiresApi(36)
     private static final class Api36 {
         static void applyLiveUpdateStyle(Context context, Notification.Builder builder, int used,
-                String criticalText, boolean accelerated) {
+                boolean accelerated) {
             Notification.ProgressStyle style = new Notification.ProgressStyle()
                     .setProgress(used)
                     .setStyledByProgress(true)
@@ -1014,7 +1021,11 @@ public final class NowBarManager {
                             new Notification.ProgressStyle.Segment(100)
                                     .setColor(accelerated
                                             ? Ui.warning(false) : Color.rgb(3, 129, 254))));
-            builder.setStyle(style).setShortCriticalText(criticalText);
+            builder.setStyle(style);
+        }
+
+        static void applyChipText(Notification.Builder builder, String criticalText) {
+            builder.setShortCriticalText(criticalText);
         }
 
         static boolean canPostPromotedNotifications(NotificationManager manager) {

@@ -44,19 +44,39 @@ public final class NowBarCopy {
      */
     public static String chipExpandedText(String windowLabel, UsageWindow window,
             long observedAtMillis, long nowMillis) {
+        return chipExpandedText("Codex", windowLabel, window, observedAtMillis, nowMillis);
+    }
+
+    /** {@link #chipExpandedText(String, UsageWindow, long, long)} for any provider. */
+    public static String chipExpandedText(String providerName, String windowLabel,
+            UsageWindow window, long observedAtMillis, long nowMillis) {
+        String name = providerName == null || providerName.isEmpty() ? "Codex" : providerName;
         String focusLabel = (windowLabel == null || windowLabel.isEmpty()
                 ? "5-hour" : windowLabel) + " ";
         if (window == null) {
-            return "Codex · " + focusLabel + "unavailable";
+            return name + " · " + focusLabel + "unavailable";
         }
         int remaining = window.remainingPercent();
         if (remaining > 0) {
-            return "Codex · " + focusLabel + remaining + "%";
+            return name + " · " + focusLabel + remaining + "%";
         }
         String duration = resetDurationText(window, observedAtMillis, nowMillis);
         return duration == null
-                ? "Codex · " + focusLabel + "0%"
-                : "Codex · " + focusLabel + duration;
+                ? name + " · " + focusLabel + "0%"
+                : name + " · " + focusLabel + duration;
+    }
+
+    /**
+     * The one secondary line every live surface shows under the headline, so the Samsung Now
+     * Bar card and the Android live notification read the same: when the window resets, plus
+     * a pace warning when there is one. The other window only fills in when the reset time is
+     * unknown, which keeps the line short enough for the Now Bar.
+     */
+    public static String secondaryLine(String resetText, String estimate, String otherText) {
+        String first = resetText == null || resetText.isEmpty()
+                ? (otherText == null ? "" : otherText) : resetText;
+        if (estimate == null || estimate.isEmpty()) return first;
+        return first.isEmpty() ? estimate : first + " · " + estimate;
     }
 
     /**
