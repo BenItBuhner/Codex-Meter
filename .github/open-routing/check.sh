@@ -61,6 +61,26 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
   adb shell input tap $xy
 }
 
+# Taps the middle of the home-screen widget (the first view the app draws on the launcher).
+tap_widget() {
+  local xy
+  xy=$(dump | python3 -c '
+import re, sys
+for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
+    attrs = dict(re.findall(r"([\w-]+)=\"([^\"]*)\"", node))
+    if attrs.get("package") == "com.google.android.apps.nexuslauncher" \
+            and attrs.get("class") != "android.appwidget.AppWidgetHostView":
+        continue
+    if attrs.get("class") == "android.appwidget.AppWidgetHostView" \
+            or attrs.get("package") == "dev.bennett.codexmeter":
+        x1, y1, x2, y2 = map(int, re.findall(r"\d+", attrs["bounds"]))
+        print((x1 + x2) // 2, (y1 + y2) // 2)
+        break
+')
+  [[ -n "$xy" ]] || { echo "no widget on the home screen" >&2; return 1; }
+  adb shell input tap $xy
+}
+
 # Taps the live notification showing provider $1 (its display name) in the open shade.
 tap_notification() {
   local xy
@@ -137,8 +157,9 @@ for DESIGN in "${DESIGNS[@]}"; do
   log_step "widget cold $DESIGN"
   shot "$DESIGN-01-home-with-claude-widget" 1
   harness clear_tasks; home
-  tap_view "$PKG:id/widget_title"; sleep 6
+  tap_widget; sleep 6
   shot "$DESIGN-02-widget-cold-open" 0
+  expect "Widget tap opens the app, app not running" "*MainActivity*" "$(top_activity)"
   expect "Widget tap, app not running" codex "$(selected)"
 
   # 2. Warm: the user was on the Cursor tab with Settings › Appearance open, then went home.
@@ -147,9 +168,11 @@ for DESIGN in "${DESIGNS[@]}"; do
   open_settings_appearance
   shot "$DESIGN-03-settings-open-before-home" 0
   home
-  tap_view "$PKG:id/widget_title"; sleep 4
+  tap_widget; sleep 4
   shot "$DESIGN-04-widget-warm-open" 0
-  if [[ "$DESIGN" != liquid_glass ]]; then
+  if [[ "$DESIGN" == liquid_glass ]]; then
+    expect "Widget tap resumes the app" "*MainActivity*" "$(top_activity)"
+  else
     expect "Widget tap resumes the open screen" "*SettingsActivity*" "$(top_activity)"
   fi
   expect "Widget tap keeps the tab" cursor "$(selected)"

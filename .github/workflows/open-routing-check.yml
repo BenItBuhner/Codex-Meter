@@ -99,6 +99,7 @@ jobs:
         run: |
           cd open-routing 2>/dev/null || exit 0
           ls *.mp4 >/dev/null 2>&1 || exit 0
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; } || exit 0
           : > list.txt
           for f in widget-one_ui_9.mp4 live-one_ui_9.mp4 widget-liquid_glass.mp4 live-liquid_glass.mp4; do
             [[ -s "$f" ]] && echo "file '$f'" >> list.txt
