@@ -11,7 +11,15 @@ import java.util.List;
 
 /** Public, unauthenticated GitHub release discovery client. */
 public final class ReleaseUpdateClient {
-    private static final int MAX_RESPONSE_BYTES = 512 * 1024;
+    /**
+     * Guards against a runaway response only. The listing is compacted right after it is read
+     * (see {@link GitHubReleaseParser#compact}), so its raw size, which grows with every
+     * build a release ships, never reaches the stored cache. Thirty releases took about
+     * 650 KB raw in November 2026, which tripped the old 512 KB cap; compacted they take
+     * well under 100 KB.
+     */
+    private static final int MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+    private static final int MAX_ERROR_BYTES = 16 * 1024;
     private static final Object LOCK = new Object();
 
     private ReleaseUpdateClient() {
@@ -84,10 +92,11 @@ public final class ReleaseUpdateClient {
                 return UpdatePreferences.releases(app);
             }
             if (status != HttpURLConnection.HTTP_OK) {
-                String detail = read(connection.getErrorStream(), 16 * 1024);
+                String detail = read(connection.getErrorStream(), MAX_ERROR_BYTES);
                 throw new IllegalStateException(githubError(status, detail));
             }
-            String json = read(connection.getInputStream(), MAX_RESPONSE_BYTES);
+            String json = GitHubReleaseParser.compact(
+                    read(connection.getInputStream(), MAX_RESPONSE_BYTES));
             UpdatePreferences.saveSuccess(app, json, connection.getHeaderField("ETag"));
             return UpdatePreferences.releases(app);
         } finally {
