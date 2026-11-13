@@ -21,7 +21,7 @@ on:
         description: 'Design to record (liquid_glass, material_3_expressive, one_ui_9 or classic)'
         default: liquid_glass
       scenes:
-        description: 'all, new_models, priority, perf (Liquid Glass navigation pass), wide (foldable and tablet sizes) or duo (Duo layout on a Galaxy Z Fold 8)'
+        description: 'all, new_models, priority, perf (Liquid Glass navigation pass), wide (foldable and tablet sizes) or duo (Duo layout on a Galaxy Z Fold 8 and on a phone)'
         default: all
 
 permissions:

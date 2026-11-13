@@ -97,20 +97,24 @@ public final class CodexGlass {
     // =================================================================== Duo layout
 
     /**
-     * The Duo layout (Settings › Appearance › Liquid Glass): on a wide screen, Glassé's iPhone Duo
+     * The Duo layout (Settings › Appearance › Liquid Glass › Duo layout): Glassé's iPhone Duo
      * interface. Back, the toolbar buttons and the tabs leave the top and bottom bars and stand in
      * a column on the screen's right edge ({@link com.benitbuhner.glasse.kit.Adaptive#DuoRail}),
-     * and the pages lay out beside it. Made for an unfolded Galaxy Z Fold 8 (about 933 x 704 dp),
-     * whose inner screen is close to the iPhone Duo's open one (951 x 669 pt).
+     * and the pages lay out beside it. Made for an unfolded Galaxy Z Fold 8 (about 933 x 704 dp,
+     * close to the iPhone Duo's open screen); "always" also gives it to phones and a folded
+     * Fold's cover screen, as the folded iPhone Duo keeps its column.
      */
-    private static volatile boolean duoLayout = true;
+    public static final String DUO_OFF = "off";
+    public static final String DUO_WIDE = "wide";
+    public static final String DUO_ALWAYS = "always";
+    private static volatile String duoMode = DUO_WIDE;
 
-    public static void setDuoLayout(boolean on) {
-        duoLayout = on;
+    public static void setDuoMode(String mode) {
+        duoMode = DUO_OFF.equals(mode) || DUO_ALWAYS.equals(mode) ? mode : DUO_WIDE;
     }
 
-    public static boolean duoLayout() {
-        return duoLayout;
+    public static String duoMode() {
+        return duoMode;
     }
 
     /** Wide enough for the Duo layout: Glassé's own rule for leaving the phone layout. */
@@ -118,26 +122,54 @@ public final class CodexGlass {
         return w >= 600 && Math.min(w, h) >= 500;
     }
 
-    /** The right-edge column's width on this screen, or 0 where the phone bars stay. */
+    /** The right-edge column's width on this screen, or 0 where the top and bottom bars stay. */
     static double rail(KTheme t) {
         return railWidth(t.W, t.H);
     }
 
     static double railWidth(double w, double h) {
-        return duoLayout && wide(w, h) ? Kit.railW("duo-open") : 0;
+        String mode = duoMode;
+        boolean on = DUO_ALWAYS.equals(mode) || DUO_WIDE.equals(mode) && wide(w, h);
+        return on ? Kit.railW("duo-open") : 0;
+    }
+
+    /** A rail tab's height, and the gap between the column's buttons (Glassé's DuoRail). */
+    static final double RAIL_TAB = 54;
+    private static final double RAIL_GAP = 10;
+
+    /** How tall {@code buttons} glass buttons stand in the column. */
+    private static double buttonsHeight(int buttons) {
+        return buttons <= 0 ? 0 : buttons * 44 + (buttons - 1) * RAIL_GAP;
     }
 
     /**
-     * Glassé's DuoRail in the column at the right edge, from just under Android's status bar to
-     * the bottom: {@code props} are DuoRail's (onBack, actions, tabs, value, onChange). The rail
-     * is given a theme as wide as the column, so it lays out from the column's own left edge.
+     * Where the column's buttons start. The iPhone Duo keeps its status at the top of the column
+     * and its buttons below it; Android's status bar runs along the top of the screen instead, so
+     * the buttons start about a quarter of the way down, where the thumb reaches, never under the
+     * status bar, and moved up only when the tabs would not fit under them.
      */
-    private static El duoColumn(KTheme t, double rail, P props) {
-        KTheme column = t.with(rail, 0.0, rail);
-        double top = t.T + 8;
-        return Box(P.of("key", "duo-rail", "abs", true, "left", t.W - rail, "top", top, "w", rail,
-                        "h", Math.max(0, t.H - top)),
-                R.h(Kit.ThemeCtx.Provider, P.of("value", column), DuoRail(props.with("accent", ACCENT))));
+    static double railTop(double h, double top, double bottom, int buttons, int tabs) {
+        double reach = Math.max(top + 12, Math.round(h * 0.27));
+        double tabsTop = h - bottom - 8 - (tabs * RAIL_TAB + 8);
+        double room = tabsTop - 16 - buttonsHeight(buttons);
+        return Math.max(top + 12, Math.min(reach, room));
+    }
+
+    /** How many tabs fit in the column under its buttons (at least two). */
+    static int railTabsFit(double h, double top, double bottom, int buttons) {
+        double room = h - bottom - 8 - 8 - (top + 12) - buttonsHeight(buttons) - 16;
+        return Math.max(2, (int) Math.floor(room / RAIL_TAB));
+    }
+
+    /**
+     * Glassé's DuoRail at the screen's right edge: {@code props} are DuoRail's (onBack, actions,
+     * tabs, value, onChange); {@code buttons} counts the glass buttons it stands at the top.
+     */
+    private static El duoColumn(KTheme t, double rail, int buttons, int tabs, P props) {
+        KTheme column = t.with(t.W, null, rail);
+        double top = railTop(t.H, t.T, t.B, buttons, tabs);
+        return R.h(Kit.ThemeCtx.Provider, P.of("key", "duo-rail", "value", column),
+                DuoRail(props.with("accent", ACCENT, "top", top)));
     }
 
     public static Screen dashboard(Env env, GlassSource source) {
@@ -206,8 +238,11 @@ public final class CodexGlass {
         GlassModel.Dashboard d = R.useMemo(R.deps(version, selected), src::dashboard);
 
         // Up to four providers get a tab each; with more, the first three and More (iOS's rule).
-        boolean showsMore = tabs.size() > 4;
-        int own = showsMore ? 3 : tabs.size();
+        // The Duo layout's column fits as many as its height allows.
+        double rail = rail(t);
+        int fit = rail > 0 ? railTabsFit(t.H, t.T, t.B, buttons(src.menu())) : 4;
+        boolean showsMore = tabs.size() > fit;
+        int own = showsMore ? fit - 1 : tabs.size();
         List<Tab> kitTabs = new ArrayList<>();
         StringBuilder tabKey = new StringBuilder("tabs");
         for (int i = 0; i < own; i++) {
@@ -256,7 +291,6 @@ public final class CodexGlass {
                 src.selectTab(id);
             }
         };
-        double rail = rail(t);
         if (rail > 0) {
             // Duo: the page beside the right-edge column, which holds the bar's buttons and the tabs
             List<TopTab> railTabs = new ArrayList<>();
@@ -274,7 +308,8 @@ public final class CodexGlass {
                             EdgeFade(P.of("edge", "bottom", "h", t.B + 40, "color", bg)),
                             GlassNavBar(P.of("key", navKey(t) + ":duo", "title", d.title,
                                     "titleVisible", past.get()))),
-                    duoColumn(t, rail, P.of("actions", trailing.isEmpty() ? null : trailing,
+                    duoColumn(t, rail, trailing.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
+                            P.of("actions", trailing.isEmpty() ? null : trailing,
                             "tabs", railTabs.size() >= 2 ? railTabs : null,
                             "value", value, "onChange", pickTab)),
                     showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
@@ -311,6 +346,16 @@ public final class CodexGlass {
                         })) : null,
                 R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", DASHBOARD, "v", version)));
     };
+
+    private static int buttons(List<GlassSource.MenuEntry> menu) {
+        int n = 0;
+        for (GlassSource.MenuEntry entry : menu) {
+            if (entry != null) {
+                n++;
+            }
+        }
+        return n;
+    }
 
     private static int indexOf(List<GlassModel.Tab> tabs, String id) {
         for (int i = 0; i < tabs.size(); i++) {
@@ -678,7 +723,8 @@ public final class CodexGlass {
                                             "pointerEvents", sub ? "none" : null),
                                     GlassSearchField(P.of("placeholder", "Search", "value", query.get(),
                                             "onChange", (OnStr) query::set))) : null),
-                    duoColumn(t, rail, P.of("onBack", back, "actions", actions.isEmpty() ? null : actions)),
+                    duoColumn(t, rail, 1 + actions.size(), 0,
+                            P.of("onBack", back, "actions", actions.isEmpty() ? null : actions)),
                     R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", SETTINGS, "v", version)));
         }
         return Box(P.of("fill", true, "bg", t.pal.grouped),
