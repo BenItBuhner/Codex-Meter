@@ -241,8 +241,7 @@ public final class ProviderPreferences {
         } catch (Exception ignored) {
             return false;
         }
-        // Codex reaches the live monitor through UsageApi; other providers only show there
-        // while their app is open.
+        // Codex reaches the live monitor through UsageApi.
         if (saved) NowBarManager.onProviderUsageUpdated(context, provider, snapshot);
         if (saved) UsageRefillAlerts.onUsageSaved(context, provider, snapshot);
         if (saved) ProviderAlerts.onUsageSaved(context, provider, previous, snapshot);

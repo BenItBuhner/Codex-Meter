@@ -1720,7 +1720,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 boolean started = NowBarManager.start(requireContext());
                 if (!started) {
                     Toast.makeText(requireContext(),
-                            "Refresh your signed-in usage before starting the monitor.",
+                            "None of your signed-in accounts has usage limits to show yet. "
+                                    + "Refresh your usage, then try again.",
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
@@ -2165,8 +2166,7 @@ public final class SettingsActivity extends AppCompatActivity {
             updateNowBarAutoStartEnabledState();
             if (enabled) {
                 NowBarPreferences.clearSuppression(requireContext());
-                boolean started = NowBarManager.maybeAutoStart(requireContext(),
-                        AppPreferences.loadSnapshot(requireContext()));
+                boolean started = NowBarManager.maybeAutoStart(requireContext());
                 if (started) {
                     Toast.makeText(requireContext(),
                             "Live monitor started from the current usage threshold.",
@@ -2214,7 +2214,8 @@ public final class SettingsActivity extends AppCompatActivity {
                         : NowBarManager.isAppSession(requireContext())
                         ? NowBarManager.activeProvider(requireContext()).displayName
                         + " app session"
-                        : "Live monitor";
+                        : NowBarManager.activeProvider(requireContext()).displayName
+                        + " live monitor";
                 boolean samsungCompatibility = NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarManager.postedDisplayMode(requireContext()));
                 String state = samsungCompatibility
@@ -2234,7 +2235,7 @@ public final class SettingsActivity extends AppCompatActivity {
                         "Waiting for a low allowance or accelerated usage trigger");
             } else {
                 nowBarMonitorPreference.setSummary(
-                        "Show remaining Codex allowance until the next available usage reset");
+                        "Show remaining usage until the next available usage reset");
             }
             SwitchPreferenceCompat appSessions = findPreference("now_bar_app_sessions");
             if (appSessions != null) {

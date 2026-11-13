@@ -5,7 +5,7 @@
     <PreferenceCategory android:title="Live monitor">
         <SwitchPreferenceCompat
             android:key="now_bar_monitor_ui"
-            android:summary="Show remaining Codex allowance until the next usage reset"
+            android:summary="Show remaining usage until the next usage reset"
             android:title="Live monitor" />
         <Preference
             android:key="now_bar_permission"

@@ -384,7 +384,7 @@ public final class SettingsTransferStore {
         NowBarPreferences.clearSuppression(context);
         if (NowBarPreferences.isAutoStartEnabled(context)
                 || NowBarPreferences.isAcceleratedStartEnabled(context)) {
-            NowBarManager.maybeAutoStart(context, AppPreferences.loadSnapshot(context));
+            NowBarManager.maybeAutoStart(context);
         }
     }
 
