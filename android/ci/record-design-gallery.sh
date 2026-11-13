@@ -346,7 +346,9 @@ rail_motion() {
   sleep 2
   adb shell input swipe "$x" "$y0" "$x" $((y0 + 2 * tab)) 600
   sleep 3
-  kill -INT "$rec" 2>/dev/null || true
+  # stop screenrecord on the device so it finishes the file (killing the local adb cuts it short)
+  adb shell pkill -INT screenrecord || true
+  wait "$rec" 2>/dev/null || true
   sleep 2
   adb pull "/sdcard/$name.mp4" "$OUT/$name.mp4" >/dev/null && echo "Saved $name.mp4"
 }
@@ -367,7 +369,9 @@ duo_scenes() {
     [[ "$layout" == duo ]] && mode=wide || mode=off
     for THEME in light dark; do
       demo --es duo_layout "$mode"
+      # the first start after the resize draws late
       sleep 6
+      [[ "$layout" == duo && "$THEME" == light ]] && sleep 6
       shot "fold8-$layout-$THEME-01-dashboard" 1
       adb shell input swipe $((W / 3)) $((H * 3 / 4)) $((W / 3)) $((H / 4)) 600
       shot "fold8-$layout-$THEME-02-scrolled" 2
