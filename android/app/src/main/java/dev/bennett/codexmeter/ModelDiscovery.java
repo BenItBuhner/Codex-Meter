@@ -21,7 +21,8 @@ import org.json.JSONObject;
  * card and the optional "New models" notification. Pure Java so the self-tests cover it.
  *
  * <p>Every catalog is public and fetched without a key. A model shows only when an explicit
- * allowlist ties it to a connected provider (see {@link #scopesFor}); there is no fuzzy matching.
+ * allowlist ties it to a connected provider that makes it, or to a catalog people subscribe to
+ * (see {@link #scopesFor}); there is no fuzzy matching.
  * "New" means newly listed in a catalog, not newly released, and never that the user's own
  * subscription can use it, so every label says so.
  *
@@ -96,8 +97,12 @@ public final class ModelDiscovery {
     /**
      * The explicit mapping from a connected provider to the catalog models it makes relevant: a
      * model maker's own subscription covers that maker's models (OpenRouter author slugs), and a
-     * tool that offers several makers' models covers exactly the makers it documents offering.
-     * Nothing is matched by name, and a provider missing here unlocks nothing.
+     * catalog people subscribe to (OpenRouter, OpenCode Go, Kilo, Chutes, Synthetic) covers its
+     * own listings. Coding tools that resell other makers' models (Cursor, Copilot, Windsurf,
+     * Kiro and the rest) cover nothing: being able to pick Gemini in Cursor doesn't make Google a
+     * provider people use, and a Claude Code and Cursor user was told about Gemini launches.
+     * Antigravity is Google's own, so it covers Google. Nothing is matched by name, and a
+     * provider missing here unlocks nothing.
      */
     public static List<Scope> scopesFor(UsageProvider provider) {
         if (provider == null) {
@@ -112,23 +117,8 @@ public final class ModelDiscovery {
                 return Collections.singletonList(new Scope(Source.OPENROUTER, "anthropic"));
             case GROK:
                 return Collections.singletonList(new Scope(Source.OPENROUTER, "x-ai"));
-            case CURSOR:
-            case COPILOT:
-            case WINDSURF:
-            case CLINE:
-                return authors("openai", "anthropic", "google", "x-ai");
-            case FACTORY:
-            case AMP:
-            case CODEBUFF:
-            case WARP:
-                return authors("openai", "anthropic", "google");
             case ANTIGRAVITY:
-                return authors("google", "anthropic");
-            case DEVIN:
-            case AUGMENT:
-                return authors("anthropic", "openai");
-            case KIRO:
-                return authors("anthropic");
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "google"));
             case MINIMAX:
                 return Collections.singletonList(new Scope(Source.OPENROUTER, "minimax"));
             case KIMI:
@@ -146,14 +136,6 @@ public final class ModelDiscovery {
             default:
                 return Collections.emptyList();
         }
-    }
-
-    private static List<Scope> authors(String... slugs) {
-        List<Scope> out = new ArrayList<>();
-        for (String slug : slugs) {
-            out.add(new Scope(Source.OPENROUTER, slug));
-        }
-        return out;
     }
 
     /** The union of the connected providers' scopes; empty means nothing is fetched or shown. */
