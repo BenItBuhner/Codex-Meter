@@ -92,15 +92,6 @@ jobs:
           APK=android/app/build/outputs/apk/debug/app-debug.apk
           OUT="$GITHUB_WORKSPACE/shots"
           mkdir -p "$OUT"
-          # Live Updates are behind a flag on the API 36 image: turn it on, then reboot.
-          adb root >/dev/null 2>&1 || true; sleep 3
-          adb shell aflags enable android.app.ui_rich_ongoing || true
-          adb shell aflags enable com.android.systemui.status_bar_ui_thread || true
-          adb shell aflags list 2>/dev/null | grep -i -E "rich_ongoing|promot" > "$OUT/flags.txt" || true
-          adb reboot; adb wait-for-device
-          until [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]]; do sleep 2; done
-          sleep 8
-          adb shell input keyevent 82 || true
           adb install -r "$APK"
           adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
           adb shell cmd connectivity airplane-mode enable || true
