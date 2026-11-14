@@ -18,12 +18,13 @@ public class PlanPricingTests
         var snapshot = Snapshot("Pro", new UsageWindow(20, 18000), new UsageWindow(40, 604800));
         var pricing = PlanPricing.ForProvider("claude_code", snapshot)!;
         Assert.Equal("Claude Pro · $20/month", pricing.Title);
-        Assert.Equal(400, pricing.MonthlyValueUsd);
-        Assert.Equal(PlanPricing.ClaudeBasis, pricing.Basis);
-        // The same badge on Codex is ChatGPT Pro 20x.
-        Assert.Equal(14000, PlanPricing.ForProvider("codex", snapshot)!.MonthlyValueUsd);
-        Assert.Equal(2000, PlanPricing.ForClaudePlan("Max 5x")!.MonthlyValueUsd);
-        Assert.Equal(8000, PlanPricing.ForClaudePlan("Ultra")!.MonthlyValueUsd);
+        Assert.Equal(1200, pricing.MonthlyValueUsd);
+        Assert.StartsWith("Estimate: Opus 5.5 at full use, from BenchLeader (data Nov 7, 2026).", pricing.Basis);
+        Assert.Contains(("All on Haiku 5.5", "≈ $877/month"), pricing.SummaryRows(snapshot));
+        // The same badge on Codex is ChatGPT Pro 200.
+        Assert.Equal(5604, PlanPricing.ForProvider("codex", snapshot)!.MonthlyValueUsd);
+        Assert.Equal(7224, PlanPricing.ForClaudePlan("Max 5x")!.MonthlyValueUsd);
+        Assert.Equal(13200, PlanPricing.ForClaudePlan("Ultra")!.MonthlyValueUsd);
         Assert.Null(PlanPricing.ForClaudePlan("Team"));
     }
 
@@ -55,7 +56,23 @@ public class PlanPricingTests
         Assert.DoesNotContain("5-hour allowance", rows);
         Assert.Contains("Value used this week", rows);
         Assert.Equal("$3,500", PlanPricing.FormatUsd(3500));
+        Assert.Equal(299, PlanPricing.ForCodexPlan("plus")!.MonthlyValueUsd);
         Assert.Equal("$4.20", PlanPricing.FormatUsd(4.2));
+    }
+}
+
+public class UnknownPlanValueTests
+{
+    [Fact]
+    public void PlansWithNoPublishedFigureKeepTheCardButShowUnknown()
+    {
+        var snapshot = new UsageSnapshot("prolite", true, false, null, new UsageWindow(30, 604800), null, null, null, null, null,
+            DateTimeOffset.Parse("2026-11-14T12:00:00Z"));
+        var pricing = PlanPricing.ForProvider("codex", snapshot)!;
+        Assert.Equal("Pro 100 · $100/month", pricing.Title);
+        Assert.False(pricing.HasValue);
+        Assert.Equal([("Est. included usage", "Unknown")], pricing.SummaryRows(snapshot));
+        Assert.False(PlanPricing.ForCodexPlan("pro500")!.HasValue);
     }
 }
 

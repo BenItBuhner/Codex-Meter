@@ -2,31 +2,59 @@ using System.Globalization;
 
 namespace CodexMeter.Core.Models;
 
+/// <summary>One sourced figure: a month of the plan's allowance spent on one model at API prices.</summary>
+public sealed record PlanEstimate(string Model, double MonthlyValueUsd, string Source, string SourceUrl, string DataDate);
+
 /// <summary>
-/// Rough value estimates for subscription allowances, per provider, so the Estimated value card
-/// only ever describes the plan the user is actually on. A port of the Android
-/// <c>PlanPricing</c> as changed for the tester report (PR #227): Claude's "Pro" is not
-/// ChatGPT Pro 20x, Cursor reports its own figure, and anything else gets no card.
+/// Value estimates for subscription allowances, per provider, so the Estimated value card only
+/// ever describes the plan the user is actually on. A port of the Android <c>PlanPricing</c>
+/// (PR #229; sources and alternatives in docs/pricing-sources.md).
 /// </summary>
 /// <remarks>
-/// Codex anchors: Pro 20x ($200/month) is commonly measured at roughly $14,000 of equivalent API
-/// usage per month and Pro 5x ($100/month) at roughly $3,500; Plus ($20/month) back-solves to
-/// roughly $700. Claude anchors: SemiAnalysis (June 2026) put Ultra ($200/month) at roughly $8,000
-/// and Pro ($20/month) near $400, with Max ($100/month, 5x Pro) at roughly $2,000. Cursor's
-/// <c>planUsage.limit</c> is the usage the plan includes per cycle at API prices. Weekly figures
-/// divide the month into four windows and the 5-hour figure is one sixth of a week. Every number
-/// is an estimate, not a billing statement.
+/// Every figure is "monthly API value at full use": what a whole month of the plan's allowance
+/// would cost at API list prices if it all went to one model. Where sources disagree, the newest
+/// dated figure wins. A plan with no published or estimated figure keeps its card but shows the
+/// value as unknown (<see cref="Unknown"/>) instead of a guess. Cursor reports its own figure
+/// (<c>planUsage.limit</c>). Weekly figures divide the month into four windows and the 5-hour
+/// figure is one sixth of a week. Every number is an estimate, not a billing statement.
 /// </remarks>
 public sealed record PlanPricing(string PlanKey, string PlanLabel, double MonthlyPriceUsd, double MonthlyValueUsd,
-    string Basis, bool Reported)
+    string Basis, bool Reported, IReadOnlyList<PlanEstimate> ByModel)
 {
     private const double FiveHourShareOfWeekly = 1d / 6d;
 
-    public const string CommunityBasis = "Rough community estimates comparing plan allowances with API pricing; not a billing statement.";
-    public const string ClaudeBasis = "Rough estimates from SemiAnalysis's June 2026 study of Claude plans at API prices; not a billing statement.";
+    /// <summary>Value unknown: no published or estimated figure for the plan.</summary>
+    public const double Unknown = double.NaN;
+
+    public const string BenchLeader = "BenchLeader";
+    public const string BenchLeaderUrl = "https://www.benchleader.com/coding-plans";
+    public const string Holter = "Adam Holter";
+    public const string HolterUrl = "https://x.com/AdamHoltererer/status/2115827734223974762";
     public const string CursorBasis = "Cursor's own figure for the usage your plan includes at API prices; not a billing statement.";
 
-    /// <summary>Pricing for the plan a provider's snapshot reports, or null when there is no figure for it.</summary>
+    private static PlanEstimate Bench(string model, double value, string date) => new(model, value, BenchLeader, BenchLeaderUrl, date);
+
+    /// <summary>Holter gives dollars of API usage per $1 of plan; this is that ratio times the price.</summary>
+    private static PlanEstimate HolterRatio(string model, double perDollar, double price) =>
+        new(model, perDollar * price, Holter, HolterUrl, "2026-10-29");
+
+    /// <summary>A plan priced from sourced estimates; the first one is the headline.</summary>
+    private static PlanPricing Estimated(string key, string label, double price, params PlanEstimate[] estimates)
+    {
+        var head = estimates[0];
+        var basis = $"Estimate: {head.Model} at full use, from {head.Source} (data {DisplayDate(head.DataDate)}). "
+            + "Model rows assume all usage on one model. Not a billing statement.";
+        return new PlanPricing(key, label, price, head.MonthlyValueUsd, basis, false, estimates);
+    }
+
+    /// <summary>A plan with no published or estimated figure: the card says so instead of guessing.</summary>
+    private static PlanPricing UnknownPlan(string key, string label, double price, string why) =>
+        new(key, label, price, Unknown, why + " Not a billing statement.", false, []);
+
+    /// <summary>Whether there is a dollar figure to show; false for plans whose value is unknown.</summary>
+    public bool HasValue => !double.IsNaN(MonthlyValueUsd) && MonthlyValueUsd > 0;
+
+    /// <summary>Pricing for the plan a provider's snapshot reports, or null when there is no plan to describe.</summary>
     public static PlanPricing? ForProvider(string? providerId, UsageSnapshot? snapshot)
     {
         if (providerId is null || snapshot is null) return null;
@@ -39,13 +67,26 @@ public sealed record PlanPricing(string PlanKey, string PlanLabel, double Monthl
         };
     }
 
-    /// <summary>Codex (ChatGPT) pricing for a raw plan type.</summary>
+    /// <summary>
+    /// Codex (ChatGPT) pricing for a raw plan type, or null for plans with no allowance to price.
+    /// OpenAI sells Pro at $100, $200 and $500; "prolite" (the former Pro 5x) is Pro 100 and "pro"
+    /// (the former Pro 20x) is Pro 200.
+    /// </summary>
     public static PlanPricing? ForCodexPlan(string? planType) =>
         planType?.Trim().ToLowerInvariant().Replace("_", "").Replace("-", "").Replace(" ", "") switch
         {
-            "plus" => new("plus", "Plus", 20, 700, CommunityBasis, false),
-            "prolite" or "pro5x" => new("pro5x", "Pro 5x", 100, 3500, CommunityBasis, false),
-            "pro" or "pro20x" => new("pro20x", "Pro 20x", 200, 14000, CommunityBasis, false),
+            "plus" => Estimated("plus", "Plus", 20,
+                Bench("GPT-6.1 Sol", 299, "2026-11-09"),
+                HolterRatio("GPT-6 Astra", 32, 20),
+                HolterRatio("GPT-6 Luna", 19, 20),
+                HolterRatio("GPT-6.1 Terra", 18, 20),
+                Bench("GPT-6 Sol", 323, "2026-09-24")),
+            "prolite" or "pro5x" or "pro100" => UnknownPlan("pro100", "Pro 100", 100,
+                "No published estimate for Pro 100 yet (checked Nov 14, 2026)."),
+            "pro" or "pro20x" or "pro200" => Estimated("pro200", "Pro 200", 200,
+                Bench("GPT-6 Astra", 5604, "2026-09-21")),
+            "pro500" => UnknownPlan("pro500", "Pro 500", 500,
+                "No published estimate for Pro 500 yet (checked Nov 14, 2026)."),
             _ => null,
         };
 
@@ -53,9 +94,20 @@ public sealed record PlanPricing(string PlanKey, string PlanLabel, double Monthl
     public static PlanPricing? ForClaudePlan(string? planLabel) =>
         planLabel?.Trim().ToLowerInvariant().Replace("claude", "").Replace(" ", "").Replace("_", "").Replace("-", "") switch
         {
-            "pro" => new("claude_pro", "Claude Pro", 20, 400, ClaudeBasis, false),
-            "max" or "max5x" => new("claude_max", "Claude Max", 100, 2000, ClaudeBasis, false),
-            "ultra" or "max20x" => new("claude_ultra", "Claude Ultra", 200, 8000, ClaudeBasis, false),
+            "pro" => Estimated("claude_pro", "Claude Pro", 20,
+                Bench("Opus 5.5", 1200, "2026-11-07"),
+                Bench("Sonnet 5.5", 1203, "2026-09-27"),
+                Bench("Haiku 5.5", 877, "2026-09-27")),
+            "max" or "max5x" => Estimated("claude_max", "Claude Max", 100,
+                Bench("Opus 5.5", 7224, "2026-10-03"),
+                Bench("Sonnet 5.5", 7224, "2026-10-03"),
+                Bench("Haiku 5.5", 5263, "2026-10-03")),
+            // Holter 2026-10-29 (on Max 20x, now Ultra) is newer than BenchLeader's Ultra rows.
+            "ultra" or "max20x" => Estimated("claude_ultra", "Claude Ultra", 200,
+                HolterRatio("Opus 5.5", 66, 200),
+                HolterRatio("Sonnet 5.5", 66, 200),
+                HolterRatio("Haiku 5.5", 47, 200),
+                HolterRatio("Fable 5.1", 6.4, 200)),
             // Free has no allowance worth pricing; Team and Enterprise are priced per seat.
             _ => null,
         };
@@ -67,7 +119,7 @@ public sealed record PlanPricing(string PlanKey, string PlanLabel, double Monthl
         var weekly = snapshot.Weekly is not null && snapshot.Monthly is null;
         var label = snapshot.PlanType.Trim();
         return new PlanPricing("cursor_" + label.ToLowerInvariant().Replace(' ', '_'), label.Length == 0 ? "Cursor" : "Cursor " + label,
-            CursorMonthlyPrice(label), weekly ? included * 4 : included, CursorBasis, true);
+            CursorMonthlyPrice(label), weekly ? included * 4 : included, CursorBasis, true, []);
     }
 
     /// <summary>List prices of Cursor's individual plans; 0 when unknown (the multiple is then hidden).</summary>
@@ -81,6 +133,12 @@ public sealed record PlanPricing(string PlanKey, string PlanLabel, double Monthl
         "ultra" => 200,
         _ => 0,
     };
+
+    /// <summary>"2026-11-07" to "Nov 7, 2026".</summary>
+    public static string DisplayDate(string iso) =>
+        DateTime.TryParseExact(iso, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
+            : iso;
 
     public double WeeklyValueUsd => MonthlyValueUsd / 4;
     public double FiveHourValueUsd => WeeklyValueUsd * FiveHourShareOfWeekly;
@@ -103,6 +161,11 @@ public sealed record PlanPricing(string PlanKey, string PlanLabel, double Monthl
     public List<(string Label, string Value)> SummaryRows(UsageSnapshot? snapshot)
     {
         var rows = new List<(string, string)>();
+        if (!HasValue)
+        {
+            rows.Add(("Est. included usage", "Unknown"));
+            return rows;
+        }
         var weeklyCycle = snapshot is { Weekly: not null, Monthly: null };
         if (Reported && weeklyCycle)
         {
@@ -122,6 +185,8 @@ public sealed record PlanPricing(string PlanKey, string PlanLabel, double Monthl
             rows.Add(($"Value used this {(monthly ? "month" : "week")}", "≈ " + FormatUsd(EstimatedValueUsd(kind, window.UsedPercent))));
             rows.Add(($"{(monthly ? "Monthly" : "Weekly")} value remaining", "≈ " + FormatUsd(EstimatedValueUsd(kind, window.RemainingPercent))));
         }
+        if (ByModel.Count > 1)
+            foreach (var estimate in ByModel) rows.Add(($"All on {estimate.Model}", "≈ " + FormatUsd(estimate.MonthlyValueUsd) + "/month"));
         return rows;
     }
 

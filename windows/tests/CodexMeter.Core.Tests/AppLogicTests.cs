@@ -53,8 +53,8 @@ public class FormattingTests
         Assert.Equal("38% used", UsageFormat.Percent(window, UsageDisplayMode.Used));
         Assert.Equal("38% used", UsageFormat.Complement(window, UsageDisplayMode.Remaining));
         Assert.Equal("—", UsageFormat.Percent(null, UsageDisplayMode.Used, compact: true));
-        Assert.Equal("Pro 20x", UsageFormat.PlanLabel("pro"));
-        Assert.Equal("Pro 5x", UsageFormat.PlanLabel("pro_lite"));
+        Assert.Equal("Pro 200", UsageFormat.PlanLabel("pro"));
+        Assert.Equal("Pro 100", UsageFormat.PlanLabel("pro_lite"));
         Assert.Equal("Max 20x", UsageFormat.PlanLabel("Max 20x"));
     }
 
