@@ -61,6 +61,14 @@ final class OneUi9Page implements Ui.Header {
     private int bottomReserve;
     private View boundScroller;
     private int scrollerBasePaddingBottom;
+    /**
+     * Page-colored band behind the status bar and the floating back button. Once SESL9 hides the
+     * app bar, content scrolls under both; the native fading edge alone left rows half visible
+     * there on One UI phones (a tester's Now Bar page showed only "ing for a low allowance" of
+     * the first row, cut by the status bar and the round back button). It fades in as the app
+     * bar leaves, so the expanded large title is never covered.
+     */
+    private final View topScrim;
 
     private OneUi9Page(AppCompatActivity activity, View root, boolean expandable) {
         this.activity = activity;
@@ -73,6 +81,28 @@ final class OneUi9Page implements Ui.Header {
         this.expandable = expandable;
         this.toolbarHeight = toolbar.getLayoutParams().height;
         this.baseCollapsedHeight = Math.max(appBar.seslGetCollapsedHeight(), toolbarHeight);
+        this.topScrim = new View(activity);
+        int color = pageColor();
+        int clear = color & 0x00FFFFFF;
+        topScrim.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {color, color, color, clear}));
+        topScrim.setAlpha(0f);
+        topScrim.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        CoordinatorLayout.LayoutParams scrimParams = new CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, toolbarHeight);
+        scrimParams.gravity = android.view.Gravity.TOP;
+        // Above the body, below the floating toolbar, so the buttons stay on top and tappable.
+        this.root.addView(topScrim, this.root.indexOfChild(floating), scrimParams);
+    }
+
+    /** How opaque the top band is for an app bar offset: clear while the title shows. */
+    static float scrimAlpha(int verticalOffset, int totalScrollRange) {
+        if (totalScrollRange <= 0) {
+            return 1f;
+        }
+        float collapsed = Math.min(1f, Math.max(0f, -verticalOffset / (float) totalScrollRange));
+        return Math.min(1f, Math.max(0f, (collapsed - 0.7f) / 0.3f));
     }
 
     /**
@@ -114,6 +144,8 @@ final class OneUi9Page implements Ui.Header {
         // A floating toolbar stays on screen; SESL9 decides when its buttons get pill backgrounds.
         floating.enableScrollTransition(false, true);
         floating.enableToolbarItemBackgroundTransition(true);
+        appBar.addOnOffsetChangedListener((bar, offset) ->
+                topScrim.setAlpha(scrimAlpha(offset, bar.getTotalScrollRange())));
         if (expandable) {
             appBar.setEnabled(true);
             appBar.setExpanded(true, false);
@@ -173,6 +205,10 @@ final class OneUi9Page implements Ui.Header {
         params.topMargin = top;
         floating.setLayoutParams(params);
         collapsing.setMinimumHeight(toolbarHeight);
+        // Covers the status bar, the floating toolbar row and a short fade below it.
+        ViewGroup.LayoutParams scrim = topScrim.getLayoutParams();
+        scrim.height = top + toolbarHeight + Ui.dp(activity, 16f);
+        topScrim.setLayoutParams(scrim);
         if (expandable) {
             // SESL sizes the expanded header as a share of the window height. The header here
             // also reaches under the status bar, so it gets the inset on top of that share;
