@@ -573,5 +573,5 @@ final class MacUpdater {
         UNUserNotificationCenter.current().add(request)
     }
 
-    static let notificationKey = "codexmeter.update"
+    nonisolated static let notificationKey = "codexmeter.update"
 }
