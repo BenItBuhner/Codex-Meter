@@ -72,10 +72,29 @@ public final class ModelDiscovery {
         public final Source source;
         /** OpenRouter author slug, or null for the whole catalog. */
         public final String author;
+        /** The connected provider this scope comes from; null in tests. Not part of equality. */
+        public final UsageProvider provider;
 
         Scope(Source source, String author) {
+            this(source, author, null);
+        }
+
+        Scope(Source source, String author, UsageProvider provider) {
             this.source = source;
             this.author = author;
+            this.provider = provider;
+        }
+
+        /**
+         * Why a model in this scope is shown, named after the provider the user connected:
+         * "Anthropic model, for your Claude Code" or "for your OpenCode Go".
+         */
+        public String reason() {
+            if (provider == null) {
+                return null;
+            }
+            return author == null ? "for your " + provider.displayName
+                    : provider.vendorName + " model, for your " + provider.displayName;
         }
 
         boolean covers(Source s, String modelId) {
@@ -110,29 +129,29 @@ public final class ModelDiscovery {
         }
         switch (provider) {
             case OPENROUTER:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, null));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, null, provider));
             case CODEX:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, "openai"));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "openai", provider));
             case CLAUDE_CODE:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, "anthropic"));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "anthropic", provider));
             case GROK:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, "x-ai"));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "x-ai", provider));
             case ANTIGRAVITY:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, "google"));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "google", provider));
             case MINIMAX:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, "minimax"));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "minimax", provider));
             case KIMI:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, "moonshotai"));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "moonshotai", provider));
             case ZAI:
-                return Collections.singletonList(new Scope(Source.OPENROUTER, "z-ai"));
+                return Collections.singletonList(new Scope(Source.OPENROUTER, "z-ai", provider));
             case OPENCODE_GO:
-                return Collections.singletonList(new Scope(Source.OPENCODE_GO, null));
+                return Collections.singletonList(new Scope(Source.OPENCODE_GO, null, provider));
             case KILO:
-                return Collections.singletonList(new Scope(Source.KILO, null));
+                return Collections.singletonList(new Scope(Source.KILO, null, provider));
             case CHUTES:
-                return Collections.singletonList(new Scope(Source.CHUTES, null));
+                return Collections.singletonList(new Scope(Source.CHUTES, null, provider));
             case SYNTHETIC:
-                return Collections.singletonList(new Scope(Source.SYNTHETIC, null));
+                return Collections.singletonList(new Scope(Source.SYNTHETIC, null, provider));
             default:
                 return Collections.emptyList();
         }
@@ -150,12 +169,23 @@ public final class ModelDiscovery {
     }
 
     public static boolean relevant(List<Scope> allow, Source source, String modelId) {
+        return matching(allow, source, modelId) != null;
+    }
+
+    /** The first scope that covers a model, preferring a maker's own subscription. */
+    static Scope matching(List<Scope> allow, Source source, String modelId) {
+        Scope catalog = null;
         for (Scope s : allow) {
             if (s.covers(source, modelId)) {
-                return true;
+                if (s.author != null) {
+                    return s;
+                }
+                if (catalog == null) {
+                    catalog = s;
+                }
             }
         }
-        return false;
+        return catalog;
     }
 
     public static Set<Source> sourcesNeeded(List<Scope> allow) {
@@ -304,6 +334,10 @@ public final class ModelDiscovery {
         public int sightings;
         public long confirmedAt;
         public Kind kind;
+        /** Why it is on the card (see {@link Scope#reason}); set by cardItems, not saved. */
+        public String reason;
+        /** The connected provider it is shown for; set by cardItems, not saved. */
+        public UsageProvider matchedBy;
 
         Entry(Source source, String id) {
             this.source = source;
@@ -314,16 +348,47 @@ public final class ModelDiscovery {
             return source.id + "|" + id;
         }
 
-        /** "New on OpenRouter: GPT-6 — subscription availability not verified". */
+        /**
+         * "New on OpenRouter: GPT-6 — OpenAI model, for your Codex": the row says why it
+         * matched, so a launch never reads as the provider filter letting anything through.
+         */
         public String label() {
             return source.newOn() + ": " + name + (stage.isEmpty() ? "" : " (" + stage + ")")
-                    + " — subscription availability not verified";
+                    + " — " + (reason == null ? "subscription availability not verified" : reason);
         }
     }
 
     /** The card's footnote: listing isn't release, and nothing says the plan includes it. */
     public static final String CARD_NOTE = "Newly listed in a public catalog, not necessarily newly "
             + "released. Subscription availability not verified.";
+
+    /**
+     * The footnote with the providers the card is shown for: "Shown for Claude Code, the
+     * provider you use. Coding tools like Cursor or Copilot add no makers. ...".
+     */
+    public static String cardNote(List<Entry> items) {
+        String shownFor = shownFor(items);
+        return shownFor.isEmpty() ? CARD_NOTE : "Shown for " + shownFor + ". Tools that offer "
+                + "many makers' models, like Cursor or Copilot, add none. " + CARD_NOTE;
+    }
+
+    /** "Claude Code" or "Codex and Claude Code": the connected providers that matched. */
+    static String shownFor(List<Entry> items) {
+        Set<String> names = new java.util.LinkedHashSet<>();
+        for (Entry e : items) {
+            if (e.matchedBy != null) {
+                names.add(e.matchedBy.displayName);
+            }
+        }
+        List<String> list = new ArrayList<>(names);
+        if (list.isEmpty()) {
+            return "";
+        }
+        if (list.size() == 1) {
+            return list.get(0);
+        }
+        return String.join(", ", list.subList(0, list.size() - 1)) + " and " + list.get(list.size() - 1);
+    }
 
     /** Announced launches stay on the card for a week unless dismissed. */
     public static final long CARD_DAYS_MS = TimeUnit.DAYS.toMillis(7);
@@ -502,8 +567,11 @@ public final class ModelDiscovery {
     public static List<Entry> cardItems(State state, List<Scope> allow, long now) {
         List<Entry> out = new ArrayList<>();
         for (Entry e : state.entries.values()) {
-            if (e.kind == Kind.NEW && now - e.confirmedAt < CARD_DAYS_MS
-                    && !state.dismissed.contains(e.key()) && relevant(allow, e.source, e.id)) {
+            Scope match = e.kind == Kind.NEW && now - e.confirmedAt < CARD_DAYS_MS
+                    && !state.dismissed.contains(e.key()) ? matching(allow, e.source, e.id) : null;
+            if (match != null) {
+                e.reason = match.reason();
+                e.matchedBy = match.provider;
                 out.add(e);
             }
         }
@@ -555,6 +623,10 @@ public final class ModelDiscovery {
         }
         if (items.size() > shown) {
             b.append("\nand ").append(items.size() - shown).append(" more");
+        }
+        String shownFor = shownFor(items);
+        if (!shownFor.isEmpty()) {
+            b.append("\nShown for ").append(shownFor).append(".");
         }
         b.append("\nNewly listed, not necessarily newly released. Subscription availability not verified.");
         return b.toString();

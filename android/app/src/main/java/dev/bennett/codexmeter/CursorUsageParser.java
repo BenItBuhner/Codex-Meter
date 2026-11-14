@@ -52,9 +52,11 @@ public final class CursorUsageParser {
         UsageWindow plan = null;
         List<UsageLimit> limits = new ArrayList<>();
         JSONObject planUsage = root.optJSONObject("planUsage");
+        double includedCents = Double.NaN;
         if (planUsage != null) {
             double percent = number(planUsage, "totalPercentUsed");
             double limit = number(planUsage, "limit");
+            includedCents = limit;
             if (Double.isNaN(percent) && limit > 0) {
                 double used = number(planUsage, "includedSpend");
                 if (Double.isNaN(used)) used = number(planUsage, "totalSpend");
@@ -80,9 +82,13 @@ public final class CursorUsageParser {
 
         boolean planSpent = plan != null && plan.usedPercent >= 100;
         boolean limitReached = planSpent && (onDemand == null || onDemand.limitReached);
-        return new UsageSnapshot(planLabel == null ? "" : planLabel, !limitReached,
-                limitReached, null, weekly ? plan : null, weekly ? null : plan, limits, null, -1,
-                fetchedAtMillis);
+        UsageSnapshot snapshot = new UsageSnapshot(planLabel == null ? "" : planLabel,
+                !limitReached, limitReached, null, weekly ? plan : null, weekly ? null : plan,
+                limits, null, -1, fetchedAtMillis);
+        // planUsage.limit is the plan's included usage at API prices, in cents: Cursor's own
+        // figure for what the subscription covers this cycle.
+        return includedCents > 0d ? snapshot.withIncludedValueUsd(includedCents / 100d)
+                : snapshot;
     }
 
     private static void addPool(List<UsageLimit> limits, JSONObject planUsage, String key,

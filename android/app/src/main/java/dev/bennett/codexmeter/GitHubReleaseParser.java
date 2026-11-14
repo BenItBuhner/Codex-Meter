@@ -15,6 +15,8 @@ public final class GitHubReleaseParser {
     private static final int MAX_NOTES = 6000;
     /** Matches the page size the release endpoint requests; anything beyond it is ignored. */
     static final int MAX_RELEASES = 30;
+    /** Newest releases the update check fetches when the full listing can't be read. */
+    static final int FALLBACK_PAGE_SIZE = 10;
 
     private GitHubReleaseParser() {
     }
@@ -145,6 +147,41 @@ public final class GitHubReleaseParser {
                     .put("assets", keptAssets));
         }
         return compact.toString();
+    }
+
+    /**
+     * The update check's small fallback: the newest releases (a listing) and GitHub's latest
+     * stable release (one object) compacted into one listing, newest first, without
+     * duplicates. Either part may be null or empty.
+     */
+    public static String mergeCompact(String recentListing, String latestRelease) throws Exception {
+        JSONArray raw = new JSONArray();
+        if (recentListing != null && !recentListing.trim().isEmpty()) {
+            JSONArray recent = new JSONArray(recentListing);
+            for (int i = 0; i < recent.length(); i++) {
+                raw.put(recent.opt(i));
+            }
+        }
+        if (latestRelease != null && !latestRelease.trim().isEmpty()) {
+            raw.put(new JSONObject(latestRelease));
+        }
+        JSONArray compacted = new JSONArray(compact(raw.toString()));
+        Set<String> tags = new HashSet<>();
+        List<JSONObject> kept = new ArrayList<>();
+        for (int i = 0; i < compacted.length(); i++) {
+            JSONObject release = compacted.getJSONObject(i);
+            if (tags.add(release.optString("tag_name", ""))) {
+                kept.add(release);
+            }
+        }
+        // ISO-8601 times sort as text; newest first, as in GitHub's own listing.
+        Collections.sort(kept, (a, b) -> b.optString("published_at", "")
+                .compareTo(a.optString("published_at", "")));
+        JSONArray out = new JSONArray();
+        for (JSONObject release : kept) {
+            out.put(release);
+        }
+        return out.toString();
     }
 
     public static GitHubRelease latestStable(List<GitHubRelease> releases) {

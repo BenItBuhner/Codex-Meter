@@ -65,8 +65,12 @@ public final class UsageBurnChartView extends View {
             long observedAtMillis, UsagePace.Assessment pace) {
         this.label = label == null ? "" : label;
         this.window = window;
-        this.samples = history == null ? Collections.emptyList() : history.currentWindowSamples();
-        this.windows = history == null ? Collections.emptyList() : history.recentWindows(5);
+        // Read the history against the window reported now: once a window resets (or Claude's
+        // 5-hour session goes idle and reports no reset time) its samples belong to the faint
+        // previous lines, not to the live axis, where they would stack into a spike at "reset".
+        UsageHistory live = history == null ? null : history.withLiveWindow(window, observedAtMillis);
+        this.samples = live == null ? Collections.emptyList() : live.currentWindowSamples();
+        this.windows = live == null ? Collections.emptyList() : live.recentWindows(5);
         this.observedAtMillis = observedAtMillis;
         this.pace = pace;
         this.selectedWindowIndex = -1;
@@ -128,7 +132,7 @@ public final class UsageBurnChartView extends View {
         long resetAt = window.effectiveResetAtMillis(observedAtMillis);
         long duration = window.windowSeconds * 1000L;
         long startAt = resetAt - duration;
-        if (resetAt <= startAt) return null;
+        if (duration <= 0L || resetAt <= observedAtMillis) return null;
         return new long[]{startAt, resetAt};
     }
 
@@ -218,18 +222,20 @@ public final class UsageBurnChartView extends View {
         long resetAt = window.effectiveResetAtMillis(observedAtMillis);
         long duration = window.windowSeconds * 1000L;
         long startAt = resetAt - duration;
-        if (resetAt <= startAt) {
-            drawEmpty(canvas, left, top, dark, density, "Reset window unavailable");
-            return;
-        }
+        // No reset ahead means no live axis: an idle Claude session or a window whose reset has
+        // passed. Earlier windows still draw faintly, each on its own axis.
+        boolean liveAxis = duration > 0L && resetAt > observedAtMillis;
 
-        // Sustainable budget: reaching 100% used exactly at reset.
+        if (liveAxis) {
+            // Sustainable budget: reaching 100% used exactly at reset.
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(1.5f * density);
+            paint.setPathEffect(budgetDash);
+            paint.setColor(Color.argb(dark ? 115 : 95, 128, 128, 128));
+            canvas.drawLine(left, bottom, right, top, paint);
+            paint.setPathEffect(null);
+        }
         paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(1.5f * density);
-        paint.setPathEffect(budgetDash);
-        paint.setColor(Color.argb(dark ? 115 : 95, 128, 128, 128));
-        canvas.drawLine(left, bottom, right, top, paint);
-        paint.setPathEffect(null);
 
         // Normalize completed windows to the same x-axis so historical burn shapes are
         // comparable; the selected window is emphasized and drawn last.
@@ -258,6 +264,15 @@ public final class UsageBurnChartView extends View {
                 paint.setStrokeJoin(Paint.Join.ROUND);
                 canvas.drawPath(path, paint);
             }
+        }
+
+        if (!liveAxis) {
+            drawEmpty(canvas, left, top, dark, density, window.resetAtMillis() <= 0L
+                    && window.resetAfterSeconds <= 0L
+                    ? "No window running. It starts with your next request."
+                    : "Window reset. Waiting for the next refresh.");
+            drawAxisLabels(canvas, density, dark, left, right);
+            return;
         }
 
         if (!samples.isEmpty()) {
@@ -309,6 +324,11 @@ public final class UsageBurnChartView extends View {
             drawScrub(canvas, left, right, top, bottom, density, dark);
         }
 
+        drawAxisLabels(canvas, density, dark, left, right);
+    }
+
+    private void drawAxisLabels(Canvas canvas, float density, boolean dark, float left,
+            float right) {
         paint.setStyle(Paint.Style.FILL);
         paint.setTypeface(regularTypeface);
         paint.setTextSize(10f * density);

@@ -18,6 +18,7 @@ public final class ProviderParsersSelfTest {
 
     public static void main(String[] args) throws Exception {
         testCatalog();
+        testClaudeOnlyLiveMonitor();
         testProviderTabs();
         testDeviceAuth();
         testTimestamps();
@@ -410,6 +411,42 @@ public final class ProviderParsersSelfTest {
         check(warp.monthly != null && warp.monthly.usedPercent == 20, "Warp request limit");
         UsageSnapshot nothing = ProviderUsageParsers.keyQuota("{\"ok\":true}", 3600, NOW);
         check(!nothing.hasDisplayableData(), "no quota-like data -> empty");
+    }
+
+    /**
+     * Tester report, 12 Nov: with only Claude Code signed in (no Codex), turning on the Now Bar
+     * said "Refresh your signed-in usage before starting the monitor", because the monitor only
+     * read Codex usage. Fixed in 2.9.0-alpha.24; this keeps it fixed, including Claude's idle
+     * 5-hour session, which has no reset time of its own.
+     */
+    private static void testClaudeOnlyLiveMonitor() throws Exception {
+        long now = 2_000_000_000_000L;
+        String weeklyReset = java.time.Instant.ofEpochMilli(now + 3L * 24 * 3600 * 1000).toString();
+        UsageSnapshot idle = ClaudeUsageParser.parse("{\"five_hour\":{\"utilization\":null,"
+                + "\"resets_at\":null},\"seven_day\":{\"utilization\":12,\"resets_at\":\""
+                + weeklyReset + "\"}}", "Pro", now);
+        java.util.Map<UsageProvider, UsageSnapshot> saved = new java.util.EnumMap<>(UsageProvider.class);
+        saved.put(UsageProvider.CLAUDE_CODE, idle);
+        saved.put(UsageProvider.CURSOR, null);
+        java.util.function.Predicate<UsageProvider> canMonitor = provider ->
+                saved.containsKey(provider) && MonitorProviderPicker.hasWindows(saved.get(provider));
+        java.util.List<UsageProvider> order = java.util.Arrays.asList(UsageProvider.CURSOR,
+                UsageProvider.CLAUDE_CODE);
+        check(!canMonitor.test(UsageProvider.CODEX), "Codex is not signed in");
+        check(MonitorProviderPicker.pick(UsageProvider.CURSOR, order, canMonitor)
+                == UsageProvider.CLAUDE_CODE, "Claude-only account monitors Claude Code");
+        check(MonitorProviderPicker.pick(UsageProvider.CLAUDE_CODE, order, canMonitor)
+                == UsageProvider.CLAUDE_CODE, "the selected Claude Code tab is monitored");
+        long until = MonitorProviderPicker.until(idle, now);
+        check(until == java.time.Instant.parse(weeklyReset).toEpochMilli(),
+                "an idle 5-hour session runs the monitor until the weekly reset");
+        saved.put(UsageProvider.CODEX, idle);
+        check(MonitorProviderPicker.pick(UsageProvider.CLAUDE_CODE, order, canMonitor)
+                == UsageProvider.CODEX, "Codex still leads when it has limits");
+        check(MonitorProviderPicker.pick(null, null, provider -> false) == UsageProvider.CODEX,
+                "nothing to monitor falls back to Codex (and the start is refused)");
+        check(MonitorProviderPicker.until(null, now) == 0L, "no snapshot, no monitor");
+        System.out.println("Live monitor: a Claude-only account starts on Claude Code, idle 5-hour included.");
     }
 
     private static void check(boolean condition, String label) {

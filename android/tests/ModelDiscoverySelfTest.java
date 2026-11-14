@@ -268,6 +268,15 @@ public final class ModelDiscoverySelfTest {
         List<ModelDiscovery.Entry> digest = ModelDiscovery.takeDigest(s, claudeCursor, NOW + 2 * HOUR);
         check(digest.size() == 1 && digest.get(0).id.equals("anthropic/claude-5.1"), "digest: Anthropic only");
         check(!ModelDiscovery.digestText(digest).contains("Gemini"), "no Gemini in the notification");
+        // Every row and the footnote say why it matched, so it can't read as a broken filter.
+        check(card.get(0).label().endsWith(" — Anthropic model, for your Claude Code"),
+                "row names why it matched: " + card.get(0).label());
+        check(card.get(0).matchedBy == UsageProvider.CLAUDE_CODE, "matched by Claude Code, not Cursor");
+        String note = ModelDiscovery.cardNote(card);
+        check(note.startsWith("Shown for Claude Code. ") && note.contains("like Cursor or Copilot, add none")
+                && note.contains("not verified"), "card note names the provider: " + note);
+        check(ModelDiscovery.digestText(digest).contains("Shown for Claude Code."),
+                "notification names the provider");
         check(ModelDiscovery.cardItems(s, allow(UsageProvider.CLAUDE_CODE), NOW + 2 * HOUR).size() == 1,
                 "Cursor adds nothing to Claude Code");
     }

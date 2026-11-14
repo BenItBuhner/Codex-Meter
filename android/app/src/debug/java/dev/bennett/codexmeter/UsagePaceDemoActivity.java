@@ -83,7 +83,16 @@ public final class UsagePaceDemoActivity extends Activity {
                 String open = getIntent().getStringExtra("claude_open");
                 PriorityPrefs.setViewEnabled(this, true);
                 PriorityPrefs.setTabSelected(this, "priority".equals(open));
-                Intent next = "reset".equals(open)
+                // The tester's account (see seedTester) adds "history" / "history_cursor" (usage
+                // history pages) and "settings:<page>" (a Settings page).
+                Intent next = open != null && open.startsWith("settings:")
+                        ? new Intent(this, SettingsActivity.class)
+                                .putExtra(SettingsActivity.EXTRA_PAGE, open.substring(9))
+                        : "history".equals(open) || "history_cursor".equals(open)
+                        ? new Intent(this, UsageHistoryActivity.class)
+                                .putExtra(UsageHistoryActivity.EXTRA_PROVIDER, "history".equals(open)
+                                        ? UsageProvider.CLAUDE_CODE.id : UsageProvider.CURSOR.id)
+                        : "reset".equals(open)
                         ? ResetCreditActivity.intent(this, UsageProvider.CLAUDE_CODE)
                         : new Intent(this, MainActivity.class)
                                 .putExtra(MainActivity.EXTRA_PROVIDER, "priority".equals(open)
@@ -196,6 +205,10 @@ public final class UsagePaceDemoActivity extends Activity {
      * network.
      */
     private void seedClaude(String scenario) throws Exception {
+        if ("tester".equals(scenario)) {
+            seedTester();
+            return;
+        }
         long now = System.currentTimeMillis();
         long day = TimeUnit.DAYS.toMillis(1);
         long weekSeconds = TimeUnit.DAYS.toSeconds(7);
@@ -224,6 +237,96 @@ public final class UsagePaceDemoActivity extends Activity {
         }
         AppPreferences.setRefreshOnLaunch(this, false);
         AppPreferences.completeOnboarding(this);
+    }
+
+    /**
+     * The alpha tester's account (Nov 10-14 reports): Claude Code on Pro plus Cursor, no Codex.
+     * Claude's 5-hour session went idle 12 minutes ago after a window with 35 samples (the
+     * reported reset spike), the weekly window is 38% used, Cursor reports $20 of included usage,
+     * and OpenRouter listed a new Anthropic model next to a new Gemini one.
+     */
+    private void seedTester() throws Exception {
+        long now = System.currentTimeMillis();
+        long minute = TimeUnit.MINUTES.toMillis(1);
+        long fiveSeconds = TimeUnit.HOURS.toSeconds(5);
+        long weekSeconds = TimeUnit.DAYS.toSeconds(7);
+        long weeklyReset = now + TimeUnit.DAYS.toMillis(3) + TimeUnit.HOURS.toMillis(4);
+        SecureTokenStore.clear(this);
+        AppPreferences.clearSnapshot(this);
+        for (UsageProvider p : new UsageProvider[] {UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR}) {
+            SecureTokenStore.save(this, p, new AuthTokens("debug-demo-access", "debug-demo-refresh",
+                    "", Long.MAX_VALUE, "debug-demo-account", "demo@codexmeter.local"));
+            ProviderPreferences.setRateLimitedAt(this, p, now);
+        }
+        // Claude: the idle session row Claude sends after a reset, and the weekly meter.
+        String body = "{\"five_hour\":{\"utilization\":null,\"resets_at\":null},"
+                + "\"seven_day\":{\"utilization\":38,\"resets_at\":\""
+                + java.time.Instant.ofEpochMilli(weeklyReset) + "\"}}";
+        ProviderPreferences.saveSnapshot(this, UsageProvider.CLAUDE_CODE,
+                ClaudeUsageParser.parse(body, "Pro", now));
+        UsageHistory five = UsageHistory.empty(UsageHistory.FIVE_HOUR);
+        long[] earlierResets = {now - 12 * minute - TimeUnit.HOURS.toMillis(10),
+                now - 12 * minute - TimeUnit.HOURS.toMillis(5)};
+        int[][] earlier = {{4, 11, 19, 27, 33, 41}, {6, 15, 29, 44, 58, 71}};
+        for (int w = 0; w < earlier.length; w++) {
+            for (int i = 0; i < earlier[w].length; i++) {
+                five = five.append(new UsageWindow(earlier[w][i], fiveSeconds, 0L,
+                        earlierResets[w] / 1000L), earlierResets[w] - TimeUnit.HOURS.toMillis(5)
+                        + (i + 1) * 45 * minute);
+            }
+        }
+        long lastReset = now - 12 * minute;
+        for (int i = 0; i < 35; i++) {
+            five = five.append(new UsageWindow(Math.min(100, 2 + i * 2), fiveSeconds, 0L,
+                    lastReset / 1000L), lastReset - TimeUnit.HOURS.toMillis(5) + (i + 1) * 8 * minute);
+        }
+        ProviderPreferences.saveUsageHistory(this, UsageProvider.CLAUDE_CODE, five);
+        UsageHistory weekly = UsageHistory.empty(UsageHistory.WEEKLY);
+        for (int i = 0; i < 38; i++) {
+            long observed = weeklyReset - TimeUnit.DAYS.toMillis(7) + (i + 1) * 2 * TimeUnit.HOURS.toMillis(1);
+            weekly = weekly.append(new UsageWindow(i, weekSeconds, 0L, weeklyReset / 1000L), observed);
+        }
+        ProviderPreferences.saveUsageHistory(this, UsageProvider.CLAUDE_CODE, weekly);
+        // Cursor: a legacy Pro month with $20 of included usage, 27% used.
+        long cycleStart = now - TimeUnit.DAYS.toMillis(19);
+        long cycleEnd = cycleStart + TimeUnit.DAYS.toMillis(30);
+        ProviderPreferences.saveSnapshot(this, UsageProvider.CURSOR, CursorUsageParser.parse(
+                "{\"billingCycleStart\":\"" + cycleStart + "\",\"billingCycleEnd\":\"" + cycleEnd
+                        + "\",\"planUsage\":{\"includedSpend\":540,\"limit\":2000,"
+                        + "\"totalPercentUsed\":27,\"autoPercentUsed\":20,\"apiPercentUsed\":7}}",
+                "Pro", now));
+        UsageHistory monthly = UsageHistory.empty(UsageHistory.MONTHLY);
+        for (int i = 0; i <= 19; i++) {
+            monthly = monthly.append(new UsageWindow((int) Math.round(i * 27 / 19.0),
+                    TimeUnit.DAYS.toSeconds(30), 0L, cycleEnd / 1000L),
+                    cycleStart + i * TimeUnit.DAYS.toMillis(1) - (i == 19 ? minute : 0));
+        }
+        ProviderPreferences.saveUsageHistory(this, UsageProvider.CURSOR, monthly);
+        ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CLAUDE_CODE,
+                UsageProvider.CURSOR));
+        ProviderPreferences.setSelected(this, UsageProvider.CLAUDE_CODE);
+        // New models: an Anthropic launch (shown, for Claude Code) and a Gemini one (Cursor's
+        // catalog covers no makers, so it stays hidden).
+        ModelDiscovery.State state = new ModelDiscovery.State();
+        java.util.List<ModelDiscovery.Model> base = Arrays.asList(
+                new ModelDiscovery.Model("anthropic/claude-fable-5", "Claude Fable 5", "", 0L, ""),
+                new ModelDiscovery.Model("google/gemini-4-carbon", "Gemini 4 Carbon", "", 0L, ""));
+        ModelDiscovery.observe(state, ModelDiscovery.Source.OPENROUTER, ModelDiscoveryStore.ACCOUNT,
+                base, true, now - TimeUnit.HOURS.toMillis(3));
+        java.util.List<ModelDiscovery.Model> later = new java.util.ArrayList<>(base);
+        later.add(new ModelDiscovery.Model("anthropic/claude-fable-5.1", "Claude Fable 5.1", "", 0L, ""));
+        later.add(new ModelDiscovery.Model("google/gemini-4-hydrogen", "Gemini 4 Hydrogen", "", 0L, ""));
+        ModelDiscovery.observe(state, ModelDiscovery.Source.OPENROUTER, ModelDiscoveryStore.ACCOUNT,
+                later, true, now - TimeUnit.HOURS.toMillis(2));
+        ModelDiscovery.observe(state, ModelDiscovery.Source.OPENROUTER, ModelDiscoveryStore.ACCOUNT,
+                later, true, now - TimeUnit.HOURS.toMillis(1));
+        ModelDiscoveryStore.seedForDemo(this, state);
+        UsagePacePreferences.setEnabled(this, true);
+        AppPreferences.setRefreshOnLaunch(this, false);
+        AppPreferences.completeOnboarding(this);
+        for (UsageProvider p : UsageProvider.values()) {
+            UsageRefillAlerts.clear(this, p);
+        }
     }
 
     /**

@@ -78,6 +78,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsTransfer.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageProvider.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/MonitorProviderPicker.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetProviders.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeCodeApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ClaudeUsageParser.java" \
@@ -146,14 +147,14 @@ grep -q 'ModelDiscoveryStore.refreshIfDue(app, false)' \
 ! grep -q 'Authorization' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelSpeedStore.java"
 
 # Source-level release checks.
-grep -q 'VERSION_NAME = "2.9.0-alpha.27"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME = "2.9.0-alpha.28"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
 grep -q 'VERSION_CODE = 30' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'versionName = "2.9.0-alpha.27"' "$ROOT/app/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.28"' "$ROOT/app/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/app/build.gradle.kts"
-grep -q 'versionName = "2.9.0-alpha.27"' "$ROOT/wear/build.gradle.kts"
+grep -q 'versionName = "2.9.0-alpha.28"' "$ROOT/wear/build.gradle.kts"
 grep -q 'versionCode = 30' "$ROOT/wear/build.gradle.kts"
-grep -q 'codex-meter-android/2.9.0-alpha.27' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME="2.9.0-alpha.27"' "$ROOT/build.sh"
+grep -q 'codex-meter-android/2.9.0-alpha.28' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'VERSION_NAME="2.9.0-alpha.28"' "$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
 grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
@@ -210,7 +211,7 @@ grep -q 'requestDisallowInterceptTouchEvent' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageBurnChartView.java"
 grep -q 'setOnScrubListener' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-grep -q 'PlanPricing.forPlan' \
+grep -q 'PlanPricing.forProvider' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 grep -q 'UsageStats.windowBreakdown' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"

@@ -22,6 +22,12 @@ public final class UsageSnapshot {
     public final SpendControl spendControl;
     public final UsageCredits usageCredits;
     public final UsageWindow weekly;
+    /**
+     * Included usage per plan cycle, in dollars at API prices, when the provider reports it
+     * (Cursor's {@code planUsage.limit}); NaN otherwise. Value estimates use it in place of a
+     * researched plan figure, since it is the provider's own number.
+     */
+    public final double includedValueUsd;
 
     public UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow, UsageWindow usageWindow2, long j) {
         this(str, z, z2, usageWindow, usageWindow2, -1, j);
@@ -49,6 +55,17 @@ public final class UsageSnapshot {
             UsageWindow usageWindow2, UsageWindow monthlyWindow,
             List<UsageLimit> additionalLimits,
             UsageCredits usageCredits, SpendControl spendControl, int i, long j) {
+        this(str, z, z2, usageWindow, usageWindow2, monthlyWindow, additionalLimits,
+                usageCredits, spendControl, i, j, Double.NaN);
+    }
+
+    private UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,
+            UsageWindow usageWindow2, UsageWindow monthlyWindow,
+            List<UsageLimit> additionalLimits,
+            UsageCredits usageCredits, SpendControl spendControl, int i, long j,
+            double includedValueUsd) {
+        this.includedValueUsd = includedValueUsd > 0d && !Double.isInfinite(includedValueUsd)
+                ? includedValueUsd : Double.NaN;
         this.planType = str == null ? "" : str;
         this.allowed = z;
         this.limitReached = z2;
@@ -68,7 +85,19 @@ public final class UsageSnapshot {
     public UsageSnapshot withPlanType(String plan) {
         return new UsageSnapshot(plan, allowed, limitReached, fiveHour, weekly, monthly,
                 additionalLimits, usageCredits, spendControl, resetCreditsAvailable,
-                fetchedAtMillis);
+                fetchedAtMillis, includedValueUsd);
+    }
+
+    /** The same snapshot with the plan's included usage value per cycle, in dollars. */
+    public UsageSnapshot withIncludedValueUsd(double dollars) {
+        return new UsageSnapshot(planType, allowed, limitReached, fiveHour, weekly, monthly,
+                additionalLimits, usageCredits, spendControl, resetCreditsAvailable,
+                fetchedAtMillis, dollars);
+    }
+
+    /** Whether the provider reported its own included usage value. */
+    public boolean hasIncludedValue() {
+        return !Double.isNaN(includedValueUsd);
     }
 
     /**
@@ -117,6 +146,9 @@ public final class UsageSnapshot {
         if (this.resetCreditsAvailable >= 0) {
             jSONObject.put("reset_credits_available", this.resetCreditsAvailable);
         }
+        if (hasIncludedValue()) {
+            jSONObject.put("included_value_usd", this.includedValueUsd);
+        }
         jSONObject.put("fetched_at", this.fetchedAtMillis);
         return jSONObject;
     }
@@ -147,7 +179,8 @@ public final class UsageSnapshot {
                 SpendControl.fromJson(jSONObject.optJSONObject("spend_control")),
                 jSONObject.has("reset_credits_available")
                         ? jSONObject.optInt("reset_credits_available", -1) : -1,
-                jSONObject.optLong("fetched_at", 0L));
+                jSONObject.optLong("fetched_at", 0L),
+                jSONObject.optDouble("included_value_usd", Double.NaN));
     }
 
     public long nextResetMillis(long j) {
