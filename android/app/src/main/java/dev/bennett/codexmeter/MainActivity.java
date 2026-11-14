@@ -906,7 +906,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             rp.setMargins(0, Ui.dp(this, 8), 0, 0);
             card.addView(row, rp);
         }
-        TextView note = Ui.text(this, ModelDiscovery.CARD_NOTE, 13, Ui.secondaryText(this.dark));
+        TextView note = Ui.text(this, ModelDiscovery.cardNote(items), 13,
+                Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
         np.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 12));
         card.addView(note, np);

@@ -85,9 +85,10 @@ final class GlassCards {
         c.detail = "New models";
         c.title = "New models";
         for (ModelDiscovery.Entry e : items) {
-            c.stats.add(new String[] {e.name, e.source.newOn()});
+            c.stats.add(new String[] {e.name, e.matchedBy == null ? e.source.newOn()
+                    : e.source.newOn() + " · " + e.matchedBy.displayName});
         }
-        c.summary = ModelDiscovery.CARD_NOTE;
+        c.summary = ModelDiscovery.cardNote(items);
         c.value = "Dismiss";
         c.onPress = () -> {
             ModelDiscoveryStore.dismiss(a, items);
