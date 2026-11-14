@@ -85,8 +85,9 @@ final class GlassCards {
         c.detail = "New models";
         c.title = "New models";
         for (ModelDiscovery.Entry e : items) {
+            // Short value so the model name keeps the room; the card note names the catalog.
             c.stats.add(new String[] {e.name, e.matchedBy == null ? e.source.newOn()
-                    : e.source.newOn() + " · " + e.matchedBy.displayName});
+                    : "For " + e.matchedBy.displayName});
         }
         c.summary = ModelDiscovery.cardNote(items);
         c.value = "Dismiss";
