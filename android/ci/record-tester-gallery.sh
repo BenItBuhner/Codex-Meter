@@ -80,7 +80,8 @@ done
 
 # 6. Now Bar for a Claude-only account: turn on Live monitor, then show the notification.
 open_tester one_ui_9 settings:now_bar; sleep 6
-if tap_text "Live monitor"; then
+# Tap the switch row by its summary: the first "Live monitor" in the tree is the category header.
+if tap_text "Show remaining usage until the next[^\"]*"; then
   shot "one_ui_9-15-live-monitor-started" 4
   adb shell cmd statusbar expand-notifications || true
   shot "one_ui_9-16-live-monitor-notification" 4
