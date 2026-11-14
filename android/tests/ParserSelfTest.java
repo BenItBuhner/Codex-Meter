@@ -2359,6 +2359,30 @@ public final class ParserSelfTest {
         check(!trimmed.contains("uploader") && !trimmed.contains("desktop"),
                 "compaction drops other builds and uploader profiles");
         check(GitHubReleaseParser.compact(trimmed).equals(trimmed), "compaction is stable");
+
+        // Fallback when the full listing can't be read: newest page plus /releases/latest.
+        StringBuilder page = new StringBuilder("[");
+        for (int index = 0; index < GitHubReleaseParser.FALLBACK_PAGE_SIZE; index++) {
+            if (index > 0) page.append(',');
+            page.append(releaseJson("v2.9.0-alpha." + (27 - index), false, true, true, true));
+        }
+        page.append(']');
+        String latestStable = releaseJson("v2.8.3", false, false, true, true);
+        java.util.List<GitHubRelease> small = GitHubReleaseParser.parse(
+                GitHubReleaseParser.mergeCompact(page.toString(), latestStable));
+        check(small.size() == GitHubReleaseParser.FALLBACK_PAGE_SIZE + 1,
+                "fallback keeps the newest page and the latest stable release");
+        check("2.9.0-alpha.27".equals(small.get(0).version), "fallback keeps the newest alpha first");
+        GitHubRelease stable = GitHubReleaseParser.latestStable(small);
+        check(stable != null && "2.8.3".equals(stable.version),
+                "stable users still get an update when the alphas fill the page");
+        check(GitHubReleaseParser.parse(GitHubReleaseParser.mergeCompact(
+                "[" + latestStable + "]", latestStable)).size() == 1,
+                "the latest release is not listed twice");
+        check(GitHubReleaseParser.parse(GitHubReleaseParser.mergeCompact(null, latestStable)).size() == 1,
+                "the latest release alone is enough");
+        check(GitHubReleaseParser.parse(GitHubReleaseParser.mergeCompact(page.toString(), null)).size()
+                == GitHubReleaseParser.FALLBACK_PAGE_SIZE, "the page alone is enough");
     }
 
     private static void testUpdateChannel() throws Exception {

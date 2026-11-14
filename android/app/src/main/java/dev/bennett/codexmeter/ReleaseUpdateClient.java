@@ -34,7 +34,7 @@ public final class ReleaseUpdateClient {
             long started = SystemClock.elapsedRealtime();
             DiagnosticLog.info(app, "update", "release_check_started");
             try {
-                List<GitHubRelease> releases = request(app, true);
+                List<GitHubRelease> releases = requestWithFallback(app);
                 DiagnosticLog.info(app, "update", "release_check_succeeded",
                         "duration_ms", SystemClock.elapsedRealtime() - started,
                         "release_count", releases.size());
@@ -48,12 +48,110 @@ public final class ReleaseUpdateClient {
         }
     }
 
+    /**
+     * The full listing, or when that can't be read (too big, cut off, unreadable, a server
+     * error) a small one: the newest few releases plus GitHub's latest stable release, which
+     * is all the updater needs to offer an update on either channel. Only the listing's own
+     * failure is reported if the small one fails too. Rate limits and untrusted redirects are
+     * not retried, since a second request would only hit them again.
+     */
+    private static List<GitHubRelease> requestWithFallback(Context app) throws Exception {
+        try {
+            return request(app, true);
+        } catch (SecurityException | RateLimitedException noRetry) {
+            throw noRetry;
+        } catch (Exception listingFailure) {
+            DiagnosticLog.warn(app, "update", "release_listing_fallback",
+                    "error", listingFailure.getClass().getSimpleName());
+            try {
+                return requestSmall(app);
+            } catch (Exception fallbackFailure) {
+                DiagnosticLog.warn(app, "update", "release_listing_fallback_failed",
+                        "error", fallbackFailure.getClass().getSimpleName());
+                throw listingFailure;
+            }
+        }
+    }
+
+    /** Newest releases plus the latest stable one, merged into one compact listing. */
+    private static List<GitHubRelease> requestSmall(Context app) throws Exception {
+        String endpoint = endpoint();
+        boolean localDebugServer = isLocalDebugServer(endpoint);
+        String base = endpoint.contains("?") ? endpoint.substring(0, endpoint.indexOf('?')) : endpoint;
+        String recent = null;
+        String latest = null;
+        Exception failure = null;
+        try {
+            recent = get(app, base + "?per_page=" + GitHubReleaseParser.FALLBACK_PAGE_SIZE, localDebugServer,
+                    "github_release_check_small");
+        } catch (Exception e) {
+            failure = e;
+        }
+        try {
+            latest = get(app, base + "/latest", localDebugServer, "github_release_check_latest");
+        } catch (Exception e) {
+            if (failure == null) failure = e;
+        }
+        if (recent == null && latest == null) throw failure;
+        String json = GitHubReleaseParser.mergeCompact(recent, latest);
+        // No ETag: the next check goes back to the full listing.
+        UpdatePreferences.saveSuccess(app, json, null);
+        return UpdatePreferences.releases(app);
+    }
+
+    /** One plain GET of a small release endpoint; the body, or an exception on any failure. */
+    private static String get(Context app, String url, boolean localDebugServer, String operation)
+            throws Exception {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            long started = SystemClock.elapsedRealtime();
+            connection.setConnectTimeout(15_000);
+            connection.setReadTimeout(25_000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("Accept", "application/vnd.github+json");
+            connection.setRequestProperty("Accept-Encoding", "identity");
+            connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+            connection.setRequestProperty("User-Agent", AppConstants.updaterUserAgent());
+            int status = connection.getResponseCode();
+            URL finalUrl = connection.getURL();
+            DiagnosticLog.info(app, "network", "request_finished",
+                    "operation", operation,
+                    "status", status,
+                    "duration_ms", SystemClock.elapsedRealtime() - started,
+                    "url", DiagnosticSanitizer.safeUrl(finalUrl.toString()));
+            if (!trustedApiUrl(finalUrl, localDebugServer)) {
+                throw new SecurityException("GitHub redirected the update check to an untrusted host.");
+            }
+            if (status != HttpURLConnection.HTTP_OK) {
+                String detail = read(connection.getErrorStream(), MAX_ERROR_BYTES);
+                throw status == 403 || status == 429 ? new RateLimitedException(githubError(status, detail))
+                        : new IllegalStateException(githubError(status, detail));
+            }
+            return read(connection.getInputStream(), MAX_RESPONSE_BYTES);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static String endpoint() {
+        return BuildConfig.DEBUG ? BuildConfig.UPDATE_API_URL : GitHubReleaseSource.RELEASES_API_URL;
+    }
+
+    /** GitHub's rate limit; retrying straight away would only hit it again. */
+    static final class RateLimitedException extends IllegalStateException {
+        RateLimitedException(String message) {
+            super(message);
+        }
+    }
+
     private static List<GitHubRelease> request(Context app, boolean conditional)
             throws Exception {
         HttpURLConnection connection = null;
         try {
-            String endpoint = BuildConfig.DEBUG
-                    ? BuildConfig.UPDATE_API_URL : GitHubReleaseSource.RELEASES_API_URL;
+            String endpoint = endpoint();
             boolean localDebugServer = isLocalDebugServer(endpoint);
             connection = (HttpURLConnection) new URL(endpoint).openConnection();
             long started = SystemClock.elapsedRealtime();
@@ -93,7 +191,8 @@ public final class ReleaseUpdateClient {
             }
             if (status != HttpURLConnection.HTTP_OK) {
                 String detail = read(connection.getErrorStream(), MAX_ERROR_BYTES);
-                throw new IllegalStateException(githubError(status, detail));
+                throw status == 403 || status == 429 ? new RateLimitedException(githubError(status, detail))
+                        : new IllegalStateException(githubError(status, detail));
             }
             String json = GitHubReleaseParser.compact(
                     read(connection.getInputStream(), MAX_RESPONSE_BYTES));
