@@ -31,6 +31,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>CodexMeterReleaseVersion</key>
+	<string>$(CODEX_METER_RELEASE_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>

@@ -19,6 +19,14 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationC
         UNUserNotificationCenter.current().delegate = self
         MacLaunchOptions.applyAppearanceOverride()
         Task { await model.startIfNeeded() }
+        // Automatic update checks: the updater decides when one is due (daily by default).
+        Task {
+            try? await Task.sleep(for: .seconds(20))
+            while !Task.isCancelled {
+                await MacUpdater.shared.tick()
+                try? await Task.sleep(for: .seconds(15 * 60))
+            }
+        }
     }
 
     /// Closing the window leaves Codex Meter in the menu bar, still refreshing on schedule.
@@ -48,6 +56,15 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationC
         let content = response.notification.request.content
         if let token = content.userInfo["token"] as? String {
             await NotificationCoordinator().markCreditExpiryAnnounced(token: token)
+        }
+
+        if content.userInfo[MacUpdater.notificationKey] != nil {
+            await MainActor.run {
+                MacSettingsTab.shared.selected = "updates"
+                NSApp.activate()
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }
+            return
         }
 
         let route: String?
