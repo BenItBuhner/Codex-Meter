@@ -475,8 +475,11 @@ final class GlassCards {
                 : snapshot.fiveHour != null ? UsageHistory.FIVE_HOUR : UsageHistory.MONTHLY;
         String label = UsageHistory.WEEKLY.equals(kind) ? "weekly"
                 : UsageHistory.FIVE_HOUR.equals(kind) ? "5-hour" : "monthly";
+        UsageWindow live = UsageHistory.WEEKLY.equals(kind) ? snapshot.weekly
+                : UsageHistory.FIVE_HOUR.equals(kind) ? snapshot.fiveHour : snapshot.monthly;
+        // Only the window reported now: a reset (or idle) window's samples are not "until now".
         List<UsageSample> samples = ProviderPreferences.loadUsageHistory(a, target, kind)
-                .currentWindowSamples();
+                .withLiveWindow(live, snapshot.fetchedAtMillis).currentWindowSamples();
         int n = Math.min(24, samples.size());
         double[] bars = new double[Math.max(1, n)];
         for (int i = 0; i < n; i++) {

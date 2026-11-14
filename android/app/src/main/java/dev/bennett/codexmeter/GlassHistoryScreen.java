@@ -149,7 +149,9 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
     }
 
     private void addWindow(GlassModel.Page page, String label, UsageWindow window, UsageSnapshot snapshot,
-            UsageHistory history, PlanPricing pricing) {
+            UsageHistory recorded, PlanPricing pricing) {
+        // Current-window samples are only those of the window reported now (see withLiveWindow).
+        UsageHistory history = recorded.withLiveWindow(window, snapshot.fetchedAtMillis);
         Section section = GlassScreens.section(null);
         section.cards.add(chart(label, window, snapshot, history, pricing));
         Card insights = insights(window, snapshot, history, pricing);
@@ -177,11 +179,16 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         chart.sampleLabel = samples.size() < 2 ? "Building history" : samples.size() + " samples";
         long resetAt = window.effectiveResetAtMillis(observedAt);
         long startAt = resetAt - window.windowSeconds * 1000L;
-        if (resetAt <= startAt) {
-            chart.emptyText = "Reset window unavailable";
-            return card;
+        boolean liveAxis = window.windowSeconds > 0L && resetAt > observedAt;
+        if (!liveAxis) {
+            // Claude's idle 5-hour session (or a window whose reset has passed) has no axis;
+            // earlier windows still show faintly, each on its own axis.
+            chart.emptyText = window.resetAtMillis() <= 0L && window.resetAfterSeconds <= 0L
+                    ? "No window running. It starts with your next request."
+                    : "Window reset. Waiting for the next refresh.";
+            chart.sampleLabel = "";
         }
-        chart.current = points(samples, startAt, resetAt);
+        chart.current = liveAxis ? points(samples, startAt, resetAt) : new double[0];
         for (int i = 0; i < windows.size() - 1; i++) {
             List<UsageSample> previous = windows.get(i);
             if (previous.size() < 2) {
@@ -191,6 +198,9 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
             UsageSample reference = previous.get(previous.size() - 1);
             chart.previous.add(points(previous, reference.resetAtMillis - reference.windowSeconds * 1000L,
                     reference.resetAtMillis));
+        }
+        if (!liveAxis) {
+            return card;
         }
         if (pace != null && pace.available && !samples.isEmpty()) {
             UsageSample latest = samples.get(samples.size() - 1);
@@ -268,7 +278,9 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
                 if (stats.exhausted) {
                     subtitle.append(" · hit limit");
                 }
-                int chartIndex = current ? -1 : windows.size() - breakdown.size() + index;
+                // Breakdown and chart read the same recent windows; only an empty current
+                // window is missing from the breakdown, and it is always last.
+                int chartIndex = current ? -1 : index;
                 chart.windows.add(new Object[] {title, subtitle.toString(), chartIndex});
             }
         }

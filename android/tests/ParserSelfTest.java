@@ -44,6 +44,7 @@ public final class ParserSelfTest {
         testUsageHistory();
         testUsagePace();
         testPlanPricing();
+        testHistoryAfterIdleReset();
         testUsageStats();
         testHistorySections();
         testAdaptiveRefreshPolicy();
@@ -2570,6 +2571,58 @@ public final class ParserSelfTest {
         Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         return encoder.encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8)) + "." +
                 encoder.encodeToString(payload.getBytes(StandardCharsets.UTF_8)) + ".x";
+    }
+
+    /**
+     * Tester report, 13 Nov: the Claude Code 5-hour chart drew a tall bar at "reset". After a
+     * window ends Claude reports the idle session with no reset time, so the chart axis collapsed
+     * to the epoch and the finished window's 35 samples all landed on the right edge. Read against
+     * the live window, those samples are a completed window and the live one is empty.
+     */
+    private static void testHistoryAfterIdleReset() {
+        long start = 2_000_000_000_000L;
+        long fiveHours = TimeUnit.HOURS.toSeconds(5);
+        long reset = start + TimeUnit.HOURS.toMillis(5);
+        UsageHistory history = UsageHistory.empty(UsageHistory.FIVE_HOUR);
+        for (int i = 0; i < 35; i++) {
+            history = history.append(new UsageWindow(i * 2, fiveHours, 0L, reset / 1000L),
+                    start + TimeUnit.MINUTES.toMillis(6L * (i + 1)));
+        }
+        check(history.currentWindowSamples().size() == 35, "35 samples recorded in one window");
+        long afterReset = reset + TimeUnit.MINUTES.toMillis(10);
+        UsageWindow idle = new UsageWindow(0, fiveHours, 0L, 0L);
+        check(history.append(idle, afterReset) == history,
+                "an idle session with no reset time records nothing");
+        UsageHistory live = history.withLiveWindow(idle, afterReset);
+        check(live.currentWindowSamples().isEmpty(),
+                "after an idle reset the finished window is not drawn on the live axis");
+        check(!live.hasLiveAxis(), "an idle session has no live axis");
+        List<List<UsageSample>> windows = live.recentWindows(5);
+        check(windows.size() == 2 && windows.get(0).size() == 35 && windows.get(1).isEmpty(),
+                "the finished window becomes a previous line and the live window is empty");
+        List<UsageStats.WindowStats> breakdown = UsageStats.windowBreakdown(live, 5);
+        check(breakdown.size() == 1 && breakdown.get(0).complete,
+                "the window list shows the finished window as complete, not current");
+        check(live.observedBurnRate() == 0d, "no burn rate from a finished window");
+
+        // A window whose reset passed but is still reported with its old time reads the same way.
+        UsageWindow stale = new UsageWindow(68, fiveHours, 0L, reset / 1000L);
+        check(history.withLiveWindow(stale, afterReset).currentWindowSamples().isEmpty(),
+                "a window past its reset has no current samples");
+
+        // A new window: only its own samples are current, the old one is previous.
+        long nextReset = afterReset + TimeUnit.HOURS.toMillis(5);
+        UsageWindow next = new UsageWindow(3, fiveHours, 0L, nextReset / 1000L);
+        UsageHistory resumed = history.append(next, afterReset);
+        UsageHistory resumedLive = resumed.withLiveWindow(next, afterReset);
+        check(resumedLive.currentWindowSamples().size() == 1, "new window starts with its own sample");
+        check(resumedLive.recentWindows(5).size() == 2, "new window keeps the old one as previous");
+
+        // While the window runs, the live view matches the recorded one.
+        UsageWindow running = new UsageWindow(68, fiveHours, 0L, reset / 1000L);
+        long during = start + TimeUnit.HOURS.toMillis(4);
+        check(history.withLiveWindow(running, during).currentWindowSamples().size() == 35,
+                "a running window keeps all of its samples");
     }
 
     private static void testPlanPricing() {

@@ -81,12 +81,13 @@ final class GlassChart {
                     Paint line = stroke(grid, 1);
                     cv.drawLine((float) left, (float) bottom, (float) right, (float) bottom, line);
                     cv.drawLine((float) left, (float) top, (float) right, (float) top, line);
-                    if (chart.emptyText != null) {
-                        return;
+                    if (chart.emptyText == null) {
+                        Paint diag = stroke(pace, 1.5);
+                        diag.setPathEffect(PathEffect.Companion.makeDash(new float[] {6f, 5f}, 0f));
+                        cv.drawLine((float) left, (float) bottom, (float) right, (float) top, diag);
                     }
-                    Paint diag = stroke(pace, 1.5);
-                    diag.setPathEffect(PathEffect.Companion.makeDash(new float[] {6f, 5f}, 0f));
-                    cv.drawLine((float) left, (float) bottom, (float) right, (float) top, diag);
+                    // Earlier windows have their own axes, so they still show (faintly) when the
+                    // current window has none, such as an idle Claude 5-hour session.
                     for (int pass = 0; pass < 2; pass++) {
                         for (int i = 0; i < chart.previous.size(); i++) {
                             boolean on = i == window;
@@ -96,6 +97,9 @@ final class GlassChart {
                             draw(cv, chart.previous.get(i), left, right, top, bottom,
                                     stroke(on ? faintAccent : old, on ? 2.5 : 1.5));
                         }
+                    }
+                    if (chart.emptyText != null) {
+                        return;
                     }
                     draw(cv, chart.current, left, right, top, bottom,
                             stroke(window >= 0 ? faintAccent : accent, 3));

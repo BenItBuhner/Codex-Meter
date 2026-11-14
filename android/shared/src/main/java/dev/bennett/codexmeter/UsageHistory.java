@@ -19,11 +19,51 @@ public final class UsageHistory {
 
     public final String kind;
     public final List<UsageSample> samples;
+    /**
+     * Set by {@link #withLiveWindow}: the window the provider reports right now. Without it the
+     * newest recorded window counts as the current one, which is wrong once that window has
+     * reset (or gone idle) and nothing has been recorded for the next one yet.
+     */
+    private final boolean liveKnown;
+    private final long liveResetAtMillis;
+    private final long liveWindowSeconds;
 
     public UsageHistory(String kind, List<UsageSample> samples) {
+        this(kind, samples, false, 0L, 0L);
+    }
+
+    private UsageHistory(String kind, List<UsageSample> samples, boolean liveKnown,
+            long liveResetAtMillis, long liveWindowSeconds) {
         this.kind = normalizeKind(kind);
         this.samples = Collections.unmodifiableList(new ArrayList<>(
                 samples == null ? Collections.emptyList() : samples));
+        this.liveKnown = liveKnown;
+        this.liveResetAtMillis = liveResetAtMillis;
+        this.liveWindowSeconds = liveWindowSeconds;
+    }
+
+    /**
+     * The same samples, read against the window the provider reports now. Only samples from
+     * that window are "current"; every other recorded window is a completed one. A window with
+     * no future reset time (Claude's idle 5-hour session, or one whose reset has passed) has no
+     * current samples at all, so charts can't draw a finished window on the live axis.
+     */
+    public UsageHistory withLiveWindow(UsageWindow window, long observedAtMillis) {
+        long resetAt = window == null ? 0L : window.effectiveResetAtMillis(observedAtMillis);
+        if (resetAt <= observedAtMillis) resetAt = 0L;
+        return new UsageHistory(kind, samples, true, resetAt,
+                window == null ? 0L : window.windowSeconds);
+    }
+
+    /** Whether the live window has a usable time axis (a reset still ahead). */
+    public boolean hasLiveAxis() {
+        return !liveKnown || liveResetAtMillis > 0L;
+    }
+
+    private boolean isCurrent(UsageSample sample, UsageSample latest) {
+        if (!liveKnown) return sameWindow(sample, latest);
+        return liveResetAtMillis > 0L && UsageWindow.sameResetWindow(sample.resetAtMillis,
+                sample.windowSeconds, liveResetAtMillis, liveWindowSeconds);
     }
 
     public static UsageHistory empty(String kind) {
@@ -62,14 +102,19 @@ public final class UsageHistory {
         UsageSample latest = samples.get(samples.size() - 1);
         ArrayList<UsageSample> result = new ArrayList<>();
         for (UsageSample sample : samples) {
-            if (sameWindow(sample, latest)) result.add(sample);
+            if (isCurrent(sample, latest)) result.add(sample);
         }
         return Collections.unmodifiableList(result);
     }
 
-    /** Most recent reset windows, oldest to newest, for normalized historical overlays. */
+    /**
+     * Most recent reset windows, oldest to newest, for normalized historical overlays. The last
+     * entry is the current window; after {@link #withLiveWindow} it may be empty, when nothing
+     * has been recorded for the live window yet.
+     */
     public List<List<UsageSample>> recentWindows(int maximum) {
         if (samples.isEmpty() || maximum <= 0) return Collections.emptyList();
+        if (liveKnown) return recentWindowsAroundLive(maximum);
         ArrayList<List<UsageSample>> windows = new ArrayList<>();
         ArrayList<UsageSample> current = new ArrayList<>();
         UsageSample previous = null;
@@ -84,6 +129,32 @@ public final class UsageHistory {
         if (!current.isEmpty()) windows.add(Collections.unmodifiableList(current));
         int from = Math.max(0, windows.size() - maximum);
         return Collections.unmodifiableList(new ArrayList<>(windows.subList(from, windows.size())));
+    }
+
+    private List<List<UsageSample>> recentWindowsAroundLive(int maximum) {
+        UsageSample latest = samples.get(samples.size() - 1);
+        ArrayList<List<UsageSample>> completed = new ArrayList<>();
+        ArrayList<UsageSample> live = new ArrayList<>();
+        ArrayList<UsageSample> group = new ArrayList<>();
+        UsageSample previous = null;
+        for (UsageSample sample : samples) {
+            if (isCurrent(sample, latest)) {
+                live.add(sample);
+                continue;
+            }
+            if (previous != null && !sameWindow(previous, sample) && !group.isEmpty()) {
+                completed.add(Collections.unmodifiableList(group));
+                group = new ArrayList<>();
+            }
+            group.add(sample);
+            previous = sample;
+        }
+        if (!group.isEmpty()) completed.add(Collections.unmodifiableList(group));
+        int from = Math.max(0, completed.size() - (maximum - 1));
+        ArrayList<List<UsageSample>> windows = new ArrayList<>(completed.subList(from,
+                completed.size()));
+        windows.add(Collections.unmodifiableList(live));
+        return Collections.unmodifiableList(windows);
     }
 
     public int completedWindowCount() {

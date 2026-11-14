@@ -179,7 +179,10 @@ public final class UsageHistoryActivity extends AppCompatActivity {
     }
 
     private void addWindowSection(String label, UsageWindow window, UsageSnapshot snapshot,
-            UsageHistory history, PlanPricing pricing) {
+            UsageHistory recorded, PlanPricing pricing) {
+        // Current-window samples are only those of the window reported now (see withLiveWindow).
+        UsageHistory history = snapshot == null ? recorded
+                : recorded.withLiveWindow(window, snapshot.fetchedAtMillis);
         content.addView(Ui.separator(this, label + " window"));
         content.addView(buildChartCard(label, window, snapshot, history, pricing));
         Ui.addSpacer(content, 12);
@@ -284,7 +287,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             card.addView(row, new LinearLayout.LayoutParams(-1, -2));
 
             titles[index] = titleView;
-            int chartWindowIndex = chart.windowCount() - breakdown.size() + index;
+            // Breakdown and chart read the same recent windows; only an empty current window
+            // is missing from the breakdown, and it is always last.
+            int chartWindowIndex = index;
             boolean selectsCurrent = current;
             int rowIndex = index;
             selections[index] = () -> {
