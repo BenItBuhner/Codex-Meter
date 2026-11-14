@@ -24,6 +24,19 @@ sidebar, Fluent cards and Settings cards, light and dark themes, and Segoe Fluen
   with each one's meters, and right-click to open, refresh or quit. Settings → Live usage picks the
   service, "While using AI apps", the percentage shown (Auto, 5-hour or weekly) and the icon style.
   Windows toasts announce resets and low allowance.
+- **In-app updates** (Settings → Updates, and "Check for updates" in the tray menu), like Android's:
+  a Stable or Alpha channel, automatic checks (hourly to weekly) and a toast once per new version.
+  A check asks GitHub for at most two small responses (`/releases/latest`, plus `?per_page=10` on
+  alpha, falling back to 3), with hard size caps, so a long release list can't break it. The setup
+  (or the portable zip) is downloaded, its SHA-256 checked against the release's
+  `SHA256SUMS-windows.txt` (and its Authenticode signature, when it has one), then the app quits,
+  the setup upgrades it silently and reopens it. A tampered or truncated download is deleted.
+- **Priority**: the first page in the sidebar, like Android's: limits to watch (fast pace or 15% or
+  less left), used-up limits and when they come back, what renews or expires soon, and new models
+  from the makers you use.
+- **Estimated value** for Codex, Claude (Pro, Max, Ultra priced as Claude plans) and Cursor (its
+  included usage); other services get no card.
+- **"Usage is back"** and surprise-refill notifications, as on Android.
 
 Credentials are encrypted with Windows Data Protection (DPAPI) for your Windows account and stored in
 `%LOCALAPPDATA%\CodexMeter`, next to cached usage and settings. There is no relay server.
@@ -77,6 +90,13 @@ UI tests: build the app, then
 
 `.github/workflows/windows-ci.yml` runs the core tests on Linux and Windows, publishes x64 and ARM64
 builds, captures screenshots, runs the UI tests, and uploads the zips and screenshots as artifacts.
+
+`.github/workflows/desktop-update-proof.yml` proves the updater on a clean Windows VM: it installs a
+build stamped 2.9.0-alpha.27, serves a 2.9.0-alpha.28 setup from a loopback stand-in for GitHub's
+API (`.github/update-proof/feed.py`, whose first download is tampered), and records the app finding
+the update, refusing the bad download, installing the good one and reopening as the new version.
+Nothing is tagged or published. Run the app against such a feed with
+`CodexMeter.exe --update-feed http://127.0.0.1:8765/releases` (loopback addresses only).
 
 ## Not yet
 

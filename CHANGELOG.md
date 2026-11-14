@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased (alpha)
+
+### Added
+
+- **In-app updates on Windows, Linux and macOS.** Settings → Updates checks GitHub, offers the new version, downloads it, checks it against the release's SHA-256 checksums, then installs it and reopens the app: the setup or portable zip on Windows, the AppImage swapped in place (or the .deb through the system's package installer) on Linux, and the app bundle swapped in place on macOS (a sandboxed copy or one in a folder you can't write opens the disk image instead). A Stable or Alpha channel, automatic checks and a notification once per version, like Android. Checks read at most two small, size-capped responses, so a long release list can't break them. Windows, Linux, macOS.
+- **Priority page** on Windows and Linux: limits to watch, used-up limits, what renews or expires soon, and new models from the makers you use. Windows, Linux.
+- **Estimated value** on Windows and Linux, priced for the provider: Claude Pro, Max and Ultra as Claude plans, Cursor from its included usage, and no card for other services. Windows, Linux.
+- **"Usage is back" and surprise-refill notifications** on Windows and Linux. Windows, Linux.
+
+### Fixed
+
+- **Reset credits settings only show Codex when Codex is linked.** Windows, Linux.
+
 ## 2.9.0-alpha.27 — 2026-11-13
 
 ### Changed
