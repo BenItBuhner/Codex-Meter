@@ -313,13 +313,8 @@ public final class NowBarManager {
      * signed-in provider (in tab order) that has limits. Codex when nothing has any yet.
      */
     public static UsageProvider monitorProvider(Context context) {
-        if (canMonitor(context, UsageProvider.CODEX)) return UsageProvider.CODEX;
-        UsageProvider selected = ProviderPreferences.getSelected(context);
-        if (canMonitor(context, selected)) return selected;
-        for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
-            if (canMonitor(context, provider)) return provider;
-        }
-        return UsageProvider.CODEX;
+        return MonitorProviderPicker.pick(ProviderPreferences.getSelected(context),
+                ProviderPreferences.getOrder(context), provider -> canMonitor(context, provider));
     }
 
     private static boolean canMonitor(Context context, UsageProvider provider) {
@@ -332,7 +327,7 @@ public final class NowBarManager {
     }
 
     private static boolean hasWindows(UsageSnapshot snapshot) {
-        return snapshot != null && (snapshot.fiveHour != null || snapshot.longWindow() != null);
+        return MonitorProviderPicker.hasWindows(snapshot);
     }
 
     private static long appSessionUntil(UsageSnapshot snapshot, long now) {
