@@ -43,6 +43,16 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add(new MenuFlyoutItem { Text = "Open Codex Meter", Command = new RelayCommand(() => open(null)) });
         menu.Items.Add(new MenuFlyoutItem { Text = "Refresh now", Command = new RelayCommand(refresh) });
         menu.Items.Add(new MenuFlyoutItem { Text = "Live usage settings", Command = new RelayCommand(() => open("settings")) });
+        menu.Items.Add(new MenuFlyoutItem
+        {
+            Text = "Check for updates",
+            Command = new RelayCommand(() =>
+            {
+                open("settings");
+                if (state.Updater is { Status: Core.Updates.UpdateStatus.Available } ready) _ = ready.DownloadAndInstallAsync();
+                else _ = state.Updater?.CheckAsync();
+            }),
+        });
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(new MenuFlyoutItem { Text = "Quit", Command = new RelayCommand(quit) });
         icon = new TaskbarIcon

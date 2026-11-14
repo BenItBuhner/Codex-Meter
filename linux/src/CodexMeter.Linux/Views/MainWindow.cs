@@ -145,12 +145,12 @@ public sealed class MainWindow
     private void OnProvidersChanged()
     {
         // Settings.Changed fires for every setting; only rebuild when the sidebar's providers changed.
-        var ids = string.Join(",", state.EnabledProviders.Select(p => p.Id) .Concat(state.SignedIn.Select(p => "+" + p.Id)));
+        var ids = ProviderSignature();
         if (ids == shownProviders) return;
         BuildProviderRows();
         var tag = CurrentTag;
         if (tag == "welcome" && state.SignedIn.Count == 0) return;
-        if (tag is "accounts" or "settings" || state.EnabledProviders.Any(p => p.Id == tag)) Select(tag);
+        if (tag is "accounts" or "settings" || (tag == "priority" && ShowsPriority) || state.EnabledProviders.Any(p => p.Id == tag)) Select(tag);
         else Navigate(state.EnabledProviders.FirstOrDefault()?.Id ?? "accounts");
     }
 
@@ -200,7 +200,9 @@ public sealed class MainWindow
         {
             while (providerList.GetFirstChild() is { } child) providerList.Remove(child);
             foreach (var tag in rows.Keys.Where(t => t is not (AddTag or "accounts" or "settings")).ToList()) rows.Remove(tag);
-            shownProviders = string.Join(",", state.EnabledProviders.Select(p => p.Id).Concat(state.SignedIn.Select(p => "+" + p.Id)));
+            shownProviders = ProviderSignature();
+            // Like the Android Priority tab: first, next to the providers.
+            if (ShowsPriority) providerList.Append(Row("priority", Gtk.Image.NewFromIconName("starred-symbolic"), "Priority", false, out _));
             foreach (var provider in state.EnabledProviders)
             {
                 providerList.Append(Row(provider.Id, ProviderIcons.Create(provider.Id, 16), provider.DisplayName, true, out _));
@@ -209,6 +211,11 @@ public sealed class MainWindow
         }
         finally { selecting = false; }
     }
+
+    private bool ShowsPriority => state.Settings.Current.ShowPriority && state.SignedIn.Count > 0;
+
+    private string ProviderSignature() => (ShowsPriority ? "priority," : "")
+        + string.Join(",", state.EnabledProviders.Select(p => p.Id).Concat(state.SignedIn.Select(p => "+" + p.Id)));
 
     /// <summary>The sidebar's trailing number: the 5-hour window (or the longest one) for each provider.</summary>
     private void UpdateRowValue(UsageProvider provider)
@@ -275,7 +282,7 @@ public sealed class MainWindow
     /// <summary>Opens a service dashboard ("codex", "cursor", ...), "accounts", "settings" or "welcome".</summary>
     public void Navigate(string tag)
     {
-        if (tag is not ("accounts" or "settings" or "welcome") && state.EnabledProviders.All(p => p.Id != tag))
+        if (tag is not ("accounts" or "settings" or "welcome" or "priority") && state.EnabledProviders.All(p => p.Id != tag))
         {
             if (UsageProvider.Find(tag) is null) return;
             // A provider that isn't in the sidebar still opens (e.g. from --page), like the phone apps.
@@ -287,6 +294,7 @@ public sealed class MainWindow
         {
             "accounts" => new AccountsPage(state, this),
             "settings" => new SettingsPage(state, this),
+            "priority" => new PriorityPage(state, this),
             "welcome" => new WelcomePage(state, this),
             _ => new DashboardPage(state, this, UsageProvider.Resolve(tag)),
         };
@@ -304,7 +312,7 @@ public sealed class MainWindow
             return;
         }
         var target = requested ?? state.Settings.Current.SelectedProvider;
-        if (target is "accounts" or "settings" or "welcome")
+        if (target is "accounts" or "settings" or "welcome" || (target == "priority" && ShowsPriority))
         {
             Navigate(target);
             return;

@@ -29,6 +29,7 @@ public sealed class MainWindow : Window
     private readonly TitleBar titleBar;
     private readonly NavigationView nav;
     private readonly NavigationViewItem accountsItem;
+    private NavigationViewItem? priorityItem;
     private readonly Grid host = new();
     private readonly Dictionary<string, NavigationViewItem> providerItems = [];
     private string navSignature = "";
@@ -179,7 +180,8 @@ public sealed class MainWindow : Window
     private void BuildNavigation(bool initial)
     {
         var enabled = state.EnabledProviders;
-        var signature = string.Join(",", enabled.Select(p => p.Id));
+        var showPriority = state.Settings.Current.ShowPriority && state.SignedIn.Count > 0;
+        var signature = (showPriority ? "priority," : "") + string.Join(",", enabled.Select(p => p.Id));
         if (!initial && signature == navSignature) return;
         navSignature = signature;
 
@@ -188,6 +190,14 @@ public sealed class MainWindow : Window
         {
             nav.MenuItems.Clear();
             providerItems.Clear();
+            priorityItem = null;
+            if (showPriority)
+            {
+                // Like the Android Priority tab: first, next to the providers.
+                priorityItem = new NavigationViewItem { Content = "Priority", Tag = "priority", Icon = new FontIcon { Glyph = "\uE734" } };
+                AutomationProperties.SetAutomationId(priorityItem, "Nav_priority");
+                nav.MenuItems.Add(priorityItem);
+            }
             foreach (var provider in enabled)
             {
                 var item = new NavigationViewItem { Content = provider.DisplayName, Tag = provider.Id, Icon = ProviderIcons.Create(provider.Id) };
@@ -208,7 +218,7 @@ public sealed class MainWindow : Window
             return;
         }
         var target = initial || currentTag.Length == 0 ? state.Settings.Current.SelectedProvider : currentTag;
-        if (target is "accounts" or "settings")
+        if (target is "accounts" or "settings" || (target == "priority" && priorityItem is not null))
         {
             Navigate(target);
             return;
@@ -240,6 +250,7 @@ public sealed class MainWindow : Window
         {
             "settings" => nav.SettingsItem,
             "accounts" => accountsItem,
+            "priority" => priorityItem,
             "welcome" => null,
             _ => providerItems.GetValueOrDefault(tag),
         };
@@ -264,6 +275,7 @@ public sealed class MainWindow : Window
         {
             "settings" => new SettingsPage(),
             "accounts" => new AccountsPage(),
+            "priority" => new PriorityPage(),
             "welcome" => new WelcomePage(),
             _ => new DashboardPage(UsageProvider.Resolve(tag)),
         };

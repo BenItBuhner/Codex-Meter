@@ -13,6 +13,7 @@ public sealed class Notifier(Gio.Application application, bool enabled)
             var notification = Gio.Notification.New(alert.Title);
             notification.SetBody(alert.Body);
             notification.SetDefaultAction("app.show");
+            if (alert.Kind == UsageAlertKind.Update) notification.AddButton("Update Now", "app.install-update");
             notification.SetPriority(alert.Kind == UsageAlertKind.Reset ? Gio.NotificationPriority.Normal : Gio.NotificationPriority.High);
             application.SendNotification(alert.Key, notification);
         }

@@ -1,0 +1,128 @@
+name: Desktop update proof
+
+# Shows the Windows in-app updater end to end on a clean Windows VM, without touching GitHub
+# releases: installs an "old" build, serves a "newer" build from a loopback feed that mimics
+# api.github.com (one tampered download first), and records the app finding, refusing, then
+# installing the update and reopening as the new version. Screenshots and a video are uploaded
+# as the "update-proof" artifact. Nothing is tagged or published.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'windows/src/CodexMeter.Core/Updates/**'
+      - 'windows/src/CodexMeter.App/Services/WindowsUpdateInstaller.cs'
+      - 'windows/src/CodexMeter.App/Views/UpdatesSection.cs'
+      - 'windows/installer/**'
+      - 'windows/tests/CodexMeter.App.UITests/UpdateFlowProof.cs'
+      - '.github/update-proof/**'
+      - '.github/workflows/desktop-update-proof.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-update-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: '1'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  OLD_VERSION: 2.9.0-alpha.27
+  NEW_VERSION: 2.9.0-alpha.28
+
+jobs:
+  windows:
+    name: Windows update flow
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Use a 1080p desktop
+        continue-on-error: true
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Install Inno Setup and ffmpeg
+        run: |
+          choco install innosetup ffmpeg -y --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build the old and the new version with installers
+        run: |
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          foreach ($pair in @(@('old', $env:OLD_VERSION), @('new', $env:NEW_VERSION))) {
+            $name, $version = $pair
+            dotnet publish src/CodexMeter.App/CodexMeter.App.csproj -c Release -r win-x64 -p:Platform=x64 "-p:Version=$version" -o "out/$name/app"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $iscc.FullName "/DAppVersion=$version" "/DArch=x64" "/DSourceDir=$PWD\out\$name\app" "/DOutputDir=$PWD\out\$name" "/DIconFile=$PWD\src\CodexMeter.App\Assets\AppIcon.ico" installer\CodexMeter.iss
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          # The "newer" release, laid out like a GitHub release: its setup plus SHA256SUMS-windows.txt.
+          New-Item -ItemType Directory out/feed | Out-Null
+          $asset = "CodexMeter-$env:NEW_VERSION-Setup-x64.exe"
+          Copy-Item out/new/CodexMeter-Setup-x64.exe "out/feed/$asset"
+          $hash = (Get-FileHash "out/feed/$asset" -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content out/feed/SHA256SUMS-windows.txt "$hash  $asset" -NoNewline
+          Get-ChildItem out/feed | Format-Table Name, Length
+
+      - name: Install the old version
+        run: |
+          $p = Start-Process out/old/CodexMeter-Setup-x64.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Setup exited with $($p.ExitCode)" }
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Codex Meter\CodexMeter.exe'
+          (Get-Item $exe).VersionInfo | Format-List ProductVersion, FileName
+          "CODEXMETER_EXE=$exe" >> $env:GITHUB_ENV
+
+      - name: Build the UI test runner
+        run: dotnet build tests/CodexMeter.App.UITests -c Release
+
+      - name: Run the update flow and record it
+        run: |
+          $proof = Join-Path $PWD 'out/update-proof'
+          New-Item -ItemType Directory $proof -Force | Out-Null
+          $asset = "CodexMeter-$env:NEW_VERSION-Setup-x64.exe"
+          $feed = Start-Process python -ArgumentList "$env:GITHUB_WORKSPACE\.github\update-proof\feed.py", '--assets', "$PWD\out\feed", '--version', $env:NEW_VERSION, '--tamper-first', $asset -PassThru
+          Start-Sleep 2
+
+          $ffmpeg = New-Object System.Diagnostics.Process
+          $ffmpeg.StartInfo.FileName = 'ffmpeg'
+          $ffmpeg.StartInfo.Arguments = "-y -f gdigrab -framerate 8 -i desktop -vf scale=1280:-2 -c:v libx264 -preset veryfast -pix_fmt yuv420p `"$proof\windows-update-flow.mp4`""
+          $ffmpeg.StartInfo.UseShellExecute = $false
+          $ffmpeg.StartInfo.RedirectStandardInput = $true
+          $null = $ffmpeg.Start()
+
+          $env:CODEXMETER_UPDATE_FEED = 'http://127.0.0.1:8765/releases'
+          $env:CODEXMETER_PROOF_DIR = $proof
+          dotnet test tests/CodexMeter.App.UITests -c Release --no-build --filter 'FullyQualifiedName~UpdateFlowProof' --logger "console;verbosity=normal"
+          $result = $LASTEXITCODE
+
+          $ffmpeg.StandardInput.Write('q')
+          if (-not $ffmpeg.WaitForExit(30000)) { $ffmpeg.Kill() }
+          Stop-Process -Id $feed.Id -ErrorAction SilentlyContinue
+          Get-Process CodexMeter -ErrorAction SilentlyContinue | Stop-Process -Force
+          Get-ChildItem $proof | Format-Table Name, Length
+          (Get-Item $env:CODEXMETER_EXE).VersionInfo | Format-List ProductVersion
+          exit $result
+
+      - name: Show the app and setup logs
+        if: always()
+        run: |
+          $log = Join-Path $env:LOCALAPPDATA 'CodexMeter/codexmeter.log'
+          if (Test-Path $log) { Get-Content $log } else { 'No app log.' }
+          Get-ChildItem (Join-Path $env:LOCALAPPDATA 'CodexMeter\updates') -Filter *.log -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: update-proof
+          path: windows/out/update-proof
+          if-no-files-found: warn

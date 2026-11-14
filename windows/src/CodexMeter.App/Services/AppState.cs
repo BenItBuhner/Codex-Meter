@@ -3,6 +3,7 @@ using CodexMeter.Core.Auth;
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
+using CodexMeter.Core.Updates;
 
 namespace CodexMeter.App.Services;
 
@@ -52,6 +53,20 @@ public sealed class AppState
     public SettingsStore Settings { get; }
     public UsageHistoryStore HistoryStore { get; }
     public bool IsDemo => Hub.IsDemo;
+
+    /// <summary>Settings → Updates; null in screenshot runs.</summary>
+    public DesktopUpdater? Updater { get; set; }
+
+    /// <summary>New models for the Priority page and notification; null in demo mode.</summary>
+    public ModelDiscoveryStore? Models { get; set; }
+
+    /// <summary>The Priority page: limits to watch, used up, coming up and new models across signed-in providers.</summary>
+    public PriorityReport Priority(DateTimeOffset now)
+    {
+        var signedIn = EnabledProviders.Where(p => this[p].SignedIn).ToList();
+        var models = Models is { } store ? ModelDiscovery.Items(store.State, signedIn, now) : [];
+        return PriorityReport.Build(signedIn.Select(p => (p, this[p].Usage, this[p].Cache?.Credits)), models, now);
+    }
 
     /// <summary>One provider's account or usage changed.</summary>
     public event Action<UsageProvider>? ProviderChanged;
@@ -126,8 +141,7 @@ public sealed class AppState
             var snapshot = await service.RefreshAsync();
             entry.RateLimitedAt = null;
             entry.History = await HistoryStore.RecordAsync(provider.Id, snapshot);
-            var settings = Settings.Current;
-            var alerts = UsageAlerts.Evaluate(provider, previous, snapshot, settings.LowThreshold, settings.NotifyResets, settings.NotifyLow)
+            var alerts = RefreshAlerts.AfterRefresh(Settings, provider, previous, snapshot, DateTimeOffset.UtcNow)
                 .Where(a => announced.Add(a.Key + ":" + snapshot.FetchedAt.ToUnixTimeSeconds() / 3600))
                 .ToList();
             if (alerts.Count > 0) Alerts?.Invoke(alerts);
@@ -164,6 +178,16 @@ public sealed class AppState
             if (last is null || DateTimeOffset.UtcNow - last >= interval) await RefreshAsync(provider, force: true);
         }
         await AutoUseResetsAsync();
+        var back = RefreshAlerts.Tick(Settings, DateTimeOffset.UtcNow).Where(a => announced.Add(a.Key)).ToList();
+        if (back.Count > 0) Alerts?.Invoke(back);
+        if (Updater is { } updater) await updater.TickAsync(DateTimeOffset.UtcNow);
+        if (Models is { } models && SignedIn.Any(p => ModelDiscovery.MakerFor(p) is not null))
+        {
+            var confirmed = await models.RefreshAsync(DateTimeOffset.UtcNow);
+            var alerts = Settings.Current.NotifyNewModels ? RefreshAlerts.NewModels(confirmed, SignedIn) : [];
+            if (alerts.Count > 0) Alerts?.Invoke(alerts);
+            if (confirmed.Count > 0) ProvidersChanged?.Invoke();
+        }
     }
 
     /// <summary>Runs any sign-in style: a browser round trip, a device code, or a pasted token.</summary>
@@ -229,6 +253,7 @@ public sealed class AppState
     {
         await Hub[provider].SignOutAsync();
         await HistoryStore.ClearAsync(provider.Id);
+        RefreshAlerts.Forget(Settings, provider);
         var entry = this[provider];
         entry.Account = null;
         entry.Cache = null;
@@ -341,7 +366,7 @@ public sealed class AppState
         var entry = this[provider];
         var settings = Settings.Current;
         return DashboardSections.Visible(entry.Usage, HasResetCredits(provider), settings.SectionOrderFor(provider.Id),
-            settings.HiddenSectionsFor(provider.Id));
+            settings.HiddenSectionsFor(provider.Id), providerId: provider.Id);
     }
 
     public bool HasResetCredits(UsageProvider provider) =>

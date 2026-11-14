@@ -99,6 +99,10 @@ final class MacGalleryTests: XCTestCase {
                 MacUITestSupport.settle(0.8)
                 capture("\(prefix)-07-settings-menu-bar", app)
             }
+            if MacUITestSupport.click(app.buttons["Updates"], timeout: 4) {
+                MacUITestSupport.settle(0.8)
+                capture("\(prefix)-07b-settings-updates", app)
+            }
             app.typeKey("w", modifierFlags: .command)
             MacUITestSupport.settle(0.6)
         }
