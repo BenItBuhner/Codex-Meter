@@ -63,6 +63,10 @@ public sealed record AppSettings
     public bool NotifySurpriseRefills { get; init; } = true;
     /// <summary>Used-up limits waiting for "usage is back": "provider:window" to the reset time (unix seconds, or -1 when unknown).</summary>
     public Dictionary<string, long> UsedUpLimits { get; init; } = [];
+    /// <summary>Notify when a new model from a maker you use is listed (Android: Notifications → New models).</summary>
+    public bool NotifyNewModels { get; init; } = true;
+    /// <summary>Show the Priority page first in the sidebar (Android: the Priority tab).</summary>
+    public bool ShowPriority { get; init; } = true;
 
     public List<string> SectionOrderFor(string providerId) => SectionOrder.GetValueOrDefault(providerId) ?? [];
     public List<string> HiddenSectionsFor(string providerId) => HiddenSections.GetValueOrDefault(providerId) ?? [];

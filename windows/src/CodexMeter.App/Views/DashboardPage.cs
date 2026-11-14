@@ -219,6 +219,9 @@ public sealed class DashboardPage : PageBase
                 case DashboardSections.ResetCredits:
                     cards.Children.Add(ResetCreditsCard(entry.Cache?.Credits, usage.ResetCreditsAvailable ?? 0));
                     break;
+                case DashboardSections.ValueEstimate when PlanPricing.ForProvider(provider.Id, usage) is { } pricing:
+                    cards.Children.Add(ValueCard(pricing, usage));
+                    break;
                 default:
                     if (!DashboardSections.IsLimitKey(key)) break;
                     foreach (var limit in usage.AdditionalLimits.Where(l => DashboardSections.LimitKey(l) == key))
@@ -381,6 +384,38 @@ public sealed class DashboardPage : PageBase
         panel.Children.Add(button);
         var card = Cards.Card(panel, "ResetCreditsCard");
         AutomationProperties.SetName(card, "Reset credits");
+        return card;
+    }
+
+    /// <summary>Estimated value of the plan the user is on (Codex, Claude Pro/Max/Ultra, or Cursor's own figure).</summary>
+    private static Border ValueCard(PlanPricing pricing, UsageSnapshot usage)
+    {
+        var panel = new StackPanel { Spacing = 6 };
+        panel.Children.Add(Cards.Header("\uE8C7", pricing.Reported ? "Included value" : "Estimated value"));
+        var heading = Cards.Text(pricing.Title, "BodyStrongTextBlockStyle");
+        heading.Margin = new Thickness(0, 4, 0, 2);
+        AutomationProperties.SetAutomationId(heading, "ValuePlan");
+        panel.Children.Add(heading);
+        var grid = new Grid { ColumnSpacing = 12, RowSpacing = 4 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var rows = pricing.SummaryRows(usage);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var label = Cards.Text(rows[i].Label, "SecondaryTextStyle");
+            var value = Cards.Text(rows[i].Value, "BodyTextBlockStyle", wrap: false);
+            value.HorizontalAlignment = HorizontalAlignment.Right;
+            Grid.SetRow(label, i);
+            Grid.SetRow(value, i);
+            Grid.SetColumn(value, 1);
+            grid.Children.Add(label);
+            grid.Children.Add(value);
+        }
+        panel.Children.Add(grid);
+        panel.Children.Add(Cards.Text(pricing.Basis, "CaptionSecondaryTextStyle"));
+        var card = Cards.Card(panel, "ValueEstimateCard");
+        AutomationProperties.SetName(card, "Estimated value");
         return card;
     }
 
