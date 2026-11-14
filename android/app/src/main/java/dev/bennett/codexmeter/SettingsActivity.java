@@ -923,6 +923,15 @@ public final class SettingsActivity extends AppCompatActivity {
         private void updateResetStatus() {
             Context context = requireContext();
             long now = System.currentTimeMillis();
+            // Only providers the user is signed in to get a section, so a Claude-only account
+            // doesn't open on an empty Codex block. Signed in to neither: both, to sign in.
+            boolean codexIn = SecureTokenStore.isSignedIn(context, UsageProvider.CODEX);
+            boolean claudeIn = SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE);
+            boolean none = !codexIn && !claudeIn;
+            Preference codexSection = findPreference("reset_credit_auto_use_category");
+            if (codexSection != null) codexSection.setVisible(codexIn || none);
+            Preference claudeSection = findPreference("claude_saved_reset_category");
+            if (claudeSection != null) claudeSection.setVisible(claudeIn || none);
             Preference codex = findPreference("reset_credit_status_ui");
             if (codex != null) {
                 ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
