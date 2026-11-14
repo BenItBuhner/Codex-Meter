@@ -55,6 +55,15 @@ public sealed record AppSettings
     /// <summary>The window the low-usage rule last fired for, so it fires once per window.</summary>
     public string? AutoUseLastToken { get; init; }
 
+    /// <summary>Settings → Updates: channel, automatic checks and notifications (as on Android).</summary>
+    public Updates.UpdatePreferences Updates { get; init; } = new();
+    /// <summary>Notify when a limit that was used up has some left again ("usage is back"). On by default, as on Android.</summary>
+    public bool NotifyUsageBack { get; init; } = true;
+    /// <summary>Notify when a limit refills well before its reset time ("surprise refills").</summary>
+    public bool NotifySurpriseRefills { get; init; } = true;
+    /// <summary>Used-up limits waiting for "usage is back": "provider:window" to the reset time (unix seconds, or -1 when unknown).</summary>
+    public Dictionary<string, long> UsedUpLimits { get; init; } = [];
+
     public List<string> SectionOrderFor(string providerId) => SectionOrder.GetValueOrDefault(providerId) ?? [];
     public List<string> HiddenSectionsFor(string providerId) => HiddenSections.GetValueOrDefault(providerId) ?? [];
 
