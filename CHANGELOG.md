@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.9.0-alpha.28 — 2026-11-14
+
+### Changed
+
+- **Estimated value matches the plan you're on.** The **Estimated value** card on a provider's history page now uses that provider's own plan, so a Claude Pro account reads "Claude Pro · $20/month" instead of a Codex plan like "Pro 20x". Android.
+- **Real value estimates for Claude Code and Cursor.** Claude plans use SemiAnalysis's June 2026 estimates of what each plan buys at API prices (Pro about $400 a month, about $100 a week and about $17 per 5-hour window; Max and Ultra too). Cursor uses the included usage Cursor itself reports. The card also shows value used and value remaining this week or month. Android.
+- **New models say why they're shown**, for example "Anthropic model, for your Claude Code", and the card names the accounts it's shown for. Tools that offer many makers' models, like Cursor or Copilot, add none. Android.
+
+### Fixed
+
+- **No spike at "reset" on the 5-hour chart.** When a 5-hour session went idle, Claude stopped sending its reset time and the chart piled the finished window onto the reset edge. It now says "No window running. It starts with your next request." and lists earlier windows as before. Android.
+- **Update checks fall back to a small request** for the 10 newest releases when the full listing can't be read, so a busy releases page no longer breaks them. Android.
+- **Reset credits only shows providers you're signed in to.** The Codex section is hidden when Codex isn't linked. Android.
+- **Long settings pages no longer slide under the status bar and the round Back button.** In One UI 9, a fade now sits behind them when you scroll (Now Bar and other long pages). Android.
+- The live monitor's choice of provider for Claude Code-only accounts is now covered by a test. Android.
+
 ## 2.9.0-alpha.27 — 2026-11-13
 
 ### Changed
