@@ -42,8 +42,10 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         UsageHistory five = ProviderPreferences.loadUsageHistory(c, provider, UsageHistory.FIVE_HOUR);
         UsageHistory weekly = ProviderPreferences.loadUsageHistory(c, provider, UsageHistory.WEEKLY);
         UsageHistory monthly = ProviderPreferences.loadUsageHistory(c, provider, UsageHistory.MONTHLY);
-        PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
+        PlanPricing plan = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
                 ? null : PlanPricing.forProvider(provider.id, snapshot);
+        // A plan whose value is unknown still gets its card, but no dollar figures elsewhere.
+        PlanPricing pricing = plan != null && plan.hasValue() ? plan : null;
 
         // One window at a time, picked with a segmented control at the top (iOS's way of
         // switching between views of the same data), instead of every chart stacked.
@@ -89,12 +91,12 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
                     "Charts appear once " + provider.vendorName + " reports your 5-hour, weekly, or "
                             + "monthly usage windows. Refresh usage from the dashboard to check again.")));
         }
-        if (pricing != null && hasCharts) {
+        if (plan != null && hasCharts) {
             Card value = new Card(Card.Kind.STATS);
             value.detail = "Estimated value";
-            value.title = pricing.title();
-            value.stats.addAll(pricing.summaryRows(snapshot));
-            value.summary = pricing.basis;
+            value.title = plan.title();
+            value.stats.addAll(plan.summaryRows(snapshot));
+            value.summary = plan.basis;
             page.sections.add(GlassScreens.cards(value));
         }
         Section clear = GlassScreens.section(null);

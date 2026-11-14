@@ -2656,39 +2656,54 @@ public final class ParserSelfTest {
         check(PlanPricing.forPlan("go") == null, "go plan has no researched estimates");
         check(PlanPricing.forPlan("enterprise") == null, "unknown plans have no estimates");
 
+        // Figures from docs/pricing-sources.md (BenchLeader and Adam Holter, Sep-Nov 2026).
         PlanPricing plus = PlanPricing.forPlan("plus");
         check(plus != null && plus.monthlyPriceUsd == 20d, "plus subscription price");
-        check(plus.monthlyValueUsd == 700d, "plus monthly value backsolves from 5x anchor");
-        check(plus.weeklyValueUsd() == 175d, "plus weekly value is month over four weeks");
+        check(plus.monthlyValueUsd == 299d, "plus headline is GPT-6.1 Sol, BenchLeader Nov 9");
+        check(plus.weeklyValueUsd() == 74.75d, "plus weekly value is month over four weeks");
+        check(plus.byModel.size() == 5 && plus.byModel.get(1).monthlyValueUsd == 640d,
+                "plus keeps per-model figures (Holter: Astra 32x of $20)");
+        for (PlanPricing.Estimate estimate : plus.byModel) {
+            check(estimate.sourceUrl.startsWith("https://") && estimate.dataDate.startsWith("2026-"),
+                    "every figure carries a source URL and data date");
+        }
 
-        PlanPricing pro5x = PlanPricing.forPlan("pro_5x");
-        check(pro5x != null && pro5x.monthlyPriceUsd == 100d, "pro 5x price normalizes underscores");
-        check(pro5x.monthlyValueUsd == 3500d, "pro 5x monthly value anchor");
-        check(pro5x.weeklyValueUsd() == 875d, "pro 5x weekly value");
-        check(PlanPricing.forPlan("prolite") != null
-                && PlanPricing.forPlan("prolite").monthlyValueUsd == 3500d,
-                "prolite aliases pro 5x");
+        PlanPricing pro100 = PlanPricing.forPlan("pro_100");
+        check(pro100 != null && pro100.monthlyPriceUsd == 100d && "Pro 100".equals(pro100.planLabel),
+                "pro 100 normalizes underscores");
+        check(!pro100.hasValue(), "pro 100 has no published figure, so its value is unknown");
+        check(PlanPricing.forPlan("prolite").planLabel.equals("Pro 100")
+                && PlanPricing.forPlan("pro5x").planLabel.equals("Pro 100"),
+                "prolite and the old Pro 5x are Pro 100");
+        check(pro100.summaryRows(null).size() == 1
+                && "Unknown".equals(pro100.summaryRows(null).get(0)[1]),
+                "an unknown plan shows Unknown and no dollar rows");
+        PlanPricing pro500 = PlanPricing.forPlan("Pro 500");
+        check(pro500 != null && pro500.monthlyPriceUsd == 500d && !pro500.hasValue(),
+                "pro 500 is $500 with an unknown value");
 
-        PlanPricing pro20x = PlanPricing.forPlan("pro");
-        check(pro20x != null && pro20x.monthlyPriceUsd == 200d, "pro aliases pro 20x");
-        check(pro20x.monthlyValueUsd == 14000d, "pro 20x monthly value anchor");
-        check(pro20x.weeklyValueUsd() == 3500d, "pro 20x weekly value");
-        check(Math.round(pro20x.valueMultiplier()) == 70L, "pro 20x multiplier of price");
-        check(pro20x.fiveHourValueUsd() > 0d
-                && pro20x.fiveHourValueUsd() < pro20x.weeklyValueUsd(),
+        PlanPricing pro200 = PlanPricing.forPlan("pro");
+        check(pro200 != null && pro200.monthlyPriceUsd == 200d && "Pro 200".equals(pro200.planLabel),
+                "pro (the old Pro 20x) is Pro 200");
+        check(pro200.monthlyValueUsd == 5604d, "pro 200 is BenchLeader's GPT-6 Astra figure");
+        check(pro200.weeklyValueUsd() == 1401d, "pro 200 weekly value");
+        check(Math.round(pro200.valueMultiplier()) == 28L, "pro 200 multiplier of price");
+        check(pro200.fiveHourValueUsd() > 0d
+                && pro200.fiveHourValueUsd() < pro200.weeklyValueUsd(),
                 "5-hour burst allowance is a fraction of the weekly value");
 
-        check(pro20x.estimatedValueUsd(UsageHistory.WEEKLY, 0) == 0d, "zero percent burns nothing");
-        check(pro20x.estimatedValueUsd(UsageHistory.WEEKLY, 50) == 1750d,
+        check(pro200.estimatedValueUsd(UsageHistory.WEEKLY, 0) == 0d, "zero percent burns nothing");
+        check(pro200.estimatedValueUsd(UsageHistory.WEEKLY, 50) == 700.5d,
                 "half the weekly window burns half the weekly value");
-        check(pro20x.estimatedValueUsd(UsageHistory.WEEKLY, 250)
-                == pro20x.weeklyValueUsd(), "burned value clamps at the full allowance");
+        check(pro200.estimatedValueUsd(UsageHistory.WEEKLY, 250)
+                == pro200.weeklyValueUsd(), "burned value clamps at the full allowance");
+        check("Nov 7, 2026".equals(PlanPricing.displayDate("2026-11-07")), "data dates read as dates");
 
         check("$3,500".equals(PlanPricing.formatUsd(3500d)), "thousands formatting");
         check("$29".equals(PlanPricing.formatUsd(29.2d)), "two-digit dollars drop cents");
         check("$4.20".equals(PlanPricing.formatUsd(4.2d)), "small values keep cents");
         check("$0.00".equals(PlanPricing.formatUsd(-3d)), "negative values clamp to zero");
-        System.out.println("Plan pricing demo: Plus $700/mo, Pro 5x $3,500/mo, Pro 20x $14,000/mo.");
+        System.out.println("Plan pricing demo: Plus $299/mo, Pro 100 unknown, Pro 200 $5,604/mo, Pro 500 unknown.");
     }
 
     /**
@@ -2705,18 +2720,24 @@ public final class ParserSelfTest {
         PlanPricing claude = PlanPricing.forProvider(PlanPricing.CLAUDE_CODE, claudePro);
         check(claude != null && "Claude Pro".equals(claude.planLabel),
                 "Claude Pro is priced as Claude Pro");
-        check(!"Pro 20x".equals(claude.planLabel) && claude.monthlyPriceUsd == 20d,
-                "Claude Pro never shows the Codex Pro 20x plan");
-        check(claude.monthlyValueUsd == 400d, "Claude Pro monthly value anchor");
+        check(!"Pro 200".equals(claude.planLabel) && claude.monthlyPriceUsd == 20d,
+                "Claude Pro never shows the Codex Pro 200 plan");
+        check(claude.monthlyValueUsd == 1200d, "Claude Pro is BenchLeader's Opus 5.5 figure");
         check("Claude Pro · $20/month".equals(claude.title()), "Claude Pro card title");
-        check(Math.round(claude.valueMultiplier()) == 20L, "Claude Pro multiple of price");
+        check(Math.round(claude.valueMultiplier()) == 60L, "Claude Pro multiple of price");
         boolean usedRow = false;
+        boolean haikuRow = false;
         for (String[] row : claude.summaryRows(claudePro)) {
-            if ("Value used this week".equals(row[0])) usedRow = "≈ $40".equals(row[1]);
+            if ("Value used this week".equals(row[0])) usedRow = "≈ $120".equals(row[1]);
+            haikuRow |= "All on Haiku 5.5".equals(row[0]) && "≈ $877/month".equals(row[1]);
         }
-        check(usedRow, "40% of the Claude Pro week is about $40 of value");
-        check(PlanPricing.forClaudePlan("Max").monthlyValueUsd == 2000d, "Claude Max is 5x Pro");
-        check(PlanPricing.forClaudePlan("Ultra").monthlyValueUsd == 8000d, "Claude Ultra is 20x Pro");
+        check(usedRow, "40% of the Claude Pro week is about $120 of value");
+        check(haikuRow, "the card lists per-model figures");
+        check(claude.basis.contains("BenchLeader") && claude.basis.contains("Nov 7, 2026"),
+                "the card names its source and data date");
+        check(PlanPricing.forClaudePlan("Max").monthlyValueUsd == 7224d, "Claude Max, BenchLeader Oct 3");
+        check(PlanPricing.forClaudePlan("Ultra").monthlyValueUsd == 13200d,
+                "Claude Ultra, Holter Oct 29: 66x of $200");
         check(PlanPricing.forClaudePlan("Max 20x").planLabel.equals("Claude Ultra"),
                 "a saved Max 20x badge prices as Ultra");
         check(PlanPricing.forClaudePlan("Claude Pro") != null, "a Claude Pro display name prices");
@@ -2726,8 +2747,8 @@ public final class ParserSelfTest {
         check(PlanPricing.forProvider("copilot", claudePro) == null,
                 "providers without figures get no card");
         check(PlanPricing.forProvider(PlanPricing.CODEX,
-                claudePro.withPlanType("pro")).planLabel.equals("Pro 20x"),
-                "Codex Pro still prices as Pro 20x");
+                claudePro.withPlanType("pro")).planLabel.equals("Pro 200"),
+                "Codex Pro prices as Pro 200");
 
         // Cursor reports its own included usage: planUsage.limit, in cents.
         String weeklyBody = "{\"billingCycleStart\":\"" + now + "\",\"billingCycleEnd\":\""
@@ -2762,7 +2783,7 @@ public final class ParserSelfTest {
         check(PlanPricing.forProvider(PlanPricing.CURSOR, CursorUsageParser.parse(
                 "{\"planUsage\":{\"totalPercentUsed\":10}}", "Pro", now)) == null,
                 "no Cursor card without Cursor's own figure");
-        System.out.println("Plan pricing per provider: Claude Pro $400/mo, Max $2,000, Ultra $8,000;"
+        System.out.println("Plan pricing per provider: Claude Pro $1,200/mo, Max $7,224, Ultra $13,200;"
                 + " Cursor from its own included usage; nothing for other providers.");
     }
 

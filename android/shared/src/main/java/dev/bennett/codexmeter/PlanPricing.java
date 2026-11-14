@@ -1,29 +1,27 @@
 package dev.bennett.codexmeter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Rough value estimates for subscription allowances, per provider, so the Estimated value card
- * only ever describes the plan the user is actually on.
+ * Value estimates for subscription allowances, per provider, so the Estimated value card only
+ * ever describes the plan the user is actually on.
  *
- * <p>Codex anchors: Pro 20x ($200/month) is commonly measured at roughly $14,000 of
- * equivalent API usage per month and Pro 5x ($100/month) at roughly $3,500.
- * Because OpenAI documents Pro 5x as 5x Plus usage and Pro 20x as 20x Plus,
- * Plus ($20/month) back-solves to roughly $700 of monthly usage value.
- *
- * <p>Claude anchors: SemiAnalysis (June 2026) put Claude Max 20x, now called Ultra
- * ($200/month), at roughly $8,000 of API-priced usage per month and Pro ($20/month) near $400.
- * Anthropic sells Max as 5x Pro usage and Ultra as 20x, so Max ($100/month) sits at roughly
- * $2,000, which also matches 20 x $400 for Ultra.
+ * <p>Every figure below is "monthly API value at full use": what a whole month of the plan's
+ * allowance would cost at API list prices if it all went to one model. Each one carries its
+ * source URL and data date, and docs/pricing-sources.md keeps the alternatives. Where sources
+ * disagree, the newest dated figure wins. A plan with no published or estimated figure keeps its
+ * card but shows the value as unknown instead of a guess.
  *
  * <p>Cursor reports its own figure: {@code planUsage.limit} is the usage the plan includes per
  * cycle at API prices ({@link UsageSnapshot#includedValueUsd}), so no estimate is needed.
  *
  * <p>Weekly figures divide the month into four allowance windows, and the 5-hour figure uses a
  * rough one-sixth-of-weekly burst heuristic. Every number here is an estimate, not a billing
- * statement. Providers and plans without a figure get no card at all.
+ * statement.
  */
 public final class PlanPricing {
     /** Rough share of a weekly allowance available inside one 5-hour burst window. */
@@ -33,40 +31,98 @@ public final class PlanPricing {
     public static final String CLAUDE_CODE = "claude_code";
     public static final String CURSOR = "cursor";
 
-    static final String COMMUNITY_BASIS = "Rough community estimates comparing plan allowances "
-            + "with API pricing; not a billing statement.";
-    static final String CLAUDE_BASIS = "Rough estimates from SemiAnalysis's June 2026 study of "
-            + "Claude plans at API prices; not a billing statement.";
+    /** Value unknown: no published or estimated figure for the plan. */
+    public static final double UNKNOWN = Double.NaN;
+
+    // Sources. Data dates are per figure, on each Estimate below.
+    /** BenchLeader, "What an AI coding subscription is worth" (page data as of 2026-11-14). */
+    static final String BENCHLEADER = "BenchLeader";
+    static final String BENCHLEADER_URL = "https://www.benchleader.com/coding-plans";
+    /** Adam Holter, "Subscription tier list: how much API usage $1 of plan buys" (2026-10-29). */
+    static final String HOLTER = "Adam Holter";
+    static final String HOLTER_URL = "https://x.com/AdamHoltererer/status/2115827734223974762";
+    /** OpenAI's plan page: Pro tiers at $100, $200 and $500, weekly limits only (2026-11-14). */
+    static final String OPENAI_PRICING_URL = "https://learn.chatgpt.com/docs/pricing";
+
     static final String CURSOR_BASIS = "Cursor's own figure for the usage your plan includes "
             + "at API prices; not a billing statement.";
+
+    /** One sourced figure: a month of the plan's allowance spent on one model at API prices. */
+    public static final class Estimate {
+        public final String model;
+        public final double monthlyValueUsd;
+        public final String source;
+        public final String sourceUrl;
+        /** ISO date the figure's data is from. */
+        public final String dataDate;
+
+        Estimate(String model, double monthlyValueUsd, String source, String sourceUrl,
+                String dataDate) {
+            this.model = model;
+            this.monthlyValueUsd = monthlyValueUsd;
+            this.source = source;
+            this.sourceUrl = sourceUrl;
+            this.dataDate = dataDate;
+        }
+    }
+
+    private static Estimate benchLeader(String model, double value, String date) {
+        return new Estimate(model, value, BENCHLEADER, BENCHLEADER_URL, date);
+    }
+
+    /** Holter gives dollars of API usage per $1 of plan; this is that ratio times the price. */
+    private static Estimate holter(String model, double perDollar, double price) {
+        return new Estimate(model, perDollar * price, HOLTER, HOLTER_URL, "2026-10-29");
+    }
 
     public final String planKey;
     public final String planLabel;
     public final double monthlyPriceUsd;
+    /** The headline estimate, or {@link #UNKNOWN} (NaN) when there is no figure for the plan. */
     public final double monthlyValueUsd;
     /** One line under the card saying where the figures come from. */
     public final String basis;
     /** Whether {@link #monthlyValueUsd} is the provider's own number rather than an estimate. */
     public final boolean reported;
+    /** Per-model figures, headline first; empty for reported or unknown plans. */
+    public final List<Estimate> byModel;
 
     private PlanPricing(String planKey, String planLabel, double monthlyPriceUsd,
-            double monthlyValueUsd) {
-        this(planKey, planLabel, monthlyPriceUsd, monthlyValueUsd, COMMUNITY_BASIS, false);
-    }
-
-    private PlanPricing(String planKey, String planLabel, double monthlyPriceUsd,
-            double monthlyValueUsd, String basis, boolean reported) {
+            double monthlyValueUsd, String basis, boolean reported, List<Estimate> byModel) {
         this.planKey = planKey;
         this.planLabel = planLabel;
         this.monthlyPriceUsd = monthlyPriceUsd;
         this.monthlyValueUsd = monthlyValueUsd;
         this.basis = basis;
         this.reported = reported;
+        this.byModel = Collections.unmodifiableList(byModel);
+    }
+
+    /** A plan priced from sourced estimates; the first one is the headline. */
+    private static PlanPricing estimated(String key, String label, double price,
+            Estimate... estimates) {
+        Estimate head = estimates[0];
+        String basis = "Estimate: " + head.model + " at full use, from " + head.source
+                + " (data " + displayDate(head.dataDate) + "). Model rows assume all usage on one "
+                + "model. Not a billing statement.";
+        return new PlanPricing(key, label, price, head.monthlyValueUsd, basis, false,
+                Arrays.asList(estimates));
+    }
+
+    /** A plan with no published or estimated figure: the card says so instead of guessing. */
+    private static PlanPricing unknown(String key, String label, double price, String why) {
+        return new PlanPricing(key, label, price, UNKNOWN, why + " Not a billing statement.",
+                false, new ArrayList<>());
+    }
+
+    /** Whether there is a dollar figure to show; false for plans whose value is unknown. */
+    public boolean hasValue() {
+        return !Double.isNaN(monthlyValueUsd) && monthlyValueUsd > 0d;
     }
 
     /**
-     * Pricing for the plan a provider's snapshot reports, or null when there is no figure for
-     * it. Only Codex plans map to the Codex table: Claude's "Pro" is not ChatGPT Pro 20x.
+     * Pricing for the plan a provider's snapshot reports, or null when there is no plan to
+     * describe. Only Codex plans map to the Codex table: Claude's "Pro" is not ChatGPT Pro.
      */
     public static PlanPricing forProvider(String providerId, UsageSnapshot snapshot) {
         if (providerId == null || snapshot == null) return null;
@@ -82,20 +138,43 @@ public final class PlanPricing {
         }
     }
 
-    /** Codex (ChatGPT) pricing for a raw plan type, or null when no researched estimate exists. */
+    /**
+     * Codex (ChatGPT) pricing for a raw plan type, or null for plans with no allowance to price
+     * (Free, Go, Business, Enterprise). OpenAI sells Pro at $100, $200 and $500
+     * (https://learn.chatgpt.com/docs/pricing, read 2026-11-14), each with weekly limits only.
+     * "prolite" (the former Pro 5x) is Pro 100 and "pro" (the former Pro 20x) is Pro 200.
+     */
     public static PlanPricing forPlan(String planType) {
         if (planType == null) return null;
         String normalized = planType.trim().toLowerCase(Locale.US)
-                .replace("_", "").replace("-", "");
+                .replace("_", "").replace("-", "").replace(" ", "");
         switch (normalized) {
             case "plus":
-                return new PlanPricing("plus", "Plus", 20d, 700d);
+                // BenchLeader 2026-11-09 is the newest dated Plus figure (GPT-6.1 Sol). Holter's
+                // 2026-10-29 ratios are newer for Astra, Luna and Terra; GPT-6 Sol is BenchLeader's.
+                return estimated("plus", "Plus", 20d,
+                        benchLeader("GPT-6.1 Sol", 299d, "2026-11-09"),
+                        holter("GPT-6 Astra", 32d, 20d),
+                        holter("GPT-6 Luna", 19d, 20d),
+                        holter("GPT-6.1 Terra", 18d, 20d),
+                        benchLeader("GPT-6 Sol", 323d, "2026-09-24"));
             case "prolite":
             case "pro5x":
-                return new PlanPricing("pro5x", "Pro 5x", 100d, 3500d);
+            case "pro100":
+                // BenchLeader: "No usable figure" (2026-11-14); OpenAI doubled the allowance on
+                // 2026-10-29, so no older figure carries over either.
+                return unknown("pro100", "Pro 100", 100d,
+                        "No published estimate for Pro 100 yet (checked Nov 14, 2026).");
             case "pro":
             case "pro20x":
-                return new PlanPricing("pro20x", "Pro 20x", 200d, 14000d);
+            case "pro200":
+                // BenchLeader 2026-09-21, measured on the former Pro 20x tier, now Pro 200.
+                return estimated("pro200", "Pro 200", 200d,
+                        benchLeader("GPT-6 Astra", 5604d, "2026-09-21"));
+            case "pro500":
+                // BenchLeader: "No usable figure" (2026-11-14). Pro 500 adds Ultrafast.
+                return unknown("pro500", "Pro 500", 500d,
+                        "No published estimate for Pro 500 yet (checked Nov 14, 2026).");
             default:
                 return null;
         }
@@ -108,15 +187,25 @@ public final class PlanPricing {
                 .replace("claude", "").replace(" ", "").replace("_", "").replace("-", "");
         switch (normalized) {
             case "pro":
-                return new PlanPricing("claude_pro", "Claude Pro", 20d, 400d, CLAUDE_BASIS, false);
+                return estimated("claude_pro", "Claude Pro", 20d,
+                        benchLeader("Opus 5.5", 1200d, "2026-11-07"),
+                        benchLeader("Sonnet 5.5", 1203d, "2026-09-27"),
+                        benchLeader("Haiku 5.5", 877d, "2026-09-27"));
             case "max":
             case "max5x":
-                return new PlanPricing("claude_max", "Claude Max", 100d, 2000d, CLAUDE_BASIS,
-                        false);
+                return estimated("claude_max", "Claude Max", 100d,
+                        benchLeader("Opus 5.5", 7224d, "2026-10-03"),
+                        benchLeader("Sonnet 5.5", 7224d, "2026-10-03"),
+                        benchLeader("Haiku 5.5", 5263d, "2026-10-03"));
             case "ultra":
             case "max20x":
-                return new PlanPricing("claude_ultra", "Claude Ultra", 200d, 8000d,
-                        CLAUDE_BASIS, false);
+                // Holter 2026-10-29 (on Max 20x, now Ultra) is newer than BenchLeader's
+                // 2026-09-27 Ultra rows ($12,426 Opus and Sonnet, $9,054 Haiku).
+                return estimated("claude_ultra", "Claude Ultra", 200d,
+                        holter("Opus 5.5", 66d, 200d),
+                        holter("Sonnet 5.5", 66d, 200d),
+                        holter("Haiku 5.5", 47d, 200d),
+                        holter("Fable 5.1", 6.4d, 200d));
             default:
                 // Free has no allowance worth pricing; Team and Enterprise are priced per seat.
                 return null;
@@ -134,7 +223,7 @@ public final class PlanPricing {
         String label = snapshot.planType == null ? "" : snapshot.planType.trim();
         return new PlanPricing("cursor_" + label.toLowerCase(Locale.US).replace(" ", "_"),
                 label.isEmpty() ? "Cursor" : "Cursor " + label, cursorMonthlyPrice(label),
-                monthlyValue, CURSOR_BASIS, true);
+                monthlyValue, CURSOR_BASIS, true, new ArrayList<>());
     }
 
     /** List prices of Cursor's individual plans; 0 when unknown (the multiple is then hidden). */
@@ -147,6 +236,19 @@ public final class PlanPricing {
             case "super": return 100d;
             case "ultra": return 200d;
             default: return 0d;
+        }
+    }
+
+    /** "2026-11-07" to "Nov 7, 2026". */
+    static String displayDate(String iso) {
+        String[] months = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
+                "Nov", "Dec"};
+        try {
+            String[] parts = iso.split("-");
+            return months[Integer.parseInt(parts[1]) - 1] + " " + Integer.parseInt(parts[2])
+                    + ", " + parts[0];
+        } catch (RuntimeException e) {
+            return iso;
         }
     }
 
@@ -190,6 +292,10 @@ public final class PlanPricing {
      */
     public List<String[]> summaryRows(UsageSnapshot snapshot) {
         List<String[]> rows = new ArrayList<>();
+        if (!hasValue()) {
+            rows.add(new String[] {"Est. included usage", "Unknown"});
+            return rows;
+        }
         boolean weeklyCycle = snapshot != null && snapshot.weekly != null
                 && snapshot.monthly == null;
         if (reported && weeklyCycle) {
@@ -208,8 +314,7 @@ public final class PlanPricing {
             rows.add(new String[] {"Vs. subscription price",
                     "≈ " + Math.round(valueMultiplier()) + "x the monthly cost"});
         }
-        if (snapshot == null) return rows;
-        UsageWindow longWindow = snapshot.longWindow();
+        UsageWindow longWindow = snapshot == null ? null : snapshot.longWindow();
         if (longWindow != null) {
             String kind = snapshot.longWindowIsMonthly() ? UsageHistory.MONTHLY : UsageHistory.WEEKLY;
             String period = snapshot.longWindowIsMonthly() ? "month" : "week";
@@ -218,6 +323,12 @@ public final class PlanPricing {
             rows.add(new String[] {(snapshot.longWindowIsMonthly() ? "Monthly" : "Weekly")
                     + " value remaining", "≈ " + formatUsd(
                     estimatedValueUsd(kind, longWindow.remainingPercent()))});
+        }
+        if (byModel.size() > 1) {
+            for (Estimate estimate : byModel) {
+                rows.add(new String[] {"All on " + estimate.model,
+                        "≈ " + formatUsd(estimate.monthlyValueUsd) + "/month"});
+            }
         }
         return rows;
     }
