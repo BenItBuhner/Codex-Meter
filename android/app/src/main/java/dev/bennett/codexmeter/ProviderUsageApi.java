@@ -134,8 +134,6 @@ public final class ProviderUsageApi {
     }
 
     private static UsageSnapshot withPlan(UsageSnapshot snapshot, String plan) {
-        return new UsageSnapshot(plan, snapshot.allowed, snapshot.limitReached,
-                snapshot.fiveHour, snapshot.weekly, snapshot.monthly, snapshot.additionalLimits,
-                snapshot.usageCredits, snapshot.resetCreditsAvailable, snapshot.fetchedAtMillis);
+        return snapshot.withPlanType(plan);
     }
 }

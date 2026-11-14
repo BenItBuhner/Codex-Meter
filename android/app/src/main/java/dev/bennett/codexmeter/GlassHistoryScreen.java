@@ -43,7 +43,7 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         UsageHistory weekly = ProviderPreferences.loadUsageHistory(c, provider, UsageHistory.WEEKLY);
         UsageHistory monthly = ProviderPreferences.loadUsageHistory(c, provider, UsageHistory.MONTHLY);
         PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
-                ? null : PlanPricing.forPlan(snapshot.planType);
+                ? null : PlanPricing.forProvider(provider.id, snapshot);
 
         // One window at a time, picked with a segmented control at the top (iOS's way of
         // switching between views of the same data), instead of every chart stacked.
@@ -92,20 +92,9 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         if (pricing != null && hasCharts) {
             Card value = new Card(Card.Kind.STATS);
             value.detail = "Estimated value";
-            value.title = pricing.planLabel + " · " + PlanPricing.formatUsd(pricing.monthlyPriceUsd) + "/month";
-            value.stats.add(new String[] {"Est. included usage",
-                    "≈ " + PlanPricing.formatUsd(pricing.monthlyValueUsd) + "/month"});
-            value.stats.add(new String[] {"Weekly allowance", "≈ " + PlanPricing.formatUsd(pricing.weeklyValueUsd())});
-            value.stats.add(new String[] {"5-hour allowance",
-                    "≈ " + PlanPricing.formatUsd(pricing.fiveHourValueUsd())});
-            value.stats.add(new String[] {"Vs. subscription price",
-                    "≈ " + Math.round(pricing.valueMultiplier()) + "x the monthly cost"});
-            if (snapshot.weekly != null) {
-                value.stats.add(new String[] {"Weekly value remaining", "≈ " + PlanPricing.formatUsd(
-                        pricing.estimatedValueUsd(UsageHistory.WEEKLY, snapshot.weekly.remainingPercent()))});
-            }
-            value.summary = "Rough community estimates comparing plan allowances with API pricing; "
-                    + "not a billing statement.";
+            value.title = pricing.title();
+            value.stats.addAll(pricing.summaryRows(snapshot));
+            value.summary = pricing.basis;
             page.sections.add(GlassScreens.cards(value));
         }
         Section clear = GlassScreens.section(null);

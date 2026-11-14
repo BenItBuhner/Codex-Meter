@@ -210,7 +210,7 @@ grep -q 'requestDisallowInterceptTouchEvent' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageBurnChartView.java"
 grep -q 'setOnScrubListener' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-grep -q 'PlanPricing.forPlan' \
+grep -q 'PlanPricing.forProvider' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
 grep -q 'UsageStats.windowBreakdown' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"

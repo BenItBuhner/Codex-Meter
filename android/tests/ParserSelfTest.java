@@ -44,6 +44,7 @@ public final class ParserSelfTest {
         testUsageHistory();
         testUsagePace();
         testPlanPricing();
+        testPlanPricingPerProvider();
         testHistoryAfterIdleReset();
         testUsageStats();
         testHistorySections();
@@ -2664,6 +2665,81 @@ public final class ParserSelfTest {
         check("$4.20".equals(PlanPricing.formatUsd(4.2d)), "small values keep cents");
         check("$0.00".equals(PlanPricing.formatUsd(-3d)), "negative values clamp to zero");
         System.out.println("Plan pricing demo: Plus $700/mo, Pro 5x $3,500/mo, Pro 20x $14,000/mo.");
+    }
+
+    /**
+     * Tester report, 10-14 Nov: a Claude Pro user saw "Pro 20x · $200/month" and $583 per
+     * 5 hours, because Claude's "Pro" badge matched the Codex table. Pricing is per provider now.
+     */
+    private static void testPlanPricingPerProvider() throws Exception {
+        long now = 2_000_000_000_000L;
+        long resetFive = (now + TimeUnit.HOURS.toMillis(3)) / 1000L;
+        long resetWeek = (now + TimeUnit.DAYS.toMillis(3)) / 1000L;
+        UsageSnapshot claudePro = new UsageSnapshot("Pro", true, false,
+                new UsageWindow(0, TimeUnit.HOURS.toSeconds(5), 0L, resetFive),
+                new UsageWindow(40, TimeUnit.DAYS.toSeconds(7), 0L, resetWeek), now);
+        PlanPricing claude = PlanPricing.forProvider(PlanPricing.CLAUDE_CODE, claudePro);
+        check(claude != null && "Claude Pro".equals(claude.planLabel),
+                "Claude Pro is priced as Claude Pro");
+        check(!"Pro 20x".equals(claude.planLabel) && claude.monthlyPriceUsd == 20d,
+                "Claude Pro never shows the Codex Pro 20x plan");
+        check(claude.monthlyValueUsd == 400d, "Claude Pro monthly value anchor");
+        check("Claude Pro · $20/month".equals(claude.title()), "Claude Pro card title");
+        check(Math.round(claude.valueMultiplier()) == 20L, "Claude Pro multiple of price");
+        boolean usedRow = false;
+        for (String[] row : claude.summaryRows(claudePro)) {
+            if ("Value used this week".equals(row[0])) usedRow = "≈ $40".equals(row[1]);
+        }
+        check(usedRow, "40% of the Claude Pro week is about $40 of value");
+        check(PlanPricing.forClaudePlan("Max").monthlyValueUsd == 2000d, "Claude Max is 5x Pro");
+        check(PlanPricing.forClaudePlan("Ultra").monthlyValueUsd == 8000d, "Claude Ultra is 20x Pro");
+        check(PlanPricing.forClaudePlan("Max 20x").planLabel.equals("Claude Ultra"),
+                "a saved Max 20x badge prices as Ultra");
+        check(PlanPricing.forClaudePlan("Claude Pro") != null, "a Claude Pro display name prices");
+        check(PlanPricing.forClaudePlan("Team") == null && PlanPricing.forClaudePlan("Free") == null,
+                "Team and Free Claude plans get no card");
+
+        check(PlanPricing.forProvider("copilot", claudePro) == null,
+                "providers without figures get no card");
+        check(PlanPricing.forProvider(PlanPricing.CODEX,
+                claudePro.withPlanType("pro")).planLabel.equals("Pro 20x"),
+                "Codex Pro still prices as Pro 20x");
+
+        // Cursor reports its own included usage: planUsage.limit, in cents.
+        String weeklyBody = "{\"billingCycleStart\":\"" + now + "\",\"billingCycleEnd\":\""
+                + (now + TimeUnit.DAYS.toMillis(7)) + "\",\"planUsage\":{\"includedSpend\":1250,"
+                + "\"limit\":5000,\"totalPercentUsed\":25}}";
+        UsageSnapshot cursorWeekly = CursorUsageParser.parse(weeklyBody, "Premium", now);
+        check(cursorWeekly.includedValueUsd == 50d, "Cursor included usage is read in dollars");
+        UsageSnapshot restored = UsageSnapshot.fromJson(cursorWeekly.toJson());
+        check(restored.includedValueUsd == 50d, "included usage survives a save and load");
+        check(restored.withPlanType("Pro+").includedValueUsd == 50d,
+                "renaming the plan keeps the included usage");
+        PlanPricing cursor = PlanPricing.forProvider(PlanPricing.CURSOR, cursorWeekly);
+        check(cursor != null && cursor.reported && "Cursor Premium · $30/month".equals(cursor.title()),
+                "Cursor card uses the reported plan and its price");
+        boolean included = false;
+        boolean fiveHour = false;
+        boolean used = false;
+        for (String[] row : cursor.summaryRows(cursorWeekly)) {
+            included |= "Included usage".equals(row[0]) && "$50/week".equals(row[1]);
+            fiveHour |= "5-hour allowance".equals(row[0]);
+            used |= "Value used this week".equals(row[0]) && "≈ $13".equals(row[1]);
+        }
+        check(included, "Cursor shows its weekly included usage");
+        check(!fiveHour, "no 5-hour row for a plan without a 5-hour limit");
+        check(used, "25% of $50 is about $13 used");
+        String monthlyBody = "{\"billingCycleStart\":\"" + now + "\",\"billingCycleEnd\":\""
+                + (now + TimeUnit.DAYS.toMillis(30)) + "\",\"planUsage\":{\"limit\":2000,"
+                + "\"totalPercentUsed\":10}}";
+        PlanPricing legacy = PlanPricing.forProvider(PlanPricing.CURSOR,
+                CursorUsageParser.parse(monthlyBody, "Pro", now));
+        check(legacy != null && legacy.monthlyValueUsd == 20d, "legacy Cursor Pro includes $20/month");
+        check(PlanPricing.forProvider(PlanPricing.CURSOR, CursorUsageParser.parse(
+                "{\"planUsage\":{\"totalPercentUsed\":10}}", "Pro", now)) == null,
+                "no Cursor card without Cursor's own figure");
+        System.out.println("Plan pricing per provider: Claude Pro $400/mo, Max $2,000, Ultra $8,000;"
+                + " Cursor from its own included usage; nothing for other providers.");
     }
 
     private static void testUsageStats() {

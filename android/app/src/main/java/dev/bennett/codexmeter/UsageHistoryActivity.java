@@ -114,7 +114,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                 UsageHistory.MONTHLY);
         // Dollar figures ride on the value-estimates highlight; hiding it hides them all.
         PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
-                ? null : PlanPricing.forPlan(snapshot.planType);
+                ? null : PlanPricing.forProvider(provider.id, snapshot);
 
         if (visible(HistorySections.GUIDE)) {
             LinearLayout guide = Ui.card(this, dark);
@@ -383,28 +383,13 @@ public final class UsageHistoryActivity extends AppCompatActivity {
 
     private LinearLayout buildValueCard(UsageSnapshot snapshot, PlanPricing pricing) {
         LinearLayout card = Ui.card(this, dark);
-        TextView title = Ui.text(this, pricing.planLabel + " · "
-                + PlanPricing.formatUsd(pricing.monthlyPriceUsd) + "/month", 16,
-                Ui.mainText(dark));
+        TextView title = Ui.text(this, pricing.title(), 16, Ui.mainText(dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
-        addStatRow(card, "Est. included usage",
-                "≈ " + PlanPricing.formatUsd(pricing.monthlyValueUsd) + "/month");
-        addStatRow(card, "Weekly allowance",
-                "≈ " + PlanPricing.formatUsd(pricing.weeklyValueUsd()));
-        addStatRow(card, "5-hour allowance",
-                "≈ " + PlanPricing.formatUsd(pricing.fiveHourValueUsd()));
-        addStatRow(card, "Vs. subscription price",
-                "≈ " + Math.round(pricing.valueMultiplier()) + "x the monthly cost");
-        if (snapshot.weekly != null) {
-            addStatRow(card, "Weekly value remaining",
-                    "≈ " + PlanPricing.formatUsd(pricing.estimatedValueUsd(UsageHistory.WEEKLY,
-                            snapshot.weekly.remainingPercent())));
+        for (String[] row : pricing.summaryRows(snapshot)) {
+            addStatRow(card, row[0], row[1]);
         }
-        TextView disclaimer = Ui.text(this,
-                "Rough community estimates comparing plan allowances with API pricing; "
-                        + "not a billing statement.",
-                12, Ui.secondaryText(dark));
+        TextView disclaimer = Ui.text(this, pricing.basis, 12, Ui.secondaryText(dark));
         LinearLayout.LayoutParams disclaimerParams = new LinearLayout.LayoutParams(-1, -2);
         disclaimerParams.setMargins(0, Ui.dp(this, 10), 0, 0);
         card.addView(disclaimer, disclaimerParams);
