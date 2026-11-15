@@ -311,8 +311,9 @@ final class ModelsAndFormattingTests: XCTestCase {
     }
 
     func testUsageFormattingMatchesUpstreamLabelsAndDurations() {
-        XCTAssertEqual(UsageFormat.planLabel(" pro-lite "), "Pro 5x")
-        XCTAssertEqual(UsageFormat.planLabel("pro_20x"), "Pro 20x")
+        XCTAssertEqual(UsageFormat.planLabel(" pro-lite "), "Pro 100")
+        XCTAssertEqual(UsageFormat.planLabel("pro_20x"), "Pro 200")
+        XCTAssertEqual(UsageFormat.planLabel("pro_500"), "Pro 500")
         XCTAssertEqual(UsageFormat.planLabel("team"), "")
         let window = UsageWindow(usedPercent: 37, windowSeconds: 18_000)
         XCTAssertEqual(UsageFormat.percent(window), "63% left")

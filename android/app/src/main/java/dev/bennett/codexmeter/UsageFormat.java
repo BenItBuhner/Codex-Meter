@@ -19,15 +19,21 @@ public final class UsageFormat {
         if (str == null || str.trim().isEmpty()) {
             return "";
         }
-        String normalized = str.trim().toLowerCase(Locale.US).replace("_", "").replace("-", "");
+        String normalized = str.trim().toLowerCase(Locale.US).replace("_", "").replace("-", "")
+                .replace(" ", "");
         switch (normalized) {
             case "free": return "Free";
             case "go": return "Go";
             case "plus": return "Plus";
+            // OpenAI's Pro tiers are $100, $200 and $500 (learn.chatgpt.com/docs/pricing);
+            // "prolite" was Pro 5x and "pro" was Pro 20x before the rename.
             case "prolite":
-            case "pro5x": return "Pro 5x";
+            case "pro5x":
+            case "pro100": return "Pro 100";
             case "pro":
-            case "pro20x": return "Pro 20x";
+            case "pro20x":
+            case "pro200": return "Pro 200";
+            case "pro500": return "Pro 500";
             default: return "";
         }
     }

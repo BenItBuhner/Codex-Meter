@@ -92,11 +92,18 @@ struct UsageHistoryView: View {
             || !model.monthlyHistory.samples.isEmpty
     }
 
-    private var pricing: PlanPricing? {
+    /// The plan for the Estimated value card, including plans whose value is unknown.
+    private var plan: PlanPricing? {
         guard model.settings.isHistorySectionVisible(HistorySections.valueEstimates) else {
             return nil
         }
         return PlanPricing.forPlan(model.usage?.planType)
+    }
+
+    /// The plan when it has a dollar figure; charts and insights only show dollars then.
+    private var pricing: PlanPricing? {
+        guard let plan, plan.hasValue else { return nil }
+        return plan
     }
 
     var body: some View {
@@ -157,8 +164,8 @@ struct UsageHistoryView: View {
                     .cardSurface()
                 }
 
-                if let pricing, hasCharts {
-                    ValueEstimatesCard(usage: model.usage, pricing: pricing)
+                if let plan, hasCharts {
+                    ValueEstimatesCard(usage: model.usage, pricing: plan)
                 }
 
                 Button("Clear local history", role: .destructive) {
@@ -487,27 +494,31 @@ private struct ValueEstimatesCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("\(pricing.planLabel) · \(PlanPricing.formatUsd(pricing.monthlyPriceUsd))/month")
                 .font(.headline.bold())
-            estimateRow("Est. included usage", PlanPricing.formatUsd(pricing.monthlyValueUsd) + "/month")
-            estimateRow("Weekly allowance", PlanPricing.formatUsd(pricing.weeklyValueUsd))
-            estimateRow("5-hour allowance", PlanPricing.formatUsd(pricing.fiveHourValueUsd))
-            estimateRow("Vs. subscription price", "≈ \(Int(pricing.valueMultiplier.rounded()))x the monthly cost")
-            if let weekly = usage?.weekly {
-                estimateRow(
-                    "Weekly value remaining",
-                    PlanPricing.formatUsd(
-                        pricing.estimatedValueUsd(for: .weekly, usedPercent: Double(weekly.remainingPercent))
+            if pricing.hasValue {
+                estimateRow("Est. included usage", PlanPricing.formatUsd(pricing.monthlyValueUsd) + "/month")
+                estimateRow("Weekly allowance", PlanPricing.formatUsd(pricing.weeklyValueUsd))
+                estimateRow("5-hour allowance", PlanPricing.formatUsd(pricing.fiveHourValueUsd))
+                estimateRow("Vs. subscription price", "≈ \(Int(pricing.valueMultiplier.rounded()))x the monthly cost")
+                if let weekly = usage?.weekly {
+                    estimateRow(
+                        "Weekly value remaining",
+                        PlanPricing.formatUsd(
+                            pricing.estimatedValueUsd(for: .weekly, usedPercent: Double(weekly.remainingPercent))
+                        )
                     )
-                )
-            }
-            if let monthly = usage?.monthly, usage?.weekly == nil {
-                estimateRow(
-                    "Monthly value remaining",
-                    PlanPricing.formatUsd(
-                        pricing.estimatedValueUsd(for: .monthly, usedPercent: Double(monthly.remainingPercent))
+                }
+                if let monthly = usage?.monthly, usage?.weekly == nil {
+                    estimateRow(
+                        "Monthly value remaining",
+                        PlanPricing.formatUsd(
+                            pricing.estimatedValueUsd(for: .monthly, usedPercent: Double(monthly.remainingPercent))
+                        )
                     )
-                )
+                }
+            } else {
+                estimateRow("Est. included usage", "Unknown")
             }
-            Text("Rough community estimates comparing plan allowances with API pricing; not a billing statement.")
+            Text(pricing.basis)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)

@@ -22,13 +22,16 @@ public enum UsageFormat {
             .lowercased()
             .replacingOccurrences(of: "_", with: "")
             .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: " ", with: "")
 
         switch normalized {
         case "free": return "Free"
         case "go": return "Go"
         case "plus": return "Plus"
-        case "prolite", "pro5x": return "Pro 5x"
-        case "pro", "pro20x": return "Pro 20x"
+        // OpenAI's Pro tiers are $100, $200 and $500 (learn.chatgpt.com/docs/pricing).
+        case "prolite", "pro5x", "pro100": return "Pro 100"
+        case "pro", "pro20x", "pro200": return "Pro 200"
+        case "pro500": return "Pro 500"
         default: return ""
         }
     }

@@ -113,8 +113,10 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         UsageHistory monthly = ProviderPreferences.loadUsageHistory(this, provider,
                 UsageHistory.MONTHLY);
         // Dollar figures ride on the value-estimates highlight; hiding it hides them all.
-        PlanPricing pricing = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
+        PlanPricing plan = snapshot == null || !visible(HistorySections.VALUE_ESTIMATES)
                 ? null : PlanPricing.forProvider(provider.id, snapshot);
+        // A plan whose value is unknown still gets its card, but no dollar figures elsewhere.
+        PlanPricing pricing = plan != null && plan.hasValue() ? plan : null;
 
         if (visible(HistorySections.GUIDE)) {
             LinearLayout guide = Ui.card(this, dark);
@@ -156,9 +158,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             Ui.addSpacer(content, 20);
         }
 
-        if (pricing != null && hasCharts) {
+        if (plan != null && hasCharts) {
             content.addView(Ui.separator(this, "Estimated value"));
-            content.addView(buildValueCard(snapshot, pricing));
+            content.addView(buildValueCard(snapshot, plan));
             Ui.addSpacer(content, 20);
         }
 

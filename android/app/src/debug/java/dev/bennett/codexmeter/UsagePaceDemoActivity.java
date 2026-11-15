@@ -85,13 +85,16 @@ public final class UsagePaceDemoActivity extends Activity {
                 PriorityPrefs.setTabSelected(this, "priority".equals(open));
                 // The tester's account (see seedTester) adds "history" / "history_cursor" (usage
                 // history pages) and "settings:<page>" (a Settings page).
+                // "history_codex" opens the Codex account that "codex_plan" adds.
                 Intent next = open != null && open.startsWith("settings:")
                         ? new Intent(this, SettingsActivity.class)
                                 .putExtra(SettingsActivity.EXTRA_PAGE, open.substring(9))
                         : "history".equals(open) || "history_cursor".equals(open)
+                                || "history_codex".equals(open)
                         ? new Intent(this, UsageHistoryActivity.class)
                                 .putExtra(UsageHistoryActivity.EXTRA_PROVIDER, "history".equals(open)
-                                        ? UsageProvider.CLAUDE_CODE.id : UsageProvider.CURSOR.id)
+                                        ? UsageProvider.CLAUDE_CODE.id : "history_codex".equals(open)
+                                        ? UsageProvider.CODEX.id : UsageProvider.CURSOR.id)
                         : "reset".equals(open)
                         ? ResetCreditActivity.intent(this, UsageProvider.CLAUDE_CODE)
                         : new Intent(this, MainActivity.class)
@@ -244,8 +247,14 @@ public final class UsagePaceDemoActivity extends Activity {
      * Claude's 5-hour session went idle 12 minutes ago after a window with 35 samples (the
      * reported reset spike), the weekly window is 38% used, Cursor reports $20 of included usage,
      * and OpenRouter listed a new Anthropic model next to a new Gemini one.
+     *
+     * <p>"claude_plan" swaps the Claude badge (for example "Ultra"), and "codex_plan" adds a
+     * Codex account on that plan ("plus", "prolite", "pro", "pro_500") with a weekly-only
+     * window 45% used, for the value-estimate screens.
      */
     private void seedTester() throws Exception {
+        String claudePlan = getIntent().getStringExtra("claude_plan");
+        String codexPlan = getIntent().getStringExtra("codex_plan");
         long now = System.currentTimeMillis();
         long minute = TimeUnit.MINUTES.toMillis(1);
         long fiveSeconds = TimeUnit.HOURS.toSeconds(5);
@@ -263,7 +272,8 @@ public final class UsagePaceDemoActivity extends Activity {
                 + "\"seven_day\":{\"utilization\":38,\"resets_at\":\""
                 + java.time.Instant.ofEpochMilli(weeklyReset) + "\"}}";
         ProviderPreferences.saveSnapshot(this, UsageProvider.CLAUDE_CODE,
-                ClaudeUsageParser.parse(body, "Pro", now));
+                ClaudeUsageParser.parse(body, claudePlan == null || claudePlan.isEmpty()
+                        ? "Pro" : claudePlan, now));
         UsageHistory five = UsageHistory.empty(UsageHistory.FIVE_HOUR);
         long[] earlierResets = {now - 12 * minute - TimeUnit.HOURS.toMillis(10),
                 now - 12 * minute - TimeUnit.HOURS.toMillis(5)};
@@ -302,8 +312,26 @@ public final class UsagePaceDemoActivity extends Activity {
                     cycleStart + i * TimeUnit.DAYS.toMillis(1) - (i == 19 ? minute : 0));
         }
         ProviderPreferences.saveUsageHistory(this, UsageProvider.CURSOR, monthly);
-        ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CLAUDE_CODE,
-                UsageProvider.CURSOR));
+        java.util.List<UsageProvider> enabled = new java.util.ArrayList<>(Arrays.asList(
+                UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR));
+        if (codexPlan != null && !codexPlan.isEmpty()) {
+            SecureTokenStore.save(this, UsageProvider.CODEX, new AuthTokens("debug-demo-access",
+                    "debug-demo-refresh", "", Long.MAX_VALUE, "debug-demo-account",
+                    "demo@codexmeter.local"));
+            ProviderPreferences.setRateLimitedAt(this, UsageProvider.CODEX, now);
+            UsageWindow codexWeek = new UsageWindow(45, weekSeconds, 0L, weeklyReset / 1000L);
+            ProviderPreferences.saveSnapshot(this, UsageProvider.CODEX,
+                    new UsageSnapshot(codexPlan, true, false, null, codexWeek, now));
+            UsageHistory codexWeekly = UsageHistory.empty(UsageHistory.WEEKLY);
+            for (int i = 0; i <= 45; i += 3) {
+                codexWeekly = codexWeekly.append(new UsageWindow(i, weekSeconds, 0L,
+                        weeklyReset / 1000L), weeklyReset - TimeUnit.DAYS.toMillis(7)
+                        + (i + 1) * TimeUnit.HOURS.toMillis(2));
+            }
+            ProviderPreferences.saveUsageHistory(this, UsageProvider.CODEX, codexWeekly);
+            enabled.add(UsageProvider.CODEX);
+        }
+        ProviderPreferences.setEnabledProviders(this, enabled);
         ProviderPreferences.setSelected(this, UsageProvider.CLAUDE_CODE);
         // New models: an Anthropic launch (shown, for Claude Code) and a Gemini one (Cursor's
         // catalog covers no makers, so it stays hidden).
