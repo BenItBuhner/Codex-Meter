@@ -115,7 +115,6 @@ final class FakeSource implements GlassSource {
             dismissed.add(1);
             changed();
         };
-        news.summary = "Swipe a row left, or touch and hold it, to dismiss it.";
         if (!news.stats.isEmpty()) {
             d.cards.add(news);
         }
@@ -123,7 +122,6 @@ final class FakeSource implements GlassSource {
         used.title = "Used up";
         used.detail = used.title;
         used.stats.add(new String[] {"Cursor · Monthly", "Resets Dec 1"});
-        used.summary = "You'll get a notification when each one is back.";
         d.cards.add(used);
         // New models: the same dismiss model as Recent activity (two-line rows, swipe or hold)
         GlassModel.Card models = new GlassModel.Card(GlassModel.Card.Kind.STATS);
@@ -146,8 +144,6 @@ final class FakeSource implements GlassSource {
             dismissedModels.add(1);
             changed();
         };
-        models.summary = "Shown for Claude Code and Codex. Newly listed in a public catalog, not necessarily "
-                + "newly released.\nSwipe a row left, or touch and hold it, to dismiss it.";
         if (!models.stats.isEmpty()) {
             d.cards.add(models);
         }

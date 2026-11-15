@@ -113,12 +113,11 @@ final class GlassCards {
             for (PriorityPage.Limit l : page.usedUp) {
                 used.stats.add(new String[] {l.title(), l.resetText(a, now)});
             }
-            used.summary = PriorityPage.USED_UP_NOTE;
             d.cards.add(used);
         }
         addNotes(a, d, PriorityPage.READY, page.ready);
         addNotes(a, d, PriorityPage.COMING_UP, page.comingUp);
-        addNotes(a, d, PriorityPage.NEW_MODELS, page.models, page.modelsNote);
+        addNotes(a, d, PriorityPage.NEW_MODELS, page.models);
         return d;
     }
 
@@ -128,11 +127,6 @@ final class GlassCards {
      * left or touch and hold for Dismiss, plus Dismiss all when the list has more than one.
      */
     private static void addNotes(MainActivity a, GlassModel.Dashboard d, String title, List<PriorityNote> notes) {
-        addNotes(a, d, title, notes, null);
-    }
-
-    private static void addNotes(MainActivity a, GlassModel.Dashboard d, String title, List<PriorityNote> notes,
-            String note) {
         if (notes.isEmpty()) {
             return;
         }
@@ -153,7 +147,6 @@ final class GlassCards {
                 a.rebuild();
             };
         }
-        c.summary = PriorityNote.footnote(notes, note);
         d.cards.add(c);
     }
 
@@ -438,9 +431,6 @@ final class GlassCards {
         c.onPress = glass != null
                 ? () -> glass.openPage(GlassScreens.PREFIX + "history:" + target.id, null)
                 : () -> UsageHistoryActivity.open(a, target);
-        c.summary = history.currentWindowSamples().size() >= 2
-                ? null
-                : "The chart fills in as " + target.vendorName + " reports more refreshes.";
         return c;
     }
 

@@ -1039,7 +1039,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         addUsedUpCard(page);
         addNotesCard(PriorityPage.READY, page.ready);
         addNotesCard(PriorityPage.COMING_UP, page.comingUp);
-        addNotesCard(PriorityPage.NEW_MODELS, page.models, page.modelsNote);
+        addNotesCard(PriorityPage.NEW_MODELS, page.models);
     }
 
     /**
@@ -1068,10 +1068,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             rp.setMargins(0, Ui.dp(this, 10), 0, 0);
             card.addView(row, rp);
         }
-        TextView note = Ui.text(this, PriorityPage.USED_UP_NOTE, 13, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
-        np.setMargins(0, Ui.dp(this, 12), 0, 0);
-        card.addView(note, np);
         this.content.addView(card);
         Ui.addSpacer(this.content, 20);
     }
@@ -1083,10 +1079,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
      * than one; see {@link PriorityPage#dismiss}.
      */
     private void addNotesCard(String heading, List<PriorityNote> notes) {
-        addNotesCard(heading, notes, null);
-    }
-
-    private void addNotesCard(String heading, List<PriorityNote> notes, String note) {
         if (notes.isEmpty()) {
             return;
         }
@@ -1130,13 +1122,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
             rp.setMargins(0, Ui.dp(this, n.dismissible() ? 2 : 10), 0, 0);
             card.addView(row, rp);
-        }
-        String foot = PriorityNote.footnote(notes, note);
-        if (foot != null) {
-            TextView hint = Ui.text(this, foot, 12, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
-            hp.setMargins(0, Ui.dp(this, 10), 0, 0);
-            card.addView(hint, hp);
         }
         this.content.addView(card);
         Ui.addSpacer(this.content, 20);
@@ -1377,12 +1362,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
         titleParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), 0);
         card.addView(title, titleParams);
-        TextView detail = Ui.text(this,
-                "On-device burn trends improve estimates as samples accumulate.",
-                12, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
-        detailParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4));
-        card.addView(detail, detailParams);
 
         // Windows still waiting for usage data would only render a blank "Waiting for usage
         // data" chart, so they are dropped from the card until the provider reports them.

@@ -12,12 +12,9 @@ import java.util.List;
  * <p>The dismiss model: rows of Recent activity (a kept event) and New models (a newly listed
  * model) can be dismissed, and nothing else can. In every design a dismissible row is two lines
  * ({@link #lines}), swipes away or opens a menu on touch and hold with Dismiss, plus Dismiss all
- * when its list has more than one, and its list ends with the same hint ({@link #footnote}).
+ * when its list has more than one. No footnote explains it: lists stay lean.
  */
 final class PriorityNote {
-    /** Under every list whose rows can be dismissed: how to clear them. */
-    static final String DISMISS_HINT = "Swipe a row left, or touch and hold it, to dismiss it.";
-
     final UsageProvider provider;
     final String title;
     final String value;
@@ -76,18 +73,6 @@ final class PriorityNote {
         return dismissible(notes) > 1;
     }
 
-    /**
-     * The footnote under a list: the list's own note (New models says where they come from),
-     * then, when any row can be dismissed, the one hint every dismissible list shares. Null when
-     * there is neither.
-     */
-    static String footnote(List<PriorityNote> notes, String own) {
-        boolean hint = dismissible(notes) > 0;
-        if (own == null || own.isEmpty()) {
-            return hint ? DISMISS_HINT : null;
-        }
-        return hint ? own + "\n" + DISMISS_HINT : own;
-    }
 
     /** New models as dismissible rows: the model's name (and stage), then who it was matched for. */
     static List<PriorityNote> fromModels(List<ModelDiscovery.Entry> items) {

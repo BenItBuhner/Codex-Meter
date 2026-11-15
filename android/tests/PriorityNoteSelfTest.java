@@ -16,7 +16,6 @@ public final class PriorityNoteSelfTest {
         modelRowsNameTheModelAndWhoItIsFor();
         dismissAllOnlyForMoreThanOne();
         dismissClearsOnlyThatList();
-        footnoteAlwaysEndsWithTheSameHint();
         System.out.println("Priority dismiss model: rows, lines, Dismiss all and hint verified.");
     }
 
@@ -96,14 +95,4 @@ public final class PriorityNoteSelfTest {
         check(PriorityNote.toDismiss(null).eventKeys.isEmpty(), "nothing to dismiss is safe");
     }
 
-    private static void footnoteAlwaysEndsWithTheSameHint() {
-        List<PriorityNote> events = Collections.singletonList(event("a", "1m ago", "k"));
-        check(PriorityNote.DISMISS_HINT.equals(PriorityNote.footnote(events, null)), "hint alone under Recent activity");
-        String models = PriorityNote.footnote(PriorityNote.fromModels(Collections.singletonList(
-                model("a/1", "A", "", UsageProvider.CODEX))), "Shown for Codex.");
-        check(models.startsWith("Shown for Codex.") && models.endsWith(PriorityNote.DISMISS_HINT),
-                "New models keeps its note, then the same hint: " + models);
-        check(PriorityNote.footnote(Collections.singletonList(new PriorityNote(UsageProvider.CODEX, "x", "y")),
-                null) == null, "no hint under lists that can't be dismissed");
-    }
 }

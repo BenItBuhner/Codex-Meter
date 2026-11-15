@@ -168,6 +168,10 @@ grep -q 'addNotes(a, d, PriorityPage.NEW_MODELS, page.models' "$APP/GlassCards.j
 ! grep -q 'class Bars' "$APP/ExpressiveCards.java" "$APP/ExpressiveDashboard.java" \
   || { echo "Expressive dashboard draws placeholder bars" >&2; exit 1; }
 grep -q 'GlassHistoryScreen.chart(a, target' "$APP/GlassCards.java"
+# Lean pages: no explanatory footnotes under Priority lists or the Usage history card.
+! grep -q 'USED_UP_NOTE\|modelsNote\|DISMISS_HINT\|On-device burn trends\|chart fills in as' \
+  "$APP/MainActivity.java" "$APP/GlassCards.java" "$APP/PriorityPage.java" "$APP/PriorityNote.java" \
+  || { echo "Priority or Usage history has a footnote again" >&2; exit 1; }
 grep -q 'ExpressivePages.redirect(from)' "$APP/GlassApp.java"
 grep -q 'dev.bennett.codexmeter.ExpressivePageActivity' "$ROOT/app/src/main/AndroidManifest.xml"
 for a in AboutActivity DashboardReorderActivity LockWidgetsActivity ProvidersActivity ReleaseHistoryActivity \

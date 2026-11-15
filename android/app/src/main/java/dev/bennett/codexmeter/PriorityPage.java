@@ -106,13 +106,9 @@ final class PriorityPage {
     final List<PriorityNote> comingUp = new ArrayList<>();
     /** Models newly listed for the connected providers. Dismissible, one row at a time or all. */
     final List<PriorityNote> models = new ArrayList<>();
-    /** The note under {@link #models}: where they come from and what is not verified. */
-    String modelsNote;
 
     static final String NEWS = "Recent activity";
     static final String NEW_MODELS = "New models";
-    /** Under every list whose rows can be dismissed (Recent activity, New models): how to clear them. */
-    static final String DISMISS_HINT = PriorityNote.DISMISS_HINT;
     static final String READY = "Saved resets you can use";
     static final String COMING_UP = "Coming up";
 
@@ -124,8 +120,6 @@ final class PriorityPage {
     static final String ALL_CLEAR = "Nothing needs attention right now.";
     /** The heading over {@link #usedUp}. */
     static final String USED_UP = "Used up";
-    /** Under the used-up limits: the always-on alert, see {@link UsageRefillAlerts}. */
-    static final String USED_UP_NOTE = "You'll get a notification when each one is back.";
 
     boolean allClear() {
         return watch.isEmpty() && usedUp.isEmpty() && alerts.isEmpty() && news.isEmpty() && ready.isEmpty()
@@ -228,7 +222,6 @@ final class PriorityPage {
             return;
         }
         page.models.addAll(PriorityNote.fromModels(items));
-        page.modelsNote = ModelDiscovery.cardNote(items);
     }
 
     static UsageSnapshot snapshot(Context context, UsageProvider p) {
