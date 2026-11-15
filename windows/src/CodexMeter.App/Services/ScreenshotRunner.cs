@@ -53,6 +53,12 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 failures += await CaptureAsync(File(page)) ? 0 : 1;
             }
 
+            // The dashboard's title bar with the pointer over Close, so the caption buttons can be
+            // checked against the bar and the page header (Refresh, Edit dashboard) below them.
+            window.Navigate(firstProvider);
+            await Task.Delay(1000);
+            failures += await CaptureCaptionHoverAsync(File("caption-hover"));
+
             // The usage history chart and the plan's estimated value, scrolled into view.
             failures += await CaptureScrolledAsync(firstProvider, "HistoryCard", File("history"));
             if (state.EnabledProviders.Any(p => p.Id == "claude_code"))
@@ -80,6 +86,19 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
         }
         SaveTrayIcons();
         return failures == 0 ? 0 : 4;
+    }
+
+    private async Task<int> CaptureCaptionHoverAsync(string file)
+    {
+        if (NativeMethods.DwmGetWindowAttribute(window.Handle, NativeMethods.DwmwaExtendedFrameBounds, out var rect,
+                System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.Rect>()) != 0) return 1;
+        var scale = NativeMethods.GetDpiForWindow(window.Handle) / 96.0;
+        NativeMethods.SetCursorPos(rect.Right - (int)(23 * scale), rect.Top + (int)(24 * scale));
+        await Task.Delay(800);
+        var ok = await CaptureAsync(file);
+        NativeMethods.SetCursorPos(rect.Left + (rect.Right - rect.Left) / 2, rect.Bottom + (int)(40 * scale));
+        await Task.Delay(400);
+        return ok ? 0 : 1;
     }
 
     /// <summary>Opens a page, scrolls an element to the top and captures it; nothing when the page hasn't got one.</summary>
