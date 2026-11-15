@@ -3,6 +3,7 @@ using CodexMeter.Core.Formatting;
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
+using CodexMeter.Core.Updates;
 using CodexMeter.Linux.Services;
 
 namespace CodexMeter.Linux.Views;
@@ -34,6 +35,9 @@ public sealed class SettingsPage : IPage
         loading = true;
         var s = state.Settings.Current;
 
+        // Updates: first, so a pending update is the first thing Settings shows.
+        if (state.Updater is { } updater) BuildUpdates(updater, window, s.Updates);
+
         // Appearance
         var appearance = Group("Appearance");
         appearance.Add(Combo("Style", "Follow the system, or always use light or dark.",
@@ -41,6 +45,8 @@ public sealed class SettingsPage : IPage
 
         // Providers
         providersGroup = Group("Sidebar", "Choose which connected services get a page, and their order.");
+        providersGroup.Add(Switch("Priority page", "First in the sidebar: limits to watch, used-up limits, what's coming up and new models, across every connected service.",
+            s.ShowPriority, on => state.Settings.Update(x => x with { ShowPriority = on }), "PrioritySwitch"));
         BuildProviders();
 
         // Dashboard
@@ -97,7 +103,8 @@ public sealed class SettingsPage : IPage
         historyGroup.Add(recorded);
 
         // Codex reset credits
-        if (state.Supports(UsageProvider.Codex))
+        // Only for a connected Codex account, as on Android: the rules do nothing without one.
+        if (state.Supports(UsageProvider.Codex) && state[UsageProvider.Codex].SignedIn)
         {
             var resets = Group("Codex reset credits", "Spend banked resets automatically so they don't go to waste.");
             var leads = CreditExpiryAutoApply.LeadMinuteOptions;
@@ -118,8 +125,8 @@ public sealed class SettingsPage : IPage
             resets.Add(low);
         }
 
-        // Updates and alerts
-        var updates = Group("Updates and alerts");
+        // Refresh and alerts
+        var updates = Group("Refresh and alerts");
         updates.Add(Combo("Check usage every",
             "While Codex Meter runs. Some services allow fewer checks.",
             ["5 minutes", "15 minutes", "30 minutes", "1 hour"],
@@ -131,6 +138,12 @@ public sealed class SettingsPage : IPage
         var thresholdIndex = Array.IndexOf(Thresholds, s.LowThreshold);
         updates.Add(Combo("Running-low threshold", null, ["10% left", "15% left", "25% left"],
             (uint)(thresholdIndex >= 0 ? thresholdIndex : 1), i => state.Settings.Update(x => x with { LowThreshold = Thresholds[i] })));
+        updates.Add(Switch("Notify when usage is back", "When a limit you used up resets, so you know you can work again.",
+            s.NotifyUsageBack, on => state.Settings.Update(x => x with { NotifyUsageBack = on }), "UsageBackSwitch"));
+        updates.Add(Switch("Surprise limit refills", "When a limit refills well before its reset time.",
+            s.NotifySurpriseRefills, on => state.Settings.Update(x => x with { NotifySurpriseRefills = on }), "SurpriseRefillSwitch"));
+        updates.Add(Switch("New models", "When OpenRouter lists a new model from a maker you're signed in to (OpenAI for Codex, Anthropic for Claude Code, ...). Tools that offer many makers' models, like Cursor or Copilot, add none.",
+            s.NotifyNewModels, on => state.Settings.Update(x => x with { NotifyNewModels = on }), "NewModelsSwitch"));
 
         // Desktop
         var desktop = Group("Desktop");
@@ -213,6 +226,7 @@ public sealed class SettingsPage : IPage
 
     public void Detach()
     {
+        if (state.Updater is { } updater && renderUpdates is not null) updater.Changed -= renderUpdates;
         state.ProvidersChanged -= onProvidersChanged;
         state.ProviderChanged -= onProviderChanged;
     }
@@ -228,6 +242,123 @@ public sealed class SettingsPage : IPage
             BuildProviders();
             return false;
         });
+    }
+
+    private Action? renderUpdates;
+
+    /// <summary>
+    /// Settings → Updates, as on Android: channel, automatic checks, notifications and Check for
+    /// updates. An AppImage replaces itself; a .deb installs through the system's package tools.
+    /// Every download is checked against the release's SHA256SUMS-linux file first.
+    /// </summary>
+    private void BuildUpdates(DesktopUpdater updater, MainWindow window, UpdatePreferences prefs)
+    {
+        void Save(Func<UpdatePreferences, UpdatePreferences> change) => state.Settings.Update(x => x with { Updates = change(x.Updates) });
+        var group = Group("Updates");
+        var status = Adw.ActionRow.New();
+        status.SetTitle("Codex Meter updates");
+        status.SetName("UpdateStatusRow");
+        status.AddPrefix(Gtk.Image.NewFromIconName("software-update-available-symbolic"));
+        var box = Gtk.Box.New(Gtk.Orientation.Vertical, 6);
+        box.SetValign(Gtk.Align.Center);
+        var action = Gtk.Button.NewWithLabel("Check for Updates");
+        action.AddCssClass("suggested-action");
+        action.SetName("UpdateActionButton");
+        var bar = Gtk.ProgressBar.New();
+        bar.SetName("UpdateProgress");
+        box.Append(action);
+        box.Append(bar);
+        status.AddSuffix(box);
+        group.Add(status);
+
+        var notes = Adw.ActionRow.New();
+        notes.SetTitle("Release notes");
+        notes.SetActivatable(true);
+        notes.AddSuffix(Gtk.Image.NewFromIconName("adw-external-link-symbolic"));
+        notes.SetName("UpdateNotesRow");
+        notes.OnActivated += (_, _) =>
+        {
+            if ((updater.Available ?? updater.Latest) is { } release) _ = Browser.OpenAsync(new Uri(release.PageUrl));
+        };
+        group.Add(notes);
+
+        var syncing = false;
+        var channel = Combo("Update channel", "Alpha gets new features first, with less testing.", ["Stable", "Alpha (prereleases)"],
+            updater.Channel == UpdateChannel.Alpha ? 1u : 0u, i =>
+            {
+                if (syncing) return;
+                var chosen = i == 1 ? UpdateChannel.Alpha : UpdateChannel.Stable;
+                if (chosen == updater.Channel && updater.UserChoseChannel) return;
+                updater.SetChannel(chosen);
+                _ = updater.CheckAsync(manual: true);
+            }, "UpdateChannelBox");
+        group.Add(channel);
+        var frequency = Combo("Check frequency", null, UpdateCheckFrequency.Hours.Select(UpdateCheckFrequency.Label).ToArray(),
+            (uint)Math.Max(0, Array.IndexOf(UpdateCheckFrequency.Hours, UpdateCheckFrequency.Normalize(prefs.CheckHours))),
+            i => Save(p => p with { CheckHours = UpdateCheckFrequency.Hours[i] }), "UpdateFrequencyBox");
+        frequency.SetSensitive(prefs.AutoCheck);
+        group.Add(Switch("Check automatically", "Ask GitHub for the newest release in the background. Each check reads at most two small responses.",
+            prefs.AutoCheck, on =>
+            {
+                Save(p => p with { AutoCheck = on });
+                frequency.SetSensitive(on);
+            }, "UpdateAutoSwitch"));
+        group.Add(frequency);
+        group.Add(Switch("Notify when an update is available", "A desktop notification, once per version.", prefs.Notify,
+            on => Save(p => p with { Notify = on }), "UpdateNotifySwitch"));
+
+        action.OnClicked += async (_, _) =>
+        {
+            switch (updater.Status)
+            {
+                case UpdateStatus.Downloading:
+                    updater.Cancel();
+                    break;
+                case UpdateStatus.Available when updater.CannotInstallReason is not null:
+                    await Browser.OpenAsync(new Uri(updater.Available!.PageUrl));
+                    break;
+                case UpdateStatus.Available:
+                    await updater.DownloadAndInstallAsync();
+                    if (updater.Status == UpdateStatus.UpToDate) window.ShowToast("Update installed. It starts the next time Codex Meter opens.");
+                    break;
+                default:
+                    await updater.CheckAsync(manual: true);
+                    break;
+            }
+        };
+
+        renderUpdates = () =>
+        {
+            syncing = true;
+            channel.SetSelected(updater.Channel == UpdateChannel.Alpha ? 1u : 0u);
+            syncing = false;
+            status.SetSubtitle(updater.StatusText + (updater.Status is UpdateStatus.Idle or UpdateStatus.UpToDate ? "" : "\n" + updater.LastCheckText));
+            bar.SetVisible(updater.Status is UpdateStatus.Downloading or UpdateStatus.Installing);
+            if (updater.Status == UpdateStatus.Installing) bar.Pulse(); else bar.SetFraction(updater.Progress);
+            action.SetSensitive(updater.Status is not (UpdateStatus.Installing or UpdateStatus.Checking));
+            action.SetLabel(updater.Status switch
+            {
+                UpdateStatus.Checking => "Checking…",
+                UpdateStatus.Downloading => "Cancel",
+                UpdateStatus.Installing => "Installing…",
+                UpdateStatus.Available when updater.CannotInstallReason is not null => "Open Release Page",
+                UpdateStatus.Available when updater.IsReturnToStable => "Return to Stable",
+                UpdateStatus.Available => "Download and Install",
+                _ => "Check for Updates",
+            });
+            var release = updater.Available ?? updater.Latest;
+            notes.SetVisible(release is not null);
+            if (release is not null)
+            {
+                notes.SetTitle($"What's new in {release.Version.Normalized}");
+                var first = string.Join(" ", release.Notes.Split('\n').Select(l => l.Trim().TrimStart('#', '-', '*', ' ').Replace("**", ""))
+                    .Where(l => l.Length > 0).Take(2));
+                notes.SetSubtitle(first.Length > 200 ? first[..200] + "…" : first);
+            }
+            if (updater.CannotInstallReason is { } reason && updater.Status == UpdateStatus.Available) status.SetSubtitle(updater.StatusText + "\n" + reason);
+        };
+        updater.Changed += renderUpdates;
+        renderUpdates();
     }
 
     public static string VersionText()

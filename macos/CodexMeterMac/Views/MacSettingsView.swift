@@ -5,18 +5,24 @@ import SwiftUI
 /// as a grouped Mac form; Menu Bar holds the Mac-only options.
 struct MacSettingsView: View {
     @Environment(AppModel.self) private var model
+    @State private var tab = MacSettingsTab.shared
 
     var body: some View {
-        TabView {
-            Tab("General", systemImage: "gearshape") {
+        TabView(selection: $tab.selected) {
+            Tab("General", systemImage: "gearshape", value: "general") {
                 NavigationStack {
                     SettingsView()
                 }
                 .formStyle(.grouped)
             }
 
-            Tab("Menu Bar", systemImage: "menubar.rectangle") {
+            Tab("Menu Bar", systemImage: "menubar.rectangle", value: "menu-bar") {
                 MacMenuBarSettingsView()
+                    .formStyle(.grouped)
+            }
+
+            Tab("Updates", systemImage: "arrow.down.circle", value: "updates") {
+                MacUpdatesSettingsView()
                     .formStyle(.grouped)
             }
         }
@@ -116,6 +122,10 @@ struct MacCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            MacCheckForUpdatesButton()
+        }
+
         CommandGroup(replacing: .newItem) {
             Button("Add Account…") {
                 NotificationCenter.default.post(name: .codexMeterAddAccount, object: nil)

@@ -211,6 +211,9 @@ public sealed class DashboardPage : IPage
                 case DashboardSections.ResetCredits:
                     Add(ResetCreditsCard(entry.Cache?.Credits, usage.ResetCreditsAvailable ?? 0));
                     break;
+                case DashboardSections.ValueEstimate when PlanPricing.ForProvider(provider.Id, usage) is { } pricing:
+                    Add(ValueCard(pricing, usage));
+                    break;
                 default:
                     if (!DashboardSections.IsLimitKey(key)) break;
                     foreach (var limit in usage.AdditionalLimits.Where(l => DashboardSections.LimitKey(l) == key))
@@ -393,6 +396,38 @@ public sealed class DashboardPage : IPage
         };
         confirm.Present(window.Window);
         return confirm;
+    }
+
+    /// <summary>Estimated value of the plan the user is on (Codex, Claude Pro/Max/Ultra, or Cursor's own figure).</summary>
+    private static Gtk.Widget ValueCard(PlanPricing pricing, UsageSnapshot usage)
+    {
+        var panel = Gtk.Box.New(Gtk.Orientation.Vertical, 6);
+        var header = Gtk.Box.New(Gtk.Orientation.Horizontal, 8);
+        header.Append(Gtk.Image.NewFromIconName("emblem-documents-symbolic"));
+        header.Append(Cards.Label(pricing.Reported ? "Included value" : "Estimated value", "heading"));
+        panel.Append(header);
+        var plan = Cards.Label(pricing.Title, "title-4");
+        plan.SetName("ValuePlan");
+        panel.Append(plan);
+        var grid = Gtk.Grid.New();
+        grid.SetColumnSpacing(12);
+        grid.SetRowSpacing(4);
+        var rows = pricing.SummaryRows(usage);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var label = Cards.Label(rows[i].Label, "dim-label");
+            label.SetHexpand(true);
+            var value = Gtk.Label.New(rows[i].Value);
+            value.SetXalign(1);
+            grid.Attach(label, 0, i, 1, 1);
+            grid.Attach(value, 1, i, 1, 1);
+        }
+        panel.Append(grid);
+        panel.Append(Cards.Label(pricing.Basis, "caption", "dim-label"));
+        var card = Cards.Card(panel, "ValueEstimateCard");
+        card.RemoveCssClass("meter-card");
+        card.AddCssClass("extra-card");
+        return card;
     }
 
     private static Gtk.Widget PurchasedCreditsCard(UsageCredits credits)

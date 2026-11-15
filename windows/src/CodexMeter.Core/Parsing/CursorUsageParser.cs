@@ -25,8 +25,11 @@ public static class CursorUsageParser
 
         UsageWindow? plan = null;
         var limits = new List<UsageLimit>();
+        double? includedCents = null;
         if (Json.Obj(Json.Get(root, "planUsage")) is { } planUsage)
         {
+            // planUsage.limit is the plan's included usage at API prices, in cents.
+            if (Number(Json.Get(planUsage, "limit")) is { } included && included > 0) includedCents = included;
             var percent = Number(Json.Get(planUsage, "totalPercentUsed"));
             if (percent is null && Number(Json.Get(planUsage, "limit")) is { } limit && limit > 0)
             {
@@ -54,7 +57,7 @@ public static class CursorUsageParser
         var planSpent = (plan?.UsedPercent ?? 0) >= 100;
         var limitReached = planSpent && (onDemand?.LimitReached ?? true);
         return new UsageSnapshot(planLabel, !limitReached, limitReached, null, weekly ? plan : null,
-            weekly ? null : plan, null, limits, null, null, fetchedAt);
+            weekly ? null : plan, null, limits, null, null, fetchedAt) { IncludedValueUsd = includedCents / 100 };
     }
 
     public static bool IsWeeklyCycle(long cycleSeconds) => cycleSeconds > 0 && cycleSeconds <= 10 * 24 * 60 * 60;

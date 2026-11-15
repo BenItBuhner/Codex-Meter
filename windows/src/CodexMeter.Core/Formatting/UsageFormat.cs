@@ -19,8 +19,10 @@ public static class UsageFormat
             "free" => "Free",
             "go" => "Go",
             "plus" => "Plus",
-            "prolite" or "pro5x" => "Pro 5x",
-            "pro" or "pro20x" => "Pro 20x",
+            // OpenAI sells Pro at $100, $200 and $500 (the former Pro 5x and Pro 20x are Pro 100 and 200).
+            "prolite" or "pro5x" or "pro100" => "Pro 100",
+            "pro" or "pro20x" or "pro200" => "Pro 200",
+            "pro500" => "Pro 500",
             "team" => "Team",
             "business" => "Business",
             "enterprise" => "Enterprise",

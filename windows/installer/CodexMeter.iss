@@ -73,6 +73,8 @@ Name: "{autodesktop}\Codex Meter"; Filename: "{app}\CodexMeter.exe"; Tasks: desk
 
 [Run]
 Filename: "{app}\CodexMeter.exe"; Description: "{cm:LaunchProgram,Codex Meter}"; Flags: nowait postinstall skipifsilent
+; The in-app updater runs this setup with /SILENT /RELAUNCH=1: reopen the app once the upgrade is done.
+Filename: "{app}\CodexMeter.exe"; Flags: nowait runasoriginaluser; Check: RelaunchRequested
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/f /im CodexMeter.exe"; Flags: runhidden; RunOnceId: "StopCodexMeter"
@@ -80,3 +82,9 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/f /im CodexMeter.exe"; Flags: runh
 [Registry]
 ; The app's "Start with Windows" setting writes this value; remove it with the app.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "CodexMeter"; Flags: uninsdeletevalue dontcreatekey
+
+[Code]
+function RelaunchRequested(): Boolean;
+begin
+  Result := WizardSilent() and (ExpandConstant('{param:RELAUNCH|0}') = '1');
+end;

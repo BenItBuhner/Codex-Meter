@@ -1,3 +1,4 @@
+import Observation
 import AppKit
 import CodexMeterCore
 import Foundation
@@ -116,4 +117,13 @@ enum MacLaunchOptions {
         false
 #endif
     }
+}
+
+/// The Settings window's selected tab ("general", "menu-bar" or "updates"). Not saved, so
+/// Settings always opens on General unless Check for Updates… or an update notification asks.
+@MainActor
+@Observable
+final class MacSettingsTab {
+    static let shared = MacSettingsTab()
+    var selected = "general"
 }

@@ -189,6 +189,12 @@ public sealed record UsageSnapshot
     public SpendControl? SpendControl { get; init; }
     public DateTimeOffset FetchedAt { get; init; }
 
+    /// <summary>
+    /// Included usage per plan cycle, in dollars at API prices, when the provider reports it
+    /// (Cursor's <c>planUsage.limit</c>). The Estimated value card uses it instead of a researched figure.
+    /// </summary>
+    public double? IncludedValueUsd { get; init; }
+
     [JsonIgnore] public SpendControlLimit? SpendControlLimit => SpendControl?.IndividualLimit;
 
     /// <summary>Weekly when present, otherwise the monthly window.</summary>

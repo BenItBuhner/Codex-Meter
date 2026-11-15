@@ -13,7 +13,8 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
     {
         Directory.CreateDirectory(directory);
         await Delay(1500);
-        var pages = state.EnabledProviders.Select(p => p.Id).Concat(["accounts", "settings"]).ToList();
+        var pages = (state.Settings.Current.ShowPriority && state.SignedIn.Count > 0 ? new[] { "priority" } : [])
+            .Concat(state.EnabledProviders.Select(p => p.Id)).Concat(["accounts", "settings"]).ToList();
         var failures = 0;
         foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
         {
@@ -68,7 +69,7 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             window.ShowContent(false);
             await Delay(700);
             failures += Capture($"{name}-{shot++:00}-compact-sidebar.png") ? 0 : 1;
-            window.Navigate(pages[0]);
+            window.Navigate(state.EnabledProviders.FirstOrDefault()?.Id ?? pages[0]);
             window.ShowContent(true);
             await Delay(900);
             failures += Capture($"{name}-{shot:00}-compact.png") ? 0 : 1;
@@ -96,6 +97,21 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 page.Scroller.GetVadjustment().SetValue(Math.Max(0, y - 24));
                 await Delay(600);
                 failures += Capture($"{name}-{shot:00}-history.png") ? 0 : 1;
+                page.Scroller.GetVadjustment().SetValue(0);
+            }
+        }
+        // The plan's estimated value on Claude Code (Pro priced as Claude Pro, not ChatGPT Pro).
+        if (state.EnabledProviders.Any(p => p.Id == "claude_code") && state[Core.Providers.UsageProvider.ClaudeCode].SignedIn)
+        {
+            window.Navigate("claude_code");
+            await Delay(900);
+            if (window.CurrentPage is { } page && Find(page.Page, "ValueEstimateCard") is { } card)
+            {
+                var content = page.Scroller.GetChild()!;
+                card.TranslateCoordinates(content, 0, 0, out _, out var y);
+                page.Scroller.GetVadjustment().SetValue(Math.Max(0, y - 24));
+                await Delay(600);
+                failures += Capture($"{name}-{shot:00}-claude-value.png") ? 0 : 1;
                 page.Scroller.GetVadjustment().SetValue(0);
             }
         }

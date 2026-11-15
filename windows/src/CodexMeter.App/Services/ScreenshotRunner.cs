@@ -26,7 +26,9 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
     {
         Directory.CreateDirectory(directory);
         await Task.Delay(1500);
-        var pages = state.EnabledProviders.Select(p => p.Id).Concat(["accounts", "settings"]).ToList();
+        var pages = (state.Settings.Current.ShowPriority && state.SignedIn.Count > 0 ? new[] { "priority" } : [])
+            .Concat(state.EnabledProviders.Select(p => p.Id)).Concat(["accounts", "settings"]).ToList();
+        var firstProvider = state.EnabledProviders.FirstOrDefault()?.Id ?? "codex";
         var failures = 0;
         foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
         {
@@ -39,7 +41,10 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             {
                 window.Navigate(page);
                 await Task.Delay(1200);
-                var expected = page switch { "settings" => "SettingsPage", "accounts" => "AccountsPage", _ => "DashboardPage" };
+                var expected = page switch
+                {
+                    "settings" => "SettingsPage", "accounts" => "AccountsPage", "priority" => "PriorityPage", _ => "DashboardPage",
+                };
                 if (window.CurrentPageType?.Name != expected)
                 {
                     App.Log($"Expected {expected} for {page} but the window shows {window.CurrentPageType?.Name ?? "nothing"}.");
@@ -48,17 +53,10 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 failures += await CaptureAsync(File(page)) ? 0 : 1;
             }
 
-            // The usage history chart, scrolled into view.
-            window.Navigate(pages[0]);
-            await Task.Delay(1000);
-            if (window.CurrentScrollViewer is { } scroller && Find(scroller, "HistoryCard") is FrameworkElement chart)
-            {
-                var top = chart.TransformToVisual((UIElement)scroller.Content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
-                scroller.ChangeView(null, Math.Max(0, top - 12), null, true);
-                await Task.Delay(800);
-                failures += await CaptureAsync(File("history")) ? 0 : 1;
-                scroller.ChangeView(null, 0, null, true);
-            }
+            // The usage history chart and the plan's estimated value, scrolled into view.
+            failures += await CaptureScrolledAsync(firstProvider, "HistoryCard", File("history"));
+            if (state.EnabledProviders.Any(p => p.Id == "claude_code"))
+                failures += await CaptureScrolledAsync("claude_code", "ValueEstimateCard", File("claude-value"));
 
             // Dialogs: Add account, Edit dashboard and a device-code sign-in.
             failures += await CaptureDialogAsync(File("add-account"), opened => window.AddAccountAsync(opened));
@@ -75,13 +73,27 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
 
             // Narrow window: the pane collapses behind the title bar's menu button and cards stack.
             FitWindow(560, 820);
-            window.Navigate(pages[0]);
+            window.Navigate(firstProvider);
             await Task.Delay(1200);
             failures += await CaptureAsync(File("compact")) ? 0 : 1;
             failures += await CaptureFlyoutAsync(File("tray-flyout"));
         }
         SaveTrayIcons();
         return failures == 0 ? 0 : 4;
+    }
+
+    /// <summary>Opens a page, scrolls an element to the top and captures it; nothing when the page hasn't got one.</summary>
+    private async Task<int> CaptureScrolledAsync(string page, string automationId, string file)
+    {
+        window.Navigate(page);
+        await Task.Delay(1000);
+        if (window.CurrentScrollViewer is not { } scroller || Find(scroller, automationId) is not FrameworkElement target) return 0;
+        var top = target.TransformToVisual((UIElement)scroller.Content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        scroller.ChangeView(null, Math.Max(0, top - 12), null, true);
+        await Task.Delay(800);
+        var ok = await CaptureAsync(file);
+        scroller.ChangeView(null, 0, null, true);
+        return ok ? 0 : 1;
     }
 
     private async Task<int> CaptureDialogAsync(string file, Func<Action<ContentDialog>, Task> show)

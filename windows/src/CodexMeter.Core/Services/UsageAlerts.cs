@@ -4,7 +4,7 @@ using CodexMeter.Core.Providers;
 
 namespace CodexMeter.Core.Services;
 
-public enum UsageAlertKind { Reset, Low, Exhausted }
+public enum UsageAlertKind { Reset, Low, Exhausted, Back, Refill, Update, NewModel }
 
 public sealed record UsageAlert(UsageAlertKind Kind, string Title, string Body, string Key);
 
@@ -16,7 +16,7 @@ public sealed record UsageAlert(UsageAlertKind Kind, string Title, string Body, 
 public static class UsageAlerts
 {
     public static IReadOnlyList<UsageAlert> Evaluate(UsageProvider provider, UsageSnapshot? previous, UsageSnapshot current,
-        int lowThreshold, bool notifyResets, bool notifyLow)
+        int lowThreshold, bool notifyResets, bool notifyLow, bool notifySurpriseRefills = false, bool usageBackOn = false)
     {
         var alerts = new List<UsageAlert>();
         if (previous is null) return alerts;
@@ -24,6 +24,17 @@ public static class UsageAlerts
         {
             if (after is null || before is null) continue;
             var key = $"{provider.Id}:{name}";
+            // A big refill well before the reset time: a "surprise" refill (Android: Surprise limit refills).
+            if (notifySurpriseRefills && after.UsedPercent + 25 <= before.UsedPercent && before.RemainingPercent > 0
+                && before.EffectiveResetDate(previous.FetchedAt) is { } due && due > current.FetchedAt.AddMinutes(30))
+            {
+                alerts.Add(new UsageAlert(UsageAlertKind.Refill, $"{provider.DisplayName} refilled early",
+                    $"Your {name.ToLowerInvariant()} limit went from {before.RemainingPercent}% to {after.RemainingPercent}% left before its reset.",
+                    key + ":refill"));
+                continue;
+            }
+            // A used-up limit coming back is announced by UsageRefill ("usage is back") instead.
+            if (usageBackOn && before.RemainingPercent == 0 && after.RemainingPercent > 0) continue;
             if (notifyResets && after.UsedPercent + 10 < before.UsedPercent && before.UsedPercent >= 50
                 && (before.EffectiveResetDate(previous.FetchedAt) is not { } resetAt || resetAt <= current.FetchedAt.AddMinutes(15)))
             {

@@ -13,6 +13,8 @@ public static class DashboardSections
     public const string SpendControl = "spend_control";
     public const string UsageHistory = "usage_history";
     public const string ResetCredits = "reset_credits";
+    /// <summary>Estimated value of the plan's allowance (only for plans with a figure: Codex, Claude, Cursor).</summary>
+    public const string ValueEstimate = "value_estimate";
 
     private const string LimitPrefix = "limit:";
 
@@ -29,7 +31,7 @@ public static class DashboardSections
     /// Every card <paramref name="snapshot"/> can show, in default order: the windows, the monthly
     /// credit limit, additional limits, then credits, history and resets.
     /// </summary>
-    public static List<string> Available(UsageSnapshot? snapshot, bool hasResetCredits, bool includeHistory = true)
+    public static List<string> Available(UsageSnapshot? snapshot, bool hasResetCredits, bool includeHistory = true, string? providerId = null)
     {
         var result = new List<string>();
         if (snapshot is not null)
@@ -46,6 +48,7 @@ public static class DashboardSections
             if (snapshot.UsageCredits?.ShouldDisplay == true) result.Add(UsageCredits);
         }
         if (includeHistory) result.Add(UsageHistory);
+        if (PlanPricing.ForProvider(providerId, snapshot) is not null) result.Add(ValueEstimate);
         if (hasResetCredits) result.Add(ResetCredits);
         return result;
     }
@@ -75,10 +78,10 @@ public static class DashboardSections
 
     /// <summary>The cards to show, in the user's order, without hidden ones.</summary>
     public static List<string> Visible(UsageSnapshot? snapshot, bool hasResetCredits, IEnumerable<string>? savedOrder,
-        IEnumerable<string>? hidden, bool includeHistory = true)
+        IEnumerable<string>? hidden, bool includeHistory = true, string? providerId = null)
     {
         var hiddenKeys = (hidden ?? []).ToHashSet();
-        return ResolveOrder(savedOrder, Available(snapshot, hasResetCredits, includeHistory)).Where(k => !hiddenKeys.Contains(k)).ToList();
+        return ResolveOrder(savedOrder, Available(snapshot, hasResetCredits, includeHistory, providerId)).Where(k => !hiddenKeys.Contains(k)).ToList();
     }
 
     /// <summary>Edit dashboard's name for a card.</summary>
@@ -95,6 +98,7 @@ public static class DashboardSections
             SpendControl => "Monthly credit limit",
             UsageHistory => "Usage history",
             ResetCredits => "Reset credits",
+            ValueEstimate => "Estimated value",
             _ => key,
         };
     }
