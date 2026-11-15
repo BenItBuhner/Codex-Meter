@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (alpha)
+## 2.9.0-alpha.29 — 2026-11-15
 
 ### Added
 
@@ -8,6 +8,11 @@
 - **Priority page** on Windows and Linux: limits to watch, used-up limits, what renews or expires soon, and new models from the makers you use. Windows, Linux.
 - **Estimated value** on Windows and Linux, priced for the provider: Claude Pro, Max and Ultra as Claude plans, Cursor from its included usage, and no card for other services. Windows, Linux.
 - **"Usage is back" and surprise-refill notifications** on Windows and Linux. Windows, Linux.
+
+### Changed
+
+- **Value estimates use sourced, dated figures.** Each plan's Estimated value now comes from BenchLeader or Adam Holter, with the source and data date shown, and per-model rows. Codex Pro is now Pro 100, Pro 200 and Pro 500; plans with no published figure (Pro 100, Pro 500) say Unknown instead of guessing. Android, iOS, Windows, Linux.
+- **v3 polish.** Dashboard charts draw real usage, Priority has one dismiss model in every design (swipe left or touch and hold a row; Dismiss all only when there's more than one), page titles have no subheader, more pages use the Material 3 Expressive design, and the Liquid Glass design moves to a newer Glassé build. Android.
 
 ### Fixed
 
