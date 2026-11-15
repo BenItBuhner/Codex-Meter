@@ -170,7 +170,55 @@ final class AppDialog extends AlertDialog.Builder {
         if (glass != null && view == null) {
             return new GlassDialog(getContext(), glass, this);
         }
+        if (AppPreferences.isMaterialExpressiveDesign(getContext())) {
+            return material();
+        }
         return super.create();
+    }
+
+    /**
+     * Material 3 Expressive: the same dialog as a Material alert in the design's colors, instead of
+     * a One UI dialog. Custom views keep their own views inside it.
+     */
+    private AlertDialog material() {
+        android.content.Context ctx = ExpressiveDashboard.themed(getContext());
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx,
+                        R.style.ThemeOverlay_Material3_MaterialAlertDialog);
+        if (title != null) {
+            b.setTitle(title);
+        }
+        if (message != null) {
+            b.setMessage(message);
+        }
+        if (positiveText != null) {
+            b.setPositiveButton(positiveText, positiveListener);
+        }
+        if (negativeText != null) {
+            b.setNegativeButton(negativeText, negativeListener);
+        }
+        if (neutralText != null) {
+            b.setNeutralButton(neutralText, neutralListener);
+        }
+        if (multiChoice && items != null) {
+            b.setMultiChoiceItems(items, checkedItems, multiChoiceListener);
+        } else if (singleChoice && items != null) {
+            b.setSingleChoiceItems(items, checkedItem, itemsListener);
+        } else if (items != null) {
+            b.setItems(items, itemsListener);
+        } else if (adapter != null) {
+            b.setAdapter(adapter, itemsListener);
+        }
+        if (view != null) {
+            b.setView(view);
+        }
+        if (dismissListener != null) {
+            b.setOnDismissListener(dismissListener);
+        }
+        if (cancelListener != null) {
+            b.setOnCancelListener(cancelListener);
+        }
+        return b.create();
     }
 
     @Override

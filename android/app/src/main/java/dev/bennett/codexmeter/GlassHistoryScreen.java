@@ -154,7 +154,21 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
 
     private Card chart(String label, UsageWindow window, UsageSnapshot snapshot, UsageHistory history,
             PlanPricing pricing) {
-        Context c = activity();
+        return chart(activity(), provider, label, window, snapshot, history, pricing,
+                visible(HistorySections.GUIDE), visible(HistorySections.WINDOW_LIST));
+    }
+
+    /**
+     * A window's burn chart as data, for the history page and for the dashboards' Usage history
+     * card (Liquid Glass and Material 3 Expressive draw the same chart from it; One UI draws it with
+     * {@link UsageBurnChartView}). {@code history} must already be read against the live window.
+     *
+     * @param legend the line legend under the chart
+     * @param windowRows rows under the chart that pick an earlier window to compare
+     */
+    static Card chart(Context c, UsageProvider provider, String label, UsageWindow window,
+            UsageSnapshot snapshot, UsageHistory history, PlanPricing pricing, boolean legend,
+            boolean windowRows) {
         long now = System.currentTimeMillis();
         UsagePace.Assessment pace = UsagePacePreferences.assess(c, provider, snapshot, window, now);
         long observedAt = snapshot.fetchedAtMillis;
@@ -166,7 +180,7 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         GlassModel.Chart chart = new GlassModel.Chart();
         card.chart = chart;
         chart.label = Math.round(window.usedPercent) + "% used so far";
-        chart.legend = visible(HistorySections.GUIDE);
+        chart.legend = legend;
         chart.sampleLabel = samples.size() < 2 ? "Building history" : samples.size() + " samples";
         long resetAt = window.effectiveResetAtMillis(observedAt);
         long startAt = resetAt - window.windowSeconds * 1000L;
@@ -249,14 +263,14 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         };
 
         List<UsageStats.WindowStats> breakdown = UsageStats.windowBreakdown(history, MAX_BREAKDOWN_WINDOWS);
-        boolean rows = visible(HistorySections.WINDOW_LIST) && breakdown.size() > 1;
+        boolean rows = windowRows && breakdown.size() > 1;
         chart.hint = rows ? "Drag to inspect · tap a window to compare" : "Drag to inspect";
         if (rows) {
             boolean days = UsageHistory.WEEKLY.equals(history.kind) || UsageHistory.MONTHLY.equals(history.kind);
             for (int index = breakdown.size() - 1; index >= 0; index--) {
                 UsageStats.WindowStats stats = breakdown.get(index);
                 boolean current = !stats.complete;
-                String title = current ? "Current window" : rangeLabel(stats, days);
+                String title = current ? "Current window" : rangeLabel(c, stats, days);
                 StringBuilder subtitle = new StringBuilder();
                 subtitle.append(stats.finalPercent).append("% used");
                 if (stats.averageBurnPercentPerHour > 0d) {
@@ -353,12 +367,12 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         return card.stats.isEmpty() ? null : card;
     }
 
-    private String rangeLabel(UsageStats.WindowStats stats, boolean days) {
+    private static String rangeLabel(Context context, UsageStats.WindowStats stats, boolean days) {
         SimpleDateFormat day = new SimpleDateFormat("MMM d", Locale.getDefault());
         if (days) {
             return day.format(new Date(stats.windowStartMillis)) + " – " + day.format(new Date(stats.resetAtMillis));
         }
-        SimpleDateFormat time = new SimpleDateFormat(DateFormat.is24HourFormat(activity()) ? "HH:mm" : "h:mm a",
+        SimpleDateFormat time = new SimpleDateFormat(DateFormat.is24HourFormat(context) ? "HH:mm" : "h:mm a",
                 Locale.getDefault());
         return day.format(new Date(stats.windowStartMillis)) + " · " + time.format(new Date(stats.windowStartMillis))
                 + " – " + time.format(new Date(stats.resetAtMillis));

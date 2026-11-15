@@ -101,6 +101,10 @@ public final class LockWidgetConfigActivity extends AppCompatActivity
                 glass.start(bundle);
                 return;
             }
+            if (AppPreferences.isMaterialExpressiveDesign(this) && ExpressivePages.showPage(this,
+                    GlassScreens.PREFIX + "lock_widget:" + this.appWidgetId, getIntent())) {
+                return;
+            }
             this.dark = Ui.isDark(this);
             this.slots = SamsungLockWidgetSupport.slotCount(this, this.appWidgetId);
             this.providers = new ArrayList<>(ProviderPreferences.getLockWidgetProviders(this,

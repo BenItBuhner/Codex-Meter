@@ -20,6 +20,8 @@ import java.util.List;
 public final class AddAccountActivity extends AppCompatActivity implements GlassApp.Host {
     /** Liquid Glass: this page drawn by Glassé's kit ({@link #glassPage}), or null for One UI. */
     private GlassApp glass;
+    /** Material 3 Expressive: the same page drawn with Material views, or null. */
+    private ExpressivePages expressive;
     private String query = "";
 
     @Override
@@ -49,6 +51,12 @@ public final class AddAccountActivity extends AppCompatActivity implements Glass
             glass = new GlassApp(this, super::dispatchTouchEvent, GlassScreens.PREFIX + "add_account");
             glass.start(state);
             return;
+        }
+        if (AppPreferences.isMaterialExpressiveDesign(this)) {
+            expressive = ExpressivePages.attach(this, GlassScreens.PREFIX + "add_account", getIntent());
+            if (expressive != null) {
+                return;
+            }
         }
         render();
     }
@@ -105,7 +113,11 @@ public final class AddAccountActivity extends AppCompatActivity implements Glass
         field.value = query;
         field.onText = text -> {
             query = text;
-            glass.changed();
+            if (glass != null) {
+                glass.changed();
+            } else if (expressive != null) {
+                expressive.changed();
+            }
         };
         search.rows.add(field);
         page.sections.add(search);

@@ -36,7 +36,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * that would open their One UI activities open them here instead. Widget settings, which the
  * launcher opens as an activity of its own, host a GlassApp that starts at their page.
  */
-final class GlassApp implements GlassSource {
+final class GlassApp implements GlassSource, GlassScreens.Host {
     /** MainActivity extra: open glass Settings at this page. */
     static final String EXTRA_SETTINGS_PAGE = "glass_settings_page";
     private static final String STATE_PAGE = "glass_settings_page";
@@ -118,6 +118,10 @@ final class GlassApp implements GlassSource {
      * page, and finishes. Call right after super.onCreate; returns true when it did.
      */
     static boolean redirect(AppCompatActivity from) {
+        if (ExpressivePages.redirect(from)) {
+            // Material 3 Expressive draws these pages too (no One UI page in between)
+            return true;
+        }
         if (!AppPreferences.isLiquidGlassDesign(from)) {
             return false;
         }
@@ -248,13 +252,15 @@ final class GlassApp implements GlassSource {
     }
 
     /** Starts {@code intent}, as a glass page when it opens one. */
-    void start(Intent intent) {
+    @Override
+    public void start(Intent intent) {
         if (!intercept(intent)) {
             activity.startActivity(intent);
         }
     }
 
-    void post(Runnable action) {
+    @Override
+    public void post(Runnable action) {
         ui.post(action);
     }
 
@@ -262,7 +268,8 @@ final class GlassApp implements GlassSource {
      * Opens glass page {@code id}: on top of the Settings pages when they're showing, otherwise on
      * its own (back returns to the dashboard).
      */
-    void openPage(String id, Intent intent) {
+    @Override
+    public void openPage(String id, Intent intent) {
         screens.opened(id, intent);
         if (glasse.getHost().app != null || landing != null) {
             nav = new Nav(false, id);
@@ -274,7 +281,8 @@ final class GlassApp implements GlassSource {
     }
 
     /** Closes the page on top (a page that finished its job, like a saved widget). */
-    void pop() {
+    @Override
+    public void pop() {
         nav = new Nav(false, null, false, true);
         changed();
     }
@@ -298,7 +306,8 @@ final class GlassApp implements GlassSource {
     }
 
     /** Tells the screens to draw again from the app's current state. */
-    void changed() {
+    @Override
+    public void changed() {
         for (Runnable listener : listeners) {
             listener.run();
         }

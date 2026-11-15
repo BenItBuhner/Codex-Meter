@@ -29,26 +29,71 @@ import dev.bennett.codexmeter.glass.GlassModel;
 import dev.bennett.codexmeter.glass.GlassModel.Row;
 
 /**
- * Settings in the Material 3 Expressive design. The pages' behavior is the app's own settings code,
- * exactly as Liquid Glass uses it ({@link GlassSettings}): the One UI preference fragment runs out
- * of sight and its preferences are the model. This draws them with Material views: a large title,
- * section labels, rows grouped into segmented cards, Material switches, sliders and dialogs.
+ * A page in the Material 3 Expressive design: Settings and every other page (usage history, reset
+ * credits, updates, About, dashboard tabs, Edit dashboard, release history, lock screen widgets).
+ * The pages' behavior is the app's own code, exactly as Liquid Glass uses it: Settings come from
+ * the One UI preference fragment running out of sight ({@link GlassSettings}), the other pages from
+ * {@link GlassScreens}. This draws them with Material views: a large title, section labels, rows
+ * grouped into segmented cards, Material switches, sliders, dialogs, and the dashboard's cards
+ * ({@link ExpressiveCards}) for pages that show charts and lists.
  */
 final class ExpressiveSettings {
+    /** Where a page's rows and actions come from. */
+    interface Model {
+        GlassModel.Page page();
+
+        /** A switch on a settings preference (rows with their own {@code onToggle} use that). */
+        void toggle(String key, boolean on);
+
+        void choose(String key, int index);
+
+        void press(String key);
+    }
+
     private final AppCompatActivity activity;
-    private final String page;
+    private final Model model;
     private final Context ctx;
     private final boolean dark;
-    private final GlassSettings settings;
     private final LinearLayout list;
+    private final LinearLayout actions;
+    private final TextView heading;
     private final View root;
+    private final ExpressiveCards look;
 
+    /** A Settings page, drawn from its preferences. */
     ExpressiveSettings(AppCompatActivity activity, String page, String title) {
+        this(activity, title, settingsModel(new GlassSettings(activity), page));
+    }
+
+    private static Model settingsModel(GlassSettings settings, String page) {
+        return new Model() {
+            @Override
+            public GlassModel.Page page() {
+                return settings.page(page);
+            }
+
+            @Override
+            public void toggle(String key, boolean on) {
+                settings.toggle(page, key, on);
+            }
+
+            @Override
+            public void choose(String key, int index) {
+                settings.choose(page, key, index);
+            }
+
+            @Override
+            public void press(String key) {
+                settings.press(page, key);
+            }
+        };
+    }
+
+    ExpressiveSettings(AppCompatActivity activity, String title, Model model) {
         this.activity = activity;
-        this.page = page;
+        this.model = model;
         this.ctx = ExpressiveDashboard.themed(activity);
         this.dark = Ui.isDark(activity);
-        this.settings = new GlassSettings(activity);
 
         FrameLayout frame = new FrameLayout(this.ctx);
         frame.setBackgroundColor(color(this.dark ? R.attr.colorSurface : R.attr.colorSurfaceContainer));
@@ -73,19 +118,28 @@ final class ExpressiveSettings {
         back.setIconTint(ColorStateList.valueOf(color(R.attr.colorOnSurface)));
         back.setContentDescription("Back");
         back.setOnClickListener(v -> activity.getOnBackPressedDispatcher().onBackPressed());
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, -2);
+        // Back on the left, the page's own actions (Customize, Edit…) on the right.
+        LinearLayout bar = new LinearLayout(this.ctx);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.addView(back, new LinearLayout.LayoutParams(-2, -2));
+        bar.addView(new View(this.ctx), new LinearLayout.LayoutParams(0, 1, 1f));
+        this.actions = new LinearLayout(this.ctx);
+        this.actions.setGravity(Gravity.CENTER_VERTICAL);
+        bar.addView(this.actions, new LinearLayout.LayoutParams(-2, -2));
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, -2);
         bp.topMargin = dp(8);
-        column.addView(back, bp);
+        column.addView(bar, bp);
 
-        TextView heading = text(title, R.attr.textAppearanceDisplaySmallEmphasized, R.attr.colorOnSurface);
-        ExpressiveDashboard.weight(heading, 560);
+        this.heading = text(title, R.attr.textAppearanceDisplaySmallEmphasized, R.attr.colorOnSurface);
+        ExpressiveCards.weight(this.heading, 560);
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
         hp.setMargins(dp(8), dp(20), dp(8), dp(12));
-        column.addView(heading, hp);
+        column.addView(this.heading, hp);
 
         this.list = new LinearLayout(this.ctx);
         this.list.setOrientation(LinearLayout.VERTICAL);
         column.addView(this.list, new LinearLayout.LayoutParams(-1, -2));
+        this.look = new ExpressiveCards(this.ctx, this.dark, this.list);
 
         this.root = frame;
         activity.setContentView(frame);
@@ -103,14 +157,38 @@ final class ExpressiveSettings {
         });
     }
 
-    /** Draws the page from its preferences; call again after anything changes. */
+    /** Draws the page from its model; call again after anything changes. */
     void render() {
-        GlassModel.Page model = this.settings.page(this.page);
+        GlassModel.Page page = this.model.page();
         this.list.removeAllViews();
-        if (model == null) {
+        this.actions.removeAllViews();
+        if (page == null) {
             return;
         }
-        for (GlassModel.Section section : model.sections) {
+        if (page.title != null && !page.title.isEmpty()) {
+            this.heading.setText(page.title);
+        }
+        for (GlassModel.Action a : page.actions) {
+            MaterialButton action = new MaterialButton(this.ctx, null,
+                    a.prominent ? R.attr.materialButtonStyle : R.attr.materialButtonTonalStyle);
+            action.setText(a.label);
+            action.setOnClickListener(v -> {
+                if (a.onPress != null) {
+                    a.onPress.run();
+                }
+                this.root.post(this::render);
+            });
+            LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-2, -2);
+            ap.leftMargin = dp(8);
+            this.actions.addView(action, ap);
+        }
+        if (page.intro != null && !page.intro.isEmpty()) {
+            TextView intro = text(page.intro, R.attr.textAppearanceBodyLarge, R.attr.colorOnSurfaceVariant);
+            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(-1, -2);
+            ip.setMargins(dp(8), 0, dp(8), dp(12));
+            this.list.addView(intro, ip);
+        }
+        for (GlassModel.Section section : page.sections) {
             if (section.header != null) {
                 TextView label = text(section.header, R.attr.textAppearanceLabelLargeEmphasized, R.attr.colorPrimary);
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
@@ -119,9 +197,21 @@ final class ExpressiveSettings {
             } else if (this.list.getChildCount() > 0) {
                 addGap(dp(14));
             }
+            for (int i = 0; i < section.cards.size(); i++) {
+                GlassModel.Card c = section.cards.get(i);
+                if (c.kind == GlassModel.Card.Kind.HEADING) {
+                    this.list.addView(this.look.heading(c.title));
+                } else {
+                    this.list.addView(this.look.card(c, false, false));
+                }
+            }
             int n = section.rows.size();
             for (int i = 0; i < n; i++) {
-                this.list.addView(row(section.rows.get(i), i == 0, i == n - 1));
+                View row = row(section.rows.get(i), i == 0, i == n - 1);
+                if (section.onMove != null && n > 1) {
+                    row = movable(row, section.onMove, i, n);
+                }
+                this.list.addView(row);
             }
             if (section.footer != null) {
                 TextView foot = text(section.footer, R.attr.textAppearanceBodySmall, R.attr.colorOnSurfaceVariant);
@@ -129,6 +219,63 @@ final class ExpressiveSettings {
                 fp.setMargins(dp(16), dp(8), dp(16), 0);
                 this.list.addView(foot, fp);
             }
+        }
+    }
+
+    /**
+     * A row of a list that can be reordered (Dashboard tabs, Edit dashboard): Move up and Move down
+     * buttons at its end, which also work with TalkBack.
+     */
+    private View movable(View row, GlassModel.Mover mover, int index, int count) {
+        if (!(row instanceof MaterialCardView)) {
+            return row;
+        }
+        MaterialCardView card = (MaterialCardView) row;
+        LinearLayout content = (LinearLayout) card.getChildAt(0);
+        LinearLayout line = (LinearLayout) content.getChildAt(0);
+        line.addView(moveButton(R.drawable.ic_m3_arrow_upward, "Move up", index > 0,
+                () -> mover.move(index, index - 1)));
+        line.addView(moveButton(R.drawable.ic_m3_arrow_downward, "Move down", index < count - 1,
+                () -> mover.move(index, index + 1)));
+        return card;
+    }
+
+    private View moveButton(int icon, String label, boolean enabled, Runnable move) {
+        MaterialButton b = new MaterialButton(this.ctx, null, R.attr.materialIconButtonStyle);
+        b.setIconResource(icon);
+        b.setIconTint(ColorStateList.valueOf(color(R.attr.colorOnSurfaceVariant)));
+        b.setContentDescription(label);
+        b.setEnabled(enabled);
+        b.setAlpha(enabled ? 1f : 0.3f);
+        b.setOnClickListener(v -> {
+            move.run();
+            this.root.post(this::render);
+        });
+        return b;
+    }
+
+    /** Runs a row's own handler when it has one, else the model's (a settings preference). */
+    private void press(Row r) {
+        if (r.onPress != null) {
+            r.onPress.run();
+        } else {
+            this.model.press(r.key);
+        }
+    }
+
+    private void toggle(Row r, boolean on) {
+        if (r.onToggle != null) {
+            r.onToggle.on(on);
+        } else {
+            this.model.toggle(r.key, on);
+        }
+    }
+
+    private void pick(Row r, int index) {
+        if (r.onChoose != null) {
+            r.onChoose.on(index);
+        } else {
+            this.model.choose(r.key, index);
         }
     }
 
@@ -189,14 +336,14 @@ final class ExpressiveSettings {
                 sw.setChecked(r.checked);
                 sw.setEnabled(r.enabled);
                 sw.setOnCheckedChangeListener((b, on) -> {
-                    this.settings.toggle(this.page, r.key, on);
+                    toggle(r, on);
                     this.root.post(this::render);
                 });
                 LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-2, -2);
                 sp.leftMargin = dp(12);
                 line.addView(sw, sp);
                 card.setOnClickListener(r.kind == Row.Kind.SWITCH_LINK
-                        ? v -> this.settings.press(this.page, r.key)
+                        ? v -> press(r)
                         : v -> sw.toggle());
                 break;
             }
@@ -241,16 +388,70 @@ final class ExpressiveSettings {
                     line.addView(v, new LinearLayout.LayoutParams(-2, -2));
                 }
                 line.addView(chevron, new LinearLayout.LayoutParams(dp(24), dp(24)));
-                card.setOnClickListener(v -> this.settings.press(this.page, r.key));
+                card.setOnClickListener(v -> press(r));
                 break;
             }
             case ACTION:
                 card.setOnClickListener(v -> {
-                    this.settings.press(this.page, r.key);
+                    press(r);
                     this.root.postDelayed(this::render, 300);
                 });
                 break;
+            case RADIO: {
+                if (r.checked) {
+                    ImageView check = new ImageView(this.ctx);
+                    check.setImageResource(R.drawable.ic_m3_check);
+                    check.setImageTintList(ColorStateList.valueOf(color(R.attr.colorPrimary)));
+                    line.addView(check, new LinearLayout.LayoutParams(dp(24), dp(24)));
+                }
+                card.setOnClickListener(v -> {
+                    press(r);
+                    this.root.post(this::render);
+                });
+                break;
+            }
+            case BUTTON: {
+                texts.removeAllViews();
+                MaterialButton b = new MaterialButton(this.ctx);
+                b.setText(r.title);
+                if (r.destructive) {
+                    b.setBackgroundTintList(ColorStateList.valueOf(color(R.attr.colorError)));
+                    b.setTextColor(color(R.attr.colorOnError));
+                }
+                b.setEnabled(r.enabled);
+                b.setOnClickListener(v -> {
+                    press(r);
+                    this.root.postDelayed(this::render, 300);
+                });
+                texts.addView(b, new LinearLayout.LayoutParams(-1, dp(56)));
+                break;
+            }
+            case IMAGE: {
+                if (r.image != null) {
+                    ImageView image = new ImageView(this.ctx);
+                    image.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(r.image, 0, r.image.length));
+                    image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                    content.addView(image, new LinearLayout.LayoutParams(-1, dp((float) r.imageHeight)));
+                }
+                break;
+            }
+            case CODE: {
+                TextView code = text(r.value, R.attr.textAppearanceDisplaySmall, R.attr.colorOnSurface);
+                code.setGravity(Gravity.CENTER);
+                code.setLetterSpacing(0.15f);
+                LinearLayout.LayoutParams cp2 = new LinearLayout.LayoutParams(-1, -2);
+                cp2.topMargin = dp(8);
+                content.addView(code, cp2);
+                break;
+            }
+            case TEXT:
             case INFO:
+                if (r.value != null && !r.value.isEmpty()) {
+                    TextView v = text(r.value, R.attr.textAppearanceLabelLarge, R.attr.colorOnSurfaceVariant);
+                    v.setPadding(dp(12), 0, 0, 0);
+                    line.addView(v, new LinearLayout.LayoutParams(-2, -2));
+                }
+                break;
             default:
                 break;
         }
@@ -294,7 +495,7 @@ final class ExpressiveSettings {
             b.setPadding(dp(12), 0, 0, 0);
             b.setOnClickListener(v -> {
                 dialog.dismiss();
-                this.settings.choose(this.page, r.key, which);
+                pick(r, which);
                 this.root.post(this::render);
             });
             list.addView(b, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
@@ -354,7 +555,7 @@ final class ExpressiveSettings {
             b.setText(r.entries[i]);
             final int index = i;
             b.setOnClickListener(v -> {
-                this.settings.choose(this.page, r.key, index);
+                pick(r, index);
                 this.root.post(this::render);
             });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);

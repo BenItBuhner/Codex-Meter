@@ -65,27 +65,27 @@ final class PriorityPage {
         }
     }
 
-    /** One line of a grouped list: what it is on the left, the short fact on the right. */
-    static final class Note {
-        final UsageProvider provider;
-        final String title;
-        final String value;
-        /** The kept event behind it, for dismissing ({@link ProviderAlerts#dismiss}); null when it can't be. */
-        final String eventKey;
-
-        Note(UsageProvider provider, String title, String value) {
-            this(provider, title, value, null);
+    /**
+     * Dismisses one row of a dismissible list (Recent activity or New models). Every design calls
+     * this, so a swipe, the hold menu and the accessibility action all clear the same thing.
+     */
+    static void dismiss(Context context, PriorityNote note) {
+        if (note != null) {
+            apply(context, PriorityNote.toDismiss(java.util.Collections.singletonList(note)));
         }
+    }
 
-        Note(UsageProvider provider, String title, String value, String eventKey) {
-            this.provider = provider;
-            this.title = title;
-            this.value = value;
-            this.eventKey = eventKey;
+    /** Dismisses every dismissible row of one list, and only that list. */
+    static void dismissAll(Context context, List<PriorityNote> notes) {
+        apply(context, PriorityNote.toDismiss(notes));
+    }
+
+    private static void apply(Context context, PriorityNote.Dismissal d) {
+        for (String key : d.eventKeys) {
+            ProviderAlerts.dismiss(context, key);
         }
-
-        boolean dismissible() {
-            return eventKey != null;
+        if (!d.models.isEmpty()) {
+            ModelDiscoveryStore.dismiss(context, d.models);
         }
     }
 
@@ -99,15 +99,16 @@ final class PriorityPage {
     final List<PriorityView.Item> alerts = new ArrayList<>();
 
     /** The last day's surprise refills and saved resets added or used, newest first. Dismissible. */
-    final List<Note> news = new ArrayList<>();
+    final List<PriorityNote> news = new ArrayList<>();
     /** Saved resets of a provider that has a used-up limit they can refill. */
-    final List<Note> ready = new ArrayList<>();
+    final List<PriorityNote> ready = new ArrayList<>();
     /** Monthly limits renewing and saved resets expiring within three days, soonest first. */
-    final List<Note> comingUp = new ArrayList<>();
+    final List<PriorityNote> comingUp = new ArrayList<>();
+    /** Models newly listed for the connected providers. Dismissible, one row at a time or all. */
+    final List<PriorityNote> models = new ArrayList<>();
 
     static final String NEWS = "Recent activity";
-    /** Under {@link #NEWS}: how to clear it. */
-    static final String NEWS_HINT = "Swipe a row left, or touch and hold it, to dismiss it.";
+    static final String NEW_MODELS = "New models";
     static final String READY = "Saved resets you can use";
     static final String COMING_UP = "Coming up";
 
@@ -119,12 +120,10 @@ final class PriorityPage {
     static final String ALL_CLEAR = "Nothing needs attention right now.";
     /** The heading over {@link #usedUp}. */
     static final String USED_UP = "Used up";
-    /** Under the used-up limits: the always-on alert, see {@link UsageRefillAlerts}. */
-    static final String USED_UP_NOTE = "You'll get a notification when each one is back.";
 
     boolean allClear() {
         return watch.isEmpty() && usedUp.isEmpty() && alerts.isEmpty() && news.isEmpty() && ready.isEmpty()
-                && comingUp.isEmpty();
+                && comingUp.isEmpty() && models.isEmpty();
     }
 
     static PriorityPage build(MainActivity a) {
@@ -156,6 +155,9 @@ final class PriorityPage {
         Collections.sort(page.usedUp, (x, y) -> Long.compare(PriorityView.resetOrder(x.resetAt()),
                 PriorityView.resetOrder(y.resetAt())));
         addNotes(a, page, limits, now);
+        if (PriorityPrefs.isViewEnabled(a)) {
+            addModels(page, ModelDiscoveryStore.cardItems(a));
+        }
         List<PriorityView.Item> items = a.priorityItems();
         for (PriorityView.Item item : items) {
             if (item.kind == PriorityView.Kind.DOWNTIME || item.kind == PriorityView.Kind.PERFORMANCE_WARNING) {
@@ -169,7 +171,7 @@ final class PriorityPage {
         for (ProviderEvents.Event e : ProviderAlerts.recent(a)) {
             UsageProvider p = UsageProvider.fromId(e.provider);
             if (p != null && p.id.equals(e.provider) && page.providers.contains(p) && !e.line.isEmpty()) {
-                page.news.add(new Note(p, p.displayName + " · " + e.line, ProviderEvents.ago(e.at, now), e.key()));
+                page.news.add(new PriorityNote(p, p.displayName + " · " + e.line, ProviderEvents.ago(e.at, now), e.key()));
             }
         }
         // Soonest first: each entry is {when, note}.
@@ -180,7 +182,7 @@ final class PriorityPage {
             if (monthly && l.left > 0 && !renewing.contains(l.provider)
                     && ProviderEvents.renewsSoon(l.window, l.snapshot.fetchedAtMillis, now)) {
                 renewing.add(l.provider);
-                soon.add(new Object[] {l.resetAt(), new Note(l.provider, l.provider.displayName + " · Monthly limit",
+                soon.add(new Object[] {l.resetAt(), new PriorityNote(l.provider, l.provider.displayName + " · Monthly limit",
                         "Renews in " + ProviderEvents.duration(l.resetAt() - now) + " · " + l.left + "% left")});
             }
         }
@@ -200,18 +202,26 @@ final class PriorityPage {
                 usedUp |= l.provider == p;
             }
             if (usedUp && (saved == null || saved.usableGrant(now) != null)) {
-                page.ready.add(new Note(p, title, "Ready to use"));
+                page.ready.add(new PriorityNote(p, title, "Ready to use"));
             }
             long expiry = credits.nextExpiryMillis(now);
             if (expiry > now && expiry - now <= ProviderEvents.EXPIRY_SOON_MS) {
-                soon.add(new Object[] {expiry, new Note(p, title,
+                soon.add(new Object[] {expiry, new PriorityNote(p, title,
                         (available == 1 ? "Expires in " : "Next expires in ") + ProviderEvents.duration(expiry - now))});
             }
         }
         Collections.sort(soon, (x, y) -> Long.compare((Long) x[0], (Long) y[0]));
         for (Object[] entry : soon) {
-            page.comingUp.add((Note) entry[1]);
+            page.comingUp.add((PriorityNote) entry[1]);
         }
+    }
+
+    /** New models as dismissible rows: the model's name, then the provider it was matched for. */
+    static void addModels(PriorityPage page, List<ModelDiscovery.Entry> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        page.models.addAll(PriorityNote.fromModels(items));
     }
 
     static UsageSnapshot snapshot(Context context, UsageProvider p) {
