@@ -6,7 +6,7 @@ plugins {
 }
 
 val glasse = "9ccf79e427"
-val skiko = "0.156.0"
+val skiko = "0.156.1"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
