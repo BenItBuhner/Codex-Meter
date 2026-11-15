@@ -15,6 +15,21 @@ public sealed class DpapiProtector : IDataProtector
     public byte[] Unprotect(byte[] data) => ProtectedData.Unprotect(data, Entropy, DataProtectionScope.CurrentUser);
 }
 
+/// <summary>The version this build was stamped with: "2.9.0-alpha.27" (no build metadata).</summary>
+public static class AppVersion
+{
+    public static string Current { get; } = Read();
+
+    private static string Read()
+    {
+        var version = typeof(AppVersion).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "0.0.0";
+        var plus = version.IndexOf('+');
+        return plus >= 0 ? version[..plus] : version;
+    }
+}
+
 public static class AppPaths
 {
     public static string DataDirectory { get; } =
@@ -51,10 +66,15 @@ public sealed class Notifier
 {
     private bool registered;
 
+    /// <summary>A notification (or its button) was clicked; the argument is its action, like "update".</summary>
+    public event Action<string?>? Invoked;
+
     public void Register()
     {
         try
         {
+            AppNotificationManager.Default.NotificationInvoked += (_, args) =>
+                Invoked?.Invoke(args.Arguments.TryGetValue("action", out var action) ? action : null);
             AppNotificationManager.Default.Register();
             registered = true;
         }
@@ -64,15 +84,17 @@ public sealed class Notifier
         }
     }
 
-    public void Show(UsageAlert alert)
+    public void Show(UsageAlert alert, string? action = null)
     {
         if (!registered) return;
         try
         {
-            var notification = new AppNotificationBuilder()
+            var builder = new AppNotificationBuilder()
+                .AddArgument("action", action ?? "open")
                 .AddText(alert.Title)
-                .AddText(alert.Body)
-                .BuildNotification();
+                .AddText(alert.Body);
+            if (action == "update") builder.AddButton(new AppNotificationButton("Update now").AddArgument("action", "update"));
+            var notification = builder.BuildNotification();
             AppNotificationManager.Default.Show(notification);
         }
         catch (Exception error)

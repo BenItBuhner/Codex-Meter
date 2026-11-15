@@ -2,6 +2,7 @@ using System.Diagnostics;
 using CodexMeter.App.Services;
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Services;
+using CodexMeter.Core.Updates;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
@@ -48,10 +49,20 @@ public partial class App : Application
             await State.InitializeAsync();
             ApplyThemeOverride();
 
+            CreateUpdater();
             window = new MainWindow(State);
             notifier = new Notifier();
-            if (!State.IsDemo) notifier.Register();
+            notifier.Invoked += action => window.DispatcherQueue.TryEnqueue(() => OnNotificationInvoked(action));
+            if (!State.IsDemo || options.UpdateFeed is not null) notifier.Register();
             State.Alerts += alerts => { foreach (var alert in alerts) notifier.Show(alert); };
+            if (State.Updater is { } updater)
+            {
+                updater.UpdateFound += release => notifier.Show(new UsageAlert(UsageAlertKind.Update,
+                    $"Codex Meter {release.Version.Normalized} is available",
+                    "Install it from Settings → Updates. The download is checked against the release's SHA-256 checksums.",
+                    "update:" + release.Version.Normalized), "update");
+                updater.QuitRequested += Quit;
+            }
 
             if (options.ScreenshotDirectory is null)
             {
@@ -81,6 +92,35 @@ public partial class App : Application
             ExitCode = 2;
             Exit();
         }
+    }
+
+    /// <summary>
+    /// The in-app updater. The version is the one the release build was stamped with
+    /// (v2.9.0-alpha.27 -> 2.9.0-alpha.27). <c>--update-feed</c> points it at a loopback test feed
+    /// (CI uses it to show the whole flow); demo mode otherwise never checks on its own.
+    /// </summary>
+    private void CreateUpdater()
+    {
+        try
+        {
+            var client = new UpdateClient($"codex-meter-windows-updater/{AppVersion.Current}", testFeed: options.UpdateFeed);
+            State.Updater = new DesktopUpdater(client, new WindowsUpdateInstaller(), options.InstalledVersionOverride ?? AppVersion.Current,
+                () => State.Settings.Current.Updates, change => State.Settings.Update(s => s with { Updates = change(s.Updates) }));
+            if (State.IsDemo && options.UpdateFeed is null)
+                State.Settings.Update(s => s with { Updates = s.Updates with { AutoCheck = false } });
+        }
+        catch (Exception error)
+        {
+            Log("Updater unavailable: " + error.Message);
+        }
+    }
+
+    private void OnNotificationInvoked(string? action)
+    {
+        ShowMainWindow();
+        if (action != "update") return;
+        window?.Navigate("settings");
+        if (State.Updater is { Status: UpdateStatus.Available } updater) _ = updater.DownloadAndInstallAsync();
     }
 
     /// <summary>Services connected in demo mode; the rest show as available to add.</summary>
@@ -115,7 +155,10 @@ public partial class App : Application
         Directory.CreateDirectory(data);
         var live = new ProviderContext(ProviderHttp.CreateClient(), new FileTokenStore(data, new DpapiProtector()),
             new ProviderCacheStore(data)) { Log = (category, message) => Debug.WriteLine($"[{category}] {message}") };
-        return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(data, "settings.json")), new UsageHistoryStore(data));
+        return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(data, "settings.json")), new UsageHistoryStore(data))
+        {
+            Models = new ModelDiscoveryStore(data, ProviderHttp.CreateClient()),
+        };
     }
 
     private void ApplyThemeOverride()

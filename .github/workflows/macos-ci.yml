@@ -160,7 +160,8 @@ jobs:
           version_args=""
           if [[ -n "$RELEASE_TAG" ]]; then
             short="${RELEASE_TAG#v}"
-            version_args="MARKETING_VERSION=${short%%-*}"
+            # The full version (with -alpha.N) goes in CodexMeterReleaseVersion for the updater.
+            version_args="MARKETING_VERSION=${short%%-*} CODEX_METER_RELEASE_VERSION=${short}"
           fi
           # shellcheck disable=SC2086
           xcodebuild build \

@@ -1,6 +1,7 @@
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
+using CodexMeter.Core.Updates;
 using CodexMeter.Linux.Services;
 using CodexMeter.Linux.Views;
 using CodexMeter.Linux.Widgets;
@@ -41,6 +42,12 @@ public sealed class App
         application.SetAccelsForAction("app.quit", ["<Control>q"]);
         application.SetAccelsForAction("app.refresh", ["<Control>r", "F5"]);
         AddAction("show", () => window?.ShowAndActivate());
+        AddAction("install-update", () =>
+        {
+            window?.ShowAndActivate();
+            window?.Navigate("settings");
+            if (State?.Updater is { Status: UpdateStatus.Available } updater) _ = updater.DownloadAndInstallAsync();
+        });
     }
 
     public static App? Current { get; private set; }
@@ -91,9 +98,18 @@ public sealed class App
             ApplyTheme();
             State.Settings.Changed += (_, _) => ApplyTheme();
 
+            CreateUpdater();
             window = new MainWindow(application, State);
-            var notifier = new Notifier(application, enabled: !State.IsDemo);
+            var notifier = new Notifier(application, enabled: !State.IsDemo || options.UpdateFeed is not null);
             State.Alerts += alerts => { foreach (var alert in alerts) notifier.Show(alert); };
+            if (State.Updater is { } updater)
+            {
+                updater.UpdateFound += release => notifier.Show(new UsageAlert(UsageAlertKind.Update,
+                    $"Codex Meter {release.Version.Normalized} is available",
+                    "Install it from Settings → Updates. The download is checked against the release's SHA-256 checksums.",
+                    "update"));
+                updater.QuitRequested += Quit;
+            }
 
             if (options.ScreenshotDirectory is null)
             {
@@ -150,6 +166,25 @@ public sealed class App
         else if (!keep && held) { application.Release(); held = false; }
     }
 
+    /// <summary>The in-app updater; demo mode never checks on its own unless given a test feed.</summary>
+    private void CreateUpdater()
+    {
+        try
+        {
+            var version = SettingsPage.VersionText().Replace("Version ", "");
+            version = version.Contains(' ') ? version[..version.IndexOf(' ')] : version;
+            var client = new UpdateClient($"codex-meter-linux-updater/{version}", testFeed: options.UpdateFeed);
+            State!.Updater = new DesktopUpdater(client, new LinuxUpdateInstaller(), options.InstalledVersionOverride ?? version,
+                () => State.Settings.Current.Updates, change => State.Settings.Update(s => s with { Updates = change(s.Updates) }));
+            if (State.IsDemo && options.UpdateFeed is null)
+                State.Settings.Update(s => s with { Updates = s.Updates with { AutoCheck = false } });
+        }
+        catch (Exception error)
+        {
+            AppLog.Write("Updater unavailable: " + error.Message);
+        }
+    }
+
     private static readonly string[] DemoConnected = ["codex", "claude_code", "cursor", "copilot", "kimi", "zai"];
 
     private async Task<AppState> CreateStateAsync()
@@ -185,7 +220,10 @@ public sealed class App
         var live = new ProviderContext(CreateHttpClient(), new FileTokenStore(AppPaths.DataDirectory, protector),
             new ProviderCacheStore(AppPaths.CacheDirectory)) { Log = (category, message) => AppLog.Write($"[{category}] {message}") };
         return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(AppPaths.ConfigDirectory, "settings.json")),
-            new UsageHistoryStore(AppPaths.DataDirectory));
+            new UsageHistoryStore(AppPaths.DataDirectory))
+        {
+            Models = new ModelDiscoveryStore(AppPaths.CacheDirectory, CreateHttpClient()),
+        };
     }
 
     private static HttpClient CreateHttpClient()

@@ -25,6 +25,7 @@ public sealed class SettingsPage : PageBase
     // Rows go through an observable ItemsSource: the expander doesn't notice later changes to Items.
     private readonly System.Collections.ObjectModel.ObservableCollection<SettingsCard> sidebarRows = [];
     private bool sidebarDirty;
+    private readonly UpdatesSection? updates;
 
     public SettingsPage() : base(1000)
     {
@@ -36,6 +37,14 @@ public sealed class SettingsPage : PageBase
             Combo("ThemeBox", ["Use system setting", "Light", "Dark"], (int)s.Theme, i => Update(x => x with { Theme = (AppTheme)i }))));
         Body.Children.Add(Card("Window material", "Mica tints the window with your desktop wallpaper.", "",
             Combo("BackdropBox", ["Mica", "Mica Alt", "Acrylic"], (int)s.Backdrop, i => Update(x => x with { Backdrop = (BackdropKind)i }))));
+
+        if (State.Updater is { } updater)
+        {
+            // First, so a pending update is the first thing Settings shows.
+            Body.Children.Add(SectionHeader("Updates"));
+            updates = new UpdatesSection(updater, () => XamlRoot, f => Update(x => x with { Updates = f(x.Updates) }), s.Updates);
+            foreach (var element in updates.Elements) Body.Children.Add(element);
+        }
 
         Body.Children.Add(SectionHeader("Sidebar"));
         sidebar = new SettingsExpander
@@ -49,6 +58,8 @@ public sealed class SettingsPage : PageBase
         BuildSidebar();
         sidebar.ItemsSource = sidebarRows;
         Body.Children.Add(sidebar);
+        Body.Children.Add(Card("Priority page", "First in the sidebar: limits to watch, used-up limits, what's coming up and new models, across every connected service.", "\uE734",
+            Toggle("PrioritySwitch", s.ShowPriority, on => Update(x => x with { ShowPriority = on }))));
 
         Body.Children.Add(SectionHeader("Dashboard"));
         Body.Children.Add(Card("Show usage as", "The big number on each card.", "",
@@ -91,7 +102,8 @@ public sealed class SettingsPage : PageBase
         };
         Body.Children.Add(Card("Recorded history", "Saved on this PC each time usage refreshes, and cleared when you sign out.", "", clear));
 
-        if (State.Supports(UsageProvider.Codex))
+        // Only for a connected Codex account, as on Android: the rules do nothing without one.
+        if (State.Supports(UsageProvider.Codex) && State[UsageProvider.Codex].SignedIn)
         {
             Body.Children.Add(SectionHeader("Codex reset credits"));
             var leads = CreditExpiryAutoApply.LeadMinuteOptions;
@@ -135,7 +147,7 @@ public sealed class SettingsPage : PageBase
             Body.Children.Add(low);
         }
 
-        Body.Children.Add(SectionHeader("Updates and alerts"));
+        Body.Children.Add(SectionHeader("Refresh and alerts"));
         Body.Children.Add(Card("Check usage every", "While Codex Meter runs. Some services are checked less often because they limit polling.", "",
             Combo("RefreshBox", ["5 minutes", "15 minutes", "30 minutes", "1 hour"], Math.Max(0, Array.IndexOf(AppSettings.RefreshChoices, s.RefreshMinutes)),
                 i => Update(x => x with { RefreshMinutes = AppSettings.RefreshChoices[i] }))));
@@ -155,6 +167,12 @@ public sealed class SettingsPage : PageBase
                 i => Update(x => x with { LowThreshold = Thresholds[i] })),
         });
         Body.Children.Add(lowAlert);
+        Body.Children.Add(Card("Notify when usage is back", "When a limit you used up resets, so you know you can work again.", "\uE8FB",
+            Toggle("UsageBackSwitch", s.NotifyUsageBack, on => Update(x => x with { NotifyUsageBack = on }))));
+        Body.Children.Add(Card("Surprise limit refills", "When a limit refills well before its reset time.", "\uE945",
+            Toggle("SurpriseRefillSwitch", s.NotifySurpriseRefills, on => Update(x => x with { NotifySurpriseRefills = on }))));
+        Body.Children.Add(Card("New models", "When OpenRouter lists a new model from a maker you're signed in to (OpenAI for Codex, Anthropic for Claude Code, ...). Tools that offer many makers' models, like Cursor or Copilot, add none.", "\uE8D2",
+            Toggle("NewModelsSwitch", s.NotifyNewModels, on => Update(x => x with { NotifyNewModels = on }))));
 
         Body.Children.Add(SectionHeader("Live usage"));
         ToggleSwitch closeToTray = null!;
@@ -203,6 +221,7 @@ public sealed class SettingsPage : PageBase
 
     protected override void Attach()
     {
+        updates?.Attach();
         State.ProvidersChanged += OnProvidersChanged;
         State.ProviderChanged += OnProviderChanged;
         BuildSidebar();
@@ -210,6 +229,7 @@ public sealed class SettingsPage : PageBase
 
     protected override void Detach()
     {
+        updates?.Detach();
         State.ProvidersChanged -= OnProvidersChanged;
         State.ProviderChanged -= OnProviderChanged;
     }

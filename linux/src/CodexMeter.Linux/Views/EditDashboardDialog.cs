@@ -22,7 +22,7 @@ public static class EditDashboardDialog
     {
         var entry = state[provider];
         var settings = state.Settings.Current;
-        var available = DashboardSections.Available(entry.Usage, state.HasResetCredits(provider));
+        var available = DashboardSections.Available(entry.Usage, state.HasResetCredits(provider), providerId: provider.Id);
         var hidden = settings.HiddenSectionsFor(provider.Id).ToHashSet();
         var sections = DashboardSections.ResolveOrder(settings.SectionOrderFor(provider.Id), available)
             .Select(key => new Section(key, DashboardSections.Label(key, entry.Usage)) { Visible = !hidden.Contains(key) })

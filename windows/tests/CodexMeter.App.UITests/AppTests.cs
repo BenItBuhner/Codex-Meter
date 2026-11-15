@@ -11,7 +11,7 @@ public class AppTests
     {
         using var app = new AppSession();
         Assert.Equal("Codex Meter", app.Window.Title);
-        foreach (var id in new[] { "Nav_codex", "Nav_claude_code", "Nav_cursor", "Nav_copilot", "Nav_kimi", "Nav_zai", "Nav_add", "Nav_accounts", "AppTitleBar" })
+        foreach (var id in new[] { "Nav_codex", "Nav_claude_code", "Nav_cursor", "Nav_copilot", "Nav_kimi", "Nav_zai", "Nav_priority", "Nav_add", "Nav_accounts", "AppTitleBar" })
             Assert.NotNull(app.Find(id));
         Assert.Equal("Codex", app.TextOf("DashboardTitle"));
     }

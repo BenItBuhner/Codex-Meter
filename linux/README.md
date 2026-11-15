@@ -27,6 +27,13 @@ KDE Plasma, Cinnamon, Xfce and other desktops.
 - **Tray icon** (StatusNotifierItem, so KDE, GNOME with the AppIndicator extension, Cinnamon, Xfce and
   others): shows your remaining percentage (turning amber, then red), a tooltip with every provider,
   and a menu to open, refresh or quit. Desktop notifications announce resets and low allowance.
+- **In-app updates** (Settings → Updates): Stable or Alpha channel, automatic checks and a
+  notification once per version, like Android. The download is checked against the release's
+  `SHA256SUMS-linux-<arch>.txt` first. The AppImage replaces itself in place (an atomic rename in its
+  own folder) and reopens; the .deb install goes through `pkexec apt-get install`, or opens in your
+  software center when pkexec isn't there. Flatpak and source builds show the release page instead.
+- **Priority**, **estimated value** (priced per provider), **"usage is back"** and surprise-refill
+  notifications, the same as the Windows app.
 
 Credentials are encrypted with AES-256-GCM. The key lives in your login keyring through the Secret
 Service (GNOME Keyring, KWallet); if no keyring is available it falls back to a `0600` file. Data goes
