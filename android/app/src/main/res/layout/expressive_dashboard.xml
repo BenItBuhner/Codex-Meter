@@ -65,18 +65,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="12dp"
+                android:layout_marginBottom="24dp"
                 android:textAppearance="?attr/textAppearanceDisplayMediumEmphasized"
                 android:textColor="?attr/colorOnSurface" />
-
-            <TextView
-                android:id="@+id/expressive_subtitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="4dp"
-                android:layout_marginBottom="24dp"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                android:textColor="?attr/colorOnSurfaceVariant" />
 
             <LinearLayout
                 android:id="@+id/expressive_cards"

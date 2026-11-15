@@ -51,11 +51,6 @@ public final class GlassModel {
         /** METER: the pace line under the bar, label and value ("At this pace", "lasts 3d 4h"); null for none. */
         public String paceLabel;
         public String pace;
-        /** HISTORY: bar heights, 0 to 1, oldest first. */
-        public double[] bars;
-        /** HISTORY: labels under the first and last bar. */
-        public String startLabel;
-        public String endLabel;
         /** UPDATE and SIGN_IN: the button. */
         public String button;
         public Runnable onPress;
@@ -65,7 +60,7 @@ public final class GlassModel {
         public double progress = -1;
         /** UPDATE: the summary is a warning. */
         public boolean warning;
-        /** CHART: the chart. */
+        /** CHART, and HISTORY (the dashboard's Usage history card): the burn chart. */
         public Chart chart;
         /** STATS: label and value pairs. */
         public final List<String[]> stats = new ArrayList<>();
@@ -149,10 +144,12 @@ public final class GlassModel {
         }
     }
 
-    /** A provider's dashboard: its cards in order, and the line under the title. */
+    /**
+     * A provider's dashboard: its title and cards in order. No design draws a line under the title
+     * (no "Updated 2m ago", no provider list): the large title stands alone.
+     */
     public static final class Dashboard {
         public String title = "";
-        public String subtitle;
         public final List<Card> cards = new ArrayList<>();
     }
 

@@ -137,6 +137,10 @@ public final class WidgetConfigActivity extends AppCompatActivity
             glass.start(state);
             return;
         }
+        if (AppPreferences.isMaterialExpressiveDesign(this) && ExpressivePages.showPage(this,
+                GlassScreens.PREFIX + "widget:" + this.appWidgetId, getIntent())) {
+            return;
+        }
         this.dark = Ui.isDark(this);
         try {
             Bundle options = AppWidgetManager.getInstance(this).getAppWidgetOptions(this.appWidgetId);

@@ -37,6 +37,8 @@ import java.util.concurrent.Executors;
 public final class SignInActivity extends AppCompatActivity implements GlassApp.Host {
     /** Liquid Glass: this page drawn by Glassé's kit ({@link #glassPage}), or null for One UI. */
     private GlassApp glass;
+    /** Material 3 Expressive: {@link #glassPage} drawn with Material views, or null. */
+    private ExpressivePages expressive;
 
     @Override
     public GlassApp glass() {
@@ -124,9 +126,10 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
         this.entry = ProviderCatalog.get(provider);
         this.client = ProviderClients.get(provider);
         this.dark = Ui.isDark(this);
+        boolean expressiveDesign = AppPreferences.isMaterialExpressiveDesign(this);
         if (AppPreferences.isLiquidGlassDesign(this)) {
             glass = new GlassApp(this, super::dispatchTouchEvent, GlassScreens.PREFIX + "signin:" + provider.id);
-        } else {
+        } else if (!expressiveDesign) {
             this.content = Ui.installPage(this, provider.displayName, true).content;
             findViewById(R.id.dashboard_refresh).setEnabled(false);
         }
@@ -141,6 +144,13 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
         }
         if (glass != null) {
             glass.start(state);
+        }
+        if (expressiveDesign) {
+            // Material 3 Expressive draws the same page as Liquid Glass ({@link #glassPage}).
+            expressive = ExpressivePages.attach(this, GlassScreens.PREFIX + "signin:" + provider.id, getIntent());
+            if (expressive == null) {
+                this.content = Ui.installPage(this, provider.displayName, true).content;
+            }
         }
         render();
     }
@@ -243,6 +253,10 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
     private void render() {
         if (glass != null) {
             glass.changed();
+            return;
+        }
+        if (expressive != null) {
+            expressive.changed();
             return;
         }
         content.removeAllViews();

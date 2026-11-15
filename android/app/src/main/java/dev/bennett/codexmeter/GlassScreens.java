@@ -65,12 +65,32 @@ final class GlassScreens {
         }
     }
 
+    /**
+     * What a page needs from whatever shows it: Liquid Glass ({@link GlassApp}) or Material 3
+     * Expressive ({@link ExpressivePages}), so both designs run the same page code.
+     */
+    interface Host {
+        /** Draw again from the app's current state. */
+        void changed();
+
+        /** Open page {@code id} on top ({@code intent} is what would open its activity, when known). */
+        void openPage(String id, Intent intent);
+
+        /** Start {@code intent}, as a page of this design when it opens one. */
+        void start(Intent intent);
+
+        /** Close the page on top (one that finished its job, like a saved widget). */
+        void pop();
+
+        void post(Runnable action);
+    }
+
     final AppCompatActivity activity;
-    final GlassApp app;
+    final Host app;
     final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Map<String, Screen> cache = new HashMap<>();
 
-    GlassScreens(AppCompatActivity activity, GlassApp app) {
+    GlassScreens(AppCompatActivity activity, Host app) {
         this.activity = activity;
         this.app = app;
     }
@@ -117,6 +137,40 @@ final class GlassScreens {
                     AppWidgetManager.EXTRA_APPWIDGET_ID, 0);
         }
         return null;
+    }
+
+    /** The intent that opens page {@code id}'s activity: the reverse of {@link #pageFor}. */
+    static Intent intentFor(Context context, String id) {
+        if (id == null || !id.startsWith(PREFIX)) {
+            return null;
+        }
+        String[] parts = id.substring(PREFIX.length()).split(":", 2);
+        String arg = parts.length > 1 ? parts[1] : "";
+        switch (parts[0]) {
+            case "tabs":
+                return new Intent(context, ProvidersActivity.class);
+            case "lock_widgets":
+                return new Intent(context, LockWidgetsActivity.class);
+            case "about":
+                return new Intent(context, AboutActivity.class);
+            case "history":
+                return new Intent(context, UsageHistoryActivity.class)
+                        .putExtra(UsageHistoryActivity.EXTRA_PROVIDER, arg);
+            case "reset":
+                return ResetCreditActivity.intent(context, UsageProvider.fromId(arg));
+            case "reorder":
+                return new Intent(context, DashboardReorderActivity.class)
+                        .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, arg);
+            case "update":
+                return new Intent(context, UpdateActivity.class);
+            case "releases":
+                return new Intent(context, ReleaseHistoryActivity.class);
+            case "lock_widget":
+                return new Intent(context, LockWidgetConfigActivity.class)
+                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, parseInt(arg));
+            default:
+                return null;
+        }
     }
 
     private static String providerOf(Intent intent, String extra) {

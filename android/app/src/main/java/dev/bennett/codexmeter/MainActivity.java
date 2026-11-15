@@ -885,43 +885,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     /**
-     * The Priority view's "New models" card, after the meters: one grouped, dismissible list of
-     * models newly listed for the connected providers. Nothing when none are relevant.
-     */
-    private void addNewModelsCard() {
-        if (!PriorityPrefs.isViewEnabled(this)) {
-            return;
-        }
-        List<ModelDiscovery.Entry> items = ModelDiscoveryStore.cardItems(this);
-        if (items.isEmpty()) {
-            return;
-        }
-        LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, "New models", 17, Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
-        for (ModelDiscovery.Entry e : items) {
-            TextView row = Ui.text(this, e.label(), 14, Ui.mainText(this.dark));
-            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-            rp.setMargins(0, Ui.dp(this, 8), 0, 0);
-            card.addView(row, rp);
-        }
-        TextView note = Ui.text(this, ModelDiscovery.cardNote(items), 13,
-                Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
-        np.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 12));
-        card.addView(note, np);
-        Button dismiss = Ui.nativePrimaryButton(this, "Dismiss");
-        dismiss.setOnClickListener(view -> {
-            ModelDiscoveryStore.dismiss(this, items);
-            rebuild();
-        });
-        card.addView(dismiss, new LinearLayout.LayoutParams(-1, Ui.dp(this, 52)));
-        this.content.addView(card);
-        Ui.addSpacer(this.content, 20);
-    }
-
-    /**
      * Asks the selected provider's official status feed again when {@link StatusPollPolicy}
      * allows (about every 5 minutes while the dashboard is open), and redraws if it changed.
      */
@@ -1076,7 +1039,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         addUsedUpCard(page);
         addNotesCard(PriorityPage.READY, page.ready);
         addNotesCard(PriorityPage.COMING_UP, page.comingUp);
-        addNewModelsCard();
+        addNotesCard(PriorityPage.NEW_MODELS, page.models, page.modelsNote);
     }
 
     /**
@@ -1113,8 +1076,17 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         Ui.addSpacer(this.content, 20);
     }
 
-    /** A titled list on Priority, drawn like the used-up card. Nothing when the list is empty. */
-    private void addNotesCard(String heading, List<PriorityPage.Note> notes) {
+    /**
+     * A titled list on Priority, drawn like the used-up card. Nothing when the list is empty.
+     * Dismissible rows (Recent activity, New models) work the same in every list and every design:
+     * swipe a row away or touch and hold it for Dismiss, and Dismiss all when the list has more
+     * than one; see {@link PriorityPage#dismiss}.
+     */
+    private void addNotesCard(String heading, List<PriorityNote> notes) {
+        addNotesCard(heading, notes, null);
+    }
+
+    private void addNotesCard(String heading, List<PriorityNote> notes, String note) {
         if (notes.isEmpty()) {
             return;
         }
@@ -1122,40 +1094,46 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         TextView title = Ui.text(this, heading, 17, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         card.addView(title);
-        int dismissible = 0;
-        for (PriorityPage.Note n : notes) {
+        int dismissible = PriorityNote.dismissible(notes);
+        for (PriorityNote n : notes) {
+            View row;
             if (n.dismissible()) {
-                dismissible++;
-            }
-        }
-        for (PriorityPage.Note n : notes) {
-            LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
-            row.addView(Ui.text(this, n.title, 14, Ui.mainText(this.dark)),
-                    new LinearLayout.LayoutParams(0, -2, 1.0f));
-            TextView value = Ui.text(this, n.value, 14, Ui.secondaryText(this.dark));
-            value.setGravity(Gravity.END);
-            LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, -2);
-            vp.setMargins(Ui.dp(this, 12), 0, 0, 0);
-            row.addView(value, vp);
-            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-            rp.setMargins(0, Ui.dp(this, n.dismissible() ? 4 : 10), 0, 0);
-            if (n.dismissible()) {
+                // two lines, like Liquid Glass and Material 3 Expressive: what it is, then its fact
+                String[] lines = n.lines();
+                LinearLayout two = new LinearLayout(this);
+                two.setOrientation(LinearLayout.VERTICAL);
+                two.addView(Ui.text(this, lines[0], 15, Ui.mainText(this.dark)));
+                two.addView(Ui.text(this, lines[1], 13, Ui.secondaryText(this.dark)));
                 // a taller touch target, so the swipe and the hold are easy to start
-                row.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
-                row.setMinimumHeight(Ui.dp(this, 40));
-                String key = n.eventKey;
-                SwipeDismiss.attach(row, () -> {
-                    ProviderAlerts.dismiss(this, key);
+                two.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+                two.setMinimumHeight(Ui.dp(this, 48));
+                two.setBackgroundColor(Ui.cardColor(this, this.dark));
+                SwipeDismiss.attach(two, () -> {
+                    PriorityPage.dismiss(this, n);
                     rebuild();
                 }, dismissible > 1 ? () -> {
-                    ProviderAlerts.dismissAll(this);
+                    PriorityPage.dismissAll(this, notes);
                     rebuild();
                 } : null);
+                row = two;
+            } else {
+                LinearLayout one = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+                one.addView(Ui.text(this, n.title, 14, Ui.mainText(this.dark)),
+                        new LinearLayout.LayoutParams(0, -2, 1.0f));
+                TextView value = Ui.text(this, n.value, 14, Ui.secondaryText(this.dark));
+                value.setGravity(Gravity.END);
+                LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, -2);
+                vp.setMargins(Ui.dp(this, 12), 0, 0, 0);
+                one.addView(value, vp);
+                row = one;
             }
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+            rp.setMargins(0, Ui.dp(this, n.dismissible() ? 2 : 10), 0, 0);
             card.addView(row, rp);
         }
-        if (dismissible > 0) {
-            TextView hint = Ui.text(this, PriorityPage.NEWS_HINT, 12, Ui.secondaryText(this.dark));
+        String foot = PriorityNote.footnote(notes, note);
+        if (foot != null) {
+            TextView hint = Ui.text(this, foot, 12, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
             hp.setMargins(0, Ui.dp(this, 10), 0, 0);
             card.addView(hint, hp);

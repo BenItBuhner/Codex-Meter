@@ -34,6 +34,8 @@ final class FakeSource implements GlassSource {
     }
     /** only the first card, so the dashboard is shorter than the screen */
     boolean shortDashboard;
+    /** only the Usage history card, first on the dashboard */
+    boolean historyFirst;
 
     FakeSource() {
         for (String id : new String[] {"codex", "claude_code", "cursor", "copilot"}) {
@@ -92,7 +94,6 @@ final class FakeSource implements GlassSource {
     private GlassModel.Dashboard priorityDashboard() {
         GlassModel.Dashboard d = new GlassModel.Dashboard();
         d.title = "Priority";
-        d.subtitle = "Claude Code and Cursor";
         GlassModel.Card news = new GlassModel.Card(GlassModel.Card.Kind.STATS);
         news.title = "Recent activity";
         news.detail = news.title;
@@ -124,8 +125,39 @@ final class FakeSource implements GlassSource {
         used.stats.add(new String[] {"Cursor · Monthly", "Resets Dec 1"});
         used.summary = "You'll get a notification when each one is back.";
         d.cards.add(used);
+        // New models: the same dismiss model as Recent activity (two-line rows, swipe or hold)
+        GlassModel.Card models = new GlassModel.Card(GlassModel.Card.Kind.STATS);
+        models.title = "New models";
+        models.detail = models.title;
+        String[][] listed = {{"Claude Fable 5.1", "For Claude Code"}, {"GPT-5.6 Codex", "For Codex"}};
+        for (int i = 0; i < listed.length; i++) {
+            if (dismissedModels.contains(i)) {
+                continue;
+            }
+            int index = i;
+            models.stats.add(listed[i]);
+            models.statDismiss.add(() -> {
+                dismissedModels.add(index);
+                changed();
+            });
+        }
+        models.dismissAll = () -> {
+            dismissedModels.add(0);
+            dismissedModels.add(1);
+            changed();
+        };
+        models.summary = "Shown for Claude Code and Codex. Newly listed in a public catalog, not necessarily "
+                + "newly released.\nSwipe a row left, or touch and hold it, to dismiss it.";
+        if (!models.stats.isEmpty()) {
+            d.cards.add(models);
+        }
         return d;
     }
+
+    /** New models rows dismissed so far */
+    final List<Integer> dismissedModels = new ArrayList<>();
+    /** where the dashboard chart was scrubbed (0 to 1), in order */
+    final List<Double> scrubbed = new ArrayList<>();
 
     /** how many times the dashboard model was built */
     int dashboardBuilds;
@@ -138,7 +170,6 @@ final class FakeSource implements GlassSource {
         }
         GlassModel.Dashboard d = new GlassModel.Dashboard();
         d.title = "codex".equals(selected) ? "Codex" : "Claude Code";
-        d.subtitle = "Updated 2 minutes ago";
         GlassModel.Card five = new GlassModel.Card(GlassModel.Card.Kind.METER);
         five.title = "5-hour";
         five.icon = "clock";
@@ -170,17 +201,29 @@ final class FakeSource implements GlassSource {
         d.cards.add(resets);
         GlassModel.Card history = new GlassModel.Card(GlassModel.Card.Kind.HISTORY);
         history.title = "Usage history";
-        double[] bars = new double[24];
-        for (int i = 0; i < bars.length; i++) {
-            bars[i] = 0.04 + 0.77 * Math.pow(i / 23.0, 1.2) + 0.03 * Math.sin(i);
-        }
-        history.bars = bars;
+        GlassModel.Chart hc = new GlassModel.Chart();
+        hc.label = "38% used so far";
+        hc.sampleLabel = "42 samples";
+        hc.current = new double[] {0, 0, 0.1, 6, 0.2, 14, 0.3, 19, 0.42, 31, 0.55, 38};
+        hc.previous.add(new double[] {0, 0, 0.2, 10, 0.5, 40, 0.8, 70, 1, 82});
+        hc.projection = new double[] {0.55, 38, 1, 71};
+        hc.hint = "Drag to inspect";
+        hc.scrub = new GlassModel.Scrub() {
+            @Override
+            public String at(int window, double ratio) {
+                scrubbed.add(ratio);
+                return "Nov 12, 3:40 PM — " + Math.round(ratio * 55) + "% used";
+            }
+
+            @Override
+            public double percent(int window, double ratio) {
+                return ratio * 55;
+            }
+        };
+        history.chart = hc;
         history.value = "Weekly";
         history.color = "#007aff";
         history.onPress = () -> { };
-        history.startLabel = "Window start";
-        history.endLabel = "Now";
-        history.summary = "How much of the weekly window was used, from its start until now.";
         d.cards.add(history);
         GlassModel.Card credits = new GlassModel.Card(GlassModel.Card.Kind.BALANCE);
         credits.title = "Usage credits";
@@ -189,6 +232,11 @@ final class FakeSource implements GlassSource {
         credits.value = "1,240 credits";
         credits.summary = "Used after your plan's limits run out";
         d.cards.add(credits);
+        if (historyFirst) {
+            d.cards.remove(history);
+            d.cards.add(0, history);
+            d.cards.subList(1, d.cards.size()).clear();
+        }
         if (shortDashboard) {
             d.cards.subList(1, d.cards.size()).clear();
         }

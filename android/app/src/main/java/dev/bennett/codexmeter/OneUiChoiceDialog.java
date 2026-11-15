@@ -23,7 +23,8 @@ final class OneUiChoiceDialog {
 
     static void show(Context context, String title, String[] labels, int selected,
             OnChoiceSelected listener) {
-        if (GlassApp.of(context) != null) {
+        if (GlassApp.of(context) != null || AppPreferences.isMaterialExpressiveDesign(context)) {
+            // Liquid Glass and Material 3 Expressive show their own list dialog, not One UI's
             new AppDialog(context)
                     .setTitle(title)
                     .setSingleChoiceItems(labels, selected, (dialog, which) -> {

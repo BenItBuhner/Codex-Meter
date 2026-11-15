@@ -99,6 +99,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/PriorityView.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/PrioritySummaryRules.java" \
   "$ROOT/tests/PriorityViewSelfTest.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/PriorityNote.java" \
+  "$ROOT/tests/PriorityNoteSelfTest.java" \
   "$ROOT/tests/UsageRefillSelfTest.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderEvents.java" \
   "$ROOT/tests/ProviderEventsSelfTest.java" \
@@ -120,6 +122,7 @@ java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ModelDiscoverySelfTest
 java -ea -Dcodex.fixtures="$ROOT/tests/fixtures" -cp "$OUT:$JSON_JAR" \
   dev.bennett.codexmeter.ProviderStatusSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.PriorityViewSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.PriorityNoteSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.UsageRefillSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ProviderEventsSelfTest
 
@@ -145,6 +148,40 @@ grep -q 'ModelDiscoveryStore.refreshIfDue(app, false)' \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageRefreshJobService.java"
 ! grep -q 'Authorization' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelDiscoveryStore.java"
 ! grep -q 'Authorization' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ModelSpeedStore.java"
+
+# v3 polish (source-level): one dismiss model on Priority, no header subtitle, real charts on the
+# dashboards, Material 3 Expressive pages instead of One UI ones, one Glassé build everywhere.
+APP="$ROOT/app/src/main/java/dev/bennett/codexmeter"
+GLASS="$ROOT/glass/src/main/java/dev/bennett/codexmeter/glass"
+! grep -q 'nativePrimaryButton(this, "Dismiss")' "$APP/MainActivity.java" \
+  || { echo "New models still has a card-wide Dismiss button" >&2; exit 1; }
+for f in "$APP/MainActivity.java" "$APP/GlassCards.java" "$APP/ExpressiveCards.java"; do
+  grep -q 'PriorityPage.dismiss\|SwipeDismiss.attach\|statDismiss' "$f" \
+    || { echo "$f lost the shared dismiss model" >&2; exit 1; }
+done
+grep -q 'addNotesCard(PriorityPage.NEW_MODELS, page.models' "$APP/MainActivity.java"
+grep -q 'addNotes(a, d, PriorityPage.NEW_MODELS, page.models' "$APP/GlassCards.java"
+! grep -q 'subtitle' "$APP/GlassCards.java" "$APP/ExpressiveDashboard.java" "$ROOT/app/src/main/res/layout/expressive_dashboard.xml" \
+  || { echo "A dashboard header has a subtitle again" >&2; exit 1; }
+! grep -q 'public String subtitle' "$GLASS/GlassModel.java"
+! grep -q 'BarChart' "$GLASS/CodexGlass.java" || { echo "Liquid Glass dashboard draws placeholder bars" >&2; exit 1; }
+! grep -q 'class Bars' "$APP/ExpressiveCards.java" "$APP/ExpressiveDashboard.java" \
+  || { echo "Expressive dashboard draws placeholder bars" >&2; exit 1; }
+grep -q 'GlassHistoryScreen.chart(a, target' "$APP/GlassCards.java"
+grep -q 'ExpressivePages.redirect(from)' "$APP/GlassApp.java"
+grep -q 'dev.bennett.codexmeter.ExpressivePageActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+for a in AboutActivity DashboardReorderActivity LockWidgetsActivity ProvidersActivity ReleaseHistoryActivity \
+    ResetCreditActivity UpdateActivity UsageHistoryActivity; do
+  grep -q 'GlassApp.redirect(this)' "$APP/$a.java" || { echo "$a skips the Expressive page" >&2; exit 1; }
+done
+grep -q 'ExpressivePages' "$APP/AddAccountActivity.java" "$APP/SignInActivity.java" \
+  "$APP/WidgetConfigActivity.java" "$APP/LockWidgetConfigActivity.java"
+GLASSE_APP="$(sed -n 's/.*Glasse:glasse-android:\([0-9a-f]*\)".*/\1/p' "$ROOT/app/build.gradle.kts")"
+GLASSE_KIT="$(sed -n 's/^val glasse = "\([0-9a-f]*\)"/\1/p' "$ROOT/glass/build.gradle.kts")"
+[[ -n "$GLASSE_APP" && "$GLASSE_APP" == "$GLASSE_KIT" ]] || { echo "Glassé versions differ: $GLASSE_APP vs $GLASSE_KIT" >&2; exit 1; }
+for m in glasskit glasse-assets glasse-android glasse-demo-kt; do
+  [[ -d "$ROOT/vendor/m2/com/github/BenItBuhner/Glasse/$m/$GLASSE_APP" ]] || { echo "Glassé $m $GLASSE_APP not vendored" >&2; exit 1; }
+done
 
 # Source-level release checks.
 grep -q 'VERSION_NAME = "2.9.0-alpha.28"' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"

@@ -17,7 +17,6 @@ import static com.benitbuhner.glasse.kit.Kit.Row;
 import static com.benitbuhner.glasse.kit.Kit.Stack;
 import static com.benitbuhner.glasse.kit.Kit.Text;
 import static com.benitbuhner.glasse.kit.KitMore.GlassSheet;
-import static com.benitbuhner.glasse.kit.KitUi.BarChart;
 import static com.benitbuhner.glasse.kit.KitControls.ActivityIndicator;
 import static com.benitbuhner.glasse.kit.KitControls.ProgressBar;
 import static com.benitbuhner.glasse.kit.KitControls.TextFieldRow;
@@ -319,11 +318,7 @@ public final class CodexGlass {
 
         List<Object> body = R.useMemo(R.deps(d, t), () -> {
             List<Object> out = new ArrayList<>();
-            out.add(LargeTitle(d.title, d.subtitle != null ? 2.0 : 18.0));
-            if (d.subtitle != null) {
-                out.add(Text(P.of("size", 15, "ls", -0.2, "lines", 1, "mb", 18, "color", t.pal.label2),
-                        d.subtitle));
-            }
+            out.add(LargeTitle(d.title, 18.0));
             for (int i = 0; i < d.cards.size(); i++) {
                 out.add(card(d.cards.get(i), t, "c" + i));
             }
@@ -452,17 +447,13 @@ public final class CodexGlass {
                         ListRow(P.of("icon", c.icon, "color", tile(c.color), "label", c.title, "value", c.value,
                                 "chevron", c.onPress != null, "onPress", c.onPress)));
             case HISTORY:
+                if (c.chart != null) {
+                    // the real burn chart (the history page's), under a row that opens the page
+                    return GlassChart.card(c, key);
+                }
                 return ListSection(P.of("key", key, "footer", c.summary),
                         ListRow(P.of("icon", "chart", "color", tile(c.color), "label", c.title,
-                                "value", c.value, "chevron", c.onPress != null, "onPress", c.onPress)),
-                        ListPad(P.of("padY", 16),
-                                BarChart(P.of("values", c.bars, "color", tile(c.color), "h", 88, "gap", 3.0,
-                                        "radius", new double[] {4, 4, 2, 2})),
-                                Row(P.of("mt", 8),
-                                        Text(P.of("flex", 1, "size", 13, "lines", 1, "color", t.pal.label2),
-                                                c.startLabel == null ? "" : c.startLabel),
-                                        Text(P.of("size", 13, "lines", 1, "color", t.pal.label2),
-                                                c.endLabel == null ? "" : c.endLabel))));
+                                "value", c.value, "chevron", c.onPress != null, "onPress", c.onPress)));
             case UPDATE:
                 return ListSection(P.of("key", key),
                         ListPad(P.of("padY", 18),

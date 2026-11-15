@@ -43,9 +43,6 @@ final class GlassCards {
                 ? AppPreferences.loadSnapshot(activity)
                 : ProviderPreferences.loadSnapshot(activity, provider);
         long now = System.currentTimeMillis();
-        if (snapshot != null) {
-            d.subtitle = UsageFormat.updated(snapshot.fetchedAtMillis, now);
-        }
         String error = provider == UsageProvider.CODEX ? "" : ProviderPreferences.getLastError(activity, provider);
         if (ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE.equals(error)) {
             // The saved sign-in was rejected: offer to sign in again over it (history is kept).
@@ -70,36 +67,6 @@ final class GlassCards {
     }
 
     /**
-     * The Priority view's "New models" card: models newly listed for the connected providers,
-     * grouped, after the meters. Null when there is nothing relevant (or the view is off).
-     */
-    private static Card newModels(MainActivity a) {
-        if (!PriorityPrefs.isViewEnabled(a)) {
-            return null;
-        }
-        List<ModelDiscovery.Entry> items = ModelDiscoveryStore.cardItems(a);
-        if (items.isEmpty()) {
-            return null;
-        }
-        Card c = new Card(Card.Kind.STATS);
-        c.detail = "New models";
-        c.title = "New models";
-        for (ModelDiscovery.Entry e : items) {
-            // Short value so the model name keeps the room; the card note names the catalog.
-            c.stats.add(new String[] {e.name, e.matchedBy == null ? e.source.newOn()
-                    : "For " + e.matchedBy.displayName});
-        }
-        c.summary = ModelDiscovery.cardNote(items);
-        c.value = "Dismiss";
-        c.onPress = () -> {
-            ModelDiscoveryStore.dismiss(a, items);
-            a.rebuild();
-        };
-        return c;
-    }
-
-
-    /**
      * The Priority tab: official incidents and significant slowdowns, the limits to watch, the
      * used-up limits with their reset times, and new models, across the signed-in providers. See
      * {@link PriorityPage}.
@@ -118,7 +85,6 @@ final class GlassCards {
             d.cards.add(empty);
             return d;
         }
-        d.subtitle = names(page.providers);
         for (PriorityView.Item alert : page.alerts) {
             Card c = new Card(Card.Kind.NOTE);
             c.detail = alert.kind == PriorityView.Kind.DOWNTIME ? "Official incident" : "Performance warning";
@@ -152,51 +118,42 @@ final class GlassCards {
         }
         addNotes(a, d, PriorityPage.READY, page.ready);
         addNotes(a, d, PriorityPage.COMING_UP, page.comingUp);
-        Card models = newModels(a);
-        if (models != null) {
-            d.cards.add(models);
-        }
+        addNotes(a, d, PriorityPage.NEW_MODELS, page.models, page.modelsNote);
         return d;
     }
 
     /**
-     * A grouped list on Priority, like Used up; nothing when the list is empty. Rows for kept
-     * events (Recent activity) can be dismissed.
+     * A grouped list on Priority, like Used up; nothing when the list is empty. Dismissible rows
+     * (Recent activity, New models) are two lines and share one dismiss model in every design: swipe
+     * left or touch and hold for Dismiss, plus Dismiss all when the list has more than one.
      */
-    private static void addNotes(MainActivity a, GlassModel.Dashboard d, String title, List<PriorityPage.Note> notes) {
+    private static void addNotes(MainActivity a, GlassModel.Dashboard d, String title, List<PriorityNote> notes) {
+        addNotes(a, d, title, notes, null);
+    }
+
+    private static void addNotes(MainActivity a, GlassModel.Dashboard d, String title, List<PriorityNote> notes,
+            String note) {
         if (notes.isEmpty()) {
             return;
         }
         Card c = new Card(Card.Kind.STATS);
         c.detail = title;
         c.title = title;
-        int dismissible = 0;
-        for (PriorityPage.Note n : notes) {
-            String key = n.eventKey;
-            String prefix = n.provider.displayName + " · ";
-            if (key != null && n.title.startsWith(prefix)) {
-                // two lines: what happened, then the provider and when
-                c.stats.add(new String[] {n.title.substring(prefix.length()), prefix + n.value});
-            } else {
-                c.stats.add(new String[] {n.title, n.value});
-            }
-            c.statDismiss.add(key == null ? null : () -> {
-                ProviderAlerts.dismiss(a, key);
+        int dismissible = PriorityNote.dismissible(notes);
+        for (PriorityNote n : notes) {
+            c.stats.add(n.dismissible() ? n.lines() : new String[] {n.title, n.value});
+            c.statDismiss.add(n.dismissible() ? () -> {
+                PriorityPage.dismiss(a, n);
                 a.rebuild();
-            });
-            if (key != null) {
-                dismissible++;
-            }
+            } : null);
         }
         if (dismissible > 1) {
             c.dismissAll = () -> {
-                ProviderAlerts.dismissAll(a);
+                PriorityPage.dismissAll(a, notes);
                 a.rebuild();
             };
         }
-        if (dismissible > 0) {
-            c.summary = PriorityPage.NEWS_HINT;
-        }
+        c.summary = PriorityNote.footnote(notes, note);
         d.cards.add(c);
     }
 
@@ -204,18 +161,6 @@ final class GlassCards {
         Card c = new Card(Card.Kind.HEADING);
         c.title = title;
         return c;
-    }
-
-    /** "Codex, Claude Code, and Cursor"; two read "Codex and Cursor". */
-    static String names(List<UsageProvider> providers) {
-        StringBuilder b = new StringBuilder();
-        for (int i = 0; i < providers.size(); i++) {
-            if (i > 0) {
-                b.append(i == providers.size() - 1 ? (providers.size() > 2 ? ", and " : " and ") : ", ");
-            }
-            b.append(providers.get(i).displayName);
-        }
-        return b.toString();
     }
 
     private static void codex(MainActivity a, UsageSnapshot snapshot, long now, List<Card> out) {
@@ -469,37 +414,33 @@ final class GlassCards {
         return c;
     }
 
-    /** The current window's samples as bars: how much of the window was used over time. */
-    private static Card history(MainActivity a, UsageProvider target, UsageSnapshot snapshot) {
-        Card c = new Card(Card.Kind.HISTORY);
-        c.title = "Usage history";
+    /**
+     * The dashboard's Usage history card: the real burn chart of the main window (weekly, else
+     * 5-hour, else monthly), the same chart the history page draws, with its scrub. Tapping the
+     * card's row opens the full history.
+     */
+    static Card history(MainActivity a, UsageProvider target, UsageSnapshot snapshot) {
         String kind = snapshot.weekly != null ? UsageHistory.WEEKLY
                 : snapshot.fiveHour != null ? UsageHistory.FIVE_HOUR : UsageHistory.MONTHLY;
-        String label = UsageHistory.WEEKLY.equals(kind) ? "weekly"
-                : UsageHistory.FIVE_HOUR.equals(kind) ? "5-hour" : "monthly";
+        String label = UsageHistory.WEEKLY.equals(kind) ? "Weekly"
+                : UsageHistory.FIVE_HOUR.equals(kind) ? MainActivity.cadenceLabel(snapshot.fiveHour) : "Monthly";
         UsageWindow live = UsageHistory.WEEKLY.equals(kind) ? snapshot.weekly
                 : UsageHistory.FIVE_HOUR.equals(kind) ? snapshot.fiveHour : snapshot.monthly;
-        // Only the window reported now: a reset (or idle) window's samples are not "until now".
-        List<UsageSample> samples = ProviderPreferences.loadUsageHistory(a, target, kind)
-                .withLiveWindow(live, snapshot.fetchedAtMillis).currentWindowSamples();
-        int n = Math.min(24, samples.size());
-        double[] bars = new double[Math.max(1, n)];
-        for (int i = 0; i < n; i++) {
-            int index = samples.size() <= 24 ? i : (int) Math.round(i * (samples.size() - 1) / 23.0);
-            bars[i] = Math.max(0.02, Math.min(1, samples.get(index).usedPercent / 100.0));
-        }
-        c.bars = bars;
-        c.startLabel = n > 0 ? "Window start" : "";
-        c.endLabel = n > 0 ? "Now" : "";
-        c.value = label.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + label.substring(1);
+        // Read against the window reported now: a reset (or idle) window's samples are earlier lines.
+        UsageHistory history = ProviderPreferences.loadUsageHistory(a, target, kind)
+                .withLiveWindow(live, snapshot.fetchedAtMillis);
+        Card c = new Card(Card.Kind.HISTORY);
+        c.chart = GlassHistoryScreen.chart(a, target, label, live, snapshot, history, null, false, false).chart;
+        c.title = "Usage history";
+        c.value = label;
         c.color = "#007aff";
         GlassApp glass = GlassApp.of(a);
-        if (glass != null) {
-            c.onPress = () -> glass.openPage(GlassScreens.PREFIX + "history:" + target.id, null);
-        }
-        c.summary = n > 0
-                ? "How much of the " + label + " window was used, from its start until now."
-                : "Charts appear once " + target.vendorName + " has reported a few refreshes.";
+        c.onPress = glass != null
+                ? () -> glass.openPage(GlassScreens.PREFIX + "history:" + target.id, null)
+                : () -> UsageHistoryActivity.open(a, target);
+        c.summary = history.currentWindowSamples().size() >= 2
+                ? null
+                : "The chart fills in as " + target.vendorName + " reports more refreshes.";
         return c;
     }
 

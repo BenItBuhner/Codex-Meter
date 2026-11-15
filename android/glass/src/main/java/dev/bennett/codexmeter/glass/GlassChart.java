@@ -151,6 +151,14 @@ final class GlassChart {
         }
         El top = ListPad(P.of("padX", 0, "padY", 8), kids);
 
+        if (c.kind == GlassModel.Card.Kind.HISTORY) {
+            // the dashboard's Usage history: a row that opens the history page, then the chart
+            return ListSection(P.of("footer", c.summary),
+                    ListRow(P.of("key", "open", "icon", "chart", "color", c.color != null ? c.color : t.accent,
+                            "label", c.title, "value", c.value, "chevron", c.onPress != null,
+                            "onPress", c.onPress)),
+                    top);
+        }
         List<El> rows = new ArrayList<>();
         rows.add(top);
         for (int i = 0; i < chart.windows.size(); i++) {
