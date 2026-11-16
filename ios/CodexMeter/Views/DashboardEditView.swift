@@ -175,7 +175,8 @@ extension DashboardEditView {
             emptyDefaults: provider.usualDashboardSections,
             includeHistory: false,
             // Shown once the plan has a figure; listed up front so it can be arranged early.
-            includeValue: provider == .claudeCode || provider == .cursor
+            includeValue: provider == .claudeCode || provider == .cursor,
+            includeResets: provider == .claudeCode
         )
         let limits = usage?.additionalLimits ?? []
         let isCursor = provider == .cursor
@@ -203,6 +204,9 @@ extension DashboardEditView {
                 DashboardEditItem(key: key, title: "Estimated value",
                                   summary: isCursor ? "Cursor's figure for the usage your plan includes"
                                       : "What your plan's usage would cost at API prices")
+            case DashboardSections.resetCredits:
+                DashboardEditItem(key: key, title: "Reset credits",
+                                  summary: "Saved resets, shown only when Anthropic reports them")
             default:
                 DashboardEditItem(
                     key: key,

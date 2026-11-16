@@ -121,6 +121,27 @@ public enum ProviderCatalog {
         iOSEntry(for: provider).signIn != .loopback
     }
 
+    /// The catalog entry as this app uses it. The Mac can keep a local callback server running
+    /// while the browser is open, so it signs in to OpenRouter and Antigravity the way Android
+    /// and Windows do; the iPhone and iPad use `iOSEntry`.
+    public static func platformEntry(for provider: UsageProvider) -> Entry {
+        #if os(macOS)
+        entry(for: provider)
+        #else
+        iOSEntry(for: provider)
+        #endif
+    }
+
+    /// Whether this app can connect `provider`. Antigravity also needs its Google client,
+    /// supplied at build time like on Android.
+    public static func isAvailableHere(_ provider: UsageProvider) -> Bool {
+        #if os(macOS)
+        provider != .antigravity || AntigravityOAuth.isConfigured
+        #else
+        isAvailableOnIOS(provider)
+        #endif
+    }
+
     /// Every provider in recommended order.
     public static var recommendedOrder: [UsageProvider] {
         let listed = entries.map(\.provider)
@@ -132,14 +153,14 @@ public enum ProviderCatalog {
     public static func pickerProviders(connected: some Collection<UsageProvider>, query: String) -> [UsageProvider] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return recommendedOrder.filter { provider in
-            isAvailableOnIOS(provider)
+            isAvailableHere(provider)
                 && !connected.contains(provider)
                 && (needle.isEmpty || matches(provider, needle))
         }
     }
 
     static func matches(_ provider: UsageProvider, _ needle: String) -> Bool {
-        let entry = iOSEntry(for: provider)
+        let entry = platformEntry(for: provider)
         let haystack = [provider.displayName, provider.accountName, provider.vendorName, entry.meters, entry.signInSummary]
             .joined(separator: " ")
             .lowercased()

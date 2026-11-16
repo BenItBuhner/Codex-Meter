@@ -211,7 +211,7 @@ private struct AddedProviderSignedOutView: View {
     let signIn: () -> Void
 
     var body: some View {
-        let entry = ProviderCatalog.iOSEntry(for: provider)
+        let entry = ProviderCatalog.platformEntry(for: provider)
         VStack(spacing: 22) {
             ProviderMark(provider: provider)
                 .frame(width: 54, height: 54)
@@ -338,6 +338,11 @@ struct AddedProviderSignInView: View {
             if state.supportsPaste {
                 pasteSection(state)
             }
+            #if os(macOS)
+            if state.supportsLoopback {
+                loopbackSection(state)
+            }
+            #endif
             if entry.signIn == .apiKey || entry.acceptsAPIKey {
                 apiKeySection(state, entry: entry)
             }
@@ -398,7 +403,7 @@ struct AddedProviderSignInView: View {
                         .foregroundStyle(.secondary)
                 }
                 .font(.subheadline)
-            case .checking:
+            case .checking, .browser:
                 HStack(spacing: 10) {
                     ProgressView()
                     Text("Checking…")
@@ -410,6 +415,39 @@ struct AddedProviderSignInView: View {
             Text("Codex Meter shows a code; enter it on \(provider.vendorName)'s page and approve. This screen finishes on its own.")
         }
     }
+
+    #if os(macOS)
+    @ViewBuilder
+    private func loopbackSection(_ state: ProviderUsageModel) -> some View {
+        Section {
+            switch state.signInStep {
+            case .browser:
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Finish in your browser…")
+                        .foregroundStyle(.secondary)
+                }
+                Button("Cancel") { state.cancelSignIn() }
+            case .checking:
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Checking…")
+                }
+            default:
+                Button("Sign in with \(provider.vendorName)") {
+                    Task {
+                        if let url = await state.beginLoopbackSignIn() { openURL(url) }
+                    }
+                }
+                .accessibilityIdentifier("signin-loopback")
+            }
+        } header: {
+            Text(state.entry.signInSummary)
+        } footer: {
+            Text("The sign-in opens in your browser and comes back to Codex Meter on this Mac only.")
+        }
+    }
+    #endif
 
     @ViewBuilder
     private func pasteSection(_ state: ProviderUsageModel) -> some View {
@@ -516,7 +554,7 @@ struct ProviderPickerRow: View {
     let provider: UsageProvider
 
     var body: some View {
-        let entry = ProviderCatalog.iOSEntry(for: provider)
+        let entry = ProviderCatalog.platformEntry(for: provider)
         HStack(spacing: 12) {
             ProviderMark(provider: provider)
                 .frame(width: 24, height: 24)

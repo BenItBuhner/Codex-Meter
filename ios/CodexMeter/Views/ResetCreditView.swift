@@ -131,9 +131,8 @@ struct ResetCreditView: View {
                 + " before they expire.")
         }
         if model.settings.lowUsageAutoUseEnabled {
-            parts.append("A credit is also used when your "
-                + model.settings.lowUsageAutoUseMetric.shortTitle
-                + " limit reaches \(model.settings.lowUsageAutoUseThreshold)% remaining.")
+            parts.append("A credit is also used when your 5-hour or weekly limit reaches "
+                + "\(model.settings.lowUsageAutoUseThreshold)% remaining.")
         }
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: " ") + " iOS runs this on the next refresh."

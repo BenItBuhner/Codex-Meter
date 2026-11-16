@@ -22,6 +22,15 @@ final class ClaudeUsageModel {
     var isUsingCachedData = false
     var isRefreshing = false
     var isShowingSignIn = false
+    /// Saved usage-limit resets Anthropic reported with the last usage refresh.
+    var savedResets: ClaudeSavedResets?
+    var isClaimingReset = false
+    var isCheckingResets = false
+    /// The answer to the last reset use or Check with Anthropic, shown under the resets.
+    var resetMessage: String?
+
+    /// Reads the current settings for the automatic reset rules; set by `AppModel`.
+    @ObservationIgnored var settingsProvider: (@MainActor () -> AppSettings)?
 
     // Sign-in sheet state.
     var authorization: ClaudeAuthorizationRequest?
@@ -70,6 +79,7 @@ final class ClaudeUsageModel {
         accountEmail = tokens.email
         if let cached = await service.cachedSnapshot() {
             usage = cached.usage
+            savedResets = cached.claudeSavedResets
             isUsingCachedData = cached.usage != nil
             if let error = cached.lastError, cached.usage == nil {
                 visibleError = error
@@ -110,6 +120,7 @@ final class ClaudeUsageModel {
         do {
             let snapshot = try await service.refreshUsage()
             usage = snapshot
+            savedResets = await service.cachedSavedResets()
             ProviderWidgetPublisher.publish(.claudeCode, demo: false, usage: snapshot)
             visibleError = nil
             isUsingCachedData = false
@@ -119,8 +130,10 @@ final class ClaudeUsageModel {
             DiagnosticLog.info("refresh", "claude_usage_refresh_succeeded", details: [
                 "five_hour": snapshot.fiveHour != nil ? "true" : "false",
                 "weekly": snapshot.weekly != nil ? "true" : "false",
-                "additional_limits": String(snapshot.additionalLimits.count)
+                "additional_limits": String(snapshot.additionalLimits.count),
+                "saved_resets": String(savedResets?.availableCount(at: .now) ?? -1)
             ])
+            await runSavedResetAutoUse()
         } catch is CancellationError {
             return
         } catch {
@@ -182,6 +195,86 @@ final class ClaudeUsageModel {
         ProviderWidgetPublisher.publishSignedOut(.claudeCode)
     }
 
+    // MARK: Saved resets
+
+    /// Spends one saved reset. Anthropic spends nothing when no limit is in the way.
+    func useSavedReset(grantID: String) async {
+        guard !isClaimingReset else { return }
+        isClaimingReset = true
+        defer { isClaimingReset = false }
+        if phase == .demo {
+            savedResets = savedResets?.afterUse(grantID)
+            resetMessage = "Demo: reset applied to 2 usage windows."
+            return
+        }
+        guard phase == .live else { return }
+        DiagnosticLog.info("reset", "claude_saved_reset_claim_started")
+        do {
+            let result = try await service.claimSavedReset(grantID: grantID)
+            DiagnosticLog.info("reset", "claude_saved_reset_claim_finished", details: ["result": result.result.rawValue])
+            resetMessage = result.userMessage
+            if result.applied, let snapshot = await service.cachedSnapshot() {
+                usage = snapshot.usage ?? usage
+                savedResets = snapshot.claudeSavedResets ?? savedResets?.afterUse(grantID)
+            } else {
+                savedResets = await service.cachedSavedResets() ?? savedResets
+            }
+        } catch {
+            DiagnosticLog.error("reset", "claude_saved_reset_claim_failed", error: error)
+            resetMessage = error.localizedDescription
+        }
+    }
+
+    /// Re-reads usage and saved resets from Anthropic and says what it found.
+    func checkWithAnthropic() async {
+        guard !isCheckingResets else { return }
+        isCheckingResets = true
+        defer { isCheckingResets = false }
+        if phase == .live {
+            await refresh()
+        }
+        resetMessage = Self.describeCheck(savedResets, error: visibleError, at: .now)
+    }
+
+    static func describeCheck(_ resets: ClaudeSavedResets?, error: String?, at now: Date) -> String {
+        guard let resets else {
+            if let error { return "Anthropic didn't answer: \(error)" }
+            return "Anthropic didn't list saved resets for this account. If claude.ai shows some, sign out of Claude here and sign in again so Codex Meter gets Claude Code's permission to see them."
+        }
+        guard resets.eligible else {
+            return "Anthropic isn't offering saved resets on this account right now."
+        }
+        let title = resets.availableTitle(at: now)
+        let held = resets.unavailableMessage(at: now)
+        return held.isEmpty ? "\(title). One can be used now." : "\(title). \(held)."
+    }
+
+    /// The two automatic rules, run after each successful refresh.
+    private func runSavedResetAutoUse() async {
+        guard phase == .live, let settings = settingsProvider?(), !isClaimingReset else { return }
+        let defaults = UserDefaults.standard
+        let decision = ClaudeResetAutoUse.evaluate(
+            status: savedResets,
+            usage: usage,
+            expiryEnabled: settings.claudeResetExpiryAutoUseEnabled,
+            leadMinutes: settings.claudeResetExpiryLeadMinutes,
+            lowUsageEnabled: settings.claudeResetLowUsageAutoUseEnabled,
+            threshold: settings.claudeResetLowUsageThreshold,
+            lastExpiryKey: defaults.string(forKey: Self.expiryAttemptKey),
+            lastLowUsageToken: defaults.string(forKey: Self.lowUsageAttemptKey),
+            now: .now
+        )
+        guard decision.fires, let grant = decision.grant else { return }
+        // Remember the attempt first, so a failure is never retried in a loop.
+        defaults.set(decision.attemptKey, forKey: decision.outcome == .fireExpiring
+            ? Self.expiryAttemptKey : Self.lowUsageAttemptKey)
+        DiagnosticLog.info("reset", "claude_saved_reset_auto_use", details: ["rule": decision.outcome.rawValue])
+        await useSavedReset(grantID: grant.id)
+    }
+
+    private static let expiryAttemptKey = "codex-meter.claude-reset-expiry-attempt-v1"
+    private static let lowUsageAttemptKey = "codex-meter.claude-reset-low-usage-attempt-v1"
+
     // MARK: Demo
 
     /// Mirrors the Codex demo: local data only, never contacts Anthropic.
@@ -209,18 +302,37 @@ final class ClaudeUsageModel {
         visibleError = nil
         isUsingCachedData = false
         usage = Self.demoSnapshot(at: .now, refreshCount: demoRefreshCount)
+        savedResets = Self.demoSavedResets(at: .now)
         ProviderWidgetPublisher.publish(.claudeCode, demo: true, usage: usage)
     }
 
     private func clearState() {
         phase = .signedOut
         usage = nil
+        savedResets = nil
+        resetMessage = nil
         accountEmail = ""
         visibleError = nil
         isUsingCachedData = false
         authorization = nil
         pastedCode = ""
         authenticationError = nil
+    }
+
+    static func demoSavedResets(at now: Date) -> ClaudeSavedResets {
+        ClaudeSavedResets(
+            eligible: true,
+            grants: [
+                .init(id: "demo_full", label: "Full reset", resetsTotal: 2, resetsLeft: 2,
+                      endsAt: now.addingTimeInterval(9 * 24 * 60 * 60), clears: ["five_hour", "seven_day"],
+                      usableNow: true, type: "full"),
+                .init(id: "demo_fable", label: "Fable reset", resetsTotal: 1, resetsLeft: 1,
+                      endsAt: now.addingTimeInterval(2 * 24 * 60 * 60), clears: ["seven_day_fable"],
+                      unavailableReason: "not_limited", scope: "Fable")
+            ],
+            nextGrantID: "demo_full",
+            fetchedAt: now
+        )
     }
 
     static func demoSnapshot(at now: Date, refreshCount: Int = 0) -> UsageSnapshot {

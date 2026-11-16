@@ -165,6 +165,11 @@ nonisolated protocol ProviderClient: Sendable {
 
     func fromAPIKey(_ key: String, http: URLSession) async throws -> AuthTokens
 
+    /// Browser sign-in that returns to `redirectURI` on this Mac.
+    func loopbackURL(redirectURI: String, session: ProviderSignInSession) throws -> URL?
+    func finishLoopback(_ session: ProviderSignInSession, parameters: [String: String], redirectURI: String,
+                        http: URLSession) async throws -> AuthTokens
+
     func canRefresh(_ tokens: AuthTokens) -> Bool
     func refresh(_ tokens: AuthTokens, http: URLSession) async throws -> AuthTokens
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch
@@ -205,6 +210,13 @@ extension ProviderClient {
                                 accountID: providerAPIKeyAccount)
         _ = try await fetch(tokens, http: http)
         return tokens
+    }
+
+    func loopbackURL(redirectURI: String, session: ProviderSignInSession) throws -> URL? { nil }
+
+    func finishLoopback(_ session: ProviderSignInSession, parameters: [String: String], redirectURI: String,
+                        http: URLSession) async throws -> AuthTokens {
+        throw ProviderClientError.message("No browser sign-in for \(provider.displayName).")
     }
 
     func canRefresh(_ tokens: AuthTokens) -> Bool { false }
@@ -306,7 +318,7 @@ nonisolated enum ProviderClients {
         case .kimi: KimiClient()
         case .factory: FactoryClient()
         case .grok: GrokClient()
-        case .antigravity: nil
+        case .antigravity: AntigravityClient()
         case .devin: CodeiumClient(provider: .devin, ideName: "devin")
         case .windsurf: CodeiumClient(provider: .windsurf, ideName: "windsurf")
         case .augment: AugmentClient()
@@ -942,10 +954,31 @@ nonisolated struct AmpClient: ProviderClient {
 
 // MARK: OpenRouter
 
-/// On iPhone OpenRouter connects with a pasted key; Android also offers its browser sign-in,
-/// which needs a local callback server iOS can't keep running behind the browser.
+/// On iPhone OpenRouter connects with a pasted key. The Mac, like Android and Windows, also
+/// offers its browser sign-in, which needs a local callback server iOS can't keep running.
 nonisolated struct OpenRouterClient: ProviderClient {
     let provider = UsageProvider.openrouter
+
+    func loopbackURL(redirectURI: String, session: ProviderSignInSession) throws -> URL? {
+        OpenRouterOAuth.authorizeURL(redirectURI: redirectURI, challenge: session.challenge, state: session.state)
+    }
+
+    func finishLoopback(_ session: ProviderSignInSession, parameters: [String: String], redirectURI: String,
+                        http: URLSession) async throws -> AuthTokens {
+        let response = try await ProviderHTTP.send("openrouter_exchange", .post(OpenRouterOAuth.exchangeURL).json([
+            "code": parameters["code"] ?? "",
+            "code_verifier": session.verifier,
+            "code_challenge_method": "S256"
+        ]), session: http)
+        let key = ProviderJSON.object(response.body).string("key")
+        guard response.ok, !key.isEmpty else {
+            throw ProviderClientError.message(ProviderHTTP.readError(
+                response.body, fallback: "OpenRouter sign-in failed (HTTP \(response.status))."
+            ))
+        }
+        return AuthTokens(accessToken: key, refreshToken: key, idToken: "", expiresAt: providerNeverExpires,
+                          accountID: providerAPIKeyAccount)
+    }
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
         let key = try check(try await ProviderHTTP.send("openrouter_key",
@@ -957,6 +990,98 @@ nonisolated struct OpenRouterClient: ProviderClient {
             credits = response.body
         }
         return try nonEmpty(ProviderUsageParsers.openrouter(keyBody: key.body, creditsBody: credits, now: Date()))
+    }
+}
+
+// MARK: Antigravity
+
+/// Antigravity's Google sign-in and quota routes, ported from Android. Mac only: Google only
+/// returns to a local callback, and the OAuth client is supplied at build time.
+nonisolated struct AntigravityClient: ProviderClient {
+    let provider = UsageProvider.antigravity
+
+    func loopbackURL(redirectURI: String, session: ProviderSignInSession) throws -> URL? {
+        guard AntigravityOAuth.isConfigured else {
+            throw ProviderClientError.message("Antigravity sign-in isn't set up in this build of Codex Meter.")
+        }
+        return AntigravityOAuth.authorizeURL(clientID: AntigravityOAuth.clientID, redirectURI: redirectURI,
+                                             challenge: session.challenge, state: session.state)
+    }
+
+    func finishLoopback(_ session: ProviderSignInSession, parameters: [String: String], redirectURI: String,
+                        http: URLSession) async throws -> AuthTokens {
+        let response = try await ProviderHTTP.send("antigravity_exchange", .post(AntigravityOAuth.tokenURL).form([
+            ("code", parameters["code"]),
+            ("client_id", AntigravityOAuth.clientID),
+            ("client_secret", AntigravityOAuth.clientSecret),
+            ("redirect_uri", redirectURI),
+            ("grant_type", "authorization_code"),
+            ("code_verifier", session.verifier)
+        ]), session: http)
+        let tokens = DeviceAuth.parseTokens(response.body)
+        guard response.ok, !tokens.accessToken.isEmpty else {
+            throw ProviderClientError.message(ProviderHTTP.readError(
+                response.body, fallback: "Google sign-in failed (HTTP \(response.status))."
+            ))
+        }
+        var email = ""
+        if let info = try? await ProviderHTTP.send("antigravity_userinfo",
+            .get(AntigravityOAuth.userInfoURL).bearer(tokens.accessToken), session: http), info.ok {
+            email = info.json.string("email")
+        }
+        return tokens.stored().with(email: email)
+    }
+
+    func canRefresh(_ tokens: AuthTokens) -> Bool {
+        !tokens.refreshToken.isEmpty && tokens.refreshToken != tokens.accessToken
+    }
+
+    func refresh(_ tokens: AuthTokens, http: URLSession) async throws -> AuthTokens {
+        let response = try await ProviderHTTP.send("antigravity_token_refresh", .post(AntigravityOAuth.tokenURL).form([
+            ("grant_type", "refresh_token"),
+            ("refresh_token", tokens.refreshToken),
+            ("client_id", AntigravityOAuth.clientID),
+            ("client_secret", AntigravityOAuth.clientSecret)
+        ]), session: http)
+        if response.status == 400 || response.status == 401 {
+            throw ProviderClientError.unauthorized(
+                "Your Google sign-in for Antigravity expired. Sign in again from Settings → Accounts.")
+        }
+        let parsed = DeviceAuth.parseTokens(response.body)
+        guard response.ok, !parsed.accessToken.isEmpty else {
+            throw ProviderClientError.message("Google sign-in refresh failed (HTTP \(response.status)).")
+        }
+        return tokens.mergingRefresh(AuthTokens(
+            accessToken: parsed.accessToken, refreshToken: "", idToken: "",
+            expiresAt: Date().addingTimeInterval(TimeInterval(max(60, parsed.expiresInSeconds))), accountID: ""
+        ))
+    }
+
+    func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        var last: Error?
+        for host in AntigravityOAuth.hosts {
+            do {
+                var plan = ""
+                let assist = try await ProviderHTTP.send("antigravity_plan", ProviderRequest.post(host + "/v1internal:loadCodeAssist")
+                    .bearer(tokens.accessToken)
+                    .header("User-Agent", "antigravity/2.24.0 (aidev_client; os_type=darwin; arch=arm64)")
+                    .json(["metadata": ["ideType": "ANTIGRAVITY", "platform": "PLATFORM_UNSPECIFIED", "pluginType": "GEMINI"]]),
+                    session: http)
+                if assist.status == 401 { _ = try check(assist, "plan") }
+                if assist.ok { plan = ProviderUsageParsers.antigravityPlan(assist.body) }
+                let quota = try check(try await ProviderHTTP.send("antigravity_usage",
+                    ProviderRequest.post(host + "/v1internal:retrieveUserQuotaSummary")
+                        .bearer(tokens.accessToken).header("User-Agent", "antigravity").json([:]),
+                    session: http), "usage")
+                return try nonEmpty(ProviderUsageParsers.antigravity(quota.body, plan: plan, now: Date()))
+            } catch let error as ProviderClientError {
+                if case .unauthorized = error { throw error }
+                last = error
+            } catch {
+                last = error
+            }
+        }
+        throw last ?? ProviderClientError.message("Antigravity usage is unavailable.")
     }
 }
 

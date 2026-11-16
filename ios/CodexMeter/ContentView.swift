@@ -11,20 +11,44 @@ struct ContentView: View {
         // tab, and with just one on the bar is hidden. On iPad the same tabs become a sidebar
         // (or the floating top tab bar, which the sidebar button toggles), so every provider
         // stays one tap away instead of collapsing into a More tab.
+        // Priority comes first, as on Android, unless it is turned off in Settings.
+        let showsPriority = model.settings.showPriority && model.hasPriorityContent
+        let tabCount = model.enabledProviders.count + (showsPriority ? 1 : 0)
         TabView(selection: Binding(
-            get: { model.selectedProvider },
-            set: { model.select(provider: $0) }
+            get: { model.isPriorityTabSelected && showsPriority ? AppModel.priorityTag : model.selectedProvider.rawValue },
+            set: { tag in
+                if tag == AppModel.priorityTag {
+                    model.setPriorityTabSelected(true)
+                } else if let provider = UsageProvider(rawValue: tag) {
+                    model.select(provider: provider)
+                }
+            }
         )) {
+            if showsPriority {
+                Tab("Priority", systemImage: "exclamationmark.circle", value: AppModel.priorityTag) {
+                    NavigationStack {
+                        PriorityView()
+                    }
+                    .toolbar(tabCount > 1 ? .visible : .hidden, for: .tabBar)
+                }
+                .accessibilityIdentifier("tab-priority")
+            }
             ForEach(model.enabledProviders) { provider in
-                Tab(provider.displayName, image: provider.markImageName, value: provider) {
+                Tab(provider.displayName, image: provider.markImageName, value: provider.rawValue) {
                     NavigationStack {
                         DashboardView(provider: provider)
                     }
-                    .toolbar(model.enabledProviders.count > 1 ? .visible : .hidden, for: .tabBar)
+                    .toolbar(tabCount > 1 ? .visible : .hidden, for: .tabBar)
                 }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
+        .appHaptics()
+        // Claude Code, Cursor and the added providers refresh on their own; keep the Live
+        // Activity current when any of them lands.
+        .onChange(of: model.priorityProviders.map { model.usageSnapshot(for: $0)?.fetchedAt }) {
+            Task { await model.syncLiveActivity() }
+        }
         .tabViewSidebarBottomBar {
             Button {
                 model.isShowingSettings = true

@@ -72,6 +72,11 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Included usage · Weekly"].waitForExistence(timeout: 5))
         UITestSupport.settle(1.0)
         capture("03c-cursor-demo")
+        UITestSupport.tap(app.buttons["Priority"].firstMatch)
+        XCTAssertTrue(app.navigationBars["Priority"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["New models"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("03d-priority-demo")
         UITestSupport.tap(app.buttons["Codex"])
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.6)
@@ -113,18 +118,14 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("10-settings")
 
-        // Codex reset credits: expiry auto-use is on by default; running-low asks first.
-        let expirySwitch = app.switches["Use resets before they expire"]
-        UITestSupport.scrollForm(untilExists: expirySwitch, in: app)
-        if expirySwitch.firstMatch.exists {
-            // Drag the section's first row up near the top so the whole section is in view.
-            let start = expirySwitch.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-            start.press(forDuration: 0.1, thenDragTo: end)
-        }
+        // Usage > Reset credits: one section per provider. Codex expiry auto-use is on by
+        // default; running-low asks first.
+        UITestSupport.scrollForm(untilExists: app.buttons["settings-reset-credits"], in: app)
+        UITestSupport.tap(app.buttons["settings-reset-credits"])
+        XCTAssertTrue(app.navigationBars["Reset credits"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("09b-settings-reset-auto-use")
-        let lowUsageSwitch = app.switches["Use a reset when running low"].firstMatch
+        let lowUsageSwitch = app.switches["Use when running low"].firstMatch
         if lowUsageSwitch.waitForExistence(timeout: 3) {
             lowUsageSwitch.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         }
@@ -135,27 +136,40 @@ final class DemoGalleryTests: XCTestCase {
             UITestSupport.settle(0.8)
             capture("09d-reset-auto-use-on")
         }
+        // The Claude Code section, with its demo saved resets.
+        UITestSupport.scrollForm(untilExists: app.buttons["Check with Anthropic"], in: app, maxAttempts: 4)
+        UITestSupport.settle(0.5)
+        capture("09e-settings-claude-resets")
+        tapBack(in: app, from: "Reset credits", to: "Settings")
 
-        UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app)
+        UITestSupport.scrollForm(untilExists: app.buttons["settings-notifications"], in: app)
+        UITestSupport.tap(app.buttons["settings-notifications"])
+        XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["System permission"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.5)
         capture("11-settings-notifications")
+        tapBack(in: app, from: "Notifications", to: "Settings")
 
-        // Scroll to the row itself, not the "Data" header: the lazy Form can
-        // materialize the header while the row below it does not exist yet. The
-        // rows after it are shorter than a screen, so one more swipe cannot push
-        // it off the top.
-        UITestSupport.scrollForm(untilExists: app.buttons["View usage history"], in: app)
-        if !app.buttons["View usage history"].isHittable {
-            app.swipeUp()
+        UITestSupport.tap(app.buttons["settings-live-activity"])
+        if app.navigationBars["Live Activity"].waitForExistence(timeout: 5) {
+            UITestSupport.settle(0.5)
+            capture("11a-settings-live-activity")
+            tapBack(in: app, from: "Live Activity", to: "Settings")
         }
-        UITestSupport.settle(0.4)
+
+        UITestSupport.scrollForm(untilExists: app.buttons["settings-privacy-data"], in: app)
+        UITestSupport.tap(app.buttons["settings-privacy-data"])
+        XCTAssertTrue(app.navigationBars["Privacy & data"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.5)
+        capture("11b-settings-privacy-data")
         if !UITestSupport.tap(app.buttons["View usage history"]) {
             UITestSupport.tap(app.staticTexts["View usage history"])
         }
         XCTAssertTrue(app.navigationBars["Usage history"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("12-usage-history")
-        tapBack(in: app, from: "Usage history", to: "Settings")
+        tapBack(in: app, from: "Usage history", to: "Privacy & data")
+        tapBack(in: app, from: "Privacy & data", to: "Settings")
 
         UITestSupport.scrollForm(untilExists: app.staticTexts["About Codex Meter"], in: app)
         if !UITestSupport.tap(app.buttons["About Codex Meter"]) {
@@ -166,7 +180,7 @@ final class DemoGalleryTests: XCTestCase {
         capture("13-about")
         tapBack(in: app, from: "About", to: "Settings")
 
-        scrollSettingsToTop(in: app)
+        UITestSupport.scrollForm(untilExists: app.segmentedControls.buttons["Dark"], in: app)
         UITestSupport.settle(0.3)
         UITestSupport.tap(app.segmentedControls.buttons["Dark"])
         UITestSupport.settle(0.8)
@@ -374,12 +388,5 @@ final class DemoGalleryTests: XCTestCase {
         }
         _ = app.navigationBars[title].waitForExistence(timeout: 4)
         UITestSupport.settle(0.4)
-    }
-
-    private func scrollSettingsToTop(in app: XCUIApplication) {
-        for _ in 0..<6 {
-            if app.staticTexts["Accounts"].exists { return }
-            app.swipeDown()
-        }
     }
 }

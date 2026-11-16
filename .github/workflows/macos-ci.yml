@@ -152,6 +152,11 @@ jobs:
 
       - name: Build Release app
         shell: bash
+        env:
+          # Antigravity's Google client, as for the Android build; Xcode reads these into
+          # Info.plist. Without them the Mac app simply doesn't offer Antigravity.
+          ANTIGRAVITY_CLIENT_ID: ${{ secrets.ANTIGRAVITY_CLIENT_ID }}
+          ANTIGRAVITY_CLIENT_SECRET: ${{ secrets.ANTIGRAVITY_CLIENT_SECRET }}
         run: |
           set -euo pipefail
           # Release builds show the tag's version (v2.9.0-alpha.14 -> 2.9.0; the bundle's short

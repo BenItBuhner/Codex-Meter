@@ -268,7 +268,7 @@ struct OnboardingView: View {
         case .cursor:
             "Sign in with Cursor to see your included usage and when it refreshes, plus any extra spend on top of your plan."
         default:
-            "Sign in with the \(provider.accountName) account you use in \(provider.displayName) to see \(ProviderCatalog.iOSEntry(for: provider).meters.lowercased()). Your password is only entered on \(provider.vendorName)'s own page."
+            "Sign in with the \(provider.accountName) account you use in \(provider.displayName) to see \(ProviderCatalog.platformEntry(for: provider).meters.lowercased()). Your password is only entered on \(provider.vendorName)'s own page."
         }
     }
 }
