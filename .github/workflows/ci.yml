@@ -237,6 +237,9 @@ jobs:
             | sed -nE 's/^[[:space:]]+(iPhone [A-Za-z0-9 ]*[A-Za-z0-9]) \(.*/\1/p' | head -n 1)"
           [[ -n "$DEVICE" ]] || { echo "::error::No iPhone simulator on this runner"; exit 1; }
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+      # Warnings are errors through the project's own build settings. Passing them on the
+      # command line would also reach the CodexMeterCore package, which Xcode builds with
+      # -suppress-warnings, and the two flags conflict. swift test above covers the package.
       - name: iOS unit tests with warnings as errors
         working-directory: ios
         env:
@@ -247,7 +250,7 @@ jobs:
             -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
             -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
-            CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            CODE_SIGNING_ALLOWED=NO \
             test
 
   gate:
