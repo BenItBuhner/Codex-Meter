@@ -6,7 +6,7 @@ import XCTest
 /// stills from /tmp/codex-meter-ipad-gallery after each device.
 @MainActor
 final class IPadLayoutTests: XCTestCase {
-    private static let stagingDirectory = URL(fileURLWithPath: "/tmp/codex-meter-ipad-gallery", isDirectory: true)
+    nonisolated private static let stagingDirectory = URL(fileURLWithPath: "/tmp/codex-meter-ipad-gallery", isDirectory: true)
 
     override func setUpWithError() throws {
         // XCTest calls setUp and tearDown on the main thread, but the overrides aren't main-actor isolated.
