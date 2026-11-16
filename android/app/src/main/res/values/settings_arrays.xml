@@ -95,10 +95,10 @@
     <string-array name="settings_reset_auto_threshold_values">
         <item>0</item><item>1</item><item>2</item><item>5</item><item>10</item>
     </string-array>
-    <string-array name="settings_reset_auto_metric_entries">
-        <item>5-hour or weekly limit</item><item>Weekly limit only</item><item>5-hour limit only</item>
+    <string-array name="haptics_entries">
+        <item>Off</item><item>Light</item><item>Strong</item>
     </string-array>
-    <string-array name="settings_reset_auto_metric_values">
-        <item>both</item><item>weekly</item><item>five_hour</item>
+    <string-array name="haptics_values">
+        <item>off</item><item>light</item><item>strong</item>
     </string-array>
 </resources>

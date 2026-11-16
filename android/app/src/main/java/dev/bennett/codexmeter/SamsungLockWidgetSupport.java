@@ -235,11 +235,12 @@ final class SamsungLockWidgetSupport {
         boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
         UsageSnapshot snapshot = signedIn
                 ? ProviderPreferences.loadSnapshot(context, provider) : null;
-        // Reset credits are a Codex feature.
-        boolean codexOnly = provider == UsageProvider.CODEX && !multi;
-        ResetCreditsSnapshot resetCredits = codexOnly
-                ? AppPreferences.loadResetCredits(context) : null;
-        if (!codexOnly) {
+        // Only Codex and Claude Code bank resets; a tile of several providers has no room.
+        boolean withResets = ResetAlertPreferences.hasResets(provider) && !multi;
+        ResetCreditsSnapshot resetCredits = withResets
+                ? ProviderPreferences.loadResetCredits(context, provider,
+                        System.currentTimeMillis()) : null;
+        if (!withResets) {
             LockWidgetOptions o = options;
             options = new LockWidgetOptions(o.metricMode, false,
                     false, o.showCountdown, o.visibleMeters);

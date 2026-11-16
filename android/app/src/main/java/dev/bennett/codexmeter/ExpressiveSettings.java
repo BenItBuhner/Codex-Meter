@@ -365,6 +365,7 @@ final class ExpressiveSettings {
                 sw.setChecked(r.checked);
                 sw.setEnabled(r.enabled);
                 sw.setOnCheckedChangeListener((b, on) -> {
+                    AppHaptics.tick(b);
                     toggle(r, on);
                     this.root.post(this::render);
                 });

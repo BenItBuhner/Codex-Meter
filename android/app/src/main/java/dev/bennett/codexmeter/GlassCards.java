@@ -236,7 +236,7 @@ final class GlassCards {
         if (out.isEmpty()) {
             Card empty = new Card(Card.Kind.MESSAGE);
             empty.title = "No dashboard items are available. Refresh usage, or choose items in "
-                    + "Settings, Refresh & dashboard, Edit dashboard.";
+                    + "Settings, Dashboard, Edit dashboard.";
             out.add(empty);
         }
     }
@@ -389,10 +389,7 @@ final class GlassCards {
     private static Card resetCredits(MainActivity a, UsageProvider target, long now) {
         boolean claude = target == UsageProvider.CLAUDE_CODE;
         boolean signedIn = SecureTokenStore.isSignedIn(a, target);
-        ClaudeSavedResets saved = claude ? ProviderPreferences.loadSavedResets(a, target) : null;
-        ResetCreditsSnapshot credits = claude
-                ? (saved == null ? null : saved.toResetCreditsSnapshot(now))
-                : AppPreferences.loadResetCredits(a);
+        ResetCreditsSnapshot credits = ProviderPreferences.loadResetCredits(a, target, now);
         int available = credits == null ? 0 : credits.availableCount;
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
         Card c = new Card(Card.Kind.LINK);

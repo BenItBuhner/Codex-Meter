@@ -270,7 +270,7 @@ public final class SettingsTransfer {
             return "Notifications";
         }
         if (SECTION_NOW_BAR.equals(section)) {
-            return "Now Bar";
+            return "Live notification";
         }
         if (SECTION_AUTHENTICATION.equals(section)) {
             return "Authentication";

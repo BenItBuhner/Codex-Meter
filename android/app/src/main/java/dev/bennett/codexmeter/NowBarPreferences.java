@@ -6,8 +6,8 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 
 /**
  * User settings for automatically starting the live usage monitor when allowance
- * remaining drops to a configured threshold — same metric/threshold pattern as
- * {@link ResetAlertPreferences} low-usage alerts.
+ * remaining drops to a configured threshold — using the one low-allowance
+ * limit and threshold kept in {@link ResetAlertPreferences}.
  */
 public final class NowBarPreferences {
     private static final String KEY_AUTO_ENABLED = "auto_enabled";
@@ -61,21 +61,27 @@ public final class NowBarPreferences {
         PhoneWearSync.pushSettings(context);
     }
 
+    /** The app's one low-allowance limit, set under Notifications. */
     public static String getMetric(Context context) {
-        return NowBarAutoStart.normalizeMetric(prefs(context).getString(KEY_METRIC,
-                NowBarAutoStart.METRIC_BOTH));
+        return NowBarAutoStart.normalizeMetric(ResetAlertPreferences.getMetric(context));
     }
 
+    /** The app's one low-allowance threshold, set under Notifications. */
     public static int getThreshold(Context context) {
-        return NowBarAutoStart.normalizeThreshold(prefs(context).getInt(KEY_THRESHOLD, 25));
+        return NowBarAutoStart.normalizeThreshold(ResetAlertPreferences.getThreshold(context));
     }
 
+    /**
+     * Saves the auto-start switch. The limit and threshold are the shared low-allowance
+     * setting, so a watch or an imported file that sends them changes that one setting.
+     */
     public static void save(Context context, boolean autoEnabled, String metric, int threshold) {
         prefs(context).edit()
                 .putBoolean(KEY_AUTO_ENABLED, autoEnabled)
-                .putString(KEY_METRIC, NowBarAutoStart.normalizeMetric(metric))
-                .putInt(KEY_THRESHOLD, NowBarAutoStart.normalizeThreshold(threshold))
+                .remove(KEY_METRIC)
+                .remove(KEY_THRESHOLD)
                 .apply();
+        ResetAlertPreferences.saveLowAllowance(context, metric, threshold);
         PhoneWearSync.pushSettings(context);
     }
 

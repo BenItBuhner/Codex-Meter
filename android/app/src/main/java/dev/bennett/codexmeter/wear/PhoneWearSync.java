@@ -13,6 +13,7 @@ import dev.bennett.codexmeter.NowBarManager;
 import dev.bennett.codexmeter.NowBarPreferences;
 import dev.bennett.codexmeter.ProviderPreferences;
 import dev.bennett.codexmeter.RefreshScheduler;
+import dev.bennett.codexmeter.ResetCreditsSnapshot;
 import dev.bennett.codexmeter.SecureTokenStore;
 import dev.bennett.codexmeter.UsageSnapshot;
 import dev.bennett.codexmeter.UsagePacePreferences;
@@ -69,9 +70,16 @@ public final class PhoneWearSync {
         }
         for (UsageProvider provider : shown) {
             boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
+            UsageSnapshot snapshot = signedIn
+                    ? ProviderPreferences.loadSnapshot(context, provider) : null;
+            if (snapshot != null && provider == UsageProvider.CLAUDE_CODE) {
+                // Codex's count comes with its usage; Claude Code's saved resets are kept apart.
+                ResetCreditsSnapshot resets = ProviderPreferences.loadResetCredits(context,
+                        provider, now);
+                if (resets != null) snapshot = snapshot.withResetCredits(resets.availableCount);
+            }
             entries.add(new WearProvidersState.Entry(provider.id, provider.displayName,
-                    signedIn,
-                    signedIn ? ProviderPreferences.loadSnapshot(context, provider) : null,
+                    signedIn, snapshot,
                     signedIn ? ProviderPreferences.getLastError(context, provider) : ""));
         }
         return new WearProvidersState(entries, ProviderPreferences.getSelected(context).id, now);

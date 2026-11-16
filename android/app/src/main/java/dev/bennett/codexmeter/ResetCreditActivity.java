@@ -448,21 +448,11 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
     /** One line describing the automatic-use rules that are on, or empty when none are. */
     static String autoUseSummary(Context context, boolean claude, boolean hasExpiry) {
-        boolean expiryOn = claude
-                ? ResetAlertPreferences.claudeSavedResetExpiryEnabled(context)
-                : ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context);
-        long lead = claude
-                ? ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context)
-                : ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context);
-        boolean lowOn = claude
-                ? ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context)
-                : ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context);
-        String metric = claude
-                ? ResetAlertPreferences.claudeSavedResetMetric(context)
-                : ResetAlertPreferences.resetCreditLowUsageMetric(context);
-        int threshold = claude
-                ? ResetAlertPreferences.claudeSavedResetThreshold(context)
-                : ResetAlertPreferences.resetCreditLowUsageThreshold(context);
+        UsageProvider provider = claude ? UsageProvider.CLAUDE_CODE : UsageProvider.CODEX;
+        boolean expiryOn = ResetAlertPreferences.expiryAutoUseEnabled(context, provider);
+        long lead = ResetAlertPreferences.expiryAutoUseLeadMillis(context, provider);
+        boolean lowOn = ResetAlertPreferences.lowUsageAutoUseEnabled(context, provider);
+        int threshold = ResetAlertPreferences.lowUsageAutoUseThreshold(context, provider);
         StringBuilder text = new StringBuilder();
         if (expiryOn && hasExpiry) {
             text.append("Unused credits are used automatically ")
@@ -471,11 +461,8 @@ public final class ResetCreditActivity extends AppCompatActivity {
         }
         if (lowOn) {
             if (text.length() > 0) text.append(' ');
-            String window = ResetCreditLowUsageAutoUse.METRIC_WEEKLY.equals(metric) ? "weekly"
-                    : ResetCreditLowUsageAutoUse.METRIC_FIVE_HOUR.equals(metric) ? "5-hour"
-                    : "5-hour or weekly";
-            text.append("A credit is also used when your ").append(window)
-                    .append(" limit reaches ").append(threshold).append("% remaining.");
+            text.append("A credit is also used when your 5-hour or weekly limit reaches ")
+                    .append(threshold).append("% remaining.");
         }
         if (text.length() > 0) text.append(" Change this in Settings > Reset credits.");
         return text.toString();

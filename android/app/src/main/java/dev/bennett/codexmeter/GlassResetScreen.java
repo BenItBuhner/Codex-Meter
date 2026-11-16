@@ -31,11 +31,8 @@ final class GlassResetScreen extends GlassScreens.Screen {
     }
 
     private ResetCreditsSnapshot credits() {
-        if (!claude()) {
-            return AppPreferences.loadResetCredits(activity());
-        }
-        ClaudeSavedResets saved = ProviderPreferences.loadSavedResets(activity(), provider);
-        return saved == null ? null : saved.toResetCreditsSnapshot(System.currentTimeMillis());
+        return ProviderPreferences.loadResetCredits(activity(), provider,
+                System.currentTimeMillis());
     }
 
     private boolean signedIn() {

@@ -819,7 +819,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
                         "No dashboard items are available. Refresh usage or choose items in "
-                                + "Settings → Refresh & dashboard → Edit dashboard.",
+                                + "Settings → Dashboard → Edit dashboard.",
                         14.0f, Ui.secondaryText(this.dark));
                 empty.setGravity(Gravity.CENTER);
                 this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
@@ -1673,9 +1673,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         long now = System.currentTimeMillis();
         ClaudeSavedResets saved = claude ? ProviderPreferences.loadSavedResets(this, target)
                 : null;
-        ResetCreditsSnapshot credits = claude
-                ? (saved == null ? null : saved.toResetCreditsSnapshot(now))
-                : AppPreferences.loadResetCredits(this);
+        ResetCreditsSnapshot credits = ProviderPreferences.loadResetCredits(this, target, now);
         int available = credits == null ? 0 : credits.availableCount;
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
         // Claude only: Anthropic can hold a reset until you reach a usage limit.

@@ -146,10 +146,22 @@ public final class CodexGlass {
         return buttons <= 0 ? 0 : buttons * RAIL_BUTTON + (buttons - 1) * RAIL_GAP;
     }
 
+    /** Settings › Appearance › Haptics. */
+    public static final String HAPTICS_OFF = "off";
+    public static final String HAPTICS_LIGHT = "light";
+    public static final String HAPTICS_STRONG = "strong";
+
     static {
-        // The tab bar's tick per tab (and the Duo rail's): Android's selection tick is faint, so a
-        // drag along the tabs plays a firm tick instead.
-        TabView.setTICK(Haptic.RIGID);
+        setHaptics(HAPTICS_LIGHT);
+    }
+
+    /**
+     * Off silences every Glassé haptic. Light gives the tab bar's (and the Duo rail's) tick per
+     * tab a light impact, a step above Android's faint selection tick; Strong a rigid one.
+     */
+    public static void setHaptics(String level) {
+        com.benitbuhner.glasse.ui.Haptics.setEnabled(!HAPTICS_OFF.equals(level));
+        TabView.setTICK(HAPTICS_STRONG.equals(level) ? Haptic.RIGID : Haptic.LIGHT);
     }
 
     /**

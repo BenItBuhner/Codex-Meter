@@ -20,14 +20,11 @@ public final class ResetAlertPreferences {
             "reset_credit_low_usage_auto_use";
     private static final String KEY_RESET_CREDIT_LOW_USAGE_THRESHOLD =
             "reset_credit_low_usage_threshold";
-    private static final String KEY_RESET_CREDIT_LOW_USAGE_METRIC =
-            "reset_credit_low_usage_metric";
     private static final String KEY_CLAUDE_SAVED_RESET_EXPIRY = "claude_saved_reset_expiry";
     private static final String KEY_CLAUDE_SAVED_RESET_EXPIRY_LEAD =
             "claude_saved_reset_expiry_lead_ms";
     private static final String KEY_CLAUDE_SAVED_RESET_LOW_USAGE = "claude_saved_reset_low_usage";
     private static final String KEY_CLAUDE_SAVED_RESET_THRESHOLD = "claude_saved_reset_threshold";
-    private static final String KEY_CLAUDE_SAVED_RESET_METRIC = "claude_saved_reset_metric";
     private static final String KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES =
             "reset_credit_expiry_lead_times";
     private static final String KEY_RESET_CREDIT_INCREASES = "reset_credit_increases";
@@ -81,6 +78,83 @@ public final class ResetAlertPreferences {
             threshold = 25;
         }
         prefs(context).edit().putString(KEY_STYLE, style).putString(KEY_METRIC, metric).putInt(KEY_THRESHOLD, threshold).apply();
+    }
+
+    /** Changes the shared low-allowance limit and threshold, keeping the delivery style. */
+    public static void saveLowAllowance(Context context, String metric, int threshold) {
+        String style = prefs(context).getString(KEY_STYLE, STYLE_OFF);
+        if (!METRIC_FIVE_HOUR.equals(metric) && !METRIC_WEEKLY.equals(metric)) {
+            metric = METRIC_BOTH;
+        }
+        if (!isValidThreshold(threshold)) {
+            threshold = getThreshold(context);
+        }
+        prefs(context).edit().putString(KEY_STYLE, style).putString(KEY_METRIC, metric)
+                .putInt(KEY_THRESHOLD, threshold).apply();
+    }
+
+    // Automatic use of banked resets: one rule set per provider that has resets. Codex keeps
+    // its reset_credit_* keys and Claude Code its claude_saved_reset_* keys, so nothing moves.
+
+    /** Providers whose banked resets Codex Meter can see and spend. */
+    public static boolean hasResets(UsageProvider provider) {
+        return provider == UsageProvider.CODEX || provider == UsageProvider.CLAUDE_CODE;
+    }
+
+    public static boolean expiryAutoUseEnabled(Context context, UsageProvider provider) {
+        return provider == UsageProvider.CLAUDE_CODE ? claudeSavedResetExpiryEnabled(context)
+                : resetCreditExpiryAutoApplyEnabled(context);
+    }
+
+    public static void setExpiryAutoUseEnabled(Context context, UsageProvider provider,
+            boolean enabled) {
+        if (provider == UsageProvider.CLAUDE_CODE) {
+            setClaudeSavedResetExpiryEnabled(context, enabled);
+        } else {
+            setResetCreditExpiryAutoApplyEnabled(context, enabled);
+        }
+    }
+
+    public static long expiryAutoUseLeadMillis(Context context, UsageProvider provider) {
+        return provider == UsageProvider.CLAUDE_CODE ? claudeSavedResetExpiryLeadMillis(context)
+                : resetCreditExpiryAutoApplyLeadMillis(context);
+    }
+
+    public static void setExpiryAutoUseLeadMillis(Context context, UsageProvider provider,
+            long leadMillis) {
+        if (provider == UsageProvider.CLAUDE_CODE) {
+            setClaudeSavedResetExpiryLeadMillis(context, leadMillis);
+        } else {
+            setResetCreditExpiryAutoApplyLeadMillis(context, leadMillis);
+        }
+    }
+
+    public static boolean lowUsageAutoUseEnabled(Context context, UsageProvider provider) {
+        return provider == UsageProvider.CLAUDE_CODE ? claudeSavedResetLowUsageEnabled(context)
+                : resetCreditLowUsageAutoUseEnabled(context);
+    }
+
+    public static void setLowUsageAutoUseEnabled(Context context, UsageProvider provider,
+            boolean enabled) {
+        if (provider == UsageProvider.CLAUDE_CODE) {
+            setClaudeSavedResetLowUsageEnabled(context, enabled);
+        } else {
+            setResetCreditLowUsageAutoUseEnabled(context, enabled);
+        }
+    }
+
+    public static int lowUsageAutoUseThreshold(Context context, UsageProvider provider) {
+        return provider == UsageProvider.CLAUDE_CODE ? claudeSavedResetThreshold(context)
+                : resetCreditLowUsageThreshold(context);
+    }
+
+    public static void setLowUsageAutoUseThreshold(Context context, UsageProvider provider,
+            int threshold) {
+        if (provider == UsageProvider.CLAUDE_CODE) {
+            setClaudeSavedResetThreshold(context, threshold);
+        } else {
+            setResetCreditLowUsageThreshold(context, threshold);
+        }
     }
 
     public static boolean enabled(Context context) {
@@ -150,16 +224,6 @@ public final class ResetAlertPreferences {
                 ResetCreditLowUsageAutoUse.normalizeThreshold(threshold)).apply();
     }
 
-    public static String resetCreditLowUsageMetric(Context context) {
-        return ResetCreditLowUsageAutoUse.normalizeMetric(prefs(context).getString(
-                KEY_RESET_CREDIT_LOW_USAGE_METRIC, ResetCreditLowUsageAutoUse.METRIC_BOTH));
-    }
-
-    public static void setResetCreditLowUsageMetric(Context context, String metric) {
-        prefs(context).edit().putString(KEY_RESET_CREDIT_LOW_USAGE_METRIC,
-                ResetCreditLowUsageAutoUse.normalizeMetric(metric)).apply();
-    }
-
     /** On by default, like Codex: a reset about to expire is otherwise lost. */
     public static boolean claudeSavedResetExpiryEnabled(Context context) {
         return prefs(context).getBoolean(KEY_CLAUDE_SAVED_RESET_EXPIRY, true);
@@ -196,16 +260,6 @@ public final class ResetAlertPreferences {
     public static void setClaudeSavedResetThreshold(Context context, int threshold) {
         prefs(context).edit().putInt(KEY_CLAUDE_SAVED_RESET_THRESHOLD,
                 ResetCreditLowUsageAutoUse.normalizeThreshold(threshold)).apply();
-    }
-
-    public static String claudeSavedResetMetric(Context context) {
-        return ResetCreditLowUsageAutoUse.normalizeMetric(prefs(context).getString(
-                KEY_CLAUDE_SAVED_RESET_METRIC, ResetCreditLowUsageAutoUse.METRIC_BOTH));
-    }
-
-    public static void setClaudeSavedResetMetric(Context context, String metric) {
-        prefs(context).edit().putString(KEY_CLAUDE_SAVED_RESET_METRIC,
-                ResetCreditLowUsageAutoUse.normalizeMetric(metric)).apply();
     }
 
     public static List<Long> getResetCreditExpiryLeadTimes(Context context) {

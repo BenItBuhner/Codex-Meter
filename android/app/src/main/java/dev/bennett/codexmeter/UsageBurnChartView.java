@@ -10,7 +10,6 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.text.format.DateFormat;
 import android.util.AttributeSet;
-import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import java.text.SimpleDateFormat;
@@ -181,7 +180,7 @@ public final class UsageBurnChartView extends View {
                 : (clamped - axis[0]) / Math.max(1L, (axis[1] - axis[0]) / 24L);
         if (bucket != lastHapticBucket) {
             lastHapticBucket = bucket;
-            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            AppHaptics.tick(this);
         }
         if (changed && scrubListener != null) {
             scrubListener.onScrub(clamped, percent, historicalSelection());
