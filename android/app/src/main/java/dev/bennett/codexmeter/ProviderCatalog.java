@@ -39,7 +39,8 @@ public final class ProviderCatalog {
         public final boolean acceptsApiKey;
         /**
          * True when the sign-in flow is known but it is not yet confirmed that its token is
-         * accepted by the usage route. The sign-in screen says so.
+         * accepted by the usage route; the sign-in screen then says so. Every current provider
+         * is confirmed (provider docs, provider source or open-source clients), so none sets it.
          */
         public final boolean inferred;
 
@@ -81,33 +82,33 @@ public final class ProviderCatalog {
             new Entry(UsageProvider.FACTORY, SignIn.DEVICE_CODE,
                     "5-hour, weekly and monthly limits", "Factory sign-in", "", false, false),
             new Entry(UsageProvider.GROK, SignIn.DEVICE_CODE,
-                    "SuperGrok credits for the billing period", "xAI sign-in", "", false, true),
+                    "SuperGrok credits for the billing period", "xAI sign-in", "", false, false),
             new Entry(UsageProvider.ANTIGRAVITY, SignIn.LOOPBACK,
                     "Gemini and Claude model limits, 5-hour and weekly", "Google sign-in", "",
                     false, false),
             new Entry(UsageProvider.DEVIN, SignIn.CODE_PASTE,
-                    "Daily and weekly quota", "Windsurf token", "", false, true),
+                    "Daily and weekly quota", "Devin session", "", false, false),
             new Entry(UsageProvider.WINDSURF, SignIn.CODE_PASTE,
-                    "Daily and weekly quota", "Windsurf token", "", false, true),
+                    "Daily and weekly quota", "Windsurf token", "", false, false),
             new Entry(UsageProvider.AUGMENT, SignIn.CODE_PASTE,
                     "Monthly credits", "Augment sign-in", "", false, false),
             new Entry(UsageProvider.CLINE, SignIn.DEVICE_CODE,
-                    "5-hour, weekly and monthly limits", "Cline sign-in", "", false, true),
+                    "5-hour, weekly and monthly limits", "Cline sign-in", "", false, false),
             new Entry(UsageProvider.OPENCODE_GO, SignIn.DEVICE_CODE,
                     "5-hour, weekly and monthly limits", "OpenCode sign-in",
-                    "https://opencode.ai/auth", true, true),
+                    "https://opencode.ai/auth", true, false),
             new Entry(UsageProvider.MINIMAX, SignIn.DEVICE_CODE,
                     "Coding plan prompts per window", "MiniMax sign-in",
                     "https://platform.minimax.io/user-center/basic-information/interface-key",
-                    true, true),
+                    true, false),
             new Entry(UsageProvider.ZAI, SignIn.API_KEY,
                     "5-hour and weekly limits", "API key",
                     "https://z.ai/manage-apikey/apikey-list", true, false),
             new Entry(UsageProvider.KIRO, SignIn.DEVICE_CODE,
-                    "Monthly credits", "AWS Builder ID", "", false, true),
+                    "Monthly credits", "AWS Builder ID", "", false, false),
             new Entry(UsageProvider.AMP, SignIn.API_KEY,
-                    "Free daily usage and credits", "Access token",
-                    "https://ampcode.com/settings", true, true),
+                    "Free daily usage, plan usage and credits", "Access token",
+                    "https://ampcode.com/settings", true, false),
             new Entry(UsageProvider.OPENROUTER, SignIn.LOOPBACK,
                     "Key limit and credit balance", "OpenRouter sign-in",
                     "https://openrouter.ai/settings/keys", true, false),
@@ -115,17 +116,19 @@ public final class ProviderCatalog {
                     "Credit balance", "Kilo sign-in", "https://app.kilo.ai/profile", true,
                     false),
             new Entry(UsageProvider.CODEBUFF, SignIn.DEVICE_CODE,
-                    "Subscription credits", "Codebuff sign-in", "", false, true),
+                    "Subscription credits", "Codebuff sign-in", "", false, false),
             new Entry(UsageProvider.SYNTHETIC, SignIn.API_KEY,
-                    "5-hour and weekly limits", "API key", "https://synthetic.new/billing",
-                    true, false),
+                    "Weekly credits and hourly search", "API key",
+                    "https://synthetic.new/billing", true, false),
             new Entry(UsageProvider.CHUTES, SignIn.API_KEY,
-                    "Subscription quota", "API key", "https://chutes.ai/app/api", true, true),
+                    "4-hour and monthly subscription caps", "API key",
+                    "https://chutes.ai/app/settings/api-keys", true, false),
             new Entry(UsageProvider.V0, SignIn.API_KEY,
-                    "Rate limits", "API key", "https://v0.app/chat/settings/keys", true, true),
+                    "Monthly credits and rate limits", "API key",
+                    "https://v0.app/settings/keys", true, false),
             new Entry(UsageProvider.WARP, SignIn.API_KEY,
-                    "AI request limit", "API key", "https://app.warp.dev/settings/api-keys",
-                    true, true),
+                    "Monthly credits and add-on credits", "API key",
+                    "https://oz.warp.dev/settings", true, false),
     };
 
     private ProviderCatalog() {
@@ -138,6 +141,15 @@ public final class ProviderCatalog {
         // Every provider has an entry; the self-test checks it.
         return new Entry(provider, SignIn.BROWSER, "Usage limits",
                 provider.accountName + " sign-in", "", false, false);
+    }
+
+    /**
+     * A dashboard meter's title. Cursor meters its included usage, so its windows read
+     * "Included usage · Weekly"; every other provider just names the cadence. The Apple and
+     * desktop apps use the same words.
+     */
+    public static String meterTitle(UsageProvider provider, String cadence) {
+        return provider == UsageProvider.CURSOR ? "Included usage · " + cadence : cadence;
     }
 
     /** Every provider in recommended order. */
