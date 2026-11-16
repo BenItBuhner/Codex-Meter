@@ -9,8 +9,10 @@ final class IPadLayoutTests: XCTestCase {
     private static let stagingDirectory = URL(fileURLWithPath: "/tmp/codex-meter-ipad-gallery", isDirectory: true)
 
     override func setUpWithError() throws {
+        // XCTest calls setUp and tearDown on the main thread, but the overrides aren't main-actor isolated.
+        let isPad = MainActor.assumeIsolated { UIDevice.current.userInterfaceIdiom == .pad }
         try XCTSkipUnless(
-            UIDevice.current.userInterfaceIdiom == .pad,
+            isPad,
             "The iPad layout tests run on iPad simulators"
         )
         continueAfterFailure = true
@@ -18,7 +20,7 @@ final class IPadLayoutTests: XCTestCase {
     }
 
     override func tearDown() {
-        XCUIDevice.shared.orientation = .portrait
+        MainActor.assumeIsolated { XCUIDevice.shared.orientation = .portrait }
         super.tearDown()
     }
 
