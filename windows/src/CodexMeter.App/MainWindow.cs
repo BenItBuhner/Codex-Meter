@@ -273,6 +273,9 @@ public sealed class MainWindow : Window
         ShowPage(tag);
     }
 
+    /// <summary>Builds the current page again, e.g. after settings were imported.</summary>
+    public void Reload() => ShowPage(currentTag);
+
     private void ShowPage(string tag)
     {
         currentTag = tag;

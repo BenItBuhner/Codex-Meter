@@ -18,6 +18,7 @@ public sealed class PriorityPage : IPage
     private readonly Gtk.ScrolledWindow scroller;
     private readonly Action<UsageProvider> onChanged;
     private readonly Action onProviders;
+    private readonly Action onService;
     private readonly List<Adw.PreferencesGroup> groups = [];
     private readonly uint timer;
 
@@ -36,9 +37,12 @@ public sealed class PriorityPage : IPage
         onProviders = Render;
         state.ProviderChanged += onChanged;
         state.ProvidersChanged += onProviders;
+        onService = () => GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () => { Render(); return false; });
+        state.ServiceChanged += onService;
         timer = GLib.Functions.TimeoutAddSeconds(GLib.Constants.PRIORITY_DEFAULT, 30, () => { Render(); return true; });
         Render();
         _ = state.RefreshAllAsync(force: false);
+        _ = state.RefreshServiceAsync(foreground: true);
     }
 
     public string Tag => "priority";
@@ -49,6 +53,7 @@ public sealed class PriorityPage : IPage
     {
         state.ProviderChanged -= onChanged;
         state.ProvidersChanged -= onProviders;
+        state.ServiceChanged -= onService;
         GLib.Functions.SourceRemove(timer);
     }
 
@@ -62,6 +67,8 @@ public sealed class PriorityPage : IPage
         top.SetDescription(report.Headline);
         top.SetName("PriorityHeadline");
         Add(top);
+        Section("Service status", report.Service, "PriorityService");
+        Section("Running slow", report.Slow, "PrioritySlow", PriorityReport.SlowNote);
         Section("Limits to watch", report.Watch, "PriorityWatch");
         Section("Used up", report.UsedUp, "PriorityUsedUp");
         Section("Coming up", report.ComingUp, "PriorityComingUp");
@@ -96,6 +103,15 @@ public sealed class PriorityPage : IPage
                 value.SetWrap(false);
                 value.SetValign(Gtk.Align.Center);
                 row.AddSuffix(value);
+            }
+            if (item.Link is { } link && Uri.TryCreate(link, UriKind.Absolute, out var uri))
+            {
+                var open = Gtk.Button.NewFromIconName("adw-external-link-symbolic");
+                open.SetTooltipText("Open status page");
+                open.AddCssClass("flat");
+                open.SetValign(Gtk.Align.Center);
+                open.OnClicked += (_, _) => _ = Browser.OpenAsync(uri);
+                row.AddSuffix(open);
             }
             group.Add(row);
         }
