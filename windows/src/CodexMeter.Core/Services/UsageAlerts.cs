@@ -16,7 +16,8 @@ public sealed record UsageAlert(UsageAlertKind Kind, string Title, string Body, 
 public static class UsageAlerts
 {
     public static IReadOnlyList<UsageAlert> Evaluate(UsageProvider provider, UsageSnapshot? previous, UsageSnapshot current,
-        int lowThreshold, bool notifyResets, bool notifyLow, bool notifySurpriseRefills = false, bool usageBackOn = false)
+        int lowThreshold, bool notifyResets, bool notifyLow, bool notifySurpriseRefills = false, bool usageBackOn = false,
+        LowUsageAutoUseMetric lowFor = LowUsageAutoUseMetric.Both)
     {
         var alerts = new List<UsageAlert>();
         if (previous is null) return alerts;
@@ -42,7 +43,9 @@ public static class UsageAlerts
                     $"You have {after.RemainingPercent}% of your {name.ToLowerInvariant()} allowance again.", key + ":reset"));
                 continue;
             }
-            if (!notifyLow) continue;
+            // Low allowance → Alert for: the 5-hour or weekly limit alone; monthly windows count as weekly.
+            if (!notifyLow || (lowFor == LowUsageAutoUseMetric.FiveHour && name != "5-hour")
+                || (lowFor == LowUsageAutoUseMetric.Weekly && name == "5-hour")) continue;
             if (after.RemainingPercent == 0 && before.RemainingPercent > 0)
             {
                 var reset = after.EffectiveResetDate(current.FetchedAt) is { } r

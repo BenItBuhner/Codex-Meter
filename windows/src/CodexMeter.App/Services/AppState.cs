@@ -39,6 +39,8 @@ public sealed class AppState
     private readonly HashSet<string> announced = [];
     private readonly HashSet<string> autoUsedCredits = [];
     private bool autoUsing;
+    private bool autoUsingClaude;
+    private bool checkingService;
 
     public AppState(ProviderHub hub, SettingsStore settings, UsageHistoryStore history)
     {
@@ -60,12 +62,56 @@ public sealed class AppState
     /// <summary>New models for the Priority page and notification; null in demo mode.</summary>
     public ModelDiscoveryStore? Models { get; set; }
 
-    /// <summary>The Priority page: limits to watch, used up, coming up and new models across signed-in providers.</summary>
+    /// <summary>Official status feeds for the providers that have one; null in screenshot runs without demo status.</summary>
+    public ProviderStatusStore? Status { get; set; }
+
+    /// <summary>Public OpenRouter speed figures for slowdown warnings; null in demo mode.</summary>
+    public ModelSpeedStore? Speed { get; set; }
+
+    /// <summary>The Priority page: service status, slowdowns, limits to watch, used up, coming up and new models across signed-in providers.</summary>
     public PriorityReport Priority(DateTimeOffset now)
     {
         var signedIn = EnabledProviders.Where(p => this[p].SignedIn).ToList();
         var models = Models is { } store ? ModelDiscovery.Items(store.State, signedIn, now) : [];
-        return PriorityReport.Build(signedIn.Select(p => (p, this[p].Usage, this[p].Cache?.Credits)), models, now);
+        return PriorityReport.Build(signedIn.Select(p => (p, this[p].Usage, this[p].Cache?.Credits)), models, now)
+            .WithService(signedIn.Select(p => (p, ServiceStatus(p, now), Slowdowns(p, now))));
+    }
+
+    /// <summary>The provider's official status when Service status is on and it is recent enough to trust.</summary>
+    public ProviderStatus? ServiceStatus(UsageProvider provider, DateTimeOffset now) =>
+        Settings.Current.ShowServiceStatus ? Status?.For(provider, now) : null;
+
+    private IReadOnlyList<ModelSlowdown> Slowdowns(UsageProvider provider, DateTimeOffset now) =>
+        Settings.Current.ShowSlowdowns && Speed is { } speed && Models is { } models ? speed.Slowdowns(models.State, provider, now) : [];
+
+    /// <summary>Official status or speed figures changed.</summary>
+    public event Action? ServiceChanged;
+
+    /// <summary>
+    /// Checks status feeds and model speed when due: every 5 minutes or so while a page shows them
+    /// (<paramref name="foreground"/>), every 30 from the background tick. Off with Service status.
+    /// </summary>
+    public async Task RefreshServiceAsync(bool foreground)
+    {
+        var settings = Settings.Current;
+        if (checkingService || !(settings.ShowServiceStatus || settings.ShowSlowdowns)) return;
+        checkingService = true;
+        try
+        {
+            var signedIn = SignedIn;
+            var now = DateTimeOffset.UtcNow;
+            var changed = settings.ShowServiceStatus && Status is { } status && await status.RefreshAsync(signedIn, foreground, now);
+            if (settings.ShowSlowdowns && Speed is { } speed && Models is { } models) changed |= await speed.RefreshAsync(models.State, signedIn, now);
+            if (changed) ServiceChanged?.Invoke();
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine("Service status check failed: " + error.GetType().Name);
+        }
+        finally
+        {
+            checkingService = false;
+        }
     }
 
     /// <summary>One provider's account or usage changed.</summary>
@@ -135,6 +181,7 @@ public sealed class AppState
         entry.Refreshing = true;
         ProviderChanged?.Invoke(provider);
         var previous = entry.Usage;
+        var previousCredits = entry.Cache?.Credits;
         var service = Hub[provider];
         try
         {
@@ -145,6 +192,9 @@ public sealed class AppState
                 .Where(a => announced.Add(a.Key + ":" + snapshot.FetchedAt.ToUnixTimeSeconds() / 3600))
                 .ToList();
             if (alerts.Count > 0) Alerts?.Invoke(alerts);
+            var credits = (await service.CachedAsync())?.Credits;
+            var gained = RefreshAlerts.NewResets(Settings, provider, previousCredits, credits).Where(a => announced.Add(a.Key)).ToList();
+            if (gained.Count > 0) Alerts?.Invoke(gained);
         }
         catch (ProviderException error)
         {
@@ -159,6 +209,7 @@ public sealed class AppState
             ProviderChanged?.Invoke(provider);
         }
         if (provider == UsageProvider.Codex) await AutoUseResetsAsync();
+        if (provider == UsageProvider.ClaudeCode) await AutoUseClaudeResetsAsync();
     }
 
     public Task RefreshAllAsync(bool force) =>
@@ -180,7 +231,11 @@ public sealed class AppState
         await AutoUseResetsAsync();
         var back = RefreshAlerts.Tick(Settings, DateTimeOffset.UtcNow).Where(a => announced.Add(a.Key)).ToList();
         if (back.Count > 0) Alerts?.Invoke(back);
+        var expiring = RefreshAlerts.ExpiringResets(Settings, SignedIn.Select(p => (p, this[p].Cache?.Credits)), DateTimeOffset.UtcNow)
+            .Where(a => announced.Add(a.Key)).ToList();
+        if (expiring.Count > 0) Alerts?.Invoke(expiring);
         if (Updater is { } updater) await updater.TickAsync(DateTimeOffset.UtcNow);
+        await RefreshServiceAsync(foreground: false);
         if (Models is { } models && SignedIn.Any(p => ModelDiscovery.MakerFor(p) is not null))
         {
             var confirmed = await models.RefreshAsync(DateTimeOffset.UtcNow);
@@ -254,6 +309,7 @@ public sealed class AppState
         await Hub[provider].SignOutAsync();
         await HistoryStore.ClearAsync(provider.Id);
         RefreshAlerts.Forget(Settings, provider);
+        Status?.Forget(provider);
         var entry = this[provider];
         entry.Account = null;
         entry.Cache = null;
@@ -274,14 +330,71 @@ public sealed class AppState
         }
     }
 
-    public async Task<ResetConsumeResult> UseResetAsync(string? creditId)
+    public Task<ResetConsumeResult> UseResetAsync(string? creditId) => UseResetAsync(UsageProvider.Codex, creditId);
+
+    /// <summary>Spends a Codex reset credit or a Claude Code saved reset.</summary>
+    public async Task<ResetConsumeResult> UseResetAsync(UsageProvider provider, string? creditId)
     {
-        var result = await Hub.ConsumeResetAsync(creditId);
-        var entry = this[UsageProvider.Codex];
-        entry.Cache = await Hub[UsageProvider.Codex].CachedAsync();
-        if (entry.Usage is { } usage) entry.History = await HistoryStore.RecordAsync(UsageProvider.Codex.Id, usage);
-        ProviderChanged?.Invoke(UsageProvider.Codex);
+        var result = await Hub.ConsumeResetAsync(provider, creditId);
+        var entry = this[provider];
+        entry.Cache = await Hub[provider].CachedAsync();
+        if (entry.Usage is { } usage) entry.History = await HistoryStore.RecordAsync(provider.Id, usage);
+        ProviderChanged?.Invoke(provider);
         return result;
+    }
+
+    /// <summary>"Check with Anthropic": a plain report of what the usage route says about saved resets.</summary>
+    public async Task<string> CheckClaudeResetsAsync()
+    {
+        if (Hub[UsageProvider.ClaudeCode] is not ClaudeCodeService claude) return "Saved resets are shown with sample data in demo mode.";
+        var report = await claude.CheckSavedResetsAsync();
+        this[UsageProvider.ClaudeCode].Cache = await claude.CachedAsync();
+        ProviderChanged?.Invoke(UsageProvider.ClaudeCode);
+        return report;
+    }
+
+    /// <summary>
+    /// Claude Code saved-reset auto-use (Settings → Reset credits): uses one about to expire while
+    /// Anthropic says it can be used, or one when a window it refills runs low. Each rule fires once
+    /// per grant or window; a retryable failure lets the next refresh try again.
+    /// </summary>
+    private async Task AutoUseClaudeResetsAsync()
+    {
+        var rules = Settings.Current.ClaudeResets;
+        if (autoUsingClaude || !Supports(UsageProvider.ClaudeCode) || !(rules.AutoUseExpiring || rules.AutoUseWhenLow)) return;
+        var entry = this[UsageProvider.ClaudeCode];
+        if (!entry.SignedIn) return;
+        autoUsingClaude = true;
+        try
+        {
+            var decision = ClaudeResetAutoUse.Evaluate(entry.Cache?.SavedResets, entry.Usage, rules.AutoUseExpiring, rules.LeadMinutes,
+                rules.AutoUseWhenLow, rules.Threshold, LowUsageAutoUseMetric.Both, rules.LastExpiryKey, rules.LastLowToken, DateTimeOffset.UtcNow);
+            if (!decision.Fires) return;
+            var expiring = decision.Outcome == ClaudeAutoUseOutcome.FireExpiring;
+            Settings.Update(s => s with
+            {
+                ClaudeResets = expiring ? s.ClaudeResets with { LastExpiryKey = decision.AttemptKey } : s.ClaudeResets with { LastLowToken = decision.AttemptKey },
+            });
+            var result = await UseResetAsync(UsageProvider.ClaudeCode, decision.Grant!.Id);
+            if (result.Outcome == ResetConsumeOutcome.Unknown)
+                Settings.Update(s => s with
+                {
+                    ClaudeResets = expiring ? s.ClaudeResets with { LastExpiryKey = null } : s.ClaudeResets with { LastLowToken = null },
+                });
+            Alerts?.Invoke([new UsageAlert(UsageAlertKind.Reset, expiring ? "Used an expiring Claude reset" : "Used a Claude reset",
+                !result.Applied ? result.UserMessage
+                : expiring ? $"Your {decision.Grant.Title} would have expired soon, so Codex Meter used it. {decision.Grant.RefillsText}"
+                : $"Your {decision.WindowLabel} limit was down to {decision.RemainingPercent}%, so Codex Meter used a saved reset. {decision.Grant.RefillsText}",
+                "claude-autouse:" + decision.AttemptKey)]);
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine("Claude reset auto-use failed: " + error.Message);
+        }
+        finally
+        {
+            autoUsingClaude = false;
+        }
     }
 
     /// <summary>
@@ -312,7 +425,7 @@ public sealed class AppState
             }
             if (settings.AutoUseWhenLow)
             {
-                var decision = LowUsageAutoUse.Evaluate(entry.Usage, settings.AutoUseMetric, settings.AutoUseThreshold,
+                var decision = LowUsageAutoUse.Evaluate(entry.Usage, LowUsageAutoUseMetric.Both, settings.AutoUseThreshold,
                     entry.Cache?.Credits?.AvailableCount ?? entry.Usage?.ResetCreditsAvailable, settings.AutoUseLastToken, now);
                 if (!decision.Fires) return;
                 Settings.Update(s => s with { AutoUseLastToken = decision.WindowToken });
@@ -369,6 +482,8 @@ public sealed class AppState
             settings.HiddenSectionsFor(provider.Id), providerId: provider.Id);
     }
 
+    /// <summary>Codex reset credits, or Claude Code saved resets that still have one left.</summary>
     public bool HasResetCredits(UsageProvider provider) =>
-        provider == UsageProvider.Codex && (this[provider].Cache?.Credits is not null || this[provider].Usage?.ResetCreditsAvailable is not null);
+        provider == UsageProvider.Codex ? this[provider].Cache?.Credits is not null || this[provider].Usage?.ResetCreditsAvailable is not null
+        : provider == UsageProvider.ClaudeCode && this[provider].Cache?.Credits is { AvailableCount: > 0 };
 }

@@ -82,7 +82,7 @@ public sealed class AppState
         Settings.Current.ShowServiceStatus ? Status?.For(provider, now) : null;
 
     private IReadOnlyList<ModelSlowdown> Slowdowns(UsageProvider provider, DateTimeOffset now) =>
-        Settings.Current.ShowServiceStatus && Speed is { } speed && Models is { } models ? speed.Slowdowns(models.State, provider, now) : [];
+        Settings.Current.ShowSlowdowns && Speed is { } speed && Models is { } models ? speed.Slowdowns(models.State, provider, now) : [];
 
     /// <summary>Official status or speed figures changed.</summary>
     public event Action? ServiceChanged;
@@ -93,14 +93,15 @@ public sealed class AppState
     /// </summary>
     public async Task RefreshServiceAsync(bool foreground)
     {
-        if (checkingService || !Settings.Current.ShowServiceStatus) return;
+        var settings = Settings.Current;
+        if (checkingService || !(settings.ShowServiceStatus || settings.ShowSlowdowns)) return;
         checkingService = true;
         try
         {
             var signedIn = SignedIn;
             var now = DateTimeOffset.UtcNow;
-            var changed = Status is { } status && await status.RefreshAsync(signedIn, foreground, now);
-            if (Speed is { } speed && Models is { } models) changed |= await speed.RefreshAsync(models.State, signedIn, now);
+            var changed = settings.ShowServiceStatus && Status is { } status && await status.RefreshAsync(signedIn, foreground, now);
+            if (settings.ShowSlowdowns && Speed is { } speed && Models is { } models) changed |= await speed.RefreshAsync(models.State, signedIn, now);
             if (changed) ServiceChanged?.Invoke();
         }
         catch (Exception error)
@@ -180,6 +181,7 @@ public sealed class AppState
         entry.Refreshing = true;
         ProviderChanged?.Invoke(provider);
         var previous = entry.Usage;
+        var previousCredits = entry.Cache?.Credits;
         var service = Hub[provider];
         try
         {
@@ -190,6 +192,9 @@ public sealed class AppState
                 .Where(a => announced.Add(a.Key + ":" + snapshot.FetchedAt.ToUnixTimeSeconds() / 3600))
                 .ToList();
             if (alerts.Count > 0) Alerts?.Invoke(alerts);
+            var credits = (await service.CachedAsync())?.Credits;
+            var gained = RefreshAlerts.NewResets(Settings, provider, previousCredits, credits).Where(a => announced.Add(a.Key)).ToList();
+            if (gained.Count > 0) Alerts?.Invoke(gained);
         }
         catch (ProviderException error)
         {
@@ -226,6 +231,9 @@ public sealed class AppState
         await AutoUseResetsAsync();
         var back = RefreshAlerts.Tick(Settings, DateTimeOffset.UtcNow).Where(a => announced.Add(a.Key)).ToList();
         if (back.Count > 0) Alerts?.Invoke(back);
+        var expiring = RefreshAlerts.ExpiringResets(Settings, SignedIn.Select(p => (p, this[p].Cache?.Credits)), DateTimeOffset.UtcNow)
+            .Where(a => announced.Add(a.Key)).ToList();
+        if (expiring.Count > 0) Alerts?.Invoke(expiring);
         if (Updater is { } updater) await updater.TickAsync(DateTimeOffset.UtcNow);
         await RefreshServiceAsync(foreground: false);
         if (Models is { } models && SignedIn.Any(p => ModelDiscovery.MakerFor(p) is not null))
@@ -360,7 +368,7 @@ public sealed class AppState
         try
         {
             var decision = ClaudeResetAutoUse.Evaluate(entry.Cache?.SavedResets, entry.Usage, rules.AutoUseExpiring, rules.LeadMinutes,
-                rules.AutoUseWhenLow, rules.Threshold, rules.Metric, rules.LastExpiryKey, rules.LastLowToken, DateTimeOffset.UtcNow);
+                rules.AutoUseWhenLow, rules.Threshold, LowUsageAutoUseMetric.Both, rules.LastExpiryKey, rules.LastLowToken, DateTimeOffset.UtcNow);
             if (!decision.Fires) return;
             var expiring = decision.Outcome == ClaudeAutoUseOutcome.FireExpiring;
             Settings.Update(s => s with
@@ -417,7 +425,7 @@ public sealed class AppState
             }
             if (settings.AutoUseWhenLow)
             {
-                var decision = LowUsageAutoUse.Evaluate(entry.Usage, settings.AutoUseMetric, settings.AutoUseThreshold,
+                var decision = LowUsageAutoUse.Evaluate(entry.Usage, LowUsageAutoUseMetric.Both, settings.AutoUseThreshold,
                     entry.Cache?.Credits?.AvailableCount ?? entry.Usage?.ResetCreditsAvailable, settings.AutoUseLastToken, now);
                 if (!decision.Fires) return;
                 Settings.Update(s => s with { AutoUseLastToken = decision.WindowToken });

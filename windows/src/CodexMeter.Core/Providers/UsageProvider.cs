@@ -181,12 +181,17 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
         return order;
     }
 
-    /// <summary>Enabled providers from saved ids; nothing valid saved means Codex plus anything signed in.</summary>
+    /// <summary>
+    /// Enabled providers from saved ids. Nothing valid saved means only the providers that are signed
+    /// in, as Android now does; with none signed in, Codex, so the window still has a page.
+    /// </summary>
     public static List<UsageProvider> EnabledFromIds(IEnumerable<string>? ids, ICollection<UsageProvider> signedIn)
     {
         var set = (ids ?? []).Select(i => i.Trim().ToLowerInvariant()).ToHashSet();
         var enabled = All.Where(p => set.Contains(p.Id)).ToList();
-        return enabled.Count > 0 ? enabled : All.Where(p => p == Default || signedIn.Contains(p)).ToList();
+        if (enabled.Count > 0) return enabled;
+        var connected = All.Where(signedIn.Contains).ToList();
+        return connected.Count > 0 ? connected : [Default];
     }
 
     /// <summary><paramref name="enabled"/> with one provider switched; the last one can't be turned off.</summary>

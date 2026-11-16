@@ -36,6 +36,12 @@ public sealed record AppSettings
     public bool NotifyResets { get; init; } = true;
     public bool NotifyLow { get; init; } = true;
     public int LowThreshold { get; init; } = 15;
+    /// <summary>Notifications → Low allowance → Alert for: both limits, or only the 5-hour or weekly one.</summary>
+    public Models.LowUsageAutoUseMetric LowAlertMetric { get; init; } = Models.LowUsageAutoUseMetric.Both;
+    /// <summary>Notifications → New reset credits.</summary>
+    public bool NotifyNewResets { get; init; } = true;
+    /// <summary>Notifications → Expiring reset credits: a reminder a day before one expires unused.</summary>
+    public bool NotifyExpiringResets { get; init; } = true;
     public bool OnboardingDone { get; init; }
 
     /// <summary>Edit dashboard: card order per provider id (missing means default order).</summary>
@@ -72,6 +78,8 @@ public sealed record AppSettings
     /// speed figures, shown on Priority and as a card on a provider's page when something is wrong.
     /// </summary>
     public bool ShowServiceStatus { get; init; } = true;
+    /// <summary>Dashboard → Model slowdown warnings: public OpenRouter speed figures for your providers' newest models.</summary>
+    public bool ShowSlowdowns { get; init; } = true;
     /// <summary>Settings → Reset credits → Claude Code saved resets: the automatic-use rules.</summary>
     public ClaudeResetRules ClaudeResets { get; init; } = new();
     /// <summary>Privacy &amp; data: keep an on-device, privacy-filtered diagnostic log (off by default).</summary>
@@ -87,6 +95,8 @@ public sealed record AppSettings
     };
 
     public static readonly int[] RefreshChoices = [5, 15, 30, 60];
+    /// <summary>Low allowance → Alert when remaining reaches.</summary>
+    public static readonly int[] LowThresholdChoices = [10, 15, 25, 50];
 }
 
 /// <summary>Automatic use of Claude Code saved resets, as on Android.</summary>
