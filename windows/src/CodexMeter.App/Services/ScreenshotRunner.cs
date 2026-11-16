@@ -64,9 +64,13 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             if (state.EnabledProviders.Any(p => p.Id == "claude_code"))
                 failures += await CaptureScrolledAsync("claude_code", "ValueEstimateCard", File("claude-value"));
 
-            // Settings → While using AI apps, with Grok Bot pointed at Cursor as a user would.
+            // Settings → While using AI apps, with Grok Bot pointed at Cursor as a user would, scrolled so
+            // that row and Add an app are in view.
             state.Settings.Update(s => AppMappings.Set(s, "Grok Bot", UsageProvider.Cursor));
-            failures += await CaptureScrolledAsync("settings", "LiveFollowAppsCard", File("ai-apps"));
+            failures += await CaptureScrolledAsync("settings", "LiveApp_windsurf", File("ai-apps"));
+            // Edit dashboard below needs a dashboard in front again.
+            window.Navigate(firstProvider);
+            await Task.Delay(1000);
 
             // Dialogs: Add account, Edit dashboard and a device-code sign-in.
             failures += await CaptureDialogAsync(File("add-account"), opened => window.AddAccountAsync(opened));
