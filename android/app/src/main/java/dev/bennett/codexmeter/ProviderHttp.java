@@ -85,6 +85,14 @@ public final class ProviderHttp {
             return this;
         }
 
+        /** A raw POST body with its own content type (for AWS JSON-protocol calls). */
+        public Request body(String raw, String type) {
+            this.method = "POST";
+            this.body = raw == null ? "" : raw;
+            this.contentType = type;
+            return this;
+        }
+
         public Request method(String method) {
             this.method = method;
             return this;

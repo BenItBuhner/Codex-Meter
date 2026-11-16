@@ -2080,11 +2080,13 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                             snapshot, snapshot.fiveHour, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.WEEKLY.equals(key)) {
-                    addDashboardCard(column, buildMetricCard("Weekly",
+                    addDashboardCard(column, buildMetricCard(
+                            ProviderCatalog.meterTitle(target, "Weekly"),
                             snapshot, snapshot.weekly, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.MONTHLY.equals(key)) {
-                    addDashboardCard(column, buildMetricCard("Monthly",
+                    addDashboardCard(column, buildMetricCard(
+                            ProviderCatalog.meterTitle(target, "Monthly"),
                             snapshot, snapshot.monthly, inverted));
                     inverted = !inverted;
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {

@@ -3,8 +3,9 @@ import Foundation
 
 // Sign-in and usage routes for every provider added through Settings → Accounts → Add account.
 // A port of Android's `ProviderClient` / `ProviderClients`: client ids, endpoints and headers are
-// the ones each provider's own CLI or editor sends, and none of these usage routes is a
-// documented public API. Codex, Claude Code and Cursor keep their own services.
+// the ones each provider's own CLI or editor sends. Synthetic and v0 document their usage routes;
+// the rest are confirmed against the providers' open-source clients and trackers. Codex,
+// Claude Code and Cursor keep their own services.
 
 // MARK: HTTP
 
@@ -49,6 +50,14 @@ nonisolated struct ProviderRequest: Sendable {
         copy.method = "POST"
         copy.body = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data("{}".utf8)
         copy.contentType = "application/json"
+        return copy
+    }
+
+    func raw(_ text: String, contentType type: String) -> Self {
+        var copy = self
+        copy.method = "POST"
+        copy.body = Data(text.utf8)
+        copy.contentType = type
         return copy
     }
 
@@ -307,7 +316,7 @@ nonisolated enum ProviderClients {
         case .factory: FactoryClient()
         case .grok: GrokClient()
         case .antigravity: nil
-        case .devin: CodeiumClient(provider: .devin, ideName: "devin")
+        case .devin: DevinClient()
         case .windsurf: CodeiumClient(provider: .windsurf, ideName: "windsurf")
         case .augment: AugmentClient()
         case .cline: ClineClient()
@@ -319,9 +328,9 @@ nonisolated enum ProviderClients {
         case .openrouter: OpenRouterClient()
         case .kilo: KiloClient()
         case .codebuff: CodebuffClient()
-        case .synthetic: KeyQuotaClient(provider: .synthetic, url: "https://api.synthetic.new/v2/quotas", defaultSeconds: 5 * ProviderUsageParsers.hour)
-        case .chutes: KeyQuotaClient(provider: .chutes, url: "https://api.chutes.ai/users/me/subscription_usage", defaultSeconds: ProviderUsageParsers.day)
-        case .v0: KeyQuotaClient(provider: .v0, url: "https://api.v0.dev/v1/rate-limits", defaultSeconds: ProviderUsageParsers.day)
+        case .synthetic: SyntheticClient()
+        case .chutes: ChutesClient()
+        case .v0: V0Client()
         case .warp: WarpClient()
         }
     }
@@ -541,12 +550,11 @@ nonisolated struct ClineClient: StandardDeviceClient {
     }
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        // Cline's own clients send the session as "workos:<token>"; a pasted key goes as is.
         let url = "https://api.cline.bot/api/v1/users/me/plan/usage-limits"
-        var response = try await ProviderHTTP.send("cline_usage", .get(url).bearer(tokens.accessToken), session: http)
-        if response.status == 401, !tokens.accessToken.hasPrefix("workos:") {
-            response = try await ProviderHTTP.send("cline_usage_workos", .get(url).bearer("workos:\(tokens.accessToken)"), session: http)
-        }
-        _ = try check(response, "usage")
+        let bearer = isAPIKey(tokens) || tokens.accessToken.hasPrefix("workos:")
+            ? tokens.accessToken : "workos:\(tokens.accessToken)"
+        let response = try check(try await ProviderHTTP.send("cline_usage", .get(url).bearer(bearer), session: http), "usage")
         return try nonEmpty(ProviderUsageParsers.cline(response.body, now: Date()))
     }
 }
@@ -577,7 +585,7 @@ nonisolated struct GrokClient: StandardDeviceClient {
     }
 }
 
-// MARK: Devin and Windsurf
+// MARK: Windsurf
 
 nonisolated struct CodeiumClient: ProviderClient {
     let provider: UsageProvider
@@ -701,12 +709,21 @@ nonisolated struct OpenCodeGoClient: ProviderClient {
         let response = try await ProviderHTTP.send("opencode_device", .post(Self.base + "code").json([
             "client_id": "opencode-cli", "supports_org_scope": true
         ]), session: http)
-        let code = DeviceAuth.parseDeviceCode(response.body)
-        guard response.ok, code.isValid else {
+        let parsed = DeviceAuth.parseDeviceCode(response.body)
+        guard response.ok, parsed.isValid else {
             throw ProviderClientError.message(ProviderHTTP.readError(
                 response.body, fallback: "OpenCode could not start sign-in (HTTP \(response.status))."
             ))
         }
+        // OpenCode answers with site-relative pages ("/console/device").
+        let code = DeviceAuth.DeviceCode(
+            deviceCode: parsed.deviceCode,
+            userCode: parsed.userCode,
+            verificationURI: DeviceAuth.absolute("https://opencode.ai", parsed.verificationURI),
+            verificationURIComplete: DeviceAuth.absolute("https://opencode.ai", parsed.verificationURIComplete),
+            intervalSeconds: parsed.intervalSeconds,
+            expiresInSeconds: parsed.expiresInSeconds
+        )
         session.device = code
         return code
     }
@@ -763,14 +780,19 @@ nonisolated struct MiniMaxClient: ProviderClient {
             ("state", session.state)
         ]), session: http)
         let parsed = DeviceAuth.parseDeviceCode(response.body)
-        // MiniMax polls with the user code itself.
+        // MiniMax polls with the user code itself, gives the interval in milliseconds and the
+        // expiry as an epoch-milliseconds time ("expired_in").
+        let body = response.json
+        let intervalMillis = Int64(body.int("interval", default: 2000))
+        let expiresAt = ProviderUsageParsers.epochSeconds(body["expired_in"])
+        let nowSeconds = Int64(Date().timeIntervalSince1970)
         let code = DeviceAuth.DeviceCode(
             deviceCode: parsed.deviceCode.isEmpty ? parsed.userCode : parsed.deviceCode,
             userCode: parsed.userCode,
             verificationURI: parsed.verificationURI,
             verificationURIComplete: parsed.verificationURIComplete,
-            intervalSeconds: parsed.intervalSeconds,
-            expiresInSeconds: parsed.expiresInSeconds
+            intervalSeconds: max(1, (intervalMillis + 999) / 1000),
+            expiresInSeconds: expiresAt > nowSeconds ? expiresAt - nowSeconds : parsed.expiresInSeconds
         )
         guard response.ok, code.isValid else {
             throw ProviderClientError.message(ProviderHTTP.readError(
@@ -920,9 +942,12 @@ nonisolated struct KiroClient: ProviderClient {
     }
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        // The AWS JSON protocol call kiro-cli makes; Builder ID accounts send no profile.
         let response = try check(try await ProviderHTTP.send("kiro_usage",
-            .get("https://codewhisperer.us-east-1.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST")
-                .bearer(tokens.accessToken), session: http), "usage")
+            .post("https://codewhisperer.us-east-1.amazonaws.com/")
+                .bearer(tokens.accessToken)
+                .header("X-Amz-Target", "AmazonCodeWhispererService.GetUsageLimits")
+                .raw("{}", contentType: "application/x-amz-json-1.0"), session: http), "usage")
         return try nonEmpty(ProviderUsageParsers.kiro(response.body, now: Date()))
     }
 }
@@ -1052,30 +1077,133 @@ nonisolated struct CodebuffClient: ProviderClient {
 
 // MARK: Key-only providers
 
-nonisolated struct KeyQuotaClient: ProviderClient {
-    let provider: UsageProvider
-    let url: String
-    let defaultSeconds: Int64
+nonisolated struct SyntheticClient: ProviderClient {
+    let provider = UsageProvider.synthetic
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
-        let response = try check(try await ProviderHTTP.send("\(provider.rawValue)_usage",
-            .get(url).bearer(tokens.accessToken), session: http), "usage")
-        return try nonEmpty(ProviderUsageParsers.keyQuota(response.body, defaultSeconds: defaultSeconds, now: Date()))
+        let response = try check(try await ProviderHTTP.send("synthetic_usage",
+            .get("https://api.synthetic.new/v2/quotas").bearer(tokens.accessToken), session: http), "usage")
+        return try nonEmpty(ProviderUsageParsers.synthetic(response.body, now: Date()))
+    }
+}
+
+nonisolated struct ChutesClient: ProviderClient {
+    let provider = UsageProvider.chutes
+
+    func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        let response = try check(try await ProviderHTTP.send("chutes_usage",
+            .get("https://api.chutes.ai/users/me/subscription_usage").bearer(tokens.accessToken), session: http), "usage")
+        guard response.json.bool("subscription", default: false) else {
+            throw ProviderClientError.message("This Chutes account has no subscription, so there are no limits to show.")
+        }
+        return try nonEmpty(ProviderUsageParsers.chutes(response.body, now: Date()))
+    }
+}
+
+nonisolated struct V0Client: ProviderClient {
+    let provider = UsageProvider.v0
+    static let base = "https://api.v0.dev/v1/"
+
+    private func optional(_ path: String, _ tokens: AuthTokens, http: URLSession) async -> String {
+        let operation = "v0_" + path.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "-", with: "_")
+        guard let response = try? await ProviderHTTP.send(operation, .get(Self.base + path).bearer(tokens.accessToken), session: http),
+              response.ok else { return "" }
+        return response.body
+    }
+
+    func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        let billing = try check(try await ProviderHTTP.send("v0_billing",
+            .get(Self.base + "user/billing").bearer(tokens.accessToken), session: http), "usage")
+        let plan = await optional("user/plan", tokens, http: http)
+        let rateLimits = await optional("rate-limits", tokens, http: http)
+        return try nonEmpty(ProviderUsageParsers.v0(billing: billing.body, plan: plan, rateLimits: rateLimits, now: Date()))
     }
 }
 
 nonisolated struct WarpClient: ProviderClient {
     let provider = UsageProvider.warp
+    static let query = "query GetRequestLimitInfo($requestContext: RequestContext!) "
+        + "{ user(requestContext: $requestContext) { __typename ... on UserOutput { "
+        + "user { requestLimitInfo { isUnlimited nextRefreshTime requestLimit "
+        + "requestsUsedSinceLastRefresh } bonusGrants { requestCreditsGranted "
+        + "requestCreditsRemaining expiration } workspaces { bonusGrantsInfo { grants { "
+        + "requestCreditsGranted requestCreditsRemaining expiration } } } } } } }"
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
-        let query: [String: Any] = [
+        #if os(macOS)
+        let osName = "macOS"
+        #else
+        let osName = "iOS"
+        #endif
+        let system = ProcessInfo.processInfo.operatingSystemVersion
+        let version = "\(system.majorVersion).\(system.minorVersion)"
+        let payload: [String: Any] = [
             "operationName": "GetRequestLimitInfo",
-            "variables": [String: String](),
-            "query": "query GetRequestLimitInfo { user { user { requestLimitInfo { isUnlimited nextRefreshTime requestLimit requestsUsedSinceLastRefresh } } } }"
+            "variables": ["requestContext": [
+                "clientContext": [String: String](),
+                "osContext": ["category": osName, "name": osName, "version": version]
+            ]],
+            "query": Self.query
         ]
+        // Warp's edge rejects requests whose User-Agent isn't the app's ("Warp/…").
         let response = try check(try await ProviderHTTP.send("warp_usage",
-            .post("https://app.warp.dev/graphql/v2?op=GetRequestLimitInfo").bearer(tokens.accessToken).json(query),
-            session: http), "usage")
-        return try nonEmpty(ProviderUsageParsers.keyQuota(response.body, defaultSeconds: ProviderUsageParsers.month, now: Date()))
+            .post("https://app.warp.dev/graphql/v2?op=GetRequestLimitInfo")
+                .bearer(tokens.accessToken)
+                .header("User-Agent", "Warp/1.0")
+                .header("x-warp-client-id", "warp-app")
+                .header("x-warp-os-category", osName)
+                .header("x-warp-os-name", osName)
+                .header("x-warp-os-version", version)
+                .json(payload), session: http), "usage")
+        let error = ProviderUsageParsers.warpError(response.body)
+        if !error.isEmpty { throw ProviderClientError.message("Warp: \(error)") }
+        return try nonEmpty(ProviderUsageParsers.warp(response.body, now: Date()))
+    }
+}
+
+// MARK: Devin
+
+/// Devin's own usage page reads `app.devin.ai/api/<org>/billing/quota/usage` with the browser
+/// session's bearer token and the organization in `x-cog-org-id`. There is no device or API-key
+/// route for it, so the user pastes that request from a computer.
+nonisolated struct DevinClient: ProviderClient {
+    let provider = UsageProvider.devin
+
+    func pasteURL(_ session: ProviderSignInSession) -> String? {
+        "https://app.devin.ai/settings/usage"
+    }
+
+    var pasteHint: String {
+        "On a computer, open Usage & Limits on app.devin.ai, then in the browser's developer tools (Network) copy the billing/quota/usage request as cURL and paste it here."
+    }
+
+    func finishPaste(_ session: ProviderSignInSession, pasted: String, http: URLSession) async throws -> AuthTokens {
+        let parts = DeviceAuth.parseDevinRequest(pasted)
+        guard !parts.token.isEmpty else {
+            throw ProviderClientError.message("No session token found. Copy the whole request, including its Authorization header.")
+        }
+        guard !parts.org.isEmpty else {
+            throw ProviderClientError.message("No organization found. Copy the whole request, including its x-cog-org-id header.")
+        }
+        let tokens = AuthTokens(accessToken: parts.token, refreshToken: parts.token, idToken: "",
+                                expiresAt: providerNeverExpires, accountID: parts.org)
+        _ = try await fetch(tokens, http: http)
+        return tokens
+    }
+
+    func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        let org = tokens.accountID
+        guard !org.isEmpty, org != providerAPIKeyAccount else {
+            throw ProviderClientError.unauthorized("Connect Devin again from Settings → Accounts.")
+        }
+        let response = try await ProviderHTTP.send("devin_usage",
+            .get("https://app.devin.ai/api/\(org)/billing/quota/usage")
+                .bearer(tokens.accessToken)
+                .header("x-cog-org-id", org), session: http)
+        if response.status == 401 || response.status == 403 {
+            throw ProviderClientError.unauthorized("Your Devin session expired. Paste a new request from Settings → Accounts.")
+        }
+        _ = try check(response, "usage")
+        return try nonEmpty(ProviderUsageParsers.devin(response.body, now: Date()))
     }
 }

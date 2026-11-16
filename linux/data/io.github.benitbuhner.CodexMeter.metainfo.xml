@@ -8,7 +8,7 @@
     <p>
       Codex Meter shows the usage limits of your coding agents at a glance: Codex 5-hour and weekly
       windows and banked resets, Claude Code's 5-hour, weekly and per-model limits, and Cursor's
-      included usage and on-demand spend.
+      included usage and extra spend.
     </p>
     <ul>
       <li>A dashboard per provider with rings, reset times and pace estimates</li>

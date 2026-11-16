@@ -274,9 +274,11 @@ final class GlassCards {
                     out.add(meter(a, target, MainActivity.cadenceLabel(snapshot.fiveHour), snapshot,
                             snapshot.fiveHour, now));
                 } else if (DashboardSections.WEEKLY.equals(key)) {
-                    out.add(meter(a, target, "Weekly", snapshot, snapshot.weekly, now));
+                    out.add(meter(a, target, ProviderCatalog.meterTitle(target, "Weekly"),
+                            snapshot, snapshot.weekly, now));
                 } else if (DashboardSections.MONTHLY.equals(key)) {
-                    out.add(meter(a, target, "Monthly", snapshot, snapshot.monthly, now));
+                    out.add(meter(a, target, ProviderCatalog.meterTitle(target, "Monthly"),
+                            snapshot, snapshot.monthly, now));
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                     out.add(history(a, target, snapshot));
                 } else if (DashboardSections.RESET_CREDITS.equals(key)) {

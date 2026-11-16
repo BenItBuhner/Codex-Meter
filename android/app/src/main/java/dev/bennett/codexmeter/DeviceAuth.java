@@ -60,6 +60,47 @@ public final class DeviceAuth {
                 object.optLong("expires_in", object.optLong("expiresIn", 900L)));
     }
 
+    /** {@code url} made absolute against {@code origin} when a provider sends a site path. */
+    public static String absolute(String origin, String url) {
+        if (url == null || url.isEmpty()) return "";
+        if (url.startsWith("https://") || url.startsWith("http://")) return url;
+        return origin + (url.startsWith("/") ? "" : "/") + url;
+    }
+
+    private static final java.util.regex.Pattern DEVIN_BEARER = java.util.regex.Pattern.compile(
+            "(?i)bearer\\s+([A-Za-z0-9._~+/=-]{16,})");
+    private static final java.util.regex.Pattern DEVIN_ORG_HEADER =
+            java.util.regex.Pattern.compile(
+                    "(?i)x-cog-org-id['\"]?\\s*[:=]\\s*['\"]?([A-Za-z0-9_-]+)");
+    private static final java.util.regex.Pattern DEVIN_ORG_ID = java.util.regex.Pattern.compile(
+            "\\b(org[-_][A-Za-z0-9]{6,})\\b");
+
+    /**
+     * The session token and organization id in a request copied from Devin's Usage & Limits
+     * page ("Copy as cURL", or the two headers): {@code [token, org]}, either "" when missing.
+     */
+    public static String[] parseDevinRequest(String pasted) {
+        String text = pasted == null ? "" : pasted;
+        java.util.regex.Matcher bearer = DEVIN_BEARER.matcher(text);
+        String token = bearer.find() ? bearer.group(1) : "";
+        java.util.regex.Matcher header = DEVIN_ORG_HEADER.matcher(text);
+        String org = header.find() ? header.group(1) : "";
+        if (org.isEmpty()) {
+            java.util.regex.Matcher id = DEVIN_ORG_ID.matcher(text);
+            if (id.find()) org = id.group(1);
+        }
+        if (token.isEmpty()) {
+            for (String part : text.trim().split("\\s+")) {
+                String clean = part.replaceAll("^['\"]+|['\"]+$", "");
+                if (clean.startsWith("auth1_")) {
+                    token = clean;
+                    break;
+                }
+            }
+        }
+        return new String[] {token, org};
+    }
+
     /** Outcome of one poll of a device-code token endpoint. */
     public enum PollState { PENDING, SLOW_DOWN, DENIED, EXPIRED, DONE, FAILED }
 
