@@ -65,62 +65,62 @@ public final class WidgetOptions {
     /** Ordered CSV of {@link WidgetMeters} keys; empty means migrate from {@link #metricMode}. */
     public final String visibleMeters;
 
-    public WidgetOptions(String str, String str2, String str3, int i, String str4, String str5) {
-        this(str, "auto", SURFACE_MATERIAL, "auto", str2, str3, i, str4, str5, "both", false, true, true, true, false, false);
+    public WidgetOptions(String layout, String theme, String accent, int opacity, String resetMode, String displayMode) {
+        this(layout, "auto", SURFACE_MATERIAL, "auto", theme, accent, opacity, resetMode, displayMode, "both", false, true, true, true, false, false);
     }
 
-    public WidgetOptions(String str, String str2, String str3, String str4, int i, String str5, String str6, boolean z, boolean z2, boolean z3) {
-        this(str, str2, SURFACE_MATERIAL, "auto", str3, str4, i, str5, str6, "both", false, z, z2, z3, false, false);
+    public WidgetOptions(String layout, String density, String theme, String accent, int opacity, String resetMode, String displayMode, boolean showPlan, boolean showUpdated, boolean showRefresh) {
+        this(layout, density, SURFACE_MATERIAL, "auto", theme, accent, opacity, resetMode, displayMode, "both", false, showPlan, showUpdated, showRefresh, false, false);
     }
 
-    public WidgetOptions(String str, String str2, String str3, String str4, String str5, String str6, int i, String str7, String str8, boolean z, boolean z2, boolean z3) {
-        this(str, str2, str3, str4, str5, str6, i, str7, str8, "both", false, z, z2, z3, false, false);
+    public WidgetOptions(String layout, String density, String surface, String graphicScale, String theme, String accent, int opacity, String resetMode, String displayMode, boolean showPlan, boolean showUpdated, boolean showRefresh) {
+        this(layout, density, surface, graphicScale, theme, accent, opacity, resetMode, displayMode, "both", false, showPlan, showUpdated, showRefresh, false, false);
     }
 
-    public WidgetOptions(String str, String str2, String str3, String str4, String str5, String str6, int i, String str7, String str8, boolean z, boolean z2, boolean z3, boolean z4) {
-        this(str, str2, str3, str4, str5, str6, i, str7, str8, "both", z, z2, z3, z4, false, false);
+    public WidgetOptions(String layout, String density, String surface, String graphicScale, String theme, String accent, int opacity, String resetMode, String displayMode, boolean showTitle, boolean showPlan, boolean showUpdated, boolean showRefresh) {
+        this(layout, density, surface, graphicScale, theme, accent, opacity, resetMode, displayMode, "both", showTitle, showPlan, showUpdated, showRefresh, false, false);
     }
 
-    public WidgetOptions(String str, String str2, String str3, String str4, String str5, String str6, int i, String str7, String str8, String str9, boolean z, boolean z2, boolean z3, boolean z4, boolean z5, boolean z6) {
-        this(str, str2, str3, str4, str5, str6, i, str7, str8, str9, z, z2, z3,
-                z4, z5, z6, true, "");
+    public WidgetOptions(String layout, String density, String surface, String graphicScale, String theme, String accent, int opacity, String resetMode, String displayMode, String metricMode, boolean showTitle, boolean showPlan, boolean showUpdated, boolean showRefresh, boolean showResetCredits, boolean showResetAction) {
+        this(layout, density, surface, graphicScale, theme, accent, opacity, resetMode, displayMode, metricMode, showTitle, showPlan, showUpdated,
+                showRefresh, showResetCredits, showResetAction, true, "");
     }
 
-    private WidgetOptions(String str, String str2, String str3, String str4, String str5,
-            String str6, int i, String str7, String str8, String str9, boolean z, boolean z2,
-            boolean z3, boolean z4, boolean z5, boolean z6, boolean showPercentSymbol) {
-        this(str, str2, str3, str4, str5, str6, i, str7, str8, str9, z, z2, z3, z4, z5, z6,
+    private WidgetOptions(String layout, String density, String surface, String graphicScale, String theme,
+            String accent, int opacity, String resetMode, String displayMode, String metricMode, boolean showTitle, boolean showPlan,
+            boolean showUpdated, boolean showRefresh, boolean showResetCredits, boolean showResetAction, boolean showPercentSymbol) {
+        this(layout, density, surface, graphicScale, theme, accent, opacity, resetMode, displayMode, metricMode, showTitle, showPlan, showUpdated, showRefresh, showResetCredits, showResetAction,
                 showPercentSymbol, "");
     }
 
-    private WidgetOptions(String str, String str2, String str3, String str4, String str5,
-            String str6, int i, String str7, String str8, String str9, boolean z, boolean z2,
-            boolean z3, boolean z4, boolean z5, boolean z6, boolean showPercentSymbol,
+    private WidgetOptions(String layout, String density, String surface, String graphicScale, String theme,
+            String accent, int opacity, String resetMode, String displayMode, String metricMode, boolean showTitle, boolean showPlan,
+            boolean showUpdated, boolean showRefresh, boolean showResetCredits, boolean showResetAction, boolean showPercentSymbol,
             String visibleMeters) {
-        this.layout = normalizeStyle(str);
-        this.density = oneOf(str2, "auto", "compact", DENSITY_COMFORTABLE) ? str2 : "auto";
-        this.surfaceStyle = oneOf(str3, SURFACE_MATERIAL, SURFACE_ONE_UI) ? str3 : SURFACE_MATERIAL;
-        this.graphicScale = oneOf(str4, "auto", GRAPHIC_LARGE, GRAPHIC_MAX) ? str4 : "auto";
-        this.theme = oneOf(str5, THEME_SYSTEM, THEME_DARK, THEME_LIGHT) ? str5 : THEME_SYSTEM;
-        this.accent = validAccent(str6) ? str6 : ACCENT_MINT;
+        this.layout = normalizeStyle(layout);
+        this.density = oneOf(density, "auto", "compact", DENSITY_COMFORTABLE) ? density : "auto";
+        this.surfaceStyle = oneOf(surface, SURFACE_MATERIAL, SURFACE_ONE_UI) ? surface : SURFACE_MATERIAL;
+        this.graphicScale = oneOf(graphicScale, "auto", GRAPHIC_LARGE, GRAPHIC_MAX) ? graphicScale : "auto";
+        this.theme = oneOf(theme, THEME_SYSTEM, THEME_DARK, THEME_LIGHT) ? theme : THEME_SYSTEM;
+        this.accent = validAccent(accent) ? accent : ACCENT_MINT;
         // Accept legacy four-step and drawable-aligned values, then snap to One UI's three
         // fill strengths (or fully off) so saved widgets migrate cleanly.
-        if (i != 0 && i != 15 && i != 40 && i != 56 && i != 70 && i != 72 && i != 88 && i != 94
-                && i != 100) {
-            i = DEFAULT_OPACITY;
-        } else if (i > 0) {
-            i = snapOpacity(i);
+        if (opacity != 0 && opacity != 15 && opacity != 40 && opacity != 56 && opacity != 70 && opacity != 72 && opacity != 88 && opacity != 94
+                && opacity != 100) {
+            opacity = DEFAULT_OPACITY;
+        } else if (opacity > 0) {
+            opacity = snapOpacity(opacity);
         }
-        this.opacity = i;
-        this.resetMode = oneOf(str7, RESET_ABSOLUTE, RESET_RELATIVE, "both", RESET_HIDDEN) ? str7 : RESET_ABSOLUTE;
-        this.displayMode = DISPLAY_USED.equals(str8) ? DISPLAY_USED : DISPLAY_REMAINING;
-        this.metricMode = oneOf(str9, "both", "five_hour", "weekly") ? str9 : "both";
-        this.showTitle = z;
-        this.showPlan = z2;
-        this.showUpdated = z3;
-        this.showRefresh = z4;
-        this.showResetCredits = z5;
-        this.showResetAction = z6;
+        this.opacity = opacity;
+        this.resetMode = oneOf(resetMode, RESET_ABSOLUTE, RESET_RELATIVE, "both", RESET_HIDDEN) ? resetMode : RESET_ABSOLUTE;
+        this.displayMode = DISPLAY_USED.equals(displayMode) ? DISPLAY_USED : DISPLAY_REMAINING;
+        this.metricMode = oneOf(metricMode, "both", "five_hour", "weekly") ? metricMode : "both";
+        this.showTitle = showTitle;
+        this.showPlan = showPlan;
+        this.showUpdated = showUpdated;
+        this.showRefresh = showRefresh;
+        this.showResetCredits = showResetCredits;
+        this.showResetAction = showResetAction;
         this.showPercentSymbol = showPercentSymbol;
         this.visibleMeters = visibleMeters == null ? "" : visibleMeters.trim();
     }
@@ -203,17 +203,17 @@ public final class WidgetOptions {
                 WidgetMeters.availableKeys(null), metricMode);
     }
 
-    public static String normalizeStyle(String str) {
-        if (LAYOUT_DETAILED.equals(str)) {
+    public static String normalizeStyle(String style) {
+        if (LAYOUT_DETAILED.equals(style)) {
             return STYLE_BARS;
         }
-        if ("compact".equals(str)) {
+        if ("compact".equals(style)) {
             return STYLE_MINIMAL;
         }
         // Keep rings/minimal as stored values for transfer round-trips; layoutPreference()
         // maps them to adaptive auto at render time.
-        return !oneOf(str, "auto", STYLE_BARS, STYLE_RINGS, STYLE_DIALS, STYLE_MINIMAL)
-                ? "auto" : str;
+        return !oneOf(style, "auto", STYLE_BARS, STYLE_RINGS, STYLE_DIALS, STYLE_MINIMAL)
+                ? "auto" : style;
     }
 
     public static String normalizeTapAction(String value) {
@@ -223,17 +223,17 @@ public final class WidgetOptions {
         return TAP_OPEN_APP;
     }
 
-    private static boolean validAccent(String str) {
-        return oneOf(str, ACCENT_APP, ACCENT_MINT, ACCENT_BLUE, ACCENT_AMBER,
+    private static boolean validAccent(String accent) {
+        return oneOf(accent, ACCENT_APP, ACCENT_MINT, ACCENT_BLUE, ACCENT_AMBER,
                 ACCENT_VIOLET, ACCENT_ROSE, ACCENT_CYAN, ACCENT_LIME, ACCENT_MONO);
     }
 
-    private static boolean oneOf(String str, String... strArr) {
-        if (str == null) {
+    private static boolean oneOf(String value, String... options) {
+        if (value == null) {
             return false;
         }
-        for (String str2 : strArr) {
-            if (str2.equals(str)) {
+        for (String option : options) {
+            if (option.equals(value)) {
                 return true;
             }
         }

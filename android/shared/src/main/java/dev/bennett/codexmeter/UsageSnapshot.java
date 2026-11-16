@@ -29,56 +29,56 @@ public final class UsageSnapshot {
      */
     public final double includedValueUsd;
 
-    public UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow, UsageWindow usageWindow2, long j) {
-        this(str, z, z2, usageWindow, usageWindow2, -1, j);
+    public UsageSnapshot(String planType, boolean allowed, boolean limitReached, UsageWindow fiveHour, UsageWindow weekly, long fetchedAtMillis) {
+        this(planType, allowed, limitReached, fiveHour, weekly, -1, fetchedAtMillis);
     }
 
-    public UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow, UsageWindow usageWindow2, int i, long j) {
-        this(str, z, z2, usageWindow, usageWindow2, null, Collections.emptyList(), null, i, j);
+    public UsageSnapshot(String planType, boolean allowed, boolean limitReached, UsageWindow fiveHour, UsageWindow weekly, int resetCredits, long fetchedAtMillis) {
+        this(planType, allowed, limitReached, fiveHour, weekly, null, Collections.emptyList(), null, resetCredits, fetchedAtMillis);
     }
 
-    public UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,
-            UsageWindow usageWindow2, List<UsageLimit> additionalLimits,
-            UsageCredits usageCredits, int i, long j) {
-        this(str, z, z2, usageWindow, usageWindow2, null, additionalLimits, usageCredits, i, j);
+    public UsageSnapshot(String planType, boolean allowed, boolean limitReached, UsageWindow fiveHour,
+            UsageWindow weekly, List<UsageLimit> additionalLimits,
+            UsageCredits usageCredits, int resetCredits, long fetchedAtMillis) {
+        this(planType, allowed, limitReached, fiveHour, weekly, null, additionalLimits, usageCredits, resetCredits, fetchedAtMillis);
     }
 
-    public UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,
-            UsageWindow usageWindow2, UsageWindow monthlyWindow,
+    public UsageSnapshot(String planType, boolean allowed, boolean limitReached, UsageWindow fiveHour,
+            UsageWindow weekly, UsageWindow monthlyWindow,
             List<UsageLimit> additionalLimits,
-            UsageCredits usageCredits, int i, long j) {
-        this(str, z, z2, usageWindow, usageWindow2, monthlyWindow, additionalLimits,
-                usageCredits, null, i, j);
+            UsageCredits usageCredits, int resetCredits, long fetchedAtMillis) {
+        this(planType, allowed, limitReached, fiveHour, weekly, monthlyWindow, additionalLimits,
+                usageCredits, null, resetCredits, fetchedAtMillis);
     }
 
-    public UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,
-            UsageWindow usageWindow2, UsageWindow monthlyWindow,
+    public UsageSnapshot(String planType, boolean allowed, boolean limitReached, UsageWindow fiveHour,
+            UsageWindow weekly, UsageWindow monthlyWindow,
             List<UsageLimit> additionalLimits,
-            UsageCredits usageCredits, SpendControl spendControl, int i, long j) {
-        this(str, z, z2, usageWindow, usageWindow2, monthlyWindow, additionalLimits,
-                usageCredits, spendControl, i, j, Double.NaN);
+            UsageCredits usageCredits, SpendControl spendControl, int resetCredits, long fetchedAtMillis) {
+        this(planType, allowed, limitReached, fiveHour, weekly, monthlyWindow, additionalLimits,
+                usageCredits, spendControl, resetCredits, fetchedAtMillis, Double.NaN);
     }
 
-    private UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,
-            UsageWindow usageWindow2, UsageWindow monthlyWindow,
+    private UsageSnapshot(String planType, boolean allowed, boolean limitReached, UsageWindow fiveHour,
+            UsageWindow weekly, UsageWindow monthlyWindow,
             List<UsageLimit> additionalLimits,
-            UsageCredits usageCredits, SpendControl spendControl, int i, long j,
+            UsageCredits usageCredits, SpendControl spendControl, int resetCredits, long fetchedAtMillis,
             double includedValueUsd) {
         this.includedValueUsd = includedValueUsd > 0d && !Double.isInfinite(includedValueUsd)
                 ? includedValueUsd : Double.NaN;
-        this.planType = str == null ? "" : str;
-        this.allowed = z;
-        this.limitReached = z2;
-        this.fiveHour = usageWindow;
-        this.weekly = usageWindow2;
+        this.planType = planType == null ? "" : planType;
+        this.allowed = allowed;
+        this.limitReached = limitReached;
+        this.fiveHour = fiveHour;
+        this.weekly = weekly;
         this.monthly = monthlyWindow;
         this.additionalLimits = additionalLimits == null
                 ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(additionalLimits));
         this.usageCredits = usageCredits;
         this.spendControl = spendControl;
-        this.resetCreditsAvailable = i < 0 ? -1 : i;
-        this.fetchedAtMillis = j;
+        this.resetCreditsAvailable = resetCredits < 0 ? -1 : resetCredits;
+        this.fetchedAtMillis = fetchedAtMillis;
     }
 
     /** The same snapshot with a different plan badge. */
@@ -124,18 +124,18 @@ public final class UsageSnapshot {
     }
 
     public JSONObject toJson() throws JSONException {
-        JSONObject jSONObject = new JSONObject();
-        jSONObject.put("plan_type", this.planType);
-        jSONObject.put("allowed", this.allowed);
-        jSONObject.put("limit_reached", this.limitReached);
+        JSONObject json = new JSONObject();
+        json.put("plan_type", this.planType);
+        json.put("allowed", this.allowed);
+        json.put("limit_reached", this.limitReached);
         if (this.fiveHour != null) {
-            jSONObject.put("five_hour", this.fiveHour.toJson());
+            json.put("five_hour", this.fiveHour.toJson());
         }
         if (this.weekly != null) {
-            jSONObject.put("weekly", this.weekly.toJson());
+            json.put("weekly", this.weekly.toJson());
         }
         if (this.monthly != null) {
-            jSONObject.put("monthly", this.monthly.toJson());
+            json.put("monthly", this.monthly.toJson());
         }
         if (!this.additionalLimits.isEmpty()) {
             JSONArray limits = new JSONArray();
@@ -144,30 +144,30 @@ public final class UsageSnapshot {
                     limits.put(limit.toJson());
                 }
             }
-            jSONObject.put("additional_limits", limits);
+            json.put("additional_limits", limits);
         }
         if (this.usageCredits != null) {
-            jSONObject.put("usage_credits", this.usageCredits.toJson());
+            json.put("usage_credits", this.usageCredits.toJson());
         }
         if (this.spendControl != null) {
-            jSONObject.put("spend_control", this.spendControl.toJson());
+            json.put("spend_control", this.spendControl.toJson());
         }
         if (this.resetCreditsAvailable >= 0) {
-            jSONObject.put("reset_credits_available", this.resetCreditsAvailable);
+            json.put("reset_credits_available", this.resetCreditsAvailable);
         }
         if (hasIncludedValue()) {
-            jSONObject.put("included_value_usd", this.includedValueUsd);
+            json.put("included_value_usd", this.includedValueUsd);
         }
-        jSONObject.put("fetched_at", this.fetchedAtMillis);
-        return jSONObject;
+        json.put("fetched_at", this.fetchedAtMillis);
+        return json;
     }
 
-    public static UsageSnapshot fromJson(JSONObject jSONObject) {
-        if (jSONObject == null) {
+    public static UsageSnapshot fromJson(JSONObject json) {
+        if (json == null) {
             return null;
         }
         ArrayList<UsageLimit> additionalLimits = new ArrayList<>();
-        JSONArray limits = jSONObject.optJSONArray("additional_limits");
+        JSONArray limits = json.optJSONArray("additional_limits");
         if (limits != null) {
             for (int i = 0; i < limits.length(); i++) {
                 UsageLimit limit = UsageLimit.fromJson(limits.optJSONObject(i));
@@ -177,43 +177,43 @@ public final class UsageSnapshot {
             }
         }
         return new UsageSnapshot(
-                jSONObject.optString("plan_type", ""),
-                jSONObject.optBoolean("allowed", true),
-                jSONObject.optBoolean("limit_reached", false),
-                UsageWindow.fromJson(jSONObject.optJSONObject("five_hour")),
-                UsageWindow.fromJson(jSONObject.optJSONObject("weekly")),
-                UsageWindow.fromJson(jSONObject.optJSONObject("monthly")),
+                json.optString("plan_type", ""),
+                json.optBoolean("allowed", true),
+                json.optBoolean("limit_reached", false),
+                UsageWindow.fromJson(json.optJSONObject("five_hour")),
+                UsageWindow.fromJson(json.optJSONObject("weekly")),
+                UsageWindow.fromJson(json.optJSONObject("monthly")),
                 additionalLimits,
-                UsageCredits.fromJson(jSONObject.optJSONObject("usage_credits")),
-                SpendControl.fromJson(jSONObject.optJSONObject("spend_control")),
-                jSONObject.has("reset_credits_available")
-                        ? jSONObject.optInt("reset_credits_available", -1) : -1,
-                jSONObject.optLong("fetched_at", 0L),
-                jSONObject.optDouble("included_value_usd", Double.NaN));
+                UsageCredits.fromJson(json.optJSONObject("usage_credits")),
+                SpendControl.fromJson(json.optJSONObject("spend_control")),
+                json.has("reset_credits_available")
+                        ? json.optInt("reset_credits_available", -1) : -1,
+                json.optLong("fetched_at", 0L),
+                json.optDouble("included_value_usd", Double.NaN));
     }
 
-    public long nextResetMillis(long j) {
+    public long nextResetMillis(long now) {
         long fiveHourReset = this.fiveHour == null ? 0L
                 : this.fiveHour.effectiveResetAtMillis(this.fetchedAtMillis);
         long weeklyReset = this.weekly == null ? 0L
                 : this.weekly.effectiveResetAtMillis(this.fetchedAtMillis);
         long monthlyReset = this.monthly == null ? 0L
                 : this.monthly.effectiveResetAtMillis(this.fetchedAtMillis);
-        long jMin = fiveHourReset <= j ? Long.MAX_VALUE : fiveHourReset;
-        if (weeklyReset > j) {
-            jMin = Math.min(jMin, weeklyReset);
+        long next = fiveHourReset <= now ? Long.MAX_VALUE : fiveHourReset;
+        if (weeklyReset > now) {
+            next = Math.min(next, weeklyReset);
         }
-        if (monthlyReset > j) {
-            jMin = Math.min(jMin, monthlyReset);
+        if (monthlyReset > now) {
+            next = Math.min(next, monthlyReset);
         }
         for (UsageLimit limit : additionalLimits) {
-            jMin = earlierFutureReset(jMin, limit.primary, j);
-            jMin = earlierFutureReset(jMin, limit.secondary, j);
+            next = earlierFutureReset(next, limit.primary, now);
+            next = earlierFutureReset(next, limit.secondary, now);
         }
-        if (jMin == Long.MAX_VALUE) {
+        if (next == Long.MAX_VALUE) {
             return 0L;
         }
-        return jMin;
+        return next;
     }
 
     public boolean hasDisplayableData() {

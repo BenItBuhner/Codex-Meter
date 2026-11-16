@@ -10,10 +10,10 @@ public final class ResetConsumeResult {
     public final String refreshWarning;
     public final int windowsReset;
 
-    public ResetConsumeResult(String str, int i, String str2) {
-        this.outcome = str == null ? "" : str;
-        this.windowsReset = Math.max(0, i);
-        this.refreshWarning = str2 == null ? "" : str2;
+    public ResetConsumeResult(String outcome, int windowsReset, String refreshWarning) {
+        this.outcome = outcome == null ? "" : outcome;
+        this.windowsReset = Math.max(0, windowsReset);
+        this.refreshWarning = refreshWarning == null ? "" : refreshWarning;
     }
 
     public boolean applied() {
@@ -21,17 +21,17 @@ public final class ResetConsumeResult {
     }
 
     public String userMessage() {
-        String str;
+        String message;
         if (RESET.equals(this.outcome)) {
             if (this.windowsReset > 0) {
-                str = "Reset applied to " + this.windowsReset + " usage window" + (this.windowsReset == 1 ? "." : "s.");
+                message = "Reset applied to " + this.windowsReset + " usage window" + (this.windowsReset == 1 ? "." : "s.");
             } else {
-                str = "Codex usage reset applied.";
+                message = "Codex usage reset applied.";
             }
             if (!this.refreshWarning.isEmpty()) {
-                return str + " " + this.refreshWarning;
+                return message + " " + this.refreshWarning;
             }
-            return str;
+            return message;
         }
         if (NOTHING_TO_RESET.equals(this.outcome)) {
             return "There is no used Codex allowance to reset right now.";

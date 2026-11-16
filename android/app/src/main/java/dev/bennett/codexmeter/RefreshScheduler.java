@@ -100,24 +100,24 @@ public final class RefreshScheduler {
 
     private static boolean scheduleNextChained(Context context, int previousJobId,
             String reason) {
-        boolean zSubmit = false;
+        boolean submitted = false;
         int refreshMinutes = effectiveRefreshMinutes(context);
         try {
-            JobScheduler jobSchedulerScheduler = scheduler(context);
-            if (jobSchedulerScheduler == null) {
+            JobScheduler jobs = scheduler(context);
+            if (jobs == null) {
                 AppPreferences.setSchedulerError(context,
                         "Android's background scheduler is unavailable.");
             } else {
-                int i2 = previousJobId == SHORT_JOB_ID_A ? SHORT_JOB_ID_B : SHORT_JOB_ID_A;
-                jobSchedulerScheduler.cancel(i2);
-                long j = ((long) refreshMinutes) * 60 * 1000;
-                zSubmit = submit(context,
-                        base(context, i2, reason)
-                                .setMinimumLatency(j)
-                                .setOverrideDeadline(j + 300000)
+                int nextJobId = previousJobId == SHORT_JOB_ID_A ? SHORT_JOB_ID_B : SHORT_JOB_ID_A;
+                jobs.cancel(nextJobId);
+                long delayMillis = ((long) refreshMinutes) * 60 * 1000;
+                submitted = submit(context,
+                        base(context, nextJobId, reason)
+                                .setMinimumLatency(delayMillis)
+                                .setOverrideDeadline(delayMillis + 300000)
                                 .build());
             }
-            return zSubmit;
+            return submitted;
         } catch (RuntimeException e) {
             return failed(context, e);
         }
@@ -222,10 +222,10 @@ public final class RefreshScheduler {
         return false;
     }
 
-    private static JobInfo.Builder base(Context context, int i, String str) {
-        PersistableBundle persistableBundle = new PersistableBundle();
-        persistableBundle.putString("reason", str);
-        return new JobInfo.Builder(i, new ComponentName(context, (Class<?>) UsageRefreshJobService.class)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setExtras(persistableBundle);
+    private static JobInfo.Builder base(Context context, int jobId, String reason) {
+        PersistableBundle extras = new PersistableBundle();
+        extras.putString("reason", reason);
+        return new JobInfo.Builder(jobId, new ComponentName(context, (Class<?>) UsageRefreshJobService.class)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setExtras(extras);
     }
 
     private static JobScheduler scheduler(Context context) {

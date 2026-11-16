@@ -14,6 +14,7 @@ import android.os.IBinder;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -653,13 +654,13 @@ public final class OAuthService extends Service {
         ServerSocket socket = serverSocket;
         serverSocket = null;
         if (socket != null) {
-            try { socket.close(); } catch (Exception ignored) {}
+            try { socket.close(); } catch (IOException closing) { /* the server is done either way */ }
         }
     }
 
     private static void closeQuietly(Socket socket) {
         if (socket != null) {
-            try { socket.close(); } catch (Exception ignored) {}
+            try { socket.close(); } catch (IOException closing) { /* the reply was already sent */ }
         }
     }
 

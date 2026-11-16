@@ -88,11 +88,13 @@ public final class ResetNotificationManager {
         pruneResetCreditExpiryHistory(context, snapshot);
         try {
             ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(context, "reset", "expiry_alert_schedule_failed", error);
         }
         try {
             ResetCreditExpiryApplyScheduler.scheduleFromSnapshot(context, snapshot);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(context, "reset", "expiry_apply_schedule_failed", error);
         }
         ResetCreditExpiryApplyReceiver.evaluateAsync(context);
     }

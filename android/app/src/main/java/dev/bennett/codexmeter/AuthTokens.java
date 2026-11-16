@@ -3,8 +3,11 @@ package dev.bennett.codexmeter;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/* JADX INFO: loaded from: classes.dex */
+/** An OAuth sign-in's tokens and the account they belong to. Never null fields. */
 public final class AuthTokens {
+    /** Refresh this long before the access token expires. */
+    private static final long REFRESH_MARGIN_MILLIS = 5 * 60_000L;
+
     public final String accessToken;
     public final String accountId;
     public final String email;
@@ -12,43 +15,52 @@ public final class AuthTokens {
     public final String idToken;
     public final String refreshToken;
 
-    public AuthTokens(String str, String str2, String str3, long j, String str4, String str5) {
-        this.accessToken = safe(str);
-        this.refreshToken = safe(str2);
-        this.idToken = safe(str3);
-        this.expiresAtMillis = j;
-        this.accountId = safe(str4);
-        this.email = safe(str5);
+    public AuthTokens(String accessToken, String refreshToken, String idToken, long expiresAtMillis,
+            String accountId, String email) {
+        this.accessToken = safe(accessToken);
+        this.refreshToken = safe(refreshToken);
+        this.idToken = safe(idToken);
+        this.expiresAtMillis = expiresAtMillis;
+        this.accountId = safe(accountId);
+        this.email = safe(email);
     }
 
     public boolean isUsable() {
-        return (this.accessToken.isEmpty() || this.refreshToken.isEmpty()) ? false : true;
+        return !accessToken.isEmpty() && !refreshToken.isEmpty();
     }
 
-    public boolean shouldRefresh(long j) {
-        return this.expiresAtMillis <= 300000 + j;
+    public boolean shouldRefresh(long nowMillis) {
+        return expiresAtMillis <= nowMillis + REFRESH_MARGIN_MILLIS;
     }
 
     public JSONObject toJson() throws JSONException {
-        JSONObject jSONObject = new JSONObject();
-        jSONObject.put("access_token", this.accessToken);
-        jSONObject.put("refresh_token", this.refreshToken);
-        jSONObject.put("id_token", this.idToken);
-        jSONObject.put("expires_at", this.expiresAtMillis);
-        jSONObject.put("account_id", this.accountId);
-        jSONObject.put("email", this.email);
-        return jSONObject;
+        return new JSONObject()
+                .put("access_token", accessToken)
+                .put("refresh_token", refreshToken)
+                .put("id_token", idToken)
+                .put("expires_at", expiresAtMillis)
+                .put("account_id", accountId)
+                .put("email", email);
     }
 
-    public static AuthTokens fromJson(JSONObject jSONObject) {
-        return new AuthTokens(jSONObject.optString("access_token", ""), jSONObject.optString("refresh_token", ""), jSONObject.optString("id_token", ""), jSONObject.optLong("expires_at", 0L), jSONObject.optString("account_id", ""), jSONObject.optString("email", ""));
+    public static AuthTokens fromJson(JSONObject json) {
+        return new AuthTokens(json.optString("access_token", ""), json.optString("refresh_token", ""),
+                json.optString("id_token", ""), json.optLong("expires_at", 0L),
+                json.optString("account_id", ""), json.optString("email", ""));
     }
 
-    public AuthTokens mergeRefresh(AuthTokens authTokens) {
-        return new AuthTokens(authTokens.accessToken.isEmpty() ? this.accessToken : authTokens.accessToken, authTokens.refreshToken.isEmpty() ? this.refreshToken : authTokens.refreshToken, authTokens.idToken.isEmpty() ? this.idToken : authTokens.idToken, authTokens.expiresAtMillis > 0 ? authTokens.expiresAtMillis : this.expiresAtMillis, authTokens.accountId.isEmpty() ? this.accountId : authTokens.accountId, authTokens.email.isEmpty() ? this.email : authTokens.email);
+    /** These tokens updated by a refresh response, which may leave fields out. */
+    public AuthTokens mergeRefresh(AuthTokens fresh) {
+        return new AuthTokens(
+                fresh.accessToken.isEmpty() ? accessToken : fresh.accessToken,
+                fresh.refreshToken.isEmpty() ? refreshToken : fresh.refreshToken,
+                fresh.idToken.isEmpty() ? idToken : fresh.idToken,
+                fresh.expiresAtMillis > 0 ? fresh.expiresAtMillis : expiresAtMillis,
+                fresh.accountId.isEmpty() ? accountId : fresh.accountId,
+                fresh.email.isEmpty() ? email : fresh.email);
     }
 
-    private static String safe(String str) {
-        return str == null ? "" : str;
+    private static String safe(String value) {
+        return value == null ? "" : value;
     }
 }

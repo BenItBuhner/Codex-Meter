@@ -48,7 +48,8 @@ public final class ClaudeResetApi {
         }
         try {
             WidgetRenderer.updateAll(app);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(app, "widget", "update_after_claude_reset_failed", error);
         }
         DiagnosticLog.info(app, "user", "claude_saved_reset_use_finished",
                 "result", result.result, "reason", result.reason,

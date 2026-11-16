@@ -251,7 +251,8 @@ public final class ReleaseUpdateClient {
         String message = "";
         try {
             message = new org.json.JSONObject(detail).optString("message", "");
-        } catch (Exception ignored) {
+        } catch (org.json.JSONException | RuntimeException notJson) {
+            // GitHub sometimes answers with HTML; the status alone describes the error.
         }
         if (status == 403 || status == 429) {
             return "GitHub temporarily limited update checks. Try again later.";
