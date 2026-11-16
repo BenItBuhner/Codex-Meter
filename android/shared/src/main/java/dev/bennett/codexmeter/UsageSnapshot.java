@@ -95,6 +95,14 @@ public final class UsageSnapshot {
                 fetchedAtMillis, dollars);
     }
 
+    /** The same snapshot with a count of banked resets (-1 when unknown). */
+    public UsageSnapshot withResetCredits(int count) {
+        if (count == resetCreditsAvailable) return this;
+        return new UsageSnapshot(planType, allowed, limitReached, fiveHour, weekly, monthly,
+                additionalLimits, usageCredits, spendControl, count, fetchedAtMillis,
+                includedValueUsd);
+    }
+
     /** The same snapshot keeping only the first {@code count} named limits. */
     public UsageSnapshot withFirstLimits(int count) {
         int keep = Math.max(0, Math.min(count, additionalLimits.size()));
@@ -112,7 +120,7 @@ public final class UsageSnapshot {
     /**
      * The longer-cadence Codex window: weekly when present, otherwise the monthly window that
      * free-tier accounts report. Surfaces that used to hardcode "weekly" adapt through this so a
-     * subscription change (for example Pro 20x expiring to Free) swaps windows automatically.
+     * subscription change (for example Pro 200 expiring to Free) swaps windows automatically.
      */
     public UsageWindow longWindow() {
         return this.weekly != null ? this.weekly : this.monthly;

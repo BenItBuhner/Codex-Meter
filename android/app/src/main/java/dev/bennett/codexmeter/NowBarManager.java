@@ -306,9 +306,9 @@ public final class NowBarManager {
     }
 
     /**
-     * The provider a manual, low-allowance, or fast-usage monitor follows: Codex when it is
-     * signed in with limits to show, otherwise the selected dashboard tab, otherwise the first
-     * signed-in provider (in tab order) that has limits. Codex when nothing has any yet.
+     * The provider a manual, low-allowance, or fast-usage monitor follows: the selected
+     * dashboard tab when it has limits, otherwise the first signed-in provider (in tab order)
+     * that has limits.
      */
     public static UsageProvider monitorProvider(Context context) {
         return MonitorProviderPicker.pick(ProviderPreferences.getSelected(context),

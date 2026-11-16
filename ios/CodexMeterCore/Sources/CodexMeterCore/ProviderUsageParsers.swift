@@ -2,9 +2,9 @@ import Foundation
 
 /// Turns each added provider's usage response into a `UsageSnapshot`. A line-for-line port of
 /// Android's `ProviderUsageParsers`, so both apps read the same windows from the same body.
-/// None of these routes is documented publicly; the shapes follow the providers' own CLIs and
-/// editors and open-source trackers, so every reader is defensive: a missing field leaves a
-/// window out rather than failing the whole refresh.
+/// Synthetic and v0 document their routes; Chutes publishes its API source; the rest follow the
+/// providers' own CLIs and editors and open-source trackers (CodexBar, OpenClaw). Every reader
+/// is defensive: a missing field leaves a window out rather than failing the whole refresh.
 ///
 /// Windows land in the snapshot by length: up to a day is the short window (`fiveHour`,
 /// labelled on the dashboard by its real length), about a week is `weekly`, about a month is
@@ -799,7 +799,7 @@ public enum ProviderUsageParsers {
 
     // MARK: Kiro
 
-    /// CodeWhisperer `GetUsageLimits`: monthly agentic requests or credits.
+    /// CodeWhisperer `GetUsageLimits`: monthly credits, plus any other metered resource.
     public static func kiro(_ body: String, now: Date) -> UsageSnapshot {
         let root = object(body)
         let out = Builder(now: now)
@@ -807,8 +807,12 @@ public enum ProviderUsageParsers {
             .replacingOccurrences(of: #"(?i)^kiro\s+"#, with: "", options: .regularExpression)
         let list = root.array("usageBreakdownList") ?? root.array("limits")
         let fallbackReset = epochSeconds(first(root, "nextDateReset", "resetDate"))
-        for (index, element) in (list ?? []).enumerated() {
-            guard let entry = element.objectValue else { continue }
+        // Kiro's credits (resourceType CREDIT) are the plan's main meter; list them first.
+        var entries = (list ?? []).compactMap(\.objectValue)
+        if let credit = entries.firstIndex(where: { string($0, "resourceType").uppercased() == "CREDIT" }) {
+            entries.insert(entries.remove(at: credit), at: 0)
+        }
+        for (index, entry) in entries.enumerated() {
             let limit = number(entry, "usageLimitWithPrecision", "usageLimit", "limit")
             let used = number(entry, "currentUsageWithPrecision", "currentUsage", "used")
             let reset = epochSeconds(first(entry, "nextDateReset", "resetDate"))
@@ -884,18 +888,35 @@ public enum ProviderUsageParsers {
 
     // MARK: Amp
 
+    private static let amount = #"([0-9][0-9,]*(?:\.[0-9]+)?)"#
     private static let ampFree = BuiltInPattern.compile(
-        pattern: #"\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*/\s*\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*remaining"#,
+        pattern: #"Amp Free:\s*\$\s*"# + amount + #"\s*/\s*\$\s*"# + amount + #"\s*remaining"#,
         options: [.caseInsensitive]
     )
+    private static let ampFreePercent = BuiltInPattern.compile(
+        pattern: #"Amp Free:\s*"# + amount + #"\s*%\s*remaining"#, options: [.caseInsensitive]
+    )
+    private static let ampTier = BuiltInPattern.compile(
+        pattern: #"Amp\s+(.+?)\s+(?:Tier|Subscription):\s*agent usage\s*\$\s*"# + amount
+            + #"\s*of\s*\$\s*"# + amount + #"\s*remaining"#,
+        options: [.caseInsensitive]
+    )
+    private static let ampOrb = BuiltInPattern.compile(
+        pattern: #"orb usage\s*"# + amount + #"\s*h\s*of\s*"# + amount + #"\s*h"#, options: [.caseInsensitive]
+    )
+    private static let ampPeriod = BuiltInPattern.compile(
+        pattern: #"period\s+(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})"#, options: [.caseInsensitive]
+    )
     private static let ampCredits = BuiltInPattern.compile(
-        pattern: #"\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:in\s+)?(?:individual\s+)?credits"#,
+        pattern: #"(?:Individual credits:\s*\$\s*"# + amount + #"\s*remaining|\$\s*"# + amount
+            + #"\s*(?:in\s+)?(?:individual\s+)?credits)"#,
         options: [.caseInsensitive]
     )
 
-    /// `ampcode.com/api/internal?userDisplayBalanceInfo`: Amp returns the sentence the CLI
-    /// prints, e.g. "Amp Free: $7.12/$10 remaining (replenishes +$0.42/hour) · $5.00 credits".
-    /// The free tier refills continuously, so it is shown as a daily window.
+    /// `ampcode.com/api/internal?userDisplayBalanceInfo`: Amp returns the text the CLI's
+    /// `amp usage` prints. Amp Free is a daily allowance that resets at 8 PM New York time
+    /// (older replies give dollars, newer ones a percentage); paid tiers report agent dollars
+    /// and orb hours for the billing period; individual credits are a dollar balance.
     public static func amp(_ body: String, now: Date) -> UsageSnapshot {
         let root = object(body)
         var text = root.object("result").map { string($0, "displayText", "text") } ?? ""
@@ -904,15 +925,58 @@ public enum ProviderUsageParsers {
         let out = Builder(now: now)
         let range = NSRange(text.startIndex..., in: text)
         if let match = ampFree.firstMatch(in: text, range: range) {
-            let remaining = parseAmount(text, match.range(at: 1))
-            let total = parseAmount(text, match.range(at: 2))
             out.plan = "Free"
-            out.add("Free usage", makeWindow(percentUsed(total, .nan, remaining), Self.day, 0, now))
+            out.add("Free usage", makeWindow(percentUsed(parseAmount(text, match.range(at: 2)), .nan,
+                                                         parseAmount(text, match.range(at: 1))),
+                                             Self.day, ampFreeReset(now), now))
+        } else if let match = ampFreePercent.firstMatch(in: text, range: range) {
+            out.plan = "Free"
+            out.add("Free usage", makeWindow(100 - parseAmount(text, match.range(at: 1)), Self.day,
+                                             ampFreeReset(now), now))
+        }
+        if let tier = ampTier.firstMatch(in: text, range: range) {
+            out.plan = titleCase(substring(text, tier.range(at: 1)))
+            var seconds = Self.month
+            var reset: Int64 = 0
+            if let period = ampPeriod.firstMatch(in: text, range: range) {
+                let start = substring(text, period.range(at: 1))
+                let end = substring(text, period.range(at: 2))
+                seconds = span(.string(start), .string(end), Self.month)
+                reset = epochSeconds(end)
+            }
+            let agent = makeWindow(percentUsed(parseAmount(text, tier.range(at: 3)), .nan,
+                                               parseAmount(text, tier.range(at: 2))), seconds, reset, now)
+            if seconds >= 27 * Self.day, seconds <= 32 * Self.day {
+                out.monthly = agent
+            } else {
+                out.extra("Agent usage", agent)
+            }
+            if let orb = ampOrb.firstMatch(in: text, range: range) {
+                out.extra("Orb hours", makeWindow(percentUsed(parseAmount(text, orb.range(at: 2)), .nan,
+                                                              parseAmount(text, orb.range(at: 1))),
+                                                  seconds, reset, now))
+            }
         }
         if let match = ampCredits.firstMatch(in: text, range: range) {
-            out.credits = balance(parseAmount(text, match.range(at: 1)))
+            let group = match.range(at: 1).location != NSNotFound ? match.range(at: 1) : match.range(at: 2)
+            out.credits = balance(parseAmount(text, group))
         }
         return out.build()
+    }
+
+    /// Amp Free refills at 8 PM in New York.
+    static func ampFreeReset(_ now: Date) -> Int64 {
+        var calendar = Calendar(identifier: .gregorian)
+        guard let newYork = TimeZone(identifier: "America/New_York") else { return 0 }
+        calendar.timeZone = newYork
+        guard var reset = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: now) else { return 0 }
+        if reset <= now, let next = calendar.date(byAdding: .day, value: 1, to: reset) { reset = next }
+        return Int64(reset.timeIntervalSince1970)
+    }
+
+    private static func substring(_ text: String, _ range: NSRange) -> String {
+        guard let swiftRange = Range(range, in: text) else { return "" }
+        return String(text[swiftRange])
     }
 
     private static func parseAmount(_ text: String, _ range: NSRange) -> Double {
@@ -952,73 +1016,207 @@ public enum ProviderUsageParsers {
         return out.build()
     }
 
-    // MARK: Key-only heuristics
+    // MARK: Synthetic
 
-    /// Synthetic, Chutes, v0 and Warp don't publish one stable shape, so this walks the
-    /// response for anything that looks like a quota: an object with a limit and a used or
-    /// remaining count, or a percent, plus a reset time. Window length comes from its name
-    /// ("5h", "weekly", "daily", "monthly") or, failing that, from `defaultSeconds`.
-    public static func keyQuota(_ body: String, defaultSeconds: Int64, now: Date) -> UsageSnapshot {
-        let root = object(body)
+    /// `api.synthetic.new/v2/quotas` (documented at dev.synthetic.new/docs/synthetic/quotas).
+    /// Current plans meter weekly credits in `planWeeklyLimit`, whose `percentRemaining` is in
+    /// percentage points and regenerates continuously, so `nextRegenAt` is when the next slice
+    /// comes back. Older plans report `rollingFiveHourLimit` and `weeklyTokenLimit` as
+    /// fractions, and the retired `subscription` request counter is read only when nothing
+    /// else is there. The search tool has its own hourly allowance.
+    public static func synthetic(_ body: String, now: Date) -> UsageSnapshot {
+        var root = object(body)
+        if root.isEmpty, case let .array(values)? = ProviderJSON.parse(body.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            root["quotas"] = .array(values)
+        }
+        let data = root.object("data")
+        let source = data != nil && !root.has("planWeeklyLimit") && !root.has("rollingFiveHourLimit")
+            && !root.has("weeklyTokenLimit") ? data! : root
         let out = Builder(now: now)
-        out.plan = titleCase(string(root, "plan", "planName", "tier", "subscription"))
-        walkQuotas(.object(root), name: "", defaultSeconds: defaultSeconds, out: out, depth: 0)
+        out.plan = titleCase(string(source, "plan", "planName", "plan_name", "tier"))
+        if out.plan.isEmpty { out.plan = titleCase(string(root, "plan", "planName", "tier")) }
+        if let planWeekly = source.object("planWeeklyLimit") {
+            out.weekly = makeWindow(quotaUsed(planWeekly, points: true), Self.week, quotaReset(planWeekly, now), now)
+        } else {
+            if let rolling = source.object("rollingFiveHourLimit") {
+                out.shortWindow = makeWindow(quotaUsed(rolling, points: false), 5 * Self.hour, quotaReset(rolling, now), now)
+            }
+            if let weekly = source.object("weeklyTokenLimit") {
+                out.weekly = makeWindow(quotaUsed(weekly, points: false), Self.week, quotaReset(weekly, now), now)
+            }
+        }
+        if let search = path(source, "search", "hourly") {
+            out.extra("Search (hourly)", makeWindow(quotaUsed(search, points: false), Self.hour, quotaReset(search, now), now))
+        }
+        if out.shortWindow == nil, out.weekly == nil, let subscription = source.object("subscription") {
+            out.shortWindow = makeWindow(quotaUsed(subscription, points: false), 5 * Self.hour,
+                                         quotaReset(subscription, now), now)
+        }
         return out.build()
     }
 
-    private static func walkQuotas(_ node: ProviderJSON, name: String, defaultSeconds: Int64, out: Builder, depth: Int) {
-        guard depth <= 6 else { return }
-        switch node {
-        case let .array(values):
-            for value in values {
-                let itemName = value.objectValue.map { string($0, "name", "type", "window", "period", "label", "id") } ?? ""
-                walkQuotas(value, name: itemName.isEmpty ? name : itemName, defaultSeconds: defaultSeconds, out: out, depth: depth + 1)
-            }
-        case let .object(object):
-            var percent = number(object, percentKeys)
-            if !percent.isNaN, percent <= 1, object.has("utilization") { percent *= 100 }
-            if percent.isNaN {
-                percent = percentUsed(
-                    number(object, "limit", "max", "total", "quota", "allowed", "requestLimit"),
-                    number(object, "used", "usage", "count", "consumed", "requestsUsedSinceLastRefresh", "requestsUsed"),
-                    number(object, "remaining", "left", "available")
-                )
-            }
-            if !percent.isNaN {
-                var seconds = secondsFromName(name)
-                if seconds <= 0 { seconds = secondsFromObject(object) }
-                if seconds <= 0 { seconds = defaultSeconds }
-                let label = name.isEmpty ? durationName(seconds) + " limit" : titleCase(name)
-                out.add(label, makeWindow(percent, seconds, resetFrom(object, out.now), out.now))
-                return
-            }
-            for key in object.keys {
-                if let child = object[key] {
-                    walkQuotas(child, name: key, defaultSeconds: defaultSeconds, out: out, depth: depth + 1)
-                }
-            }
-        default:
-            break
-        }
+    static let quotaLimitKeys = ["limit", "max", "total", "quota", "cap", "requestLimit", "messageLimit", "maxRequests"]
+    static let quotaUsedKeys = ["used", "usage", "requests", "requestCount", "consumed", "spent", "messagesUsed"]
+    static let quotaLeftKeys = ["remaining", "left", "available"]
+    static let quotaLeftPercentKeys = ["percentRemaining", "remainingPercent", "remaining_percent", "percent_remaining"]
+    static let quotaResetKeys = ["nextRegenAt", "next_regen_at", "renewsAt", "renews_at", "periodEnd", "period_end"]
+
+    static func quotaReset(_ quota: Object, _ now: Date) -> Int64 {
+        let at = epochSeconds(first(quota, quotaResetKeys))
+        return at > 0 ? at : resetFrom(quota, now)
     }
 
-    static func secondsFromName(_ name: String?) -> Int64 {
-        let value = (name ?? "").lowercased()
-        if value.isEmpty { return 0 }
-        if value.contains("five") || value.contains("5h") || value.contains("5_hour") || value.contains("rolling") {
-            return 5 * Self.hour
+    /// Percent used of one quota object. Percent fields win over counts; `points` says the
+    /// percentages are already 0–100 (otherwise values up to 1 are read as fractions).
+    static func quotaUsed(_ quota: Object, points: Bool) -> Double {
+        var used = number(quota, "percentUsed", "usedPercent", "usagePercent", "used_percent")
+        let left = number(quota, quotaLeftPercentKeys)
+        if used.isNaN, !left.isNaN {
+            used = 100 - (!points && left <= 1 ? left * 100 : left)
+        } else if !used.isNaN, !points, used <= 1 {
+            used *= 100
         }
-        if value.contains("hour") { return Self.hour }
-        if value.contains("week") || value.contains("7d") { return Self.week }
-        if value.contains("day") || value.contains("daily") || value.contains("24h") { return Self.day }
-        if value.contains("month") || value.contains("30d") { return Self.month }
-        return 0
+        if !used.isNaN { return used }
+        var limit = number(quota, quotaLimitKeys)
+        let count = number(quota, quotaUsedKeys)
+        let remaining = number(quota, quotaLeftKeys)
+        if limit.isNaN, !count.isNaN, !remaining.isNaN { limit = count + remaining }
+        return percentUsed(limit, count, remaining)
     }
 
-    private static func secondsFromObject(_ object: Object) -> Int64 {
-        let seconds = number(object, "windowSeconds", "window_seconds", "periodSeconds", "durationSeconds")
-        if !seconds.isNaN, seconds > 0 { return Int64(seconds) }
-        return secondsFromName(string(object, "window", "period", "interval", "refreshDuration"))
+    // MARK: Chutes
+
+    /// `api.chutes.ai/users/me/subscription_usage`, from Chutes' own API source
+    /// (`api/user/router.py`): a rolling 4-hour cap and a monthly cap, both in dollars of
+    /// pay-as-you-go value, or `{"subscription": false}` without a plan. Custom plans only
+    /// enforce the 4-hour cap and report `monthly.uncapped`.
+    public static func chutes(_ body: String, now: Date) -> UsageSnapshot {
+        let root = object(body)
+        let out = Builder(now: now)
+        guard root.bool("subscription", default: false) else { return out.build() }
+        let price = number(root, "monthly_price")
+        if root.bool("custom", default: false) {
+            out.plan = "Custom"
+        } else if !price.isNaN, price > 0 {
+            out.plan = money(price).replacingOccurrences(of: ".00", with: "") + "/month"
+        }
+        if let fourHour = root.object("four_hour") {
+            out.shortWindow = makeWindow(percentUsed(number(fourHour, "cap"), number(fourHour, "usage"), number(fourHour, "remaining")),
+                                         4 * Self.hour, epochSeconds(fourHour["reset_at"]), now)
+        }
+        if let monthly = root.object("monthly"), !monthly.bool("uncapped", default: false) {
+            out.monthly = makeWindow(percentUsed(number(monthly, "cap"), number(monthly, "usage"), number(monthly, "remaining")),
+                                     Self.month, epochSeconds(monthly["reset_at"]), now)
+        }
+        return out.build()
+    }
+
+    // MARK: v0
+
+    /// The v0 Platform API (`v0.app/docs/api/v1`): `/v1/user/billing` gives the credit balance
+    /// for the billing cycle (token billing) or a legacy allowance, `/v1/user/plan` names the
+    /// plan, and `/v1/rate-limits` gives the request limit plus, for free accounts, the daily
+    /// message limit.
+    public static func v0(billing billingBody: String, plan planBody: String, rateLimits rateBody: String, now: Date) -> UsageSnapshot {
+        let billing = object(billingBody)
+        let plan = object(planBody)
+        let rate = object(rateBody)
+        let out = Builder(now: now)
+        out.plan = titleCase(string(plan, "plan"))
+        func cycleWindow(_ balance: Object?, _ cycle: Object?) -> UsageWindow? {
+            makeWindow(percentUsed(number(balance, "total"), .nan, number(balance, "remaining")),
+                       cycle.map { span($0["start"], $0["end"], Self.month) } ?? Self.month,
+                       epochSeconds(cycle?["end"]), now)
+        }
+        var credits: UsageWindow?
+        if let data = billing.object("data"), let balance = data.object("balance") {
+            credits = cycleWindow(balance, data.object("billingCycle"))
+            let onDemand = number(data.object("onDemand"), "balance")
+            if !onDemand.isNaN, onDemand > 0 { out.credits = self.balance(onDemand) }
+        } else if let data = billing.object("data") {
+            credits = makeWindow(percentUsed(number(data, "limit"), .nan, number(data, "remaining")),
+                                 Self.month, epochSeconds(data["reset"]), now)
+        }
+        if credits == nil {
+            credits = cycleWindow(plan.object("balance"), plan.object("billingCycle"))
+        }
+        if let credits {
+            if credits.windowSeconds >= 27 * Self.day, credits.windowSeconds <= 32 * Self.day {
+                out.monthly = credits
+            } else {
+                out.extra("Credits", credits)
+            }
+        }
+        if let daily = rate.object("dailyLimit"), !daily.bool("isWithinGracePeriod", default: false) {
+            out.shortWindow = makeWindow(percentUsed(number(daily, "limit"), .nan, number(daily, "remaining")),
+                                         Self.day, epochSeconds(daily["reset"]), now)
+        }
+        out.extra("API requests", makeWindow(percentUsed(number(rate, "limit"), .nan, number(rate, "remaining")),
+                                             Self.day, epochSeconds(rate["reset"]), now))
+        return out.build()
+    }
+
+    // MARK: Warp
+
+    /// Warp's `GetRequestLimitInfo` GraphQL query: monthly credits (Warp still names them
+    /// requests) and add-on credit grants for the user and their workspaces.
+    public static func warp(_ body: String, now: Date) -> UsageSnapshot {
+        let out = Builder(now: now)
+        guard let user = path(object(body), "data", "user", "user") else { return out.build() }
+        let info = user.object("requestLimitInfo")
+        if let info, info.bool("isUnlimited", default: false) {
+            out.plan = "Unlimited"
+            out.credits = UsageCredits(hasCredits: true, unlimited: true, balance: nil)
+        } else if let info {
+            out.monthly = makeWindow(percentUsed(number(info, "requestLimit"), number(info, "requestsUsedSinceLastRefresh"), .nan),
+                                     Self.month, epochSeconds(info["nextRefreshTime"]), now)
+        }
+        var grants = user.array("bonusGrants") ?? []
+        for workspace in user.array("workspaces") ?? [] {
+            grants += workspace.objectValue?.object("bonusGrantsInfo")?.array("grants") ?? []
+        }
+        var remaining = 0.0
+        var anyGrant = false
+        for grant in grants {
+            let left = number(grant.objectValue, "requestCreditsRemaining")
+            if !left.isNaN, left > 0 {
+                remaining += left
+                anyGrant = true
+            }
+        }
+        if anyGrant, out.credits == nil {
+            out.credits = UsageCredits(hasCredits: true, unlimited: false, balance: wholeCount(remaining) + " add-on credits")
+        }
+        return out.build()
+    }
+
+    /// The first GraphQL error message in a Warp reply, or "".
+    public static func warpError(_ body: String) -> String {
+        guard let first = object(body).array("errors")?.first?.objectValue else { return "" }
+        return first.string("message")
+    }
+
+    // MARK: Devin
+
+    /// `app.devin.ai/api/<org>/billing/quota/usage`: daily and weekly quota percentages used,
+    /// their reset times, and the extra-usage balance.
+    public static func devin(_ body: String, now: Date) -> UsageSnapshot {
+        let root = object(body)
+        let out = Builder(now: now)
+        out.plan = titleCase(string(root, "plan_name", "planName", "plan", "tier"))
+        if !root.bool("hide_daily_quota", default: false) {
+            out.add("Daily quota", makeWindow(number(root, "daily_percentage", "dailyPercentage"), Self.day,
+                                              epochSeconds(first(root, "daily_reset_at", "dailyResetAt")), now))
+        }
+        out.weekly = makeWindow(number(root, "weekly_percentage", "weeklyPercentage"), Self.week,
+                                epochSeconds(first(root, "weekly_reset_at", "weeklyResetAt")), now)
+        var overage = number(root, "overage_balance")
+        if overage.isNaN {
+            let cents = number(root, "overage_balance_cents")
+            if !cents.isNaN { overage = cents / 100 }
+        }
+        if !overage.isNaN, overage > 0 { out.credits = balance(overage) }
+        return out.build()
     }
 
     /// "5-hour", "Weekly", "Daily", "Monthly" or "N-day" for a window length.

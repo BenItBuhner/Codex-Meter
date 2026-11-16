@@ -1,16 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Privacy & data: backup and transfer, diagnostic logs and how data is kept, on one page. -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <PreferenceCategory android:title="Backup &amp; transfer">
+        <Preference
+            android:key="export_settings_transfer"
+            android:summary="Save selected settings and, if you choose, sign-ins. Anyone with a file that has sign-ins can use your accounts."
+            android:title="Export settings"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="import_settings_transfer"
+            android:summary="Restore selected sections from a transfer file"
+            android:title="Import settings"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Diagnostic logs">
+        <SwitchPreferenceCompat
+            android:key="diagnostic_logging_enabled"
+            android:summary="Record app, refresh, scheduler, Wear and network events. Tokens, cookies, emails and request bodies are never recorded."
+            android:title="Save diagnostic logs"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="diagnostic_log_status"
+            android:title="Saved logs"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+        <Preference
+            android:key="export_diagnostic_logs"
+            android:summary="Save a JSON Lines file"
+            android:title="Export logs"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="clear_diagnostic_logs"
+            android:title="Clear logs"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Your data">
         <Preference
-            android:icon="@drawable/ic_oui_privacy"
-            android:summary="OAuth tokens are encrypted with Android Keystore and remain on this device."
+            android:summary="Sign-in tokens are encrypted with Android Keystore and stay on this device."
             android:title="Encrypted local storage"
             app:iconSpaceReserved="false"
             app:selectable="false" />
         <Preference
-            android:summary="Codex Meter connects directly to OpenAI for authentication and to ChatGPT and Codex endpoints for usage data. There is no Codex Meter backend."
+            android:summary="Codex Meter talks directly to each provider you sign in to. There is no Codex Meter server."
             android:title="Direct network access"
             app:iconSpaceReserved="false"
             app:selectable="false" />

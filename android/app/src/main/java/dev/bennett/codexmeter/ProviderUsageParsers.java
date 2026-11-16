@@ -17,10 +17,10 @@ import org.json.JSONObject;
 
 /**
  * Turns each added provider's usage response into a {@link UsageSnapshot}. Pure Java (org.json
- * only) so the self-tests cover every shape. None of these routes is documented publicly; the
- * shapes follow the providers' own CLIs and editors and open-source trackers (CodexBar,
- * quotabar), so every reader is defensive: a missing field leaves a window out rather than
- * failing the whole refresh.
+ * only) so the self-tests cover every shape. Synthetic and v0 document their routes; Chutes
+ * publishes its API source; the rest follow the providers' own CLIs and editors and
+ * open-source trackers (CodexBar, OpenClaw). Every reader is defensive: a missing field leaves
+ * a window out rather than failing the whole refresh.
  *
  * <p>Windows land in the snapshot by length: up to a day is the short window
  * ({@code fiveHour}, labelled on the dashboard by its real length), about a week is {@code weekly}, about a
@@ -884,7 +884,7 @@ public final class ProviderUsageParsers {
 
     // ---------------------------------------------------------------- Kiro
 
-    /** CodeWhisperer {@code GetUsageLimits}: monthly agentic requests or credits. */
+    /** CodeWhisperer {@code GetUsageLimits}: monthly credits, plus any other metered resource. */
     public static UsageSnapshot kiro(String body, long now) {
         JSONObject root = object(body);
         Builder out = new Builder(now);
@@ -894,9 +894,19 @@ public final class ProviderUsageParsers {
         if (list == null) list = root.optJSONArray("limits");
         long fallbackReset = epochSeconds(first(root, "nextDateReset", "resetDate"));
         if (list != null) {
+            // Kiro's credits (resourceType CREDIT) are the plan's main meter; list them first.
+            List<JSONObject> entries = new ArrayList<>();
             for (int i = 0; i < list.length(); i++) {
                 JSONObject entry = list.optJSONObject(i);
                 if (entry == null) continue;
+                if ("CREDIT".equalsIgnoreCase(string(entry, "resourceType"))) {
+                    entries.add(0, entry);
+                } else {
+                    entries.add(entry);
+                }
+            }
+            for (int i = 0; i < entries.size(); i++) {
+                JSONObject entry = entries.get(i);
                 double limit = number(entry, "usageLimitWithPrecision", "usageLimit", "limit");
                 double used = number(entry, "currentUsageWithPrecision", "currentUsage", "used");
                 long reset = epochSeconds(first(entry, "nextDateReset", "resetDate"));
@@ -970,17 +980,28 @@ public final class ProviderUsageParsers {
 
     // ---------------------------------------------------------------- Amp
 
-    private static final Pattern AMP_FREE = Pattern.compile(
-            "\\$\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*/\\s*\\$\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*"
-                    + "remaining", Pattern.CASE_INSENSITIVE);
-    private static final Pattern AMP_CREDITS = Pattern.compile(
-            "\\$\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*(?:in\\s+)?(?:individual\\s+)?credits",
+    private static final String AMOUNT = "([0-9][0-9,]*(?:\\.[0-9]+)?)";
+    private static final Pattern AMP_FREE = Pattern.compile("Amp Free:\\s*\\$\\s*" + AMOUNT
+            + "\\s*/\\s*\\$\\s*" + AMOUNT + "\\s*remaining", Pattern.CASE_INSENSITIVE);
+    private static final Pattern AMP_FREE_PERCENT = Pattern.compile("Amp Free:\\s*" + AMOUNT
+            + "\\s*%\\s*remaining", Pattern.CASE_INSENSITIVE);
+    private static final Pattern AMP_TIER = Pattern.compile("Amp\\s+(.+?)\\s+(?:Tier|Subscription)"
+            + ":\\s*agent usage\\s*\\$\\s*" + AMOUNT + "\\s*of\\s*\\$\\s*" + AMOUNT
+            + "\\s*remaining", Pattern.CASE_INSENSITIVE);
+    private static final Pattern AMP_ORB = Pattern.compile("orb usage\\s*" + AMOUNT
+            + "\\s*h\\s*of\\s*" + AMOUNT + "\\s*h", Pattern.CASE_INSENSITIVE);
+    private static final Pattern AMP_PERIOD = Pattern.compile(
+            "period\\s+(\\d{4}-\\d{2}-\\d{2})\\s+to\\s+(\\d{4}-\\d{2}-\\d{2})",
             Pattern.CASE_INSENSITIVE);
+    private static final Pattern AMP_CREDITS = Pattern.compile("(?:Individual credits:\\s*\\$\\s*"
+            + AMOUNT + "\\s*remaining|\\$\\s*" + AMOUNT + "\\s*(?:in\\s+)?(?:individual\\s+)?"
+            + "credits)", Pattern.CASE_INSENSITIVE);
 
     /**
-     * {@code ampcode.com/api/internal?userDisplayBalanceInfo}: Amp returns the same sentence
-     * the CLI prints, e.g. "Amp Free: $7.12/$10 remaining (replenishes +$0.42/hour) · $5.00
-     * credits". The free tier refills continuously, so it is shown as a daily window.
+     * {@code ampcode.com/api/internal?userDisplayBalanceInfo}: Amp returns the text the CLI's
+     * {@code amp usage} prints. Amp Free is a daily allowance that resets at 8 PM New York
+     * time (older replies give dollars, newer ones a percentage); paid tiers report agent
+     * dollars and orb hours for the billing period; individual credits are a dollar balance.
      */
     public static UsageSnapshot amp(String body, long now) {
         JSONObject root = object(body);
@@ -990,16 +1011,54 @@ public final class ProviderUsageParsers {
         if (text.isEmpty()) text = body == null ? "" : body;
         Builder out = new Builder(now);
         Matcher free = AMP_FREE.matcher(text);
+        Matcher freePercent = AMP_FREE_PERCENT.matcher(text);
         if (free.find()) {
-            double remaining = parseAmount(free.group(1));
-            double total = parseAmount(free.group(2));
             out.plan = "Free";
-            out.add("Free usage", window(percentUsed(total, Double.NaN, remaining), DAY, 0L,
-                    now));
+            out.add("Free usage", window(percentUsed(parseAmount(free.group(2)), Double.NaN,
+                    parseAmount(free.group(1))), DAY, ampFreeReset(now), now));
+        } else if (freePercent.find()) {
+            out.plan = "Free";
+            out.add("Free usage", window(100.0 - parseAmount(freePercent.group(1)), DAY,
+                    ampFreeReset(now), now));
+        }
+        Matcher tier = AMP_TIER.matcher(text);
+        if (tier.find()) {
+            out.plan = titleCase(tier.group(1));
+            long seconds = MONTH;
+            long reset = 0L;
+            Matcher period = AMP_PERIOD.matcher(text);
+            if (period.find()) {
+                seconds = span(period.group(1), period.group(2), MONTH);
+                reset = epochSeconds(period.group(2));
+            }
+            UsageWindow agent = window(percentUsed(parseAmount(tier.group(3)), Double.NaN,
+                    parseAmount(tier.group(2))), seconds, reset, now);
+            if (seconds >= 27 * DAY && seconds <= 32 * DAY) {
+                out.monthly = agent;
+            } else {
+                out.extra("Agent usage", agent);
+            }
+            Matcher orb = AMP_ORB.matcher(text);
+            if (orb.find()) {
+                out.extra("Orb hours", window(percentUsed(parseAmount(orb.group(2)), Double.NaN,
+                        parseAmount(orb.group(1))), seconds, reset, now));
+            }
         }
         Matcher credits = AMP_CREDITS.matcher(text);
-        if (credits.find()) out.credits = balance(parseAmount(credits.group(1)));
+        if (credits.find()) {
+            String amount = credits.group(1) != null ? credits.group(1) : credits.group(2);
+            out.credits = balance(parseAmount(amount));
+        }
         return out.build();
+    }
+
+    /** Amp Free refills at 8 PM in New York. */
+    static long ampFreeReset(long now) {
+        java.time.ZoneId newYork = java.time.ZoneId.of("America/New_York");
+        java.time.ZonedDateTime current = Instant.ofEpochMilli(now).atZone(newYork);
+        java.time.ZonedDateTime reset = current.toLocalDate().atTime(20, 0).atZone(newYork);
+        if (!reset.isAfter(current)) reset = reset.plusDays(1);
+        return reset.toEpochSecond();
     }
 
     private static double parseAmount(String text) {
@@ -1045,80 +1104,267 @@ public final class ProviderUsageParsers {
         return out.build();
     }
 
-    // ---------------------------------------------------------------- key-only heuristics
+    // ---------------------------------------------------------------- Synthetic
 
     /**
-     * Synthetic, Chutes, v0 and Warp don't publish one stable shape, so this walks the response
-     * for anything that looks like a quota: an object with a limit and a used or remaining
-     * count, or a percent, plus a reset time. Window length comes from its name ("5h",
-     * "weekly", "daily", "monthly") or, failing that, from {@code defaultSeconds}.
+     * {@code api.synthetic.new/v2/quotas} (documented at dev.synthetic.new/docs/synthetic/quotas).
+     * Current plans meter weekly credits in {@code planWeeklyLimit}, whose
+     * {@code percentRemaining} is in percentage points and regenerates continuously, so
+     * {@code nextRegenAt} is when the next slice comes back. Older plans report
+     * {@code rollingFiveHourLimit} and {@code weeklyTokenLimit} as fractions, and the retired
+     * {@code subscription} request counter is read only when nothing else is there. The search
+     * tool has its own hourly allowance.
      */
-    public static UsageSnapshot keyQuota(String body, long defaultSeconds, long now) {
+    public static UsageSnapshot synthetic(String body, long now) {
         JSONObject root = object(body);
+        if (root.length() == 0 && body != null && body.trim().startsWith("[")) {
+            try {
+                root = new JSONObject().put("quotas", new JSONArray(body.trim()));
+            } catch (Exception ignored) {
+                // Not JSON at all.
+            }
+        }
+        JSONObject data = root.optJSONObject("data");
+        JSONObject source = data != null && !root.has("planWeeklyLimit")
+                && !root.has("rollingFiveHourLimit") && !root.has("weeklyTokenLimit") ? data : root;
         Builder out = new Builder(now);
-        out.plan = titleCase(string(root, "plan", "planName", "tier", "subscription"));
-        walkQuotas(root, "", defaultSeconds, out, 0);
+        out.plan = titleCase(string(source, "plan", "planName", "plan_name", "tier"));
+        if (out.plan.isEmpty()) out.plan = titleCase(string(root, "plan", "planName", "tier"));
+        JSONObject planWeekly = source.optJSONObject("planWeeklyLimit");
+        if (planWeekly != null) {
+            out.weekly = window(quotaUsed(planWeekly, true), WEEK, quotaReset(planWeekly, now),
+                    now);
+        } else {
+            JSONObject rolling = source.optJSONObject("rollingFiveHourLimit");
+            if (rolling != null) {
+                out.shortWindow = window(quotaUsed(rolling, false), 5 * HOUR,
+                        quotaReset(rolling, now), now);
+            }
+            JSONObject weekly = source.optJSONObject("weeklyTokenLimit");
+            if (weekly != null) {
+                out.weekly = window(quotaUsed(weekly, false), WEEK, quotaReset(weekly, now), now);
+            }
+        }
+        JSONObject search = path(source, "search", "hourly");
+        if (search != null) {
+            out.extra("Search (hourly)", window(quotaUsed(search, false), HOUR,
+                    quotaReset(search, now), now));
+        }
+        JSONObject subscription = source.optJSONObject("subscription");
+        if (out.shortWindow == null && out.weekly == null && subscription != null) {
+            out.shortWindow = window(quotaUsed(subscription, false), 5 * HOUR,
+                    quotaReset(subscription, now), now);
+        }
         return out.build();
     }
 
-    private static void walkQuotas(Object node, String name, long defaultSeconds, Builder out,
-            int depth) {
-        if (depth > 6) return;
-        if (node instanceof JSONArray) {
-            JSONArray array = (JSONArray) node;
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject item = array.optJSONObject(i);
-                String itemName = item == null ? "" : string(item, "name", "type", "window",
-                        "period", "label", "id");
-                walkQuotas(array.opt(i), itemName.isEmpty() ? name : itemName, defaultSeconds,
-                        out, depth + 1);
+    static final String[] QUOTA_LIMIT_KEYS = {"limit", "max", "total", "quota", "cap",
+            "requestLimit", "messageLimit", "maxRequests"};
+    static final String[] QUOTA_USED_KEYS = {"used", "usage", "requests", "requestCount",
+            "consumed", "spent", "messagesUsed"};
+    static final String[] QUOTA_LEFT_KEYS = {"remaining", "left", "available"};
+    static final String[] QUOTA_LEFT_PERCENT_KEYS = {"percentRemaining", "remainingPercent",
+            "remaining_percent", "percent_remaining"};
+    static final String[] QUOTA_RESET_KEYS = {"nextRegenAt", "next_regen_at", "renewsAt",
+            "renews_at", "periodEnd", "period_end"};
+
+    static long quotaReset(JSONObject quota, long now) {
+        long at = epochSeconds(first(quota, QUOTA_RESET_KEYS));
+        return at > 0 ? at : resetFrom(quota, now);
+    }
+
+    /**
+     * Percent used of one quota object. Percent fields win over counts; {@code points} says
+     * the percentages are already 0–100 (otherwise values up to 1 are read as fractions).
+     */
+    static double quotaUsed(JSONObject quota, boolean points) {
+        double used = number(quota, "percentUsed", "usedPercent", "usagePercent", "used_percent");
+        double left = number(quota, QUOTA_LEFT_PERCENT_KEYS);
+        if (Double.isNaN(used) && !Double.isNaN(left)) {
+            used = 100.0 - (!points && left <= 1.0 ? left * 100.0 : left);
+        } else if (!Double.isNaN(used) && !points && used <= 1.0) {
+            used *= 100.0;
+        }
+        if (!Double.isNaN(used)) return used;
+        double limit = number(quota, QUOTA_LIMIT_KEYS);
+        double count = number(quota, QUOTA_USED_KEYS);
+        double remaining = number(quota, QUOTA_LEFT_KEYS);
+        if (Double.isNaN(limit) && !Double.isNaN(count) && !Double.isNaN(remaining)) {
+            limit = count + remaining;
+        }
+        return percentUsed(limit, count, remaining);
+    }
+
+    // ---------------------------------------------------------------- Chutes
+
+    /**
+     * {@code api.chutes.ai/users/me/subscription_usage}, from Chutes' own API source
+     * ({@code api/user/router.py}): a rolling 4-hour cap and a monthly cap, both in dollars of
+     * pay-as-you-go value, or {@code {"subscription": false}} without a plan. Custom plans
+     * only enforce the 4-hour cap and report {@code monthly.uncapped}.
+     */
+    public static UsageSnapshot chutes(String body, long now) {
+        JSONObject root = object(body);
+        Builder out = new Builder(now);
+        if (!root.optBoolean("subscription", false)) return out.build();
+        double price = number(root, "monthly_price");
+        if (root.optBoolean("custom", false)) {
+            out.plan = "Custom";
+        } else if (!Double.isNaN(price) && price > 0) {
+            out.plan = money(price).replace(".00", "") + "/month";
+        }
+        JSONObject fourHour = root.optJSONObject("four_hour");
+        if (fourHour != null) {
+            out.shortWindow = window(percentUsed(number(fourHour, "cap"),
+                    number(fourHour, "usage"), number(fourHour, "remaining")), 4 * HOUR,
+                    epochSeconds(fourHour.opt("reset_at")), now);
+        }
+        JSONObject monthly = root.optJSONObject("monthly");
+        if (monthly != null && !monthly.optBoolean("uncapped", false)) {
+            out.monthly = window(percentUsed(number(monthly, "cap"), number(monthly, "usage"),
+                    number(monthly, "remaining")), MONTH, epochSeconds(monthly.opt("reset_at")),
+                    now);
+        }
+        return out.build();
+    }
+
+    // ---------------------------------------------------------------- v0
+
+    /**
+     * The v0 Platform API ({@code v0.app/docs/api/v1}): {@code /v1/user/billing} gives the
+     * credit balance for the billing cycle (token billing) or a legacy allowance,
+     * {@code /v1/user/plan} names the plan, and {@code /v1/rate-limits} gives the request
+     * limit plus, for free accounts, the daily message limit.
+     */
+    public static UsageSnapshot v0(String billingBody, String planBody, String rateBody,
+            long now) {
+        JSONObject billing = object(billingBody);
+        JSONObject plan = object(planBody);
+        JSONObject rate = object(rateBody);
+        Builder out = new Builder(now);
+        out.plan = titleCase(string(plan, "plan"));
+        JSONObject data = billing.optJSONObject("data");
+        UsageWindow credits = null;
+        if (data != null && data.optJSONObject("balance") != null) {
+            JSONObject balance = data.optJSONObject("balance");
+            JSONObject cycle = data.optJSONObject("billingCycle");
+            credits = window(percentUsed(number(balance, "total"), Double.NaN,
+                    number(balance, "remaining")), cycle == null ? MONTH
+                    : span(cycle.opt("start"), cycle.opt("end"), MONTH),
+                    cycle == null ? 0L : epochSeconds(cycle.opt("end")), now);
+            JSONObject onDemand = data.optJSONObject("onDemand");
+            double onDemandBalance = number(onDemand, "balance");
+            if (!Double.isNaN(onDemandBalance) && onDemandBalance > 0) {
+                out.credits = balance(onDemandBalance);
             }
-            return;
+        } else if (data != null) {
+            credits = window(percentUsed(number(data, "limit"), Double.NaN,
+                    number(data, "remaining")), MONTH, epochSeconds(data.opt("reset")), now);
         }
-        if (!(node instanceof JSONObject)) return;
-        JSONObject object = (JSONObject) node;
-        double percent = number(object, PERCENT_KEYS);
-        if (!Double.isNaN(percent) && percent <= 1.0 && object.has("utilization")) {
-            percent *= 100.0;
+        if (credits == null) {
+            JSONObject balance = plan.optJSONObject("balance");
+            JSONObject cycle = plan.optJSONObject("billingCycle");
+            credits = window(percentUsed(number(balance, "total"), Double.NaN,
+                    number(balance, "remaining")), cycle == null ? MONTH
+                    : span(cycle.opt("start"), cycle.opt("end"), MONTH),
+                    cycle == null ? 0L : epochSeconds(cycle.opt("end")), now);
         }
-        if (Double.isNaN(percent)) {
-            percent = percentUsed(number(object, "limit", "max", "total", "quota", "allowed",
-                    "requestLimit"), number(object, "used", "usage", "count", "consumed",
-                    "requestsUsedSinceLastRefresh", "requestsUsed"),
-                    number(object, "remaining", "left", "available"));
+        if (credits != null) {
+            if (credits.windowSeconds >= 27 * DAY && credits.windowSeconds <= 32 * DAY) {
+                out.monthly = credits;
+            } else {
+                out.extra("Credits", credits);
+            }
         }
-        if (!Double.isNaN(percent)) {
-            long seconds = secondsFromName(name);
-            if (seconds <= 0) seconds = secondsFromObject(object);
-            if (seconds <= 0) seconds = defaultSeconds;
-            String label = name.isEmpty() ? durationName(seconds) + " limit" : titleCase(name);
-            out.add(label, window(percent, seconds, resetFrom(object, out.now), out.now));
-            return;
+        JSONObject daily = rate.optJSONObject("dailyLimit");
+        if (daily != null && !daily.optBoolean("isWithinGracePeriod", false)) {
+            out.shortWindow = window(percentUsed(number(daily, "limit"), Double.NaN,
+                    number(daily, "remaining")), DAY, epochSeconds(daily.opt("reset")), now);
         }
-        Iterator<String> keys = object.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            walkQuotas(object.opt(key), key, defaultSeconds, out, depth + 1);
-        }
+        out.extra("API requests", window(percentUsed(number(rate, "limit"), Double.NaN,
+                number(rate, "remaining")), DAY, epochSeconds(rate.opt("reset")), now));
+        return out.build();
     }
 
-    static long secondsFromName(String name) {
-        String value = name == null ? "" : name.toLowerCase(Locale.ROOT);
-        if (value.isEmpty()) return 0L;
-        if (value.contains("five") || value.contains("5h") || value.contains("5_hour")
-                || value.contains("rolling")) return 5 * HOUR;
-        if (value.contains("hour")) return HOUR;
-        if (value.contains("week") || value.contains("7d")) return WEEK;
-        if (value.contains("day") || value.contains("daily") || value.contains("24h")) return DAY;
-        if (value.contains("month") || value.contains("30d")) return MONTH;
-        return 0L;
+    // ---------------------------------------------------------------- Warp
+
+    /**
+     * Warp's {@code GetRequestLimitInfo} GraphQL query: monthly credits (Warp still names them
+     * requests) and add-on credit grants for the user and their workspaces.
+     */
+    public static UsageSnapshot warp(String body, long now) {
+        JSONObject user = path(object(body), "data", "user", "user");
+        Builder out = new Builder(now);
+        if (user == null) return out.build();
+        JSONObject info = user.optJSONObject("requestLimitInfo");
+        if (info != null && info.optBoolean("isUnlimited", false)) {
+            out.plan = "Unlimited";
+            out.credits = new UsageCredits(true, true, "");
+        } else if (info != null) {
+            out.monthly = window(percentUsed(number(info, "requestLimit"),
+                    number(info, "requestsUsedSinceLastRefresh"), Double.NaN), MONTH,
+                    epochSeconds(info.opt("nextRefreshTime")), now);
+        }
+        double remaining = 0;
+        boolean anyGrant = false;
+        List<JSONArray> grantLists = new ArrayList<>();
+        if (user.optJSONArray("bonusGrants") != null) {
+            grantLists.add(user.optJSONArray("bonusGrants"));
+        }
+        JSONArray workspaces = user.optJSONArray("workspaces");
+        if (workspaces != null) {
+            for (int i = 0; i < workspaces.length(); i++) {
+                JSONObject grantInfo = path(workspaces.optJSONObject(i), "bonusGrantsInfo");
+                JSONArray grants = grantInfo == null ? null : grantInfo.optJSONArray("grants");
+                if (grants != null) grantLists.add(grants);
+            }
+        }
+        for (JSONArray grants : grantLists) {
+            for (int i = 0; i < grants.length(); i++) {
+                double left = number(grants.optJSONObject(i), "requestCreditsRemaining");
+                if (!Double.isNaN(left) && left > 0) {
+                    remaining += left;
+                    anyGrant = true;
+                }
+            }
+        }
+        if (anyGrant && out.credits == null) {
+            out.credits = new UsageCredits(true, false, BigDecimal.valueOf(remaining)
+                    .setScale(0, RoundingMode.DOWN).toPlainString() + " add-on credits");
+        }
+        return out.build();
     }
 
-    private static long secondsFromObject(JSONObject object) {
-        double seconds = number(object, "windowSeconds", "window_seconds", "periodSeconds",
-                "durationSeconds");
-        if (!Double.isNaN(seconds) && seconds > 0) return (long) seconds;
-        return secondsFromName(string(object, "window", "period", "interval", "refreshDuration"));
+    /** The first GraphQL error message in a Warp reply, or "". */
+    public static String warpError(String body) {
+        JSONArray errors = object(body).optJSONArray("errors");
+        JSONObject first = errors == null ? null : errors.optJSONObject(0);
+        return first == null ? "" : first.optString("message", "");
+    }
+
+    // ---------------------------------------------------------------- Devin
+
+    /**
+     * {@code app.devin.ai/api/<org>/billing/quota/usage}: daily and weekly quota percentages
+     * used, their reset times, and the extra-usage balance.
+     */
+    public static UsageSnapshot devin(String body, long now) {
+        JSONObject root = object(body);
+        Builder out = new Builder(now);
+        out.plan = titleCase(string(root, "plan_name", "planName", "plan", "tier"));
+        if (!root.optBoolean("hide_daily_quota", false)) {
+            out.add("Daily quota", window(number(root, "daily_percentage", "dailyPercentage"),
+                    DAY, epochSeconds(first(root, "daily_reset_at", "dailyResetAt")), now));
+        }
+        out.weekly = window(number(root, "weekly_percentage", "weeklyPercentage"), WEEK,
+                epochSeconds(first(root, "weekly_reset_at", "weeklyResetAt")), now);
+        double overage = number(root, "overage_balance");
+        if (Double.isNaN(overage)) {
+            double cents = number(root, "overage_balance_cents");
+            if (!Double.isNaN(cents)) overage = cents / 100.0;
+        }
+        if (!Double.isNaN(overage) && overage > 0) out.credits = balance(overage);
+        return out.build();
     }
 
     /** "5-hour", "Weekly", "Daily", "Monthly" or "N-day" for a window length. */

@@ -14,19 +14,19 @@ final class MonitorProviderPicker {
     }
 
     /**
-     * Codex when it is signed in with limits to show, otherwise the selected dashboard tab,
-     * otherwise the first provider in tab order that can be monitored; Codex when none can.
+     * The selected dashboard tab when it has limits to show, otherwise the first provider in
+     * tab order that does. No provider is preferred over another; when none can be monitored,
+     * the selected tab (and the start is refused).
      */
     static UsageProvider pick(UsageProvider selected, List<UsageProvider> order,
             Predicate<UsageProvider> canMonitor) {
-        if (canMonitor.test(UsageProvider.CODEX)) return UsageProvider.CODEX;
         if (selected != null && canMonitor.test(selected)) return selected;
         if (order != null) {
             for (UsageProvider provider : order) {
                 if (provider != null && canMonitor.test(provider)) return provider;
             }
         }
-        return UsageProvider.CODEX;
+        return selected != null ? selected : UsageProvider.CODEX;
     }
 
     /** Whether a saved snapshot has a window to show. */

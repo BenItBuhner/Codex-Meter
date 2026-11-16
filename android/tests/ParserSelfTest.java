@@ -698,7 +698,7 @@ public final class ParserSelfTest {
                 "critical monthly quota uses the fastest interval");
         check(NowBarAutoStart.shouldStart(true, "both", 25, null, lowMonthly.longWindow()),
                 "monthly window triggers low-usage auto-start through the long slot");
-        System.out.println("Monthly-window demo: Pro 20x expiring to Free swaps weekly for "
+        System.out.println("Monthly-window demo: Pro 200 expiring to Free swaps weekly for "
                 + "a monthly card, widgets/Wear relabel, and nothing errors.");
     }
 

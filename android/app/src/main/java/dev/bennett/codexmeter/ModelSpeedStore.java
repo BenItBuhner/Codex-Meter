@@ -40,7 +40,7 @@ public final class ModelSpeedStore {
     /** Samples kept per model (about a day and a half at one every 45 minutes). */
     static final int HISTORY = 48;
 
-    /** Whether speed warnings are on for this provider (Settings › Refresh & dashboard). */
+    /** Whether speed warnings are on for this provider (Settings › Dashboard). */
     public static boolean isVisible(Context context, UsageProvider provider) {
         return ModelSpeed.authorFor(provider) != null
                 && !prefs(context).getBoolean("hidden_" + provider.id, false);
