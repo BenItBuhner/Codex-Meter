@@ -243,6 +243,7 @@ public final class ProviderPreferences {
         }
         // Codex reaches the live monitor through UsageApi.
         if (saved) NowBarManager.onProviderUsageUpdated(context, provider, snapshot);
+        if (saved) ResetNotificationManager.onProviderUsageUpdated(context, provider, snapshot);
         if (saved) UsageRefillAlerts.onUsageSaved(context, provider, snapshot);
         if (saved) ProviderAlerts.onUsageSaved(context, provider, previous, snapshot);
         if (saved) PhoneWearSync.pushProviders(context);
