@@ -114,5 +114,6 @@ public class DebugSeedActivity extends Activity {
     }
 
     private static final class SkipSeed extends Exception {
+        private static final long serialVersionUID = 1L;
     }
 }
