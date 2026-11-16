@@ -140,6 +140,13 @@ public static class DemoData
         FetchedAt = now,
     };
 
+    /// <summary>A sample Claude Code incident so the Priority page and dashboard show their status cards.</summary>
+    public static ProviderStatus? Status(UsageProvider provider, DateTimeOffset now) => provider == UsageProvider.ClaudeCode
+        ? new ProviderStatus(provider.Id, ServiceState.PartialOutage,
+            [new StatusIssue("Claude Code", ServiceState.PartialOutage, "Elevated errors on Claude Code", "https://status.claude.com", now.AddMinutes(-40))],
+            "https://status.claude.com", now)
+        : null;
+
     public static AuthTokens Account(UsageProvider provider, DateTimeOffset now) => new("demo-access", "demo-refresh", "",
         now.AddYears(1), "demo", provider == UsageProvider.Cursor ? "alex@example.dev" : "alex@example.com");
 }

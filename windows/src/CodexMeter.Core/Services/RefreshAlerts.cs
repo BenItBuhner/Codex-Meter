@@ -78,7 +78,7 @@ public static class RefreshAlerts
             {
                 var title = credit.Title.Length > 0 ? credit.Title : "Reset credit";
                 alerts.Add(new UsageAlert(UsageAlertKind.Reset, $"{provider.DisplayName} {title.ToLowerInvariant()} expires soon",
-                    $"It expires {UsageFormat.ResetText(credit.ExpiresAt!.Value, ResetDisplayMode.Relative, now).Replace("Resets ", "", StringComparison.Ordinal)}. Use it before then or it's lost.",
+                    $"It expires {UsageFormat.Relative(credit.ExpiresAt!.Value, now)}. Use it before then or it's lost.",
                     $"expiring:{provider.Id}:{ClaudeSavedResets.GrantIdOf(credit.Id)}:{credit.ExpiresAt!.Value.ToUnixTimeSeconds()}"));
             }
         }

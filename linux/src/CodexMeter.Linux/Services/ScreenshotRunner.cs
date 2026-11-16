@@ -55,11 +55,14 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 }
                 if (pages[i] == "settings" && window.CurrentPage is { } page)
                 {
-                    // The rest of Settings, scrolled to the bottom.
+                    // The rest of Settings, a screenful at a time.
                     var adjustment = page.Scroller.GetVadjustment();
-                    adjustment.SetValue(adjustment.GetUpper());
-                    await Delay(500);
-                    failures += Capture($"{name}-{i + 1:00}-{pages[i]}-more.png") ? 0 : 1;
+                    for (var part = 2; part <= 8 && adjustment.GetValue() + adjustment.GetPageSize() < adjustment.GetUpper() - 1; part++)
+                    {
+                        adjustment.SetValue(Math.Min(adjustment.GetUpper() - adjustment.GetPageSize(), adjustment.GetValue() + adjustment.GetPageSize() * 0.9));
+                        await Delay(500);
+                        failures += Capture($"{name}-{i + 1:00}-{pages[i]}-{part}.png") ? 0 : 1;
+                    }
                 }
             }
             failures += await ExtrasAsync(name, pages, shot);

@@ -47,7 +47,7 @@ public sealed record PriorityReport(
         : "Nothing urgent. Here's what's coming up.";
 
     public static PriorityReport Build(IEnumerable<(UsageProvider Provider, UsageSnapshot? Usage, ResetCreditsSnapshot? Credits)> providers,
-        IEnumerable<PriorityItem> newModels, DateTimeOffset now)
+        IEnumerable<PriorityItem> newModels, DateTimeOffset now, PaceSensitivity sensitivity = PaceSensitivity.Balanced)
     {
         var watch = new List<PriorityItem>();
         var usedUp = new List<PriorityItem>();
@@ -65,7 +65,7 @@ public sealed record PriorityReport(
                         resetAt is { } r ? UsageFormat.ResetText(r, ResetDisplayMode.Relative, now) : "Used up", 0, resetAt));
                     continue;
                 }
-                var pace = UsagePace.Assess(window, usage.FetchedAt, now);
+                var pace = UsagePace.Assess(window, usage.FetchedAt, now, sensitivity);
                 if ((pace.IsAvailable && pace.IsAccelerated) || window.RemainingPercent <= LowPercent)
                 {
                     var detail = pace is { IsAvailable: true, IsAccelerated: true }

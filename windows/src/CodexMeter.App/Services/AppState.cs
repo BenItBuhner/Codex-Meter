@@ -48,7 +48,11 @@ public sealed class AppState
         Settings = settings;
         HistoryStore = history;
         entries = hub.Providers.ToDictionary(p => p.Id, p => new ProviderEntry(p));
-        Settings.Changed += (_, _) => ProvidersChanged?.Invoke();
+        Settings.Changed += (_, _) =>
+        {
+            if (Diagnostics is { } log) log.Enabled = Settings.Current.DiagnosticLogging;
+            ProvidersChanged?.Invoke();
+        };
     }
 
     public ProviderHub Hub { get; }
@@ -68,18 +72,33 @@ public sealed class AppState
     /// <summary>Public OpenRouter speed figures for slowdown warnings; null in demo mode.</summary>
     public ModelSpeedStore? Speed { get; set; }
 
+    /// <summary>Opt-in, privacy-filtered diagnostic logs (Privacy &amp; data); follows the setting.</summary>
+    public DiagnosticLog? Diagnostics
+    {
+        get => diagnostics;
+        set
+        {
+            diagnostics = value;
+            if (value is not null) value.Enabled = Settings.Current.DiagnosticLogging;
+        }
+    }
+
+    private DiagnosticLog? diagnostics;
+
     /// <summary>The Priority page: service status, slowdowns, limits to watch, used up, coming up and new models across signed-in providers.</summary>
     public PriorityReport Priority(DateTimeOffset now)
     {
         var signedIn = EnabledProviders.Where(p => this[p].SignedIn).ToList();
         var models = Models is { } store ? ModelDiscovery.Items(store.State, signedIn, now) : [];
-        return PriorityReport.Build(signedIn.Select(p => (p, this[p].Usage, this[p].Cache?.Credits)), models, now)
+        return PriorityReport.Build(signedIn.Select(p => (p, this[p].Usage, this[p].Cache?.Credits)), models, now, Settings.Current.PaceSensitivity)
             .WithService(signedIn.Select(p => (p, ServiceStatus(p, now), Slowdowns(p, now))));
     }
 
     /// <summary>The provider's official status when Service status is on and it is recent enough to trust.</summary>
     public ProviderStatus? ServiceStatus(UsageProvider provider, DateTimeOffset now) =>
-        Settings.Current.ShowServiceStatus ? Status?.For(provider, now) : null;
+        !Settings.Current.ShowServiceStatus ? null
+        : IsDemo ? DemoData.Status(provider, now)
+        : Status?.For(provider, now);
 
     private IReadOnlyList<ModelSlowdown> Slowdowns(UsageProvider provider, DateTimeOffset now) =>
         Settings.Current.ShowSlowdowns && Speed is { } speed && Models is { } models ? speed.Slowdowns(models.State, provider, now) : [];
@@ -485,5 +504,5 @@ public sealed class AppState
     /// <summary>Codex reset credits, or Claude Code saved resets that still have one left.</summary>
     public bool HasResetCredits(UsageProvider provider) =>
         provider == UsageProvider.Codex ? this[provider].Cache?.Credits is not null || this[provider].Usage?.ResetCreditsAvailable is not null
-        : provider == UsageProvider.ClaudeCode && this[provider].Cache?.Credits is { AvailableCount: > 0 };
+        : provider == UsageProvider.ClaudeCode && (this[provider].Cache?.SavedResets is { Eligible: true } || this[provider].Cache?.Credits is { AvailableCount: > 0 });
 }

@@ -103,7 +103,8 @@ public static class Cards
         return bar;
     }
 
-    public sealed record MeterOptions(UsageDisplayMode Display, ResetDisplayMode Reset, bool Use24Hour, bool ShowPace);
+    public sealed record MeterOptions(UsageDisplayMode Display, ResetDisplayMode Reset, bool Use24Hour, bool ShowPace,
+        PaceSensitivity Sensitivity = PaceSensitivity.Balanced);
 
     /// <summary>
     /// A usage window: title, the big number, a progress bar, the other half, reset time and pace.
@@ -137,7 +138,7 @@ public static class Cards
         panel.Children.Add(Text(reset.Length > 0 ? $"{complement} · {reset}" : complement, "CaptionSecondaryTextStyle"));
         if (options.ShowPace)
         {
-            var pace = UsagePace.Describe(window, fetchedAt, now);
+            var pace = UsagePace.Describe(window, fetchedAt, now, options.Sensitivity);
             if (pace.Length > 0)
             {
                 var accelerated = pace.StartsWith("At this pace", StringComparison.Ordinal);

@@ -148,16 +148,31 @@ public partial class App : Application
             var now = DateTimeOffset.UtcNow;
             foreach (var provider in hub.Providers.Where(p => connected.Contains(p.Id)))
                 await history.SetAsync(provider.Id, DemoData.History(provider, now));
-            return new AppState(hub, settings, history);
+            // Demo mode saves nothing: the diagnostic log switch works but keeps no file.
+            return new AppState(hub, settings, history) { Diagnostics = new DiagnosticLog(null) };
         }
 
         var data = AppPaths.DataDirectory;
         Directory.CreateDirectory(data);
+        var diagnostics = new DiagnosticLog(data);
+        Diagnostics = diagnostics;
         var live = new ProviderContext(ProviderHttp.CreateClient(), new FileTokenStore(data, new DpapiProtector()),
-            new ProviderCacheStore(data)) { Log = (category, message) => Debug.WriteLine($"[{category}] {message}") };
+            new ProviderCacheStore(data))
+        {
+            Log = (category, message) =>
+            {
+                Debug.WriteLine($"[{category}] {message}");
+                diagnostics.Write(category, message);
+            },
+        };
+        // Status feeds and OpenRouter speed figures are public: their own client, no account headers.
+        var publicHttp = ProviderHttp.CreateClient();
         return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(data, "settings.json")), new UsageHistoryStore(data))
         {
             Models = new ModelDiscoveryStore(data, ProviderHttp.CreateClient()),
+            Status = new ProviderStatusStore(data, publicHttp),
+            Speed = new ModelSpeedStore(data, publicHttp),
+            Diagnostics = diagnostics,
         };
     }
 
@@ -199,9 +214,13 @@ public partial class App : Application
         Exit();
     }
 
+    /// <summary>The opt-in diagnostic log; app messages go there too while it is on.</summary>
+    private static DiagnosticLog? Diagnostics;
+
     internal static void Log(string message)
     {
         Debug.WriteLine(message);
+        Diagnostics?.Write("app", message);
         try
         {
             var path = Path.Combine(AppPaths.DataDirectory, "codexmeter.log");

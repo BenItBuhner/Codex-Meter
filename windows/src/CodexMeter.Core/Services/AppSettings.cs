@@ -84,6 +84,8 @@ public sealed record AppSettings
     public ClaudeResetRules ClaudeResets { get; init; } = new();
     /// <summary>Privacy &amp; data: keep an on-device, privacy-filtered diagnostic log (off by default).</summary>
     public bool DiagnosticLogging { get; init; }
+    /// <summary>Dashboard → Fast-usage warnings: how readily "at this pace, runs out" appears.</summary>
+    public Formatting.PaceSensitivity PaceSensitivity { get; init; }
 
     public List<string> SectionOrderFor(string providerId) => SectionOrder.GetValueOrDefault(providerId) ?? [];
     public List<string> HiddenSectionsFor(string providerId) => HiddenSections.GetValueOrDefault(providerId) ?? [];

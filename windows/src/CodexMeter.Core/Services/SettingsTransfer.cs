@@ -96,6 +96,8 @@ public static class SettingsTransfer
             LiveWindow = Enum.IsDefined(s.LiveWindow) ? s.LiveWindow : defaults.LiveWindow,
             LiveIconStyle = Enum.IsDefined(s.LiveIconStyle) ? s.LiveIconStyle : defaults.LiveIconStyle,
             AutoUseMetric = Enum.IsDefined(s.AutoUseMetric) ? s.AutoUseMetric : defaults.AutoUseMetric,
+            LowAlertMetric = Enum.IsDefined(s.LowAlertMetric) ? s.LowAlertMetric : defaults.LowAlertMetric,
+            PaceSensitivity = Enum.IsDefined(s.PaceSensitivity) ? s.PaceSensitivity : defaults.PaceSensitivity,
             RefreshMinutes = AppSettings.RefreshChoices.Contains(s.RefreshMinutes) ? s.RefreshMinutes : defaults.RefreshMinutes,
             LowThreshold = s.LowThreshold is >= 1 and <= 50 ? s.LowThreshold : defaults.LowThreshold,
             EnabledProviders = s.EnabledProviders ?? [],

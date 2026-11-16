@@ -69,6 +69,11 @@ jobs:
           appstreamcli validate --no-net data/io.github.benitbuhner.CodexMeter.metainfo.xml
 
       - name: Publish
+        # The Antigravity (Google) OAuth client is built in from secrets, as on Android; without
+        # them (forks) Antigravity stays out of the provider picker.
+        env:
+          ANTIGRAVITY_CLIENT_ID: ${{ secrets.ANTIGRAVITY_CLIENT_ID }}
+          ANTIGRAVITY_CLIENT_SECRET: ${{ secrets.ANTIGRAVITY_CLIENT_SECRET }}
         run: |
           packaging/publish.sh ${{ matrix.arch }}
           echo "VERSION=$(cat out/publish-${{ matrix.arch }}/VERSION)" >> "$GITHUB_ENV"

@@ -1,4 +1,5 @@
 using CodexMeter.Core.Auth;
+using CodexMeter.Core.Formatting;
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
@@ -395,5 +396,99 @@ public sealed class DesktopParityTests
         var fetched = await client.FetchAsync(refreshed, context, CancellationToken.None);
         Assert.Equal("Ultra", fetched.Snapshot.PlanType);
         Assert.Equal(UsageProvider.Antigravity.IsAvailable, AntigravityOAuth.Configured);
+    }
+
+    [Fact]
+    public void NewResetCreditsAlertOnlyWhenTheCountGrows()
+    {
+        var store = new SettingsStore(null);
+        var before = new ResetCreditsSnapshot(1, [], Now);
+        var after = new ResetCreditsSnapshot(3, [], Now);
+        var alert = Assert.Single(RefreshAlerts.NewResets(store, UsageProvider.ClaudeCode, before, after));
+        Assert.Equal("New Claude Code saved resets", alert.Title);
+        Assert.Empty(RefreshAlerts.NewResets(store, UsageProvider.Codex, after, before));
+        // The first refresh after launch has nothing to compare with: no alert.
+        Assert.Empty(RefreshAlerts.NewResets(store, UsageProvider.Codex, null, after));
+        store.Update(s => s with { NotifyNewResets = false });
+        Assert.Empty(RefreshAlerts.NewResets(store, UsageProvider.ClaudeCode, before, after));
+    }
+
+    [Fact]
+    public void ExpiringResetCreditsRemindOnceADayAhead()
+    {
+        var store = new SettingsStore(null);
+        var credits = new ResetCreditsSnapshot(3,
+        [
+            new RateLimitResetCredit("grant#1", "full", "available", Now.AddDays(-3), Now.AddHours(5), "Full reset", ""),
+            new RateLimitResetCredit("grant#2", "full", "available", Now.AddDays(-3), Now.AddHours(5), "Full reset", ""),
+            new RateLimitResetCredit("later", "full", "available", Now.AddDays(-3), Now.AddDays(6), "Full reset", ""),
+        ], Now);
+        var alert = Assert.Single(RefreshAlerts.ExpiringResets(store, [(UsageProvider.ClaudeCode, credits)], Now));
+        Assert.Equal("Claude Code full reset expires soon", alert.Title);
+        Assert.Contains("in 5", alert.Body);
+        store.Update(s => s with { NotifyExpiringResets = false });
+        Assert.Empty(RefreshAlerts.ExpiringResets(store, [(UsageProvider.ClaudeCode, credits)], Now));
+    }
+
+    [Fact]
+    public void LowAllowanceAlertFollowsAlertFor()
+    {
+        var previous = new UsageSnapshot("pro", true, false, new UsageWindow(50, 18_000, 3_600, null), new UsageWindow(50, 604_800, 86_400, null),
+            null, null, null, null, null, Now.AddMinutes(-5));
+        var current = previous with { FiveHour = new UsageWindow(95, 18_000, 3_300, null), Weekly = new UsageWindow(60, 604_800, 86_000, null), FetchedAt = Now };
+        var both = UsageAlerts.Evaluate(UsageProvider.Codex, previous, current, notifyResets: false, notifyLow: true, lowThreshold: 10, lowFor: LowUsageAutoUseMetric.Both);
+        Assert.Contains(both, a => a.Kind == UsageAlertKind.Low);
+        var weeklyOnly = UsageAlerts.Evaluate(UsageProvider.Codex, previous, current, notifyResets: false, notifyLow: true, lowThreshold: 10, lowFor: LowUsageAutoUseMetric.Weekly);
+        Assert.DoesNotContain(weeklyOnly, a => a.Kind == UsageAlertKind.Low);
+    }
+
+    [Fact]
+    public void FastUsageWarningsFollowSensitivity()
+    {
+        // 35% used a quarter of the way through: runs out at about 62% of the time left.
+        var window = new UsageWindow(35, 18_000, 13_500, null);
+        Assert.True(UsagePace.Assess(window, Now, Now).IsAccelerated);
+        Assert.True(UsagePace.Assess(window, Now, Now, PaceSensitivity.Sensitive).IsAccelerated);
+        Assert.False(UsagePace.Assess(window, Now, Now, PaceSensitivity.Relaxed).IsAccelerated);
+        var off = UsagePace.Assess(window, Now, Now, PaceSensitivity.Off);
+        Assert.True(off.IsAvailable);
+        Assert.False(off.IsAccelerated);
+        Assert.Equal(["Off", "Sensitive", "Balanced", "Relaxed"], UsagePace.Choices.Select(UsagePace.Label));
+    }
+
+    [Fact]
+    public void ResetCreditsCardDescribesClaudeSavedResets()
+    {
+        var saved = DemoData.SavedResets(Now);
+        var cache = new ProviderCacheEntry { SavedResets = saved, Credits = saved.ToResetCredits(Now) };
+        var settings = new AppSettings { ClaudeResets = new ClaudeResetRules { AutoUseWhenLow = true, Threshold = 5 } };
+        var card = ResetCreditsCard.For(UsageProvider.ClaudeCode, cache, 0, settings, Now);
+        Assert.Equal("1 Full reset and 2 Fable resets available", card.Count);
+        Assert.False(card.CanUse);
+        Assert.Equal("Works once you hit a usage limit.", card.Held);
+        Assert.Equal("Auto-use is on: when a limit falls to 5% left.", card.AutoUse);
+        Assert.Equal(2, card.Lines.Count);
+
+        var usable = saved with { Grants = [saved.Grants[0] with { UsableNow = true, UnavailableReason = "" }] };
+        var ready = ResetCreditsCard.For(UsageProvider.ClaudeCode, new ProviderCacheEntry { SavedResets = usable }, 0, new AppSettings(), Now);
+        Assert.True(ready.CanUse);
+        Assert.Equal("demo_full", ready.CreditId);
+        Assert.Null(ready.Held);
+        Assert.StartsWith("This uses one Full reset now.", ready.ConfirmText);
+
+        var codex = ResetCreditsCard.For(UsageProvider.Codex, new ProviderCacheEntry { Credits = DemoData.Credits(Now) }, 0, new AppSettings(), Now);
+        Assert.Equal("2 resets available", codex.Count);
+        Assert.True(codex.CanUse);
+        Assert.Null(codex.CreditId);
+    }
+
+    [Fact]
+    public void SettingsTransferKeepsNewDesktopSettings()
+    {
+        var settings = new AppSettings { PaceSensitivity = PaceSensitivity.Relaxed, LowAlertMetric = LowUsageAutoUseMetric.Weekly, ShowSlowdowns = false };
+        var imported = SettingsTransfer.Import(SettingsTransfer.Export(settings, "linux", Now), new AppSettings());
+        Assert.Equal(PaceSensitivity.Relaxed, imported.PaceSensitivity);
+        Assert.Equal(LowUsageAutoUseMetric.Weekly, imported.LowAlertMetric);
+        Assert.False(imported.ShowSlowdowns);
     }
 }

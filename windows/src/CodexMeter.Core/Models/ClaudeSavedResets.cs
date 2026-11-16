@@ -395,7 +395,8 @@ public sealed record SavedResetClaimResult(SavedResetClaimOutcome Outcome, strin
         SavedResetClaimOutcome.AlreadyUsed => ResetConsumeOutcome.AlreadyRedeemed,
         SavedResetClaimOutcome.Ineligible or SavedResetClaimOutcome.Unavailable => ResetConsumeOutcome.NoCredit,
         _ => ResetConsumeOutcome.Unknown,
-    }, Cleared?.Count ?? 0) { Message = UserMessage };
+    }, Cleared?.Count ?? 0)
+    { Message = UserMessage };
 }
 
 public enum ClaudeAutoUseOutcome { Wait, FireExpiring, FireLowUsage, SkipAlreadyTried, SkipNoMatchingReset }

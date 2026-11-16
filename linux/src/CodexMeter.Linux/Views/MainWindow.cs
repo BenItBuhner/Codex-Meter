@@ -303,6 +303,15 @@ public sealed class MainWindow
             state.Settings.Update(s => s with { SelectedProvider = tag });
     }
 
+    /// <summary>Builds the current page again, e.g. after settings were imported.</summary>
+    public void Reload()
+    {
+        var tag = CurrentTag;
+        current?.Detach();
+        current = null;
+        Navigate(tag);
+    }
+
     /// <summary>Shows the saved page (or the first enabled provider).</summary>
     public void ShowInitialPage(string? requested)
     {
