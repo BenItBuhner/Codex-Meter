@@ -164,6 +164,8 @@ public class AppTests
             ?? throw new InvalidOperationException("The app name box has no text field.");
         text.AsTextBox().Text = "Zed";
         app.Find("LiveAppServiceBox").AsComboBox().Select("Cursor");
+        // Save turns on once the name box reports the text, which it does asynchronously.
+        app.WaitUntil(() => app.Find("PrimaryButton").IsEnabled, "Save stayed off after typing a name.");
         app.Find("PrimaryButton").AsButton().Invoke();
         var toggle = app.Find("LiveAppToggle_zed").AsToggleButton();
         Assert.Equal(ToggleState.On, toggle.ToggleState);
