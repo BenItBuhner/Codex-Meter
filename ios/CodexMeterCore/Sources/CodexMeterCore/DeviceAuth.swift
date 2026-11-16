@@ -187,4 +187,42 @@ public enum DeviceAuth {
         }
         return ""
     }
+
+    /// `url` made absolute against `origin` when a provider sends a site path.
+    public static func absolute(_ origin: String, _ url: String) -> String {
+        if url.isEmpty { return "" }
+        if url.hasPrefix("https://") || url.hasPrefix("http://") { return url }
+        return origin + (url.hasPrefix("/") ? "" : "/") + url
+    }
+
+    private static let devinBearer = BuiltInPattern.compile(
+        pattern: #"bearer\s+([A-Za-z0-9._~+/=-]{16,})"#, options: [.caseInsensitive]
+    )
+    private static let devinOrgHeader = BuiltInPattern.compile(
+        pattern: #"x-cog-org-id['"]?\s*[:=]\s*['"]?([A-Za-z0-9_-]+)"#, options: [.caseInsensitive]
+    )
+    private static let devinOrgID = BuiltInPattern.compile(
+        pattern: #"\b(org[-_][A-Za-z0-9]{6,})\b"#
+    )
+
+    /// The session token and organization id in a request copied from Devin's Usage & Limits
+    /// page ("Copy as cURL", or the two headers); either is "" when missing.
+    public static func parseDevinRequest(_ pasted: String?) -> (token: String, org: String) {
+        let text = pasted ?? ""
+        func group(_ regex: NSRegularExpression) -> String {
+            guard let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                  let range = Range(match.range(at: 1), in: text) else { return "" }
+            return String(text[range])
+        }
+        var token = group(devinBearer)
+        var org = group(devinOrgHeader)
+        if org.isEmpty { org = group(devinOrgID) }
+        if token.isEmpty {
+            let quotes = CharacterSet(charactersIn: "'\"")
+            token = text.split(whereSeparator: \.isWhitespace)
+                .map { $0.trimmingCharacters(in: quotes) }
+                .first { $0.hasPrefix("auth1_") } ?? ""
+        }
+        return (token, org)
+    }
 }
