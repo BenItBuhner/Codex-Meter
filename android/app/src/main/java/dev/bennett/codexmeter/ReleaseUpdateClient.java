@@ -142,6 +142,7 @@ public final class ReleaseUpdateClient {
 
     /** GitHub's rate limit; retrying straight away would only hit it again. */
     static final class RateLimitedException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
         RateLimitedException(String message) {
             super(message);
         }

@@ -95,6 +95,15 @@ public final class UsageSnapshot {
                 fetchedAtMillis, dollars);
     }
 
+    /** The same snapshot keeping only the first {@code count} named limits. */
+    public UsageSnapshot withFirstLimits(int count) {
+        int keep = Math.max(0, Math.min(count, additionalLimits.size()));
+        if (keep == additionalLimits.size()) return this;
+        return new UsageSnapshot(planType, allowed, limitReached, fiveHour, weekly, monthly,
+                additionalLimits.subList(0, keep), usageCredits, spendControl, resetCreditsAvailable,
+                fetchedAtMillis, includedValueUsd);
+    }
+
     /** Whether the provider reported its own included usage value. */
     public boolean hasIncludedValue() {
         return !Double.isNaN(includedValueUsd);

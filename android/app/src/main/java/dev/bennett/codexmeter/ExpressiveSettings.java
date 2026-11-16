@@ -89,6 +89,8 @@ final class ExpressiveSettings {
         };
     }
 
+  // Android 15 draws apps edge to edge and ignores bar colors; the minSdk 26-34 devices still need them.
+  @SuppressWarnings("deprecation")
     ExpressiveSettings(AppCompatActivity activity, String title, Model model) {
         this.activity = activity;
         this.model = model;

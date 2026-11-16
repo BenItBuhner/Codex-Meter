@@ -150,21 +150,21 @@ final class SamsungLockWidgetSupport {
     }
 
     private static List<LockInstance> placedWidgetsNow(Context context) {
-        ArrayList arrayList = new ArrayList();
+        List<LockInstance> placed = new ArrayList<>();
         if (context != null) {
-            Context contextApplication = application(context);
-            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(contextApplication);
-            for (ProviderSpec providerSpec : PROVIDERS) {
+            Context app = application(context);
+            AppWidgetManager manager = AppWidgetManager.getInstance(app);
+            for (ProviderSpec spec : PROVIDERS) {
                 try {
-                    for (int i : appWidgetManager.getAppWidgetIds(new ComponentName(contextApplication, providerSpec.provider))) {
-                        arrayList.add(new LockInstance(i, providerSpec.shape, providerSpec.style, providerSpec.metric));
+                    for (int id : manager.getAppWidgetIds(new ComponentName(app, spec.provider))) {
+                        placed.add(new LockInstance(id, spec.shape, spec.style, spec.metric));
                     }
                 } catch (RuntimeException e) {
                     Log.w("CodexMeterLock", "Unable to enumerate lock widgets", e);
                 }
             }
         }
-        return arrayList;
+        return placed;
     }
 
     static void updateIds(Context context, AppWidgetManager appWidgetManager, int[] iArr, Shape shape, Style style) {
@@ -911,36 +911,36 @@ final class SamsungLockWidgetSupport {
         return null;
     }
 
-    private static int[] grantedSize(AppWidgetManager appWidgetManager, int i, Shape shape) {
-        int[] iArr;
-        SizeF sizeFBestSize;
-        int i2 = shape == Shape.SQUARE ? 56 : 124;
-        if (appWidgetManager == null || i == 0) {
-            return new int[]{i2, 56};
+    /** The size the lock screen granted this widget, in dp, falling back to the shape's default. */
+    private static int[] grantedSize(AppWidgetManager manager, int widgetId, Shape shape) {
+        int defaultWidth = shape == Shape.SQUARE ? 56 : 124;
+        int defaultHeight = 56;
+        if (manager == null || widgetId == 0) {
+            return new int[]{defaultWidth, defaultHeight};
         }
         try {
-            Bundle appWidgetOptions = appWidgetManager.getAppWidgetOptions(i);
-            ArrayList parcelableArrayList = appWidgetOptions.getParcelableArrayList("appWidgetSizes");
-            if (parcelableArrayList != null && !parcelableArrayList.isEmpty() && (sizeFBestSize = bestSize(parcelableArrayList, shape)) != null) {
-                iArr = new int[]{Math.round(sizeFBestSize.getWidth()), Math.round(sizeFBestSize.getHeight())};
-            } else {
-                int i3 = appWidgetOptions.getInt("appWidgetMinWidth", i2);
-                int i4 = appWidgetOptions.getInt("appWidgetMinHeight", 56);
-                iArr = new int[2];
-                if (i3 <= 0) {
-                    i3 = i2;
-                }
-                iArr[0] = i3;
-                if (i4 <= 0) {
-                    i4 = 56;
-                }
-                iArr[1] = i4;
+            Bundle options = manager.getAppWidgetOptions(widgetId);
+            ArrayList<SizeF> sizes = widgetSizes(options);
+            SizeF best = sizes == null || sizes.isEmpty() ? null : bestSize(sizes, shape);
+            if (best != null) {
+                return new int[]{Math.round(best.getWidth()), Math.round(best.getHeight())};
             }
-            return iArr;
+            int width = options.getInt("appWidgetMinWidth", defaultWidth);
+            int height = options.getInt("appWidgetMinHeight", defaultHeight);
+            return new int[]{width > 0 ? width : defaultWidth, height > 0 ? height : defaultHeight};
         } catch (RuntimeException e) {
             Log.w("CodexMeterLock", "Unable to read lock widget size", e);
-            return new int[]{i2, 56};
+            return new int[]{defaultWidth, defaultHeight};
         }
+    }
+
+    // The typed getter is Android 13+; older versions only have the untyped one.
+    @SuppressWarnings("deprecation")
+    private static ArrayList<SizeF> widgetSizes(Bundle options) {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            return options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF.class);
+        }
+        return options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES);
     }
 
     private static SizeF bestSize(ArrayList<SizeF> arrayList, Shape shape) {

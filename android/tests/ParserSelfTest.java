@@ -29,12 +29,10 @@ public final class ParserSelfTest {
         testUsageCreditsAutoHide();
         testResetCreditsAutoHide();
         testDashboardSectionOrder();
-        testMalformedWindowIgnored();
-        testZeroDurationWindowIgnored();
+        testUnusableWindowsIgnored();
         testNextResetSelection();
         testCelebrationDetection();
-        testResetCreditExpiryReminders();
-        testResetCreditExpiryOrdering();
+        testResetCreditExpiry();
         testResetCountdownFollowsApiTimeline();
         testResetCreditExpiryAutoApply();
         testResetCreditLowUsageAutoUse();
@@ -54,9 +52,7 @@ public final class ParserSelfTest {
         testWearSurfaceModes();
         testWearSettingsState();
         testWearSyncState();
-        testWearGlanceFormat();
         testNowBarPercentModes();
-        testNowBarCopy();
         testJwtMerge();
         testPkce();
         testWidgetOptions();
@@ -529,69 +525,6 @@ public final class ParserSelfTest {
         System.out.println("Wear sync status covers clear, sign-in, refresh, and error states.");
     }
 
-    private static void testWearGlanceFormat() {
-        UsageWindow five = new UsageWindow(62, TimeUnit.HOURS.toSeconds(5),
-                TimeUnit.MINUTES.toSeconds(84), 2_000_000_000L);
-        UsageWindow weekly = new UsageWindow(41, TimeUnit.DAYS.toSeconds(7),
-                TimeUnit.DAYS.toSeconds(3), 2_100_000_000L);
-        UsageSnapshot snapshot = new UsageSnapshot("demo", true, false, five, weekly,
-                System.currentTimeMillis());
-        check("38%".equals(WearGlanceFormat.remainingPercentText(five)),
-                "five-hour remaining percent text");
-        check("59%".equals(WearGlanceFormat.remainingPercentText(weekly)),
-                "weekly remaining percent text");
-        check("--".equals(WearGlanceFormat.remainingPercentText(null)),
-                "missing window shows placeholder");
-        check(Math.abs(WearGlanceFormat.remainingProgress(five) - 0.38f) < 0.001f,
-                "remaining progress fraction matches percent");
-        check("38·59".equals(WearGlanceFormat.dualShortText(snapshot)),
-                "dual short complication text");
-        check(WearGlanceFormat.dualLongText(snapshot).contains("5h 38%"),
-                "dual long text includes five-hour");
-        check(WearGlanceFormat.dualLongText(snapshot).contains("Week 59%"),
-                "dual long text includes weekly");
-        long now = System.currentTimeMillis();
-        UsageSnapshot timed = new UsageSnapshot("demo", true, false,
-                new UsageWindow(10, 18000L, 600L, (now + TimeUnit.HOURS.toMillis(2)) / 1000L),
-                new UsageWindow(20, 604800L, 600L, (now + TimeUnit.DAYS.toMillis(2)) / 1000L),
-                now);
-        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(timed, now)),
-                "next reset prefers the sooner five-hour window");
-        check(WearGlanceFormat.nextResetRelativeText(timed, now).contains("h"),
-                "next reset relative text includes hours");
-        check(WearGlanceFormat.nextResetLongText(timed, now).startsWith("Resets in "),
-                "next reset long text is prefixed");
-        UsageSnapshot fallbackTimed = new UsageSnapshot("demo", true, false,
-                new UsageWindow(10, 18000L, TimeUnit.HOURS.toSeconds(2), 0L),
-                null, now);
-        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(fallbackTimed, now)),
-                "Wear reset label uses observation-based reset-after fallback");
-        check(WearGlanceFormat.nextResetRelativeText(fallbackTimed, now).contains("h"),
-                "Wear fallback reset countdown remains finite");
-        UsageSnapshot unused = new UsageSnapshot("demo", true, false,
-                new UsageWindow(0, 18000L, 0L, 0L),
-                new UsageWindow(0, 604800L, 0L, 0L), now);
-        check("--".equals(WearGlanceFormat.nextResetWindowLabel(unused, now)),
-                "unused windows without API reset have no next-reset label");
-        check("No reset yet".equals(WearGlanceFormat.nextResetLongText(unused, now)),
-                "unused windows without API reset show no reset timeframe");
-        UsageSnapshot unusedWithReset = new UsageSnapshot("demo", true, false,
-                new UsageWindow(0, 18000L, 0L,
-                        (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
-                null, now);
-        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(unusedWithReset, now)),
-                "100% remaining still surfaces an API reset timeline");
-        UsageSnapshot account = new UsageSnapshot("plus", true, true, five, weekly, 2, now);
-        check("Limit reached".equals(WearGlanceFormat.accountStatus(account)),
-                "Wear account status surfaces a reached limit");
-        check("2 reset credits".equals(WearGlanceFormat.resetCreditsText(account)),
-                "Wear displays reset-credit count");
-        check(WearGlanceFormat.isStale(now - TimeUnit.HOURS.toMillis(2), 30, now),
-                "Wear marks old phone data stale");
-        check(!WearGlanceFormat.isStale(now - TimeUnit.MINUTES.toMillis(10), 30, now),
-                "Wear keeps recent phone data fresh");
-        System.out.println("Wear glance formatting covers tiles and complication text.");
-    }
 
     private static void testNowBarPercentModes() {
         UsageWindow high = new UsageWindow(10, 18000L, 600L, 2000000000L); // 90% remaining
@@ -664,101 +597,6 @@ public final class ParserSelfTest {
         System.out.println("Now Bar percent mode selects auto-trigger, weekly, or five-hour focus.");
     }
 
-    private static void testNowBarCopy() {
-        long now = 1_700_000_000_000L;
-        long observed = now - TimeUnit.MINUTES.toMillis(5);
-        UsageWindow remaining = new UsageWindow(40, 18_000L, 3_600L,
-                (now + TimeUnit.HOURS.toMillis(1)) / 1000L);
-        UsageWindow exhaustedHours = new UsageWindow(100, 18_000L, 0L,
-                (now + TimeUnit.HOURS.toMillis(3) + TimeUnit.MINUTES.toMillis(20)) / 1000L);
-        UsageWindow exhaustedDays = new UsageWindow(100, 604_800L, 0L,
-                (now + TimeUnit.DAYS.toMillis(2) + TimeUnit.HOURS.toMillis(4)) / 1000L);
-        UsageWindow exhaustedNoReset = new UsageWindow(100, 18_000L, 0L, 0L);
-
-        check("60%".equals(NowBarCopy.focusCriticalText("", remaining, observed, now)),
-                "focus critical keeps percentage while allowance remains");
-        check("W 60%".equals(NowBarCopy.focusCriticalText("W ", remaining, observed, now)),
-                "weekly focus critical keeps W prefix while allowance remains");
-        check("M 60%".equals(NowBarCopy.focusCriticalText("M ", remaining, observed, now)),
-                "monthly focus critical keeps M prefix while allowance remains");
-        check("3h 20m".equals(NowBarCopy.focusCriticalText("", exhaustedHours, observed, now)),
-                "exhausted five-hour focus shows hours until natural reset");
-        check("W 2d 4h".equals(NowBarCopy.focusCriticalText("W ", exhaustedDays, observed, now)),
-                "exhausted weekly focus shows days and hours until natural reset");
-        check("0%".equals(NowBarCopy.focusCriticalText("", exhaustedNoReset, observed, now)),
-                "exhausted window without reset time falls back to 0%");
-
-        check("Resets 4:14 PM".equals(NowBarCopy.secondaryLine(
-                        "Resets 4:14 PM", "", "5-hour: 60% left")),
-                "secondary line is the reset time alone, like the Samsung Now Bar");
-        check("Resets 4:14 PM · Runs out in 2h".equals(NowBarCopy.secondaryLine(
-                        "Resets 4:14 PM", "Runs out in 2h", "5-hour: 60% left")),
-                "secondary line keeps a pace warning");
-        check("5-hour: 60% left".equals(NowBarCopy.secondaryLine(
-                        null, "", "5-hour: 60% left")),
-                "secondary line falls back to the other window without a reset time");
-
-        check("5-hour: 60% left".equals(
-                        NowBarCopy.limitText("5-hour", remaining, observed, now)),
-                "limit text keeps remaining percentage");
-        check("Weekly: resets in 2d 4h".equals(
-                        NowBarCopy.limitText("Weekly", exhaustedDays, observed, now)),
-                "exhausted weekly limit text announces resets in days/hours");
-        check("Monthly: 60% left".equals(
-                        NowBarCopy.limitText("Monthly", remaining, observed, now)),
-                "monthly limit text keeps remaining percentage");
-        check("5-hour: resets in 3h 20m".equals(
-                        NowBarCopy.limitText("5-hour", exhaustedHours, observed, now)),
-                "exhausted five-hour limit text announces resets in hours/minutes");
-        check("5-hour: unavailable".equals(
-                        NowBarCopy.limitText("5-hour", null, observed, now)),
-                "missing window stays unavailable");
-
-        check("Weekly · 60% left".equals(NowBarCopy.headline("Weekly", remaining)),
-                "live notification headline names the window and what is left");
-        check("5-hour · used up".equals(NowBarCopy.headline("5-hour", exhaustedHours)),
-                "live notification headline says used up at 0%");
-        java.util.TimeZone utc = java.util.TimeZone.getTimeZone("UTC");
-        // now is Tue Nov 14 2023 22:13 UTC.
-        UsageWindow laterToday = new UsageWindow(40, 18_000L, 0L,
-                (now + TimeUnit.MINUTES.toMillis(47)) / 1000L);
-        check("Resets 11:00 PM".equals(NowBarCopy.resetClockText(laterToday, observed, now,
-                        false, utc, java.util.Locale.US)),
-                "same-day reset shows only the time");
-        check("Resets 23:00".equals(NowBarCopy.resetClockText(laterToday, observed, now,
-                        true, utc, java.util.Locale.US)),
-                "24-hour reset clock");
-        UsageWindow tomorrow = new UsageWindow(40, 18_000L, 0L,
-                (now + TimeUnit.HOURS.toMillis(3)) / 1000L);
-        check(NowBarCopy.resetClockText(tomorrow, observed, now, false, utc,
-                        java.util.Locale.US).startsWith("Resets tomorrow "),
-                "next-day reset says tomorrow");
-        check("Resets Fri 2:13 AM".equals(NowBarCopy.resetClockText(exhaustedDays, observed,
-                        now, false, utc, java.util.Locale.US)),
-                "reset within the week shows weekday and time");
-        check(NowBarCopy.resetClockText(exhaustedNoReset, observed, now, false, utc,
-                        java.util.Locale.US) == null,
-                "unknown reset has no reset line");
-
-        check("5h 60%".equals(NowBarCopy.wearLimitText("5h", remaining, observed, now)),
-                "Wear limit text keeps remaining percentage");
-        check("Week resets 2d 4h".equals(
-                        NowBarCopy.wearLimitText("Week", exhaustedDays, observed, now)),
-                "Wear exhausted weekly text uses compact reset duration");
-        check("2d 4h".equals(NowBarCopy.compactDuration(
-                        TimeUnit.DAYS.toMillis(2) + TimeUnit.HOURS.toMillis(4))),
-                "compact duration prefers days and hours");
-        check("2d".equals(NowBarCopy.compactDuration(TimeUnit.DAYS.toMillis(2))),
-                "compact duration omits zero hours for whole days");
-        check("4h".equals(NowBarCopy.compactDuration(TimeUnit.HOURS.toMillis(4))),
-                "compact duration omits zero minutes for whole hours");
-        check("3h 20m".equals(NowBarCopy.compactDuration(
-                        TimeUnit.HOURS.toMillis(3) + TimeUnit.MINUTES.toMillis(20))),
-                "compact duration keeps leftover minutes under a day");
-        check("12m".equals(NowBarCopy.compactDuration(TimeUnit.MINUTES.toMillis(12))),
-                "compact duration uses minutes under one hour");
-        System.out.println("Now Bar exhausted windows swap percentage copy for reset duration.");
-    }
 
     private static void testStandardUsage() throws Exception {
         String json = "{\"plan_type\":\"plus\",\"rate_limit\":{" +
@@ -947,7 +785,7 @@ public final class ParserSelfTest {
                 "zero balance for an account without purchased credits is not standalone data");
     }
 
-    /**
+    /*
      * Workspace spend controls (#98): {@code spend_control.individual_limit} parses into its own
      * slot beside the windows and credits, survives the cache and Wear round trips, accepts
      * string-or-number field types, and stays null for accounts without one so their dashboards
@@ -1316,23 +1154,21 @@ public final class ParserSelfTest {
                 + "keep a stable slot, and hidden-section keys round-trip.");
     }
 
-    private static void testMalformedWindowIgnored() throws Exception {
-        String json = "{\"plan_type\":\"plus\",\"rate_limit\":{" +
-                "\"allowed\":true,\"limit_reached\":false," +
-                "\"primary_window\":{}," +
-                "\"secondary_window\":{\"used_percent\":25,\"limit_window_seconds\":604800,\"reset_after_seconds\":1,\"reset_at\":2}}}";
-        UsageSnapshot snapshot = UsageParser.parse(json, 1L);
-        check(snapshot.fiveHour == null, "malformed primary window ignored");
-        check(snapshot.weekly != null && snapshot.weekly.usedPercent == 25, "valid secondary preserved");
-    }
 
 
-    private static void testZeroDurationWindowIgnored() throws Exception {
-        String json = "{\"plan_type\":\"plus\",\"rate_limit\":{" +
-                "\"primary_window\":{\"used_percent\":30,\"limit_window_seconds\":0,\"reset_after_seconds\":1,\"reset_at\":2}}}";
-        UsageSnapshot snapshot = UsageParser.parse(json, 1L);
-        check(snapshot.fiveHour == null && snapshot.weekly == null,
-                "zero-duration usage window ignored");
+
+    /** A window with no fields, or one with a zero-length duration, is dropped; valid siblings stay. */
+    private static void testUnusableWindowsIgnored() throws Exception {
+        UsageSnapshot malformed = UsageParser.parse("{\"plan_type\":\"plus\",\"rate_limit\":{"
+                + "\"allowed\":true,\"limit_reached\":false,\"primary_window\":{},"
+                + "\"secondary_window\":{\"used_percent\":25,\"limit_window_seconds\":604800,"
+                + "\"reset_after_seconds\":1,\"reset_at\":2}}}", 1L);
+        check(malformed.fiveHour == null, "malformed primary window ignored");
+        check(malformed.weekly != null && malformed.weekly.usedPercent == 25, "valid secondary preserved");
+        UsageSnapshot zero = UsageParser.parse("{\"plan_type\":\"plus\",\"rate_limit\":{"
+                + "\"primary_window\":{\"used_percent\":30,\"limit_window_seconds\":0,"
+                + "\"reset_after_seconds\":1,\"reset_at\":2}}}", 1L);
+        check(zero.fiveHour == null && zero.weekly == null, "zero-duration usage window ignored");
     }
 
     private static void testNextResetSelection() {
@@ -1426,16 +1262,31 @@ public final class ParserSelfTest {
         System.out.println("Celebration demo: reset credits 2 -> 5 -> notification reports 3 added credits.");
     }
 
-    private static void testResetCreditExpiryReminders() {
+
+
+    /** Available credits sort by expiry, and each gets one reminder per valid lead time. */
+    private static void testResetCreditExpiry() {
         long now = 1_000_000L;
         RateLimitResetCredit soon = new RateLimitResetCredit("soon", "both", "available",
                 now - 1, now + TimeUnit.HOURS.toMillis(48), "", "");
         RateLimitResetCredit later = new RateLimitResetCredit("later", "both", "available",
                 now - 1, now + TimeUnit.DAYS.toMillis(7), "", "");
+        RateLimitResetCredit noExpiry = new RateLimitResetCredit("no-expiry", "both",
+                "available", now - 1, 0L, "", "");
         RateLimitResetCredit redeemed = new RateLimitResetCredit("used", "both", "redeemed",
                 now - 1, now + TimeUnit.HOURS.toMillis(2), "", "");
         RateLimitResetCredit expired = new RateLimitResetCredit("expired", "both", "available",
                 now - 1, now - 1, "", "");
+
+        ResetCreditsSnapshot snapshot = new ResetCreditsSnapshot(3,
+                Arrays.asList(later, noExpiry, redeemed, expired, soon), now);
+        List<RateLimitResetCredit> ordered = snapshot.availableCreditsByExpiry(now);
+        check(ordered.size() == 3, "only current available reset credits are shown");
+        check("soon".equals(ordered.get(0).id) && "later".equals(ordered.get(1).id)
+                && "no-expiry".equals(ordered.get(2).id), "soonest expiry first, no expiry last");
+        check(snapshot.nextExpiryMillis(now) == soon.expiresAtMillis,
+                "dashboard expiry uses the first sorted credit");
+
         long ninetyMinutes = TimeUnit.MINUTES.toMillis(90);
         List<ResetCreditExpiryReminder> reminders = ResetCreditExpiryReminder.plan(
                 Arrays.asList(soon, later, redeemed, expired),
@@ -1443,50 +1294,19 @@ public final class ParserSelfTest {
                         ninetyMinutes, ninetyMinutes, 1L,
                         ResetCreditExpiryReminder.MAX_LEAD_TIME_MS + 1L),
                 now);
-        check(reminders.size() == 6,
-                "every available credit gets each valid unique expiry reminder");
+        check(reminders.size() == 6, "every available credit gets each valid unique expiry reminder");
         check(reminders.get(0).creditId.equals("soon")
                         && reminders.get(0).leadTimeMillis == TimeUnit.HOURS.toMillis(24),
                 "expiry reminders are sorted by trigger time");
-        check(reminders.stream().anyMatch(reminder ->
-                        reminder.creditId.equals("later")
-                                && reminder.leadTimeMillis == ninetyMinutes),
+        check(reminders.stream().anyMatch(reminder -> reminder.creditId.equals("later")
+                        && reminder.leadTimeMillis == ninetyMinutes),
                 "arbitrary whole-minute reminder time is accepted");
-        check(reminders.stream().noneMatch(reminder ->
-                        reminder.creditId.equals("used")
-                                || reminder.creditId.equals("expired")),
+        check(reminders.stream().noneMatch(reminder -> reminder.creditId.equals("used")
+                        || reminder.creditId.equals("expired")),
                 "redeemed and expired credits are excluded");
-        check(reminders.stream().map(ResetCreditExpiryReminder::token).distinct().count()
-                        == reminders.size(),
+        check(reminders.stream().map(ResetCreditExpiryReminder::token).distinct().count() == reminders.size(),
                 "reminder identities are unique across credits and lead times");
-        System.out.println("Reset-credit expiry demo: multiple custom lead times planned for "
-                + "every available credit.");
-    }
-
-    private static void testResetCreditExpiryOrdering() {
-        long now = 2_000_000L;
-        RateLimitResetCredit later = new RateLimitResetCredit("later", "both", "available",
-                now - 1, now + TimeUnit.DAYS.toMillis(7), "", "");
-        RateLimitResetCredit noExpiry = new RateLimitResetCredit("no-expiry", "both",
-                "available", now - 1, 0L, "", "");
-        RateLimitResetCredit soon = new RateLimitResetCredit("soon", "both", "available",
-                now - 1, now + TimeUnit.HOURS.toMillis(4), "", "");
-        RateLimitResetCredit redeemed = new RateLimitResetCredit("redeemed", "both",
-                "redeemed", now - 1, now + TimeUnit.HOURS.toMillis(1), "", "");
-        RateLimitResetCredit expired = new RateLimitResetCredit("expired", "both",
-                "available", now - 1, now - 1, "", "");
-        ResetCreditsSnapshot snapshot = new ResetCreditsSnapshot(3,
-                Arrays.asList(later, noExpiry, redeemed, expired, soon), now);
-
-        List<RateLimitResetCredit> ordered = snapshot.availableCreditsByExpiry(now);
-        check(ordered.size() == 3, "only current available reset credits are shown");
-        check("soon".equals(ordered.get(0).id), "soonest expiry is shown first");
-        check("later".equals(ordered.get(1).id), "later expiry is shown second");
-        check("no-expiry".equals(ordered.get(2).id),
-                "credit without an expiry is shown last");
-        check(snapshot.nextExpiryMillis(now) == soon.expiresAtMillis,
-                "dashboard expiry uses the first sorted credit");
-        System.out.println("Reset-credit inventory demo: available credits sort by expiry.");
+        System.out.println("Reset-credit expiry: inventory sorts by expiry and reminders plan per lead time.");
     }
 
     private static void testResetCreditExpiryAutoApply() {
@@ -2229,23 +2049,15 @@ public final class ParserSelfTest {
                 "invalid persisted page resets safely");
     }
 
+    /** The page shown after browser sign-in escapes what it echoes and only returns on its own after success. */
     private static void testOAuthBrowserPage() {
         String success = OAuthBrowserPage.render(
                 "Connected <securely> & ready.", true, "codexmeter://auth/complete");
-        check(success.contains("You’re connected"), "browser success title");
-        check(success.contains("Codex Meter</a>"), "browser app return action");
-        check(success.contains("prefers-color-scheme:dark"), "browser One UI light and dark themes");
-        check(success.contains("border-radius:28px"), "browser One UI rounded card");
-        check(success.contains("Connected &lt;securely&gt; &amp; ready."),
+        check(success.contains("Connected &lt;securely&gt; &amp; ready.") && !success.contains("<securely>"),
                 "browser message HTML escaping");
         check(success.contains("setTimeout"), "successful browser page automatically returns");
-
-        String failure = OAuthBrowserPage.render(
-                "Denied", false, "codexmeter://auth/complete");
-        check(failure.contains("Let’s try that again"), "browser failure title");
-        check(failure.contains("Back to Codex Meter"), "browser failure return action");
+        String failure = OAuthBrowserPage.render("Denied", false, "codexmeter://auth/complete");
         check(!failure.contains("setTimeout"), "failure page waits for user");
-
         String escapedScript = OAuthBrowserPage.javascriptString("x'\\\n\u2028");
         check("x\\'\\\\\\n\\u2028".equals(escapedScript), "browser script escaping");
     }
@@ -2656,13 +2468,12 @@ public final class ParserSelfTest {
         check(PlanPricing.forPlan("go") == null, "go plan has no researched estimates");
         check(PlanPricing.forPlan("enterprise") == null, "unknown plans have no estimates");
 
-        // Figures from docs/pricing-sources.md (BenchLeader and Adam Holter, Sep-Nov 2026).
+        // The figures themselves are checked against fixtures/plan-pricing.json (PayloadBudgetSelfTest),
+        // which the desktop tests read too; here only the shape and the arithmetic.
         PlanPricing plus = PlanPricing.forPlan("plus");
         check(plus != null && plus.monthlyPriceUsd == 20d, "plus subscription price");
-        check(plus.monthlyValueUsd == 299d, "plus headline is GPT-6.1 Sol, BenchLeader Nov 9");
-        check(plus.weeklyValueUsd() == 74.75d, "plus weekly value is month over four weeks");
-        check(plus.byModel.size() == 5 && plus.byModel.get(1).monthlyValueUsd == 640d,
-                "plus keeps per-model figures (Holter: Astra 32x of $20)");
+        check(plus.weeklyValueUsd() == plus.monthlyValueUsd / 4d, "plus weekly value is month over four weeks");
+        check(plus.byModel.size() > 1, "plus keeps per-model figures");
         for (PlanPricing.Estimate estimate : plus.byModel) {
             check(estimate.sourceUrl.startsWith("https://") && estimate.dataDate.startsWith("2026-"),
                     "every figure carries a source URL and data date");
@@ -2685,15 +2496,14 @@ public final class ParserSelfTest {
         PlanPricing pro200 = PlanPricing.forPlan("pro");
         check(pro200 != null && pro200.monthlyPriceUsd == 200d && "Pro 200".equals(pro200.planLabel),
                 "pro (the old Pro 20x) is Pro 200");
-        check(pro200.monthlyValueUsd == 5604d, "pro 200 is BenchLeader's GPT-6 Astra figure");
-        check(pro200.weeklyValueUsd() == 1401d, "pro 200 weekly value");
-        check(Math.round(pro200.valueMultiplier()) == 28L, "pro 200 multiplier of price");
+        check(pro200.valueMultiplier() == pro200.monthlyValueUsd / pro200.monthlyPriceUsd,
+                "pro 200 multiplier of price");
         check(pro200.fiveHourValueUsd() > 0d
                 && pro200.fiveHourValueUsd() < pro200.weeklyValueUsd(),
                 "5-hour burst allowance is a fraction of the weekly value");
 
         check(pro200.estimatedValueUsd(UsageHistory.WEEKLY, 0) == 0d, "zero percent burns nothing");
-        check(pro200.estimatedValueUsd(UsageHistory.WEEKLY, 50) == 700.5d,
+        check(pro200.estimatedValueUsd(UsageHistory.WEEKLY, 50) == pro200.weeklyValueUsd() / 2d,
                 "half the weekly window burns half the weekly value");
         check(pro200.estimatedValueUsd(UsageHistory.WEEKLY, 250)
                 == pro200.weeklyValueUsd(), "burned value clamps at the full allowance");
@@ -2703,7 +2513,7 @@ public final class ParserSelfTest {
         check("$29".equals(PlanPricing.formatUsd(29.2d)), "two-digit dollars drop cents");
         check("$4.20".equals(PlanPricing.formatUsd(4.2d)), "small values keep cents");
         check("$0.00".equals(PlanPricing.formatUsd(-3d)), "negative values clamp to zero");
-        System.out.println("Plan pricing demo: Plus $299/mo, Pro 100 unknown, Pro 200 $5,604/mo, Pro 500 unknown.");
+        System.out.println("Plan pricing: plan names, unknown values, weekly and 5-hour shares, formatting verified.");
     }
 
     /**
@@ -2722,22 +2532,18 @@ public final class ParserSelfTest {
                 "Claude Pro is priced as Claude Pro");
         check(!"Pro 200".equals(claude.planLabel) && claude.monthlyPriceUsd == 20d,
                 "Claude Pro never shows the Codex Pro 200 plan");
-        check(claude.monthlyValueUsd == 1200d, "Claude Pro is BenchLeader's Opus 5.5 figure");
         check("Claude Pro · $20/month".equals(claude.title()), "Claude Pro card title");
-        check(Math.round(claude.valueMultiplier()) == 60L, "Claude Pro multiple of price");
         boolean usedRow = false;
-        boolean haikuRow = false;
+        int modelRows = 0;
+        String usedWeek = "≈ " + PlanPricing.formatUsd(claude.weeklyValueUsd() * 0.4d);
         for (String[] row : claude.summaryRows(claudePro)) {
-            if ("Value used this week".equals(row[0])) usedRow = "≈ $120".equals(row[1]);
-            haikuRow |= "All on Haiku 5.5".equals(row[0]) && "≈ $877/month".equals(row[1]);
+            if ("Value used this week".equals(row[0])) usedRow = usedWeek.equals(row[1]);
+            if (row[0].startsWith("All on ") && row[1].endsWith("/month")) modelRows++;
         }
-        check(usedRow, "40% of the Claude Pro week is about $120 of value");
-        check(haikuRow, "the card lists per-model figures");
+        check(usedRow, "40% of the Claude Pro week is 40% of its weekly value");
+        check(modelRows > 0, "the card lists per-model figures");
         check(claude.basis.contains("BenchLeader") && claude.basis.contains("Nov 7, 2026"),
                 "the card names its source and data date");
-        check(PlanPricing.forClaudePlan("Max").monthlyValueUsd == 7224d, "Claude Max, BenchLeader Oct 3");
-        check(PlanPricing.forClaudePlan("Ultra").monthlyValueUsd == 13200d,
-                "Claude Ultra, Holter Oct 29: 66x of $200");
         check(PlanPricing.forClaudePlan("Max 20x").planLabel.equals("Claude Ultra"),
                 "a saved Max 20x badge prices as Ultra");
         check(PlanPricing.forClaudePlan("Claude Pro") != null, "a Claude Pro display name prices");

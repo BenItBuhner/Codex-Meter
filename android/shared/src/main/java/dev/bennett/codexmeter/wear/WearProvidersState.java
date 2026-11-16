@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter.wear;
 
 import dev.bennett.codexmeter.UsageSnapshot;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -18,8 +19,13 @@ import org.json.JSONObject;
  * its display name, whether it is signed in, the sanitized usage snapshot and the last error.
  */
 public final class WearProvidersState {
-    /** Snapshots bigger than this are dropped so the Data Layer item stays well under 100 KB. */
-    static final int MAX_SNAPSHOT_CHARS = 6_000;
+    /**
+     * The Data Layer rejects items over 100 KB, and then the watch gets nothing at all. The
+     * providers item is built to stay under this, with room left for the envelope.
+     */
+    static final int MAX_ITEM_BYTES = 90_000;
+    /** No one provider's usage may take more than this, so a long list of named limits can't crowd out the rest. */
+    static final int MAX_USAGE_BYTES = 6_000;
     static final int MAX_ERROR_CHARS = 160;
     public static final int MAX_PROVIDERS = 24;
 
@@ -64,16 +70,63 @@ public final class WearProvidersState {
         return providers.isEmpty() ? null : providers.get(0);
     }
 
+    /**
+     * Every signed-in provider always carries its main windows (5-hour, weekly, monthly, credits).
+     * Named limits are then added provider by provider, the phone's selected tab first and the
+     * rest in tab order, for as long as the item stays under {@link #MAX_ITEM_BYTES}. A provider
+     * that doesn't fit keeps its first named limits and loses the rest, rather than going blank.
+     */
     public JSONObject toJson() throws JSONException {
-        JSONObject json = new JSONObject();
-        JSONArray list = new JSONArray();
-        for (Entry entry : providers) {
-            list.put(entry.toJson());
+        int count = providers.size();
+        JSONObject[] items = new JSONObject[count];
+        int[] sizes = new int[count];
+        int total = 128; // the envelope: phone_selected, updated_at_millis, brackets
+        for (int i = 0; i < count; i++) {
+            items[i] = providers.get(i).toJson(0);
+            sizes[i] = bytes(items[i]);
+            total += sizes[i] + 1;
         }
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            if (providers.get(i).id.equals(phoneSelectedId)) order.add(0, i);
+            else order.add(i);
+        }
+        for (int i : order) {
+            Entry entry = providers.get(i);
+            if (entry.snapshot == null || entry.snapshot.additionalLimits.isEmpty()) continue;
+            int spare = MAX_ITEM_BYTES - total;
+            // The most named limits that fit, found by bisection since size only grows with the count.
+            int low = 0;
+            int high = entry.snapshot.additionalLimits.size();
+            JSONObject best = items[i];
+            int bestSize = sizes[i];
+            while (low < high) {
+                int mid = (low + high + 1) / 2;
+                JSONObject candidate = entry.toJson(mid);
+                int size = bytes(candidate);
+                if (candidate.has("usage") && size - sizes[i] <= spare) {
+                    low = mid;
+                    best = candidate;
+                    bestSize = size;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            total += bestSize - sizes[i];
+            items[i] = best;
+            sizes[i] = bestSize;
+        }
+        JSONArray list = new JSONArray();
+        for (JSONObject item : items) list.put(item);
+        JSONObject json = new JSONObject();
         json.put("providers", list);
         json.put("phone_selected", phoneSelectedId);
         json.put("updated_at_millis", updatedAtMillis);
         return json;
+    }
+
+    private static int bytes(JSONObject json) {
+        return json.toString().getBytes(StandardCharsets.UTF_8).length;
     }
 
     public static WearProvidersState fromJson(JSONObject json) {
@@ -121,14 +174,15 @@ public final class WearProvidersState {
             this.lastError = trim(lastError, MAX_ERROR_CHARS);
         }
 
-        JSONObject toJson() throws JSONException {
+        /** This entry with its usage cut to the first {@code limits} named limits, if it fits {@link #MAX_USAGE_BYTES}. */
+        JSONObject toJson(int limits) throws JSONException {
             JSONObject json = new JSONObject();
             json.put("id", id);
             json.put("name", displayName);
             json.put("signed_in", signedIn);
             if (snapshot != null) {
-                JSONObject usage = snapshot.toJson();
-                if (usage.toString().length() <= MAX_SNAPSHOT_CHARS) {
+                JSONObject usage = snapshot.withFirstLimits(limits).toJson();
+                if (usage.toString().getBytes(StandardCharsets.UTF_8).length <= MAX_USAGE_BYTES) {
                     json.put("usage", usage);
                 }
             }

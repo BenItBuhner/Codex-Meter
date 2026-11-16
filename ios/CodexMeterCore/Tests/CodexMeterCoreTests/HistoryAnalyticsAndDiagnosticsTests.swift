@@ -42,33 +42,31 @@ final class HistoryAnalyticsAndDiagnosticsTests: XCTestCase {
         }
     }
 
-    func testPlanPricingAnchorsAndFormatting() {
+    func testPlanPricingAnchorsAndFormatting() throws {
         XCTAssertNil(PlanPricing.forPlan(nil))
         XCTAssertNil(PlanPricing.forPlan("free"))
         XCTAssertNil(PlanPricing.forPlan("go"))
         XCTAssertNil(PlanPricing.forPlan("enterprise"))
 
-        // Figures from docs/pricing-sources.md.
-        let plus = try! XCTUnwrap(PlanPricing.forPlan("plus"))
+        // The dollar figures are checked against the shared fixture below; here only names and arithmetic.
+        let plus = try XCTUnwrap(PlanPricing.forPlan("plus"))
         XCTAssertEqual(plus.monthlyPriceUsd, 20)
-        XCTAssertEqual(plus.monthlyValueUsd, 299)
-        XCTAssertEqual(plus.weeklyValueUsd, 74.75)
-        XCTAssertEqual(plus.fiveHourValueUsd, 74.75 / 6.0, accuracy: 0.000_000_1)
+        XCTAssertEqual(plus.weeklyValueUsd, plus.monthlyValueUsd / 4)
+        XCTAssertEqual(plus.fiveHourValueUsd, plus.weeklyValueUsd / 6.0, accuracy: 0.000_000_1)
 
-        let pro100 = try! XCTUnwrap(PlanPricing.forPlan("pro_100"))
+        let pro100 = try XCTUnwrap(PlanPricing.forPlan("pro_100"))
         XCTAssertEqual(pro100.planLabel, "Pro 100")
         XCTAssertEqual(pro100.monthlyPriceUsd, 100)
         XCTAssertFalse(pro100.hasValue)
         XCTAssertEqual(PlanPricing.forPlan("prolite")?.planLabel, "Pro 100")
 
-        let pro200 = try! XCTUnwrap(PlanPricing.forPlan("pro"))
+        let pro200 = try XCTUnwrap(PlanPricing.forPlan("pro"))
         XCTAssertEqual(pro200.planLabel, "Pro 200")
         XCTAssertEqual(pro200.monthlyPriceUsd, 200)
-        XCTAssertEqual(pro200.monthlyValueUsd, 5_604)
-        XCTAssertEqual(pro200.windowValueUsd(for: .monthly), 5_604)
-        XCTAssertEqual(pro200.estimatedValueUsd(for: .weekly, usedPercent: 50), 700.5)
+        XCTAssertEqual(pro200.windowValueUsd(for: .monthly), pro200.monthlyValueUsd)
+        XCTAssertEqual(pro200.estimatedValueUsd(for: .weekly, usedPercent: 50), pro200.weeklyValueUsd / 2)
 
-        let pro500 = try! XCTUnwrap(PlanPricing.forPlan("Pro 500"))
+        let pro500 = try XCTUnwrap(PlanPricing.forPlan("Pro 500"))
         XCTAssertEqual(pro500.monthlyPriceUsd, 500)
         XCTAssertFalse(pro500.hasValue)
 
@@ -78,7 +76,32 @@ final class HistoryAnalyticsAndDiagnosticsTests: XCTestCase {
         XCTAssertEqual(PlanPricing.formatUsd(-3), "$0.00")
     }
 
-    func testUsageStatsWindowBreakdownTypicalAndPeak() {
+    /// The Codex plan values match android/tests/fixtures/plan-pricing.json, which Android and desktop check too.
+    func testPlanPricingMatchesSharedFixture() throws {
+        let fixture = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("android/tests/fixtures/plan-pricing.json")
+        let json = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        let codex = try XCTUnwrap(json["codex"] as? [String: Any])
+        XCTAssertFalse(codex.isEmpty)
+        for (plan, want) in codex {
+            let pricing = PlanPricing.forPlan(plan)
+            switch want {
+            case let value as String where value == "none":
+                XCTAssertNil(pricing, "\(plan) has no card")
+            case is String:
+                XCTAssertEqual(pricing?.hasValue, false, "\(plan) shows unknown")
+            case let value as NSNumber:
+                XCTAssertEqual(try XCTUnwrap(pricing, plan).monthlyValueUsd, value.doubleValue, accuracy: 0.5, plan)
+            default:
+                XCTFail("unexpected fixture value for \(plan)")
+            }
+        }
+    }
+
+    func testUsageStatsWindowBreakdownTypicalAndPeak() throws {
         let base = Date(timeIntervalSince1970: 2_000_000_000)
         var history = UsageHistory.empty(.fiveHour)
         let firstReset = base.addingTimeInterval(5 * 60 * 60)
@@ -102,12 +125,12 @@ final class HistoryAnalyticsAndDiagnosticsTests: XCTestCase {
 
         let breakdown = UsageStats.windowBreakdown(history, maximumWindows: 5)
         XCTAssertEqual(breakdown.count, 2)
-        let completed = try! XCTUnwrap(breakdown.first)
+        let completed = try XCTUnwrap(breakdown.first)
         XCTAssertTrue(completed.complete)
         XCTAssertEqual(completed.finalPercent, 90)
         XCTAssertGreaterThan(completed.peakBurnPercentPerHour, completed.averageBurnPercentPerHour)
 
-        let typical = try! XCTUnwrap(UsageStats.typicalUsedPercent(in: history, atElapsedFraction: 0.6))
+        let typical = try XCTUnwrap(UsageStats.typicalUsedPercent(in: history, atElapsedFraction: 0.6))
         XCTAssertGreaterThan(typical, 0)
         XCTAssertNil(UsageStats.typicalUsedPercent(in: .empty(.fiveHour), atElapsedFraction: 0.5))
         XCTAssertEqual(UsageStats.averageFinalPercent(history) ?? -1, 90, accuracy: 0.01)

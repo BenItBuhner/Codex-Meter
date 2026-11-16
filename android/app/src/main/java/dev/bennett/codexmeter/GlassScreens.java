@@ -7,7 +7,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Build;
 import android.text.Html;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
@@ -323,8 +322,7 @@ final class GlassScreens {
         if (html.isEmpty()) {
             return "";
         }
-        CharSequence text = Build.VERSION.SDK_INT >= 24
-                ? Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT) : Html.fromHtml(html);
+        CharSequence text = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT);
         return text.toString().trim();
     }
 

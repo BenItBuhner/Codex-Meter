@@ -577,7 +577,8 @@ public final class ResetNotificationManager {
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(details)
-                .addAction(new Notification.Action.Builder(R.drawable.ic_reset_notification,
+                .addAction(new Notification.Action.Builder(
+                        android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_reset_notification),
                         "Use reset", useReset).build())
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)

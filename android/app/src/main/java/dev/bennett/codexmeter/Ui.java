@@ -728,6 +728,16 @@ public final class Ui {
         return checkBox;
     }
 
+    /** An Intent passed as an extra, or null. The typed getter is Android 13+. */
+    @SuppressWarnings("deprecation")
+    static Intent intentExtra(Intent intent, String key) {
+        if (intent == null) return null;
+        if (Build.VERSION.SDK_INT >= 33) return intent.getParcelableExtra(key, Intent.class);
+        return intent.getParcelableExtra(key);
+    }
+
+    // Android 15 draws apps edge to edge and ignores bar colors; the minSdk 26-34 devices still need them.
+    @SuppressWarnings("deprecation")
     public static void configureSystemBars(Activity activity, View view, boolean z) {
         Window window = activity.getWindow();
         int iBackground = background(activity, z);
@@ -752,6 +762,8 @@ public final class Ui {
             final int paddingBottom = view.getPaddingBottom();
             view.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() { // from class: dev.bennett.codexmeter.Ui.2
                 @Override // android.view.View.OnApplyWindowInsetsListener
+                // Pre-Android 11 system bar icon colors only have the View flags.
+                @SuppressWarnings("deprecation")
                 public WindowInsets onApplyWindowInsets(View view2, WindowInsets windowInsets) {
                     Insets insets = windowInsets.getInsets(WindowInsets.Type.systemBars());
                     view2.setPadding(paddingLeft + insets.left, paddingTop + insets.top, paddingRight + insets.right, insets.bottom + paddingBottom);

@@ -1,0 +1,22 @@
+# Correctness rules gate the build (CI runs `swiftlint lint --strict`, so warnings fail too).
+# Size and naming metrics are left to review: they flag long-but-clear code, not bugs.
+included:
+  - ios
+  - macos
+excluded:
+  - ios/.build
+  - ios/CodexMeterCore/.build
+disabled_rules:
+  - line_length
+  - function_body_length
+  - file_length
+  - type_body_length
+  - cyclomatic_complexity
+  - function_parameter_count
+  - large_tuple
+  - identifier_name
+  - trailing_comma
+  - optional_data_string_conversion  # String(decoding:) is deliberate: it never fails
+  - non_optional_string_data_conversion
+force_try: error
+force_cast: error

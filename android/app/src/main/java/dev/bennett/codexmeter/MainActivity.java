@@ -486,7 +486,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.glass.openSettings(glassPage, true);
             }
         }
-        Intent glassIntent = intent == null ? null : intent.getParcelableExtra(GlassApp.EXTRA_GLASS_INTENT);
+        Intent glassIntent = Ui.intentExtra(intent, GlassApp.EXTRA_GLASS_INTENT);
         if (glassIntent != null) {
             intent.removeExtra(GlassApp.EXTRA_GLASS_INTENT);
             if (this.glass != null) {
@@ -961,22 +961,23 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (!PriorityPrefs.isViewEnabled(app) || !PrioritySummary.isEnabled(app)) {
             return;
         }
-        List<PriorityView.Item>[] items = new List[1];
+        java.util.concurrent.atomic.AtomicReference<List<PriorityView.Item>> items =
+                new java.util.concurrent.atomic.AtomicReference<>();
         java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(1);
         runOnUiThread(() -> {
-            items[0] = priorityItems();
+            items.set(priorityItems());
             ready.countDown();
         });
         try {
-            if (!ready.await(5, java.util.concurrent.TimeUnit.SECONDS) || items[0] == null
-                    || !PriorityView.needsAttention(items[0])) {
+            if (!ready.await(5, java.util.concurrent.TimeUnit.SECONDS) || items.get() == null
+                    || !PriorityView.needsAttention(items.get())) {
                 return;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return;
         }
-        if (PrioritySummary.refreshIfDue(app, items[0])) {
+        if (PrioritySummary.refreshIfDue(app, items.get())) {
             runOnUiThread(() -> {
                 if (!isFinishing() && !isDestroyed()) {
                     rebuild();

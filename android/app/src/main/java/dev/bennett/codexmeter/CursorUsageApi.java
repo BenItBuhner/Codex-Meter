@@ -215,7 +215,6 @@ public final class CursorUsageApi {
                 parsed.authId, CursorApi.email(parsed.accessToken));
     }
 
-    /** POST with a JSON body when {@code body} is set, otherwise GET. */
     /** Saves the account email so Settings → Accounts can show it like other providers. */
     private static void fetchEmail(Context context, String accessToken) {
         try {
@@ -231,6 +230,7 @@ public final class CursorUsageApi {
         }
     }
 
+    /** POST with a JSON body when {@code body} is set, otherwise GET. */
     private static Response request(Context context, String operation, String url, String body,
             String bearer) throws Exception {
         HttpsURLConnection connection =

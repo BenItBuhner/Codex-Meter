@@ -129,11 +129,11 @@ public sealed class AesKeyProtector : IDataProtector
         if (ReadKeyFile(path) is { } existing) return existing;
         var key = RandomNumberGenerator.GetBytes(32);
         using (var stream = new FileStream(path, new FileStreamOptions
-               {
-                   Mode = FileMode.Create,
-                   Access = FileAccess.Write,
-                   UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
-               }))
+        {
+            Mode = FileMode.Create,
+            Access = FileAccess.Write,
+            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+        }))
         {
             stream.Write(Encoding.ASCII.GetBytes(Convert.ToBase64String(key)));
         }

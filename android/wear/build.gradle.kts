@@ -44,6 +44,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    lint {
+        // Known issues live in the baseline, which only shrinks; anything new fails the build.
+        baseline = file("lint-baseline.xml")
+        warningsAsErrors = true
+        // Newer versions are Dependabot's to raise; as lint errors they would break CI on any day.
+        disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
+    }
 }
 
 dependencies {

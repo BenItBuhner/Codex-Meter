@@ -394,7 +394,9 @@ public sealed class FactoryClient() : StandardDeviceClient(UsageProvider.Factory
     public override async Task<AuthTokens> RefreshAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken) =>
         MergeRefresh(await SendAsync(context, "factory_token_refresh", ProviderRequest.Post(WorkOs.Token).Json(new JsonObject
         {
-            ["client_id"] = ClientId, ["grant_type"] = "refresh_token", ["refresh_token"] = tokens.RefreshToken,
+            ["client_id"] = ClientId,
+            ["grant_type"] = "refresh_token",
+            ["refresh_token"] = tokens.RefreshToken,
         }), cancellationToken).ConfigureAwait(false), tokens, context);
 
     private static ProviderRequest Factory(ProviderRequest request, AuthTokens tokens) => request.Bearer(tokens.AccessToken)
@@ -433,7 +435,8 @@ public sealed class ClineClient() : StandardDeviceClient(UsageProvider.Cline)
     {
         var response = await SendAsync(context, "cline_register", ProviderRequest.Post("https://api.cline.bot/api/v1/auth/register").Json(new JsonObject
         {
-            ["accessToken"] = tokens.AccessToken, ["refreshToken"] = tokens.RefreshToken,
+            ["accessToken"] = tokens.AccessToken,
+            ["refreshToken"] = tokens.RefreshToken,
         }), cancellationToken).ConfigureAwait(false);
         // Fall back to the WorkOS token; the usage call retries it with Cline's prefix.
         if (!response.Ok) return tokens.Stored(context.Now(), "workos").WithJwtExpiry();
@@ -445,11 +448,14 @@ public sealed class ClineClient() : StandardDeviceClient(UsageProvider.Cline)
         if (tokens.AccountId == "workos")
             return MergeRefresh(await SendAsync(context, "cline_workos_refresh", ProviderRequest.Post(WorkOs.Token).Json(new JsonObject
             {
-                ["client_id"] = ClientId, ["grant_type"] = "refresh_token", ["refresh_token"] = tokens.RefreshToken,
+                ["client_id"] = ClientId,
+                ["grant_type"] = "refresh_token",
+                ["refresh_token"] = tokens.RefreshToken,
             }), cancellationToken).ConfigureAwait(false), tokens, context);
         return MergeRefresh(await SendAsync(context, "cline_token_refresh", ProviderRequest.Post("https://api.cline.bot/api/v1/auth/refresh").Json(new JsonObject
         {
-            ["refreshToken"] = tokens.RefreshToken, ["grantType"] = "refresh_token",
+            ["refreshToken"] = tokens.RefreshToken,
+            ["grantType"] = "refresh_token",
         }), cancellationToken).ConfigureAwait(false), tokens, context);
     }
 
@@ -522,8 +528,12 @@ public sealed class CodeiumClient(UsageProvider provider, string ideName) : Prov
     {
         var metadata = new JsonObject
         {
-            ["apiKey"] = tokens.AccessToken, ["ideName"] = ideName, ["ideVersion"] = "1.108.2",
-            ["extensionName"] = ideName, ["extensionVersion"] = "1.108.2", ["locale"] = "en",
+            ["apiKey"] = tokens.AccessToken,
+            ["ideName"] = ideName,
+            ["ideVersion"] = "1.108.2",
+            ["extensionName"] = ideName,
+            ["extensionVersion"] = "1.108.2",
+            ["locale"] = "en",
         };
         var response = Check(await SendAsync(context, Provider.Id + "_usage",
             ProviderRequest.Post("https://server.codeium.com/exa.seat_management_pb.SeatManagementService/GetUserStatus")
@@ -566,8 +576,11 @@ public sealed class AugmentClient() : ProviderClient(UsageProvider.Augment)
         if (!tenant.EndsWith('/')) tenant += "/";
         var response = await SendAsync(context, "augment_exchange", ProviderRequest.Post(tenant + "token").Json(new JsonObject
         {
-            ["grant_type"] = "authorization_code", ["client_id"] = ClientId, ["code_verifier"] = attempt.Verifier,
-            ["redirect_uri"] = "", ["code"] = code,
+            ["grant_type"] = "authorization_code",
+            ["client_id"] = ClientId,
+            ["code_verifier"] = attempt.Verifier,
+            ["redirect_uri"] = "",
+            ["code"] = code,
         }), cancellationToken).ConfigureAwait(false);
         var tokens = DeviceAuth.ParseTokens(response.Body, context.Now());
         if (!response.Ok || tokens.AccessToken.Length == 0)
@@ -606,7 +619,8 @@ public sealed class OpenCodeGoClient() : ProviderClient(UsageProvider.OpencodeGo
     {
         var response = await SendAsync(context, "opencode_device", ProviderRequest.Post(Base + "code").Json(new JsonObject
         {
-            ["client_id"] = "opencode-cli", ["supports_org_scope"] = true,
+            ["client_id"] = "opencode-cli",
+            ["supports_org_scope"] = true,
         }), cancellationToken).ConfigureAwait(false);
         var code = DeviceAuth.ParseDeviceCode(response.Body);
         if (!response.Ok || !code.IsValid)
@@ -635,7 +649,9 @@ public sealed class OpenCodeGoClient() : ProviderClient(UsageProvider.OpencodeGo
     {
         var response = await SendAsync(context, "opencode_refresh", ProviderRequest.Post(Base + "token").Json(new JsonObject
         {
-            ["grant_type"] = "refresh_token", ["refresh_token"] = tokens.RefreshToken, ["client_id"] = "opencode-cli",
+            ["grant_type"] = "refresh_token",
+            ["refresh_token"] = tokens.RefreshToken,
+            ["client_id"] = "opencode-cli",
         }), cancellationToken).ConfigureAwait(false);
         var parsed = DeviceAuth.ParseTokens(response.Body, context.Now());
         if (!response.Ok || parsed.AccessToken.Length == 0)
@@ -759,7 +775,9 @@ public sealed class KiroClient() : ProviderClient(UsageProvider.Kiro)
         attempt.Extra["clientSecret"] = clientSecret;
         var response = await SendAsync(context, "kiro_device", ProviderRequest.Post(Oidc + "device_authorization").Json(new JsonObject
         {
-            ["clientId"] = clientId, ["clientSecret"] = clientSecret, ["startUrl"] = "https://view.awsapps.com/start",
+            ["clientId"] = clientId,
+            ["clientSecret"] = clientSecret,
+            ["startUrl"] = "https://view.awsapps.com/start",
         }), cancellationToken).ConfigureAwait(false);
         var code = DeviceAuth.ParseDeviceCode(response.Body);
         if (!response.Ok || !code.IsValid)
@@ -844,7 +862,9 @@ public sealed class OpenRouterClient() : ProviderClient(UsageProvider.OpenRouter
     {
         var response = await SendAsync(context, "openrouter_exchange", ProviderRequest.Post("https://openrouter.ai/api/v1/auth/keys").Json(new JsonObject
         {
-            ["code"] = code, ["code_verifier"] = attempt.Verifier, ["code_challenge_method"] = "S256",
+            ["code"] = code,
+            ["code_verifier"] = attempt.Verifier,
+            ["code_challenge_method"] = "S256",
         }), cancellationToken).ConfigureAwait(false);
         var key = BodyString(response, "key");
         if (!response.Ok || key.Length == 0)

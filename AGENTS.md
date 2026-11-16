@@ -1,69 +1,29 @@
 # AGENTS.md
 
-## Repository layout
+Codex Meter is a monorepo of native clients with no backend: `android/` (Gradle `:app`, `:shared`, `:wear`, `:glass`), `ios/` (SwiftUI app, widgets, and the `CodexMeterCore` package), `macos/` (compiles the `ios/` sources), `windows/` (WinUI 3 on a shared C# core) and `linux/` (GTK 4 on the same core). Clients call provider endpoints directly and keep tokens on the device.
 
-Codex Meter is a **monorepo** with native clients and no backend:
+## Branches and releases
 
-| Path | Stack | Package / product |
-|------|--------|-------------------|
-| Repository root | Shared docs, license, changelog, CI entrypoints | — |
-| `android/` | Android (Gradle `:app`, `:shared`, `:wear`) | `dev.bennett.codexmeter` (+ Wear companion) |
-| `ios/` | SwiftUI / WidgetKit (Xcode) | `CodexMeter` app + widgets + `CodexMeterCore` package |
-| `macos/` | SwiftUI / WidgetKit for macOS (Xcode) | `Codex Meter.app` + desktop widgets; compiles the `ios/` app, widget, and test sources |
+- `main` is the stable channel (`v2.7.0` tags, marked latest). `alpha` is the rapid channel (`v2.8.0-alpha.1` tags, prereleases). `CONTRIBUTING.md` has the full process.
+- Target `alpha` unless the user says the work is for `main`. Docs, CI and user-requested hotfixes to the shipped stable can go to `main`.
+- Never push `v*` tags, create or edit releases, or bump versions unless the user asks. Tags ship signed builds to real users.
+- Never force-push `main` or `alpha`, and never delete or recreate `alpha`. Merging `main` into `alpha` is fine.
+- An alpha version is the *next* stable version plus a suffix (after `2.7.0`, cut `2.8.0-alpha.1`, which SemVer orders above `2.7.0`). Its `versionCode` stays equal to the newest stable's, so switching channels stays an in-place install. A stable release drops the suffix, bumps `versionCode` by one and folds the alpha changelog sections together.
+- `release-invariants.sh` lists every place a version is written and checks they agree; release prep edits those places, never the script.
 
-Clients talk directly to OpenAI/ChatGPT remote endpoints. Tokens stay on-device (Android Keystore / iOS Keychain).
+## Checks
 
-## Release channels & etiquette (Android)
+CI's `CI gate` job is the required check, and every job behind it treats warnings as errors. Run the part you touched before pushing:
 
-Two long-lived branches feed the app's two update channels (Settings → Updates → Update channel); the full process lives in `CONTRIBUTING.md`:
+- Android: `./release-invariants.sh`, `./run-tests.sh` (plain-JVM tests and resource rules, no SDK needed), `./lint.sh`, and `cd android && ./gradlew :app:testDebugUnitTest` for Robolectric tests. Fix new lint warnings rather than growing `lint-baseline.xml`; the baseline only shrinks.
+- Desktop: `dotnet test windows/tests/CodexMeter.Core.Tests` and `dotnet test linux/tests/CodexMeter.Linux.Tests` (any OS), plus `dotnet format <project> --verify-no-changes`.
+- Apple: `swiftlint lint --strict` and `swift test --package-path ios/CodexMeterCore`. Xcode builds need macOS.
 
-- `main` — **stable** channel. Tags look like `v2.7.0` and publish as regular GitHub releases marked latest.
-- `alpha` — **rapid-iteration** channel. Tags look like `v2.7.0-alpha.1` (lowercase) and publish as GitHub prereleases, never latest.
+Write tests that exercise behavior. Don't add checks that grep source for a string; a rule that matters belongs in a linter, `android/ci/resource-checks.py` (manifest and resource constraints) or `release-invariants.sh`. Tests wait on signals, never on sleeps.
 
-Rules for agents:
+## Platform judgment
 
-- Target **`alpha`** with feature and experimental PRs unless the user explicitly says the work is for `main`. Docs, CI, and user-requested hotfixes to the shipped stable go to `main`.
-- **Never push `v*` tags or create/edit GitHub releases unless the user explicitly asks.** Tags trigger signed public releases that ship to real users on both channels.
-- **Never bump `versionCode`/`versionName` on your own.** Version bumps are release preparation and happen only when the user asks to cut a release.
-- Preparing an **alpha release** (`X.Y.Z-alpha.N`): bump `versionName` only; `versionCode` must stay **equal to** the newest stable release's versionCode. CI rejects the tag otherwise — this invariant is what keeps in-app channel switching (including "Return to stable") an in-place install with no uninstall. `X.Y.Z` must be the **next** stable version, not the shipped one (after stable `2.7.0`, cut `2.8.0-alpha.1` — never `2.7.0-alpha.1`, which SemVer orders below `2.7.0` so the in-app updater would never offer it).
-- Preparing a **stable release** (promotion): merge `alpha` into `main`, drop the suffix, bump `versionCode` by exactly one, and consolidate the alpha changelog sections under the stable version.
-- Any release prep must update every synced version touchpoint together, or `run-tests.sh` fails: `android/app/build.gradle.kts`, `android/wear/build.gradle.kts`, `AppConstants.java` (`VERSION_NAME`, `VERSION_CODE`, and the literal user-agent string), `android/build.sh`, the version guards in `android/run-tests.sh`, and a matching `## <version>` section in root `CHANGELOG.md` (the release job fails when notes are missing).
-- Merging `main` into `alpha` to keep it fresh is fine; never force-push either branch, and never delete or recreate `alpha` on your own.
-
-Convenience wrappers at the repo root forward into the Android project:
-
-- `./run-tests.sh` → `android/run-tests.sh`
-- `./build.sh` → `android/build.sh`
-- `./lint.sh` → `android/lint.sh`
-
-iOS build instructions are in `ios/README.md`. Windows (WinUI 3, C#/.NET 10) instructions are in `windows/README.md`; `dotnet test windows/tests/CodexMeter.Core.Tests` runs the shared C# core tests on any OS. Linux (GTK 4 + libadwaita, sharing that C# core) instructions are in `linux/README.md`; `dotnet test linux/tests/CodexMeter.Linux.Tests` runs its tests.
-
-## Cursor Cloud specific instructions (Android)
-
-### Toolchain (pre-installed in the VM snapshot)
-- JDK 21 at `/usr/lib/jvm/java-21-openjdk-amd64` (project targets Java 17; JDK 21 builds fine with Gradle 9.6.1).
-- Android SDK at `~/android-sdk` with `platforms;android-37.1` (phone) + `platforms;android-37.0` (Wear) + `build-tools;36.0.0` + `platform-tools`.
-- Gradle 9.6.1 via the committed wrapper (`android/gradlew`); no system Gradle needed.
-- `JAVA_HOME`, `ANDROID_SDK_ROOT`, `ANDROID_HOME`, and `PATH` are exported from `~/.bashrc`. `android/build.sh` / `android/lint.sh` only auto-detect these on macOS paths, so on this Linux VM they rely on those env vars being present. In a non-login/non-interactive shell that did not source `~/.bashrc`, export them first:
-  `export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ANDROID_SDK_ROOT=$HOME/android-sdk ANDROID_HOME=$HOME/android-sdk`.
-
-### One UI / SESL dependency resolution
-`android/build.sh` (`:app:assembleRelease` + `:wear:assembleRelease`) and `android/lint.sh` (`:app:lintRelease` + `:wear:lintRelease`) resolve `io.github.tribalfs:oneui-design` and its transitive **SESL** dependencies. GitHub Packages Maven **always requires authentication, even for public packages**, so without credentials live SESL downloads return `401 Unauthorized`. `android/vendor/m2` caches the top-level `oneui-design` AAR **and** the SESL transitive artifacts, so phone + Wear release builds work offline without `GH_USERNAME` / `GH_ACCESS_TOKEN`. Those env vars remain optional for refreshing deps from GitHub Packages; `android/settings.gradle.kts` still reads them when present.
-
-### Running / testing (Android)
-- `./run-tests.sh` (or `android/run-tests.sh`) compiles and runs the pure-Java core self-tests (usage-response parsing, PKCE/OAuth, JWT claims, widget options) — no Android SDK or GitHub creds required. Use this as the fast correctness check.
-- There is no Android emulator/GUI in this VM, and an APK cannot be installed/launched headlessly here. Validate changes with `run-tests.sh` and a successful `build.sh`/`lint.sh`. Signed phone + Wear APKs land in `android/dist/` and are the product artifacts.
-
-## iOS notes for agents
-
-- Work under `ios/`. Keep Android changes under `android/`. Do not flatten either tree into the repo root.
-- Prefer native SwiftUI / WidgetKit patterns; do not port Samsung One UI or Android update installers.
-- Core pure logic for the iOS app lives in `ios/CodexMeterCore`.
-- Fast checks: `swift test --package-path ios/CodexMeterCore` (from repo root) or from `ios/` as documented in `ios/README.md`.
-- Full Xcode builds need a macOS host; Linux cloud VMs typically cannot build the iOS target.
-
-## macOS notes for agents
-
-- The Mac app lives in `macos/CodexMeterMac.xcodeproj`. It compiles `ios/CodexMeter`, `ios/CodexMeterWidgets`, and `ios/CodexMeterTests` through synchronized folders, so new iOS files join the Mac build automatically.
-- Keep shared iOS views free of iOS-only APIs where a Mac equivalent exists. iOS-only modifiers and colors the shared views already use are mapped in `macos/Shared/IOSCompatibility.swift`; UIKit/Safari stand-ins live in `macos/CodexMeterMac/Platform/`. Use `#if os(iOS)` only for code with no Mac meaning.
-- `.github/workflows/macos-ci.yml` builds the Mac app, runs the shared iOS unit tests on macOS plus the Mac UI tests, and uploads a screenshot gallery. It also runs on PRs that only touch the shared `ios/` sources.
+- Android builds resolve One UI and SESL from `android/vendor/m2`, because GitHub Packages needs credentials even for public packages. Vendor any new pinned version there.
+- Keep Android code under `android/` and Apple code under `ios/` or `macos/`. Don't port Samsung One UI patterns or Android update installers to Apple platforms.
+- New `ios/` files join the Mac build automatically. Keep shared views free of iOS-only APIs where a Mac equivalent exists; map the rest in `macos/Shared/IOSCompatibility.swift`, and use `#if os(iOS)` only for code with no Mac meaning.
+- There's no emulator in cloud VMs. Validate Android changes with the checks above; signed APKs land in `android/dist/`.

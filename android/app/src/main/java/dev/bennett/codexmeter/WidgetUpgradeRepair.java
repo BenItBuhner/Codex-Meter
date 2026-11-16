@@ -86,6 +86,8 @@ public final class WidgetUpgradeRepair {
         }
     }
 
+    // getLongVersionCode() is Android 9+; older versions only have versionCode.
+    @SuppressWarnings("deprecation")
     private static long versionCode(Context context) {
         try {
             PackageInfo info = context.getPackageManager()

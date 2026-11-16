@@ -66,6 +66,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 .putExtra(EXTRA_PAGE, PAGE_DIAGNOSTICS);
     }
 
+    // finish() has already run; overrideActivityTransition (API 34) must be set before the transition starts.
+    @SuppressWarnings("deprecation")
     @Override
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
@@ -155,6 +157,9 @@ public final class SettingsActivity extends AppCompatActivity {
     // One UI's lint detector only associates this fragment with preferences_settings.xml.
     // This fragment intentionally loads one of several page-specific preference resources.
     @SuppressLint("FindPreferenceKeyNotFound")
+    // The settings pages still ask for permissions and documents with request codes and
+    // onActivityResult; moving them to registerForActivityResult is its own change.
+    @SuppressWarnings("deprecation")
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private static final String ARG_PAGE = "page";
         private static final int REQUEST_EXPORT_TRANSFER = 9201;
@@ -749,6 +754,8 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         /** Relaunches the app on Settings → Appearance in a fresh process. */
+        // finish() has already run; overrideActivityTransition (API 34) must be set before the transition starts.
+        @SuppressWarnings("deprecation")
         private static void restartForDesign(Activity activity) {
             Intent main = new Intent(activity, MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

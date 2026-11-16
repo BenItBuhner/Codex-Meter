@@ -604,61 +604,61 @@ public sealed class TrayIcon : IDisposable
                         });
                         return;
                     case "GetGroupProperties":
-                    {
-                        var ids = reader.ReadArrayOfInt32();
-                        Reply(context, "a(ia{sv})", (ref MessageWriter w) =>
                         {
-                            var array = w.WriteArrayStart(DBusType.Struct);
-                            foreach (var item in owner.MenuItems().Where(i => ids.Length == 0 || ids.Contains(i.Id)))
+                            var ids = reader.ReadArrayOfInt32();
+                            Reply(context, "a(ia{sv})", (ref MessageWriter w) =>
                             {
-                                w.WriteStructureStart();
-                                w.WriteInt32(item.Id);
-                                WriteItemProperties(ref w, item);
-                            }
-                            w.WriteArrayEnd(array);
-                            return true;
-                        });
-                        return;
-                    }
+                                var array = w.WriteArrayStart(DBusType.Struct);
+                                foreach (var item in owner.MenuItems().Where(i => ids.Length == 0 || ids.Contains(i.Id)))
+                                {
+                                    w.WriteStructureStart();
+                                    w.WriteInt32(item.Id);
+                                    WriteItemProperties(ref w, item);
+                                }
+                                w.WriteArrayEnd(array);
+                                return true;
+                            });
+                            return;
+                        }
                     case "GetProperty":
-                    {
-                        var id = reader.ReadInt32();
-                        var name = reader.ReadString();
-                        var item = owner.MenuItems().FirstOrDefault(i => i.Id == id);
-                        Reply(context, "v", (ref MessageWriter w) =>
                         {
-                            if (name == "label" && item?.Label is { } label) w.WriteVariantString(label);
-                            else if (name == "enabled" && item is not null) w.WriteVariantBool(item.Enabled);
-                            else if (name == "visible") w.WriteVariantBool(true);
-                            else if (name == "type" && item is { Separator: true }) w.WriteVariantString("separator");
-                            else return false;
-                            return true;
-                        });
-                        return;
-                    }
+                            var id = reader.ReadInt32();
+                            var name = reader.ReadString();
+                            var item = owner.MenuItems().FirstOrDefault(i => i.Id == id);
+                            Reply(context, "v", (ref MessageWriter w) =>
+                            {
+                                if (name == "label" && item?.Label is { } label) w.WriteVariantString(label);
+                                else if (name == "enabled" && item is not null) w.WriteVariantBool(item.Enabled);
+                                else if (name == "visible") w.WriteVariantBool(true);
+                                else if (name == "type" && item is { Separator: true }) w.WriteVariantString("separator");
+                                else return false;
+                                return true;
+                            });
+                            return;
+                        }
                     case "Event":
-                    {
-                        var id = reader.ReadInt32();
-                        var eventId = reader.ReadString();
-                        owner.OnMenuEvent(id, eventId);
-                        Empty(context);
-                        return;
-                    }
-                    case "EventGroup":
-                    {
-                        var end = reader.ReadArrayStart(DBusType.Struct);
-                        while (reader.HasNext(end))
                         {
-                            reader.AlignStruct();
                             var id = reader.ReadInt32();
                             var eventId = reader.ReadString();
-                            reader.ReadVariantValue();
-                            reader.ReadUInt32();
                             owner.OnMenuEvent(id, eventId);
+                            Empty(context);
+                            return;
                         }
-                        Reply(context, "ai", (ref MessageWriter w) => { w.WriteArray(Array.Empty<int>()); return true; });
-                        return;
-                    }
+                    case "EventGroup":
+                        {
+                            var end = reader.ReadArrayStart(DBusType.Struct);
+                            while (reader.HasNext(end))
+                            {
+                                reader.AlignStruct();
+                                var id = reader.ReadInt32();
+                                var eventId = reader.ReadString();
+                                reader.ReadVariantValue();
+                                reader.ReadUInt32();
+                                owner.OnMenuEvent(id, eventId);
+                            }
+                            Reply(context, "ai", (ref MessageWriter w) => { w.WriteArray(Array.Empty<int>()); return true; });
+                            return;
+                        }
                     case "AboutToShow":
                         Reply(context, "b", (ref MessageWriter w) => { w.WriteBool(false); return true; });
                         return;
