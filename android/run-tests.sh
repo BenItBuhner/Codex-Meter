@@ -14,15 +14,24 @@ if [[ -z "$JSON_JAR" ]]; then
 fi
 
 if [[ -z "$JSON_JAR" ]]; then
+  # Gradle already resolved the same version for :shared on any machine that has built.
+  JSON_JAR="$(find "${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1/org.json/json/20260814" \
+    -name json-20260814.jar 2>/dev/null | head -n 1 || true)"
+fi
+
+if [[ -z "$JSON_JAR" ]]; then
   CACHE="$ROOT/build/test-libs"
   mkdir -p "$CACHE"
   JSON_JAR="$CACHE/json-20260814.jar"
+  JAR_PATH="org/json/json/20260814/json-20260814.jar"
   if [[ -n "${CAAS_ARTIFACTORY_MAVEN_REGISTRY:-}" && -n "${CAAS_ARTIFACTORY_READER_USERNAME:-}" ]]; then
     curl -fsSL -u "${CAAS_ARTIFACTORY_READER_USERNAME}:${CAAS_ARTIFACTORY_READER_PASSWORD}" \
-      "https://${CAAS_ARTIFACTORY_MAVEN_REGISTRY}/org/json/json/20260814/json-20260814.jar" \
-      -o "$JSON_JAR"
+      "https://${CAAS_ARTIFACTORY_MAVEN_REGISTRY}/$JAR_PATH" -o "$JSON_JAR"
   else
-    curl -fsSL "https://repo1.maven.org/maven2/org/json/json/20260814/json-20260814.jar" -o "$JSON_JAR"
+    # Maven Central rate-limits busy CI runners (HTTP 429); retry, then use Google's mirror of it.
+    curl -fsSL --retry 4 --retry-delay 5 "https://repo1.maven.org/maven2/$JAR_PATH" -o "$JSON_JAR" \
+      || curl -fsSL --retry 4 --retry-delay 5 \
+        "https://maven-central.storage-download.googleapis.com/maven2/$JAR_PATH" -o "$JSON_JAR"
   fi
 fi
 

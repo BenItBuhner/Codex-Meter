@@ -139,7 +139,11 @@ jobs:
         run: |
           set -euo pipefail
           JAR="$RUNNER_TEMP/json-20260814.jar"
-          curl -fsSL "https://repo1.maven.org/maven2/org/json/json/20260814/json-20260814.jar" -o "$JAR"
+          JAR_PATH="org/json/json/20260814/json-20260814.jar"
+          # Maven Central rate-limits busy runners (HTTP 429); retry, then use Google's mirror of it.
+          curl -fsSL --retry 4 --retry-delay 5 "https://repo1.maven.org/maven2/$JAR_PATH" -o "$JAR" \
+            || curl -fsSL --retry 4 --retry-delay 5 \
+              "https://maven-central.storage-download.googleapis.com/maven2/$JAR_PATH" -o "$JAR"
           {
             echo "<!-- codex-meter-payload -->"
             echo "### Payload budgets"
