@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 
 /// Settings > App > Haptics: a tap when fresh usage lands or a reset is used.
