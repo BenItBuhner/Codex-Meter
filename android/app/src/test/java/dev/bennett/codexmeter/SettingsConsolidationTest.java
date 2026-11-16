@@ -80,4 +80,13 @@ public final class SettingsConsolidationTest {
         assertEquals("privacy", SettingsActivity.normalizePage("diagnostics"));
         assertEquals("Privacy & data", SettingsActivity.pageTitle("privacy"));
     }
+
+    @Test
+    public void expressiveChoiceRowsStateTheValueOnce() {
+        assertEquals("Automatic · Live notification", ExpressiveSettings.choiceSummary(
+                "Automatic (recommended)", "Automatic · Live notification"));
+        assertEquals("Balanced", ExpressiveSettings.choiceSummary("Balanced", null));
+        assertEquals("Wide screens\nBack moves right", ExpressiveSettings.choiceSummary(
+                "Wide screens", "Back moves right"));
+    }
 }

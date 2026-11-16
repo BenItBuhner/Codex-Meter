@@ -346,7 +346,7 @@ final class ExpressiveSettings {
         }
         String summary = r.summary;
         if (r.kind == Row.Kind.CHOICE && r.entries != null && r.selected >= 0 && r.selected < r.entries.length) {
-            summary = summary == null ? r.entries[r.selected] : r.entries[r.selected] + "\n" + summary;
+            summary = choiceSummary(r.entries[r.selected], summary);
         }
         if (r.kind == Row.Kind.FIELD) {
             summary = r.value == null || r.value.isEmpty() ? "Not set" : r.value;
@@ -593,6 +593,17 @@ final class ExpressiveSettings {
             group.addView(b, lp);
         }
         content.addView(group, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    /**
+     * The chosen entry, then the summary. A summary that already states the choice, such as
+     * "Automatic · every 30 minutes now" for "Automatic (recommended)", stands alone.
+     */
+    static String choiceSummary(String entry, String summary) {
+        if (summary == null || summary.isEmpty()) return entry;
+        String plain = entry.replace(" (recommended)", "");
+        if (summary.equals(entry) || summary.startsWith(plain)) return summary;
+        return entry + "\n" + summary;
     }
 
     private TextView text(String value, int appearance, int colorAttr) {
