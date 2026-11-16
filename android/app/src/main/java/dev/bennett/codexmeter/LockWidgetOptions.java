@@ -9,18 +9,18 @@ public final class LockWidgetOptions {
     /** Ordered CSV of {@link WidgetMeters} keys; empty means migrate from {@link #metricMode}. */
     public final String visibleMeters;
 
-    public LockWidgetOptions(String str, boolean z, boolean z2, boolean z3) {
-        this(str, z, z2, z3, "");
+    public LockWidgetOptions(String metricMode, boolean showResetCredits, boolean showResetAction, boolean showCountdown) {
+        this(metricMode, showResetCredits, showResetAction, showCountdown, "");
     }
 
-    public LockWidgetOptions(String str, boolean z, boolean z2, boolean z3, String visibleMeters) {
-        if (!"five_hour".equals(str) && !"weekly".equals(str)) {
-            str = "both";
+    public LockWidgetOptions(String metricMode, boolean showResetCredits, boolean showResetAction, boolean showCountdown, String visibleMeters) {
+        if (!"five_hour".equals(metricMode) && !"weekly".equals(metricMode)) {
+            metricMode = "both";
         }
-        this.metricMode = str;
-        this.showResetCredits = z;
-        this.showResetAction = z2;
-        this.showCountdown = z3;
+        this.metricMode = metricMode;
+        this.showResetCredits = showResetCredits;
+        this.showResetAction = showResetAction;
+        this.showCountdown = showCountdown;
         this.visibleMeters = visibleMeters == null ? "" : visibleMeters.trim();
     }
 

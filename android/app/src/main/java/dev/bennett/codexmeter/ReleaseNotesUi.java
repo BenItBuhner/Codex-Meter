@@ -1,7 +1,6 @@
 package dev.bennett.codexmeter;
 
 import android.content.Context;
-import android.os.Build;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
 import android.widget.TextView;
@@ -23,13 +22,7 @@ public final class ReleaseNotesUi {
             view.setText("");
             return;
         }
-        CharSequence rendered;
-        if (Build.VERSION.SDK_INT >= 24) {
-            rendered = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT);
-        } else {
-            rendered = Html.fromHtml(html);
-        }
-        view.setText(rendered);
+        view.setText(Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT));
         view.setMovementMethod(LinkMovementMethod.getInstance());
         view.setLinksClickable(true);
     }

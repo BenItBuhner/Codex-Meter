@@ -19,14 +19,14 @@ public final class RateLimitResetCredit {
     public final String status;
     public final String title;
 
-    public RateLimitResetCredit(String str, String str2, String str3, long j, long j2, String str4, String str5) {
-        this.id = safe(str);
-        this.resetType = safe(str2);
-        this.status = safe(str3);
-        this.grantedAtMillis = Math.max(0L, j);
-        this.expiresAtMillis = Math.max(0L, j2);
-        this.title = safe(str4);
-        this.description = safe(str5);
+    public RateLimitResetCredit(String id, String resetType, String status, long grantedAtMillis, long expiresAtMillis, String title, String description) {
+        this.id = safe(id);
+        this.resetType = safe(resetType);
+        this.status = safe(status);
+        this.grantedAtMillis = Math.max(0L, grantedAtMillis);
+        this.expiresAtMillis = Math.max(0L, expiresAtMillis);
+        this.title = safe(title);
+        this.description = safe(description);
     }
 
     public boolean isAvailable() {
@@ -34,48 +34,48 @@ public final class RateLimitResetCredit {
     }
 
     public JSONObject toJson() throws JSONException {
-        JSONObject jSONObject = new JSONObject();
-        jSONObject.put("id", this.id);
-        jSONObject.put("reset_type", this.resetType);
-        jSONObject.put("status", this.status);
-        jSONObject.put("granted_at_millis", this.grantedAtMillis);
-        jSONObject.put("expires_at_millis", this.expiresAtMillis);
-        jSONObject.put("title", this.title);
-        jSONObject.put("description", this.description);
-        return jSONObject;
+        JSONObject json = new JSONObject();
+        json.put("id", this.id);
+        json.put("reset_type", this.resetType);
+        json.put("status", this.status);
+        json.put("granted_at_millis", this.grantedAtMillis);
+        json.put("expires_at_millis", this.expiresAtMillis);
+        json.put("title", this.title);
+        json.put("description", this.description);
+        return json;
     }
 
-    public static RateLimitResetCredit fromJson(JSONObject jSONObject) {
-        if (jSONObject == null) {
+    public static RateLimitResetCredit fromJson(JSONObject json) {
+        if (json == null) {
             return null;
         }
-        return new RateLimitResetCredit(jSONObject.optString("id", ""), jSONObject.optString("reset_type", ""), jSONObject.optString("status", ""), jSONObject.optLong("granted_at_millis", 0L), jSONObject.optLong("expires_at_millis", 0L), jSONObject.optString("title", ""), jSONObject.optString("description", ""));
+        return new RateLimitResetCredit(json.optString("id", ""), json.optString("reset_type", ""), json.optString("status", ""), json.optLong("granted_at_millis", 0L), json.optLong("expires_at_millis", 0L), json.optString("title", ""), json.optString("description", ""));
     }
 
-    public static RateLimitResetCredit fromApiJson(JSONObject jSONObject) {
-        if (jSONObject == null) {
+    public static RateLimitResetCredit fromApiJson(JSONObject json) {
+        if (json == null) {
             return null;
         }
-        return new RateLimitResetCredit(jSONObject.optString("id", ""), jSONObject.optString("reset_type", ""), jSONObject.optString("status", ""), parseTimestamp(jSONObject.optString("granted_at", "")), parseTimestamp(jSONObject.optString("expires_at", "")), jSONObject.optString("title", ""), jSONObject.optString("description", ""));
+        return new RateLimitResetCredit(json.optString("id", ""), json.optString("reset_type", ""), json.optString("status", ""), parseTimestamp(json.optString("granted_at", "")), parseTimestamp(json.optString("expires_at", "")), json.optString("title", ""), json.optString("description", ""));
     }
 
-    static long parseTimestamp(String str) {
-        if (str == null || str.trim().isEmpty()) {
+    static long parseTimestamp(String value) {
+        if (value == null || value.trim().isEmpty()) {
             return 0L;
         }
-        String strTrim = str.trim();
+        String trimmed = value.trim();
         try {
-            return Instant.parse(strTrim).toEpochMilli();
-        } catch (DateTimeParseException e) {
+            return Instant.parse(trimmed).toEpochMilli();
+        } catch (DateTimeParseException notInstant) {
             try {
-                return OffsetDateTime.parse(strTrim).toInstant().toEpochMilli();
-            } catch (DateTimeParseException e2) {
+                return OffsetDateTime.parse(trimmed).toInstant().toEpochMilli();
+            } catch (DateTimeParseException notOffset) {
                 return 0L;
             }
         }
     }
 
-    private static String safe(String str) {
-        return str == null ? "" : str;
+    private static String safe(String value) {
+        return value == null ? "" : value;
     }
 }

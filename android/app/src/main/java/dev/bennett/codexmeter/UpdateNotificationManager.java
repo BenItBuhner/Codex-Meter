@@ -90,9 +90,11 @@ public final class UpdateNotificationManager {
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(open)
-                .addAction(new Notification.Action.Builder(R.drawable.ic_notification,
+                .addAction(new Notification.Action.Builder(
+                        android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_notification),
                         "Open", open).build())
-                .addAction(new Notification.Action.Builder(R.drawable.ic_notification,
+                .addAction(new Notification.Action.Builder(
+                        android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_notification),
                         "Update", update).build())
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_STATUS)

@@ -50,48 +50,67 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     public static readonly UsageProvider Copilot = new("copilot", "Copilot", "GitHub", "GitHub", SignInStyle.DeviceCode,
         "Monthly premium requests and chat", "GitHub sign-in");
     public static readonly UsageProvider Kimi = new("kimi", "Kimi Code", "Kimi", "Moonshot AI", SignInStyle.DeviceCode,
-        "5-hour and weekly limits", "Kimi sign-in") { KeyUrl = "https://www.kimi.com/code/console", AcceptsApiKey = true };
+        "5-hour and weekly limits", "Kimi sign-in")
+    { KeyUrl = "https://www.kimi.com/code/console", AcceptsApiKey = true };
     public static readonly UsageProvider Factory = new("factory", "Factory", "Factory", "Factory", SignInStyle.DeviceCode,
         "5-hour, weekly and monthly limits", "Factory sign-in");
     public static readonly UsageProvider Grok = new("grok", "Grok", "xAI", "xAI", SignInStyle.DeviceCode,
-        "SuperGrok credits for the billing period", "xAI sign-in") { Inferred = true };
+        "SuperGrok credits for the billing period", "xAI sign-in")
+    { Inferred = true };
     public static readonly UsageProvider Antigravity = new("antigravity", "Antigravity", "Google", "Google", SignInStyle.Loopback,
-        "Gemini and Claude model limits, 5-hour and weekly", "Google sign-in") { IsAvailable = false };
+        "Gemini and Claude model limits, 5-hour and weekly", "Google sign-in")
+    { IsAvailable = false };
     public static readonly UsageProvider Devin = new("devin", "Devin", "Devin", "Cognition", SignInStyle.CodePaste,
-        "Daily and weekly quota", "Windsurf token") { Inferred = true };
+        "Daily and weekly quota", "Windsurf token")
+    { Inferred = true };
     public static readonly UsageProvider Windsurf = new("windsurf", "Windsurf", "Windsurf", "Cognition", SignInStyle.CodePaste,
-        "Daily and weekly quota", "Windsurf token") { Inferred = true };
+        "Daily and weekly quota", "Windsurf token")
+    { Inferred = true };
     public static readonly UsageProvider Augment = new("augment", "Augment", "Augment", "Augment Code", SignInStyle.CodePaste,
         "Monthly credits", "Augment sign-in");
     public static readonly UsageProvider Cline = new("cline", "Cline", "Cline", "Cline", SignInStyle.DeviceCode,
-        "5-hour, weekly and monthly limits", "Cline sign-in") { Inferred = true };
+        "5-hour, weekly and monthly limits", "Cline sign-in")
+    { Inferred = true };
     public static readonly UsageProvider OpencodeGo = new("opencode_go", "OpenCode Go", "OpenCode", "OpenCode", SignInStyle.DeviceCode,
-        "5-hour, weekly and monthly limits", "OpenCode sign-in") { KeyUrl = "https://opencode.ai/auth", AcceptsApiKey = true, Inferred = true };
+        "5-hour, weekly and monthly limits", "OpenCode sign-in")
+    { KeyUrl = "https://opencode.ai/auth", AcceptsApiKey = true, Inferred = true };
     public static readonly UsageProvider MiniMax = new("minimax", "MiniMax", "MiniMax", "MiniMax", SignInStyle.DeviceCode,
         "Coding plan prompts per window", "MiniMax sign-in")
     {
-        KeyUrl = "https://platform.minimax.io/user-center/basic-information/interface-key", AcceptsApiKey = true, Inferred = true,
+        KeyUrl = "https://platform.minimax.io/user-center/basic-information/interface-key",
+        AcceptsApiKey = true,
+        Inferred = true,
     };
     public static readonly UsageProvider Zai = new("zai", "Z.ai", "Z.ai", "Z.ai", SignInStyle.ApiKey,
-        "5-hour and weekly limits", "API key") { KeyUrl = "https://z.ai/manage-apikey/apikey-list", AcceptsApiKey = true };
+        "5-hour and weekly limits", "API key")
+    { KeyUrl = "https://z.ai/manage-apikey/apikey-list", AcceptsApiKey = true };
     public static readonly UsageProvider Kiro = new("kiro", "Kiro", "AWS Builder ID", "AWS", SignInStyle.DeviceCode,
-        "Monthly credits", "AWS Builder ID") { Inferred = true };
+        "Monthly credits", "AWS Builder ID")
+    { Inferred = true };
     public static readonly UsageProvider Amp = new("amp", "Amp", "Amp", "Amp", SignInStyle.ApiKey,
-        "Free daily usage and credits", "Access token") { KeyUrl = "https://ampcode.com/settings", AcceptsApiKey = true, Inferred = true };
+        "Free daily usage and credits", "Access token")
+    { KeyUrl = "https://ampcode.com/settings", AcceptsApiKey = true, Inferred = true };
     public static readonly UsageProvider OpenRouter = new("openrouter", "OpenRouter", "OpenRouter", "OpenRouter", SignInStyle.Loopback,
-        "Key limit and credit balance", "OpenRouter sign-in") { KeyUrl = "https://openrouter.ai/settings/keys", AcceptsApiKey = true };
+        "Key limit and credit balance", "OpenRouter sign-in")
+    { KeyUrl = "https://openrouter.ai/settings/keys", AcceptsApiKey = true };
     public static readonly UsageProvider Kilo = new("kilo", "Kilo Code", "Kilo", "Kilo", SignInStyle.DeviceCode,
-        "Credit balance", "Kilo sign-in") { KeyUrl = "https://app.kilo.ai/profile", AcceptsApiKey = true };
+        "Credit balance", "Kilo sign-in")
+    { KeyUrl = "https://app.kilo.ai/profile", AcceptsApiKey = true };
     public static readonly UsageProvider Codebuff = new("codebuff", "Codebuff", "Codebuff", "Codebuff", SignInStyle.DeviceCode,
-        "Subscription credits", "Codebuff sign-in") { Inferred = true };
+        "Subscription credits", "Codebuff sign-in")
+    { Inferred = true };
     public static readonly UsageProvider Synthetic = new("synthetic", "Synthetic", "Synthetic", "Synthetic", SignInStyle.ApiKey,
-        "5-hour and weekly limits", "API key") { KeyUrl = "https://synthetic.new/billing", AcceptsApiKey = true };
+        "5-hour and weekly limits", "API key")
+    { KeyUrl = "https://synthetic.new/billing", AcceptsApiKey = true };
     public static readonly UsageProvider Chutes = new("chutes", "Chutes", "Chutes", "Chutes", SignInStyle.ApiKey,
-        "Subscription quota", "API key") { KeyUrl = "https://chutes.ai/app/api", AcceptsApiKey = true, Inferred = true };
+        "Subscription quota", "API key")
+    { KeyUrl = "https://chutes.ai/app/api", AcceptsApiKey = true, Inferred = true };
     public static readonly UsageProvider V0 = new("v0", "v0", "v0", "Vercel", SignInStyle.ApiKey,
-        "Rate limits", "API key") { KeyUrl = "https://v0.app/chat/settings/keys", AcceptsApiKey = true, Inferred = true };
+        "Rate limits", "API key")
+    { KeyUrl = "https://v0.app/chat/settings/keys", AcceptsApiKey = true, Inferred = true };
     public static readonly UsageProvider Warp = new("warp", "Warp", "Warp", "Warp", SignInStyle.ApiKey,
-        "AI request limit", "API key") { KeyUrl = "https://app.warp.dev/settings/api-keys", AcceptsApiKey = true, Inferred = true };
+        "AI request limit", "API key")
+    { KeyUrl = "https://app.warp.dev/settings/api-keys", AcceptsApiKey = true, Inferred = true };
 
     public static readonly UsageProvider Default = Codex;
 

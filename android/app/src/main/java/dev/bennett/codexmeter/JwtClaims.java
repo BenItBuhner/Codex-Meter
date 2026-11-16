@@ -5,58 +5,52 @@ import java.util.Base64;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/* JADX INFO: loaded from: classes.dex */
+/** The account id and email inside an OpenAI token's JWT payload. Unverified: display only. */
 public final class JwtClaims {
     public final String accountId;
     public final String email;
 
-    private JwtClaims(String str, String str2) {
-        this.accountId = str == null ? "" : str;
-        this.email = str2 == null ? "" : str2;
+    private JwtClaims(String accountId, String email) {
+        this.accountId = accountId == null ? "" : accountId;
+        this.email = email == null ? "" : email;
     }
 
-    public static JwtClaims fromTokens(String str, String str2) {
-        JwtClaims jwtClaims = parse(str);
-        JwtClaims jwtClaims2 = parse(str2);
-        return new JwtClaims(jwtClaims.accountId.isEmpty() ? jwtClaims2.accountId : jwtClaims.accountId, jwtClaims.email.isEmpty() ? jwtClaims2.email : jwtClaims.email);
+    /** Claims from the id token, with anything it lacks taken from the access token. */
+    public static JwtClaims fromTokens(String idToken, String accessToken) {
+        JwtClaims primary = parse(idToken);
+        JwtClaims fallback = parse(accessToken);
+        return new JwtClaims(
+                primary.accountId.isEmpty() ? fallback.accountId : primary.accountId,
+                primary.email.isEmpty() ? fallback.email : primary.email);
     }
 
-    public static JwtClaims parse(String str) {
-        JSONArray jSONArrayOptJSONArray;
-        JSONObject jSONObjectOptJSONObject;
-        if (str == null) {
-            return new JwtClaims("", "");
-        }
-        String[] strArrSplit = str.split("\\.");
-        if (strArrSplit.length != 3) {
-            return new JwtClaims("", "");
-        }
+    public static JwtClaims parse(String token) {
+        if (token == null) return new JwtClaims("", "");
+        String[] parts = token.split("\\.");
+        if (parts.length != 3) return new JwtClaims("", "");
         try {
-            JSONObject jSONObject = new JSONObject(new String(Base64.getUrlDecoder().decode(pad(strArrSplit[1])), StandardCharsets.UTF_8));
-            String strOptString = jSONObject.optString("chatgpt_account_id", "");
-            JSONObject jSONObjectOptJSONObject2 = jSONObject.optJSONObject("https://api.openai.com/auth");
-            if (strOptString.isEmpty() && jSONObjectOptJSONObject2 != null) {
-                strOptString = jSONObjectOptJSONObject2.optString("chatgpt_account_id", "");
+            JSONObject payload = new JSONObject(new String(
+                    Base64.getUrlDecoder().decode(pad(parts[1])), StandardCharsets.UTF_8));
+            String accountId = payload.optString("chatgpt_account_id", "");
+            JSONObject auth = payload.optJSONObject("https://api.openai.com/auth");
+            if (accountId.isEmpty() && auth != null) {
+                accountId = auth.optString("chatgpt_account_id", "");
             }
-            if (strOptString.isEmpty() && (jSONArrayOptJSONArray = jSONObject.optJSONArray("organizations")) != null && jSONArrayOptJSONArray.length() > 0 && (jSONObjectOptJSONObject = jSONArrayOptJSONArray.optJSONObject(0)) != null) {
-                strOptString = jSONObjectOptJSONObject.optString("id", "");
+            if (accountId.isEmpty()) {
+                JSONArray organizations = payload.optJSONArray("organizations");
+                JSONObject first = organizations == null ? null : organizations.optJSONObject(0);
+                if (first != null) accountId = first.optString("id", "");
             }
-            return new JwtClaims(strOptString, jSONObject.optString("email", ""));
-        } catch (Exception e) {
+            return new JwtClaims(accountId, payload.optString("email", ""));
+        } catch (Exception malformed) {
             return new JwtClaims("", "");
         }
     }
 
-    private static String pad(String str) {
-        int length = str.length() % 4;
-        if (length != 0) {
-            StringBuilder sb = new StringBuilder(str);
-            while (length < 4) {
-                sb.append('=');
-                length++;
-            }
-            return sb.toString();
-        }
-        return str;
+    /** Base64url without padding, padded back to a multiple of four. */
+    private static String pad(String base64) {
+        StringBuilder padded = new StringBuilder(base64);
+        while (padded.length() % 4 != 0) padded.append('=');
+        return padded.toString();
     }
 }

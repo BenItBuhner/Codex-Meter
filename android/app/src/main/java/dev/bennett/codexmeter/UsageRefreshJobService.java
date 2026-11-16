@@ -12,7 +12,7 @@ import java.util.concurrent.FutureTask;
 /* JADX INFO: loaded from: classes.dex */
 public final class UsageRefreshJobService extends JobService {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final ConcurrentMap<Integer, JobRun> active = new ConcurrentHashMap();
+    private final ConcurrentMap<Integer, JobRun> active = new ConcurrentHashMap<>();
 
     @Override // android.app.job.JobService
     public boolean onStartJob(final JobParameters jobParameters) {

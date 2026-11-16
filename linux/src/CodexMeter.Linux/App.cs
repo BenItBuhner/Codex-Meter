@@ -218,7 +218,8 @@ public sealed class App
         var protector = await Task.Run(() => AesKeyProtector.Open(AppPaths.DataDirectory));
         KeyLocation = protector.Location;
         var live = new ProviderContext(CreateHttpClient(), new FileTokenStore(AppPaths.DataDirectory, protector),
-            new ProviderCacheStore(AppPaths.CacheDirectory)) { Log = (category, message) => AppLog.Write($"[{category}] {message}") };
+            new ProviderCacheStore(AppPaths.CacheDirectory))
+        { Log = (category, message) => AppLog.Write($"[{category}] {message}") };
         return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(AppPaths.ConfigDirectory, "settings.json")),
             new UsageHistoryStore(AppPaths.DataDirectory))
         {

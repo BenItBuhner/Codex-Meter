@@ -19,36 +19,36 @@ public final class UsageApi {
 
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
         AuthTokens authTokens;
-        Response responseRequestUsage;
-        String str;
+        Response response;
+        String fallbackError;
         UsageSnapshot usageSnapshot;
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(context, "refresh", "usage_refresh_started");
         try {
             synchronized (NETWORK_LOCK) {
                 installCookieManager();
-                AuthTokens authTokensUsableTokens = usableTokens(context);
-                Response responseRequestUsage2 = requestUsage(context, authTokensUsableTokens);
-                if (responseRequestUsage2.status == 401) {
+                AuthTokens stored = usableTokens(context);
+                Response firstResponse = requestUsage(context, stored);
+                if (firstResponse.status == 401) {
                     DiagnosticLog.warn(context, "auth", "usage_token_rejected_refreshing");
-                    AuthTokens authTokensRefresh = OAuthClient.refresh(context,
-                            authTokensUsableTokens);
-                    SecureTokenStore.save(context, authTokensRefresh);
-                    authTokens = authTokensRefresh;
-                    responseRequestUsage = requestUsage(context, authTokensRefresh);
+                    AuthTokens refreshed = OAuthClient.refresh(context,
+                            stored);
+                    SecureTokenStore.save(context, refreshed);
+                    authTokens = refreshed;
+                    response = requestUsage(context, refreshed);
                 } else {
-                    authTokens = authTokensUsableTokens;
-                    responseRequestUsage = responseRequestUsage2;
+                    authTokens = stored;
+                    response = firstResponse;
                 }
-                if (responseRequestUsage.status < 200 || responseRequestUsage.status >= 300) {
-                    if (responseRequestUsage.status == 403) {
-                        str = "Codex usage access was denied for this account.";
+                if (response.status < 200 || response.status >= 300) {
+                    if (response.status == 403) {
+                        fallbackError = "Codex usage access was denied for this account.";
                     } else {
-                        str = responseRequestUsage.status == 404 ? "The Codex usage endpoint is unavailable or has changed." : "Usage refresh failed (HTTP " + responseRequestUsage.status + ").";
+                        fallbackError = response.status == 404 ? "The Codex usage endpoint is unavailable or has changed." : "Usage refresh failed (HTTP " + response.status + ").";
                     }
-                    throw new Exception(OAuthClient.readError(responseRequestUsage.body, str));
+                    throw new Exception(OAuthClient.readError(response.body, fallbackError));
                 }
-                usageSnapshot = UsageParser.parse(responseRequestUsage.body,
+                usageSnapshot = UsageParser.parse(response.body,
                         System.currentTimeMillis());
                 if (!usageSnapshot.hasDisplayableData()) {
                     throw new Exception("OpenAI returned no recognizable Codex usage data.");
@@ -160,22 +160,22 @@ public final class UsageApi {
         }
     }
 
-    static String safeMessage(Exception exc) {
-        String message = exc == null ? "" : exc.getMessage();
+    static String safeMessage(Exception exception) {
+        String message = exception == null ? "" : exception.getMessage();
         if (message == null || message.trim().isEmpty()) {
             return "Reset-credit refresh failed.";
         }
-        String strTrim = message.trim();
-        return strTrim.length() > 240 ? strTrim.substring(0, 240) : strTrim;
+        String trimmed = message.trim();
+        return trimmed.length() > 240 ? trimmed.substring(0, 240) : trimmed;
     }
 
     private static final class Response {
         final String body;
         final int status;
 
-        Response(int i, String str) {
-            this.status = i;
-            this.body = str == null ? "" : str;
+        Response(int status, String body) {
+            this.status = status;
+            this.body = body == null ? "" : body;
         }
     }
 }

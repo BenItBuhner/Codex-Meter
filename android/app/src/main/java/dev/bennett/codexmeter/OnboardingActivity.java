@@ -171,7 +171,8 @@ public final class OnboardingActivity extends AppCompatActivity {
         if (this.receiverRegistered) {
             try {
                 unregisterReceiver(this.authReceiver);
-            } catch (RuntimeException ignored) {
+            } catch (IllegalArgumentException alreadyUnregistered) {
+                // Nothing to undo.
             }
             this.receiverRegistered = false;
         }

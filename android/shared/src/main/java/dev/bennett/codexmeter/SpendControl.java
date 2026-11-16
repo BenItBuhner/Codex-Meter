@@ -34,10 +34,10 @@ public final class SpendControl {
             String remaining, int usedPercent, int remainingPercent, long resetAfterSeconds,
             long resetAtEpochSeconds) {
         this.reached = reached;
-        this.source = clean(source);
-        this.limit = clean(limit);
-        this.used = clean(used);
-        this.remaining = clean(remaining);
+        this.source = Text.clean(source);
+        this.limit = Text.clean(limit);
+        this.used = Text.clean(used);
+        this.remaining = Text.clean(remaining);
         this.usedPercent = clampPercent(usedPercent);
         this.remainingPercent = clampPercent(remainingPercent);
         this.resetAfterSeconds = Math.max(0L, resetAfterSeconds);
@@ -267,9 +267,5 @@ public final class SpendControl {
 
     private static int clampPercent(int value) {
         return value < 0 ? -1 : Math.min(100, value);
-    }
-
-    private static String clean(String value) {
-        return value == null ? "" : value.trim();
     }
 }

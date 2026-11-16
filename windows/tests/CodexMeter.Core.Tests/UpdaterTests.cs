@@ -46,9 +46,14 @@ public class ReleaseFeedTests
         }
         return new Dictionary<string, object?>
         {
-            ["tag_name"] = tag, ["name"] = "Codex Meter " + v, ["prerelease"] = prerelease, ["draft"] = draft,
+            ["tag_name"] = tag,
+            ["name"] = "Codex Meter " + v,
+            ["prerelease"] = prerelease,
+            ["draft"] = draft,
             ["html_url"] = $"https://github.com/BenItBuhner/Codex-Meter/releases/tag/{tag}",
-            ["published_at"] = published ?? "2026-11-13T10:00:00Z", ["body"] = "Notes for " + v, ["assets"] = assets,
+            ["published_at"] = published ?? "2026-11-13T10:00:00Z",
+            ["body"] = "Notes for " + v,
+            ["assets"] = assets,
             // Fields the updater doesn't read, like the ones that made the Android listing huge.
             ["author"] = new { login = "someone", avatar_url = "https://example.invalid/a.png" },
             ["reactions"] = new { total_count = 3 },
@@ -56,9 +61,11 @@ public class ReleaseFeedTests
 
         object Asset(string name) => new
         {
-            name, size = 1234,
+            name,
+            size = 1234,
             browser_download_url = $"https://github.com/BenItBuhner/Codex-Meter/releases/download/{tag}/{name}",
-            uploader = new { login = "github-actions[bot]" }, content_type = "application/octet-stream",
+            uploader = new { login = "github-actions[bot]" },
+            content_type = "application/octet-stream",
         };
     }
 

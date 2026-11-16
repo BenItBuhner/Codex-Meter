@@ -88,11 +88,11 @@ struct CursorDashboardView: View {
             if model.cursor.phase == .signedOut {
                 model.cursor.cancelSignIn()
             }
-        }) {
+        }, content: {
             NavigationStack {
                 CursorSignInView()
             }
-        }
+        })
     }
 }
 

@@ -34,6 +34,8 @@ final class ExpressivePages implements GlassScreens.Host {
      * page and finishes it; call right after {@code super.onCreate}. True when it did, and the
      * activity must return without building its One UI views.
      */
+    // finish() has already run; overrideActivityTransition (API 34) must be set before the transition starts.
+    @SuppressWarnings("deprecation")
     static boolean redirect(AppCompatActivity from) {
         if (!AppPreferences.isMaterialExpressiveDesign(from)
                 || GlassScreens.pageFor(from.getIntent()) == null) {

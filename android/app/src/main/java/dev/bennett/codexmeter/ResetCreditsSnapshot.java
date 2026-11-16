@@ -8,26 +8,21 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/* JADX INFO: loaded from: classes.dex */
+/** Codex's saved reset credits: how many are available and each one's expiry. */
 public final class ResetCreditsSnapshot {
     public final int availableCount;
     public final List<RateLimitResetCredit> credits;
     public final long fetchedAtMillis;
 
-    public ResetCreditsSnapshot(int i, List<RateLimitResetCredit> list, long j) {
-        ArrayList arrayList;
-        this.availableCount = Math.max(0, i);
-        if (list == null) {
-            arrayList = new ArrayList();
-        } else {
-            arrayList = new ArrayList(list);
-        }
-        this.credits = Collections.unmodifiableList(arrayList);
-        this.fetchedAtMillis = Math.max(0L, j);
+    public ResetCreditsSnapshot(int availableCount, List<RateLimitResetCredit> credits, long fetchedAtMillis) {
+        this.availableCount = Math.max(0, availableCount);
+        this.credits = Collections.unmodifiableList(
+                credits == null ? new ArrayList<RateLimitResetCredit>() : new ArrayList<>(credits));
+        this.fetchedAtMillis = Math.max(0L, fetchedAtMillis);
     }
 
-    public static ResetCreditsSnapshot summary(int i, long j) {
-        return new ResetCreditsSnapshot(i, Collections.emptyList(), j);
+    public static ResetCreditsSnapshot summary(int availableCount, long fetchedAtMillis) {
+        return new ResetCreditsSnapshot(availableCount, Collections.<RateLimitResetCredit>emptyList(), fetchedAtMillis);
     }
 
     /**
@@ -67,47 +62,42 @@ public final class ResetCreditsSnapshot {
         return Collections.unmodifiableList(available);
     }
 
-    public String preferredCreditId(long j) {
-        RateLimitResetCredit rateLimitResetCreditNextExpiringAvailable = nextExpiringAvailable(j);
-        return rateLimitResetCreditNextExpiringAvailable == null ? "" : rateLimitResetCreditNextExpiringAvailable.id;
+    public String preferredCreditId(long nowMillis) {
+        RateLimitResetCredit next = nextExpiringAvailable(nowMillis);
+        return next == null ? "" : next.id;
     }
 
-    public long nextExpiryMillis(long j) {
-        RateLimitResetCredit rateLimitResetCreditNextExpiringAvailable = nextExpiringAvailable(j);
-        if (rateLimitResetCreditNextExpiringAvailable == null) {
-            return 0L;
-        }
-        return rateLimitResetCreditNextExpiringAvailable.expiresAtMillis;
+    public long nextExpiryMillis(long nowMillis) {
+        RateLimitResetCredit next = nextExpiringAvailable(nowMillis);
+        return next == null ? 0L : next.expiresAtMillis;
     }
 
     public JSONObject toJson() throws JSONException {
-        JSONObject jSONObject = new JSONObject();
-        jSONObject.put("available_count", this.availableCount);
-        jSONObject.put("fetched_at", this.fetchedAtMillis);
-        JSONArray jSONArray = new JSONArray();
-        for (RateLimitResetCredit rateLimitResetCredit : this.credits) {
-            if (rateLimitResetCredit != null) {
-                jSONArray.put(rateLimitResetCredit.toJson());
+        JSONObject json = new JSONObject();
+        json.put("available_count", this.availableCount);
+        json.put("fetched_at", this.fetchedAtMillis);
+        JSONArray list = new JSONArray();
+        for (RateLimitResetCredit credit : this.credits) {
+            if (credit != null) {
+                list.put(credit.toJson());
             }
         }
-        jSONObject.put("credits", jSONArray);
-        return jSONObject;
+        json.put("credits", list);
+        return json;
     }
 
-    public static ResetCreditsSnapshot fromJson(JSONObject jSONObject) {
-        if (jSONObject == null) {
+    public static ResetCreditsSnapshot fromJson(JSONObject json) {
+        if (json == null) {
             return null;
         }
-        ArrayList arrayList = new ArrayList();
-        JSONArray jSONArrayOptJSONArray = jSONObject.optJSONArray("credits");
-        if (jSONArrayOptJSONArray != null) {
-            for (int i = 0; i < jSONArrayOptJSONArray.length(); i++) {
-                RateLimitResetCredit rateLimitResetCreditFromJson = RateLimitResetCredit.fromJson(jSONArrayOptJSONArray.optJSONObject(i));
-                if (rateLimitResetCreditFromJson != null) {
-                    arrayList.add(rateLimitResetCreditFromJson);
-                }
+        List<RateLimitResetCredit> credits = new ArrayList<>();
+        JSONArray list = json.optJSONArray("credits");
+        for (int i = 0; list != null && i < list.length(); i++) {
+            RateLimitResetCredit credit = RateLimitResetCredit.fromJson(list.optJSONObject(i));
+            if (credit != null) {
+                credits.add(credit);
             }
         }
-        return new ResetCreditsSnapshot(jSONObject.optInt("available_count", 0), arrayList, jSONObject.optLong("fetched_at", 0L));
+        return new ResetCreditsSnapshot(json.optInt("available_count", 0), credits, json.optLong("fetched_at", 0L));
     }
 }

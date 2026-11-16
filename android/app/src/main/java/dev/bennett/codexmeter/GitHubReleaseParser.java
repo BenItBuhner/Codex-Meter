@@ -35,7 +35,7 @@ public final class GitHubReleaseParser {
             if (release == null || release.optBoolean("draft", false)) {
                 continue;
             }
-            String tag = clean(release.optString("tag_name", ""), 100);
+            String tag = Text.clip(release.optString("tag_name", ""), 100);
             ReleaseVersion version = ReleaseVersion.parse(tag);
             if (version == null || versions.contains(version.normalized())) {
                 continue;
@@ -73,16 +73,16 @@ public final class GitHubReleaseParser {
             if (apkSize <= 0L) {
                 continue;
             }
-            String releaseName = clean(release.optString("name", ""), 160);
+            String releaseName = Text.clip(release.optString("name", ""), 160);
             if (releaseName.isEmpty()) {
                 releaseName = "Codex Meter " + version.normalized();
             }
-            String notes = clean(release.optString("body", ""), MAX_NOTES);
+            String notes = Text.clip(release.optString("body", ""), MAX_NOTES);
             boolean prerelease = release.optBoolean("prerelease", false)
                     || version.isPrerelease();
             versions.add(version.normalized());
             parsed.add(new GitHubRelease(version.normalized(), tag, releaseName, notes,
-                    clean(release.optString("published_at", ""), 80), pageUrl, expectedApk,
+                    Text.clip(release.optString("published_at", ""), 80), pageUrl, expectedApk,
                     apkUrl, apkSize, checksumUrl, prerelease));
         }
         parsed.sort(new Comparator<GitHubRelease>() {
@@ -112,7 +112,7 @@ public final class GitHubReleaseParser {
             if (release == null || release.optBoolean("draft", false)) {
                 continue;
             }
-            String tag = clean(release.optString("tag_name", ""), 100);
+            String tag = Text.clip(release.optString("tag_name", ""), 100);
             ReleaseVersion version = ReleaseVersion.parse(tag);
             if (version == null) {
                 continue;
@@ -131,19 +131,19 @@ public final class GitHubReleaseParser {
                         keptAssets.put(new JSONObject()
                                 .put("name", name)
                                 .put("browser_download_url",
-                                        clean(asset.optString("browser_download_url", ""), 500))
+                                        Text.clip(asset.optString("browser_download_url", ""), 500))
                                 .put("size", asset.optLong("size", -1L)));
                     }
                 }
             }
             compact.put(new JSONObject()
                     .put("tag_name", tag)
-                    .put("name", clean(release.optString("name", ""), 160))
-                    .put("body", clean(release.optString("body", ""), MAX_NOTES))
+                    .put("name", Text.clip(release.optString("name", ""), 160))
+                    .put("body", Text.clip(release.optString("body", ""), MAX_NOTES))
                     .put("draft", false)
                     .put("prerelease", release.optBoolean("prerelease", false))
-                    .put("published_at", clean(release.optString("published_at", ""), 80))
-                    .put("html_url", clean(release.optString("html_url", ""), 500))
+                    .put("published_at", Text.clip(release.optString("published_at", ""), 80))
+                    .put("html_url", Text.clip(release.optString("html_url", ""), 500))
                     .put("assets", keptAssets));
         }
         return compact.toString();
@@ -214,15 +214,24 @@ public final class GitHubReleaseParser {
         return isTrustedReleaseUrl(value, false);
     }
 
+    /**
+     * Release pages, APKs and checksums must live under this repository's releases on github.com,
+     * the same rule the desktop updater applies. Debug builds may also read the emulator's local
+     * test feed.
+     */
     private static boolean isTrustedReleaseUrl(String value, boolean allowLocalDebugServer) {
         try {
             URI uri = URI.create(value);
             String host = uri.getHost();
-            boolean github = "https".equalsIgnoreCase(uri.getScheme())
-                    && host != null
-                    && ("github.com".equalsIgnoreCase(host)
-                    || host.toLowerCase(java.util.Locale.US).endsWith(".github.com"));
-            return github || (allowLocalDebugServer
+            String path = uri.getPath();
+            boolean release = "https".equalsIgnoreCase(uri.getScheme())
+                    && "github.com".equalsIgnoreCase(host)
+                    && uri.getPort() == -1
+                    && uri.getRawUserInfo() == null
+                    && path != null
+                    && !path.contains("/../")
+                    && path.regionMatches(true, 0, RELEASES_PATH, 0, RELEASES_PATH.length());
+            return release || (allowLocalDebugServer
                     && "http".equalsIgnoreCase(uri.getScheme())
                     && "10.0.2.2".equals(host)
                     && uri.getPort() == 8765);
@@ -231,8 +240,6 @@ public final class GitHubReleaseParser {
         }
     }
 
-    private static String clean(String value, int maxLength) {
-        String cleaned = value == null ? "" : value.trim();
-        return cleaned.length() <= maxLength ? cleaned : cleaned.substring(0, maxLength);
-    }
+    private static final String RELEASES_PATH =
+            URI.create(GitHubReleaseSource.REPOSITORY_URL).getPath() + "/releases/";
 }

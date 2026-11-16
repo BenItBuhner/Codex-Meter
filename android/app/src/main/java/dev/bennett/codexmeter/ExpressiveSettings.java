@@ -89,6 +89,8 @@ final class ExpressiveSettings {
         };
     }
 
+  // Android 15 draws apps edge to edge and ignores bar colors; the minSdk 26-34 devices still need them.
+  @SuppressWarnings("deprecation")
     ExpressiveSettings(AppCompatActivity activity, String title, Model model) {
         this.activity = activity;
         this.model = model;
@@ -155,6 +157,33 @@ final class ExpressiveSettings {
             scroll.setPadding(0, 0, 0, bars.bottom);
             return WindowInsetsCompat.CONSUMED;
         });
+        // Rows read settings and the live monitor's state, and an action may change either later (a
+        // dialog, a permission prompt, a service starting), so redraw when they change, not on a timer.
+        frame.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                AppPreferences.addChangeListener(view.getContext(), stateChanged);
+                NowBarManager.addStateListener(view.getContext(), stateChanged);
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                AppPreferences.removeChangeListener(view.getContext(), stateChanged);
+                NowBarManager.removeStateListener(view.getContext(), stateChanged);
+                view.removeCallbacks(renderOnce);
+            }
+        });
+    }
+
+    private final Runnable renderOnce = this::render;
+
+    /** Held in a field: SharedPreferences keeps listeners weakly. One redraw covers a burst of edits. */
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener stateChanged =
+            (prefs, key) -> scheduleRender();
+
+    private void scheduleRender() {
+        this.root.removeCallbacks(this.renderOnce);
+        this.root.post(this.renderOnce);
     }
 
     /** Draws the page from its model; call again after anything changes. */
@@ -394,7 +423,7 @@ final class ExpressiveSettings {
             case ACTION:
                 card.setOnClickListener(v -> {
                     press(r);
-                    this.root.postDelayed(this::render, 300);
+                    this.root.post(this::render);
                 });
                 break;
             case RADIO: {
@@ -421,7 +450,7 @@ final class ExpressiveSettings {
                 b.setEnabled(r.enabled);
                 b.setOnClickListener(v -> {
                     press(r);
-                    this.root.postDelayed(this::render, 300);
+                    this.root.post(this::render);
                 });
                 texts.addView(b, new LinearLayout.LayoutParams(-1, dp(56)));
                 break;

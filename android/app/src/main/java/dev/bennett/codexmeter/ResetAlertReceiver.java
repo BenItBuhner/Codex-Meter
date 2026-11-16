@@ -25,15 +25,15 @@ public final class ResetAlertReceiver extends BroadcastReceiver {
         }
     }
 
-    private static boolean stillRelevant(Context context, String str, long j) {
-        UsageSnapshot usageSnapshotLoadSnapshot;
-        if (j <= 0 || (usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(context)) == null) {
+    private static boolean stillRelevant(Context context, String metric, long resetAtMillis) {
+        UsageSnapshot snapshot;
+        if (resetAtMillis <= 0 || (snapshot = AppPreferences.loadSnapshot(context)) == null) {
             return true;
         }
-        UsageWindow usageWindow = "weekly".equals(str) ? usageSnapshotLoadSnapshot.weekly
-                : "monthly".equals(str) ? usageSnapshotLoadSnapshot.monthly
-                : usageSnapshotLoadSnapshot.fiveHour;
-        return usageWindow == null || usageWindow.resetAtMillis() <= 0 || Math.abs(usageWindow.resetAtMillis() - j) < 60000;
+        UsageWindow window = "weekly".equals(metric) ? snapshot.weekly
+                : "monthly".equals(metric) ? snapshot.monthly
+                : snapshot.fiveHour;
+        return window == null || window.resetAtMillis() <= 0 || Math.abs(window.resetAtMillis() - resetAtMillis) < 60000;
     }
 
 }

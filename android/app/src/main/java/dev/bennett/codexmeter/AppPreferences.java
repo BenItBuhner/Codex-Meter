@@ -3,6 +3,7 @@ package dev.bennett.codexmeter;
 import android.content.Context;
 import android.content.SharedPreferences;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 /* JADX INFO: loaded from: classes.dex */
@@ -64,6 +65,15 @@ public final class AppPreferences {
     private AppPreferences() {
     }
 
+    /** Calls {@code listener} on the main thread whenever a setting changes, until it is removed. */
+    public static void addChangeListener(Context context, SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs(context).registerOnSharedPreferenceChangeListener(listener);
+    }
+
+    public static void removeChangeListener(Context context, SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs(context).unregisterOnSharedPreferenceChangeListener(listener);
+    }
+
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, 0);
     }
@@ -107,11 +117,11 @@ public final class AppPreferences {
         PhoneWearSync.pushUsage(context, null);
     }
 
-    public static void setLastError(Context context, String str) {
-        if (str == null || str.trim().isEmpty()) {
+    public static void setLastError(Context context, String message) {
+        if (message == null || message.trim().isEmpty()) {
             clearLastError(context);
         } else {
-            prefs(context).edit().putString(KEY_ERROR, trim(str, "Refresh failed.")).putLong(KEY_ERROR_AT, System.currentTimeMillis()).apply();
+            prefs(context).edit().putString(KEY_ERROR, Text.clip(Text.orDefault(message, "Refresh failed."), 240)).putLong(KEY_ERROR_AT, System.currentTimeMillis()).apply();
         }
     }
 
@@ -174,11 +184,11 @@ public final class AppPreferences {
         if (lastError.isEmpty()) {
             return "";
         }
-        UsageSnapshot usageSnapshotLoadSnapshot = loadSnapshot(context);
-        if (usageSnapshotLoadSnapshot != null) {
-            long j = prefs(context).getLong(KEY_ERROR_AT, 0L);
-            if (j <= 0 || j > usageSnapshotLoadSnapshot.fetchedAtMillis) {
-                return Math.max(0L, System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis) < 900000 ? "" : lastError;
+        UsageSnapshot snapshot = loadSnapshot(context);
+        if (snapshot != null) {
+            long errorAt = prefs(context).getLong(KEY_ERROR_AT, 0L);
+            if (errorAt <= 0 || errorAt > snapshot.fetchedAtMillis) {
+                return Math.max(0L, System.currentTimeMillis() - snapshot.fetchedAtMillis) < 900000 ? "" : lastError;
             }
             clearLastError(context);
             return "";
@@ -199,32 +209,34 @@ public final class AppPreferences {
     }
 
     public static ResetCreditsSnapshot loadResetCredits(Context context) {
-        ResetCreditsSnapshot resetCreditsSnapshotFromJson = null;
+        ResetCreditsSnapshot savedCredits = null;
         String string = prefs(context).getString(KEY_RESET_CREDITS, null);
         if (string != null && !string.isEmpty()) {
             try {
-                resetCreditsSnapshotFromJson = ResetCreditsSnapshot.fromJson(new JSONObject(string));
-            } catch (Exception e) {
+                savedCredits = ResetCreditsSnapshot.fromJson(new JSONObject(string));
+            } catch (JSONException | RuntimeException error) {
+                // A corrupt cache falls back to the count in the usage snapshot below.
+                DiagnosticLog.error(context, "storage", "reset_credits_cache_unreadable", error);
             }
         }
-        UsageSnapshot usageSnapshotLoadSnapshot = loadSnapshot(context);
-        if (usageSnapshotLoadSnapshot != null && usageSnapshotLoadSnapshot.resetCreditsAvailable >= 0) {
-            if (resetCreditsSnapshotFromJson == null) {
-                return ResetCreditsSnapshot.summary(usageSnapshotLoadSnapshot.resetCreditsAvailable, usageSnapshotLoadSnapshot.fetchedAtMillis);
+        UsageSnapshot snapshot = loadSnapshot(context);
+        if (snapshot != null && snapshot.resetCreditsAvailable >= 0) {
+            if (savedCredits == null) {
+                return ResetCreditsSnapshot.summary(snapshot.resetCreditsAvailable, snapshot.fetchedAtMillis);
             }
-            if (usageSnapshotLoadSnapshot.fetchedAtMillis > resetCreditsSnapshotFromJson.fetchedAtMillis && usageSnapshotLoadSnapshot.resetCreditsAvailable != resetCreditsSnapshotFromJson.availableCount) {
-                return ResetCreditsSnapshot.summary(usageSnapshotLoadSnapshot.resetCreditsAvailable, usageSnapshotLoadSnapshot.fetchedAtMillis);
+            if (snapshot.fetchedAtMillis > savedCredits.fetchedAtMillis && snapshot.resetCreditsAvailable != savedCredits.availableCount) {
+                return ResetCreditsSnapshot.summary(snapshot.resetCreditsAvailable, snapshot.fetchedAtMillis);
             }
-            return resetCreditsSnapshotFromJson;
+            return savedCredits;
         }
-        return resetCreditsSnapshotFromJson;
+        return savedCredits;
     }
 
-    public static void setResetCreditsError(Context context, String str) {
-        if (str == null || str.trim().isEmpty()) {
+    public static void setResetCreditsError(Context context, String message) {
+        if (message == null || message.trim().isEmpty()) {
             clearResetCreditsError(context);
         } else {
-            prefs(context).edit().putString(KEY_RESET_ERROR, trim(str, "Reset-credit refresh failed.")).putLong(KEY_RESET_ERROR_AT, System.currentTimeMillis()).apply();
+            prefs(context).edit().putString(KEY_RESET_ERROR, Text.clip(Text.orDefault(message, "Reset-credit refresh failed."), 240)).putLong(KEY_RESET_ERROR_AT, System.currentTimeMillis()).apply();
         }
     }
 
@@ -241,11 +253,11 @@ public final class AppPreferences {
         if (resetCreditsError.isEmpty()) {
             return "";
         }
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = loadResetCredits(context);
-        if (resetCreditsSnapshotLoadResetCredits != null) {
-            long j = prefs(context).getLong(KEY_RESET_ERROR_AT, 0L);
-            if (j <= 0 || j > resetCreditsSnapshotLoadResetCredits.fetchedAtMillis) {
-                return Math.max(0L, System.currentTimeMillis() - resetCreditsSnapshotLoadResetCredits.fetchedAtMillis) < 1800000 ? "" : resetCreditsError;
+        ResetCreditsSnapshot storedCredits = loadResetCredits(context);
+        if (storedCredits != null) {
+            long errorAt = prefs(context).getLong(KEY_RESET_ERROR_AT, 0L);
+            if (errorAt <= 0 || errorAt > storedCredits.fetchedAtMillis) {
+                return Math.max(0L, System.currentTimeMillis() - storedCredits.fetchedAtMillis) < 1800000 ? "" : resetCreditsError;
             }
             clearResetCreditsError(context);
             return "";
@@ -253,11 +265,11 @@ public final class AppPreferences {
         return resetCreditsError;
     }
 
-    public static void setSchedulerError(Context context, String str) {
-        if (str == null || str.trim().isEmpty()) {
+    public static void setSchedulerError(Context context, String message) {
+        if (message == null || message.trim().isEmpty()) {
             prefs(context).edit().remove(KEY_SCHEDULER_ERROR).apply();
         } else {
-            prefs(context).edit().putString(KEY_SCHEDULER_ERROR, trim(str, "Background scheduling is unavailable.")).apply();
+            prefs(context).edit().putString(KEY_SCHEDULER_ERROR, Text.clip(Text.orDefault(message, "Background scheduling is unavailable."), 240)).apply();
         }
     }
 
@@ -266,19 +278,19 @@ public final class AppPreferences {
     }
 
     public static int getRefreshMinutes(Context context) {
-        int i = prefs(context).getInt(KEY_REFRESH_MINUTES, 30);
-        if (validRefresh(i)) {
-            return i;
+        int minutes = prefs(context).getInt(KEY_REFRESH_MINUTES, 30);
+        if (validRefresh(minutes)) {
+            return minutes;
         }
         return 30;
     }
 
-    public static void setRefreshMinutes(Context context, int i) {
-        SharedPreferences.Editor editorEdit = prefs(context).edit();
-        if (!validRefresh(i)) {
-            i = 30;
+    public static void setRefreshMinutes(Context context, int minutes) {
+        SharedPreferences.Editor editor = prefs(context).edit();
+        if (!validRefresh(minutes)) {
+            minutes = 30;
         }
-        editorEdit.putInt(KEY_REFRESH_MINUTES, i).apply();
+        editor.putInt(KEY_REFRESH_MINUTES, minutes).apply();
     }
 
     public static boolean getAutomaticRefresh(Context context) {
@@ -442,8 +454,8 @@ public final class AppPreferences {
         }
     }
 
-    private static boolean validRefresh(int i) {
-        return i == 5 || i == 10 || i == 15 || i == 30 || i == 60 || i == 120;
+    private static boolean validRefresh(int minutes) {
+        return minutes == 5 || minutes == 10 || minutes == 15 || minutes == 30 || minutes == 60 || minutes == 120;
     }
 
     public static String getAppTheme(Context context) {
@@ -451,11 +463,11 @@ public final class AppPreferences {
         return (WidgetOptions.THEME_DARK.equals(string) || WidgetOptions.THEME_LIGHT.equals(string)) ? string : WidgetOptions.THEME_SYSTEM;
     }
 
-    public static void setAppTheme(Context context, String str) {
-        if (!WidgetOptions.THEME_DARK.equals(str) && !WidgetOptions.THEME_LIGHT.equals(str)) {
-            str = WidgetOptions.THEME_SYSTEM;
+    public static void setAppTheme(Context context, String theme) {
+        if (!WidgetOptions.THEME_DARK.equals(theme) && !WidgetOptions.THEME_LIGHT.equals(theme)) {
+            theme = WidgetOptions.THEME_SYSTEM;
         }
-        prefs(context).edit().putString(KEY_APP_THEME, str).commit();
+        prefs(context).edit().putString(KEY_APP_THEME, theme).commit();
     }
 
     /** When enabled, accents follow Android Material You system colors (API 31+). */
@@ -606,32 +618,32 @@ public final class AppPreferences {
         return WidgetOptions.SURFACE_ONE_UI;
     }
 
-    public static void setAppStyle(Context context, String str) {
+    public static void setAppStyle(Context context, String style) {
         prefs(context).edit().putString(KEY_APP_STYLE, WidgetOptions.SURFACE_ONE_UI).apply();
     }
 
     public static WidgetOptions loadDefaultWidgetOptions(Context context) {
-        SharedPreferences sharedPreferencesPrefs = prefs(context);
+        SharedPreferences settings = prefs(context);
         return normalizeLoaded(new WidgetOptions(
-                sharedPreferencesPrefs.getString("default_style", WidgetOptions.STYLE_AUTO),
-                sharedPreferencesPrefs.getString("default_density", "auto"),
-                sharedPreferencesPrefs.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI),
-                sharedPreferencesPrefs.getString("default_graphic_scale", "auto"),
-                sharedPreferencesPrefs.getString("default_theme", WidgetOptions.THEME_SYSTEM),
-                sharedPreferencesPrefs.getString("default_accent", WidgetOptions.ACCENT_BLUE),
-                sharedPreferencesPrefs.getInt("default_opacity", 88),
-                sharedPreferencesPrefs.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE),
-                sharedPreferencesPrefs.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING),
-                sharedPreferencesPrefs.getString("default_metric_mode", WidgetOptions.METRIC_BOTH),
+                settings.getString("default_style", WidgetOptions.STYLE_AUTO),
+                settings.getString("default_density", "auto"),
+                settings.getString("default_surface_style", WidgetOptions.SURFACE_ONE_UI),
+                settings.getString("default_graphic_scale", "auto"),
+                settings.getString("default_theme", WidgetOptions.THEME_SYSTEM),
+                settings.getString("default_accent", WidgetOptions.ACCENT_BLUE),
+                settings.getInt("default_opacity", 88),
+                settings.getString("default_reset_mode", WidgetOptions.RESET_ABSOLUTE),
+                settings.getString("default_display_mode", WidgetOptions.DISPLAY_REMAINING),
+                settings.getString("default_metric_mode", WidgetOptions.METRIC_BOTH),
                 false,
-                sharedPreferencesPrefs.getBoolean("default_show_plan", false),
-                sharedPreferencesPrefs.getBoolean("default_show_updated", false),
-                sharedPreferencesPrefs.getBoolean("default_show_refresh", true),
-                sharedPreferencesPrefs.getBoolean("default_show_reset_credits", false),
-                sharedPreferencesPrefs.getBoolean("default_show_reset_action", false))
-                .withPercentSymbol(sharedPreferencesPrefs.getBoolean(
+                settings.getBoolean("default_show_plan", false),
+                settings.getBoolean("default_show_updated", false),
+                settings.getBoolean("default_show_refresh", true),
+                settings.getBoolean("default_show_reset_credits", false),
+                settings.getBoolean("default_show_reset_action", false))
+                .withPercentSymbol(settings.getBoolean(
                         "default_show_percent_symbol", true))
-                .withVisibleMeters(sharedPreferencesPrefs.getString("default_visible_meters", "")));
+                .withVisibleMeters(settings.getString("default_visible_meters", "")));
     }
 
     public static void saveDefaultWidgetOptions(Context context, WidgetOptions widgetOptions) {
@@ -658,48 +670,48 @@ public final class AppPreferences {
                 .apply();
     }
 
-    public static WidgetOptions loadWidgetOptions(Context context, int i) {
-        if (i == 0) {
+    public static WidgetOptions loadWidgetOptions(Context context, int widgetId) {
+        if (widgetId == 0) {
             return loadDefaultWidgetOptions(context);
         }
-        SharedPreferences sharedPreferencesPrefs = prefs(context);
+        SharedPreferences settings = prefs(context);
         WidgetOptions widgetOptionsLoadDefaultWidgetOptions = loadDefaultWidgetOptions(context);
-        String str = "widget_" + i + "_";
+        String prefix = "widget_" + widgetId + "_";
         return normalizeLoaded(new WidgetOptions(
-                sharedPreferencesPrefs.getString(str + "style",
+                settings.getString(prefix + "style",
                         widgetOptionsLoadDefaultWidgetOptions.layout),
-                sharedPreferencesPrefs.getString(str + "density",
+                settings.getString(prefix + "density",
                         widgetOptionsLoadDefaultWidgetOptions.density),
-                sharedPreferencesPrefs.getString(str + "surface_style",
+                settings.getString(prefix + "surface_style",
                         widgetOptionsLoadDefaultWidgetOptions.surfaceStyle),
-                sharedPreferencesPrefs.getString(str + "graphic_scale",
+                settings.getString(prefix + "graphic_scale",
                         widgetOptionsLoadDefaultWidgetOptions.graphicScale),
-                sharedPreferencesPrefs.getString(str + "theme",
+                settings.getString(prefix + "theme",
                         widgetOptionsLoadDefaultWidgetOptions.theme),
-                sharedPreferencesPrefs.getString(str + "accent",
+                settings.getString(prefix + "accent",
                         widgetOptionsLoadDefaultWidgetOptions.accent),
-                sharedPreferencesPrefs.getInt(str + "opacity",
+                settings.getInt(prefix + "opacity",
                         widgetOptionsLoadDefaultWidgetOptions.opacity),
-                sharedPreferencesPrefs.getString(str + "reset_mode",
+                settings.getString(prefix + "reset_mode",
                         widgetOptionsLoadDefaultWidgetOptions.resetMode),
-                sharedPreferencesPrefs.getString(str + "display_mode",
+                settings.getString(prefix + "display_mode",
                         widgetOptionsLoadDefaultWidgetOptions.displayMode),
-                sharedPreferencesPrefs.getString(str + "metric_mode",
+                settings.getString(prefix + "metric_mode",
                         widgetOptionsLoadDefaultWidgetOptions.metricMode),
                 false,
-                sharedPreferencesPrefs.getBoolean(str + "show_plan",
+                settings.getBoolean(prefix + "show_plan",
                         widgetOptionsLoadDefaultWidgetOptions.showPlan),
-                sharedPreferencesPrefs.getBoolean(str + "show_updated",
+                settings.getBoolean(prefix + "show_updated",
                         widgetOptionsLoadDefaultWidgetOptions.showUpdated),
-                sharedPreferencesPrefs.getBoolean(str + "show_refresh",
+                settings.getBoolean(prefix + "show_refresh",
                         widgetOptionsLoadDefaultWidgetOptions.showRefresh),
-                sharedPreferencesPrefs.getBoolean(str + "show_reset_credits",
+                settings.getBoolean(prefix + "show_reset_credits",
                         widgetOptionsLoadDefaultWidgetOptions.showResetCredits),
-                sharedPreferencesPrefs.getBoolean(str + "show_reset_action",
+                settings.getBoolean(prefix + "show_reset_action",
                         widgetOptionsLoadDefaultWidgetOptions.showResetAction))
-                .withPercentSymbol(sharedPreferencesPrefs.getBoolean(str + "show_percent_symbol",
+                .withPercentSymbol(settings.getBoolean(prefix + "show_percent_symbol",
                         widgetOptionsLoadDefaultWidgetOptions.showPercentSymbol))
-                .withVisibleMeters(sharedPreferencesPrefs.getString(str + "visible_meters",
+                .withVisibleMeters(settings.getString(prefix + "visible_meters",
                         widgetOptionsLoadDefaultWidgetOptions.visibleMeters)));
     }
 
@@ -732,29 +744,29 @@ public final class AppPreferences {
                 .withVisibleMeters(options.visibleMeters);
     }
 
-    public static void saveWidgetOptions(Context context, int i, WidgetOptions widgetOptions) {
-        String str = "widget_" + i + "_";
+    public static void saveWidgetOptions(Context context, int widgetId, WidgetOptions widgetOptions) {
+        String prefix = "widget_" + widgetId + "_";
         String metricMode = metricModeFromVisible(widgetOptions.effectiveVisibleMeters());
         prefs(context).edit()
-                .putString(str + "style", widgetOptions.layout)
-                .putString(str + "layout", widgetOptions.layout)
-                .putString(str + "density", widgetOptions.density)
-                .putString(str + "surface_style", widgetOptions.surfaceStyle)
-                .putString(str + "graphic_scale", widgetOptions.graphicScale)
-                .putString(str + "theme", widgetOptions.theme)
-                .putString(str + "accent", widgetOptions.accent)
-                .putInt(str + "opacity", widgetOptions.opacity)
-                .putString(str + "reset_mode", widgetOptions.resetMode)
-                .putString(str + "display_mode", widgetOptions.displayMode)
-                .putString(str + "metric_mode", metricMode)
-                .putString(str + "visible_meters", widgetOptions.visibleMeters)
-                .putBoolean(str + "show_title", widgetOptions.showTitle)
-                .putBoolean(str + "show_plan", widgetOptions.showPlan)
-                .putBoolean(str + "show_updated", widgetOptions.showUpdated)
-                .putBoolean(str + "show_refresh", widgetOptions.showRefresh)
-                .putBoolean(str + "show_reset_credits", widgetOptions.showResetCredits)
-                .putBoolean(str + "show_reset_action", widgetOptions.showResetAction)
-                .putBoolean(str + "show_percent_symbol", widgetOptions.showPercentSymbol)
+                .putString(prefix + "style", widgetOptions.layout)
+                .putString(prefix + "layout", widgetOptions.layout)
+                .putString(prefix + "density", widgetOptions.density)
+                .putString(prefix + "surface_style", widgetOptions.surfaceStyle)
+                .putString(prefix + "graphic_scale", widgetOptions.graphicScale)
+                .putString(prefix + "theme", widgetOptions.theme)
+                .putString(prefix + "accent", widgetOptions.accent)
+                .putInt(prefix + "opacity", widgetOptions.opacity)
+                .putString(prefix + "reset_mode", widgetOptions.resetMode)
+                .putString(prefix + "display_mode", widgetOptions.displayMode)
+                .putString(prefix + "metric_mode", metricMode)
+                .putString(prefix + "visible_meters", widgetOptions.visibleMeters)
+                .putBoolean(prefix + "show_title", widgetOptions.showTitle)
+                .putBoolean(prefix + "show_plan", widgetOptions.showPlan)
+                .putBoolean(prefix + "show_updated", widgetOptions.showUpdated)
+                .putBoolean(prefix + "show_refresh", widgetOptions.showRefresh)
+                .putBoolean(prefix + "show_reset_credits", widgetOptions.showResetCredits)
+                .putBoolean(prefix + "show_reset_action", widgetOptions.showResetAction)
+                .putBoolean(prefix + "show_percent_symbol", widgetOptions.showPercentSymbol)
                 .apply();
     }
 
@@ -771,78 +783,76 @@ public final class AppPreferences {
         return WidgetOptions.METRIC_BOTH;
     }
 
-    public static void deleteWidgetOptions(Context context, int i) {
-        String str = "widget_" + i + "_";
-        SharedPreferences.Editor editorEdit = prefs(context).edit();
-        for (String str2 : new String[]{"style", "layout", "density", "surface_style",
+    public static void deleteWidgetOptions(Context context, int widgetId) {
+        String prefix = "widget_" + widgetId + "_";
+        SharedPreferences.Editor editor = prefs(context).edit();
+        for (String key : new String[]{"style", "layout", "density", "surface_style",
                 "graphic_scale", "theme", "accent", "opacity", "reset_mode", "display_mode",
                 "metric_mode", "visible_meters", "show_title", "show_plan", "show_updated",
                 "show_refresh", "show_reset_credits", "show_reset_action", "show_percent_symbol",
                 "tap_action"}) {
-            editorEdit.remove(str + str2);
+            editor.remove(prefix + key);
         }
-        editorEdit.apply();
+        editor.apply();
     }
 
-    public static LockWidgetOptions loadLockWidgetOptions(Context context, int i) {
-        if (i == 0) {
+    public static LockWidgetOptions loadLockWidgetOptions(Context context, int widgetId) {
+        if (widgetId == 0) {
             return LockWidgetOptions.defaults();
         }
-        SharedPreferences sharedPreferencesPrefs = prefs(context);
-        String str = "lock_widget_" + i + "_";
+        SharedPreferences settings = prefs(context);
+        String prefix = "lock_widget_" + widgetId + "_";
         return new LockWidgetOptions(
-                sharedPreferencesPrefs.getString(str + "metric_mode", "both"),
-                sharedPreferencesPrefs.getBoolean(str + "show_reset_credits", false),
-                sharedPreferencesPrefs.getBoolean(str + "show_reset_action", false),
-                sharedPreferencesPrefs.getBoolean(str + "show_countdown", true),
-                sharedPreferencesPrefs.getString(str + "visible_meters", ""));
+                settings.getString(prefix + "metric_mode", "both"),
+                settings.getBoolean(prefix + "show_reset_credits", false),
+                settings.getBoolean(prefix + "show_reset_action", false),
+                settings.getBoolean(prefix + "show_countdown", true),
+                settings.getString(prefix + "visible_meters", ""));
     }
 
-    public static void saveLockWidgetOptions(Context context, int i, LockWidgetOptions lockWidgetOptions) {
-        if (i != 0 && lockWidgetOptions != null) {
-            String str = "lock_widget_" + i + "_";
+    public static void saveLockWidgetOptions(Context context, int widgetId, LockWidgetOptions lockWidgetOptions) {
+        if (widgetId != 0 && lockWidgetOptions != null) {
+            String prefix = "lock_widget_" + widgetId + "_";
             prefs(context).edit()
-                    .putString(str + "metric_mode", lockWidgetOptions.metricMode)
-                    .putBoolean(str + "show_reset_credits", lockWidgetOptions.showResetCredits)
-                    .putBoolean(str + "show_reset_action", lockWidgetOptions.showResetAction)
-                    .putBoolean(str + "show_countdown", lockWidgetOptions.showCountdown)
-                    .putString(str + "visible_meters", lockWidgetOptions.visibleMeters)
+                    .putString(prefix + "metric_mode", lockWidgetOptions.metricMode)
+                    .putBoolean(prefix + "show_reset_credits", lockWidgetOptions.showResetCredits)
+                    .putBoolean(prefix + "show_reset_action", lockWidgetOptions.showResetAction)
+                    .putBoolean(prefix + "show_countdown", lockWidgetOptions.showCountdown)
+                    .putString(prefix + "visible_meters", lockWidgetOptions.visibleMeters)
                     .apply();
         }
     }
 
-    public static void deleteLockWidgetOptions(Context context, int i) {
-        String str = "lock_widget_" + i + "_";
+    public static void deleteLockWidgetOptions(Context context, int widgetId) {
+        String prefix = "lock_widget_" + widgetId + "_";
         prefs(context).edit()
-                .remove(str + "metric_mode")
-                .remove(str + "show_reset_credits")
-                .remove(str + "show_reset_action")
-                .remove(str + "show_countdown")
-                .remove(str + "visible_meters")
+                .remove(prefix + "metric_mode")
+                .remove(prefix + "show_reset_credits")
+                .remove(prefix + "show_reset_action")
+                .remove(prefix + "show_countdown")
+                .remove(prefix + "visible_meters")
                 .apply();
     }
 
-    public static void setOAuthPending(Context context, boolean z, String str) {
-        SharedPreferences.Editor editorPutBoolean = prefs(context).edit().putBoolean(KEY_OAUTH_PENDING, z);
-        if (str == null) {
-            str = "";
-        }
-        SharedPreferences.Editor editorPutString = editorPutBoolean.putString(KEY_OAUTH_URL, str);
-        if (z) {
-            editorPutString.putLong(KEY_OAUTH_STARTED_AT, System.currentTimeMillis());
+    public static void setOAuthPending(Context context, boolean pending, String url) {
+        SharedPreferences.Editor editor = prefs(context).edit()
+                .putBoolean(KEY_OAUTH_PENDING, pending)
+                .putString(KEY_OAUTH_URL, url == null ? "" : url);
+        if (pending) {
+            editor.putLong(KEY_OAUTH_STARTED_AT, System.currentTimeMillis());
         } else {
-            editorPutString.remove(KEY_OAUTH_STARTED_AT);
+            editor.remove(KEY_OAUTH_STARTED_AT);
         }
-        editorPutString.apply();
+        editor.apply();
     }
 
     public static boolean isOAuthPending(Context context) {
-        SharedPreferences sharedPreferencesPrefs = prefs(context);
-        if (!sharedPreferencesPrefs.getBoolean(KEY_OAUTH_PENDING, false)) {
+        SharedPreferences settings = prefs(context);
+        if (!settings.getBoolean(KEY_OAUTH_PENDING, false)) {
             return false;
         }
-        long j = sharedPreferencesPrefs.getLong(KEY_OAUTH_STARTED_AT, 0L);
-        if (j <= 0 || System.currentTimeMillis() - j > OAUTH_STALE_AFTER_MS) {
+        long startedAt = settings.getLong(KEY_OAUTH_STARTED_AT, 0L);
+        if (startedAt <= 0 || System.currentTimeMillis() - startedAt > OAUTH_STALE_AFTER_MS) {
             setOAuthPending(context, false, "");
             return false;
         }
@@ -897,12 +907,5 @@ public final class AppPreferences {
                 .remove(KEY_ONBOARDING_STEP)
                 .remove(KEY_ONBOARDING_PROVIDERS)
                 .apply();
-    }
-
-    private static String trim(String str, String str2) {
-        if (str != null && !str.trim().isEmpty()) {
-            str2 = str.trim();
-        }
-        return str2.length() > 240 ? str2.substring(0, 240) : str2;
     }
 }
