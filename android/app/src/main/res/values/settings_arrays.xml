@@ -57,8 +57,8 @@
         <item>silent</item><item>notification</item><item>alarm</item>
     </string-array>
     <string-array name="settings_threshold_entries">
-        <item>Always</item><item>10% or lower</item><item>25% or lower</item>
-        <item>50% or lower</item><item>75% or lower</item>
+        <item>Always</item><item>10%</item><item>25%</item>
+        <item>50%</item><item>75%</item>
     </string-array>
     <string-array name="settings_threshold_values">
         <item>100</item><item>10</item><item>25</item><item>50</item><item>75</item>
@@ -76,14 +76,14 @@
         <item>relaxed</item>
     </string-array>
     <string-array name="settings_reset_auto_lead_entries">
-        <item>1 minute before it expires</item>
-        <item>15 minutes before it expires</item>
-        <item>30 minutes before it expires</item>
-        <item>1 hour before it expires</item>
-        <item>2 hours before it expires</item>
-        <item>6 hours before it expires</item>
-        <item>12 hours before it expires</item>
-        <item>24 hours before it expires</item>
+        <item>1 minute before</item>
+        <item>15 minutes before</item>
+        <item>30 minutes before</item>
+        <item>1 hour before</item>
+        <item>2 hours before</item>
+        <item>6 hours before</item>
+        <item>12 hours before</item>
+        <item>24 hours before</item>
     </string-array>
     <string-array name="settings_reset_auto_lead_values">
         <item>60000</item><item>900000</item><item>1800000</item><item>3600000</item>
@@ -95,10 +95,10 @@
     <string-array name="settings_reset_auto_threshold_values">
         <item>0</item><item>1</item><item>2</item><item>5</item><item>10</item>
     </string-array>
-    <string-array name="settings_reset_auto_metric_entries">
-        <item>5-hour or weekly limit</item><item>Weekly limit only</item><item>5-hour limit only</item>
+    <string-array name="haptics_entries">
+        <item>Off</item><item>Light</item><item>Strong</item>
     </string-array>
-    <string-array name="settings_reset_auto_metric_values">
-        <item>both</item><item>weekly</item><item>five_hour</item>
+    <string-array name="haptics_values">
+        <item>off</item><item>light</item><item>strong</item>
     </string-array>
 </resources>

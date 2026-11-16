@@ -110,7 +110,7 @@ public final class SettingsTransferStore {
         }
         if (applyNowBar) {
             if (!document.hasNowBar()) {
-                throw new IllegalArgumentException("This file has no Now Bar settings to import.");
+                throw new IllegalArgumentException("This file has no live notification settings to import.");
             }
             applyNowBar(app, document.nowBar);
             applied.add(SettingsTransfer.SECTION_NOW_BAR);
@@ -171,6 +171,7 @@ public final class SettingsTransferStore {
         JSONObject json = new JSONObject();
         json.put("app_theme", AppPreferences.getAppTheme(context));
         json.put("material_you", AppPreferences.isMaterialYouEnabled(context));
+        json.put("haptics", AppPreferences.getHaptics(context));
         json.put("automatic_refresh", AppPreferences.getAutomaticRefresh(context));
         json.put("refresh_minutes", AppPreferences.getRefreshMinutes(context));
         json.put("refresh_on_launch", AppPreferences.getRefreshOnLaunch(context));
@@ -215,8 +216,6 @@ public final class SettingsTransferStore {
                 ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context));
         json.put("reset_credit_low_usage_threshold",
                 ResetAlertPreferences.resetCreditLowUsageThreshold(context));
-        json.put("reset_credit_low_usage_metric",
-                ResetAlertPreferences.resetCreditLowUsageMetric(context));
         json.put("claude_saved_reset_expiry",
                 ResetAlertPreferences.claudeSavedResetExpiryEnabled(context));
         json.put("claude_saved_reset_expiry_lead_ms",
@@ -225,8 +224,6 @@ public final class SettingsTransferStore {
                 ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context));
         json.put("claude_saved_reset_threshold",
                 ResetAlertPreferences.claudeSavedResetThreshold(context));
-        json.put("claude_saved_reset_metric",
-                ResetAlertPreferences.claudeSavedResetMetric(context));
         json.put("reset_credit_expiry_lead_times", SettingsTransfer.leadTimesToJson(
                 ResetAlertPreferences.getResetCreditExpiryLeadTimes(context)));
         return json;
@@ -251,6 +248,8 @@ public final class SettingsTransferStore {
         AppPreferences.setAppTheme(context, theme);
         AppPreferences.setMaterialYouEnabled(context,
                 json.optBoolean("material_you", previousMaterialYou));
+        AppPreferences.setHaptics(context, json.optString("haptics",
+                AppPreferences.getHaptics(context)));
         AppPreferences.setAutomaticRefresh(context, json.optBoolean("automatic_refresh",
                 AppPreferences.getAutomaticRefresh(context)));
         AppPreferences.setRefreshMinutes(context, json.optInt("refresh_minutes",
@@ -336,9 +335,6 @@ public final class SettingsTransferStore {
         ResetAlertPreferences.setResetCreditLowUsageThreshold(context,
                 json.optInt("reset_credit_low_usage_threshold",
                         ResetAlertPreferences.resetCreditLowUsageThreshold(context)));
-        ResetAlertPreferences.setResetCreditLowUsageMetric(context,
-                json.optString("reset_credit_low_usage_metric",
-                        ResetAlertPreferences.resetCreditLowUsageMetric(context)));
         ResetAlertPreferences.setClaudeSavedResetExpiryEnabled(context,
                 json.optBoolean("claude_saved_reset_expiry",
                         ResetAlertPreferences.claudeSavedResetExpiryEnabled(context)));
@@ -351,9 +347,6 @@ public final class SettingsTransferStore {
         ResetAlertPreferences.setClaudeSavedResetThreshold(context,
                 json.optInt("claude_saved_reset_threshold",
                         ResetAlertPreferences.claudeSavedResetThreshold(context)));
-        ResetAlertPreferences.setClaudeSavedResetMetric(context,
-                json.optString("claude_saved_reset_metric",
-                        ResetAlertPreferences.claudeSavedResetMetric(context)));
         if (leadTimes != null) {
             ResetAlertPreferences.setResetCreditExpiryLeadTimes(context, leadTimes);
         }

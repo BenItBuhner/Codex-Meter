@@ -216,10 +216,11 @@ public final class WidgetRenderer {
             renderBars(context, remoteViews, widgetOptions, dark, state, bundle, slots);
         }
         applySlotVisibility(remoteViews, style, slots);
-        if (provider == UsageProvider.CODEX && !multi) {
-            applyResetCreditRow(context, remoteViews, widgetId, widgetOptions, dark, style);
+        if (ResetAlertPreferences.hasResets(provider) && !multi) {
+            applyResetCreditRow(context, remoteViews, widgetId, widgetOptions, dark, style,
+                    provider);
         } else {
-            // Reset credits are a Codex feature.
+            // Only Codex and Claude Code bank resets; a widget of several providers has no room.
             remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
         }
         return remoteViews;
@@ -686,8 +687,10 @@ public final class WidgetRenderer {
         int capacity = WidgetMeters.slotCapacity(visualStyle, height);
         List<String> available = new ArrayList<>(WidgetMeters.availableKeys(snapshot));
         boolean noShortWindow = false;
-        if (provider != UsageProvider.CODEX) {
+        if (!ResetAlertPreferences.hasResets(provider)) {
             available.remove(WidgetMeters.RESET_CREDITS);
+        }
+        if (provider != UsageProvider.CODEX) {
             // Plans without a 5-hour limit (Claude Ultra, Cursor) show the long window instead
             // of an empty 5-hour meter.
             noShortWindow = snapshot != null && snapshot.fiveHour == null
@@ -702,8 +705,8 @@ public final class WidgetRenderer {
             resolvedVisible.add(0, WidgetMeters.WEEKLY);
         }
         List<String> visible = WidgetMeters.cap(resolvedVisible, capacity);
-        ResetCreditsSnapshot credits = provider == UsageProvider.CODEX
-                ? AppPreferences.loadResetCredits(context) : null;
+        ResetCreditsSnapshot credits = ProviderPreferences.loadResetCredits(context, provider,
+                System.currentTimeMillis());
         int resetCount = credits == null ? 0 : credits.availableCount;
         ArrayList<MeterSlot> slots = new ArrayList<>();
         for (String key : visible) {
@@ -829,7 +832,9 @@ public final class WidgetRenderer {
         }
     }
 
-    private static void applyResetCreditRow(Context context, RemoteViews remoteViews, int widgetId, WidgetOptions widgetOptions, boolean dark, String style) {
+    private static void applyResetCreditRow(Context context, RemoteViews remoteViews,
+            int widgetId, WidgetOptions widgetOptions, boolean dark, String style,
+            UsageProvider provider) {
         String summary;
         boolean hidden = STYLE_MICRO.equals(style) || STYLE_BATTERY_LIST.equals(style);
         boolean wanted = widgetOptions.showResetCredits || widgetOptions.showResetAction;
@@ -837,12 +842,14 @@ public final class WidgetRenderer {
             remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
             return;
         }
-        ResetCreditsSnapshot resetCredits = AppPreferences.loadResetCredits(context);
-        int credits = resetCredits == null ? 0 : resetCredits.availableCount;
         long now = System.currentTimeMillis();
+        ResetCreditsSnapshot resetCredits = ProviderPreferences.loadResetCredits(context,
+                provider, now);
+        int credits = resetCredits == null ? 0 : resetCredits.availableCount;
         long nextExpiry = resetCredits == null ? 0L : resetCredits.nextExpiryMillis(now);
         boolean showInfo = widgetOptions.showResetCredits;
-        boolean showButton = widgetOptions.showResetAction && credits > 0 && SecureTokenStore.isSignedIn(context);
+        boolean showButton = widgetOptions.showResetAction && credits > 0
+                && SecureTokenStore.isSignedIn(context, provider);
         if (!showInfo && !showButton) {
             remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
             return;
@@ -862,7 +869,17 @@ public final class WidgetRenderer {
         remoteViews.setTextViewText(R.id.reset_credit_button, credits > 1 ? "Use reset (" + credits + ")" : "Use reset");
         remoteViews.setTextColor(R.id.reset_credit_button, WidgetGraphics.mainTextColor(dark));
         remoteViews.setInt(R.id.reset_credit_button, "setBackgroundResource", dark ? R.drawable.widget_action_dark : R.drawable.widget_action_light);
-        remoteViews.setContentDescription(R.id.reset_credit_button, "Use one Codex reset credit. " + summary);
+        remoteViews.setContentDescription(R.id.reset_credit_button,
+                "Use one " + provider.displayName + " reset. " + summary);
+        // The reset screen for this widget's provider (applyIntents set Codex's).
+        remoteViews.setOnClickPendingIntent(R.id.reset_credit_button,
+                PendingIntent.getActivity(context, 76000 + widgetId,
+                        ResetCreditActivity.intent(context, provider)
+                                .setAction("dev.bennett.codexmeter.action.WIDGET_RESET")
+                                .setData(widgetUri(widgetId, "reset-" + provider.id))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                        | Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 
     private static int progressResource(String accent, boolean dark) {

@@ -1,27 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The same top level on every platform: providers and their usage, alerts and live usage,
+     then the app. Summaries for every row here are filled in by SettingsActivity. -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory android:title="Accounts">
-        <!-- Summaries for every row here are filled in by SettingsActivity. -->
+    <PreferenceCategory android:title="Usage">
         <Preference
             android:key="settings_accounts"
             android:title="Accounts"
             app:iconSpaceReserved="false" />
         <Preference
             android:key="settings_providers"
-            android:title="Dashboard tabs"
+            android:title="Providers"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_refresh_usage"
+            android:title="Dashboard"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_reset_credits"
+            android:title="Reset credits"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Live usage">
-        <Preference
-            android:key="settings_now_bar"
-            android:title="Now Bar"
-            app:iconSpaceReserved="false" />
+    <PreferenceCategory android:title="Alerts &amp; live usage">
         <Preference
             android:key="settings_notifications"
             android:title="Notifications"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="settings_now_bar"
+            android:title="Live notification"
             app:iconSpaceReserved="false" />
         <Preference
             android:key="settings_lock_widgets"
@@ -29,35 +38,19 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Usage">
-        <Preference
-            android:key="settings_refresh_usage"
-            android:title="Refresh &amp; dashboard"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="settings_reset_credits"
-            android:title="Reset credits"
-            app:iconSpaceReserved="false" />
+    <PreferenceCategory android:title="App">
         <Preference
             android:key="settings_appearance"
             android:title="Appearance"
             app:iconSpaceReserved="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="App &amp; data">
         <Preference
             android:key="settings_updates"
             android:title="Updates"
             app:iconSpaceReserved="false" />
         <Preference
-            android:key="settings_transfer"
-            android:summary="Move settings between devices"
-            android:title="Backup &amp; transfer"
-            app:iconSpaceReserved="false" />
-        <Preference
             android:key="settings_privacy"
-            android:summary="Local storage, encryption, and network access"
-            android:title="Privacy"
+            android:summary="Backup, diagnostic logs and how your data is kept"
+            android:title="Privacy &amp; data"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

@@ -107,6 +107,7 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
                 AppPreferences.isGlassReduceTransparency(context),
                 AppPreferences.isGlassIncreaseContrast(context)));
         CodexGlass.setDuoMode(AppPreferences.getGlassDuoMode(context));
+        AppHaptics.apply(context);
     }
 
     private MainActivity main() {

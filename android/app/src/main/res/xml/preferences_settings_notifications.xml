@@ -17,7 +17,7 @@
 
     <PreferenceCategory
         android:key="notification_low_usage_category"
-        android:title="Low usage">
+        android:title="Low allowance">
         <ListPreference
             android:entries="@array/settings_metric_entries"
             android:entryValues="@array/settings_metric_values"

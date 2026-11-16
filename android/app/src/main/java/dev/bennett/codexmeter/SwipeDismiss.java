@@ -1,7 +1,6 @@
 package dev.bennett.codexmeter;
 
 import android.annotation.SuppressLint;
-import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
@@ -29,7 +28,7 @@ final class SwipeDismiss {
         Runnable dismiss = () -> slideAway(row, row.getTranslationX() < 0 ? -1 : 1, onDismiss);
         row.setLongClickable(true);
         row.setOnLongClickListener(v -> {
-            v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            AppHaptics.confirm(v);
             PopupMenu menu = new PopupMenu(v.getContext(), v, android.view.Gravity.END);
             menu.getMenu().add(0, 1, 0, "Dismiss");
             if (onDismissAll != null) {
@@ -104,8 +103,7 @@ final class SwipeDismiss {
                         boolean fling = Math.abs(vx) > minFling && Math.signum(vx) == Math.signum(dx);
                         if (e.getActionMasked() == MotionEvent.ACTION_UP
                                 && (Math.abs(dx) > v.getWidth() * DISMISS_SHARE || fling)) {
-                            v.performHapticFeedback(android.os.Build.VERSION.SDK_INT >= 30
-                                    ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY);
+                            AppHaptics.confirm(v);
                             slideAway(v, dx < 0 ? -1 : 1, onDismiss);
                         } else {
                             v.animate().translationX(0f).alpha(1f).setDuration(180).start();

@@ -128,7 +128,7 @@ public final class ResetCreditExpiryApplyReceiver extends BroadcastReceiver {
                     : snapshot.resetCreditsAvailable;
             SharedPreferences prefs = prefs(context);
             ResetCreditLowUsageAutoUse decision = ResetCreditLowUsageAutoUse.evaluate(snapshot,
-                    ResetAlertPreferences.resetCreditLowUsageMetric(context),
+                    ResetCreditLowUsageAutoUse.METRIC_BOTH,
                     ResetAlertPreferences.resetCreditLowUsageThreshold(context),
                     available, prefs.getString(KEY_LOW_USAGE_WINDOW, ""),
                     System.currentTimeMillis());

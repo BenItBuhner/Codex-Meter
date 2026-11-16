@@ -38,6 +38,7 @@ public final class ResetNotificationManager {
     private static final int NOTIFICATION_LOW_FIVE_HOUR = 74505;
     private static final int NOTIFICATION_LOW_WEEKLY = 74507;
     private static final int NOTIFICATION_LOW_MONTHLY = 74508;
+    private static final int NOTIFICATION_LOW_PROVIDER_BASE = 75700;
     private static final int NOTIFICATION_NEW_CREDIT = 74509;
     private static final int NOTIFICATION_CREDIT_EXPIRY_BASE = 74600;
     private static final int NOTIFICATION_CREDIT_AUTO_APPLY = 74516;
@@ -67,19 +68,56 @@ public final class ResetNotificationManager {
         if (!ResetAlertPreferences.enabled(context)) return;
         String metric = ResetAlertPreferences.getMetric(context);
         if (!ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
-            notifyLowWindow(context, snapshot.fiveHour, snapshot.fetchedAtMillis,
-                    "5-hour", KEY_FIVE_HOUR_WINDOW, NOTIFICATION_LOW_FIVE_HOUR);
+            notifyLowWindow(context, UsageProvider.CODEX, snapshot.fiveHour,
+                    snapshot.fetchedAtMillis, "5-hour", KEY_FIVE_HOUR_WINDOW,
+                    NOTIFICATION_LOW_FIVE_HOUR);
         }
         if (!ResetAlertPreferences.METRIC_FIVE_HOUR.equals(metric)) {
-            notifyLowWindow(context, snapshot.weekly, snapshot.fetchedAtMillis,
-                    "Weekly", KEY_WEEKLY_WINDOW, NOTIFICATION_LOW_WEEKLY);
+            notifyLowWindow(context, UsageProvider.CODEX, snapshot.weekly,
+                    snapshot.fetchedAtMillis, "Weekly", KEY_WEEKLY_WINDOW,
+                    NOTIFICATION_LOW_WEEKLY);
             // The monthly free-tier window rides on the same long-cadence metric as weekly.
-            notifyLowWindow(context, snapshot.monthly, snapshot.fetchedAtMillis,
-                    "Monthly", KEY_MONTHLY_WINDOW, NOTIFICATION_LOW_MONTHLY);
+            notifyLowWindow(context, UsageProvider.CODEX, snapshot.monthly,
+                    snapshot.fetchedAtMillis, "Monthly", KEY_MONTHLY_WINDOW,
+                    NOTIFICATION_LOW_MONTHLY);
         }
         if (ResetAlertPreferences.unexpectedRefillsEnabled(context)) {
             notifyUnexpectedRefill(context, unexpectedRefills);
         }
+    }
+
+    /**
+     * Low-allowance alerts for every provider other than Codex (whose usage arrives through
+     * {@link #onUsageUpdated}): the same level and limit choice, on the provider's own
+     * windows. "Weekly" covers whichever long window the plan has (weekly or monthly).
+     */
+    public static void onProviderUsageUpdated(Context context, UsageProvider provider,
+            UsageSnapshot snapshot) {
+        if (context == null || provider == null || provider == UsageProvider.CODEX
+                || snapshot == null || !ResetAlertPreferences.enabled(context)) {
+            return;
+        }
+        String metric = ResetAlertPreferences.getMetric(context);
+        if (!ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
+            notifyLowWindow(context, provider, snapshot.fiveHour, snapshot.fetchedAtMillis,
+                    "5-hour", providerWindowKey(provider, "five_hour"),
+                    providerNotificationId(provider, 0));
+        }
+        if (!ResetAlertPreferences.METRIC_FIVE_HOUR.equals(metric)) {
+            UsageWindow longWindow = snapshot.longWindow();
+            notifyLowWindow(context, provider, longWindow, snapshot.fetchedAtMillis,
+                    longWindow != null && longWindow == snapshot.monthly ? "Monthly" : "Weekly",
+                    providerWindowKey(provider, "long"), providerNotificationId(provider, 1));
+        }
+    }
+
+    private static String providerWindowKey(UsageProvider provider, String window) {
+        return "low_" + provider.id + "_" + window + "_window";
+    }
+
+    /** Two ids per provider, clear of Codex's and the reset-credit expiry range. */
+    private static int providerNotificationId(UsageProvider provider, int slot) {
+        return NOTIFICATION_LOW_PROVIDER_BASE + provider.ordinal() * 2 + slot;
     }
 
     public static void onResetCreditsUpdated(Context context, ResetCreditsSnapshot snapshot) {
@@ -397,6 +435,12 @@ public final class ResetNotificationManager {
                 .remove(KEY_MONTHLY_WINDOW)
                 .remove(KEY_CREDIT_COUNT)
                 .apply();
+        SharedPreferences.Editor providers = state(context).edit();
+        for (UsageProvider provider : UsageProvider.values()) {
+            providers.remove(providerWindowKey(provider, "five_hour"))
+                    .remove(providerWindowKey(provider, "long"));
+        }
+        providers.apply();
         clearResetCreditExpiryReminderHistory(context);
     }
 
@@ -436,8 +480,9 @@ public final class ResetNotificationManager {
                 ? fallbackToken : creditId).hashCode(), 1000);
     }
 
-    private static void notifyLowWindow(Context context, UsageWindow window, long fetchedAt,
-            String label, String stateKey, int notificationId) {
+    private static void notifyLowWindow(Context context, UsageProvider provider,
+            UsageWindow window, long fetchedAt, String label, String stateKey,
+            int notificationId) {
         if (window == null || window.remainingPercent() > ResetAlertPreferences.getThreshold(context)) return;
         long windowId = window.effectiveResetAtMillis(fetchedAt);
         if (windowId <= 0L) return;
@@ -451,7 +496,7 @@ public final class ResetNotificationManager {
             return;
         }
         int remaining = window.remainingPercent();
-        if (post(context, notificationId, label + " Codex usage is low",
+        if (post(context, notificationId, label + " " + provider.displayName + " usage is low",
                 remaining + "% remaining in the current "
                         + label.toLowerCase(Locale.ROOT) + " window.",
                 notificationId, true)) {
