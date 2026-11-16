@@ -9,8 +9,8 @@ struct ContentView: View {
 
         // Stock tab bar with each provider's mark. Only providers turned on in Settings get a
         // tab, and with just one on the bar is hidden. On iPad the same tabs become a sidebar
-        // (or the floating top tab bar, which the sidebar button toggles), so every provider
-        // stays one tap away instead of collapsing into a More tab.
+        // (or the floating top tab bar, which the sidebar button toggles). Tabs that don't fit
+        // the floating bar in portrait stay in the sidebar instead of collapsing into a More tab.
         // Priority comes first, as on Android, unless it is turned off in Settings.
         let showsPriority = model.settings.showPriority && model.hasPriorityContent
         let tabCount = model.enabledProviders.count + (showsPriority ? 1 : 0)

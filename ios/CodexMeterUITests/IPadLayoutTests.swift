@@ -100,17 +100,17 @@ final class IPadLayoutTests: XCTestCase {
         capture("10-portrait-codex")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Portrait iPad shows two columns")
 
-        UITestSupport.tap(app.buttons["Cursor"])
+        selectTab("Cursor", in: app)
         XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("11-portrait-cursor")
 
-        UITestSupport.tap(app.buttons["Copilot"])
+        selectTab("Copilot", in: app)
         XCTAssertTrue(app.navigationBars["Copilot"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("12-portrait-copilot")
 
-        UITestSupport.tap(app.buttons["Codex"])
+        selectTab("Codex", in: app)
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app)
         UITestSupport.settle(0.8)
@@ -162,6 +162,26 @@ final class IPadLayoutTests: XCTestCase {
     }
 
     /// Shows the sidebar from the tab bar's sidebar button, if this iPadOS version offers one.
+    /// Taps a tab in the portrait floating tab bar. When the bar is too narrow for every tab
+    /// (Priority plus four providers on the smaller iPads), the rest sit in the sidebar, so
+    /// open it, pick the row, and close it again.
+    private func selectTab(_ name: String, in app: XCUIApplication) {
+        let button = app.buttons[name].firstMatch
+        if button.waitForExistence(timeout: 2), button.isHittable {
+            button.tap()
+            return
+        }
+        guard openSidebar(in: app) else {
+            XCTFail("\(name) is neither in the tab bar nor reachable from the sidebar")
+            return
+        }
+        UITestSupport.tap(app.buttons[name])
+        UITestSupport.settle(0.6)
+        if app.buttons["sidebar-settings"].isHittable {
+            closeSidebar(in: app)
+        }
+    }
+
     private func openSidebar(in app: XCUIApplication) -> Bool {
         let button = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'sidebar'")).firstMatch
         guard button.waitForExistence(timeout: 3) else { return false }
