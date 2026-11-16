@@ -351,10 +351,8 @@ public final class UpdateInstaller {
             return false;
         }
         String normalized = host.toLowerCase(Locale.US);
-        return "github.com".equals(normalized)
-                || normalized.endsWith(".github.com")
-                || "githubusercontent.com".equals(normalized)
-                || normalized.endsWith(".githubusercontent.com");
+        // Where GitHub serves release files after redirects, the same hosts the desktop updater allows.
+        return "github.com".equals(normalized) || normalized.endsWith(".githubusercontent.com");
     }
 
     private static boolean trustedDownloadUrl(URL url) {

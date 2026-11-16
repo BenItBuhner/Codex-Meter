@@ -884,11 +884,11 @@ public enum ProviderUsageParsers {
 
     // MARK: Amp
 
-    nonisolated(unsafe) private static let ampFree = BuiltInPattern.compile(
+    private static let ampFree = BuiltInPattern.compile(
         pattern: #"\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*/\s*\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*remaining"#,
         options: [.caseInsensitive]
     )
-    nonisolated(unsafe) private static let ampCredits = BuiltInPattern.compile(
+    private static let ampCredits = BuiltInPattern.compile(
         pattern: #"\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:in\s+)?(?:individual\s+)?credits"#,
         options: [.caseInsensitive]
     )

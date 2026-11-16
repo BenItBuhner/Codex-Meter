@@ -15,9 +15,9 @@ public final class UsageLimit {
 
     public UsageLimit(String id, String name, String meteredFeature, boolean allowed,
             boolean limitReached, UsageWindow primary, UsageWindow secondary) {
-        this.id = clean(id);
-        this.name = clean(name);
-        this.meteredFeature = clean(meteredFeature);
+        this.id = Text.clean(id);
+        this.name = Text.clean(name);
+        this.meteredFeature = Text.clean(meteredFeature);
         this.allowed = allowed;
         this.limitReached = limitReached;
         this.primary = primary;
@@ -67,10 +67,6 @@ public final class UsageLimit {
                 object.optBoolean("limit_reached", false),
                 primary,
                 secondary);
-    }
-
-    private static String clean(String value) {
-        return value == null ? "" : value.trim();
     }
 
     private static String titleCase(String value) {

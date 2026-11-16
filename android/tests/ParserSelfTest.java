@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import java.net.URI;
 import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
@@ -61,6 +62,7 @@ public final class ParserSelfTest {
         testOAuthBrowserPage();
         testReleaseVersions();
         testGitHubReleases();
+        testText();
         testUpdateChannel();
         testReleaseChecksums();
         testReleaseNotesMarkdown();
@@ -2075,6 +2077,17 @@ public final class ParserSelfTest {
                 "invalid release tag rejected");
     }
 
+    private static void testText() {
+        check("".equals(Text.clean(null)) && "a b".equals(Text.clean("  a b \n")), "clean trims and nulls to empty");
+        check("fallback".equals(Text.orDefault("   ", "fallback")), "blank text uses the fallback");
+        check("abc".equals(Text.clip(" abcdef ", 3)) && "ab".equals(Text.clip("ab", 3)), "clip bounds length");
+        check("a".equals(Text.clip("a\uD83D\uDE00", 2)), "clip never splits an emoji");
+        check("abcd…".equals(Text.ellipsize("abcdefgh", 5)) && Text.ellipsize("abcdefgh", 5).length() == 5,
+                "ellipsize fits its marker inside the limit");
+        check("ab…".equals(Text.ellipsize("ab cdef", 4)), "ellipsize drops a dangling space");
+        System.out.println("Text helper: trims, falls back, clips and ellipsizes without splitting characters.");
+    }
+
     private static void testGitHubReleases() throws Exception {
         check("https://github.com/BenItBuhner/Codex-Meter".equals( // pragma: allowlist secret
                         GitHubReleaseSource.REPOSITORY_URL),
@@ -2103,6 +2116,19 @@ public final class ParserSelfTest {
                 "non-HTTPS release URL rejected");
         check(!GitHubReleaseParser.isGitHubHttps("https://github.com.evil.example/file.apk"),
                 "lookalike GitHub host rejected");
+        String releasesRoot = GitHubReleaseSource.REPOSITORY_URL + "/releases/";
+        check(GitHubReleaseParser.isGitHubHttps(releasesRoot + "download/v2.2.0/CodexMeter-2.2.0.apk"),
+                "this repository's release assets are trusted");
+        check(!GitHubReleaseParser.isGitHubHttps("https://github.com/someone/Codex-Meter/releases/download/v9/x.apk"),
+                "another repository's releases are rejected");
+        check(!GitHubReleaseParser.isGitHubHttps("https://gist.github.com/BenItBuhner/Codex-Meter/releases/x.apk"),
+                "GitHub subdomains are rejected");
+        check(!GitHubReleaseParser.isGitHubHttps(GitHubReleaseSource.REPOSITORY_URL + "/raw/main/x.apk"),
+                "files outside the releases are rejected");
+        check(!GitHubReleaseParser.isGitHubHttps(releasesRoot + "download/../../../evil/x.apk"),
+                "path traversal out of the releases is rejected");
+        check(!GitHubReleaseParser.isGitHubHttps("https://github.com:8443" + URI.create(releasesRoot).getPath() + "x.apk"),
+                "non-default ports are rejected");
         String localFixture = "[" + releaseJson(
                 "v2.2.0", false, false, true, true).replace(
                 GitHubReleaseSource.REPOSITORY_URL,

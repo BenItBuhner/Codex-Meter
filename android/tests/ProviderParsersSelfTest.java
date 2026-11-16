@@ -39,6 +39,7 @@ public final class ProviderParsersSelfTest {
         testBalances();
         testKeyQuota();
         testAppSessionRules();
+        testAppSessionTransitions();
         System.out.println("Provider catalog, tabs, device sign-in, and 21 usage parsers verified.");
     }
 
@@ -456,6 +457,38 @@ public final class ProviderParsersSelfTest {
     @SuppressWarnings("unused")
     private static List<UsageProvider> list(UsageProvider... providers) {
         return new ArrayList<>(Arrays.asList(providers));
+    }
+
+    private static void testAppSessionTransitions() {
+        AppSessionRules.Session session = new AppSessionRules.Session();
+        long grace = AppSessionRules.Session.LEAVE_GRACE_MILLIS;
+        check(session.startLeaving(0) == -1 && session.graceElapsed(10_000) == null,
+                "an idle session has nothing to leave");
+        session.enter("com.anthropic.claude");
+        check(session.phase() == AppSessionRules.Session.Phase.SHOWING, "entering shows the app");
+        long due = session.startLeaving(1_000);
+        check(due == 1_000 + grace && session.phase() == AppSessionRules.Session.Phase.LEAVING,
+                "leaving counts down the grace period");
+        check("com.anthropic.claude".equals(session.app()), "the app is still tracked while leaving");
+        check(session.startLeaving(1_300) == -1 && session.leaveAt() == due,
+                "a second leave keeps the first deadline");
+        check(session.graceElapsed(due - 1) == null, "an early check does nothing");
+        session.stay();
+        check(session.phase() == AppSessionRules.Session.Phase.SHOWING, "coming back calls the leave off");
+        check(session.graceElapsed(due) == null, "a stale check after a return does nothing");
+        due = session.startLeaving(5_000);
+        check("com.anthropic.claude".equals(session.graceElapsed(due))
+                        && session.phase() == AppSessionRules.Session.Phase.IDLE && session.app() == null,
+                "the grace period ending hides the app");
+        session.enter("com.openai.chatgpt");
+        session.startLeaving(6_000);
+        session.enter("com.anthropic.claude");
+        check(session.phase() == AppSessionRules.Session.Phase.SHOWING
+                        && "com.anthropic.claude".equals(session.app()),
+                "switching straight to another matched app cancels the leave");
+        check("com.anthropic.claude".equals(session.end()) && session.end() == null,
+                "ending is immediate and idempotent");
+        System.out.println("Live monitor sessions: enter, grace-period leave, return and switch transitions.");
     }
 
     private static void testAppSessionRules() {

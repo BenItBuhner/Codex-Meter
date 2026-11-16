@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter.wear;
 
+import dev.bennett.codexmeter.Text;
 import dev.bennett.codexmeter.UsageSnapshot;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -171,7 +172,7 @@ public final class WearProvidersState {
             this.displayName = name.isEmpty() ? this.id : name;
             this.signedIn = signedIn;
             this.snapshot = signedIn ? snapshot : null;
-            this.lastError = trim(lastError, MAX_ERROR_CHARS);
+            this.lastError = Text.ellipsize(lastError, MAX_ERROR_CHARS);
         }
 
         /** This entry with its usage cut to the first {@code limits} named limits, if it fits {@link #MAX_USAGE_BYTES}. */
@@ -198,12 +199,6 @@ public final class WearProvidersState {
                     json.optBoolean("signed_in", false),
                     UsageSnapshot.fromJson(json.optJSONObject("usage")),
                     json.optString("error", ""));
-        }
-
-        private static String trim(String value, int max) {
-            if (value == null) return "";
-            String clean = value.trim();
-            return clean.length() <= max ? clean : clean.substring(0, max - 1) + "…";
         }
     }
 }

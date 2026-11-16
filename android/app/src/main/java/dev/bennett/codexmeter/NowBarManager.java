@@ -19,8 +19,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.service.notification.StatusBarNotification;
 import android.text.format.DateFormat;
 import android.util.Log;
@@ -750,16 +748,17 @@ public final class NowBarManager {
                 "remaining_percent", remaining,
                 "focus", focus);
         try {
+            if (Build.VERSION.SDK_INT >= 36 && androidLiveUpdate) {
+                // The system decides on promotion after notify() returns, so log what it did with the
+                // previous post, which every refresh replaces.
+                Api36.logPostedPromotionState(manager, NOTIFICATION_ID);
+            }
             manager.notify(NOTIFICATION_ID, notification);
             state(context).edit()
                     .putString(KEY_POSTED_MODE, displayMode)
                     .putBoolean(KEY_POSTED_PROMOTION_ALLOWED,
                             canPostPromotedNotifications(context))
                     .apply();
-            if (Build.VERSION.SDK_INT >= 36 && androidLiveUpdate) {
-                new Handler(Looper.getMainLooper()).postDelayed(
-                        () -> Api36.logPostedPromotionState(manager, NOTIFICATION_ID), 1000L);
-            }
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "notification_post_failed", exception,
                     "display_mode", displayMode);
@@ -896,6 +895,15 @@ public final class NowBarManager {
 
     private static NotificationManager manager(Context context) {
         return (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+    }
+
+    /** Calls {@code listener} on the main thread whenever the live monitor starts, stops or is reposted. */
+    public static void addStateListener(Context context, SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        state(context).registerOnSharedPreferenceChangeListener(listener);
+    }
+
+    public static void removeStateListener(Context context, SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        state(context).unregisterOnSharedPreferenceChangeListener(listener);
     }
 
     private static SharedPreferences state(Context context) {

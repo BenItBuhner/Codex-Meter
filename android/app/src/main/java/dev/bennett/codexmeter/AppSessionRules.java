@@ -124,4 +124,73 @@ public final class AppSessionRules {
                 ? new Decision(Action.NONE, null)
                 : new Decision(Action.LEAVE, null);
     }
+
+    /**
+     * The session between window changes, with its grace period as state rather than a pending
+     * callback: IDLE, SHOWING an app, or LEAVING it at a set time unless it comes back first.
+     * Times are {@code SystemClock.uptimeMillis()} values the caller passes in.
+     */
+    public static final class Session {
+        public enum Phase { IDLE, SHOWING, LEAVING }
+
+        /** Leaving and returning within this window (share sheets, a quick app switch) keeps it up. */
+        public static final long LEAVE_GRACE_MILLIS = 600L;
+
+        private Phase phase = Phase.IDLE;
+        private String app;
+        private long leaveAt;
+
+        public Phase phase() {
+            return phase;
+        }
+
+        /** The matched app being tracked, still set while LEAVING; null when IDLE. */
+        public String app() {
+            return app;
+        }
+
+        /** When a LEAVING session ends; meaningless in other phases. */
+        public long leaveAt() {
+            return leaveAt;
+        }
+
+        /** A matched app came to the front. */
+        public void enter(String packageName) {
+            phase = Phase.SHOWING;
+            app = packageName;
+        }
+
+        /** The tracked app is still in front: a pending leave is called off. */
+        public void stay() {
+            if (phase == Phase.LEAVING) phase = Phase.SHOWING;
+        }
+
+        /**
+         * The tracked app went away. Returns the time to check back, or -1 when nothing needs
+         * scheduling (no app is tracked, or a leave is already counting down and keeps its time).
+         */
+        public long startLeaving(long now) {
+            if (phase != Phase.SHOWING) return -1;
+            phase = Phase.LEAVING;
+            leaveAt = now + LEAVE_GRACE_MILLIS;
+            return leaveAt;
+        }
+
+        /**
+         * A scheduled check came due. Returns the app that left, now IDLE, or null when the app
+         * came back or the check is early or stale.
+         */
+        public String graceElapsed(long now) {
+            if (phase != Phase.LEAVING || now < leaveAt) return null;
+            return end();
+        }
+
+        /** Ends the session at once (the feature was switched off, the service stopped). */
+        public String end() {
+            String left = app;
+            phase = Phase.IDLE;
+            app = null;
+            return left;
+        }
+    }
 }

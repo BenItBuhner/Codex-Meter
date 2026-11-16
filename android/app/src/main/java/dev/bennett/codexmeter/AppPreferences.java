@@ -64,6 +64,15 @@ public final class AppPreferences {
     private AppPreferences() {
     }
 
+    /** Calls {@code listener} on the main thread whenever a setting changes, until it is removed. */
+    public static void addChangeListener(Context context, SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs(context).registerOnSharedPreferenceChangeListener(listener);
+    }
+
+    public static void removeChangeListener(Context context, SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs(context).unregisterOnSharedPreferenceChangeListener(listener);
+    }
+
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, 0);
     }
@@ -111,7 +120,7 @@ public final class AppPreferences {
         if (str == null || str.trim().isEmpty()) {
             clearLastError(context);
         } else {
-            prefs(context).edit().putString(KEY_ERROR, trim(str, "Refresh failed.")).putLong(KEY_ERROR_AT, System.currentTimeMillis()).apply();
+            prefs(context).edit().putString(KEY_ERROR, Text.clip(Text.orDefault(str, "Refresh failed."), 240)).putLong(KEY_ERROR_AT, System.currentTimeMillis()).apply();
         }
     }
 
@@ -224,7 +233,7 @@ public final class AppPreferences {
         if (str == null || str.trim().isEmpty()) {
             clearResetCreditsError(context);
         } else {
-            prefs(context).edit().putString(KEY_RESET_ERROR, trim(str, "Reset-credit refresh failed.")).putLong(KEY_RESET_ERROR_AT, System.currentTimeMillis()).apply();
+            prefs(context).edit().putString(KEY_RESET_ERROR, Text.clip(Text.orDefault(str, "Reset-credit refresh failed."), 240)).putLong(KEY_RESET_ERROR_AT, System.currentTimeMillis()).apply();
         }
     }
 
@@ -257,7 +266,7 @@ public final class AppPreferences {
         if (str == null || str.trim().isEmpty()) {
             prefs(context).edit().remove(KEY_SCHEDULER_ERROR).apply();
         } else {
-            prefs(context).edit().putString(KEY_SCHEDULER_ERROR, trim(str, "Background scheduling is unavailable.")).apply();
+            prefs(context).edit().putString(KEY_SCHEDULER_ERROR, Text.clip(Text.orDefault(str, "Background scheduling is unavailable."), 240)).apply();
         }
     }
 
@@ -897,12 +906,5 @@ public final class AppPreferences {
                 .remove(KEY_ONBOARDING_STEP)
                 .remove(KEY_ONBOARDING_PROVIDERS)
                 .apply();
-    }
-
-    private static String trim(String str, String str2) {
-        if (str != null && !str.trim().isEmpty()) {
-            str2 = str.trim();
-        }
-        return str2.length() > 240 ? str2.substring(0, 240) : str2;
     }
 }

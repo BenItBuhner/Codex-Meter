@@ -295,6 +295,22 @@ public final class SettingsActivity extends AppCompatActivity {
             }
         }
 
+        /** The live monitor's summary follows its real state: the service posts, reposts and stops it later. */
+        private final android.content.SharedPreferences.OnSharedPreferenceChangeListener nowBarChanged =
+                (prefs, key) -> updateNowBarSummary();
+
+        @Override
+        public void onStart() {
+            super.onStart();
+            NowBarManager.addStateListener(requireContext(), nowBarChanged);
+        }
+
+        @Override
+        public void onStop() {
+            NowBarManager.removeStateListener(requireContext(), nowBarChanged);
+            super.onStop();
+        }
+
         @Override
         public void onResume() {
             super.onResume();
@@ -680,9 +696,10 @@ public final class SettingsActivity extends AppCompatActivity {
                 AppPreferences.setDesign(requireContext(), choice);
                 design.setValue(choice);
                 design.setSummary(designLabel(requireContext()));
-                // Restart the whole app so every page is built fresh with the new design.
+                // Restart the whole app so every page is built fresh with the new design. setDesign
+                // commits synchronously; posting lets the choice dialog finish closing first.
                 Activity activity = requireActivity();
-                getListView().postDelayed(() -> restartForDesign(activity), 250);
+                getListView().post(() -> restartForDesign(activity));
                 return false;
             });
         }
@@ -1765,10 +1782,6 @@ public final class SettingsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
-                View settingsView = getView();
-                if (started && settingsView != null) {
-                    settingsView.postDelayed(this::updateNowBarSummary, 1500L);
-                }
                 PhoneWearSync.pushSettings(requireContext());
                 return started;
             });

@@ -63,8 +63,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
     private LinearLayout content;
     private boolean dark;
     private boolean receiverRegistered;
-    private boolean serviceStarted;
-    private boolean busy;
+    private final SignInFlow flow = new SignInFlow();
     private String status = "";
     private boolean statusIsError;
     private String userCode = "";
@@ -95,7 +94,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             } else if (AppConstants.ACTION_OAUTH_RESULT.equals(action)) {
                 boolean success = intent.getBooleanExtra(AppConstants.EXTRA_SUCCESS, false)
                         || SecureTokenStore.isSignedIn(SignInActivity.this, provider);
-                serviceStarted = false;
+                flow.on(success ? SignInFlow.Event.SERVICE_SUCCEEDED : SignInFlow.Event.SERVICE_FAILED);
                 if (success) {
                     finishConnected();
                 } else {
@@ -139,7 +138,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
         }
         // Coming back to a sign-in that is still running shows its code again.
         if (ProviderPreferences.isSignInPending(this, provider)) {
-            serviceStarted = true;
+            flow.on(SignInFlow.Event.RESUME_PENDING);
             status = "Resuming sign-in…";
         }
         if (glass != null) {
@@ -210,11 +209,11 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
         } catch (RuntimeException exception) {
             receiverRegistered = false;
         }
-        if (SecureTokenStore.isSignedIn(this, provider) && !busy) {
+        if (SecureTokenStore.isSignedIn(this, provider) && !flow.connecting()) {
             finishConnected();
             return;
         }
-        if (serviceStarted) {
+        if (flow.waitingForService()) {
             // Ask the running sign-in to send its code or link again.
             startService(true);
         }
@@ -355,16 +354,16 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
 
     private void addBrowser() {
         addStatus();
-        Button signIn = primary(serviceStarted ? "Continue in browser"
+        Button signIn = primary(flow.waitingForService() ? "Continue in browser"
                 : provider.signInLabel());
         signIn.setOnClickListener(view -> {
-            if (serviceStarted && !lastOpenedUrl.isEmpty()) {
+            if (flow.waitingForService() && !lastOpenedUrl.isEmpty()) {
                 openUrl(lastOpenedUrl, false);
             } else {
                 startService(false);
             }
         });
-        if (serviceStarted) addCancel();
+        if (flow.waitingForService()) addCancel();
     }
 
     private void addDeviceCode() {
@@ -409,8 +408,8 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             return;
         }
         addStatus();
-        Button start = primary(serviceStarted ? "Getting a code…" : "Get a sign-in code");
-        start.setEnabled(!serviceStarted);
+        Button start = primary(flow.waitingForService() ? "Getting a code…" : "Get a sign-in code");
+        start.setEnabled(!flow.waitingForService());
         start.setOnClickListener(view -> startService(false));
     }
 
@@ -429,8 +428,8 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
         EditText field = inputField(client.pasteHint(), pasteDraft, false);
         field.addTextChangedListener(new SimpleWatcher(text -> pasteDraft = text));
         addStatus();
-        Button connect = primary(busy ? "Connecting…" : "Connect");
-        connect.setEnabled(!busy);
+        Button connect = primary(flow.connecting() ? "Connecting…" : "Connect");
+        connect.setEnabled(!flow.connecting());
         connect.setOnClickListener(view -> {
             if (pasteSession == null || pasteProvider != provider) {
                 showError("Open the " + provider.vendorName + " sign-in first (step 1).");
@@ -452,9 +451,9 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
                 true);
         field.addTextChangedListener(new SimpleWatcher(text -> keyDraft = text));
         if (primaryMethod) addStatus();
-        Button connect = primaryMethod ? primary(busy ? "Checking…" : "Connect")
-                : secondary(busy ? "Checking…" : "Connect with key");
-        connect.setEnabled(!busy);
+        Button connect = primaryMethod ? primary(flow.connecting() ? "Checking…" : "Connect")
+                : secondary(flow.connecting() ? "Checking…" : "Connect with key");
+        connect.setEnabled(!flow.connecting());
         connect.setOnClickListener(view -> runConnect(
                 () -> client.fromApiKey(getApplicationContext(), keyDraft)));
     }
@@ -597,15 +596,15 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
 
     private void glassBrowser(GlassModel.Page page) {
         GlassModel.Section section = glassActions(page, null);
-        section.rows.add(glassButton("signin", serviceStarted ? "Continue in browser" : provider.signInLabel(),
+        section.rows.add(glassButton("signin", flow.waitingForService() ? "Continue in browser" : provider.signInLabel(),
                 () -> {
-                    if (serviceStarted && !lastOpenedUrl.isEmpty()) {
+                    if (flow.waitingForService() && !lastOpenedUrl.isEmpty()) {
                         openUrl(lastOpenedUrl, false);
                     } else {
                         startService(false);
                     }
                 }));
-        if (serviceStarted) {
+        if (flow.waitingForService()) {
             section.rows.add(glassAction("cancel", "Cancel", this::cancelService));
         }
     }
@@ -631,8 +630,8 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             return;
         }
         GlassModel.Section section = glassActions(page, null);
-        section.rows.add(glassButton("start", serviceStarted ? "Getting a code…" : "Get a sign-in code", () -> {
-            if (!serviceStarted) {
+        section.rows.add(glassButton("start", flow.waitingForService() ? "Getting a code…" : "Get a sign-in code", () -> {
+            if (!flow.waitingForService()) {
                 startService(false);
             }
         }));
@@ -650,8 +649,8 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
         page.sections.add(one);
         GlassModel.Section two = glassActions(page, "Step 2");
         two.rows.add(glassField("paste", client.pasteHint(), pasteDraft, false, text -> pasteDraft = text));
-        two.rows.add(glassButton("connect", busy ? "Connecting…" : "Connect", () -> {
-            if (busy) {
+        two.rows.add(glassButton("connect", flow.connecting() ? "Connecting…" : "Connect", () -> {
+            if (flow.connecting()) {
                 return;
             }
             if (pasteSession == null || pasteProvider != provider) {
@@ -675,9 +674,9 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
         }
         section.rows.add(glassField("key", "Paste your " + provider.displayName + " key", keyDraft, true,
                 text -> keyDraft = text));
-        section.rows.add(glassButton("connect_key", busy ? "Checking…" : primaryMethod ? "Connect" : "Connect with key",
+        section.rows.add(glassButton("connect_key", flow.connecting() ? "Checking…" : primaryMethod ? "Connect" : "Connect with key",
                 () -> {
-                    if (!busy) {
+                    if (!flow.connecting()) {
                         runConnect(() -> client.fromApiKey(getApplicationContext(), keyDraft));
                     }
                 }));
@@ -714,7 +713,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             startForegroundService(new Intent(this, OAuthService.class)
                     .setAction(OAuthService.ACTION_START)
                     .putExtra(OAuthService.EXTRA_PROVIDER, provider.id));
-            serviceStarted = true;
+            flow.on(SignInFlow.Event.SERVICE_STARTED);
             if (!resume) {
                 status = entry.signIn == ProviderCatalog.SignIn.DEVICE_CODE
                         ? "" : "Opening " + provider.vendorName + " sign-in…";
@@ -722,7 +721,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             }
             DiagnosticLog.info(this, "user", "sign_in_requested", "provider", provider.id);
         } catch (RuntimeException exception) {
-            serviceStarted = false;
+            flow.on(SignInFlow.Event.SERVICE_FAILED_TO_START);
             showError("Could not start sign-in: " + exception.getClass().getSimpleName());
             return;
         }
@@ -737,7 +736,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             // The service may already have stopped.
         }
         AppPreferences.setOAuthPending(this, false, "");
-        serviceStarted = false;
+        flow.on(SignInFlow.Event.CANCELLED);
         userCode = "";
         verifyUrl = "";
         lastOpenedUrl = "";
@@ -751,8 +750,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
 
     /** Paste and key sign-ins: check, save, load the first usage, then close. */
     private void runConnect(Connect connect) {
-        if (busy) return;
-        busy = true;
+        if (!flow.on(SignInFlow.Event.CONNECT)) return;
         status = "";
         render();
         Context app = getApplicationContext();
@@ -776,7 +774,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             }
             final String message = failure;
             runOnUiThread(() -> {
-                busy = false;
+                flow.on(message == null ? SignInFlow.Event.CONNECT_SUCCEEDED : SignInFlow.Event.CONNECT_FAILED);
                 if (message == null) {
                     pasteSession = null;
                     finishConnected();

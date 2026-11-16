@@ -30,6 +30,7 @@ OUT="$ROOT/build/tests"
 rm -rf "$OUT" && mkdir -p "$OUT"
 
 javac -encoding UTF-8 -Xlint:all -Werror -cp "$JSON_JAR" -d "$OUT" \
+  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/Text.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
   "$ROOT/shared/src/main/java/dev/bennett/codexmeter/SpendControl.java" \
