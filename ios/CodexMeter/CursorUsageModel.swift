@@ -246,6 +246,7 @@ final class CursorUsageModel {
                     secondary: nil
                 )
             ],
+            includedValueUsd: 50,
             fetchedAt: now
         )
     }
