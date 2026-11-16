@@ -125,6 +125,21 @@ public static class DemoData
         new RateLimitResetCredit("demo-credit-0", "full", "redeemed", now.AddDays(-30), now.AddDays(-1), "Full reset", ""),
     ], now);
 
+    /// <summary>Two Claude Code saved resets: a Full reset held until a limit is hit, and a Fable-only one.</summary>
+    public static ClaudeSavedResets SavedResets(DateTimeOffset now) => new()
+    {
+        Eligible = true,
+        Grants =
+        [
+            new SavedResetGrant { Id = "demo_full", Label = "Limit reset", ResetsTotal = 1, ResetsLeft = 1, EndsAt = now.AddDays(4), Type = "full",
+                Clears = ["five_hour", "seven_day"], UnavailableReason = "needs_limit" },
+            new SavedResetGrant { Id = "demo_fable", Label = "Fable reset", ResetsTotal = 2, ResetsLeft = 2, EndsAt = now.AddDays(12),
+                Type = "weekly_scoped_fable", Clears = ["seven_day_fable"], Scope = "Fable", UnavailableReason = "needs_limit" },
+        ],
+        NextGrantId = "demo_full",
+        FetchedAt = now,
+    };
+
     public static AuthTokens Account(UsageProvider provider, DateTimeOffset now) => new("demo-access", "demo-refresh", "",
         now.AddYears(1), "demo", provider == UsageProvider.Cursor ? "alex@example.dev" : "alex@example.com");
 }
@@ -132,7 +147,7 @@ public static class DemoData
 /// <summary>A provider service that serves <see cref="DemoData"/> and never touches the network.</summary>
 public sealed class DemoProviderService(UsageProvider provider, ProviderContext context) : ProviderService(provider, context)
 {
-    public override bool SupportsResetCredits => Provider == UsageProvider.Codex;
+    public override bool SupportsResetCredits => Provider == UsageProvider.Codex || Provider == UsageProvider.ClaudeCode;
 
     /// <summary>Device-code providers show a sample code first, so the sign-in dialog can be seen in demo mode.</summary>
     protected override async Task<AuthTokens> RunSignInAsync(SignInPrompt prompt, CancellationToken cancellationToken)
@@ -156,6 +171,15 @@ public sealed class DemoProviderService(UsageProvider provider, ProviderContext 
         await Task.Delay(250).ConfigureAwait(false);
         if (Provider == UsageProvider.Codex)
             await Context.Cache.UpdateAsync(Provider.Id, e => e with { Credits = e.Credits ?? DemoData.Credits(Now) }).ConfigureAwait(false);
+        if (Provider == UsageProvider.ClaudeCode)
+        {
+            await Context.Cache.UpdateAsync(Provider.Id, e =>
+            {
+                var saved = (e.SavedResets ?? DemoData.SavedResets(Now)) with { FetchedAt = Now };
+                return e with { SavedResets = saved, Credits = saved.AvailableCount(Now) > 0 ? saved.ToResetCredits(Now) : null };
+            }).ConfigureAwait(false);
+            return DemoData.Snapshot(Provider, Now);
+        }
         var cached = (await CachedAsync().ConfigureAwait(false))?.Credits;
         var snapshot = DemoData.Snapshot(Provider, Now);
         return cached is null ? snapshot : snapshot.WithResetCredits(cached.AvailableCount);
@@ -165,6 +189,19 @@ public sealed class DemoProviderService(UsageProvider provider, ProviderContext 
     public async Task<ResetConsumeResult> ConsumeResetAsync(string? creditId)
     {
         var entry = await CachedAsync().ConfigureAwait(false);
+        if (Provider == UsageProvider.ClaudeCode)
+        {
+            var saved = entry?.SavedResets ?? DemoData.SavedResets(Now);
+            var grant = creditId is { Length: > 0 } ? saved.Grants.FirstOrDefault(g => g.Id == ClaudeSavedResets.GrantIdOf(creditId)) : saved.NextGrant(Now);
+            if (grant is null) return new ResetConsumeResult(ResetConsumeOutcome.NoCredit, 0);
+            var after = saved.AfterUse(grant.Id);
+            await Context.Cache.UpdateAsync(Provider.Id, e => e with
+            {
+                SavedResets = after,
+                Credits = after.AvailableCount(Now) > 0 ? after.ToResetCredits(Now) : null,
+            }).ConfigureAwait(false);
+            return new SavedResetClaimResult(SavedResetClaimOutcome.Reset, Cleared: grant.ClearsFiveHour ? ["five_hour", "seven_day"] : ["seven_day"]).ToConsumeResult();
+        }
         var credits = entry?.Credits ?? DemoData.Credits(Now);
         var target = creditId is null ? credits.NextExpiringAvailable(Now) : credits.Credits.FirstOrDefault(c => c.Id == creditId && c.IsAvailable);
         if (target is null) return new ResetConsumeResult(ResetConsumeOutcome.NoCredit, 0);

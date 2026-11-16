@@ -67,6 +67,15 @@ public sealed record AppSettings
     public bool NotifyNewModels { get; init; } = true;
     /// <summary>Show the Priority page first in the sidebar (Android: the Priority tab).</summary>
     public bool ShowPriority { get; init; } = true;
+    /// <summary>
+    /// Service status: official status pages (OpenAI, Anthropic, Cursor, xAI) and public OpenRouter
+    /// speed figures, shown on Priority and as a card on a provider's page when something is wrong.
+    /// </summary>
+    public bool ShowServiceStatus { get; init; } = true;
+    /// <summary>Settings → Reset credits → Claude Code saved resets: the automatic-use rules.</summary>
+    public ClaudeResetRules ClaudeResets { get; init; } = new();
+    /// <summary>Privacy &amp; data: keep an on-device, privacy-filtered diagnostic log (off by default).</summary>
+    public bool DiagnosticLogging { get; init; }
 
     public List<string> SectionOrderFor(string providerId) => SectionOrder.GetValueOrDefault(providerId) ?? [];
     public List<string> HiddenSectionsFor(string providerId) => HiddenSections.GetValueOrDefault(providerId) ?? [];
@@ -78,6 +87,20 @@ public sealed record AppSettings
     };
 
     public static readonly int[] RefreshChoices = [5, 15, 30, 60];
+}
+
+/// <summary>Automatic use of Claude Code saved resets, as on Android.</summary>
+public sealed record ClaudeResetRules
+{
+    public bool AutoUseExpiring { get; init; }
+    public int LeadMinutes { get; init; } = Models.CreditExpiryAutoApply.DefaultLeadMinutes;
+    public bool AutoUseWhenLow { get; init; }
+    public Models.LowUsageAutoUseMetric Metric { get; init; } = Models.LowUsageAutoUseMetric.Both;
+    public int Threshold { get; init; } = Models.LowUsageAutoUse.DefaultThreshold;
+    /// <summary>The grant the expiry rule last tried, so it tries once.</summary>
+    public string? LastExpiryKey { get; init; }
+    /// <summary>The window the low-usage rule last fired for, so it fires once per window.</summary>
+    public string? LastLowToken { get; init; }
 }
 
 public sealed class SettingsStore(string? path)

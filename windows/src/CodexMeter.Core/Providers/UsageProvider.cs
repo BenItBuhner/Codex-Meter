@@ -36,7 +36,7 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     /// </summary>
     public bool Inferred { get; init; }
 
-    /// <summary>False when this build can't connect the provider (Antigravity needs a client secret).</summary>
+    /// <summary>False when this build can't connect the provider (Antigravity without its sign-in client).</summary>
     public bool IsAvailable { get; init; } = true;
 
     public static readonly UsageProvider Codex = new("codex", "Codex", "ChatGPT", "OpenAI", SignInStyle.Loopback,
@@ -59,7 +59,7 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     { Inferred = true };
     public static readonly UsageProvider Antigravity = new("antigravity", "Antigravity", "Google", "Google", SignInStyle.Loopback,
         "Gemini and Claude model limits, 5-hour and weekly", "Google sign-in")
-    { IsAvailable = false };
+    { IsAvailable = Services.AntigravityOAuth.Configured };
     public static readonly UsageProvider Devin = new("devin", "Devin", "Devin", "Cognition", SignInStyle.CodePaste,
         "Daily and weekly quota", "Windsurf token")
     { Inferred = true };

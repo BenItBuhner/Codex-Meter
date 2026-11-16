@@ -14,6 +14,8 @@ public sealed record SeenModel
     public int Sightings { get; init; }
     /// <summary>When it counted as new: seen twice, recently listed, not a variant. Null for baseline or old models.</summary>
     public DateTimeOffset? ConfirmedAt { get; init; }
+    /// <summary>When OpenRouter says it was listed; picks the newest models for speed warnings.</summary>
+    public DateTimeOffset? Created { get; init; }
 }
 
 public sealed record ModelDiscoveryState
@@ -95,17 +97,21 @@ public static class ModelDiscovery
         {
             if (!state.Baseline)
             {
-                models[id] = new SeenModel { Id = id, Name = name, FirstSeen = now, Sightings = 2 };
+                models[id] = new SeenModel { Id = id, Name = name, FirstSeen = now, Sightings = 2, Created = created };
                 continue;
             }
             if (!models.TryGetValue(id, out var seen))
             {
-                models[id] = new SeenModel { Id = id, Name = name, FirstSeen = now, Sightings = 1 };
+                models[id] = new SeenModel { Id = id, Name = name, FirstSeen = now, Sightings = 1, Created = created };
                 continue;
             }
-            if (seen.Sightings >= 2) continue;
+            if (seen.Sightings >= 2)
+            {
+                if (seen.Created != created || seen.Name != name) models[id] = seen with { Name = name, Created = created };
+                continue;
+            }
             var announce = !IsVariant(id) && created is { } at && now - at <= RecentlyListed;
-            var updated = seen with { Name = name, Sightings = 2, ConfirmedAt = announce ? now : null };
+            var updated = seen with { Name = name, Sightings = 2, ConfirmedAt = announce ? now : null, Created = created };
             models[id] = updated;
             if (announce) confirmed.Add(updated);
         }

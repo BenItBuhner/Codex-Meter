@@ -7,4 +7,13 @@
   <ItemGroup>
     <InternalsVisibleTo Include="CodexMeter.Core.Tests" />
   </ItemGroup>
+  <!--
+    Antigravity's Google sign-in client comes from the build environment (the same
+    ANTIGRAVITY_CLIENT_ID / ANTIGRAVITY_CLIENT_SECRET repository secrets the Android build uses),
+    never from the repo. Builds without them leave Antigravity off. See AntigravityOAuth.
+  -->
+  <ItemGroup Condition="'$(ANTIGRAVITY_CLIENT_ID)' != '' and '$(ANTIGRAVITY_CLIENT_SECRET)' != ''">
+    <AssemblyMetadata Include="AntigravityClientId" Value="$(ANTIGRAVITY_CLIENT_ID)" />
+    <AssemblyMetadata Include="AntigravityClientSecret" Value="$(ANTIGRAVITY_CLIENT_SECRET)" />
+  </ItemGroup>
 </Project>
