@@ -32,7 +32,7 @@ struct PriorityView: View {
                             items: report.comingUp, id: "priority-coming-up")
                     section("New models", systemImage: "sparkles", tint: .purple,
                             items: report.newModels, id: "priority-new-models",
-                            note: report.newModels.isEmpty ? nil : ModelDiscovery.note(report.newModels))
+                            note: newModelsNote(report))
                     if report.isEmpty {
                         Label("Every connected limit is on track. Priority lists limits running low or used up, resets and credits coming up, slowdowns, and new models from the makers you use.",
                               systemImage: "checkmark.seal")
@@ -71,6 +71,11 @@ struct PriorityView: View {
         .task {
             await model.startIfNeeded()
         }
+    }
+
+    private func newModelsNote(_ report: PriorityReport) -> String? {
+        guard !report.newModels.isEmpty else { return nil }
+        return ModelDiscovery.note(report.newModels)
     }
 
     @ViewBuilder
