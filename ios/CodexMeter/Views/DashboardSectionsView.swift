@@ -521,11 +521,17 @@ struct ProviderDashboardCards: View {
         var limitWindow: AdditionalLimitWindow?
     }
 
+    /// The plan's value estimate, for Claude Code and Cursor (Codex shows it in history).
+    private var pricing: PlanPricing? {
+        provider == .codex ? nil : PlanPricing.forProvider(provider, snapshot: usage)
+    }
+
     private var keys: [String] {
         DashboardSections.visibleProviderSections(
             snapshot: usage,
             savedOrder: model.settings.savedDashboardOrder(for: provider),
-            hidden: model.settings.hiddenDashboardSections(for: provider)
+            hidden: model.settings.hiddenDashboardSections(for: provider),
+            includeValue: pricing != nil
         )
     }
 
@@ -600,6 +606,10 @@ struct ProviderDashboardCards: View {
                 accent: .indigo,
                 fetchedAt: usage.fetchedAt
             )
+        case DashboardSections.valueEstimates:
+            if let pricing {
+                ValueEstimatesCard(usage: usage, pricing: pricing)
+            }
         default:
             if let limit = usage.additionalLimits.first(where: { DashboardSections.limitKey($0) == key }) {
                 if provider == .cursor {
