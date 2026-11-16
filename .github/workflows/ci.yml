@@ -138,8 +138,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          JAR="$RUNNER_TEMP/json-20250517.jar"
-          curl -fsSL "https://repo1.maven.org/maven2/org/json/json/20250517/json-20250517.jar" -o "$JAR"
+          JAR="$RUNNER_TEMP/json-20260814.jar"
+          curl -fsSL "https://repo1.maven.org/maven2/org/json/json/20260814/json-20260814.jar" -o "$JAR"
           {
             echo "<!-- codex-meter-payload -->"
             echo "### Payload budgets"

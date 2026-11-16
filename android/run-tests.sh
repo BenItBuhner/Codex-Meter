@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 JSON_JAR="${JSON_JAR:-}"
 
 if [[ -z "$JSON_JAR" ]]; then
-  for candidate in /mnt/data/toolcache/json-20250517.jar "$ROOT/build/test-libs/json-20250517.jar"; do
+  for candidate in /mnt/data/toolcache/json-20260814.jar "$ROOT/build/test-libs/json-20260814.jar"; do
     if [[ -f "$candidate" ]]; then JSON_JAR="$candidate"; break; fi
   done
 fi
@@ -16,13 +16,13 @@ fi
 if [[ -z "$JSON_JAR" ]]; then
   CACHE="$ROOT/build/test-libs"
   mkdir -p "$CACHE"
-  JSON_JAR="$CACHE/json-20250517.jar"
+  JSON_JAR="$CACHE/json-20260814.jar"
   if [[ -n "${CAAS_ARTIFACTORY_MAVEN_REGISTRY:-}" && -n "${CAAS_ARTIFACTORY_READER_USERNAME:-}" ]]; then
     curl -fsSL -u "${CAAS_ARTIFACTORY_READER_USERNAME}:${CAAS_ARTIFACTORY_READER_PASSWORD}" \
-      "https://${CAAS_ARTIFACTORY_MAVEN_REGISTRY}/org/json/json/20250517/json-20250517.jar" \
+      "https://${CAAS_ARTIFACTORY_MAVEN_REGISTRY}/org/json/json/20260814/json-20260814.jar" \
       -o "$JSON_JAR"
   else
-    curl -fsSL "https://repo1.maven.org/maven2/org/json/json/20250517/json-20250517.jar" -o "$JSON_JAR"
+    curl -fsSL "https://repo1.maven.org/maven2/org/json/json/20260814/json-20260814.jar" -o "$JSON_JAR"
   fi
 fi
 

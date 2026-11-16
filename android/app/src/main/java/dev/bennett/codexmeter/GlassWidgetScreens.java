@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.annotation.SuppressLint;
 import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
@@ -522,6 +523,10 @@ final class GlassWidgetScreens {
         }
 
         /** The widget as the launcher would draw it, over the app's backdrop, as a PNG. */
+        // RemoteViews.apply needs the main thread and the Glassé page takes the PNG bytes in
+        // the same pass, so this one preview (about a megapixel) is encoded there too. Lint 9.5
+        // marks Bitmap.compress @WorkerThread; moving it off would mean an async page model.
+        @SuppressLint("ThreadConstraint")
         private byte[] renderPreview() {
             Context c = activity();
             float density = c.getResources().getDisplayMetrics().density;
