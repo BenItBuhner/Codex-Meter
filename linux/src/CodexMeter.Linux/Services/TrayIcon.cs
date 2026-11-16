@@ -1,4 +1,5 @@
 using CodexMeter.Core.Formatting;
+using CodexMeter.Core.Providers;
 using Tmds.DBus.Protocol;
 
 namespace CodexMeter.Linux.Services;
@@ -150,22 +151,46 @@ public sealed class TrayIcon : IDisposable
     private delegate void WriteBody(ref MessageWriter writer);
 
 
-    /// <summary>What the icon shows: the chosen service, else the first connected one in the sidebar.</summary>
-    public static LiveReading? Current(AppState state)
+    /// <summary>
+    /// The app in front, when one can be told (X11 or XWayland). While "While using AI apps" is on,
+    /// an app on that list points the icon at its service.
+    /// </summary>
+    public ForegroundApp? Foreground
+    {
+        get => foreground;
+        set
+        {
+            if (foreground is not null) foreground.Changed -= Update;
+            foreground = value;
+            if (value is not null) value.Changed += Update;
+            Update();
+        }
+    }
+
+    private ForegroundApp? foreground;
+
+    /// <summary>The service of the app in front, when "While using AI apps" is on and the app is on its list.</summary>
+    public static UsageProvider? FrontApp(AppState state, FrontWindow? front) =>
+        state.Settings.Current is { LiveFollowApps: true } settings && front is not null
+            ? front.ProviderFor(AppMatcher.For(settings))
+            : null;
+
+    /// <summary>What the icon shows: the AI app in front, else the chosen service, else the first connected one in the sidebar.</summary>
+    public static LiveReading? Current(AppState state, UsageProvider? frontApp = null)
     {
         var settings = state.Settings.Current;
         var candidates = state.EnabledProviders.Where(p => state[p].SignedIn && state[p].Usage is not null).ToList();
-        if (LiveUsage.ChooseProvider(settings.LiveProvider, null, candidates) is not { } provider) return null;
+        if (LiveUsage.ChooseProvider(settings.LiveProvider, frontApp, candidates) is not { } provider) return null;
         return LiveUsage.Read(provider, state[provider].Usage, settings.LiveWindow);
     }
 
     /// <summary>Tooltip and menu lines: the live value first, then every other service, e.g. "Claude Code: 41% (weekly)".</summary>
-    public static IReadOnlyList<string> SummaryLines(AppState state)
+    public static IReadOnlyList<string> SummaryLines(AppState state, UsageProvider? frontApp = null)
     {
         var lines = new List<string>();
         var settings = state.Settings.Current;
         var now = DateTimeOffset.UtcNow;
-        var live = Current(state);
+        var live = Current(state, frontApp);
         if (live is not null) lines.Add(live.Headline(settings.DisplayMode, now));
         foreach (var provider in state.EnabledProviders)
         {
@@ -181,9 +206,10 @@ public sealed class TrayIcon : IDisposable
 
     private Snapshot Capture()
     {
-        var lines = SummaryLines(state).ToArray();
+        var front = FrontApp(state, foreground?.Current);
+        var lines = SummaryLines(state, front).ToArray();
         var settings = state.Settings.Current;
-        var live = Current(state);
+        var live = Current(state, front);
         var now = DateTimeOffset.UtcNow;
         var pixmaps = new[] { 22, 32, 48 }
             .Select(size => (size, ToArgb(Draw(live, settings.LiveIconStyle, settings.DisplayMode, size, now), size))).ToArray();

@@ -27,6 +27,12 @@ public sealed record AppSettings
     public string LiveProvider { get; init; } = LiveUsage.AutomaticProvider;
     /// <summary>Live usage: show the provider of the AI app in front (ChatGPT, Claude, Cursor, ...) while it's in front.</summary>
     public bool LiveFollowApps { get; init; } = true;
+    /// <summary>"While using AI apps": apps the user added, or built-in ones they pointed at another service. See <see cref="AppMappings"/>.</summary>
+    public List<AppMapping> LiveAppsAdded { get; init; } = [];
+    /// <summary>"While using AI apps": apps switched off, by <see cref="AppMappings.Key"/>.</summary>
+    public List<string> LiveAppsOff { get; init; } = [];
+    /// <summary>"While using AI apps": built-in apps the user removed, by <see cref="AppMappings.Key"/>.</summary>
+    public List<string> LiveAppsRemoved { get; init; } = [];
     /// <summary>Live usage: 5-hour, weekly, or whichever has less left.</summary>
     public LiveWindowChoice LiveWindow { get; init; } = LiveWindowChoice.Auto;
     public LiveIconStyle LiveIconStyle { get; init; } = LiveIconStyle.Ring;

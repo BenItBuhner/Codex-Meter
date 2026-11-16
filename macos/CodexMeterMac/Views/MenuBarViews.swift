@@ -9,6 +9,7 @@ struct MenuBarLabel: View {
     @Environment(AppModel.self) private var model
     @AppStorage(MacPreferences.menuBarProviderKey) private var providerID = ""
     @AppStorage(MacPreferences.menuBarFollowsAppsKey) private var followsApps = true
+    @AppStorage(MacPreferences.menuBarAppsKey) private var apps = ""
     @AppStorage(MacPreferences.menuBarWindowKey) private var windowChoice = MacLiveWindow.auto.rawValue
     @AppStorage(MacPreferences.menuBarStyleKey) private var styleChoice = MacPreferences.defaultMenuBarStyle
 
@@ -20,6 +21,7 @@ struct MenuBarLabel: View {
         let reading = MacPreferences.menuBarReading(
             storedID: providerID,
             followsApps: followsApps,
+            apps: apps,
             window: MacLiveWindow(rawValue: windowChoice) ?? .auto,
             model: model
         )
@@ -56,6 +58,7 @@ struct MenuBarPanel: View {
     @Environment(\.openSettings) private var openSettings
     @AppStorage(MacPreferences.menuBarProviderKey) private var providerID = ""
     @AppStorage(MacPreferences.menuBarFollowsAppsKey) private var followsApps = true
+    @AppStorage(MacPreferences.menuBarAppsKey) private var apps = ""
     @AppStorage(MacPreferences.menuBarWindowKey) private var windowChoice = MacLiveWindow.auto.rawValue
 
     /// The provider the status item is showing, marked on its card.
@@ -63,6 +66,7 @@ struct MenuBarPanel: View {
         MacPreferences.menuBarReading(
             storedID: providerID,
             followsApps: followsApps,
+            apps: apps,
             window: MacLiveWindow(rawValue: windowChoice) ?? .auto,
             model: model
         )?.provider

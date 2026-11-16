@@ -115,6 +115,14 @@ public sealed class App
             {
                 tray = new TrayIcon(State, () => window.ShowAndActivate(), () => _ = State.RefreshAllAsync(force: true), Quit);
                 _ = tray.StartAsync();
+                try
+                {
+                    tray.Foreground = ForegroundApp.TryStart();
+                }
+                catch (Exception error)
+                {
+                    AppLog.Write("Foreground app tracking unavailable: " + error.Message);
+                }
                 window.TrayAvailable = () => tray.IsShowing;
                 GLib.Functions.TimeoutAddSeconds(GLib.Constants.PRIORITY_DEFAULT, 60, () =>
                 {
@@ -218,7 +226,8 @@ public sealed class App
         var protector = await Task.Run(() => AesKeyProtector.Open(AppPaths.DataDirectory));
         KeyLocation = protector.Location;
         var live = new ProviderContext(CreateHttpClient(), new FileTokenStore(AppPaths.DataDirectory, protector),
-            new ProviderCacheStore(AppPaths.CacheDirectory)) { Log = (category, message) => AppLog.Write($"[{category}] {message}") };
+            new ProviderCacheStore(AppPaths.CacheDirectory))
+        { Log = (category, message) => AppLog.Write($"[{category}] {message}") };
         return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(AppPaths.ConfigDirectory, "settings.json")),
             new UsageHistoryStore(AppPaths.DataDirectory))
         {
@@ -276,6 +285,7 @@ public sealed class App
 
     public void Quit()
     {
+        tray?.Foreground?.Dispose();
         tray?.Dispose();
         tray = null;
         if (window is not null)

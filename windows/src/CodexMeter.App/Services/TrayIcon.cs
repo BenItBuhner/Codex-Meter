@@ -84,7 +84,9 @@ public sealed class TrayIcon : IDisposable
     }
 
     /// <summary>The provider of the AI app in front, when "While using AI apps" is on.</summary>
-    private UsageProvider? FrontApp => state.Settings.Current.LiveFollowApps ? foreground?.Provider : null;
+    private UsageProvider? FrontApp => state.Settings.Current is { LiveFollowApps: true } settings
+        ? foreground?.ProviderFor(AppMatcher.For(settings))
+        : null;
 
     /// <summary>What the icon shows right now, or null when nothing is connected.</summary>
     public static LiveReading? Current(AppState state, UsageProvider? frontApp)

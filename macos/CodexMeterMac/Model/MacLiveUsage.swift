@@ -80,25 +80,6 @@ struct MacLiveReading: Equatable {
 /// app in front wins, then the chosen provider, then the first in the sidebar; the window is the
 /// tighter of 5-hour and weekly unless one is chosen.
 enum MacLiveUsage {
-    /// Mac apps that point the menu bar at a provider while they're in front, by app name.
-    static let knownApps: [String: UsageProvider] = [
-        "chatgpt": .codex,
-        "codex": .codex,
-        "claude": .claudeCode,
-        "cursor": .cursor,
-        "windsurf": .windsurf,
-        "kiro": .kiro,
-        "antigravity": .antigravity,
-        "warp": .warp,
-        "grok": .grok,
-        "kimi": .kimi,
-    ]
-
-    static func provider(forAppNamed name: String?) -> UsageProvider? {
-        guard let name = name?.trimmingCharacters(in: .whitespaces).lowercased(), !name.isEmpty else { return nil }
-        return knownApps[name]
-    }
-
     static func chooseProvider(
         chosen: UsageProvider?,
         frontApp: UsageProvider?,
@@ -137,21 +118,26 @@ enum MacLiveUsage {
     }
 }
 
-/// Notices when an AI app (ChatGPT, Codex, Claude, Cursor, ...) becomes the active app, the Mac
-/// version of Android's "While using AI apps". Only app names are read.
+/// Notices which app is active, the Mac version of Android's "While using AI apps". Only app
+/// names are read; the user's app list (`DesktopAppList`) decides which provider that app shows.
 @MainActor
 @Observable
 final class MacFrontmostApp {
     static let shared = MacFrontmostApp()
 
-    /// The provider of the AI app in front, or nil when another app is.
-    private(set) var provider: UsageProvider?
+    /// The active app's name ("Claude", "Grok Bot"), or nil when it's Codex Meter itself or unknown.
+    private(set) var name: String?
+    /// The active app's executable name, for apps whose display name differs.
+    private(set) var executable: String?
 
     @ObservationIgnored private var observer: NSObjectProtocol?
 
     private init() {
         let front = NSWorkspace.shared.frontmostApplication
-        provider = Self.provider(bundleID: front?.bundleIdentifier, name: front?.localizedName)
+        if front?.bundleIdentifier != Bundle.main.bundleIdentifier {
+            name = front?.localizedName
+            executable = front?.executableURL?.lastPathComponent
+        }
         observer = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -160,22 +146,23 @@ final class MacFrontmostApp {
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             let bundleID = app?.bundleIdentifier
             let name = app?.localizedName
+            let executable = app?.executableURL?.lastPathComponent
             MainActor.assumeIsolated {
-                MacFrontmostApp.shared.activated(bundleID: bundleID, name: name)
+                MacFrontmostApp.shared.activated(bundleID: bundleID, name: name, executable: executable)
             }
         }
     }
 
-    private func activated(bundleID: String?, name: String?) {
+    private func activated(bundleID: String?, name: String?, executable: String?) {
         // Opening our own menu bar panel or window keeps whatever was showing.
         guard name != nil, bundleID != Bundle.main.bundleIdentifier else { return }
-        let next = Self.provider(bundleID: bundleID, name: name)
-        if next != provider { provider = next }
+        if name != self.name { self.name = name }
+        if executable != self.executable { self.executable = executable }
     }
 
-    private static func provider(bundleID: String?, name: String?) -> UsageProvider? {
-        guard bundleID != Bundle.main.bundleIdentifier else { return nil }
-        return MacLiveUsage.provider(forAppNamed: name)
+    /// The provider of the active app by the user's list, or nil when it isn't on it or is switched off.
+    func provider(using matcher: DesktopAppMatcher) -> UsageProvider? {
+        matcher.provider(names: [name, executable])
     }
 }
 

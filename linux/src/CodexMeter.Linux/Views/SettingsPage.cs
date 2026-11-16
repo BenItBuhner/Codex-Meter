@@ -20,11 +20,15 @@ public sealed class SettingsPage : IPage
     private readonly Action<UsageProvider> onProviderChanged;
     private bool providersDirty;
     private readonly Adw.SwitchRow closeToTray;
+    private readonly MainWindow window;
+    private readonly Adw.PreferencesGroup appsGroup = Adw.PreferencesGroup.New();
+    private readonly List<Gtk.Widget> appRows = [];
     private bool loading;
 
     public SettingsPage(AppState state, MainWindow window)
     {
         this.state = state;
+        this.window = window;
         preferences = Adw.PreferencesPage.New();
         preferences.SetName("SettingsPage");
         var view = Adw.ToolbarView.New();
@@ -160,6 +164,13 @@ public sealed class SettingsPage : IPage
         desktop.Add(Combo("Tray service", "Automatic shows the first connected service in the sidebar.",
             ["Automatic", .. liveProviders.Select(p => p.DisplayName)], (uint)(liveProviders.FindIndex(p => p.Id == s.LiveProvider) + 1),
             i => state.Settings.Update(x => x with { LiveProvider = i == 0 ? LiveUsage.AutomaticProvider : liveProviders[i - 1].Id }), "LiveProviderBox"));
+        desktop.Add(Switch("While using AI apps",
+            "Show a service's usage while its app is in front. Add any app, or change which service an app shows, below.",
+            s.LiveFollowApps, on =>
+            {
+                state.Settings.Update(x => x with { LiveFollowApps = on });
+                appsGroup.SetSensitive(on);
+            }, "LiveFollowAppsSwitch"));
         desktop.Add(Combo("Percentage shown", "Auto shows whichever of the 5-hour and weekly limits has less left.",
             ["Auto", "5-hour usage", "Weekly usage"], (uint)s.LiveWindow,
             i => state.Settings.Update(x => x with { LiveWindow = (LiveWindowChoice)i }), "LiveWindowBox"));
@@ -175,6 +186,20 @@ public sealed class SettingsPage : IPage
                 try { Autostart.Set(on); }
                 catch (Exception error) { AppLog.Write("Autostart change failed: " + error.Message); window.ShowToast("Couldn't change the login item: " + error.Message); }
             }, "StartupSwitch"));
+
+        // While using AI apps: the app list, as on Android.
+        appsGroup.SetTitle("AI apps");
+        appsGroup.SetDescription("While one of these is in front, the tray shows its service. Apps are matched by process name or window class; on Wayland, apps running through XWayland are seen.");
+        preferences.Add(appsGroup);
+        appsGroup.SetName("LiveAppsGroup");
+        var addApp = Gtk.Button.NewWithLabel("Add App");
+        addApp.AddCssClass("flat");
+        addApp.SetValign(Gtk.Align.Center);
+        addApp.SetName("LiveAppAddButton");
+        addApp.OnClicked += (_, _) => EditLiveApp(null);
+        appsGroup.SetHeaderSuffix(addApp);
+        appsGroup.SetSensitive(s.LiveFollowApps);
+        BuildLiveApps();
 
         // About
         var about = Group("About");
@@ -480,5 +505,127 @@ public sealed class SettingsPage : IPage
             providersGroup.Add(row);
             providerRows.Add(row);
         }
+    }
+
+    private void BuildLiveApps()
+    {
+        foreach (var row in appRows) appsGroup.Remove(row);
+        appRows.Clear();
+        var settings = state.Settings.Current;
+        foreach (var rule in AppMappings.Resolve(settings))
+        {
+            var row = Adw.ActionRow.New();
+            row.SetTitle(GLib.Markup.EscapeText(rule.App));
+            row.SetSubtitle(LiveAppDescription(rule));
+            row.SetName("LiveApp_" + rule.Key);
+            var mark = ProviderIcons.Create(rule.Provider.Id, 20);
+            mark.SetMarginEnd(4);
+            row.AddPrefix(mark);
+            var edit = FlatButton("document-edit-symbolic", $"Edit {rule.App}", "LiveAppEdit_" + rule.Key);
+            edit.OnClicked += (_, _) => EditLiveApp(rule);
+            var remove = FlatButton("user-trash-symbolic", $"Remove {rule.App}", "LiveAppRemove_" + rule.Key);
+            remove.OnClicked += (_, _) => GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
+            {
+                state.Settings.Update(x => AppMappings.Remove(x, rule.App));
+                BuildLiveApps();
+                return false;
+            });
+            var toggle = Gtk.Switch.New();
+            toggle.SetValign(Gtk.Align.Center);
+            toggle.SetActive(rule.On);
+            toggle.SetName("LiveAppToggle_" + rule.Key);
+            toggle.SetTooltipText("Use " + rule.App);
+            toggle.OnStateSet += (_, args) =>
+            {
+                state.Settings.Update(x => AppMappings.SetOn(x, rule.App, args.State));
+                return false;
+            };
+            row.AddSuffix(edit);
+            row.AddSuffix(remove);
+            row.AddSuffix(toggle);
+            appsGroup.Add(row);
+            appRows.Add(row);
+        }
+
+        var restoreRow = Adw.ActionRow.New();
+        restoreRow.SetTitle("Built-in apps");
+        restoreRow.SetSubtitle("Bring back the apps Codex Meter knows, and drop your changes.");
+        var restore = Gtk.Button.NewWithLabel("Restore Defaults");
+        restore.SetValign(Gtk.Align.Center);
+        restore.SetName("LiveAppsRestoreButton");
+        restore.SetSensitive(AppMappings.IsCustomized(settings));
+        restore.OnClicked += (_, _) => GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
+        {
+            state.Settings.Update(AppMappings.RestoreDefaults);
+            BuildLiveApps();
+            return false;
+        });
+        restoreRow.AddSuffix(restore);
+        appsGroup.Add(restoreRow);
+        appRows.Add(restoreRow);
+    }
+
+    private static Gtk.Button FlatButton(string icon, string tooltip, string name)
+    {
+        var button = Gtk.Button.NewFromIconName(icon);
+        button.AddCssClass("flat");
+        button.SetValign(Gtk.Align.Center);
+        button.SetTooltipText(tooltip);
+        button.SetName(name);
+        return button;
+    }
+
+    internal static string LiveAppDescription(AppRule rule)
+    {
+        var text = rule.Provider.DisplayName;
+        if (!rule.BuiltIn) return text + " · Added by you";
+        if (rule.Edited && AppMappings.Defaults.FirstOrDefault(d => AppMappings.Key(d.App) == rule.Key) is { } builtIn
+            && UsageProvider.Find(builtIn.ProviderId) is { } original)
+            return $"{text} · Changed from {original.DisplayName}";
+        return text;
+    }
+
+    /// <summary>Add an app, or edit <paramref name="rule"/>: its name and the service it shows.</summary>
+    internal Adw.AlertDialog EditLiveApp(AppRule? rule, string? presetName = null, UsageProvider? presetProvider = null)
+    {
+        var providers = UsageProvider.All.Where(p => p.IsAvailable || p == rule?.Provider).ToList();
+        var dialog = Adw.AlertDialog.New(rule is null ? "Add an App" : "Edit App",
+            "While this app is in front, the tray shows this service's usage.");
+        var list = Gtk.ListBox.New();
+        list.AddCssClass("boxed-list");
+        list.SetSelectionMode(Gtk.SelectionMode.None);
+        var name = Adw.EntryRow.New();
+        name.SetTitle("App or process name, like Grok Bot");
+        name.SetText(presetName ?? rule?.App ?? "");
+        name.SetName("LiveAppNameBox");
+        list.Append(name);
+        var service = Adw.ComboRow.New();
+        service.SetTitle("Shows usage for");
+        service.SetModel(Gtk.StringList.New(providers.Select(p => p.DisplayName).ToArray()));
+        var selected = providers.IndexOf(presetProvider ?? rule?.Provider ?? providers[0]);
+        service.SetSelected((uint)Math.Max(0, selected));
+        service.SetName("LiveAppServiceBox");
+        list.Append(service);
+        dialog.SetExtraChild(list);
+        dialog.AddResponse("cancel", "_Cancel");
+        dialog.AddResponse("save", "_Save");
+        dialog.SetResponseAppearance("save", Adw.ResponseAppearance.Suggested);
+        dialog.SetDefaultResponse("save");
+        dialog.SetCloseResponse("cancel");
+        void Validate() => dialog.SetResponseEnabled("save", AppMappings.Key(name.GetText()).Length > 0);
+        Validate();
+        name.OnChanged += (_, _) => Validate();
+        dialog.OnResponse += (_, args) =>
+        {
+            if (args.Response != "save") return;
+            var index = (int)service.GetSelected();
+            if (index < 0 || index >= providers.Count) return;
+            var chosen = providers[index];
+            var text = name.GetText();
+            state.Settings.Update(x => AppMappings.Set(x, text, chosen, replacing: rule?.App));
+            BuildLiveApps();
+        };
+        dialog.Present(window.Window);
+        return dialog;
     }
 }

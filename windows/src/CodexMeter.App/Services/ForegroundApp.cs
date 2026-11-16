@@ -37,6 +37,7 @@ public sealed partial class ForegroundApp : IDisposable
     // Kept in a field: the hook calls it from native code for as long as it's installed.
     private readonly WinEventProc callback;
     private IntPtr hook;
+    private (string Name, string? Path)? front;
 
     public ForegroundApp()
     {
@@ -44,12 +45,10 @@ public sealed partial class ForegroundApp : IDisposable
         // Out of context and on this (UI) thread's message loop, so the callback runs on the UI thread.
         hook = SetWinEventHook(EventSystemForeground, EventSystemForeground, IntPtr.Zero, callback, 0, 0,
             WinEventOutOfContext | WinEventSkipOwnProcess);
-        Provider = ProviderFor(GetForegroundWindow());
+        front = AppInfo(GetForegroundWindow());
     }
 
-    /// <summary>The provider of the AI app in front, or null when another app is.</summary>
-    public UsageProvider? Provider { get; private set; }
-
+    /// <summary>Raised when another app comes to the front.</summary>
     public event Action? Changed;
 
     private void OnForegroundChanged(IntPtr hook, uint type, IntPtr window, int objectId, int childId, uint thread, uint time)
@@ -57,21 +56,22 @@ public sealed partial class ForegroundApp : IDisposable
         var app = AppInfo(window);
         // Clicking the tray icon or the taskbar keeps whatever was showing.
         if (app is null || Shell.Contains(app.Value.Name)) return;
-        var provider = ProviderFor(app.Value);
-        if (provider == Provider) return;
-        Provider = provider;
+        if (front is { } previous && previous.Name == app.Value.Name && previous.Path == app.Value.Path) return;
+        front = app;
         Changed?.Invoke();
     }
 
-    private static UsageProvider? ProviderFor(IntPtr window) => AppInfo(window) is { } app ? ProviderFor(app) : null;
-
-    private static UsageProvider? ProviderFor((string Name, string? Path) app)
+    /// <summary>
+    /// The service of the app in front by the user's "While using AI apps" list, or null when it's
+    /// not on the list. The process name settles most apps without opening the executable.
+    /// </summary>
+    public UsageProvider? ProviderFor(AppMatcher matcher)
     {
-        // The process name alone settles most apps, without opening the executable.
-        if (LiveUsage.ProviderForApp(app.Name) is { } byName) return byName;
+        if (front is not { } app) return null;
+        if (matcher.TryMatch(app.Name, out var byName)) return byName;
         if (app.Path is null) return null;
         var (product, company) = VersionInfo.GetOrAdd(app.Path, ReadVersionInfo);
-        return LiveUsage.ProviderForApp(null, product, company);
+        return matcher.ProviderForApp(null, product, company);
     }
 
     private static (string? Product, string? Company) ReadVersionInfo(string path)

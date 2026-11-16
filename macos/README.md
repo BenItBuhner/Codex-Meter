@@ -10,7 +10,8 @@ iPhone app (Codex, Claude Code, and Cursor) in a Mac shape:
   front, it shows that provider. Click it for a panel with every provider's meters, reset
   countdowns, Refresh All (⌘R), sign-in shortcuts, and Open Codex Meter. Settings → Menu
   Bar picks ring and/or percentage, the provider, "While using AI apps", the percentage
-  shown (Auto, 5-hour or weekly), or removes the item.
+  shown (Auto, 5-hour or weekly), or removes the item. Its AI apps list can be changed as on
+  Android: add any app, point a built-in one at another provider, remove it, or switch it off.
 - **Main window.** A sidebar of providers (each with its headroom ring), a + button at
   its foot for Add Account (also File → Add Account…, ⌘N), and the selected provider's
   dashboard. The dashboards, Edit dashboard, usage history, reset

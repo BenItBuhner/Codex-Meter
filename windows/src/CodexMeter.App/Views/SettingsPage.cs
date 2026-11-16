@@ -26,6 +26,8 @@ public sealed class SettingsPage : PageBase
     private readonly System.Collections.ObjectModel.ObservableCollection<SettingsCard> sidebarRows = [];
     private bool sidebarDirty;
     private readonly UpdatesSection? updates;
+    /// <summary>"While using AI apps": one card per app, then Add an app. Plain cards so UI tests reach them.</summary>
+    private readonly StackPanel liveApps = new() { Spacing = 4, Margin = new Thickness(32, 0, 0, 0) };
 
     public SettingsPage() : base(1000)
     {
@@ -192,9 +194,18 @@ public sealed class SettingsPage : PageBase
             Combo("LiveProviderBox", ["Automatic", .. liveProviders.Select(p => p.DisplayName)],
                 liveProviders.FindIndex(p => p.Id == s.LiveProvider) + 1,
                 i => Update(x => x with { LiveProvider = i == 0 ? LiveUsage.AutomaticProvider : liveProviders[i - 1].Id }))));
-        Body.Children.Add(Card("While using AI apps",
-            "Show a service's usage while its app is in front: ChatGPT or Codex, Claude, Cursor, Windsurf and more.", "\uE7C4",
-            Toggle("LiveFollowAppsSwitch", s.LiveFollowApps, on => Update(x => x with { LiveFollowApps = on }))));
+        var followApps = Card("While using AI apps",
+            "Show a service's usage while its app is in front. Add any app, or change which service an app shows.", "\uE7C4",
+            Toggle("LiveFollowAppsSwitch", s.LiveFollowApps, on =>
+            {
+                Update(x => x with { LiveFollowApps = on });
+                foreach (var card in liveApps.Children.OfType<Control>()) card.IsEnabled = on;
+            }));
+        AutomationProperties.SetAutomationId(followApps, "LiveFollowAppsCard");
+        Body.Children.Add(followApps);
+        AutomationProperties.SetAutomationId(liveApps, "LiveAppsList");
+        BuildLiveApps();
+        Body.Children.Add(liveApps);
         Body.Children.Add(Card("Percentage shown", "Auto shows whichever of the 5-hour and weekly limits has less left.", "\uE9D2",
             Combo("LiveWindowBox", ["Auto", "5-hour usage", "Weekly usage"], (int)s.LiveWindow,
                 i => Update(x => x with { LiveWindow = (LiveWindowChoice)i }))));
@@ -278,6 +289,142 @@ public sealed class SettingsPage : PageBase
                 Content = controls,
             });
         }
+    }
+
+    private void BuildLiveApps()
+    {
+        liveApps.Children.Clear();
+        var settings = State.Settings.Current;
+        foreach (var rule in AppMappings.Resolve(settings))
+        {
+            var id = rule.Key;
+            var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            controls.Children.Add(IconButton("\uE70F", $"Edit {rule.App}", "LiveAppEdit_" + id, () => _ = EditLiveAppAsync(rule)));
+            controls.Children.Add(IconButton("\uE74D", $"Remove {rule.App}", "LiveAppRemove_" + id, () =>
+            {
+                Update(x => AppMappings.Remove(x, rule.App));
+                BuildLiveApps();
+            }));
+            var toggle = new ToggleSwitch { IsOn = rule.On, OnContent = "", OffContent = "", MinWidth = 0 };
+            AutomationProperties.SetAutomationId(toggle, "LiveAppToggle_" + id);
+            AutomationProperties.SetName(toggle, "Use " + rule.App);
+            toggle.Toggled += (_, _) => Update(x => AppMappings.SetOn(x, rule.App, toggle.IsOn));
+            controls.Children.Add(toggle);
+            var card = new SettingsCard
+            {
+                Header = rule.App,
+                Description = LiveAppDescription(rule),
+                HeaderIcon = ProviderIcons.Create(rule.Provider.Id, 20),
+                Content = controls,
+            };
+            AutomationProperties.SetAutomationId(card, "LiveApp_" + id);
+            liveApps.Children.Add(card);
+        }
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var restore = new Button { Content = "Restore defaults", IsEnabled = AppMappings.IsCustomized(settings) };
+        AutomationProperties.SetAutomationId(restore, "LiveAppsRestoreButton");
+        restore.Click += (_, _) =>
+        {
+            Update(AppMappings.RestoreDefaults);
+            BuildLiveApps();
+        };
+        buttons.Children.Add(restore);
+        var add = new Button { Content = "Add app", Style = Cards.Style("AccentButtonStyle") };
+        AutomationProperties.SetAutomationId(add, "LiveAppAddButton");
+        add.Click += (_, _) => _ = EditLiveAppAsync(null);
+        buttons.Children.Add(add);
+        var addCard = Card("Add an app", "Any app or process by name, like Grok Bot showing Cursor.", "\uE710", buttons);
+        AutomationProperties.SetAutomationId(addCard, "LiveAppsAddCard");
+        liveApps.Children.Add(addCard);
+        foreach (var child in liveApps.Children.OfType<Control>()) child.IsEnabled = settings.LiveFollowApps;
+    }
+
+    private static string LiveAppDescription(AppRule rule)
+    {
+        var text = rule.Provider.DisplayName;
+        if (!rule.BuiltIn) return text + " · Added by you";
+        if (rule.Edited && AppMappings.Defaults.FirstOrDefault(d => AppMappings.Key(d.App) == rule.Key) is { } builtIn
+            && UsageProvider.Find(builtIn.ProviderId) is { } original)
+            return $"{text} · Changed from {original.DisplayName}";
+        return text;
+    }
+
+    /// <summary>Add an app, or edit <paramref name="rule"/>: its name and the service it shows.</summary>
+    private async Task EditLiveAppAsync(AppRule? rule)
+    {
+        if (XamlRoot is not { } root) return;
+        var providers = UsageProvider.All.Where(p => p.IsAvailable || p == rule?.Provider).ToList();
+        var name = new AutoSuggestBox
+        {
+            Header = "App or process name",
+            PlaceholderText = "Grok Bot",
+            Text = rule?.App ?? "",
+        };
+        AutomationProperties.SetAutomationId(name, "LiveAppNameBox");
+        var running = RunningAppNames();
+        name.TextChanged += (_, args) =>
+        {
+            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+            var needle = name.Text.Trim();
+            name.ItemsSource = needle.Length == 0 ? null
+                : running.Where(n => n.Contains(needle, StringComparison.OrdinalIgnoreCase)).Take(8).ToList();
+        };
+        var service = new ComboBox { Header = "Shows usage for", HorizontalAlignment = HorizontalAlignment.Stretch };
+        foreach (var provider in providers) service.Items.Add(new ComboBoxItem { Content = provider.DisplayName });
+        var selected = rule is null ? -1 : providers.IndexOf(rule.Provider);
+        service.SelectedIndex = selected >= 0 ? selected : 0;
+        AutomationProperties.SetAutomationId(service, "LiveAppServiceBox");
+        var body = new StackPanel { Spacing = 12, Width = 380 };
+        body.Children.Add(new TextBlock
+        {
+            Text = "While this app is in front, the notification area shows this service's usage.",
+            Style = Cards.Style("SecondaryTextStyle"),
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+        body.Children.Add(name);
+        body.Children.Add(service);
+
+        var dialog = SignInFlow.Dialog(root, rule is null ? "Add an app" : "Edit app", body, "LiveAppDialog");
+        dialog.PrimaryButtonText = "Save";
+        dialog.DefaultButton = ContentDialogButton.Primary;
+        dialog.IsPrimaryButtonEnabled = AppMappings.Key(name.Text).Length > 0;
+        name.TextChanged += (_, _) => dialog.IsPrimaryButtonEnabled = AppMappings.Key(name.Text).Length > 0;
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || service.SelectedIndex < 0) return;
+        var chosen = providers[service.SelectedIndex];
+        Update(x => AppMappings.Set(x, name.Text, chosen, replacing: rule?.App));
+        BuildLiveApps();
+    }
+
+    /// <summary>Names of apps with a window open right now, for the name box's suggestions.</summary>
+    private static List<string> RunningAppNames()
+    {
+        var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                try
+                {
+                    if (process.MainWindowHandle != IntPtr.Zero && process.Id != Environment.ProcessId) names.Add(process.ProcessName);
+                }
+                catch (InvalidOperationException)
+                {
+                    // The process exited while we looked.
+                }
+            }
+        }
+        return [.. names];
+    }
+
+    private static Button IconButton(string glyph, string name, string id, Action click)
+    {
+        var button = new Button { Content = new FontIcon { Glyph = glyph, FontSize = 14 }, Padding = new Thickness(8) };
+        AutomationProperties.SetName(button, name);
+        AutomationProperties.SetAutomationId(button, id);
+        ToolTipService.SetToolTip(button, name);
+        button.Click += (_, _) => click();
+        return button;
     }
 
     private static Button MoveButton(string glyph, string name, bool enabled, Action move)

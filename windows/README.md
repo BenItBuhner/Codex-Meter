@@ -23,6 +23,8 @@ sidebar, Fluent cards and Settings cards, light and dark themes, and Segoe Fluen
   name, then by the executable's product and publisher (Anthropic, Anysphere, SpaceXAI). Hover for a tooltip with every service, click for a compact flyout
   with each one's meters, and right-click to open, refresh or quit. Settings → Live usage picks the
   service, "While using AI apps", the percentage shown (Auto, 5-hour or weekly) and the icon style.
+  The AI apps list is yours to change, as on Android: add any app or process (Grok Bot showing
+  Cursor, say), point a built-in app at another service, remove it, or switch it off.
   Windows toasts announce resets and low allowance.
 - **In-app updates** (Settings → Updates, and "Check for updates" in the tray menu), like Android's:
   a Stable or Alpha channel, automatic checks (hourly to weekly) and a toast once per new version.

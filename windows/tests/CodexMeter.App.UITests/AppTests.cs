@@ -152,4 +152,26 @@ public class AppTests
         style.Select("Number");
         app.WaitUntil(() => app.Find("LiveStyleBox").AsComboBox().SelectedItem?.Name == "Number", "The icon style did not change.");
     }
+
+    [Fact]
+    public void AddedAiAppCanBeSwitchedOffAndRemoved()
+    {
+        using var app = new AppSession("--page", "settings");
+        Assert.NotNull(app.Find("LiveApp_grokbot"));
+        app.Find("LiveAppAddButton").AsButton().Invoke();
+        var name = app.Find("LiveAppNameBox");
+        var text = name.ControlType == ControlType.Edit ? name : name.FindFirstDescendant(cf => cf.ByControlType(ControlType.Edit))
+            ?? throw new InvalidOperationException("The app name box has no text field.");
+        text.AsTextBox().Text = "Zed";
+        app.Find("LiveAppServiceBox").AsComboBox().Select("Cursor");
+        app.Find("PrimaryButton").AsButton().Invoke();
+        var toggle = app.Find("LiveAppToggle_zed").AsToggleButton();
+        Assert.Equal(ToggleState.On, toggle.ToggleState);
+        Assert.NotNull(app.FindByName("Cursor · Added by you"));
+        toggle.Toggle();
+        app.WaitUntil(() => app.Find("LiveAppToggle_zed").AsToggleButton().ToggleState == ToggleState.Off, "Zed stayed on.");
+        Assert.True(app.Find("LiveAppsRestoreButton").IsEnabled);
+        app.Find("LiveAppRemove_zed").AsButton().Invoke();
+        app.WaitUntil(() => app.TryFind("LiveApp_zed", TimeSpan.FromMilliseconds(300)) is null, "Zed stayed in the list.");
+    }
 }
