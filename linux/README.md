@@ -27,6 +27,9 @@ KDE Plasma, Cinnamon, Xfce and other desktops.
 - **Tray icon** (StatusNotifierItem, so KDE, GNOME with the AppIndicator extension, Cinnamon, Xfce and
   others): shows your remaining percentage (turning amber, then red), a tooltip with every provider,
   and a menu to open, refresh or quit. Desktop notifications announce resets and low allowance.
+  While an AI app is in front (read from X11, or XWayland on Wayland), it shows that app's service;
+  Settings → AI apps lets you add any app (Grok Bot showing Cursor, say), re-point, remove or switch
+  off each one, as on Android.
 - **In-app updates** (Settings → Updates): Stable or Alpha channel, automatic checks and a
   notification once per version, like Android. The download is checked against the release's
   `SHA256SUMS-linux-<arch>.txt` first. The AppImage replaces itself in place (an atomic rename in its

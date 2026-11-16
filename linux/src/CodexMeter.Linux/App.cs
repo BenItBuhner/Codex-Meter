@@ -115,6 +115,14 @@ public sealed class App
             {
                 tray = new TrayIcon(State, () => window.ShowAndActivate(), () => _ = State.RefreshAllAsync(force: true), Quit);
                 _ = tray.StartAsync();
+                try
+                {
+                    tray.Foreground = ForegroundApp.TryStart();
+                }
+                catch (Exception error)
+                {
+                    AppLog.Write("Foreground app tracking unavailable: " + error.Message);
+                }
                 window.TrayAvailable = () => tray.IsShowing;
                 GLib.Functions.TimeoutAddSeconds(GLib.Constants.PRIORITY_DEFAULT, 60, () =>
                 {
@@ -285,6 +293,7 @@ public sealed class App
 
     public void Quit()
     {
+        tray?.Foreground?.Dispose();
         tray?.Dispose();
         tray = null;
         if (window is not null)
