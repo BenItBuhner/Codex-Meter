@@ -8,5 +8,5 @@ java {
 }
 
 dependencies {
-    api("org.json:json:20250517")
+    api("org.json:json:20260814")
 }

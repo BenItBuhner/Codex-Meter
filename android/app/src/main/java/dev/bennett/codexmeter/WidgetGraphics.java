@@ -14,12 +14,12 @@ public final class WidgetGraphics {
     private WidgetGraphics() {
     }
 
-    public static Bitmap ring(int i, int i2, int i3, int i4, String str) {
-        return ring(i, i2, i3, i4, str, 1.0f);
+    public static Bitmap ring(int percent, int progressColor, int trackColor, int textColor, String label) {
+        return ring(percent, progressColor, trackColor, textColor, label, 1.0f);
     }
 
-    public static Bitmap ring(int i, int i2, int i3, int i4, String str, float f) {
-        return batteryDial(null, i, 0, i2, i3, i4, f);
+    public static Bitmap ring(int percent, int progressColor, int trackColor, int textColor, String label, float scale) {
+        return batteryDial(null, percent, 0, progressColor, trackColor, textColor, scale);
     }
 
     public static Bitmap batteryDial(Context context, int value, int iconRes, int progressColor,
@@ -81,111 +81,111 @@ public final class WidgetGraphics {
         return bitmapCreateBitmap;
     }
 
-    public static Bitmap dial(int i, int i2, int i3, int i4, String str) {
-        return dial(i, i2, i3, i4, str, 1.0f);
+    public static Bitmap dial(int percent, int progressColor, int trackColor, int textColor, String label) {
+        return dial(percent, progressColor, trackColor, textColor, label, 1.0f);
     }
 
-    public static Bitmap dial(int i, int i2, int i3, int i4, String str, float f) {
-        return dial(i, i2, i3, i4, i < 0 ? "—" : clamp(i) + "%", str, f);
+    public static Bitmap dial(int percent, int progressColor, int trackColor, int textColor, String label, float scale) {
+        return dial(percent, progressColor, trackColor, textColor, percent < 0 ? "—" : clamp(percent) + "%", label, scale);
     }
 
     /** Gauge dial with an explicit center value (countdowns, credit counts, plain percents). */
-    public static Bitmap dial(int i, int i2, int i3, int i4, String centerText, String str,
-            float f) {
-        float fClampScale = clampScale(f);
-        int iRound = Math.round(260.0f * fClampScale);
-        Bitmap bitmapCreateBitmap = Bitmap.createBitmap(iRound, Math.round(190.0f * fClampScale), Bitmap.Config.ARGB_8888);
-        bitmapCreateBitmap.setDensity(160);
-        Canvas canvas = new Canvas(bitmapCreateBitmap);
+    public static Bitmap dial(int percent, int progressColor, int trackColor, int textColor, String centerText, String label,
+            float scale) {
+        float s = clampScale(scale);
+        int size = Math.round(260.0f * s);
+        Bitmap bitmap = Bitmap.createBitmap(size, Math.round(190.0f * s), Bitmap.Config.ARGB_8888);
+        bitmap.setDensity(160);
+        Canvas canvas = new Canvas(bitmap);
         Paint paint = new Paint(1);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setStrokeWidth(20.0f * fClampScale);
-        RectF rectF = new RectF(22.0f * fClampScale, 20.0f * fClampScale, iRound - (22.0f * fClampScale), iRound - (24.0f * fClampScale));
-        paint.setColor(i3);
-        canvas.drawArc(rectF, 145.0f, 250.0f, false, paint);
-        if (i >= 0) {
-            paint.setColor(i2);
-            float sweep = (250.0f * clamp(i)) / 100.0f;
-            canvas.drawArc(rectF, 145.0f, sweep, false, paint);
+        paint.setStrokeWidth(20.0f * s);
+        RectF arc = new RectF(22.0f * s, 20.0f * s, size - (22.0f * s), size - (24.0f * s));
+        paint.setColor(trackColor);
+        canvas.drawArc(arc, 145.0f, 250.0f, false, paint);
+        if (percent >= 0) {
+            paint.setColor(progressColor);
+            float sweep = (250.0f * clamp(percent)) / 100.0f;
+            canvas.drawArc(arc, 145.0f, sweep, false, paint);
             double radians = Math.toRadians(145.0f + sweep);
-            float fWidth = rectF.width() / 2.0f;
-            float fCenterX = rectF.centerX() + (((float) Math.cos(radians)) * fWidth);
-            float fCenterY = rectF.centerY() + (((float) Math.sin(radians)) * fWidth);
+            float radius = arc.width() / 2.0f;
+            float knobX = arc.centerX() + (((float) Math.cos(radians)) * radius);
+            float knobY = arc.centerY() + (((float) Math.sin(radians)) * radius);
             paint.setStyle(Paint.Style.FILL);
-            canvas.drawCircle(fCenterX, fCenterY, 9.5f * fClampScale, paint);
-            paint.setColor(withAlpha(i4, 0.22f));
-            canvas.drawCircle(fCenterX, fCenterY, 4.2f * fClampScale, paint);
+            canvas.drawCircle(knobX, knobY, 9.5f * s, paint);
+            paint.setColor(withAlpha(textColor, 0.22f));
+            canvas.drawCircle(knobX, knobY, 4.2f * s, paint);
         }
         paint.setStyle(Paint.Style.FILL);
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
-        paint.setColor(i4);
+        paint.setColor(textColor);
         String center = centerText == null || centerText.isEmpty() ? "—" : centerText;
         // Percent values fit at full size; longer countdown strings scale down to stay inside.
         float centerSize = center.length() <= 4
                 ? 48.0f : Math.max(24.0f, 48.0f * (4.5f / center.length()));
-        paint.setTextSize(centerSize * fClampScale);
-        canvas.drawText(center, iRound / 2.0f, 130.0f * fClampScale, paint);
+        paint.setTextSize(centerSize * s);
+        canvas.drawText(center, size / 2.0f, 130.0f * s, paint);
         paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        paint.setTextSize(19.0f * fClampScale);
-        paint.setColor(withAlpha(i4, 0.68f));
-        if (str == null) {
-            str = "";
+        paint.setTextSize(19.0f * s);
+        paint.setColor(withAlpha(textColor, 0.68f));
+        if (label == null) {
+            label = "";
         }
-        canvas.drawText(str, iRound / 2.0f, 160.0f * fClampScale, paint);
-        return bitmapCreateBitmap;
+        canvas.drawText(label, size / 2.0f, 160.0f * s, paint);
+        return bitmap;
     }
 
-    public static int accentColor(Context context, String str, boolean z) {
-        if (WidgetOptions.ACCENT_APP.equals(str)) {
-            return Ui.accent(context, z);
+    public static int accentColor(Context context, String accent, boolean dark) {
+        if (WidgetOptions.ACCENT_APP.equals(accent)) {
+            return Ui.accent(context, dark);
         }
-        return accentColor(str, z);
+        return accentColor(accent, dark);
     }
 
-    public static int accentColor(String str, boolean z) {
-        if (WidgetOptions.ACCENT_BLUE.equals(str)) {
-            return z ? Color.rgb(92, 169, 255) : Color.rgb(3, 129, 254);
+    public static int accentColor(String accent, boolean dark) {
+        if (WidgetOptions.ACCENT_BLUE.equals(accent)) {
+            return dark ? Color.rgb(92, 169, 255) : Color.rgb(3, 129, 254);
         }
-        if (WidgetOptions.ACCENT_AMBER.equals(str)) {
+        if (WidgetOptions.ACCENT_AMBER.equals(accent)) {
             return Color.rgb(244, 185, 95);
         }
-        if (WidgetOptions.ACCENT_VIOLET.equals(str)) {
+        if (WidgetOptions.ACCENT_VIOLET.equals(accent)) {
             return Color.rgb(155, 140, 255);
         }
-        if (WidgetOptions.ACCENT_ROSE.equals(str)) {
+        if (WidgetOptions.ACCENT_ROSE.equals(accent)) {
             return Color.rgb(255, 122, 162);
         }
-        if (WidgetOptions.ACCENT_CYAN.equals(str)) {
+        if (WidgetOptions.ACCENT_CYAN.equals(accent)) {
             return Color.rgb(71, 200, 232);
         }
-        if (WidgetOptions.ACCENT_LIME.equals(str)) {
+        if (WidgetOptions.ACCENT_LIME.equals(accent)) {
             return Color.rgb(164, 214, 94);
         }
-        return WidgetOptions.ACCENT_MONO.equals(str) ? z ? Color.rgb(244, 247, 248) : Color.rgb(32, 35, 38) : z ? Color.rgb(66, 214, 164) : Color.rgb(20, 168, 121);
+        return WidgetOptions.ACCENT_MONO.equals(accent) ? dark ? Color.rgb(244, 247, 248) : Color.rgb(32, 35, 38) : dark ? Color.rgb(66, 214, 164) : Color.rgb(20, 168, 121);
     }
 
-    public static int trackColor(boolean z) {
-        return z ? Color.argb(72, 255, 255, 255) : Color.argb(48, 17, 19, 21);
+    public static int trackColor(boolean dark) {
+        return dark ? Color.argb(72, 255, 255, 255) : Color.argb(48, 17, 19, 21);
     }
 
-    public static int mainTextColor(boolean z) {
-        if (z) {
+    public static int mainTextColor(boolean dark) {
+        if (dark) {
             return -1;
         }
         return Color.rgb(17, 19, 21);
     }
 
-    private static int withAlpha(int i, float f) {
-        return Color.argb(Math.round(255.0f * f), Color.red(i), Color.green(i), Color.blue(i));
+    private static int withAlpha(int color, float alpha) {
+        return Color.argb(Math.round(255.0f * alpha), Color.red(color), Color.green(color), Color.blue(color));
     }
 
-    private static int clamp(int i) {
-        return Math.max(0, Math.min(100, i));
+    private static int clamp(int percent) {
+        return Math.max(0, Math.min(100, percent));
     }
 
-    private static float clampScale(float f) {
-        return Math.max(0.8f, Math.min(1.36f, f));
+    private static float clampScale(float scale) {
+        return Math.max(0.8f, Math.min(1.36f, scale));
     }
 }

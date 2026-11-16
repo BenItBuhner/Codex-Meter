@@ -6,11 +6,11 @@ import XCTest
 /// tell ci/record-demo-gallery.sh when to start and stop the recording.
 @MainActor
 final class DemoGalleryTests: XCTestCase {
-    private var gallery: DemoGalleryCapture!
+    // Built with the test case: setUpWithError isn't main-actor isolated, so it can't assign it.
+    private let gallery = DemoGalleryCapture()
 
     override func setUpWithError() throws {
         continueAfterFailure = true
-        gallery = DemoGalleryCapture()
     }
 
     func testRecordDemoGallery() throws {

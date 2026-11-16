@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
@@ -14,6 +15,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.SizeF;
+import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
 import java.util.ArrayList;
@@ -41,12 +43,11 @@ public final class WidgetRenderer {
             try {
                 AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
                 int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(context, (Class<?>) CodexUsageWidget.class));
-                int length = appWidgetIds.length;
                 DiagnosticLog.info(context, "widget", "update_all_started",
-                        "home_widget_count", length,
+                        "home_widget_count", appWidgetIds.length,
                         "lock_widget_count", SamsungLockWidgetSupport.countAll(context));
-                for (int i = GRAPHIC_STANDARD; i < length; i += GRAPHIC_LARGE) {
-                    update(context, appWidgetManager, appWidgetIds[i]);
+                for (int widgetId : appWidgetIds) {
+                    update(context, appWidgetManager, widgetId);
                 }
                 SamsungLockWidgetSupport.updateAll(context);
                 DiagnosticLog.info(context, "widget", "update_all_finished");
@@ -57,33 +58,33 @@ public final class WidgetRenderer {
         }
     }
 
-    public static void update(Context context, AppWidgetManager appWidgetManager, int i) {
-        RemoteViews remoteViewsBuildViews;
-        if (context != null && appWidgetManager != null && i != 0) {
+    public static void update(Context context, AppWidgetManager appWidgetManager, int widgetId) {
+        RemoteViews views;
+        if (context != null && appWidgetManager != null && widgetId != 0) {
             try {
-                WidgetOptions widgetOptionsLoadWidgetOptions = AppPreferences.loadWidgetOptions(context, i);
-                Bundle appWidgetOptions = appWidgetManager.getAppWidgetOptions(i);
+                WidgetOptions options = AppPreferences.loadWidgetOptions(context, widgetId);
+                Bundle appWidgetOptions = appWidgetManager.getAppWidgetOptions(widgetId);
                 // Liquid Glass: the widget sits on Glassé's glass once it is baked (null until then).
-                Bitmap glass = WidgetGlass.forWidget(context, appWidgetManager, i,
-                        widgetOptionsLoadWidgetOptions, chooseDark(context, widgetOptionsLoadWidgetOptions));
+                Bitmap glass = WidgetGlass.forWidget(context, appWidgetManager, widgetId,
+                        options, chooseDark(context, options));
                 if (Build.VERSION.SDK_INT >= 31) {
-                    remoteViewsBuildViews = buildResponsiveWidget(context, i, widgetOptionsLoadWidgetOptions, glass);
+                    views = buildResponsiveWidget(context, widgetId, options, glass);
                 } else {
-                    remoteViewsBuildViews = onGlass(context, buildViews(context, i, widgetOptionsLoadWidgetOptions,
-                            styleForSize(context, appWidgetOptions, widgetOptionsLoadWidgetOptions,
-                                    ProviderPreferences.getWidgetProviders(context, i)),
+                    views = onGlass(context, buildViews(context, widgetId, options,
+                            styleForSize(context, appWidgetOptions, options,
+                                    ProviderPreferences.getWidgetProviders(context, widgetId)),
                             appWidgetOptions), glass);
                 }
-                appWidgetManager.updateAppWidget(i, remoteViewsBuildViews);
+                appWidgetManager.updateAppWidget(widgetId, views);
             } catch (RuntimeException e) {
                 DiagnosticLog.error(context, "widget", "render_failed", e,
-                        "widget_id", i);
+                        "widget_id", widgetId);
                 Log.w("CodexMeterWidget", "Widget render failed: " + safeMessage(e));
                 try {
-                    appWidgetManager.updateAppWidget(i, buildFallback(context, i));
+                    appWidgetManager.updateAppWidget(widgetId, buildFallback(context, widgetId));
                 } catch (RuntimeException e2) {
                     DiagnosticLog.error(context, "widget", "fallback_render_failed", e2,
-                            "widget_id", i);
+                            "widget_id", widgetId);
                 }
             }
         }
@@ -94,10 +95,10 @@ public final class WidgetRenderer {
     }
 
     @SuppressLint({"NewApi", "UseRequiresApi"})
-    private static RemoteViews buildResponsiveWidget(Context context, int i, WidgetOptions widgetOptions,
+    private static RemoteViews buildResponsiveWidget(Context context, int widgetId, WidgetOptions widgetOptions,
             Bitmap glass) {
         LinkedHashMap<SizeF, RemoteViews> linkedHashMap = new LinkedHashMap<>();
-        List<UsageProvider> providers = ProviderPreferences.getWidgetProviders(context, i);
+        List<UsageProvider> providers = ProviderPreferences.getWidgetProviders(context, widgetId);
         boolean single = providers.size() == 1 && widgetOptions.singleMetric();
         String compactStyle = preferVisualStyle(widgetOptions, WidgetMeters.VISUAL_RINGS, single);
         String wideShortStyle = preferVisualStyle(widgetOptions,
@@ -105,16 +106,16 @@ public final class WidgetRenderer {
         String tallStyle = preferVisualStyle(widgetOptions,
                 single ? WidgetMeters.VISUAL_DIALS : WidgetMeters.VISUAL_BATTERY_LIST, single);
         linkedHashMap.put(new SizeF(110.0f, 60.0f), onGlass(context,
-                buildViews(context, i, widgetOptions, compactStyle,
+                buildViews(context, widgetId, widgetOptions, compactStyle,
                         sizeBundle(110, 70), GRAPHIC_STANDARD, providers), glass));
         linkedHashMap.put(new SizeF(250.0f, 60.0f), onGlass(context,
-                buildViews(context, i, widgetOptions, wideShortStyle,
+                buildViews(context, widgetId, widgetOptions, wideShortStyle,
                         sizeBundle(250, 70), GRAPHIC_STANDARD, providers), glass));
         linkedHashMap.put(new SizeF(110.0f, 130.0f), onGlass(context,
-                buildViews(context, i, widgetOptions, tallStyle,
+                buildViews(context, widgetId, widgetOptions, tallStyle,
                         sizeBundle(110, 156), GRAPHIC_STANDARD, providers), glass));
         linkedHashMap.put(new SizeF(250.0f, 130.0f), onGlass(context,
-                buildViews(context, i, widgetOptions, tallStyle,
+                buildViews(context, widgetId, widgetOptions, tallStyle,
                         sizeBundle(250, 156),
                         single ? GRAPHIC_LARGE : GRAPHIC_STANDARD, providers), glass));
         return new RemoteViews(linkedHashMap);
@@ -164,59 +165,59 @@ public final class WidgetRenderer {
         return autoBucketStyle;
     }
 
-    private static Bundle sizeBundle(int i, int i2) {
+    private static Bundle sizeBundle(int width, int height) {
         Bundle bundle = new Bundle();
-        bundle.putInt("appWidgetMinWidth", i);
-        bundle.putInt("appWidgetMinHeight", i2);
+        bundle.putInt("appWidgetMinWidth", width);
+        bundle.putInt("appWidgetMinHeight", height);
         return bundle;
     }
 
-    private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions, String str, Bundle bundle) {
-        return buildViews(context, i, widgetOptions, str, bundle, resolveGraphicTier(context, widgetOptions, bundle));
+    private static RemoteViews buildViews(Context context, int widgetId, WidgetOptions widgetOptions, String style, Bundle bundle) {
+        return buildViews(context, widgetId, widgetOptions, style, bundle, resolveGraphicTier(context, widgetOptions, bundle));
     }
 
-    private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions, String str, Bundle bundle, int i2) {
-        return buildViews(context, i, widgetOptions, str, bundle, i2,
-                ProviderPreferences.getWidgetProviders(context, i));
+    private static RemoteViews buildViews(Context context, int widgetId, WidgetOptions widgetOptions, String style, Bundle bundle, int tier) {
+        return buildViews(context, widgetId, widgetOptions, style, bundle, tier,
+                ProviderPreferences.getWidgetProviders(context, widgetId));
     }
 
     /**
      * One widget layout for one or more providers. With several providers each slot shows one
      * provider, marked by its icon, so the battery list reads like Samsung's battery widget.
      */
-    private static RemoteViews buildViews(Context context, int i, WidgetOptions widgetOptions,
-            String str, Bundle bundle, int i2, List<UsageProvider> providers) {
+    private static RemoteViews buildViews(Context context, int widgetId, WidgetOptions widgetOptions,
+            String style, Bundle bundle, int tier, List<UsageProvider> providers) {
         UsageProvider provider = providers == null || providers.isEmpty()
                 ? UsageProvider.DEFAULT : providers.get(0);
         boolean multi = providers != null && providers.size() > 1;
-        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), layoutForStyle(str, i2));
-        boolean zChooseDark = chooseDark(context, widgetOptions);
-        WidgetState widgetStateFrom = WidgetState.from(context, widgetOptions, provider);
+        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), layoutForStyle(style, tier));
+        boolean dark = chooseDark(context, widgetOptions);
+        WidgetState state = WidgetState.from(context, widgetOptions, provider);
         List<MeterSlot> slots = multi
-                ? resolveMultiSlots(context, widgetOptions, str, bundle, providers)
-                : resolveSlots(context, widgetOptions, widgetStateFrom, str, bundle, provider);
-        applyRootAndHeader(context, remoteViews, i, widgetOptions, zChooseDark, widgetStateFrom);
+                ? resolveMultiSlots(context, widgetOptions, style, bundle, providers)
+                : resolveSlots(context, widgetOptions, state, style, bundle, provider);
+        applyRootAndHeader(context, remoteViews, widgetId, widgetOptions, dark, state);
         remoteViews.setTextViewText(R.id.widget_title, multi ? "USAGE"
                 : provider == UsageProvider.CODEX ? context.getString(R.string.widget_title)
                 : provider.accountName.toUpperCase(java.util.Locale.ROOT));
-        if (STYLE_MICRO.equals(str)) {
-            renderMicro(remoteViews, widgetOptions, zChooseDark, widgetStateFrom, slots);
-        } else if (WidgetOptions.STYLE_RINGS.equals(str)) {
-            renderGraphic(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom, true, i2, slots);
-        } else if (STYLE_FOUR_DIALS.equals(str)) {
-            renderFourDials(context, remoteViews, widgetOptions, zChooseDark, slots);
-        } else if (STYLE_BATTERY_LIST.equals(str)) {
-            renderBatteryList(context, remoteViews, widgetOptions, zChooseDark, slots);
-        } else if (WidgetOptions.STYLE_DIALS.equals(str)) {
-            renderGraphic(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom, false, i2, slots);
-        } else if (WidgetOptions.STYLE_MINIMAL.equals(str)) {
-            renderMinimal(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom, slots);
+        if (STYLE_MICRO.equals(style)) {
+            renderMicro(remoteViews, widgetOptions, dark, state, slots);
+        } else if (WidgetOptions.STYLE_RINGS.equals(style)) {
+            renderGraphic(context, remoteViews, widgetOptions, dark, state, true, tier, slots);
+        } else if (STYLE_FOUR_DIALS.equals(style)) {
+            renderFourDials(context, remoteViews, widgetOptions, dark, slots);
+        } else if (STYLE_BATTERY_LIST.equals(style)) {
+            renderBatteryList(context, remoteViews, widgetOptions, dark, slots);
+        } else if (WidgetOptions.STYLE_DIALS.equals(style)) {
+            renderGraphic(context, remoteViews, widgetOptions, dark, state, false, tier, slots);
+        } else if (WidgetOptions.STYLE_MINIMAL.equals(style)) {
+            renderMinimal(context, remoteViews, widgetOptions, dark, state, slots);
         } else {
-            renderBars(context, remoteViews, widgetOptions, zChooseDark, widgetStateFrom, bundle, slots);
+            renderBars(context, remoteViews, widgetOptions, dark, state, bundle, slots);
         }
-        applySlotVisibility(remoteViews, str, slots);
+        applySlotVisibility(remoteViews, style, slots);
         if (provider == UsageProvider.CODEX && !multi) {
-            applyResetCreditRow(context, remoteViews, i, widgetOptions, zChooseDark, str);
+            applyResetCreditRow(context, remoteViews, widgetId, widgetOptions, dark, style);
         } else {
             // Reset credits are a Codex feature.
             remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
@@ -224,76 +225,76 @@ public final class WidgetRenderer {
         return remoteViews;
     }
 
-    private static RemoteViews buildFallback(Context context, int i) {
-        WidgetOptions widgetOptionsDefaults = WidgetOptions.defaults();
+    private static RemoteViews buildFallback(Context context, int widgetId) {
+        WidgetOptions defaults = WidgetOptions.defaults();
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget_compact);
-        boolean zChooseDark = chooseDark(context, widgetOptionsDefaults);
-        WidgetState widgetStateError = WidgetState.error("Open Codex Meter to recover");
-        applyRootAndHeader(context, remoteViews, i, widgetOptionsDefaults, zChooseDark, widgetStateError);
-        renderMinimal(context, remoteViews, widgetOptionsDefaults, zChooseDark, widgetStateError,
+        boolean dark = chooseDark(context, defaults);
+        WidgetState state = WidgetState.error("Open Codex Meter to recover");
+        applyRootAndHeader(context, remoteViews, widgetId, defaults, dark, state);
+        renderMinimal(context, remoteViews, defaults, dark, state,
                 java.util.Collections.emptyList());
         return remoteViews;
     }
 
     private static String resolveStyle(Context context, WidgetOptions widgetOptions, Bundle bundle) {
-        int iCurrentWidth = currentWidth(context, bundle);
-        int iCurrentHeight = currentHeight(context, bundle);
-        String strNormalizeStyle = WidgetOptions.normalizeStyle(widgetOptions.layout);
-        if ((iCurrentHeight <= 0 || iCurrentHeight >= 90) && (iCurrentWidth <= 0 || iCurrentWidth >= 145)) {
-            return "auto".equals(strNormalizeStyle) ? ((iCurrentHeight <= 0 || iCurrentHeight >= 140) && (iCurrentWidth <= 0 || iCurrentWidth >= 215)) ? WidgetOptions.STYLE_BARS : WidgetOptions.STYLE_MINIMAL : (iCurrentHeight <= 0 || iCurrentHeight >= 130) ? strNormalizeStyle : WidgetOptions.STYLE_MINIMAL;
+        int width = currentWidth(context, bundle);
+        int height = currentHeight(context, bundle);
+        String style = WidgetOptions.normalizeStyle(widgetOptions.layout);
+        if ((height <= 0 || height >= 90) && (width <= 0 || width >= 145)) {
+            return "auto".equals(style) ? ((height <= 0 || height >= 140) && (width <= 0 || width >= 215)) ? WidgetOptions.STYLE_BARS : WidgetOptions.STYLE_MINIMAL : (height <= 0 || height >= 130) ? style : WidgetOptions.STYLE_MINIMAL;
         }
         return STYLE_MICRO;
     }
 
-    private static int option(Bundle bundle, String str) {
-        return bundle == null ? GRAPHIC_STANDARD : bundle.getInt(str, GRAPHIC_STANDARD);
+    private static int option(Bundle bundle, String key) {
+        return bundle == null ? 0 : bundle.getInt(key, 0);
     }
 
     private static int currentWidth(Context context, Bundle bundle) {
-        int iOption = option(bundle, "appWidgetMinWidth");
-        int iOption2 = option(bundle, "appWidgetMaxWidth");
-        return (context == null || context.getResources().getConfiguration().orientation != GRAPHIC_MAX) ? iOption > 0 ? iOption : iOption2 : iOption2 > 0 ? iOption2 : iOption;
+        int minSize = option(bundle, "appWidgetMinWidth");
+        int maxSize = option(bundle, "appWidgetMaxWidth");
+        return (context == null || context.getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE) ? minSize > 0 ? minSize : maxSize : maxSize > 0 ? maxSize : minSize;
     }
 
     private static int currentHeight(Context context, Bundle bundle) {
-        int iOption = option(bundle, "appWidgetMinHeight");
-        int iOption2 = option(bundle, "appWidgetMaxHeight");
-        return (context == null || context.getResources().getConfiguration().orientation != GRAPHIC_MAX) ? iOption2 > 0 ? iOption2 : iOption : iOption > 0 ? iOption : iOption2;
+        int minSize = option(bundle, "appWidgetMinHeight");
+        int maxSize = option(bundle, "appWidgetMaxHeight");
+        return (context == null || context.getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE) ? maxSize > 0 ? maxSize : minSize : minSize > 0 ? minSize : maxSize;
     }
 
-    private static int layoutForStyle(String str, int i) {
-        if (STYLE_BATTERY_LIST.equals(str)) {
+    private static int layoutForStyle(String style, int tier) {
+        if (STYLE_BATTERY_LIST.equals(style)) {
             return R.layout.widget_battery_list;
         }
-        if (STYLE_FOUR_DIALS.equals(str)) {
+        if (STYLE_FOUR_DIALS.equals(style)) {
             return R.layout.widget_rings_four;
         }
-        if (STYLE_MICRO.equals(str)) {
+        if (STYLE_MICRO.equals(style)) {
             return R.layout.widget_micro;
         }
-        if (WidgetOptions.STYLE_RINGS.equals(str)) {
+        if (WidgetOptions.STYLE_RINGS.equals(style)) {
             // Samsung's battery widget keeps the 46dp small arc at every 2x1 host size.
             return R.layout.widget_rings;
         }
-        if (!WidgetOptions.STYLE_DIALS.equals(str)) {
-            return WidgetOptions.STYLE_MINIMAL.equals(str) ? R.layout.widget_compact : R.layout.widget_detailed;
+        if (!WidgetOptions.STYLE_DIALS.equals(style)) {
+            return WidgetOptions.STYLE_MINIMAL.equals(style) ? R.layout.widget_compact : R.layout.widget_detailed;
         }
-        if (i == GRAPHIC_MAX) {
+        if (tier == GRAPHIC_MAX) {
             return R.layout.widget_dials_max;
         }
-        return i == GRAPHIC_LARGE ? R.layout.widget_dials_large : R.layout.widget_dials;
+        return tier == GRAPHIC_LARGE ? R.layout.widget_dials_large : R.layout.widget_dials;
     }
 
     private static int resolveGraphicTier(Context context, WidgetOptions widgetOptions, Bundle bundle) {
-        int iCurrentWidth = currentWidth(context, bundle);
-        int iCurrentHeight = currentHeight(context, bundle);
+        int width = currentWidth(context, bundle);
+        int height = currentHeight(context, bundle);
         if (widgetOptions.singleMetric() && WidgetOptions.GRAPHIC_AUTO.equals(
-                widgetOptions.graphicScale) && iCurrentWidth > 0 && iCurrentHeight > 0) {
-            if (iCurrentWidth >= 340 && iCurrentHeight >= 178) return GRAPHIC_MAX;
-            if (iCurrentWidth >= 230 && iCurrentHeight >= 130) return GRAPHIC_LARGE;
+                widgetOptions.graphicScale) && width > 0 && height > 0) {
+            if (width >= 340 && height >= 178) return GRAPHIC_MAX;
+            if (width >= 230 && height >= 130) return GRAPHIC_LARGE;
             return GRAPHIC_STANDARD;
         }
-        return (iCurrentWidth <= 0 || iCurrentHeight <= 0) ? (WidgetOptions.GRAPHIC_MAX.equals(widgetOptions.graphicScale) || WidgetOptions.GRAPHIC_LARGE.equals(widgetOptions.graphicScale)) ? GRAPHIC_LARGE : GRAPHIC_STANDARD : WidgetOptions.GRAPHIC_MAX.equals(widgetOptions.graphicScale) ? (iCurrentWidth < 340 || iCurrentHeight < 198) ? (iCurrentWidth < 270 || iCurrentHeight < 158) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX : WidgetOptions.GRAPHIC_LARGE.equals(widgetOptions.graphicScale) ? (iCurrentWidth < 400 || iCurrentHeight < 208) ? (iCurrentWidth < 290 || iCurrentHeight < 164) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX : (iCurrentWidth < 460 || iCurrentHeight < 220) ? (iCurrentWidth < 340 || iCurrentHeight < 178) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX;
+        return (width <= 0 || height <= 0) ? (WidgetOptions.GRAPHIC_MAX.equals(widgetOptions.graphicScale) || WidgetOptions.GRAPHIC_LARGE.equals(widgetOptions.graphicScale)) ? GRAPHIC_LARGE : GRAPHIC_STANDARD : WidgetOptions.GRAPHIC_MAX.equals(widgetOptions.graphicScale) ? (width < 340 || height < 198) ? (width < 270 || height < 158) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX : WidgetOptions.GRAPHIC_LARGE.equals(widgetOptions.graphicScale) ? (width < 400 || height < 208) ? (width < 290 || height < 164) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX : (width < 460 || height < 220) ? (width < 340 || height < 178) ? GRAPHIC_STANDARD : GRAPHIC_LARGE : GRAPHIC_MAX;
     }
 
     private static boolean chooseDark(Context context, WidgetOptions widgetOptions) {
@@ -303,61 +304,61 @@ public final class WidgetRenderer {
         return !WidgetOptions.THEME_LIGHT.equals(widgetOptions.theme) && (context.getResources().getConfiguration().uiMode & 48) == 32;
     }
 
-    private static void applyRootAndHeader(Context context, RemoteViews remoteViews, int i, WidgetOptions widgetOptions, boolean z, WidgetState widgetState) {
+    private static void applyRootAndHeader(Context context, RemoteViews remoteViews, int widgetId, WidgetOptions widgetOptions, boolean dark, WidgetState widgetState) {
         if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
             int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
             remoteViews.setInt(android.R.id.background, "setBackgroundColor",
-                    z ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
+                    dark ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
         } else {
             remoteViews.setInt(android.R.id.background, "setBackgroundResource",
-                    backgroundResource(context, z, widgetOptions.opacity, widgetOptions.surfaceStyle));
+                    backgroundResource(context, dark, widgetOptions.opacity, widgetOptions.surfaceStyle));
         }
-        remoteViews.setTextColor(R.id.widget_title, WidgetGraphics.mainTextColor(z));
+        remoteViews.setTextColor(R.id.widget_title, WidgetGraphics.mainTextColor(dark));
         remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? View.VISIBLE : View.GONE);
-        remoteViews.setTextColor(R.id.plan_label, mutedColor(z));
+        remoteViews.setTextColor(R.id.plan_label, mutedColor(dark));
         remoteViews.setTextViewText(R.id.plan_label, widgetState.plan);
         remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? View.GONE : View.VISIBLE);
-        remoteViews.setImageViewResource(R.id.refresh_button, z ? R.drawable.ic_oui_refresh_widget_light : R.drawable.ic_oui_refresh_widget_dark);
+        remoteViews.setImageViewResource(R.id.refresh_button, dark ? R.drawable.ic_oui_refresh_widget_light : R.drawable.ic_oui_refresh_widget_dark);
         remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? View.VISIBLE : View.GONE);
-        applyIntents(context, remoteViews, i);
+        applyIntents(context, remoteViews, widgetId);
     }
 
-    private static void applyIntents(Context context, RemoteViews remoteViews, int i) {
-        String tapAction = AppPreferences.getWidgetTapAction(context, i);
+    private static void applyIntents(Context context, RemoteViews remoteViews, int widgetId) {
+        String tapAction = AppPreferences.getWidgetTapAction(context, widgetId);
         PendingIntent rootAction;
         if (WidgetOptions.TAP_REFRESH.equals(tapAction)) {
-            rootAction = PendingIntent.getBroadcast(context, 74000 + i,
+            rootAction = PendingIntent.getBroadcast(context, 74000 + widgetId,
                     new Intent(context, (Class<?>) WidgetRefreshReceiver.class)
                             .setAction(AppConstants.ACTION_REFRESH_WIDGET)
-                            .setData(widgetUri(i, "root-refresh"))
-                            .putExtra("appWidgetId", i),
+                            .setData(widgetUri(widgetId, "root-refresh"))
+                            .putExtra("appWidgetId", widgetId),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else if (WidgetOptions.TAP_USE_RESET.equals(tapAction)) {
-            rootAction = PendingIntent.getActivity(context, 74000 + i,
+            rootAction = PendingIntent.getActivity(context, 74000 + widgetId,
                     new Intent(context, (Class<?>) ResetCreditActivity.class)
                             .setAction("dev.bennett.codexmeter.action.WIDGET_RESET")
-                            .setData(widgetUri(i, "root-reset"))
+                            .setData(widgetUri(widgetId, "root-reset"))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else {
             // Opens the app as the user left it, never a particular provider's tab.
-            rootAction = PendingIntent.getActivity(context, 74000 + i,
-                    AppOpenActivity.widgetIntent(context, widgetUri(i, "root-open")),
+            rootAction = PendingIntent.getActivity(context, 74000 + widgetId,
+                    AppOpenActivity.widgetIntent(context, widgetUri(widgetId, "root-open")),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
         remoteViews.setOnClickPendingIntent(android.R.id.background, rootAction);
         remoteViews.setOnClickPendingIntent(R.id.refresh_button,
-                PendingIntent.getBroadcast(context, 75000 + i,
+                PendingIntent.getBroadcast(context, 75000 + widgetId,
                         new Intent(context, (Class<?>) WidgetRefreshReceiver.class)
                                 .setAction(AppConstants.ACTION_REFRESH_WIDGET)
-                                .setData(widgetUri(i, "refresh"))
-                                .putExtra("appWidgetId", i),
+                                .setData(widgetUri(widgetId, "refresh"))
+                                .putExtra("appWidgetId", widgetId),
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         remoteViews.setOnClickPendingIntent(R.id.reset_credit_button,
-                PendingIntent.getActivity(context, 76000 + i,
+                PendingIntent.getActivity(context, 76000 + widgetId,
                         new Intent(context, (Class<?>) ResetCreditActivity.class)
                                 .setAction("dev.bennett.codexmeter.action.WIDGET_RESET")
-                                .setData(widgetUri(i, "reset"))
+                                .setData(widgetUri(widgetId, "reset"))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                                         | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
@@ -368,32 +369,31 @@ public final class WidgetRenderer {
                 + appWidgetId + "/" + action);
     }
 
-    private static void renderBars(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z, WidgetState widgetState, Bundle bundle, List<MeterSlot> slots) {
-        boolean z2 = false;
-        int iMainTextColor = WidgetGraphics.mainTextColor(z);
-        int iSecondaryColor = secondaryColor(z);
-        int iMutedColor = mutedColor(z);
-        int iFaintColor = faintColor(z);
-        remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.primary_percent, iMainTextColor);
-        remoteViews.setTextColor(R.id.secondary_percent, iMainTextColor);
-        remoteViews.setTextColor(R.id.primary_reset, iMutedColor);
-        remoteViews.setTextColor(R.id.secondary_reset, iMutedColor);
-        remoteViews.setTextColor(R.id.updated_label, iFaintColor);
-        remoteViews.setImageViewResource(R.id.primary_track, z ? R.drawable.progress_track : R.drawable.progress_track_light);
-        remoteViews.setImageViewResource(R.id.secondary_track, z ? R.drawable.progress_track : R.drawable.progress_track_light);
-        int iProgressResource = progressResource(widgetOptions.accent, z);
-        remoteViews.setImageViewResource(R.id.primary_progress, iProgressResource);
-        remoteViews.setImageViewResource(R.id.secondary_progress, iProgressResource);
+    private static void renderBars(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean dark, WidgetState widgetState, Bundle bundle, List<MeterSlot> slots) {
+        int textColor = WidgetGraphics.mainTextColor(dark);
+        int subtextColor = secondaryColor(dark);
+        int muted = mutedColor(dark);
+        int faint = faintColor(dark);
+        remoteViews.setTextColor(R.id.primary_label, subtextColor);
+        remoteViews.setTextColor(R.id.secondary_label, subtextColor);
+        remoteViews.setTextColor(R.id.primary_percent, textColor);
+        remoteViews.setTextColor(R.id.secondary_percent, textColor);
+        remoteViews.setTextColor(R.id.primary_reset, muted);
+        remoteViews.setTextColor(R.id.secondary_reset, muted);
+        remoteViews.setTextColor(R.id.updated_label, faint);
+        remoteViews.setImageViewResource(R.id.primary_track, dark ? R.drawable.progress_track : R.drawable.progress_track_light);
+        remoteViews.setImageViewResource(R.id.secondary_track, dark ? R.drawable.progress_track : R.drawable.progress_track_light);
+        int progressDrawable = progressResource(widgetOptions.accent, dark);
+        remoteViews.setImageViewResource(R.id.primary_progress, progressDrawable);
+        remoteViews.setImageViewResource(R.id.secondary_progress, progressDrawable);
         applyAppAccentFilter(context, remoteViews, widgetOptions.accent,
                 R.id.primary_progress, R.id.secondary_progress);
         MeterSlot primary = slotAt(slots, 0);
         MeterSlot secondary = slotAt(slots, 1);
         remoteViews.setInt(R.id.primary_progress, "setImageLevel",
-                Math.max(GRAPHIC_STANDARD, primary == null ? 0 : primary.progress) * 100);
+                Math.max(0, primary == null ? 0 : primary.progress) * 100);
         remoteViews.setInt(R.id.secondary_progress, "setImageLevel",
-                Math.max(GRAPHIC_STANDARD, secondary == null ? 0 : secondary.progress) * 100);
+                Math.max(0, secondary == null ? 0 : secondary.progress) * 100);
         remoteViews.setTextViewText(R.id.primary_label, primary == null ? "" : primary.label);
         remoteViews.setTextViewText(R.id.secondary_label, secondary == null ? "" : secondary.label);
         remoteViews.setTextViewText(R.id.primary_percent, primary == null ? "—" : primary.valueText);
@@ -402,34 +402,33 @@ public final class WidgetRenderer {
         remoteViews.setTextViewText(R.id.secondary_reset, widgetState.secondaryReset);
         remoteViews.setViewVisibility(R.id.primary_reset, widgetState.primaryReset.isEmpty() ? View.GONE : View.VISIBLE);
         remoteViews.setViewVisibility(R.id.secondary_reset, widgetState.secondaryReset.isEmpty() ? View.GONE : View.VISIBLE);
-        applyUpdated(remoteViews, widgetOptions, widgetState, iFaintColor);
-        int iCurrentHeight = currentHeight(context, bundle);
-        if ("compact".equals(widgetOptions.density) || ("auto".equals(widgetOptions.density) && iCurrentHeight > 0 && iCurrentHeight < 145)) {
-            z2 = true;
-        }
-        if (z2) {
-            remoteViews.setTextViewTextSize(R.id.primary_percent, GRAPHIC_MAX, 16.0f);
-            remoteViews.setTextViewTextSize(R.id.secondary_percent, GRAPHIC_MAX, 16.0f);
-            remoteViews.setTextViewTextSize(R.id.primary_reset, GRAPHIC_MAX, 9.0f);
-            remoteViews.setTextViewTextSize(R.id.secondary_reset, GRAPHIC_MAX, 9.0f);
+        applyUpdated(remoteViews, widgetOptions, widgetState, faint);
+        int height = currentHeight(context, bundle);
+        boolean compact = "compact".equals(widgetOptions.density)
+                || ("auto".equals(widgetOptions.density) && height > 0 && height < 145);
+        if (compact) {
+            remoteViews.setTextViewTextSize(R.id.primary_percent, TypedValue.COMPLEX_UNIT_SP, 16.0f);
+            remoteViews.setTextViewTextSize(R.id.secondary_percent, TypedValue.COMPLEX_UNIT_SP, 16.0f);
+            remoteViews.setTextViewTextSize(R.id.primary_reset, TypedValue.COMPLEX_UNIT_SP, 9.0f);
+            remoteViews.setTextViewTextSize(R.id.secondary_reset, TypedValue.COMPLEX_UNIT_SP, 9.0f);
             return;
         }
         if (WidgetOptions.DENSITY_COMFORTABLE.equals(widgetOptions.density)) {
-            remoteViews.setTextViewTextSize(R.id.primary_percent, GRAPHIC_MAX, 21.0f);
-            remoteViews.setTextViewTextSize(R.id.secondary_percent, GRAPHIC_MAX, 21.0f);
+            remoteViews.setTextViewTextSize(R.id.primary_percent, TypedValue.COMPLEX_UNIT_SP, 21.0f);
+            remoteViews.setTextViewTextSize(R.id.secondary_percent, TypedValue.COMPLEX_UNIT_SP, 21.0f);
         }
     }
 
-    private static void renderMicro(RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z,
+    private static void renderMicro(RemoteViews remoteViews, WidgetOptions widgetOptions, boolean dark,
             WidgetState widgetState, List<MeterSlot> slots) {
-        int iMainTextColor = WidgetGraphics.mainTextColor(z);
-        int iSecondaryColor = secondaryColor(z);
+        int textColor = WidgetGraphics.mainTextColor(dark);
+        int subtextColor = secondaryColor(dark);
         MeterSlot primary = slotAt(slots, 0);
         MeterSlot secondary = slotAt(slots, 1);
-        remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.primary_percent, iMainTextColor);
-        remoteViews.setTextColor(R.id.secondary_percent, iMainTextColor);
+        remoteViews.setTextColor(R.id.primary_label, subtextColor);
+        remoteViews.setTextColor(R.id.secondary_label, subtextColor);
+        remoteViews.setTextColor(R.id.primary_percent, textColor);
+        remoteViews.setTextColor(R.id.secondary_percent, textColor);
         remoteViews.setTextViewText(R.id.primary_label, primary == null ? "" : primary.label);
         remoteViews.setTextViewText(R.id.secondary_label, secondary == null ? "" : secondary.label);
         remoteViews.setTextViewText(R.id.primary_percent, primary == null ? "—" : primary.shortText);
@@ -439,110 +438,110 @@ public final class WidgetRenderer {
         remoteViews.setViewVisibility(R.id.updated_label, View.GONE);
     }
 
-    private static void renderMinimal(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z, WidgetState widgetState, List<MeterSlot> slots) {
-        String str;
-        int i = R.drawable.progress_track_light;
-        int iMainTextColor = WidgetGraphics.mainTextColor(z);
-        int iSecondaryColor = secondaryColor(z);
-        int iMutedColor = mutedColor(z);
-        int iFaintColor = faintColor(z);
+    private static void renderMinimal(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean dark, WidgetState widgetState, List<MeterSlot> slots) {
+        String resetText;
+        int trackDrawable = R.drawable.progress_track_light;
+        int textColor = WidgetGraphics.mainTextColor(dark);
+        int subtextColor = secondaryColor(dark);
+        int muted = mutedColor(dark);
+        int faint = faintColor(dark);
         MeterSlot primary = slotAt(slots, 0);
         MeterSlot secondary = slotAt(slots, 1);
-        remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.primary_percent, iMainTextColor);
-        remoteViews.setTextColor(R.id.secondary_percent, iMainTextColor);
-        remoteViews.setTextColor(R.id.primary_reset, iMutedColor);
-        remoteViews.setTextColor(R.id.updated_label, iFaintColor);
-        remoteViews.setImageViewResource(R.id.primary_track, z ? R.drawable.progress_track : R.drawable.progress_track_light);
-        if (z) {
-            i = R.drawable.progress_track;
+        remoteViews.setTextColor(R.id.primary_label, subtextColor);
+        remoteViews.setTextColor(R.id.secondary_label, subtextColor);
+        remoteViews.setTextColor(R.id.primary_percent, textColor);
+        remoteViews.setTextColor(R.id.secondary_percent, textColor);
+        remoteViews.setTextColor(R.id.primary_reset, muted);
+        remoteViews.setTextColor(R.id.updated_label, faint);
+        remoteViews.setImageViewResource(R.id.primary_track, dark ? R.drawable.progress_track : R.drawable.progress_track_light);
+        if (dark) {
+            trackDrawable = R.drawable.progress_track;
         }
-        remoteViews.setImageViewResource(R.id.secondary_track, i);
-        int iProgressResource = progressResource(widgetOptions.accent, z);
-        remoteViews.setImageViewResource(R.id.primary_progress, iProgressResource);
-        remoteViews.setImageViewResource(R.id.secondary_progress, iProgressResource);
+        remoteViews.setImageViewResource(R.id.secondary_track, trackDrawable);
+        int progressDrawable = progressResource(widgetOptions.accent, dark);
+        remoteViews.setImageViewResource(R.id.primary_progress, progressDrawable);
+        remoteViews.setImageViewResource(R.id.secondary_progress, progressDrawable);
         applyAppAccentFilter(context, remoteViews, widgetOptions.accent,
                 R.id.primary_progress, R.id.secondary_progress);
         remoteViews.setInt(R.id.primary_progress, "setImageLevel",
-                Math.max(GRAPHIC_STANDARD, primary == null ? 0 : primary.progress) * 100);
+                Math.max(0, primary == null ? 0 : primary.progress) * 100);
         remoteViews.setInt(R.id.secondary_progress, "setImageLevel",
-                Math.max(GRAPHIC_STANDARD, secondary == null ? 0 : secondary.progress) * 100);
+                Math.max(0, secondary == null ? 0 : secondary.progress) * 100);
         remoteViews.setTextViewText(R.id.primary_label, primary == null ? "" : primary.label);
         remoteViews.setTextViewText(R.id.secondary_label, secondary == null ? "" : secondary.label);
         remoteViews.setTextViewText(R.id.primary_percent, primary == null ? "—" : primary.shortText);
         remoteViews.setTextViewText(R.id.secondary_percent, secondary == null ? "—" : secondary.shortText);
         if ("five_hour".equals(widgetOptions.metricMode)) {
-            str = widgetState.primaryShortReset.isEmpty() ? "" : "5h " + widgetState.primaryShortReset;
+            resetText = widgetState.primaryShortReset.isEmpty() ? "" : "5h " + widgetState.primaryShortReset;
         } else if ("weekly".equals(widgetOptions.metricMode)) {
-            str = widgetState.secondaryShortReset.isEmpty() ? ""
+            resetText = widgetState.secondaryShortReset.isEmpty() ? ""
                     : widgetState.secondaryName + " " + widgetState.secondaryShortReset;
         } else {
-            str = widgetState.combinedReset;
+            resetText = widgetState.combinedReset;
         }
-        remoteViews.setTextViewText(R.id.primary_reset, str);
-        remoteViews.setViewVisibility(R.id.primary_reset, str.isEmpty() ? View.GONE : View.VISIBLE);
+        remoteViews.setTextViewText(R.id.primary_reset, resetText);
+        remoteViews.setViewVisibility(R.id.primary_reset, resetText.isEmpty() ? View.GONE : View.VISIBLE);
         remoteViews.setViewVisibility(R.id.secondary_reset, View.GONE);
-        applyUpdated(remoteViews, widgetOptions, widgetState, iFaintColor);
+        applyUpdated(remoteViews, widgetOptions, widgetState, faint);
     }
 
-    private static void renderGraphic(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean z, WidgetState widgetState, boolean z2, int i, List<MeterSlot> slots) {
-        float f;
-        int iMainTextColor = WidgetGraphics.mainTextColor(z);
-        int iSecondaryColor = secondaryColor(z);
-        int iMutedColor = mutedColor(z);
-        int iFaintColor = faintColor(z);
-        int iAccentColor = WidgetGraphics.accentColor(context, widgetOptions.accent, z);
-        int iTrackColor = WidgetGraphics.trackColor(z);
-        String str = WidgetOptions.DISPLAY_USED.equals(widgetOptions.displayMode) ? WidgetOptions.DISPLAY_USED : "left";
-        if (i == GRAPHIC_MAX) {
-            f = 1.36f;
+    private static void renderGraphic(Context context, RemoteViews remoteViews, WidgetOptions widgetOptions, boolean dark, WidgetState widgetState, boolean rings, int tier, List<MeterSlot> slots) {
+        float scale;
+        int textColor = WidgetGraphics.mainTextColor(dark);
+        int subtextColor = secondaryColor(dark);
+        int muted = mutedColor(dark);
+        int faint = faintColor(dark);
+        int accentColor = WidgetGraphics.accentColor(context, widgetOptions.accent, dark);
+        int trackColor = WidgetGraphics.trackColor(dark);
+        String usageWord = WidgetOptions.DISPLAY_USED.equals(widgetOptions.displayMode) ? WidgetOptions.DISPLAY_USED : "left";
+        if (tier == GRAPHIC_MAX) {
+            scale = 1.36f;
         } else {
-            f = i == GRAPHIC_LARGE ? 1.24f : 1.0f;
+            scale = tier == GRAPHIC_LARGE ? 1.24f : 1.0f;
         }
-        float fMin = widgetOptions.singleMetric() ? Math.min(1.36f, f * 1.16f) : f;
+        float textScale = widgetOptions.singleMetric() ? Math.min(1.36f, scale * 1.16f) : scale;
         MeterSlot primary = slotAt(slots, 0);
         MeterSlot secondary = slotAt(slots, 1);
         int primaryProgress = primary == null ? -1 : primary.progress;
         int secondaryProgress = secondary == null ? -1 : secondary.progress;
-        if (z2) {
+        if (rings) {
             applyProgressColors(remoteViews, R.id.primary_samsung_progress,
-                    iAccentColor, iTrackColor);
+                    accentColor, trackColor);
             applyProgressColors(remoteViews, R.id.secondary_samsung_progress,
-                    iAccentColor, iTrackColor);
+                    accentColor, trackColor);
             remoteViews.setProgressBar(R.id.primary_samsung_progress, 100,
-                    Math.max(GRAPHIC_STANDARD, primaryProgress), false);
+                    Math.max(0, primaryProgress), false);
             remoteViews.setProgressBar(R.id.secondary_samsung_progress, 100,
-                    Math.max(GRAPHIC_STANDARD, secondaryProgress), false);
+                    Math.max(0, secondaryProgress), false);
             remoteViews.setTextViewText(R.id.primary_samsung_value,
                     primary == null ? "—" : primary.valueText);
             remoteViews.setTextViewText(R.id.secondary_samsung_value,
                     secondary == null ? "—" : secondary.valueText);
-            remoteViews.setTextColor(R.id.primary_samsung_value, iMainTextColor);
-            remoteViews.setTextColor(R.id.secondary_samsung_value, iMainTextColor);
+            remoteViews.setTextColor(R.id.primary_samsung_value, textColor);
+            remoteViews.setTextColor(R.id.secondary_samsung_value, textColor);
             if (primary != null) {
                 remoteViews.setImageViewResource(R.id.primary_samsung_icon, primary.iconRes);
             }
             if (secondary != null) {
                 remoteViews.setImageViewResource(R.id.secondary_samsung_icon, secondary.iconRes);
             }
-            remoteViews.setInt(R.id.primary_samsung_icon, "setColorFilter", iMainTextColor);
-            remoteViews.setInt(R.id.secondary_samsung_icon, "setColorFilter", iMainTextColor);
+            remoteViews.setInt(R.id.primary_samsung_icon, "setColorFilter", textColor);
+            remoteViews.setInt(R.id.secondary_samsung_icon, "setColorFilter", textColor);
         } else {
             remoteViews.setImageViewBitmap(R.id.primary_graphic,
-                    WidgetGraphics.dial(primaryProgress, iAccentColor, iTrackColor, iMainTextColor,
+                    WidgetGraphics.dial(primaryProgress, accentColor, trackColor, textColor,
                             primary == null ? "—" : primary.valueText,
-                            primary == null || primary.usage ? str : primary.label, fMin));
+                            primary == null || primary.usage ? usageWord : primary.label, textScale));
             remoteViews.setImageViewBitmap(R.id.secondary_graphic,
-                    WidgetGraphics.dial(secondaryProgress, iAccentColor, iTrackColor, iMainTextColor,
+                    WidgetGraphics.dial(secondaryProgress, accentColor, trackColor, textColor,
                             secondary == null ? "—" : secondary.valueText,
-                            secondary == null || secondary.usage ? str : secondary.label, fMin));
+                            secondary == null || secondary.usage ? usageWord : secondary.label, textScale));
         }
-        remoteViews.setTextColor(R.id.primary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.secondary_label, iSecondaryColor);
-        remoteViews.setTextColor(R.id.primary_reset, iMutedColor);
-        remoteViews.setTextColor(R.id.secondary_reset, iMutedColor);
-        remoteViews.setTextColor(R.id.updated_label, iFaintColor);
+        remoteViews.setTextColor(R.id.primary_label, subtextColor);
+        remoteViews.setTextColor(R.id.secondary_label, subtextColor);
+        remoteViews.setTextColor(R.id.primary_reset, muted);
+        remoteViews.setTextColor(R.id.secondary_reset, muted);
+        remoteViews.setTextColor(R.id.updated_label, faint);
         remoteViews.setTextViewText(R.id.primary_label, primary == null ? "" : primary.label);
         remoteViews.setTextViewText(R.id.secondary_label, secondary == null ? "" : secondary.label);
         remoteViews.setViewVisibility(R.id.primary_label, View.GONE);
@@ -551,7 +550,7 @@ public final class WidgetRenderer {
         remoteViews.setTextViewText(R.id.secondary_reset, widgetState.secondaryShortReset);
         remoteViews.setViewVisibility(R.id.primary_reset, View.GONE);
         remoteViews.setViewVisibility(R.id.secondary_reset, View.GONE);
-        applyUpdated(remoteViews, widgetOptions, widgetState, iFaintColor);
+        applyUpdated(remoteViews, widgetOptions, widgetState, faint);
     }
 
     private static void renderFourDials(Context context, RemoteViews remoteViews,
@@ -625,7 +624,7 @@ public final class WidgetRenderer {
             applyProgressColors(remoteViews, progressIds[index], accent, track);
             int max = slot.progressMax > 0 ? slot.progressMax : 100;
             remoteViews.setProgressBar(progressIds[index], max,
-                    Math.max(GRAPHIC_STANDARD, slot.progress), false);
+                    Math.max(0, slot.progress), false);
             remoteViews.setTextViewText(valueIds[index], slot.valueText);
             remoteViews.setTextColor(valueIds[index], textColor);
             remoteViews.setImageViewResource(iconIds[index], slot.iconRes);
@@ -658,8 +657,8 @@ public final class WidgetRenderer {
         }
     }
 
-    private static void applyUpdated(RemoteViews remoteViews, WidgetOptions widgetOptions, WidgetState widgetState, int i) {
-        remoteViews.setTextColor(R.id.updated_label, i);
+    private static void applyUpdated(RemoteViews remoteViews, WidgetOptions widgetOptions, WidgetState widgetState, int color) {
+        remoteViews.setTextColor(R.id.updated_label, color);
         remoteViews.setTextViewText(R.id.updated_label, widgetState.updated);
         remoteViews.setViewVisibility(R.id.updated_label, (!widgetOptions.showUpdated || widgetState.updated.isEmpty()) ? View.GONE : View.VISIBLE);
     }
@@ -830,66 +829,66 @@ public final class WidgetRenderer {
         }
     }
 
-    private static void applyResetCreditRow(Context context, RemoteViews remoteViews, int i, WidgetOptions widgetOptions, boolean z, String str) {
-        String str2;
-        boolean zEquals = STYLE_MICRO.equals(str) || STYLE_BATTERY_LIST.equals(str);
-        boolean z2 = widgetOptions.showResetCredits || widgetOptions.showResetAction;
-        if (zEquals || !z2) {
+    private static void applyResetCreditRow(Context context, RemoteViews remoteViews, int widgetId, WidgetOptions widgetOptions, boolean dark, String style) {
+        String summary;
+        boolean hidden = STYLE_MICRO.equals(style) || STYLE_BATTERY_LIST.equals(style);
+        boolean wanted = widgetOptions.showResetCredits || widgetOptions.showResetAction;
+        if (hidden || !wanted) {
             remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
             return;
         }
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = AppPreferences.loadResetCredits(context);
-        int i2 = resetCreditsSnapshotLoadResetCredits == null ? GRAPHIC_STANDARD : resetCreditsSnapshotLoadResetCredits.availableCount;
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        long jNextExpiryMillis = resetCreditsSnapshotLoadResetCredits == null ? 0L : resetCreditsSnapshotLoadResetCredits.nextExpiryMillis(jCurrentTimeMillis);
-        boolean z3 = widgetOptions.showResetCredits;
-        boolean z4 = widgetOptions.showResetAction && i2 > 0 && SecureTokenStore.isSignedIn(context);
-        if (!z3 && !z4) {
+        ResetCreditsSnapshot resetCredits = AppPreferences.loadResetCredits(context);
+        int credits = resetCredits == null ? 0 : resetCredits.availableCount;
+        long now = System.currentTimeMillis();
+        long nextExpiry = resetCredits == null ? 0L : resetCredits.nextExpiryMillis(now);
+        boolean showInfo = widgetOptions.showResetCredits;
+        boolean showButton = widgetOptions.showResetAction && credits > 0 && SecureTokenStore.isSignedIn(context);
+        if (!showInfo && !showButton) {
             remoteViews.setViewVisibility(R.id.reset_credit_row, View.GONE);
             return;
         }
         remoteViews.setViewVisibility(R.id.reset_credit_row, View.VISIBLE);
-        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? View.VISIBLE : View.GONE);
-        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? View.VISIBLE : View.GONE);
-        if (i2 <= 0) {
-            str2 = "No reset credits";
-        } else if (jNextExpiryMillis > 0) {
-            str2 = i2 + " reset" + (i2 == GRAPHIC_LARGE ? "" : "s") + " · expires " + UsageFormat.relative(jNextExpiryMillis, jCurrentTimeMillis);
+        remoteViews.setViewVisibility(R.id.reset_credit_info, showInfo ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.reset_credit_button, showButton ? View.VISIBLE : View.GONE);
+        if (credits <= 0) {
+            summary = "No reset credits";
+        } else if (nextExpiry > 0) {
+            summary = credits + " reset" + (credits == 1 ? "" : "s") + " · expires " + UsageFormat.relative(nextExpiry, now);
         } else {
-            str2 = i2 + " reset" + (i2 == GRAPHIC_LARGE ? "" : "s") + " available";
+            summary = credits + " reset" + (credits == 1 ? "" : "s") + " available";
         }
-        remoteViews.setTextViewText(R.id.reset_credit_info, str2);
-        remoteViews.setTextColor(R.id.reset_credit_info, mutedColor(z));
-        remoteViews.setTextViewText(R.id.reset_credit_button, i2 > GRAPHIC_LARGE ? "Use reset (" + i2 + ")" : "Use reset");
-        remoteViews.setTextColor(R.id.reset_credit_button, WidgetGraphics.mainTextColor(z));
-        remoteViews.setInt(R.id.reset_credit_button, "setBackgroundResource", z ? R.drawable.widget_action_dark : R.drawable.widget_action_light);
-        remoteViews.setContentDescription(R.id.reset_credit_button, "Use one Codex reset credit. " + str2);
+        remoteViews.setTextViewText(R.id.reset_credit_info, summary);
+        remoteViews.setTextColor(R.id.reset_credit_info, mutedColor(dark));
+        remoteViews.setTextViewText(R.id.reset_credit_button, credits > 1 ? "Use reset (" + credits + ")" : "Use reset");
+        remoteViews.setTextColor(R.id.reset_credit_button, WidgetGraphics.mainTextColor(dark));
+        remoteViews.setInt(R.id.reset_credit_button, "setBackgroundResource", dark ? R.drawable.widget_action_dark : R.drawable.widget_action_light);
+        remoteViews.setContentDescription(R.id.reset_credit_button, "Use one Codex reset credit. " + summary);
     }
 
-    private static int progressResource(String str, boolean z) {
-        if (WidgetOptions.ACCENT_APP.equals(str)) {
+    private static int progressResource(String accent, boolean dark) {
+        if (WidgetOptions.ACCENT_APP.equals(accent)) {
             return R.drawable.progress_mono;
         }
-        if (WidgetOptions.ACCENT_BLUE.equals(str)) {
+        if (WidgetOptions.ACCENT_BLUE.equals(accent)) {
             return R.drawable.progress_blue;
         }
-        if (WidgetOptions.ACCENT_AMBER.equals(str)) {
+        if (WidgetOptions.ACCENT_AMBER.equals(accent)) {
             return R.drawable.progress_amber;
         }
-        if (WidgetOptions.ACCENT_VIOLET.equals(str)) {
+        if (WidgetOptions.ACCENT_VIOLET.equals(accent)) {
             return R.drawable.progress_violet;
         }
-        if (WidgetOptions.ACCENT_ROSE.equals(str)) {
+        if (WidgetOptions.ACCENT_ROSE.equals(accent)) {
             return R.drawable.progress_rose;
         }
-        if (WidgetOptions.ACCENT_CYAN.equals(str)) {
+        if (WidgetOptions.ACCENT_CYAN.equals(accent)) {
             return R.drawable.progress_cyan;
         }
-        if (WidgetOptions.ACCENT_LIME.equals(str)) {
+        if (WidgetOptions.ACCENT_LIME.equals(accent)) {
             return R.drawable.progress_lime;
         }
-        if (WidgetOptions.ACCENT_MONO.equals(str)) {
-            return z ? R.drawable.progress_mono : R.drawable.progress_mono_dark;
+        if (WidgetOptions.ACCENT_MONO.equals(accent)) {
+            return dark ? R.drawable.progress_mono : R.drawable.progress_mono_dark;
         }
         return R.drawable.progress_mint;
     }
@@ -905,105 +904,105 @@ public final class WidgetRenderer {
         }
     }
 
-    private static int backgroundResource(Context context, boolean z, int i, String str) {
-        if (i == 0) {
+    private static int backgroundResource(Context context, boolean dark, int opacity, String surface) {
+        if (opacity == 0) {
             return R.drawable.widget_bg_transparent;
         }
-        boolean zEquals = WidgetOptions.SURFACE_ONE_UI.equals(str);
-        if (zEquals && isSamsung(context)) {
-            if (z) {
-                if (i == 56) {
+        boolean oneUi = WidgetOptions.SURFACE_ONE_UI.equals(surface);
+        if (oneUi && isSamsung(context)) {
+            if (dark) {
+                if (opacity == 56) {
                     return R.drawable.widget_bg_samsung_dark_56;
                 }
-                if (i == 72) {
+                if (opacity == 72) {
                     return R.drawable.widget_bg_samsung_dark_72;
                 }
-                return i == 100 ? R.drawable.widget_bg_samsung_dark_100 : R.drawable.widget_bg_samsung_dark_88;
+                return opacity == 100 ? R.drawable.widget_bg_samsung_dark_100 : R.drawable.widget_bg_samsung_dark_88;
             }
-            if (i == 56) {
+            if (opacity == 56) {
                 return R.drawable.widget_bg_samsung_light_56;
             }
-            if (i == 72) {
+            if (opacity == 72) {
                 return R.drawable.widget_bg_samsung_light_72;
             }
-            return i == 100 ? R.drawable.widget_bg_samsung_light_100 : R.drawable.widget_bg_samsung_light_88;
+            return opacity == 100 ? R.drawable.widget_bg_samsung_light_100 : R.drawable.widget_bg_samsung_light_88;
         }
-        if (zEquals && z) {
-            if (i == 56) {
+        if (oneUi && dark) {
+            if (opacity == 56) {
                 return R.drawable.widget_bg_oneui_dark_56;
             }
-            if (i == 72) {
+            if (opacity == 72) {
                 return R.drawable.widget_bg_oneui_dark_72;
             }
-            return i == 100 ? R.drawable.widget_bg_oneui_dark_100 : R.drawable.widget_bg_oneui_dark_88;
+            return opacity == 100 ? R.drawable.widget_bg_oneui_dark_100 : R.drawable.widget_bg_oneui_dark_88;
         }
-        if (zEquals) {
-            if (i == 56) {
+        if (oneUi) {
+            if (opacity == 56) {
                 return R.drawable.widget_bg_oneui_light_56;
             }
-            if (i == 72) {
+            if (opacity == 72) {
                 return R.drawable.widget_bg_oneui_light_72;
             }
-            return i == 100 ? R.drawable.widget_bg_oneui_light_100 : R.drawable.widget_bg_oneui_light_88;
+            return opacity == 100 ? R.drawable.widget_bg_oneui_light_100 : R.drawable.widget_bg_oneui_light_88;
         }
-        if (z) {
-            if (i == 56) {
+        if (dark) {
+            if (opacity == 56) {
                 return R.drawable.widget_bg_dark_56;
             }
-            if (i == 72) {
+            if (opacity == 72) {
                 return R.drawable.widget_bg_dark_72;
             }
-            return i == 100 ? R.drawable.widget_bg_dark_100 : R.drawable.widget_bg_dark_88;
+            return opacity == 100 ? R.drawable.widget_bg_dark_100 : R.drawable.widget_bg_dark_88;
         }
-        if (i == 56) {
+        if (opacity == 56) {
             return R.drawable.widget_bg_light_56;
         }
-        if (i == 72) {
+        if (opacity == 72) {
             return R.drawable.widget_bg_light_72;
         }
-        return i == 100 ? R.drawable.widget_bg_light_100 : R.drawable.widget_bg_light_88;
+        return opacity == 100 ? R.drawable.widget_bg_light_100 : R.drawable.widget_bg_light_88;
     }
 
     private static boolean isSamsung(Context context) {
-        String str = Build.MANUFACTURER;
-        String str2 = Build.BRAND;
-        return (str != null && "samsung".equalsIgnoreCase(str)) || (str2 != null && "samsung".equalsIgnoreCase(str2));
+        String manufacturer = Build.MANUFACTURER;
+        String brand = Build.BRAND;
+        return (manufacturer != null && "samsung".equalsIgnoreCase(manufacturer)) || (brand != null && "samsung".equalsIgnoreCase(brand));
     }
 
-    private static int secondaryColor(boolean z) {
-        return z ? Color.argb(232, 255, 255, 255) : Color.argb(232, 17, 19, 21);
+    private static int secondaryColor(boolean dark) {
+        return dark ? Color.argb(232, 255, 255, 255) : Color.argb(232, 17, 19, 21);
     }
 
-    private static int mutedColor(boolean z) {
-        return z ? Color.argb(165, 255, 255, 255) : Color.argb(165, 17, 19, 21);
+    private static int mutedColor(boolean dark) {
+        return dark ? Color.argb(165, 255, 255, 255) : Color.argb(165, 17, 19, 21);
     }
 
-    private static int faintColor(boolean z) {
-        return z ? Color.argb(112, 255, 255, 255) : Color.argb(112, 17, 19, 21);
+    private static int faintColor(boolean dark) {
+        return dark ? Color.argb(112, 255, 255, 255) : Color.argb(112, 17, 19, 21);
     }
 
-    public static String shortReset(Context context, UsageWindow usageWindow, String str, long j) {
-        return shortReset(context, usageWindow, str, j, j);
+    public static String shortReset(Context context, UsageWindow usageWindow, String mode, long nowMillis) {
+        return shortReset(context, usageWindow, mode, nowMillis, nowMillis);
     }
 
-    public static String shortReset(Context context, UsageWindow usageWindow, String str,
+    public static String shortReset(Context context, UsageWindow usageWindow, String mode,
             long observedAtMillis, long nowMillis) {
-        if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)
+        if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(mode)
                 || !usageWindow.showsResetCountdown()) {
             return "";
         }
-        long jResetAtMillis = usageWindow.effectiveResetAtMillis(observedAtMillis);
-        if (jResetAtMillis <= 0) {
+        long resetAt = usageWindow.effectiveResetAtMillis(observedAtMillis);
+        if (resetAt <= 0) {
             return "reset unavailable";
         }
-        if (WidgetOptions.RESET_RELATIVE.equals(str)) {
-            return UsageFormat.relative(jResetAtMillis, nowMillis);
+        if (WidgetOptions.RESET_RELATIVE.equals(mode)) {
+            return UsageFormat.relative(resetAt, nowMillis);
         }
-        if ("both".equals(str)) {
-            return UsageFormat.absolute(context, jResetAtMillis, nowMillis) + " ("
-                    + UsageFormat.relative(jResetAtMillis, nowMillis) + ")";
+        if ("both".equals(mode)) {
+            return UsageFormat.absolute(context, resetAt, nowMillis) + " ("
+                    + UsageFormat.relative(resetAt, nowMillis) + ")";
         }
-        return UsageFormat.absolute(context, jResetAtMillis, nowMillis)
+        return UsageFormat.absolute(context, resetAt, nowMillis)
                 .replace("today at ", "").replace("tomorrow at ", "tomorrow ");
     }
 
@@ -1012,7 +1011,7 @@ public final class WidgetRenderer {
         if (message == null || message.trim().isEmpty()) {
             return runtimeException.getClass().getSimpleName();
         }
-        return message.length() > 180 ? message.substring(GRAPHIC_STANDARD, 180) : message;
+        return message.length() > 180 ? message.substring(0, 180) : message;
     }
 
     private static final class WidgetState {
@@ -1034,30 +1033,30 @@ public final class WidgetRenderer {
         final String nextResetText;
         final int nextResetProgress;
 
-        WidgetState(String str, int i, int i2, String str2, String str3, String str4,
-                String str5, String str6, String str7, String str8, String str9,
-                String str10, String str11, String nextResetText, int nextResetProgress) {
-            this(str, i, i2, str2, str3, str4, str5, str6, str7, str8, str9, str10, str11,
+        WidgetState(String plan, int primaryValue, int secondaryValue, String primaryText, String secondaryText, String primaryShort,
+                String secondaryShort, String primaryReset, String secondaryReset, String primaryShortReset, String secondaryShortReset,
+                String combinedReset, String updated, String nextResetText, int nextResetProgress) {
+            this(plan, primaryValue, secondaryValue, primaryText, secondaryText, primaryShort, secondaryShort, primaryReset, secondaryReset, primaryShortReset, secondaryShortReset, combinedReset, updated,
                     nextResetText, nextResetProgress, "Week");
         }
 
-        WidgetState(String str, int i, int i2, String str2, String str3, String str4,
-                String str5, String str6, String str7, String str8, String str9,
-                String str10, String str11, String nextResetText, int nextResetProgress,
+        WidgetState(String plan, int primaryValue, int secondaryValue, String primaryText, String secondaryText, String primaryShort,
+                String secondaryShort, String primaryReset, String secondaryReset, String primaryShortReset, String secondaryShortReset,
+                String combinedReset, String updated, String nextResetText, int nextResetProgress,
                 String secondaryName) {
-            this.plan = str;
-            this.primaryValue = i;
-            this.secondaryValue = i2;
-            this.primaryText = str2;
-            this.secondaryText = str3;
-            this.primaryShort = str4;
-            this.secondaryShort = str5;
-            this.primaryReset = str6;
-            this.secondaryReset = str7;
-            this.primaryShortReset = str8;
-            this.secondaryShortReset = str9;
-            this.combinedReset = str10;
-            this.updated = str11;
+            this.plan = plan;
+            this.primaryValue = primaryValue;
+            this.secondaryValue = secondaryValue;
+            this.primaryText = primaryText;
+            this.secondaryText = secondaryText;
+            this.primaryShort = primaryShort;
+            this.secondaryShort = secondaryShort;
+            this.primaryReset = primaryReset;
+            this.secondaryReset = secondaryReset;
+            this.primaryShortReset = primaryShortReset;
+            this.secondaryShortReset = secondaryShortReset;
+            this.combinedReset = combinedReset;
+            this.updated = updated;
             this.nextResetText = nextResetText;
             this.nextResetProgress = Math.max(0, Math.min(100, nextResetProgress));
             this.secondaryName = secondaryName == null ? "Week" : secondaryName;
@@ -1069,77 +1068,77 @@ public final class WidgetRenderer {
 
         static WidgetState from(Context context, WidgetOptions widgetOptions,
                 UsageProvider provider) {
-            String str;
-            boolean zIsSignedIn = SecureTokenStore.isSignedIn(context, provider);
-            UsageSnapshot usageSnapshotLoadSnapshot =
+            String combinedReset;
+            boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
+            UsageSnapshot snapshot =
                     ProviderPreferences.loadSnapshot(context, provider);
-            long jCurrentTimeMillis = System.currentTimeMillis();
-            if (!zIsSignedIn) {
+            long now = System.currentTimeMillis();
+            if (!signedIn) {
                 String connect = "Open the app to connect " + provider.accountName;
                 return new WidgetState("", -1, -1, "Sign in", "—", "SIGN IN", "—", connect, "", "Tap to connect", "", connect, "Tap anywhere to sign in", "—", 0);
             }
-            if (usageSnapshotLoadSnapshot == null) {
+            if (snapshot == null) {
                 String lastError = ProviderPreferences.getLastError(context, provider);
                 if (lastError.isEmpty()) {
                     lastError = "Tap refresh to load usage";
                 }
                 return new WidgetState("", -1, -1, "Loading…", "—", "…", "—", lastError, "", lastError, "", lastError, "Waiting for the first update", "—", 0);
             }
-            boolean zEquals = WidgetOptions.DISPLAY_USED.equals(widgetOptions.displayMode);
+            boolean showUsed = WidgetOptions.DISPLAY_USED.equals(widgetOptions.displayMode);
             // The secondary slot follows the account's long-cadence window: weekly on paid
             // plans, monthly on the free tier.
-            UsageWindow longWindow = usageSnapshotLoadSnapshot.longWindow();
-            String secondaryName = usageSnapshotLoadSnapshot.longWindowIsMonthly()
+            UsageWindow longWindow = snapshot.longWindow();
+            String secondaryName = snapshot.longWindowIsMonthly()
                     ? "Month" : "Week";
-            int iValue = value(usageSnapshotLoadSnapshot.fiveHour, zEquals);
-            int iValue2 = value(longWindow, zEquals);
-            String strPercent = UsageFormat.percent(usageSnapshotLoadSnapshot.fiveHour, widgetOptions.displayMode, false);
-            String strPercent2 = UsageFormat.percent(longWindow, widgetOptions.displayMode, false);
-            String strPercent3 = UsageFormat.percent(usageSnapshotLoadSnapshot.fiveHour, widgetOptions.displayMode, true);
-            String strPercent4 = UsageFormat.percent(longWindow, widgetOptions.displayMode, true);
-            String strReset = UsageFormat.reset(context, usageSnapshotLoadSnapshot.fiveHour,
-                    widgetOptions.resetMode, usageSnapshotLoadSnapshot.fetchedAtMillis,
-                    jCurrentTimeMillis);
-            String strReset2 = UsageFormat.reset(context, longWindow,
-                    widgetOptions.resetMode, usageSnapshotLoadSnapshot.fetchedAtMillis,
-                    jCurrentTimeMillis);
-            if (provider != UsageProvider.CODEX && usageSnapshotLoadSnapshot.fiveHour == null
+            int primaryValue = value(snapshot.fiveHour, showUsed);
+            int secondaryValue = value(longWindow, showUsed);
+            String primaryText = UsageFormat.percent(snapshot.fiveHour, widgetOptions.displayMode, false);
+            String secondaryText = UsageFormat.percent(longWindow, widgetOptions.displayMode, false);
+            String primaryShort = UsageFormat.percent(snapshot.fiveHour, widgetOptions.displayMode, true);
+            String secondaryShort = UsageFormat.percent(longWindow, widgetOptions.displayMode, true);
+            String primaryReset = UsageFormat.reset(context, snapshot.fiveHour,
+                    widgetOptions.resetMode, snapshot.fetchedAtMillis,
+                    now);
+            String secondaryReset = UsageFormat.reset(context, longWindow,
+                    widgetOptions.resetMode, snapshot.fetchedAtMillis,
+                    now);
+            if (provider != UsageProvider.CODEX && snapshot.fiveHour == null
                     && longWindow != null) {
                 // A plan without a 5-hour limit (Claude Ultra) says so instead of "Unavailable".
-                strPercent = "No limit";
-                strReset = "No 5-hour limit";
+                primaryText = "No limit";
+                primaryReset = "No 5-hour limit";
             }
-            String strShortReset = WidgetRenderer.shortReset(context,
-                    usageSnapshotLoadSnapshot.fiveHour, widgetOptions.resetMode,
-                    usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
-            String strShortReset2 = WidgetRenderer.shortReset(context,
+            String primaryShortReset = WidgetRenderer.shortReset(context,
+                    snapshot.fiveHour, widgetOptions.resetMode,
+                    snapshot.fetchedAtMillis, now);
+            String secondaryShortReset = WidgetRenderer.shortReset(context,
                     longWindow, widgetOptions.resetMode,
-                    usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
-            if (strShortReset.isEmpty()) {
-                str = strShortReset2.isEmpty() ? "" : secondaryName + " " + strShortReset2;
+                    snapshot.fetchedAtMillis, now);
+            if (primaryShortReset.isEmpty()) {
+                combinedReset = secondaryShortReset.isEmpty() ? "" : secondaryName + " " + secondaryShortReset;
             } else {
-                str = strShortReset2.isEmpty() ? "5h " + strShortReset
-                        : "5h " + strShortReset + " · " + secondaryName + " " + strShortReset2;
+                combinedReset = secondaryShortReset.isEmpty() ? "5h " + primaryShortReset
+                        : "5h " + primaryShortReset + " · " + secondaryName + " " + secondaryShortReset;
             }
-            String strUpdated = UsageFormat.updated(usageSnapshotLoadSnapshot.fetchedAtMillis, jCurrentTimeMillis);
-            String str2 = jCurrentTimeMillis - usageSnapshotLoadSnapshot.fetchedAtMillis > TimeUnit.HOURS.toMillis(6L) ? strUpdated + " · cached" : strUpdated;
+            String updated = UsageFormat.updated(snapshot.fetchedAtMillis, now);
+            String updatedText = now - snapshot.fetchedAtMillis > TimeUnit.HOURS.toMillis(6L) ? updated + " · cached" : updated;
             // Codex stores raw plan ids; other providers store the display label directly.
-            String strPlanLabel = provider == UsageProvider.CODEX
-                    ? UsageFormat.planLabel(usageSnapshotLoadSnapshot.planType)
-                    : usageSnapshotLoadSnapshot.planType;
-            if (!ProviderPreferences.getLastError(context, provider).isEmpty() && jCurrentTimeMillis - usageSnapshotLoadSnapshot.fetchedAtMillis > TimeUnit.MINUTES.toMillis(20L)) {
-                str2 = str2 + " · refresh issue";
+            String plan = provider == UsageProvider.CODEX
+                    ? UsageFormat.planLabel(snapshot.planType)
+                    : snapshot.planType;
+            if (!ProviderPreferences.getLastError(context, provider).isEmpty() && now - snapshot.fetchedAtMillis > TimeUnit.MINUTES.toMillis(20L)) {
+                updatedText = updatedText + " · refresh issue";
             }
-            ResetCountdown countdown = nextReset(usageSnapshotLoadSnapshot, jCurrentTimeMillis);
-            return new WidgetState(strPlanLabel, iValue, iValue2, strPercent, strPercent2,
-                    strPercent3, strPercent4, strReset, strReset2, strShortReset,
-                    strShortReset2, str, str2, countdown.text, countdown.progress,
+            ResetCountdown countdown = nextReset(snapshot, now);
+            return new WidgetState(plan, primaryValue, secondaryValue, primaryText, secondaryText,
+                    primaryShort, secondaryShort, primaryReset, secondaryReset, primaryShortReset,
+                    secondaryShortReset, combinedReset, updatedText, countdown.text, countdown.progress,
                     secondaryName);
         }
 
-        static WidgetState error(String str) {
-            return new WidgetState("", -1, -1, "—", "—", "—", "—", str, "", str,
-                    "", str, "Open the app", "—", 0);
+        static WidgetState error(String message) {
+            return new WidgetState("", -1, -1, "—", "—", "—", "—", message, "", message,
+                    "", message, "Open the app", "—", 0);
         }
 
         private static ResetCountdown nextReset(UsageSnapshot snapshot, long now) {
@@ -1185,11 +1184,11 @@ public final class WidgetRenderer {
             }
         }
 
-        private static int value(UsageWindow usageWindow, boolean z) {
+        private static int value(UsageWindow usageWindow, boolean used) {
             if (usageWindow == null) {
                 return -1;
             }
-            return z ? usageWindow.usedPercent : usageWindow.remainingPercent();
+            return used ? usageWindow.usedPercent : usageWindow.remainingPercent();
         }
     }
 }

@@ -104,7 +104,8 @@ public sealed class UpdateClient
             {
                 // The single-release endpoint failed; the small listing has the same release.
                 var recent = await RecentAsync(target, FallbackCount, cancellationToken).ConfigureAwait(false);
-                return recent.Count > 0 ? recent : throw error;
+                if (recent.Count > 0) return recent;
+                throw;
             }
         }
 

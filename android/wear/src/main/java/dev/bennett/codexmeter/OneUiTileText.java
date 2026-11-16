@@ -23,9 +23,8 @@ final class OneUiTileText {
     private final ProtoLayoutScope scope;
 
     OneUiTileText(Context context, ProtoLayoutScope scope) {
-        float density = context.getResources().getDisplayMetrics().density;
-        float scaledDensity = context.getResources().getDisplayMetrics().scaledDensity;
-        fontScale = density <= 0f ? 1f : scaledDensity / density;
+        float scale = context.getResources().getConfiguration().fontScale;
+        fontScale = scale <= 0f ? 1f : scale;
         this.scope = scope;
     }
 
@@ -44,7 +43,7 @@ final class OneUiTileText {
             heightPx = Math.max(1, (int) Math.ceil(metrics.descent - metrics.ascent) + 2);
             long byteCount = (long) widthPx * heightPx * 4L;
             if (byteCount <= TileImageResources.MAX_INLINE_IMAGE_BYTES) break;
-            renderScale *= Math.sqrt(
+            renderScale *= (float) Math.sqrt(
                     (TileImageResources.MAX_INLINE_IMAGE_BYTES * 0.96d) / byteCount);
         } while (renderScale > 0.25f);
 

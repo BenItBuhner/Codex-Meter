@@ -68,7 +68,7 @@ public final class WatchMeters {
             window = UsageSnapshot.currentWindow(window, observed, nowMillis);
             if (window == null) continue;
             String name = limit.displayName();
-            meters.add(new Meter(KIND_LIMIT, clip(name), name, window));
+            meters.add(new Meter(KIND_LIMIT, Text.ellipsize(Text.orDefault(name, "Limit"), MAX_LABEL), name, window));
         }
         return meters;
     }
@@ -146,12 +146,5 @@ public final class WatchMeters {
         if (seconds >= TimeUnit.HOURS.toSeconds(20)) return "Daily";
         long hours = Math.max(1L, Math.round(seconds / 3600.0));
         return hours + "-hour";
-    }
-
-    private static String clip(String name) {
-        String clean = name == null ? "" : name.trim();
-        if (clean.isEmpty()) return "Limit";
-        if (clean.length() <= MAX_LABEL) return clean;
-        return clean.substring(0, MAX_LABEL - 1).trim() + "…";
     }
 }

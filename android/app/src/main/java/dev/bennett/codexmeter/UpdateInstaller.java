@@ -44,6 +44,8 @@ public final class UpdateInstaller {
     }
 
     public static final class DowngradeNotSupportedException extends Exception {
+
+        private static final long serialVersionUID = 1L;
         DowngradeNotSupportedException(String message) {
             super(message);
         }
@@ -165,6 +167,8 @@ public final class UpdateInstaller {
         }
     }
 
+    // GET_SIGNING_CERTIFICATES is Android 9+; older versions need GET_SIGNATURES.
+    @SuppressWarnings("deprecation")
     private static PreparedUpdate verifyPackage(Context context, GitHubRelease release, File apk)
             throws Exception {
         PackageManager manager = context.getPackageManager();
@@ -198,6 +202,8 @@ public final class UpdateInstaller {
         return new PreparedUpdate(apk, archive.versionName, archiveCode);
     }
 
+    // signingInfo is Android 9+; older versions only report signatures.
+    @SuppressWarnings("deprecation")
     private static Signature[] currentSigners(PackageInfo info) {
         if (Build.VERSION.SDK_INT >= 28 && info.signingInfo != null) {
             return info.signingInfo.getApkContentsSigners();
@@ -345,10 +351,8 @@ public final class UpdateInstaller {
             return false;
         }
         String normalized = host.toLowerCase(Locale.US);
-        return "github.com".equals(normalized)
-                || normalized.endsWith(".github.com")
-                || "githubusercontent.com".equals(normalized)
-                || normalized.endsWith(".githubusercontent.com");
+        // Where GitHub serves release files after redirects, the same hosts the desktop updater allows.
+        return "github.com".equals(normalized) || normalized.endsWith(".githubusercontent.com");
     }
 
     private static boolean trustedDownloadUrl(URL url) {

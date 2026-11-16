@@ -14,6 +14,8 @@ public final class ReleaseUpdateScheduler {
     private ReleaseUpdateScheduler() {
     }
 
+    // getRequiredNetwork() is Android 9+; minSdk is 26.
+    @SuppressWarnings("deprecation")
     public static boolean ensureScheduled(Context context) {
         Context app = application(context);
         if (!UpdatePreferences.automaticChecks(app)) {

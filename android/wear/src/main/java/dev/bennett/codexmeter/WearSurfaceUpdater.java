@@ -11,7 +11,7 @@ import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUp
 public final class WearSurfaceUpdater {
     private static final String TAG = "CodexWearSurfaces";
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"}) // Java has no generic array creation.
     private static final Class<? extends TileService>[] TILE_SERVICES = new Class[] {
             UsageOverviewTileService.class,
             FiveHourTileService.class,
@@ -20,7 +20,7 @@ public final class WearSurfaceUpdater {
             MonitorStatusTileService.class
     };
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"}) // Java has no generic array creation.
     private static final Class<? extends ComplicationDataSourceService>[] COMPLICATION_SERVICES =
             new Class[] {
                     FiveHourComplicationService.class,

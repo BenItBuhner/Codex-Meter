@@ -98,7 +98,17 @@ android {
     }
 
     lint {
+        // Known issues live in the baseline, which only shrinks; anything new fails the build.
         baseline = file("lint-baseline.xml")
+        warningsAsErrors = true
+        checkDependencies = false
+        // Newer versions are Dependabot's to raise; as lint errors they would break CI on any day.
+        disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
+    }
+
+    testOptions {
+        // Robolectric tests run app code (stores, flows) against a real Context on the JVM.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -130,4 +140,6 @@ dependencies {
     sesl9.forEach { (module, pinned) ->
         implementation(module) { version { strictly(pinned) } }
     }
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.18")
 }

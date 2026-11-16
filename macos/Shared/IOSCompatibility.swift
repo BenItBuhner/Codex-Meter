@@ -79,6 +79,8 @@ enum EditMode: Sendable, Hashable {
     var isEditing: Bool { self != .inactive }
 }
 
+// These stand in for iOS-only environment values the shared views read; the Mac never sets them.
+// swiftlint:disable unused_setter_value
 extension EnvironmentValues {
     var horizontalSizeClass: UserInterfaceSizeClass? {
         get { .regular }
@@ -95,6 +97,7 @@ extension EnvironmentValues {
         set {}
     }
 }
+// swiftlint:enable unused_setter_value
 
 // MARK: - System colors
 

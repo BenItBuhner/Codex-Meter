@@ -7,6 +7,7 @@ import dev.bennett.codexmeter.wear.WearProvidersState;
 import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 public final class WearPreferences {
@@ -158,7 +159,8 @@ public final class WearPreferences {
                     .putBoolean(KEY_CONNECTED, true)
                     .apply();
             WearSurfaceUpdater.requestAll(context);
-        } catch (Exception ignored) {
+        } catch (JSONException | RuntimeException error) {
+            android.util.Log.w("CodexMeterWear", "Could not save the synced snapshot", error);
         }
     }
 

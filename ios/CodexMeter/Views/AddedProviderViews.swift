@@ -103,11 +103,11 @@ struct AddedProviderDashboardView: View {
         }
         .sheet(isPresented: $isShowingSignIn, onDismiss: {
             if state.phase == .signedOut { state.cancelSignIn() }
-        }) {
+        }, content: {
             NavigationStack {
                 AddedProviderSignInView(provider: provider)
             }
-        }
+        })
         .onChange(of: state.phase) { _, phase in
             if phase != .signedOut { isShowingSignIn = false }
         }

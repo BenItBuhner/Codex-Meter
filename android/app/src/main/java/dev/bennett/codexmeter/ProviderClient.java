@@ -21,6 +21,7 @@ public abstract class ProviderClient {
 
     /** The provider turned the stored credential down; the user has to sign in again. */
     public static final class Unauthorized extends Exception {
+        private static final long serialVersionUID = 1L;
         public Unauthorized(String message) {
             super(message);
         }

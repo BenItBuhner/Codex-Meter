@@ -53,27 +53,27 @@ public final class ResetAlertScheduler {
         return alarmManager != null && alarmManager.canScheduleExactAlarms();
     }
 
-    private static void scheduleWindow(Context context, UsageWindow usageWindow, String str, int i) {
+    private static void scheduleWindow(Context context, UsageWindow window, String metric, int requestCode) {
         AlarmManager alarmManager;
-        if (usageWindow != null && usageWindow.resetAtMillis() > System.currentTimeMillis()) {
+        if (window != null && window.resetAtMillis() > System.currentTimeMillis()) {
             if ((alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE)) != null) {
-                long jResetAtMillis = usageWindow.resetAtMillis() + DELIVERY_GRACE_MS;
-                PendingIntent pendingIntentPending = pending(context, str, usageWindow.resetAtMillis(), i);
+                long fireAtMillis = window.resetAtMillis() + DELIVERY_GRACE_MS;
+                PendingIntent intent = pending(context, metric, window.resetAtMillis(), requestCode);
                 try {
                     if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, jResetAtMillis, pendingIntentPending);
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAtMillis, intent);
                     } else {
-                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, jResetAtMillis, pendingIntentPending);
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAtMillis, intent);
                     }
                 } catch (SecurityException e) {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, jResetAtMillis, pendingIntentPending);
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAtMillis, intent);
                 }
             }
         }
     }
 
-    private static PendingIntent pending(Context context, String str, long j, int i) {
-        return PendingIntent.getBroadcast(context, i, new Intent(context, (Class<?>) ResetAlertReceiver.class).setAction(AppConstants.ACTION_RESET_ALERT).putExtra(EXTRA_METRIC, str).putExtra(EXTRA_RESET_AT, j), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    private static PendingIntent pending(Context context, String metric, long resetAtMillis, int requestCode) {
+        return PendingIntent.getBroadcast(context, requestCode, new Intent(context, (Class<?>) ResetAlertReceiver.class).setAction(AppConstants.ACTION_RESET_ALERT).putExtra(EXTRA_METRIC, metric).putExtra(EXTRA_RESET_AT, resetAtMillis), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static Context appContext(Context context) {

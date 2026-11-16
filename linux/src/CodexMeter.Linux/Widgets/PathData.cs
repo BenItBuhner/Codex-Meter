@@ -60,54 +60,54 @@ public static class PathData
                     steps.Add(new PathStep('L', X: x, Y: y));
                     break;
                 case 'C':
-                {
-                    var x1 = ox + Next(); var y1 = oy + Next();
-                    var x2 = ox + Next(); var y2 = oy + Next();
-                    x = ox + Next(); y = oy + Next();
-                    steps.Add(new PathStep('C', x1, y1, x2, y2, x, y));
-                    lastControlX = x2; lastControlY = y2;
-                    break;
-                }
+                    {
+                        var x1 = ox + Next(); var y1 = oy + Next();
+                        var x2 = ox + Next(); var y2 = oy + Next();
+                        x = ox + Next(); y = oy + Next();
+                        steps.Add(new PathStep('C', x1, y1, x2, y2, x, y));
+                        lastControlX = x2; lastControlY = y2;
+                        break;
+                    }
                 case 'S':
-                {
-                    var smooth = "CcSs".Contains(previous);
-                    var x1 = smooth ? 2 * x - lastControlX : x;
-                    var y1 = smooth ? 2 * y - lastControlY : y;
-                    var x2 = ox + Next(); var y2 = oy + Next();
-                    x = ox + Next(); y = oy + Next();
-                    steps.Add(new PathStep('C', x1, y1, x2, y2, x, y));
-                    lastControlX = x2; lastControlY = y2;
-                    break;
-                }
+                    {
+                        var smooth = "CcSs".Contains(previous);
+                        var x1 = smooth ? 2 * x - lastControlX : x;
+                        var y1 = smooth ? 2 * y - lastControlY : y;
+                        var x2 = ox + Next(); var y2 = oy + Next();
+                        x = ox + Next(); y = oy + Next();
+                        steps.Add(new PathStep('C', x1, y1, x2, y2, x, y));
+                        lastControlX = x2; lastControlY = y2;
+                        break;
+                    }
                 case 'Q':
-                {
-                    var qx = ox + Next(); var qy = oy + Next();
-                    var ex = ox + Next(); var ey = oy + Next();
-                    steps.Add(Quadratic(x, y, qx, qy, ex, ey));
-                    x = ex; y = ey;
-                    lastControlX = qx; lastControlY = qy;
-                    break;
-                }
+                    {
+                        var qx = ox + Next(); var qy = oy + Next();
+                        var ex = ox + Next(); var ey = oy + Next();
+                        steps.Add(Quadratic(x, y, qx, qy, ex, ey));
+                        x = ex; y = ey;
+                        lastControlX = qx; lastControlY = qy;
+                        break;
+                    }
                 case 'T':
-                {
-                    var smooth = "QqTt".Contains(previous);
-                    var qx = smooth ? 2 * x - lastControlX : x;
-                    var qy = smooth ? 2 * y - lastControlY : y;
-                    var ex = ox + Next(); var ey = oy + Next();
-                    steps.Add(Quadratic(x, y, qx, qy, ex, ey));
-                    x = ex; y = ey;
-                    lastControlX = qx; lastControlY = qy;
-                    break;
-                }
+                    {
+                        var smooth = "QqTt".Contains(previous);
+                        var qx = smooth ? 2 * x - lastControlX : x;
+                        var qy = smooth ? 2 * y - lastControlY : y;
+                        var ex = ox + Next(); var ey = oy + Next();
+                        steps.Add(Quadratic(x, y, qx, qy, ex, ey));
+                        x = ex; y = ey;
+                        lastControlX = qx; lastControlY = qy;
+                        break;
+                    }
                 case 'A':
-                {
-                    var rx = Next(); var ry = Next(); var rotation = Next();
-                    var large = Next() != 0; var sweep = Next() != 0;
-                    var ex = ox + Next(); var ey = oy + Next();
-                    steps.AddRange(Arc(x, y, rx, ry, rotation, large, sweep, ex, ey));
-                    x = ex; y = ey;
-                    break;
-                }
+                    {
+                        var rx = Next(); var ry = Next(); var rotation = Next();
+                        var large = Next() != 0; var sweep = Next() != 0;
+                        var ex = ox + Next(); var ey = oy + Next();
+                        steps.AddRange(Arc(x, y, rx, ry, rotation, large, sweep, ex, ey));
+                        x = ex; y = ey;
+                        break;
+                    }
                 case 'Z':
                     steps.Add(new PathStep('Z'));
                     x = startX; y = startY;

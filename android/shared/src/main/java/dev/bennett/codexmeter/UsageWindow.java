@@ -11,11 +11,11 @@ public final class UsageWindow {
     public final int usedPercent;
     public final long windowSeconds;
 
-    public UsageWindow(int i, long j, long j2, long j3) {
-        this.usedPercent = clamp(i);
-        this.windowSeconds = Math.max(0L, j);
-        this.resetAfterSeconds = Math.max(0L, j2);
-        this.resetAtEpochSeconds = Math.max(0L, j3);
+    public UsageWindow(int usedPercent, long windowSeconds, long resetAfterSeconds, long resetAtEpochSeconds) {
+        this.usedPercent = clamp(usedPercent);
+        this.windowSeconds = Math.max(0L, windowSeconds);
+        this.resetAfterSeconds = Math.max(0L, resetAfterSeconds);
+        this.resetAtEpochSeconds = Math.max(0L, resetAtEpochSeconds);
     }
 
     public int remainingPercent() {
@@ -81,24 +81,24 @@ public final class UsageWindow {
     }
 
     public JSONObject toJson() throws JSONException {
-        JSONObject jSONObject = new JSONObject();
-        jSONObject.put("used_percent", this.usedPercent);
-        jSONObject.put("limit_window_seconds", this.windowSeconds);
-        jSONObject.put("reset_after_seconds", this.resetAfterSeconds);
-        jSONObject.put("reset_at", this.resetAtEpochSeconds);
-        return jSONObject;
+        JSONObject json = new JSONObject();
+        json.put("used_percent", this.usedPercent);
+        json.put("limit_window_seconds", this.windowSeconds);
+        json.put("reset_after_seconds", this.resetAfterSeconds);
+        json.put("reset_at", this.resetAtEpochSeconds);
+        return json;
     }
 
-    public static UsageWindow fromJson(JSONObject jSONObject) {
-        if (jSONObject == null || jSONObject.isNull("used_percent") || jSONObject.isNull("limit_window_seconds") || !jSONObject.has("used_percent") || !jSONObject.has("limit_window_seconds")) {
+    public static UsageWindow fromJson(JSONObject json) {
+        if (json == null || json.isNull("used_percent") || json.isNull("limit_window_seconds") || !json.has("used_percent") || !json.has("limit_window_seconds")) {
             return null;
         }
-        double dOptDouble = jSONObject.optDouble("used_percent", Double.NaN);
-        long jOptLong = jSONObject.optLong("limit_window_seconds", -1L);
-        if (Double.isNaN(dOptDouble) || Double.isInfinite(dOptDouble) || jOptLong <= 0) {
+        double usedPercent = json.optDouble("used_percent", Double.NaN);
+        long windowSeconds = json.optLong("limit_window_seconds", -1L);
+        if (Double.isNaN(usedPercent) || Double.isInfinite(usedPercent) || windowSeconds <= 0) {
             return null;
         }
-        return new UsageWindow((int) Math.round(dOptDouble), jOptLong, jSONObject.optLong("reset_after_seconds", 0L), jSONObject.optLong("reset_at", 0L));
+        return new UsageWindow((int) Math.round(usedPercent), windowSeconds, json.optLong("reset_after_seconds", 0L), json.optLong("reset_at", 0L));
     }
 
     private static int clamp(int i) {

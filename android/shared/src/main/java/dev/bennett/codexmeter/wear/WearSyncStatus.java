@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter.wear;
 
+import dev.bennett.codexmeter.Text;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -18,8 +19,8 @@ public final class WearSyncStatus {
         this.signedIn = signedIn;
         this.refreshInProgress = refreshInProgress;
         this.lastSuccessAtMillis = Math.max(0L, lastSuccessAtMillis);
-        this.lastError = clean(lastError, 160);
-        this.phoneVersion = clean(phoneVersion, 32);
+        this.lastError = Text.clip(Text.clean(lastError).replace('\n', ' '), 160);
+        this.phoneVersion = Text.clip(Text.clean(phoneVersion).replace('\n', ' '), 32);
         this.updatedAtMillis = Math.max(0L, updatedAtMillis);
     }
 
@@ -42,11 +43,5 @@ public final class WearSyncStatus {
                 json.optString("last_error", ""),
                 json.optString("phone_version", ""),
                 json.optLong("updated_at_millis", 0L));
-    }
-
-    private static String clean(String value, int maxLength) {
-        String normalized = value == null ? "" : value.trim().replace('\n', ' ');
-        return normalized.length() <= maxLength
-                ? normalized : normalized.substring(0, maxLength);
     }
 }

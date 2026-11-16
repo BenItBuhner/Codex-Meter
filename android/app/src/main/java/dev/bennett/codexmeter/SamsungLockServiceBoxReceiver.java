@@ -38,8 +38,8 @@ public final class SamsungLockServiceBoxReceiver extends BroadcastReceiver {
         final SamsungLockWidgetSupport.Shape shape;
         final SamsungLockWidgetSupport.Style style;
 
-        Entry(String str, SamsungLockWidgetSupport.Shape shape, SamsungLockWidgetSupport.Style style) {
-            this.pageId = str;
+        Entry(String pageId, SamsungLockWidgetSupport.Shape shape, SamsungLockWidgetSupport.Style style) {
+            this.pageId = pageId;
             this.shape = shape;
             this.style = style;
         }

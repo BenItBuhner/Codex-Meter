@@ -88,11 +88,13 @@ public final class ResetNotificationManager {
         pruneResetCreditExpiryHistory(context, snapshot);
         try {
             ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(context, "reset", "expiry_alert_schedule_failed", error);
         }
         try {
             ResetCreditExpiryApplyScheduler.scheduleFromSnapshot(context, snapshot);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(context, "reset", "expiry_apply_schedule_failed", error);
         }
         ResetCreditExpiryApplyReceiver.evaluateAsync(context);
     }
@@ -577,7 +579,8 @@ public final class ResetNotificationManager {
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(details)
-                .addAction(new Notification.Action.Builder(R.drawable.ic_reset_notification,
+                .addAction(new Notification.Action.Builder(
+                        android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_reset_notification),
                         "Use reset", useReset).build())
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)

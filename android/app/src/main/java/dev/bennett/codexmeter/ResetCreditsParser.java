@@ -1,49 +1,36 @@
 package dev.bennett.codexmeter;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/* JADX INFO: loaded from: classes.dex */
+/** Parses Codex's {@code rate_limit_reset_credits} response. */
 public final class ResetCreditsParser {
     private ResetCreditsParser() {
     }
 
-    public static ResetCreditsSnapshot parse(String str, long j) throws JSONException {
-        if (str == null) {
-            str = "{}";
-        }
-        JSONObject jSONObject = new JSONObject(str);
-        ArrayList arrayList = new ArrayList();
-        JSONArray jSONArrayOptJSONArray = jSONObject.optJSONArray("credits");
-        if (jSONArrayOptJSONArray != null) {
-            for (int i = 0; i < jSONArrayOptJSONArray.length(); i++) {
-                RateLimitResetCredit rateLimitResetCreditFromApiJson = RateLimitResetCredit.fromApiJson(jSONArrayOptJSONArray.optJSONObject(i));
-                if (rateLimitResetCreditFromApiJson != null) {
-                    arrayList.add(rateLimitResetCreditFromApiJson);
-                }
+    public static ResetCreditsSnapshot parse(String body, long fetchedAtMillis) throws JSONException {
+        JSONObject json = new JSONObject(body == null ? "{}" : body);
+        List<RateLimitResetCredit> credits = new ArrayList<>();
+        JSONArray list = json.optJSONArray("credits");
+        for (int i = 0; list != null && i < list.length(); i++) {
+            RateLimitResetCredit credit = RateLimitResetCredit.fromApiJson(list.optJSONObject(i));
+            if (credit != null) {
+                credits.add(credit);
             }
         }
-        return new ResetCreditsSnapshot(jSONObject.optInt("available_count", countAvailable(arrayList)), arrayList, j);
+        return new ResetCreditsSnapshot(json.optInt("available_count", countAvailable(credits)), credits, fetchedAtMillis);
     }
 
-    private static int countAvailable(List<RateLimitResetCredit> list) {
-        int i = 0;
-        Iterator<RateLimitResetCredit> it = list.iterator();
-        while (true) {
-            int i2 = i;
-            if (it.hasNext()) {
-                RateLimitResetCredit next = it.next();
-                if (next != null && next.isAvailable()) {
-                    i2++;
-                }
-                i = i2;
-            } else {
-                return i2;
+    private static int countAvailable(List<RateLimitResetCredit> credits) {
+        int available = 0;
+        for (RateLimitResetCredit credit : credits) {
+            if (credit != null && credit.isAvailable()) {
+                available++;
             }
         }
+        return available;
     }
 }

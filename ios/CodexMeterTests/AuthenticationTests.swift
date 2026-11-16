@@ -88,6 +88,7 @@ final class AuthenticationTests: XCTestCase {
         let session = makeStubbedSession()
         defer { session.invalidateAndCancel() }
         let pollCount = LockedBox(0)
+        let (polled, signalPolled) = AsyncStream<Void>.makeStream()
 
         CodexMeterURLProtocol.configure { request in
             switch request.url?.path {
@@ -99,6 +100,7 @@ final class AuthenticationTests: XCTestCase {
                 ])
             case "/api/accounts/deviceauth/token":
                 pollCount.withValue { $0 += 1 }
+                signalPolled.yield()
                 return StubbedHTTPResponse(statusCode: 404)
             default:
                 return StubbedHTTPResponse(statusCode: 500)
@@ -113,9 +115,9 @@ final class AuthenticationTests: XCTestCase {
         let challenge = try await client.requestChallenge()
         let completion = Task { try await client.complete(challenge) }
 
-        while pollCount.read() == 0 {
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        // Cancel once the first poll has gone out, not after a guessed delay.
+        var polls = polled.makeAsyncIterator()
+        _ = await polls.next()
         await client.cancel(challenge)
 
         do {

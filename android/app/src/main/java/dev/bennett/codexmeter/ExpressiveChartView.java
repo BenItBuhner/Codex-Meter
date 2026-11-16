@@ -159,6 +159,8 @@ final class ExpressiveChartView extends View {
         canvas.drawPath(path, paint);
     }
 
+    // ACTION_DOWN starts a scrub and then moves to the touch point.
+    @SuppressWarnings("fallthrough")
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent e) {
