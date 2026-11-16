@@ -202,6 +202,8 @@ public sealed record ProviderCacheEntry
     public string? LastError { get; init; }
     public DateTimeOffset? LastErrorAt { get; init; }
     public string? CreditsError { get; init; }
+    /// <summary>Claude Code saved resets as Anthropic reported them; <see cref="Credits"/> holds the same resets as credits.</summary>
+    public ClaudeSavedResets? SavedResets { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
 }
 

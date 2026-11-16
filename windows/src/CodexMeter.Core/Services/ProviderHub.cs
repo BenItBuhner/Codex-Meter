@@ -62,6 +62,17 @@ public sealed class ProviderHub
         return result;
     }
 
+    /// <summary>
+    /// Redeems a reset for <paramref name="provider"/>: a Codex reset credit or a Claude Code saved
+    /// reset, on whichever service is active.
+    /// </summary>
+    public async Task<ResetConsumeResult> ConsumeResetAsync(UsageProvider provider, string? creditId) => this[provider] switch
+    {
+        ClaudeCodeService claude => (await claude.UseSavedResetAsync(creditId).ConfigureAwait(false)).ToConsumeResult(),
+        DemoProviderService demo when provider != UsageProvider.Codex => await demo.ConsumeResetAsync(creditId).ConfigureAwait(false),
+        _ => await ConsumeResetAsync(creditId).ConfigureAwait(false),
+    };
+
     /// <summary>Redeems a Codex reset credit on whichever service is active.</summary>
     public Task<ResetConsumeResult> ConsumeResetAsync(string? creditId) => this[UsageProvider.Codex] switch
     {

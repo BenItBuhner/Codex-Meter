@@ -88,7 +88,8 @@ public static class Cards
         return overlay;
     }
 
-    public sealed record MeterOptions(UsageDisplayMode Display, ResetDisplayMode Reset, bool Use24Hour, bool ShowPace);
+    public sealed record MeterOptions(UsageDisplayMode Display, ResetDisplayMode Reset, bool Use24Hour, bool ShowPace,
+        PaceSensitivity Sensitivity = PaceSensitivity.Balanced);
 
     /// <summary>The main meter card: ring, title, value, the other half, reset time and pace.</summary>
     public static Gtk.Widget Meter(string title, string icon, UsageWindow window, DateTimeOffset fetchedAt, MeterOptions options,
@@ -116,7 +117,7 @@ public static class Cards
         if (reset.Length > 0) details.Append(Label(reset));
         if (options.ShowPace)
         {
-            var pace = UsagePace.Describe(window, fetchedAt, now);
+            var pace = UsagePace.Describe(window, fetchedAt, now, options.Sensitivity);
             if (pace.Length > 0)
                 details.Append(pace.StartsWith("At this pace", StringComparison.Ordinal)
                     ? Label(pace, "caption", "error", "pace-warning")

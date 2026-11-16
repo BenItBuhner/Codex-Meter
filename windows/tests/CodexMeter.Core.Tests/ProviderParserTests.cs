@@ -48,8 +48,13 @@ public class ProviderParserTests
         foreach (var provider in UsageProvider.All.Where(p => !p.IsBuiltIn))
         {
             var client = Core.Services.ProviderClients.For(provider);
-            if (!provider.IsAvailable) { Assert.Null(client); continue; }
             Assert.NotNull(client);
+            if (!provider.IsAvailable)
+            {
+                // Antigravity without its build-time sign-in client: the client says so instead of opening Google.
+                Assert.Throws<Core.Services.ProviderException>(() => client!.LoopbackAuthUrl("http://localhost:1/callback", new Core.Services.SignInAttempt()));
+                continue;
+            }
             Assert.Equal(provider, client!.Provider);
             switch (provider.SignIn)
             {
@@ -66,9 +71,9 @@ public class ProviderParserTests
         var picker = UsageProvider.PickerProviders([UsageProvider.Codex, UsageProvider.Cursor], "");
         Assert.DoesNotContain(UsageProvider.Codex, picker);
         Assert.Equal(UsageProvider.ClaudeCode, picker[0]);
-        // Antigravity needs a client secret that this build doesn't have.
-        Assert.DoesNotContain(UsageProvider.Antigravity, picker);
-        Assert.Equal(UsageProvider.All.Count - 3, picker.Count);
+        // Antigravity is offered only when the build has its Google sign-in client.
+        Assert.Equal(Core.Services.AntigravityOAuth.Configured, picker.Contains(UsageProvider.Antigravity));
+        Assert.Equal(UsageProvider.All.Count - (Core.Services.AntigravityOAuth.Configured ? 2 : 3), picker.Count);
         Assert.Equal([UsageProvider.Copilot], UsageProvider.PickerProviders([], "github"));
         Assert.Equal([UsageProvider.Kimi], UsageProvider.PickerProviders([], "  KIMI "));
         var cognition = UsageProvider.PickerProviders([], "cognition");

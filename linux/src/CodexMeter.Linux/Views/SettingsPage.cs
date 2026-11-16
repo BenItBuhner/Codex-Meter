@@ -8,10 +8,16 @@ using CodexMeter.Linux.Services;
 
 namespace CodexMeter.Linux.Views;
 
-/// <summary>Settings as libadwaita preference groups; the same options as the Windows app.</summary>
+/// <summary>
+/// Settings as libadwaita preference groups, with the same options and names as the Windows app
+/// and the phone apps: Usage (Accounts, Providers, Dashboard, Reset credits), Alerts &amp; live usage
+/// (Notifications, Live usage), App (Appearance, Updates, Privacy &amp; data) and About.
+/// </summary>
 public sealed class SettingsPage : IPage
 {
-    private static readonly int[] Thresholds = [10, 15, 25];
+    private static readonly LowUsageAutoUseMetric[] AlertFor = [LowUsageAutoUseMetric.Both, LowUsageAutoUseMetric.FiveHour, LowUsageAutoUseMetric.Weekly];
+    private const string SlowdownNote = "On the Priority page only when a Codex, Claude Code or Grok model runs much slower than usual, from public OpenRouter figures for each maker's newest models. Not your subscription's own speed.";
+    private const string NewModelsNote = "When OpenRouter lists a new model from a maker you're signed in to (OpenAI for Codex, Anthropic for Claude Code, ...). Tools that offer many makers' models, like Cursor or Copilot, add none.";
     private readonly AppState state;
     private readonly Adw.PreferencesPage preferences;
     private readonly Adw.PreferencesGroup providersGroup;
@@ -39,38 +45,48 @@ public sealed class SettingsPage : IPage
         loading = true;
         var s = state.Settings.Current;
 
-        // Updates: first, so a pending update is the first thing Settings shows.
-        if (state.Updater is { } updater) BuildUpdates(updater, window, s.Updates);
+        // Usage: accounts, the services in the sidebar, each dashboard, reset credits.
+        Heading("Usage");
+        var accountsGroup = Group("Accounts");
+        var accounts = Adw.ActionRow.New();
+        accounts.SetTitle("Accounts");
+        accounts.SetSubtitle(state.SignedIn.Count switch
+        {
+            0 => "No accounts connected",
+            1 => "1 account connected",
+            var n => $"{n} accounts connected",
+        });
+        accounts.SetActivatable(true);
+        accounts.SetName("AccountsRow");
+        accounts.AddSuffix(Gtk.Image.NewFromIconName("go-next-symbolic"));
+        accounts.OnActivated += (_, _) => window.Navigate("accounts");
+        accountsGroup.Add(accounts);
 
-        // Appearance
-        var appearance = Group("Appearance");
-        appearance.Add(Combo("Style", "Follow the system, or always use light or dark.",
-            ["Follow System", "Light", "Dark"], (uint)s.Theme, i => state.Settings.Update(x => x with { Theme = (AppTheme)i }), "ThemeRow"));
-
-        // Providers
-        providersGroup = Group("Sidebar", "Choose which connected services get a page, and their order.");
-        providersGroup.Add(Switch("Priority page", "First in the sidebar: limits to watch, used-up limits, what's coming up and new models, across every connected service.",
+        providersGroup = Group("Providers", "Choose which services get a page in the sidebar, and their order.");
+        providersGroup.Add(Switch("Priority page", "First in the sidebar: what needs you across every connected service.",
             s.ShowPriority, on => state.Settings.Update(x => x with { ShowPriority = on }), "PrioritySwitch"));
         BuildProviders();
 
-        // Dashboard
         var dashboard = Group("Dashboard");
+        dashboard.Add(Combo("Check usage every", "While Codex Meter runs. Some services allow fewer checks.",
+            ["5 minutes", "15 minutes", "30 minutes", "1 hour"],
+            (uint)Math.Max(0, Array.IndexOf(AppSettings.RefreshChoices, s.RefreshMinutes)),
+            i => state.Settings.Update(x => x with { RefreshMinutes = AppSettings.RefreshChoices[i] }), "RefreshRow"));
         dashboard.Add(Combo("Show usage as", "The number in each ring.", ["Remaining", "Used"],
             s.DisplayMode == UsageDisplayMode.Remaining ? 0u : 1u,
             i => state.Settings.Update(x => x with { DisplayMode = i == 1 ? UsageDisplayMode.Used : UsageDisplayMode.Remaining }), "DisplayRow"));
         dashboard.Add(Combo("Reset times", "How each card says when its window resets.", ["Countdown", "Date and time", "Both"],
             (uint)s.ResetDisplay, i => state.Settings.Update(x => x with { ResetDisplay = (ResetDisplayMode)i })));
         dashboard.Add(Switch("24-hour clock", null, s.Use24HourClock, on => state.Settings.Update(x => x with { Use24HourClock = on })));
-        dashboard.Add(Switch("Pace estimates", "Warn when a window would run out before it resets at your current pace.", s.ShowPace,
-            on => state.Settings.Update(x => x with { ShowPace = on })));
-        var cards = Adw.ActionRow.New();
-        cards.SetTitle("Cards on each dashboard");
-        cards.SetSubtitle("Use Edit Dashboard in a service's header bar to hide or reorder its cards.");
-        cards.AddPrefix(Gtk.Image.NewFromIconName("document-edit-symbolic"));
-        dashboard.Add(cards);
-
-        // Usage history
-        var historyGroup = Group("Usage history");
+        dashboard.Add(Switch("Usage estimates", "How long your current allowance may last at your pace.", s.ShowPace,
+            on => state.Settings.Update(x => x with { ShowPace = on }), "PaceSwitch"));
+        dashboard.Add(Combo("Fast-usage warnings", "How readily a card warns that a window would run out before it resets.",
+            UsagePace.Choices.Select(UsagePace.Label).ToArray(), (uint)Math.Max(0, Array.IndexOf(UsagePace.Choices, s.PaceSensitivity)),
+            i => state.Settings.Update(x => x with { PaceSensitivity = UsagePace.Choices[i] }), "PaceSensitivityRow"));
+        dashboard.Add(Switch("Service status", "Official outages and maintenance for Codex, Claude Code, Cursor and Grok, from each status page.",
+            s.ShowServiceStatus, on => state.Settings.Update(x => x with { ShowServiceStatus = on }), "ServiceStatusSwitch"));
+        dashboard.Add(Switch("Model slowdown warnings", SlowdownNote,
+            s.ShowSlowdowns, on => state.Settings.Update(x => x with { ShowSlowdowns = on }), "SlowdownSwitch"));
         var highlights = Adw.ExpanderRow.New();
         highlights.SetTitle("Chart highlights");
         highlights.SetSubtitle("What appears under the usage history chart.");
@@ -81,10 +97,10 @@ public sealed class SettingsPage : IPage
                 on => state.Settings.Update(x => x with { HistoryOverrides = HistorySections.SetVisible(x.HistoryOverrides, key, on) }),
                 "Highlight_" + key));
         }
-        historyGroup.Add(highlights);
+        dashboard.Add(highlights);
         var recorded = Adw.ActionRow.New();
-        recorded.SetTitle("Recorded history");
-        recorded.SetSubtitle("Saved on this computer each time usage refreshes, and cleared when you sign out.");
+        recorded.SetTitle("Usage history");
+        recorded.SetSubtitle("Saved on this computer each time usage refreshes, and cleared when you sign out. Use Edit Dashboard on a service's page to hide or reorder its cards.");
         var clear = Gtk.Button.NewWithLabel("Clear All…");
         clear.SetValign(Gtk.Align.Center);
         clear.SetName("ClearAllHistory");
@@ -104,56 +120,104 @@ public sealed class SettingsPage : IPage
             confirm.Present(window.Window);
         };
         recorded.AddSuffix(clear);
-        historyGroup.Add(recorded);
+        dashboard.Add(recorded);
 
-        // Codex reset credits
-        // Only for a connected Codex account, as on Android: the rules do nothing without one.
-        if (state.Supports(UsageProvider.Codex) && state[UsageProvider.Codex].SignedIn)
+        // Reset credits: one section per connected service that has them. Auto-use watches both
+        // the 5-hour and weekly limits, so there is no picker for which one.
+        var leads = CreditExpiryAutoApply.LeadMinuteOptions;
+        var thresholds = LowUsageAutoUse.ThresholdOptions;
+        string[] leadLabels = [.. leads.Select(CreditExpiryAutoApply.LeadLabel)];
+        string[] thresholdLabels = [.. thresholds.Select(t => $"{t}% left")];
+        var codexResets = state.Supports(UsageProvider.Codex) && state[UsageProvider.Codex].SignedIn;
+        var claudeResets = state.Supports(UsageProvider.ClaudeCode) && state[UsageProvider.ClaudeCode].SignedIn;
+        if (codexResets || claudeResets)
+            Group("Reset credits", "Spend resets automatically so they don't go to waste. Auto-use watches both the 5-hour and weekly limits.");
+        if (codexResets)
         {
-            var resets = Group("Codex reset credits", "Spend banked resets automatically so they don't go to waste.");
-            var leads = CreditExpiryAutoApply.LeadMinuteOptions;
-            var expiring = Expander("Use resets before they expire", "Spend a banked reset shortly before it would expire unused.",
+            var codex = Group("Codex");
+            codex.Add(ResetsRow(UsageProvider.Codex));
+            var expiring = Expander("Use before they expire", "Spend a reset shortly before it would expire unused.",
                 s.AutoUseExpiringResets, on => state.Settings.Update(x => x with { AutoUseExpiringResets = on }), "AutoUseExpiringSwitch");
-            expiring.AddRow(Combo("How early", null, leads.Select(CreditExpiryAutoApply.LeadLabel).ToArray(),
+            expiring.AddRow(Combo("When to use it", null, leadLabels,
                 (uint)Math.Max(0, leads.ToList().IndexOf(CreditExpiryAutoApply.NormalizedLeadMinutes(s.AutoUseLeadMinutes))),
                 i => state.Settings.Update(x => x with { AutoUseLeadMinutes = leads[i] }), "AutoUseLeadRow"));
-            resets.Add(expiring);
-            var thresholds = LowUsageAutoUse.ThresholdOptions;
-            var low = Expander("Use a reset when running low", "Spend a banked reset when a limit is nearly used up, unless it resets soon anyway.",
+            codex.Add(expiring);
+            var low = Expander("Use when running low", "Spend a reset when a 5-hour or weekly limit is nearly used up, unless it resets soon anyway.",
                 s.AutoUseWhenLow, on => state.Settings.Update(x => x with { AutoUseWhenLow = on }), "AutoUseLowSwitch");
-            low.AddRow(Combo("Watch", null, ["5-hour or weekly", "Weekly", "5-hour"], (uint)s.AutoUseMetric,
-                i => state.Settings.Update(x => x with { AutoUseMetric = (LowUsageAutoUseMetric)i }), "AutoUseMetricRow"));
-            low.AddRow(Combo("When it falls to", null, thresholds.Select(t => $"{t}% left").ToArray(),
+            low.AddRow(Combo("Use when remaining reaches", null, thresholdLabels,
                 (uint)Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(s.AutoUseThreshold))),
                 i => state.Settings.Update(x => x with { AutoUseThreshold = thresholds[i] }), "AutoUseThresholdRow"));
-            resets.Add(low);
+            codex.Add(low);
+        }
+        if (claudeResets)
+        {
+            var rules = s.ClaudeResets;
+            var claude = Group("Claude Code", "Saved resets Anthropic gives out. Each one refills a limit you've hit.");
+            claude.Add(ResetsRow(UsageProvider.ClaudeCode));
+            var expiring = Expander("Use before they expire", "Spend a saved reset shortly before it would expire, once you're at a limit it refills.",
+                rules.AutoUseExpiring, on => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { AutoUseExpiring = on } }), "ClaudeAutoUseExpiringSwitch");
+            expiring.AddRow(Combo("When to use it", null, leadLabels,
+                (uint)Math.Max(0, leads.ToList().IndexOf(CreditExpiryAutoApply.NormalizedLeadMinutes(rules.LeadMinutes))),
+                i => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { LeadMinutes = leads[i] } }), "ClaudeAutoUseLeadRow"));
+            claude.Add(expiring);
+            var low = Expander("Use when running low", "Spend a saved reset when a 5-hour or weekly limit is nearly used up.",
+                rules.AutoUseWhenLow, on => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { AutoUseWhenLow = on } }), "ClaudeAutoUseLowSwitch");
+            low.AddRow(Combo("Use when remaining reaches", null, thresholdLabels,
+                (uint)Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(rules.Threshold))),
+                i => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { Threshold = thresholds[i] } }), "ClaudeAutoUseThresholdRow"));
+            claude.Add(low);
+            var check = Adw.ActionRow.New();
+            check.SetTitle("Check with Anthropic");
+            check.SetSubtitle("Asks Anthropic which saved resets this account has, and why one can't be used yet.");
+            var checkButton = Gtk.Button.NewWithLabel("Check");
+            checkButton.SetValign(Gtk.Align.Center);
+            checkButton.SetName("ClaudeCheckResetsButton");
+            checkButton.OnClicked += async (_, _) =>
+            {
+                checkButton.SetSensitive(false);
+                string report;
+                try { report = await state.CheckClaudeResetsAsync(); }
+                catch (Exception error) { report = "The check didn't finish: " + error.Message; }
+                checkButton.SetSensitive(true);
+                var dialog = Adw.AlertDialog.New("Claude Code saved resets", report);
+                dialog.AddResponse("close", "_Close");
+                dialog.SetDefaultResponse("close");
+                dialog.SetCloseResponse("close");
+                dialog.Present(window.Window);
+            };
+            check.AddSuffix(checkButton);
+            claude.Add(check);
         }
 
-        // Refresh and alerts
-        var updates = Group("Refresh and alerts");
-        updates.Add(Combo("Check usage every",
-            "While Codex Meter runs. Some services allow fewer checks.",
-            ["5 minutes", "15 minutes", "30 minutes", "1 hour"],
-            (uint)Math.Max(0, Array.IndexOf(AppSettings.RefreshChoices, s.RefreshMinutes)),
-            i => state.Settings.Update(x => x with { RefreshMinutes = AppSettings.RefreshChoices[i] })));
-        updates.Add(Switch("Notify when a limit resets", null, s.NotifyResets, on => state.Settings.Update(x => x with { NotifyResets = on })));
-        updates.Add(Switch("Notify when running low", "When a 5-hour, weekly or monthly window drops to the threshold or runs out.",
-            s.NotifyLow, on => state.Settings.Update(x => x with { NotifyLow = on })));
-        var thresholdIndex = Array.IndexOf(Thresholds, s.LowThreshold);
-        updates.Add(Combo("Running-low threshold", null, ["10% left", "15% left", "25% left"],
-            (uint)(thresholdIndex >= 0 ? thresholdIndex : 1), i => state.Settings.Update(x => x with { LowThreshold = Thresholds[i] })));
-        updates.Add(Switch("Notify when usage is back", "When a limit you used up resets, so you know you can work again.",
-            s.NotifyUsageBack, on => state.Settings.Update(x => x with { NotifyUsageBack = on }), "UsageBackSwitch"));
-        updates.Add(Switch("Surprise limit refills", "When a limit refills well before its reset time.",
+        // Alerts & live usage
+        Heading("Alerts & live usage");
+        var alerts = Group("Notifications");
+        var lowAlert = Expander("Low allowance", "When a limit drops to this much or runs out.",
+            s.NotifyLow, on => state.Settings.Update(x => x with { NotifyLow = on }), "LowAlertSwitch");
+        lowAlert.AddRow(Combo("Alert for", null, ["Both", "5-hour", "Weekly"], (uint)Array.IndexOf(AlertFor, s.LowAlertMetric) is var f && f < 3 ? f : 0,
+            i => state.Settings.Update(x => x with { LowAlertMetric = AlertFor[i] }), "LowAlertForRow"));
+        var lowChoices = AppSettings.LowThresholdChoices;
+        lowAlert.AddRow(Combo("Alert when remaining reaches", null, lowChoices.Select(t => $"{t}% left").ToArray(),
+            (uint)Math.Max(0, Array.IndexOf(lowChoices, s.LowThreshold) is var t && t >= 0 ? t : 1),
+            i => state.Settings.Update(x => x with { LowThreshold = lowChoices[i] }), "LowThresholdRow"));
+        alerts.Add(lowAlert);
+        alerts.Add(Switch("Surprise limit refills", "When a limit refills well before its reset time.",
             s.NotifySurpriseRefills, on => state.Settings.Update(x => x with { NotifySurpriseRefills = on }), "SurpriseRefillSwitch"));
-        updates.Add(Switch("New models", "When OpenRouter lists a new model from a maker you're signed in to (OpenAI for Codex, Anthropic for Claude Code, ...). Tools that offer many makers' models, like Cursor or Copilot, add none.",
+        alerts.Add(Switch("New reset credits", "When a connected account gets a new reset credit.",
+            s.NotifyNewResets, on => state.Settings.Update(x => x with { NotifyNewResets = on }), "NewResetsSwitch"));
+        alerts.Add(Switch("Expiring reset credits", "A day before an unused reset credit expires.",
+            s.NotifyExpiringResets, on => state.Settings.Update(x => x with { NotifyExpiringResets = on }), "ExpiringResetsSwitch"));
+        alerts.Add(Switch("Limit resets", "When a 5-hour, weekly or monthly window starts over.",
+            s.NotifyResets, on => state.Settings.Update(x => x with { NotifyResets = on }), "ResetAlertSwitch"));
+        alerts.Add(Switch("Usage is back", "When a limit you used up resets, so you know you can work again.",
+            s.NotifyUsageBack, on => state.Settings.Update(x => x with { NotifyUsageBack = on }), "UsageBackSwitch"));
+        alerts.Add(Switch("New models", NewModelsNote,
             s.NotifyNewModels, on => state.Settings.Update(x => x with { NotifyNewModels = on }), "NewModelsSwitch"));
 
-        // Desktop
-        var desktop = Group("Desktop");
+        var live = Group("Live usage");
         closeToTray = Switch("Keep running when the window is closed", "Closing hides the window; quit from the tray icon or the main menu.",
             s.CloseToTray, on => state.Settings.Update(x => x with { CloseToTray = on }));
-        desktop.Add(Switch("Live usage in the system tray",
+        live.Add(Switch("Live usage in the system tray",
             "A ring or number that follows your usage, like the live notification on Android. Needs a tray: KDE Plasma, Cinnamon, Xfce, Budgie, or GNOME with the AppIndicator extension.",
             s.ShowTrayIcon, on =>
             {
@@ -161,24 +225,24 @@ public sealed class SettingsPage : IPage
                 closeToTray.SetSensitive(on);
             }, "TraySwitch"));
         var liveProviders = state.EnabledProviders.ToList();
-        desktop.Add(Combo("Tray service", "Automatic shows the first connected service in the sidebar.",
+        live.Add(Combo("Service", "Automatic shows the first connected service in the sidebar.",
             ["Automatic", .. liveProviders.Select(p => p.DisplayName)], (uint)(liveProviders.FindIndex(p => p.Id == s.LiveProvider) + 1),
             i => state.Settings.Update(x => x with { LiveProvider = i == 0 ? LiveUsage.AutomaticProvider : liveProviders[i - 1].Id }), "LiveProviderBox"));
-        desktop.Add(Switch("While using AI apps",
+        live.Add(Switch("While using AI apps",
             "Show a service's usage while its app is in front. Add any app, or change which service an app shows, below.",
             s.LiveFollowApps, on =>
             {
                 state.Settings.Update(x => x with { LiveFollowApps = on });
                 appsGroup.SetSensitive(on);
             }, "LiveFollowAppsSwitch"));
-        desktop.Add(Combo("Percentage shown", "Auto shows whichever of the 5-hour and weekly limits has less left.",
+        live.Add(Combo("Percentage shown", "Auto shows whichever of the 5-hour and weekly limits has less left.",
             ["Auto", "5-hour usage", "Weekly usage"], (uint)s.LiveWindow,
             i => state.Settings.Update(x => x with { LiveWindow = (LiveWindowChoice)i }), "LiveWindowBox"));
-        desktop.Add(Combo("Tray icon style", "A used-up limit shows the time until it resets.", ["Ring", "Number"], (uint)s.LiveIconStyle,
+        live.Add(Combo("Icon style", "A used-up limit shows the time until it resets.", ["Ring", "Number"], (uint)s.LiveIconStyle,
             i => state.Settings.Update(x => x with { LiveIconStyle = (LiveIconStyle)i }), "LiveStyleBox"));
         closeToTray.SetSensitive(s.ShowTrayIcon);
-        desktop.Add(closeToTray);
-        desktop.Add(Switch("Start when you log in", "Opens in the tray when you sign in to your desktop.",
+        live.Add(closeToTray);
+        live.Add(Switch("Start when you log in", "Opens in the tray when you sign in to your desktop.",
             state.IsDemo ? s.StartWithWindows : Autostart.IsEnabled, on =>
             {
                 state.Settings.Update(x => x with { StartWithWindows = on });
@@ -201,8 +265,17 @@ public sealed class SettingsPage : IPage
         appsGroup.SetSensitive(s.LiveFollowApps);
         BuildLiveApps();
 
+        // App
+        Heading("App");
+        var appearance = Group("Appearance");
+        appearance.Add(Combo("Style", "Follow the system, or always use light or dark.",
+            ["Follow System", "Light", "Dark"], (uint)s.Theme, i => state.Settings.Update(x => x with { Theme = (AppTheme)i }), "ThemeRow"));
+        if (state.Updater is { } updater) BuildUpdates(updater, window, s.Updates);
+        BuildPrivacy(window);
+
         // About
-        var about = Group("About");
+        Heading("About");
+        var about = Group("");
         var aboutRow = Adw.ActionRow.New();
         aboutRow.SetTitle("Codex Meter for Linux");
         aboutRow.SetSubtitle("Unofficial and open source. No analytics, no ads, no relay server: the app talks to each provider directly.");
@@ -215,18 +288,6 @@ public sealed class SettingsPage : IPage
         version.SetName("VersionText");
         aboutRow.AddSuffix(version);
         about.Add(aboutRow);
-        var data = Adw.ActionRow.New();
-        data.SetTitle("Your data");
-        data.SetSubtitle(SignInDialog.StorageDescription(App.Current?.KeyLocation) + " Cached usage and settings live in your home folder.");
-        var open = Gtk.Button.NewWithLabel("Open Folder");
-        open.SetValign(Gtk.Align.Center);
-        open.OnClicked += (_, _) =>
-        {
-            Directory.CreateDirectory(AppPaths.DataDirectory);
-            _ = Browser.OpenAsync(new Uri(AppPaths.ConfigDirectory.EndsWith('/') ? AppPaths.ConfigDirectory : AppPaths.ConfigDirectory + "/"));
-        };
-        data.AddSuffix(open);
-        about.Add(data);
         var source = Adw.ActionRow.New();
         source.SetTitle("Source code and releases");
         source.SetSubtitle("github.com/BenItBuhner/Codex-Meter");
@@ -397,11 +458,158 @@ public sealed class SettingsPage : IPage
         return $"Version {version} ({arch})";
     }
 
+    /// <summary>A top-level heading above a run of groups.</summary>
+    private void Heading(string title)
+    {
+        var group = Adw.PreferencesGroup.New();
+        var label = Gtk.Label.New(title);
+        label.AddCssClass("title-2");
+        label.SetXalign(0);
+        label.SetMarginTop(12);
+        group.Add(label);
+        group.SetName("Heading_" + title.Replace(" ", "").Replace("&", "And"));
+        preferences.Add(group);
+    }
+
+    /// <summary>"Your resets" with what the service has right now.</summary>
+    private Adw.ActionRow ResetsRow(UsageProvider provider)
+    {
+        var entry = state[provider];
+        var card = ResetCreditsCard.For(provider, entry.Cache, entry.Usage?.ResetCreditsAvailable ?? 0, state.Settings.Current, DateTimeOffset.UtcNow);
+        var row = Adw.ActionRow.New();
+        row.SetTitle("Your resets");
+        row.SetSubtitle(card.Held is { } held ? card.Count + ". " + held : card.Count);
+        row.SetName("ResetsRow_" + provider.Id);
+        return row;
+    }
+
+    /// <summary>
+    /// Privacy &amp; data: export and import settings (never sign-ins), opt-in diagnostic logs kept
+    /// only on this computer, and where everything is stored.
+    /// </summary>
+    private void BuildPrivacy(MainWindow window)
+    {
+        var group = Group("Privacy & data");
+        var export = Adw.ActionRow.New();
+        export.SetTitle("Export settings");
+        export.SetSubtitle("Saves your settings to a file. No accounts, tokens or API keys are included.");
+        var exportButton = Gtk.Button.NewWithLabel("Export…");
+        exportButton.SetValign(Gtk.Align.Center);
+        exportButton.SetName("ExportSettingsButton");
+        exportButton.OnClicked += async (_, _) =>
+        {
+            var dialog = Gtk.FileDialog.New();
+            dialog.SetTitle("Export settings");
+            dialog.SetInitialName(SettingsTransfer.FileName);
+            try
+            {
+                if (await dialog.SaveAsync(window.Window) is not { } file || file.GetPath() is not { } path) return;
+                await File.WriteAllTextAsync(path, SettingsTransfer.Export(state.Settings.Current, "linux", DateTimeOffset.UtcNow));
+                window.ShowToast("Settings exported");
+            }
+            catch (GLib.GException) { }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { window.ShowToast("Couldn't save the file: " + error.Message); }
+        };
+        export.AddSuffix(exportButton);
+        group.Add(export);
+
+        var import = Adw.ActionRow.New();
+        import.SetTitle("Import settings");
+        import.SetSubtitle("Replaces your settings with ones exported from Codex Meter on Windows or Linux. Your accounts stay as they are.");
+        var importButton = Gtk.Button.NewWithLabel("Import…");
+        importButton.SetValign(Gtk.Align.Center);
+        importButton.SetName("ImportSettingsButton");
+        importButton.OnClicked += async (_, _) =>
+        {
+            var dialog = Gtk.FileDialog.New();
+            dialog.SetTitle("Import settings");
+            try
+            {
+                if (await dialog.OpenAsync(window.Window) is not { } file || file.GetPath() is not { } path) return;
+                if (new FileInfo(path).Length > SettingsTransfer.MaxBytes) throw new FormatException("The file is too large to be a Codex Meter settings file.");
+                var imported = SettingsTransfer.Import(await File.ReadAllTextAsync(path), state.Settings.Current);
+                state.Settings.Update(_ => imported);
+                window.ShowToast("Settings imported");
+                window.Reload();
+            }
+            catch (GLib.GException) { }
+            catch (FormatException error) { window.ShowToast(error.Message); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { window.ShowToast("Couldn't read the file: " + error.Message); }
+        };
+        import.AddSuffix(importButton);
+        group.Add(import);
+
+        var log = state.Diagnostics;
+        var size = Adw.ActionRow.New();
+        size.SetTitle("Saved logs");
+        size.SetName("DiagnosticLogSize");
+        var exportLogs = Gtk.Button.NewWithLabel("Export…");
+        exportLogs.SetValign(Gtk.Align.Center);
+        var clearLogs = Gtk.Button.NewWithLabel("Clear");
+        clearLogs.SetValign(Gtk.Align.Center);
+        void RenderLogs()
+        {
+            var bytes = log?.Bytes ?? 0;
+            size.SetSubtitle(DiagnosticLog.SizeLabel(bytes));
+            exportLogs.SetSensitive(bytes > 0);
+            clearLogs.SetSensitive(bytes > 0);
+        }
+        var diagnostics = Expander("Diagnostic logs",
+            "Keeps a privacy-filtered log on this computer to help with a bug report. Tokens, keys and email addresses are removed, and nothing is sent anywhere.",
+            state.Settings.Current.DiagnosticLogging, on =>
+            {
+                state.Settings.Update(x => x with { DiagnosticLogging = on });
+                if (on) log?.Write("app", "Diagnostic logging turned on: " + VersionText());
+                RenderLogs();
+            }, "DiagnosticLogSwitch");
+        diagnostics.SetSensitive(log is not null);
+        exportLogs.OnClicked += async (_, _) =>
+        {
+            if (log is null) return;
+            var dialog = Gtk.FileDialog.New();
+            dialog.SetTitle("Export diagnostic logs");
+            dialog.SetInitialName("codex-meter-diagnostics.txt");
+            try
+            {
+                if (await dialog.SaveAsync(window.Window) is not { } file || file.GetPath() is not { } path) return;
+                await File.WriteAllTextAsync(path, log.Export("Codex Meter for Linux " + VersionText()));
+                window.ShowToast("Diagnostic logs exported");
+            }
+            catch (GLib.GException) { }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { window.ShowToast("Couldn't save the file: " + error.Message); }
+        };
+        clearLogs.OnClicked += (_, _) =>
+        {
+            log?.Clear();
+            RenderLogs();
+        };
+        size.AddSuffix(exportLogs);
+        size.AddSuffix(clearLogs);
+        diagnostics.AddRow(size);
+        RenderLogs();
+        group.Add(diagnostics);
+
+        var data = Adw.ActionRow.New();
+        data.SetTitle("Your data");
+        data.SetSubtitle(SignInDialog.StorageDescription(App.Current?.KeyLocation)
+            + " Cached usage, history and settings live in your home folder. Status pages and OpenRouter are checked without your account details.");
+        var open = Gtk.Button.NewWithLabel("Open Folder");
+        open.SetValign(Gtk.Align.Center);
+        open.OnClicked += (_, _) =>
+        {
+            Directory.CreateDirectory(AppPaths.DataDirectory);
+            _ = Browser.OpenAsync(new Uri(AppPaths.ConfigDirectory.EndsWith('/') ? AppPaths.ConfigDirectory : AppPaths.ConfigDirectory + "/"));
+        };
+        data.AddSuffix(open);
+        group.Add(data);
+    }
+
     private Adw.PreferencesGroup Group(string title, string? description = null)
     {
         var group = Adw.PreferencesGroup.New();
-        group.SetTitle(title);
-        if (description is not null) group.SetDescription(description);
+        // Group titles and descriptions are Pango markup.
+        group.SetTitle(GLib.Functions.MarkupEscapeText(title, -1));
+        if (description is not null) group.SetDescription(GLib.Functions.MarkupEscapeText(description, -1));
         preferences.Add(group);
         return group;
     }

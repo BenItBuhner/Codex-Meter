@@ -10,6 +10,8 @@ public enum DashboardSections {
     public static let spendControl = "spend_control"
     public static let usageHistory = "usage_history"
     public static let resetCredits = "reset_credits"
+    /// The Estimated value card on Claude Code and Cursor dashboards (Codex shows it in history).
+    public static let valueEstimates = "value_estimates"
 
     private static let limitPrefix = "limit:"
 
@@ -48,7 +50,8 @@ public enum DashboardSections {
     public static func providerSections(
         snapshot: UsageSnapshot?,
         emptyDefaults: [String],
-        includeHistory: Bool = true
+        includeHistory: Bool = true,
+        includeValue: Bool = false
     ) -> [String] {
         var result: [String] = []
         if let snapshot {
@@ -64,6 +67,9 @@ public enum DashboardSections {
         } else {
             result = deduplicating(emptyDefaults)
         }
+        if includeValue, !result.contains(valueEstimates) {
+            result.append(valueEstimates)
+        }
         if includeHistory, !result.contains(usageHistory) {
             result.append(usageHistory)
         }
@@ -75,12 +81,14 @@ public enum DashboardSections {
         snapshot: UsageSnapshot,
         savedOrder: [String],
         hidden: [String],
-        includeHistory: Bool = false
+        includeHistory: Bool = false,
+        includeValue: Bool = false
     ) -> [String] {
         let available = providerSections(
             snapshot: snapshot,
             emptyDefaults: [],
-            includeHistory: includeHistory
+            includeHistory: includeHistory,
+            includeValue: includeValue
         )
         let hiddenKeys = Set(hidden)
         return resolveOrder(saved: savedOrder, available: available)

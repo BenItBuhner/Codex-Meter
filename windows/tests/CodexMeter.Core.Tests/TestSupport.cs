@@ -52,7 +52,7 @@ internal sealed class FakeHttp : HttpMessageHandler
             if (route.Method != request.Method.Method || !request.RequestUri!.ToString().StartsWith(route.Prefix, StringComparison.Ordinal)) continue;
             var (status, text) = route.Answer(request, body);
             if (status < 0) continue;
-            return new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(text, Encoding.UTF8, "application/json") };
+            return new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(text, Encoding.UTF8, "application/json"), RequestMessage = request };
         }
         throw new InvalidOperationException($"Unexpected request {request.Method} {request.RequestUri}");
     }

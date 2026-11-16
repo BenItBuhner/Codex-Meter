@@ -30,7 +30,8 @@ public class ProviderSelectionTests
     public void EnabledOrderAndSelection()
     {
         Assert.Equal([Codex], UsageProvider.EnabledFromIds(null, new HashSet<UsageProvider>()));
-        Assert.Equal([Codex, Cursor], UsageProvider.EnabledFromIds([], new HashSet<UsageProvider> { Cursor }));
+        // Only what is signed in, as on Android; Codex only when nothing is.
+        Assert.Equal([Cursor], UsageProvider.EnabledFromIds([], new HashSet<UsageProvider> { Cursor }));
         Assert.Equal([Claude, Cursor], UsageProvider.EnabledFromIds(["cursor", "claude_code", "bogus"], new HashSet<UsageProvider>()));
         Assert.Equal([Cursor, Codex, Claude], UsageProvider.OrderFromIds(["cursor", "cursor", "nope"]).Take(3));
         Assert.Equal(UsageProvider.All.Count, UsageProvider.OrderFromIds(["cursor"]).Count);
