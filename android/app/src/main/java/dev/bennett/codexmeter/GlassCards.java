@@ -39,11 +39,10 @@ final class GlassCards {
             d.cards.add(signIn(activity, provider));
             return d;
         }
-        UsageSnapshot snapshot = provider == UsageProvider.CODEX
-                ? AppPreferences.loadSnapshot(activity)
-                : ProviderPreferences.loadSnapshot(activity, provider);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(activity, provider);
         long now = System.currentTimeMillis();
-        String error = provider == UsageProvider.CODEX ? "" : ProviderPreferences.getLastError(activity, provider);
+        // Codex's refresh errors show here too, as they do on the One UI dashboard.
+        String error = ProviderPreferences.getLastError(activity, provider);
         if (ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE.equals(error)) {
             // The saved sign-in was rejected: offer to sign in again over it (history is kept).
             Card again = new Card(Card.Kind.UPDATE);

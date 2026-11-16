@@ -443,9 +443,12 @@ public final class ProviderParsersSelfTest {
                 "an idle 5-hour session runs the monitor until the weekly reset");
         saved.put(UsageProvider.CODEX, idle);
         check(MonitorProviderPicker.pick(UsageProvider.CLAUDE_CODE, order, canMonitor)
-                == UsageProvider.CODEX, "Codex still leads when it has limits");
+                == UsageProvider.CLAUDE_CODE, "the selected tab leads even when Codex has limits");
+        check(MonitorProviderPicker.pick(UsageProvider.CURSOR, java.util.Arrays.asList(
+                        UsageProvider.CODEX, UsageProvider.CLAUDE_CODE), canMonitor)
+                == UsageProvider.CODEX, "otherwise the first provider in tab order with limits");
         check(MonitorProviderPicker.pick(null, null, provider -> false) == UsageProvider.CODEX,
-                "nothing to monitor falls back to Codex (and the start is refused)");
+                "nothing to monitor and no tab: Codex (and the start is refused)");
         check(MonitorProviderPicker.until(null, now) == 0L, "no snapshot, no monitor");
         System.out.println("Live monitor: a Claude-only account starts on Claude Code, idle 5-hour included.");
     }
