@@ -61,9 +61,9 @@ Versioning rules (enforced by CI on tags):
 
 Cutting an alpha: branch work off `alpha`, set `versionName` to the next stable
 version plus the alpha suffix (for example, `2.8.0-alpha.1` while stable is
-`2.7.0`) in `android/app/build.gradle.kts`, `android/wear/build.gradle.kts`,
-`AppConstants.java`, `android/build.sh`, and the guards in `android/run-tests.sh`,
-add a `## 2.8.0-alpha.1` section to `CHANGELOG.md`, then tag `v2.8.0-alpha.1`.
+`2.7.0`) everywhere `./release-invariants.sh` checks (it names any place you
+missed), add a `## 2.8.0-alpha.1` section to `CHANGELOG.md`, then tag
+`v2.8.0-alpha.1`.
 
 Promoting to stable: merge `alpha` into `main`, drop the suffix, bump
 `versionCode`, consolidate the alpha changelog sections under the stable version,

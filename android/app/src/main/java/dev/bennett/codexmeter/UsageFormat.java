@@ -15,11 +15,11 @@ public final class UsageFormat {
     private UsageFormat() {
     }
 
-    public static String planLabel(String str) {
-        if (str == null || str.trim().isEmpty()) {
+    public static String planLabel(String plan) {
+        if (plan == null || plan.trim().isEmpty()) {
             return "";
         }
-        String normalized = str.trim().toLowerCase(Locale.US).replace("_", "").replace("-", "")
+        String normalized = plan.trim().toLowerCase(Locale.US).replace("_", "").replace("-", "")
                 .replace(" ", "");
         switch (normalized) {
             case "free": return "Free";
@@ -38,44 +38,44 @@ public final class UsageFormat {
         }
     }
 
-    public static String percent(UsageWindow usageWindow, String str, boolean z) {
-        if (usageWindow == null) {
-            return z ? "—" : "Unavailable";
+    public static String percent(UsageWindow window, String displayMode, boolean compact) {
+        if (window == null) {
+            return compact ? "—" : "Unavailable";
         }
-        boolean zEquals = WidgetOptions.DISPLAY_USED.equals(str);
-        int iRemainingPercent = zEquals ? usageWindow.usedPercent : usageWindow.remainingPercent();
-        if (z) {
-            return iRemainingPercent + "%";
+        boolean showUsed = WidgetOptions.DISPLAY_USED.equals(displayMode);
+        int shown = showUsed ? window.usedPercent : window.remainingPercent();
+        if (compact) {
+            return shown + "%";
         }
-        return iRemainingPercent + "% " + (zEquals ? WidgetOptions.DISPLAY_USED : "left");
+        return shown + "% " + (showUsed ? WidgetOptions.DISPLAY_USED : "left");
     }
 
-    public static String reset(Context context, UsageWindow usageWindow, String str, long j) {
-        return reset(context, usageWindow, str, j, j);
+    public static String reset(Context context, UsageWindow window, String resetFormat, long nowMillis) {
+        return reset(context, window, resetFormat, nowMillis, nowMillis);
     }
 
-    public static String reset(Context context, UsageWindow usageWindow, String str,
+    public static String reset(Context context, UsageWindow window, String resetFormat,
             long observedAtMillis, long nowMillis) {
-        if (usageWindow == null || WidgetOptions.RESET_HIDDEN.equals(str)
-                || !usageWindow.showsResetCountdown()) {
+        if (window == null || WidgetOptions.RESET_HIDDEN.equals(resetFormat)
+                || !window.showsResetCountdown()) {
             return "";
         }
-        return resetAt(context, usageWindow.effectiveResetAtMillis(observedAtMillis), str,
+        return resetAt(context, window.effectiveResetAtMillis(observedAtMillis), resetFormat,
                 nowMillis);
     }
 
     /** Reset copy for an absolute instant that has already been resolved by the caller. */
-    public static String resetAt(Context context, long resetAtMillis, String str,
+    public static String resetAt(Context context, long resetAtMillis, String resetFormat,
             long nowMillis) {
         if (resetAtMillis <= 0) {
             return "Reset time unavailable";
         }
-        String strAbsolute = absolute(context, resetAtMillis, nowMillis);
-        String strRelative = relative(resetAtMillis, nowMillis);
-        if (WidgetOptions.RESET_RELATIVE.equals(str)) {
-            return "Resets " + strRelative;
+        String absoluteText = absolute(context, resetAtMillis, nowMillis);
+        String relativeText = relative(resetAtMillis, nowMillis);
+        if (WidgetOptions.RESET_RELATIVE.equals(resetFormat)) {
+            return "Resets " + relativeText;
         }
-        return "both".equals(str) ? "Resets " + strAbsolute + " (" + strRelative + ")" : "Resets " + strAbsolute;
+        return "both".equals(resetFormat) ? "Resets " + absoluteText + " (" + relativeText + ")" : "Resets " + absoluteText;
     }
 
     /**
@@ -153,55 +153,55 @@ public final class UsageFormat {
         return minutes + "m";
     }
 
-    public static String absolute(Context context, long j, long j2) {
-        String str;
-        boolean zIs24HourFormat = DateFormat.is24HourFormat(context);
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(j);
-        Calendar calendar2 = Calendar.getInstance();
-        calendar2.setTimeInMillis(j2);
-        Calendar calendar3 = (Calendar) calendar2.clone();
-        calendar3.add(6, 1);
-        if (sameDay(calendar, calendar2)) {
-            str = zIs24HourFormat ? "'today at' HH:mm" : "'today at' h:mm a";
-        } else if (sameDay(calendar, calendar3)) {
-            str = zIs24HourFormat ? "'tomorrow at' HH:mm" : "'tomorrow at' h:mm a";
+    public static String absolute(Context context, long atMillis, long nowMillis) {
+        String pattern;
+        boolean clock24 = DateFormat.is24HourFormat(context);
+        Calendar at = Calendar.getInstance();
+        at.setTimeInMillis(atMillis);
+        Calendar today = Calendar.getInstance();
+        today.setTimeInMillis(nowMillis);
+        Calendar tomorrow = (Calendar) today.clone();
+        tomorrow.add(6, 1);
+        if (sameDay(at, today)) {
+            pattern = clock24 ? "'today at' HH:mm" : "'today at' h:mm a";
+        } else if (sameDay(at, tomorrow)) {
+            pattern = clock24 ? "'tomorrow at' HH:mm" : "'tomorrow at' h:mm a";
         } else {
-            str = zIs24HourFormat ? "EEE, MMM d 'at' HH:mm" : "EEE, MMM d 'at' h:mm a";
+            pattern = clock24 ? "EEE, MMM d 'at' HH:mm" : "EEE, MMM d 'at' h:mm a";
         }
-        return new SimpleDateFormat(str, Locale.getDefault()).format(new Date(j));
+        return new SimpleDateFormat(pattern, Locale.getDefault()).format(new Date(atMillis));
     }
 
-    private static boolean sameDay(Calendar calendar, Calendar calendar2) {
-        return calendar.get(0) == calendar2.get(0) && calendar.get(1) == calendar2.get(1) && calendar.get(6) == calendar2.get(6);
+    private static boolean sameDay(Calendar a, Calendar b) {
+        return a.get(0) == b.get(0) && a.get(1) == b.get(1) && a.get(6) == b.get(6);
     }
 
-    public static String relative(long j, long j2) {
-        long minutes = TimeUnit.MILLISECONDS.toMinutes(Math.max(0L, j - j2));
-        long j3 = minutes / 1440;
-        long j4 = (minutes % 1440) / 60;
-        long j5 = minutes % 60;
-        if (j3 > 0) {
-            return "in " + j3 + "d " + j4 + "h";
+    public static String relative(long atMillis, long nowMillis) {
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(Math.max(0L, atMillis - nowMillis));
+        long days = minutes / 1440;
+        long hours = (minutes % 1440) / 60;
+        long mins = minutes % 60;
+        if (days > 0) {
+            return "in " + days + "d " + hours + "h";
         }
-        if (j4 > 0) {
-            return "in " + j4 + "h " + j5 + "m";
+        if (hours > 0) {
+            return "in " + hours + "h " + mins + "m";
         }
         return minutes > 0 ? "in " + minutes + "m" : "now";
     }
 
-    public static String updated(long j, long j2) {
-        if (j <= 0) {
+    public static String updated(long updatedAtMillis, long nowMillis) {
+        if (updatedAtMillis <= 0) {
             return "Not updated yet";
         }
-        long jMax = Math.max(0L, TimeUnit.MILLISECONDS.toMinutes(j2 - j));
-        if (jMax < 1) {
+        long minutes = Math.max(0L, TimeUnit.MILLISECONDS.toMinutes(nowMillis - updatedAtMillis));
+        if (minutes < 1) {
             return "Updated just now";
         }
-        if (jMax < 60) {
-            return "Updated " + jMax + "m ago";
+        if (minutes < 60) {
+            return "Updated " + minutes + "m ago";
         }
-        long j3 = jMax / 60;
-        return j3 < 24 ? "Updated " + j3 + "h ago" : "Updated " + (j3 / 24) + "d ago";
+        long hours = minutes / 60;
+        return hours < 24 ? "Updated " + hours + "h ago" : "Updated " + (hours / 24) + "d ago";
     }
 }

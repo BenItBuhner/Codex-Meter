@@ -70,17 +70,17 @@ public final class ResetAlertPreferences {
         return 25;
     }
 
-    public static void save(Context context, String str, String str2, int i) {
-        if (!STYLE_SILENT.equals(str) && !STYLE_NOTIFICATION.equals(str) && !STYLE_ALARM.equals(str)) {
-            str = STYLE_OFF;
+    public static void save(Context context, String style, String metric, int threshold) {
+        if (!STYLE_SILENT.equals(style) && !STYLE_NOTIFICATION.equals(style) && !STYLE_ALARM.equals(style)) {
+            style = STYLE_OFF;
         }
-        if (!"five_hour".equals(str2) && !"weekly".equals(str2)) {
-            str2 = "both";
+        if (!"five_hour".equals(metric) && !"weekly".equals(metric)) {
+            metric = "both";
         }
-        if (!isValidThreshold(i)) {
-            i = 25;
+        if (!isValidThreshold(threshold)) {
+            threshold = 25;
         }
-        prefs(context).edit().putString(KEY_STYLE, str).putString(KEY_METRIC, str2).putInt(KEY_THRESHOLD, i).apply();
+        prefs(context).edit().putString(KEY_STYLE, style).putString(KEY_METRIC, metric).putInt(KEY_THRESHOLD, threshold).apply();
     }
 
     public static boolean enabled(Context context) {

@@ -10,4 +10,3 @@ struct CodexMeterWidgetsBundle: WidgetBundle {
         DualAllowanceAccessoryWidget()
     }
 }
-

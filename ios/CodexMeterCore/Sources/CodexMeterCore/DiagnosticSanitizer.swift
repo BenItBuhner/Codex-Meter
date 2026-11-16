@@ -5,19 +5,19 @@ public enum DiagnosticSanitizer {
     public static let redacted = "[REDACTED]"
     public static let redactedEmail = "[REDACTED_EMAIL]"
 
-    private static let authScheme = try! NSRegularExpression(
+    private static let authScheme = BuiltInPattern.compile(
         pattern: #"(?i)\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+"#
     )
-    private static let email = try! NSRegularExpression(
+    private static let email = BuiltInPattern.compile(
         pattern: #"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"#
     )
-    private static let jwt = try! NSRegularExpression(
+    private static let jwt = BuiltInPattern.compile(
         pattern: #"\b[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\b"#
     )
-    private static let sensitiveAssignment = try! NSRegularExpression(
+    private static let sensitiveAssignment = BuiltInPattern.compile(
         pattern: #"(?i)\b(authorization|proxy-authorization|cookie|set-cookie|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|code[_-]?verifier|password|passwd|session(?:id)?|api[_-]?key)\b\s*["']?\s*[:=]\s*["']?([^\s,;&}\]]+)"#
     )
-    private static let sensitiveQuery = try! NSRegularExpression(
+    private static let sensitiveQuery = BuiltInPattern.compile(
         pattern: #"(?i)([?&](?:code|state|token|access_token|refresh_token|id_token|code_verifier|client_secret|password|session)=)[^&#\s]+"#
     )
 

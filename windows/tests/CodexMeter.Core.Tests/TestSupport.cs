@@ -38,7 +38,8 @@ internal sealed class FakeHttp : HttpMessageHandler
             if (used) return (-1, "");
             used = true;
             return (status, body);
-        }));
+        }
+        ));
         return this;
     }
 

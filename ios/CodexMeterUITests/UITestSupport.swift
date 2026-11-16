@@ -138,6 +138,7 @@ struct DemoGalleryCapture {
         try? FileManager.default.createDirectory(at: Self.stagingDirectory, withIntermediateDirectories: true)
     }
 
+    @MainActor
     func save(_ name: String, test: XCTestCase) {
         let screenshot = XCUIScreen.main.screenshot()
         try? screenshot.pngRepresentation.write(to: Self.stagingDirectory.appendingPathComponent("\(name).png"))

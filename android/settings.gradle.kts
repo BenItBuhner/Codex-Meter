@@ -1,6 +1,10 @@
 pluginManagement {
     repositories {
         google()
+        // Google's copy of Maven Central first: CI runners get HTTP 429 from Central itself, and
+        // Gradle stops at a repository that errors instead of trying the next one. Anything the
+        // mirror doesn't have yet (a 404) still comes from Central.
+        maven("https://maven-central.storage-download.googleapis.com/maven2/")
         mavenCentral()
         gradlePluginPortal()
     }
@@ -11,6 +15,10 @@ dependencyResolutionManagement {
     repositories {
         maven { url = uri("vendor/m2") }
         google()
+        // Google's copy of Maven Central first: CI runners get HTTP 429 from Central itself, and
+        // Gradle stops at a repository that errors instead of trying the next one. Anything the
+        // mirror doesn't have yet (a 404) still comes from Central.
+        maven("https://maven-central.storage-download.googleapis.com/maven2/")
         mavenCentral()
         maven("https://jitpack.io")
         // skiko (Skia for the JVM and Android), which Glassé's kit draws with

@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.SizeF;
+import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
 import java.util.ArrayList;
@@ -150,21 +151,21 @@ final class SamsungLockWidgetSupport {
     }
 
     private static List<LockInstance> placedWidgetsNow(Context context) {
-        ArrayList arrayList = new ArrayList();
+        List<LockInstance> placed = new ArrayList<>();
         if (context != null) {
-            Context contextApplication = application(context);
-            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(contextApplication);
-            for (ProviderSpec providerSpec : PROVIDERS) {
+            Context app = application(context);
+            AppWidgetManager manager = AppWidgetManager.getInstance(app);
+            for (ProviderSpec spec : PROVIDERS) {
                 try {
-                    for (int i : appWidgetManager.getAppWidgetIds(new ComponentName(contextApplication, providerSpec.provider))) {
-                        arrayList.add(new LockInstance(i, providerSpec.shape, providerSpec.style, providerSpec.metric));
+                    for (int id : manager.getAppWidgetIds(new ComponentName(app, spec.provider))) {
+                        placed.add(new LockInstance(id, spec.shape, spec.style, spec.metric));
                     }
                 } catch (RuntimeException e) {
                     Log.w("CodexMeterLock", "Unable to enumerate lock widgets", e);
                 }
             }
         }
-        return arrayList;
+        return placed;
     }
 
     static void updateIds(Context context, AppWidgetManager appWidgetManager, int[] iArr, Shape shape, Style style) {
@@ -219,11 +220,11 @@ final class SamsungLockWidgetSupport {
      * Lock widget for the given providers. One provider fills both slots with its meters; two
      * providers get one slot each, marked with the provider's icon or name.
      */
-    static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int i,
+    static RemoteViews buildViews(Context context, AppWidgetManager appWidgetManager, int widgetId,
             Shape shape, Style style, Metric metric, List<UsageProvider> providers,
-            LockWidgetOptions lockWidgetOptionsLoadLockWidgetOptions) {
-        RemoteViews remoteViewsBuildArcViews;
-        int i2;
+            LockWidgetOptions options) {
+        RemoteViews views;
+        int rootId;
         if (style == Style.BARS) {
             // The bar widgets are retired; tiles already placed draw dials instead.
             style = Style.DIALS;
@@ -231,44 +232,44 @@ final class SamsungLockWidgetSupport {
         UsageProvider provider = providers == null || providers.isEmpty()
                 ? UsageProvider.CODEX : providers.get(0);
         boolean multi = metric == Metric.BOTH && providers != null && providers.size() > 1;
-        boolean zIsSignedIn = SecureTokenStore.isSignedIn(context, provider);
-        UsageSnapshot usageSnapshotLoadSnapshot = zIsSignedIn
+        boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
+        UsageSnapshot snapshot = signedIn
                 ? ProviderPreferences.loadSnapshot(context, provider) : null;
         // Reset credits are a Codex feature.
         boolean codexOnly = provider == UsageProvider.CODEX && !multi;
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = codexOnly
+        ResetCreditsSnapshot resetCredits = codexOnly
                 ? AppPreferences.loadResetCredits(context) : null;
         if (!codexOnly) {
-            LockWidgetOptions o = lockWidgetOptionsLoadLockWidgetOptions;
-            lockWidgetOptionsLoadLockWidgetOptions = new LockWidgetOptions(o.metricMode, false,
+            LockWidgetOptions o = options;
+            options = new LockWidgetOptions(o.metricMode, false,
                     false, o.showCountdown, o.visibleMeters);
         }
-        int i3 = resetCreditsSnapshotLoadResetCredits == null ? 0 : resetCreditsSnapshotLoadResetCredits.availableCount;
+        int credits = resetCredits == null ? 0 : resetCredits.availableCount;
         LockMeterBinding binding;
         if (multi) {
-            binding = bindProviders(context, providers, lockWidgetOptionsLoadLockWidgetOptions);
-            zIsSignedIn = binding.anySignedIn;
+            binding = bindProviders(context, providers, options);
+            signedIn = binding.anySignedIn;
         } else {
-            binding = markProvider(bindLockMeters(usageSnapshotLoadSnapshot,
-                    lockWidgetOptionsLoadLockWidgetOptions), provider);
+            binding = markProvider(bindLockMeters(snapshot,
+                    options), provider);
         }
         String name = multi ? "Usage" : provider.displayName;
         if (metric != Metric.BOTH) {
             List<String> keys = metric == Metric.WEEKLY
                     ? java.util.Collections.singletonList(WidgetMeters.WEEKLY)
                     : dialKeys(WidgetMeters.parse(
-                                    lockWidgetOptionsLoadLockWidgetOptions.effectiveVisibleMeters()),
-                            usageSnapshotLoadSnapshot);
+                                    options.effectiveVisibleMeters()),
+                            snapshot);
             String key = keys.get(0);
             int inner = keys.size() > 1
-                    ? remaining(WidgetMeters.meterWindow(keys.get(1), usageSnapshotLoadSnapshot))
+                    ? remaining(WidgetMeters.meterWindow(keys.get(1), snapshot))
                     : -1;
             boolean fiveHour = WidgetMeters.FIVE_HOUR.equals(key);
             boolean monthlyFallback = !fiveHour
-                    && usageSnapshotLoadSnapshot != null
-                    && usageSnapshotLoadSnapshot.longWindowIsMonthly();
-            int value = remaining(WidgetMeters.meterWindow(key, usageSnapshotLoadSnapshot));
-            int[] size = grantedSize(appWidgetManager, i, Shape.SQUARE);
+                    && snapshot != null
+                    && snapshot.longWindowIsMonthly();
+            int value = remaining(WidgetMeters.meterWindow(key, snapshot));
+            int[] size = grantedSize(appWidgetManager, widgetId, Shape.SQUARE);
             // Codex keeps its meter icons; other providers show their mark so it's clear whose
             // usage the gauge shows.
             int icon = provider == UsageProvider.CODEX
@@ -276,38 +277,38 @@ final class SamsungLockWidgetSupport {
                     : ProvidersActivity.iconRes(provider);
             RemoteViews single = new RemoteViews(context.getPackageName(), R.layout.widget_lock_dial_single);
             single.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.renderSingle(context, value, inner, zIsSignedIn,
+                    SamsungLockGraphics.renderSingle(context, value, inner, signedIn,
                             size[0], size[1], icon));
             String metricName = fiveHour ? "five hour"
                     : monthlyFallback ? "monthly" : "weekly";
-            single.setContentDescription(R.id.lock_graphic_root, zIsSignedIn
+            single.setContentDescription(R.id.lock_graphic_root, signedIn
                     ? name + " " + metricName + " " + value(value) + " remaining"
                             + (keys.size() > 1 ? ", five hour " + value(inner) + " remaining" : "")
                     : name + ", sign in required");
-            applyOpenIntent(context, single, R.id.lock_graphic_root, i, shape, style,
-                    lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3, provider);
+            applyOpenIntent(context, single, R.id.lock_graphic_root, widgetId, shape, style,
+                    options, signedIn, credits, provider);
             return single;
         }
         if (style == Style.NUMBERS) {
-            remoteViewsBuildArcViews = buildNumberViews(context, shape, zIsSignedIn, binding,
-                    lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = shape == Shape.SQUARE ? R.id.lock_square_root : R.id.lock_wide_root;
+            views = buildNumberViews(context, shape, signedIn, binding,
+                    options, credits);
+            rootId = shape == Shape.SQUARE ? R.id.lock_square_root : R.id.lock_wide_root;
         } else if (style == Style.BARS) {
-            remoteViewsBuildArcViews = buildNativeBarViews(context, shape, zIsSignedIn, binding,
-                    lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = R.id.lock_graphic_root;
+            views = buildNativeBarViews(context, shape, signedIn, binding,
+                    options, credits);
+            rootId = R.id.lock_graphic_root;
         } else {
-            remoteViewsBuildArcViews = buildArcViews(context, appWidgetManager, i, shape, style,
-                    zIsSignedIn, binding, lockWidgetOptionsLoadLockWidgetOptions, i3);
-            i2 = R.id.lock_graphic_root;
+            views = buildArcViews(context, appWidgetManager, widgetId, shape, style,
+                    signedIn, binding, options, credits);
+            rootId = R.id.lock_graphic_root;
         }
-        applyCountdowns(remoteViewsBuildArcViews, shape, style, lockWidgetOptionsLoadLockWidgetOptions,
+        applyCountdowns(views, shape, style, options,
                 binding);
-        remoteViewsBuildArcViews.setContentDescription(i2, contentDescription(name, zIsSignedIn,
-                binding, style, lockWidgetOptionsLoadLockWidgetOptions, i3));
-        applyOpenIntent(context, remoteViewsBuildArcViews, i2, i, shape, style,
-                lockWidgetOptionsLoadLockWidgetOptions, zIsSignedIn, i3, provider);
-        return remoteViewsBuildArcViews;
+        views.setContentDescription(rootId, contentDescription(name, signedIn,
+                binding, style, options, credits));
+        applyOpenIntent(context, views, rootId, widgetId, shape, style,
+                options, signedIn, credits, provider);
+        return views;
     }
 
     /**
@@ -538,70 +539,70 @@ final class SamsungLockWidgetSupport {
         }
     }
 
-    private static RemoteViews buildNumberViews(Context context, Shape shape, boolean z,
-            LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, int i3) {
-        int i4 = shape == Shape.SQUARE ? R.layout.widget_lock_square : R.layout.widget_lock_wide;
-        int i5 = shape == Shape.SQUARE ? R.id.lock_square_value : R.id.lock_wide_value;
-        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), i4);
-        boolean z2 = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
-        remoteViews.setTextViewText(i5, numberText(z, binding, shape, lockWidgetOptions, i3));
-        remoteViews.setTextViewTextSize(i5, 2, numberTextSize(shape, binding.singleMetric(), z2));
+    private static RemoteViews buildNumberViews(Context context, Shape shape, boolean signedIn,
+            LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, int credits) {
+        int layout = shape == Shape.SQUARE ? R.layout.widget_lock_square : R.layout.widget_lock_wide;
+        int valueId = shape == Shape.SQUARE ? R.id.lock_square_value : R.id.lock_wide_value;
+        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), layout);
+        boolean showCredits = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
+        remoteViews.setTextViewText(valueId, numberText(signedIn, binding, shape, lockWidgetOptions, credits));
+        remoteViews.setTextViewTextSize(valueId, TypedValue.COMPLEX_UNIT_SP, numberTextSize(shape, binding.singleMetric(), showCredits));
         return remoteViews;
     }
 
-    private static RemoteViews buildNativeBarViews(Context context, Shape shape, boolean z,
-            LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, int i3) {
-        float f;
-        float f2;
+    private static RemoteViews buildNativeBarViews(Context context, Shape shape, boolean signedIn,
+            LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, int credits) {
+        float valueSize;
+        float labelSize;
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), shape == Shape.SQUARE ? R.layout.widget_lock_bars_square : R.layout.widget_lock_bars_wide);
-        boolean z2 = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
-        if (!z) {
+        boolean showCredits = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
+        if (!signedIn) {
             remoteViews.setViewVisibility(R.id.lock_bar_primary_group, View.VISIBLE);
             remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, View.GONE);
             remoteViews.setTextViewText(R.id.lock_bar_primary_label, "");
             remoteViews.setTextViewText(R.id.lock_bar_primary_value, "SIGN IN");
-            remoteViews.setTextViewTextSize(R.id.lock_bar_primary_value, 2, shape == Shape.SQUARE ? 10.0f : 12.0f);
+            remoteViews.setTextViewTextSize(R.id.lock_bar_primary_value, TypedValue.COMPLEX_UNIT_SP, shape == Shape.SQUARE ? 10.0f : 12.0f);
             remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, View.GONE);
             return remoteViews;
         }
-        boolean zShowsFiveHour = binding.showPrimary;
-        boolean zShowsWeekly = binding.showSecondary;
-        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, zShowsFiveHour ? View.VISIBLE : View.GONE);
-        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, zShowsWeekly ? View.VISIBLE : View.GONE);
-        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, zShowsFiveHour ? View.VISIBLE : View.GONE);
-        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, zShowsWeekly ? View.VISIBLE : View.GONE);
-        boolean z3 = z2 && zShowsFiveHour;
-        boolean z4 = z2 && !zShowsFiveHour && zShowsWeekly;
+        boolean showPrimary = binding.showPrimary;
+        boolean showSecondary = binding.showSecondary;
+        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, showPrimary ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, showSecondary ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, showPrimary ? View.VISIBLE : View.GONE);
+        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, showSecondary ? View.VISIBLE : View.GONE);
+        boolean primaryCredits = showCredits && showPrimary;
+        boolean secondaryCredits = showCredits && !showPrimary && showSecondary;
         String primaryLabel = binding.primary == null ? "5H" : binding.primary.label;
         String secondaryLabel = binding.secondary == null ? "W" : binding.secondary.label;
-        remoteViews.setTextViewText(R.id.lock_bar_primary_label, labelWithReset(primaryLabel, z3, i3));
-        remoteViews.setTextViewText(R.id.lock_bar_secondary_label, labelWithReset(secondaryLabel, z4, i3));
+        remoteViews.setTextViewText(R.id.lock_bar_primary_label, labelWithReset(primaryLabel, primaryCredits, credits));
+        remoteViews.setTextViewText(R.id.lock_bar_secondary_label, labelWithReset(secondaryLabel, secondaryCredits, credits));
         remoteViews.setTextViewText(R.id.lock_bar_primary_value, compactValue(binding.primaryRemaining));
         remoteViews.setTextViewText(R.id.lock_bar_secondary_value, compactValue(binding.secondaryRemaining));
         remoteViews.setProgressBar(R.id.lock_bar_primary_progress, 100, progress(binding.primaryRemaining), false);
         remoteViews.setProgressBar(R.id.lock_bar_secondary_progress, 100, progress(binding.secondaryRemaining), false);
         if (binding.singleMetric()) {
-            f = shape == Shape.SQUARE ? 15.0f : 17.0f;
+            valueSize = shape == Shape.SQUARE ? 15.0f : 17.0f;
         } else {
-            f = shape == Shape.SQUARE ? 10.0f : 11.0f;
+            valueSize = shape == Shape.SQUARE ? 10.0f : 11.0f;
         }
         if (binding.singleMetric()) {
-            f2 = shape == Shape.SQUARE ? 9.0f : 10.0f;
+            labelSize = shape == Shape.SQUARE ? 9.0f : 10.0f;
         } else {
-            f2 = shape == Shape.SQUARE ? 7.5f : 8.0f;
+            labelSize = shape == Shape.SQUARE ? 7.5f : 8.0f;
         }
-        remoteViews.setTextViewTextSize(R.id.lock_bar_primary_value, 2, f);
-        remoteViews.setTextViewTextSize(R.id.lock_bar_secondary_value, 2, f);
-        remoteViews.setTextViewTextSize(R.id.lock_bar_primary_label, 2, f2);
-        remoteViews.setTextViewTextSize(R.id.lock_bar_secondary_label, 2, f2);
+        remoteViews.setTextViewTextSize(R.id.lock_bar_primary_value, TypedValue.COMPLEX_UNIT_SP, valueSize);
+        remoteViews.setTextViewTextSize(R.id.lock_bar_secondary_value, TypedValue.COMPLEX_UNIT_SP, valueSize);
+        remoteViews.setTextViewTextSize(R.id.lock_bar_primary_label, TypedValue.COMPLEX_UNIT_SP, labelSize);
+        remoteViews.setTextViewTextSize(R.id.lock_bar_secondary_label, TypedValue.COMPLEX_UNIT_SP, labelSize);
         return remoteViews;
     }
 
-    private static RemoteViews buildArcViews(Context context, AppWidgetManager appWidgetManager, int i, Shape shape, Style style, boolean z, LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, int i4) {
-        String strSquareGraphicText;
+    private static RemoteViews buildArcViews(Context context, AppWidgetManager appWidgetManager, int widgetId, Shape shape, Style style, boolean signedIn, LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, int credits) {
+        String centerText;
         RemoteViews remoteViews = new RemoteViews(context.getPackageName(), graphicLayout(shape, style));
-        int i2 = binding.primaryRemaining;
-        int i3 = binding.secondaryRemaining;
+        int primaryRemaining = binding.primaryRemaining;
+        int secondaryRemaining = binding.secondaryRemaining;
         int primaryIconRes = binding.primary == null
                 ? R.drawable.ic_oui_time : binding.primary.iconRes;
         // 0 tells the renderer there is no second meter, so it centers one dial.
@@ -611,30 +612,30 @@ final class SamsungLockWidgetSupport {
         int secondaryInner = binding.secondary != null && binding.secondary.nested()
                 ? binding.secondary.inner : -1;
         if (shape == Shape.WIDE) {
-            int[] size = grantedSize(appWidgetManager, i, shape);
+            int[] size = grantedSize(appWidgetManager, widgetId, shape);
             remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
-                    SamsungLockGraphics.render(context, shape, style, i2, primaryInner, i3,
-                            secondaryInner, z, size[0], size[1], lockWidgetOptions, i4,
+                    SamsungLockGraphics.render(context, shape, style, primaryRemaining, primaryInner, secondaryRemaining,
+                            secondaryInner, signedIn, size[0], size[1], lockWidgetOptions, credits,
                             primaryIconRes, secondaryIconRes));
-            if (!z) {
+            if (!signedIn) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
                 remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
                 remoteViews.setViewVisibility(R.id.lock_graphic_primary_progress, View.GONE);
                 remoteViews.setViewVisibility(R.id.lock_graphic_primary_icon, View.GONE);
                 remoteViews.setTextViewText(R.id.lock_graphic_primary_value, "SIGN IN");
-                remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, 2, 11.0f);
+                remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, TypedValue.COMPLEX_UNIT_SP, 11.0f);
                 return remoteViews;
             }
             remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.GONE);
             remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
             return remoteViews;
         }
-        int[] iArrGrantedSize = grantedSize(appWidgetManager, i, shape);
+        int[] iArrGrantedSize = grantedSize(appWidgetManager, widgetId, shape);
         remoteViews.setImageViewBitmap(R.id.lock_graphic_image,
-                SamsungLockGraphics.render(context, shape, style, i2, primaryInner, i3,
-                        secondaryInner, z, iArrGrantedSize[0], iArrGrantedSize[1],
-                        lockWidgetOptions, i4, primaryIconRes, secondaryIconRes));
-        if (z) {
+                SamsungLockGraphics.render(context, shape, style, primaryRemaining, primaryInner, secondaryRemaining,
+                        secondaryInner, signedIn, iArrGrantedSize[0], iArrGrantedSize[1],
+                        lockWidgetOptions, credits, primaryIconRes, secondaryIconRes));
+        if (signedIn) {
             if (shape == Shape.SQUARE) {
                 remoteViews.setViewVisibility(R.id.lock_graphic_center_value, View.GONE);
             } else {
@@ -643,74 +644,74 @@ final class SamsungLockWidgetSupport {
             }
             return remoteViews;
         }
-        boolean z2 = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
+        boolean showCredits = lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction;
         if (shape == Shape.SQUARE) {
-            if (z) {
-                strSquareGraphicText = squareGraphicText(binding, lockWidgetOptions, z2, i4);
+            if (signedIn) {
+                centerText = squareGraphicText(binding, lockWidgetOptions, showCredits, credits);
             } else {
-                strSquareGraphicText = "SIGN IN";
+                centerText = "SIGN IN";
             }
-            remoteViews.setTextViewText(R.id.lock_graphic_center_value, strSquareGraphicText);
-            remoteViews.setTextViewTextSize(R.id.lock_graphic_center_value, 2, z ? squareGraphicTextSize(binding.singleMetric(), lockWidgetOptions.showCountdown, z2) : 10.0f);
-        } else if (!z) {
+            remoteViews.setTextViewText(R.id.lock_graphic_center_value, centerText);
+            remoteViews.setTextViewTextSize(R.id.lock_graphic_center_value, TypedValue.COMPLEX_UNIT_SP, signedIn ? squareGraphicTextSize(binding.singleMetric(), lockWidgetOptions.showCountdown, showCredits) : 10.0f);
+        } else if (!signedIn) {
             remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, View.VISIBLE);
             remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, View.GONE);
             remoteViews.setTextViewText(R.id.lock_graphic_primary_value, "SIGN IN");
             remoteViews.setTextViewText(R.id.lock_graphic_primary_label, "");
-            remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, 2, 11.0f);
+            remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, TypedValue.COMPLEX_UNIT_SP, 11.0f);
         } else {
-            boolean zShowsFiveHour = binding.showPrimary;
-            boolean zShowsWeekly = binding.showSecondary;
-            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, zShowsFiveHour ? View.VISIBLE : View.GONE);
-            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, zShowsWeekly ? View.VISIBLE : View.GONE);
-            remoteViews.setTextViewText(R.id.lock_graphic_primary_value, compactValue(i2));
-            remoteViews.setTextViewText(R.id.lock_graphic_secondary_value, compactValue(i3));
+            boolean showPrimary = binding.showPrimary;
+            boolean showSecondary = binding.showSecondary;
+            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, showPrimary ? View.VISIBLE : View.GONE);
+            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, showSecondary ? View.VISIBLE : View.GONE);
+            remoteViews.setTextViewText(R.id.lock_graphic_primary_value, compactValue(primaryRemaining));
+            remoteViews.setTextViewText(R.id.lock_graphic_secondary_value, compactValue(secondaryRemaining));
             String primaryLabel = binding.primary == null ? "5H" : binding.primary.label;
             String secondaryLabel = binding.secondary == null ? "W" : binding.secondary.label;
-            remoteViews.setTextViewText(R.id.lock_graphic_primary_label, labelWithReset(primaryLabel, z2 && zShowsFiveHour, i4));
-            remoteViews.setTextViewText(R.id.lock_graphic_secondary_label, labelWithReset(secondaryLabel, z2 && !zShowsFiveHour && zShowsWeekly, i4));
+            remoteViews.setTextViewText(R.id.lock_graphic_primary_label, labelWithReset(primaryLabel, showCredits && showPrimary, credits));
+            remoteViews.setTextViewText(R.id.lock_graphic_secondary_label, labelWithReset(secondaryLabel, showCredits && !showPrimary && showSecondary, credits));
             float f = binding.singleMetric() ? 20.0f : 17.0f;
             if (lockWidgetOptions.showCountdown) {
                 f -= 2.0f;
             }
-            float f2 = binding.singleMetric() ? 9.5f : 8.0f;
-            remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, 2, f);
-            remoteViews.setTextViewTextSize(R.id.lock_graphic_secondary_value, 2, f);
-            remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_label, 2, f2);
-            remoteViews.setTextViewTextSize(R.id.lock_graphic_secondary_label, 2, f2);
+            float labelSize = binding.singleMetric() ? 9.5f : 8.0f;
+            remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_value, TypedValue.COMPLEX_UNIT_SP, f);
+            remoteViews.setTextViewTextSize(R.id.lock_graphic_secondary_value, TypedValue.COMPLEX_UNIT_SP, f);
+            remoteViews.setTextViewTextSize(R.id.lock_graphic_primary_label, TypedValue.COMPLEX_UNIT_SP, labelSize);
+            remoteViews.setTextViewTextSize(R.id.lock_graphic_secondary_label, TypedValue.COMPLEX_UNIT_SP, labelSize);
         }
         return remoteViews;
     }
 
-    private static String squareGraphicText(LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, boolean z, int i3) {
-        String str;
+    private static String squareGraphicText(LockMeterBinding binding, LockWidgetOptions lockWidgetOptions, boolean showCredits, int credits) {
+        String text;
         if (binding.singleMetric()) {
             String label = binding.primary == null ? "5H" : binding.primary.label;
-            str = compactValue(binding.primaryRemaining) + "\n" + label;
+            text = compactValue(binding.primaryRemaining) + "\n" + label;
         } else {
             String primaryLabel = binding.primary == null ? "5H" : binding.primary.label;
             String secondaryLabel = binding.secondary == null ? "W" : binding.secondary.label;
-            str = primaryLabel + " " + compactValue(binding.primaryRemaining) + "\n"
+            text = primaryLabel + " " + compactValue(binding.primaryRemaining) + "\n"
                     + secondaryLabel + " " + compactValue(binding.secondaryRemaining);
         }
-        return z ? str + "\nR" + Math.max(0, i3) : str;
+        return showCredits ? text + "\nR" + Math.max(0, credits) : text;
     }
 
-    private static float squareGraphicTextSize(boolean singleMetric, boolean showCountdown, boolean z) {
+    private static float squareGraphicTextSize(boolean singleMetric, boolean showCountdown, boolean showCredits) {
         if (singleMetric) {
-            if (z) {
+            if (showCredits) {
                 return 9.5f;
             }
             return showCountdown ? 11.5f : 12.5f;
         }
-        if (z) {
+        if (showCredits) {
             return 8.1f;
         }
         return showCountdown ? 8.8f : 9.5f;
     }
 
-    private static String labelWithReset(String str, boolean z, int i) {
-        return z ? str + " · R" + Math.max(0, i) : str;
+    private static String labelWithReset(String label, boolean showCredits, int credits) {
+        return showCredits ? label + " · R" + Math.max(0, credits) : label;
     }
 
     private static void applyCountdowns(RemoteViews remoteViews, Shape shape, Style style,
@@ -730,34 +731,34 @@ final class SamsungLockWidgetSupport {
         }
     }
 
-    private static UsageWindow earlierWindow(UsageWindow usageWindow, UsageWindow usageWindow2) {
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        boolean showPrimary = usageWindow != null && usageWindow.showsResetCountdown();
-        boolean showSecondary = usageWindow2 != null && usageWindow2.showsResetCountdown();
-        long jResetAtMillis = showPrimary ? usageWindow.resetAtMillis() : 0L;
-        long jResetAtMillis2 = showSecondary ? usageWindow2.resetAtMillis() : 0L;
-        if (jResetAtMillis > jCurrentTimeMillis) {
-            return (jResetAtMillis2 <= jCurrentTimeMillis || jResetAtMillis <= jResetAtMillis2)
-                    ? usageWindow : usageWindow2;
+    private static UsageWindow earlierWindow(UsageWindow primary, UsageWindow secondary) {
+        long now = System.currentTimeMillis();
+        boolean showPrimary = primary != null && primary.showsResetCountdown();
+        boolean showSecondary = secondary != null && secondary.showsResetCountdown();
+        long primaryReset = showPrimary ? primary.resetAtMillis() : 0L;
+        long secondaryReset = showSecondary ? secondary.resetAtMillis() : 0L;
+        if (primaryReset > now) {
+            return (secondaryReset <= now || primaryReset <= secondaryReset)
+                    ? primary : secondary;
         }
-        if (jResetAtMillis2 <= jCurrentTimeMillis) {
+        if (secondaryReset <= now) {
             return null;
         }
-        return usageWindow2;
+        return secondary;
     }
 
-    private static void applyCountdown(RemoteViews remoteViews, int i, boolean z, UsageWindow usageWindow) {
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        long jResetAtMillis = usageWindow == null ? 0L : usageWindow.resetAtMillis();
-        if (!z || usageWindow == null || !usageWindow.showsResetCountdown()
-                || jResetAtMillis <= jCurrentTimeMillis) {
-            remoteViews.setViewVisibility(i, View.GONE);
+    private static void applyCountdown(RemoteViews remoteViews, int viewId, boolean enabled, UsageWindow window) {
+        long now = System.currentTimeMillis();
+        long resetAt = window == null ? 0L : window.resetAtMillis();
+        if (!enabled || window == null || !window.showsResetCountdown()
+                || resetAt <= now) {
+            remoteViews.setViewVisibility(viewId, View.GONE);
             return;
         }
-        long jElapsedRealtime = SystemClock.elapsedRealtime() + Math.max(1000L, jResetAtMillis - jCurrentTimeMillis);
-        remoteViews.setViewVisibility(i, View.VISIBLE);
-        remoteViews.setChronometer(i, jElapsedRealtime, null, true);
-        remoteViews.setChronometerCountDown(i, true);
+        long base = SystemClock.elapsedRealtime() + Math.max(1000L, resetAt - now);
+        remoteViews.setViewVisibility(viewId, View.VISIBLE);
+        remoteViews.setChronometer(viewId, base, null, true);
+        remoteViews.setChronometerCountDown(viewId, true);
     }
 
     private static void updateComponent(Context context, AppWidgetManager appWidgetManager, Class<?> cls, Shape shape, Style style, Metric metric) {
@@ -768,95 +769,92 @@ final class SamsungLockWidgetSupport {
         }
     }
 
-    private static void applyOpenIntent(Context context, RemoteViews remoteViews, int i, int i2,
-            Shape shape, Style style, LockWidgetOptions lockWidgetOptions, boolean z, int i3,
+    private static void applyOpenIntent(Context context, RemoteViews remoteViews, int viewId, int widgetId,
+            Shape shape, Style style, LockWidgetOptions lockWidgetOptions, boolean signedIn, int credits,
             UsageProvider provider) {
-        boolean z2 = lockWidgetOptions.showResetAction && z && i3 > 0;
-        String target = z2 ? "reset" : "open";
+        boolean opensReset = lockWidgetOptions.showResetAction && signedIn && credits > 0;
+        String target = opensReset ? "reset" : "open";
         Uri tag = Uri.parse("codexmeter://widget/lock/v" + AppConstants.VERSION_CODE + "/"
-                + i2 + "/"
+                + widgetId + "/"
                 + shape.name().toLowerCase(Locale.US) + "/"
                 + style.name().toLowerCase(Locale.US)
                 + "/" + target);
         // Open opens the app as the user left it, never a particular provider's tab.
-        Intent intentAddFlags = z2
+        Intent intent = opensReset
                 ? new Intent(context, (Class<?>) ResetCreditActivity.class)
                         .setAction("dev.bennett.codexmeter.action.LOCK_WIDGET_RESET")
                         .setData(tag)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 : AppOpenActivity.widgetIntent(context, tag);
-        if (i2 == 0) {
-            i2 = 0;
-        }
-        remoteViews.setOnClickPendingIntent(i, PendingIntent.getActivity(context, 82000 + i2 + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (z2 ? 50000 : 0), intentAddFlags, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        remoteViews.setOnClickPendingIntent(viewId, PendingIntent.getActivity(context, 82000 + widgetId + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (opensReset ? 50000 : 0), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 
     private static int graphicLayout(Shape shape, Style style) {
         return style == Style.RINGS ? shape == Shape.SQUARE ? R.layout.widget_lock_rings_square : R.layout.widget_lock_rings_wide : shape == Shape.SQUARE ? R.layout.widget_lock_dials_square : R.layout.widget_lock_dials_wide;
     }
 
-    private static String numberText(boolean z, LockMeterBinding binding, Shape shape,
-            LockWidgetOptions lockWidgetOptions, int i3) {
-        String str;
-        if (!z) {
+    private static String numberText(boolean signedIn, LockMeterBinding binding, Shape shape,
+            LockWidgetOptions lockWidgetOptions, int credits) {
+        String text;
+        if (!signedIn) {
             return shape == Shape.SQUARE ? "SIGN\nIN" : "SIGN IN";
         }
         String primaryLabel = binding.primary == null ? "5H" : binding.primary.label;
         String secondaryLabel = binding.secondary == null ? "W" : binding.secondary.label;
         if (binding.singleMetric()) {
-            str = shape == Shape.SQUARE
+            text = shape == Shape.SQUARE
                     ? primaryLabel + "\n" + value(binding.primaryRemaining)
                     : primaryLabel + " " + value(binding.primaryRemaining);
         } else if (shape == Shape.SQUARE) {
-            str = primaryLabel + " " + compactValue(binding.primaryRemaining) + "\n"
+            text = primaryLabel + " " + compactValue(binding.primaryRemaining) + "\n"
                     + secondaryLabel + " " + compactValue(binding.secondaryRemaining);
         } else {
-            str = primaryLabel + " " + value(binding.primaryRemaining) + "  ·  "
+            text = primaryLabel + " " + value(binding.primaryRemaining) + "  ·  "
                     + secondaryLabel + " " + value(binding.secondaryRemaining);
         }
         if (lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction) {
-            return str + (shape == Shape.SQUARE ? "\nR" + Math.max(0, i3) : "  ·  R" + Math.max(0, i3));
+            return text + (shape == Shape.SQUARE ? "\nR" + Math.max(0, credits) : "  ·  R" + Math.max(0, credits));
         }
-        return str;
+        return text;
     }
 
-    private static float numberTextSize(Shape shape, boolean singleMetric, boolean z) {
-        return shape == Shape.WIDE ? singleMetric ? z ? 14.0f : 16.0f : z ? 12.0f : 14.0f
-                : singleMetric ? z ? 10.5f : 13.0f : z ? 9.2f : 11.0f;
+    private static float numberTextSize(Shape shape, boolean singleMetric, boolean showCredits) {
+        return shape == Shape.WIDE ? singleMetric ? showCredits ? 14.0f : 16.0f : showCredits ? 12.0f : 14.0f
+                : singleMetric ? showCredits ? 10.5f : 13.0f : showCredits ? 9.2f : 11.0f;
     }
 
-    private static String contentDescription(String name, boolean z, LockMeterBinding binding,
-            Style style, LockWidgetOptions lockWidgetOptions, int i3) {
-        if (!z) {
+    private static String contentDescription(String name, boolean signedIn, LockMeterBinding binding,
+            Style style, LockWidgetOptions lockWidgetOptions, int credits) {
+        if (!signedIn) {
             return name + ", sign in required";
         }
-        StringBuilder sbAppend = new StringBuilder(name).append(' ')
+        StringBuilder description = new StringBuilder(name).append(' ')
                 .append(styleLabel(style).toLowerCase(Locale.ROOT)).append(", ");
         if (binding.showPrimary) {
             String label = binding.primary == null ? "primary" : binding.primary.label;
-            sbAppend.append(label).append(' ').append(value(binding.primaryRemaining))
+            description.append(label).append(' ').append(value(binding.primaryRemaining))
                     .append(" remaining");
-            appendInner(sbAppend, binding.primary);
+            appendInner(description, binding.primary);
         }
         if (binding.showPrimary && binding.showSecondary) {
-            sbAppend.append(", ");
+            description.append(", ");
         }
         if (binding.showSecondary) {
             String label = binding.secondary == null ? "secondary" : binding.secondary.label;
-            sbAppend.append(label).append(' ').append(value(binding.secondaryRemaining))
+            description.append(label).append(' ').append(value(binding.secondaryRemaining))
                     .append(" remaining");
-            appendInner(sbAppend, binding.secondary);
+            appendInner(description, binding.secondary);
         }
         if (lockWidgetOptions.showCountdown) {
-            sbAppend.append(", live reset countdown");
+            description.append(", live reset countdown");
         }
         if (lockWidgetOptions.showResetCredits || lockWidgetOptions.showResetAction) {
-            sbAppend.append(", ").append(i3).append(" reset credit").append(i3 == 1 ? "" : "s");
+            description.append(", ").append(credits).append(" reset credit").append(credits == 1 ? "" : "s");
         }
-        if (lockWidgetOptions.showResetAction && i3 > 0) {
-            sbAppend.append("; tap to open reset confirmation");
+        if (lockWidgetOptions.showResetAction && credits > 0) {
+            description.append("; tap to open reset confirmation");
         }
-        return sbAppend.toString();
+        return description.toString();
     }
 
     private static void appendInner(StringBuilder sb, LockMeterSlot slot) {
@@ -897,76 +895,70 @@ final class SamsungLockWidgetSupport {
         return Math.max(0, Math.min(100, usageWindow.remainingPercent()));
     }
 
-    private static ProviderSpec findSpec(AppWidgetManager appWidgetManager, Context context, int i) {
-        for (ProviderSpec providerSpec : PROVIDERS) {
+    private static ProviderSpec findSpec(AppWidgetManager appWidgetManager, Context context, int widgetId) {
+        for (ProviderSpec spec : PROVIDERS) {
             try {
-                for (int i2 : appWidgetManager.getAppWidgetIds(new ComponentName(context, providerSpec.provider))) {
-                    if (i2 == i) {
-                        return providerSpec;
+                for (int id : appWidgetManager.getAppWidgetIds(new ComponentName(context, spec.provider))) {
+                    if (id == widgetId) {
+                        return spec;
                     }
                 }
-            } catch (RuntimeException e) {
+            } catch (RuntimeException error) {
+                DiagnosticLog.error(context, "widget", "lock_widget_ids_failed", error);
             }
         }
         return null;
     }
 
-    private static int[] grantedSize(AppWidgetManager appWidgetManager, int i, Shape shape) {
-        int[] iArr;
-        SizeF sizeFBestSize;
-        int i2 = shape == Shape.SQUARE ? 56 : 124;
-        if (appWidgetManager == null || i == 0) {
-            return new int[]{i2, 56};
+    /** The size the lock screen granted this widget, in dp, falling back to the shape's default. */
+    private static int[] grantedSize(AppWidgetManager manager, int widgetId, Shape shape) {
+        int defaultWidth = shape == Shape.SQUARE ? 56 : 124;
+        int defaultHeight = 56;
+        if (manager == null || widgetId == 0) {
+            return new int[]{defaultWidth, defaultHeight};
         }
         try {
-            Bundle appWidgetOptions = appWidgetManager.getAppWidgetOptions(i);
-            ArrayList parcelableArrayList = appWidgetOptions.getParcelableArrayList("appWidgetSizes");
-            if (parcelableArrayList != null && !parcelableArrayList.isEmpty() && (sizeFBestSize = bestSize(parcelableArrayList, shape)) != null) {
-                iArr = new int[]{Math.round(sizeFBestSize.getWidth()), Math.round(sizeFBestSize.getHeight())};
-            } else {
-                int i3 = appWidgetOptions.getInt("appWidgetMinWidth", i2);
-                int i4 = appWidgetOptions.getInt("appWidgetMinHeight", 56);
-                iArr = new int[2];
-                if (i3 <= 0) {
-                    i3 = i2;
-                }
-                iArr[0] = i3;
-                if (i4 <= 0) {
-                    i4 = 56;
-                }
-                iArr[1] = i4;
+            Bundle options = manager.getAppWidgetOptions(widgetId);
+            ArrayList<SizeF> sizes = widgetSizes(options);
+            SizeF best = sizes == null || sizes.isEmpty() ? null : bestSize(sizes, shape);
+            if (best != null) {
+                return new int[]{Math.round(best.getWidth()), Math.round(best.getHeight())};
             }
-            return iArr;
+            int width = options.getInt("appWidgetMinWidth", defaultWidth);
+            int height = options.getInt("appWidgetMinHeight", defaultHeight);
+            return new int[]{width > 0 ? width : defaultWidth, height > 0 ? height : defaultHeight};
         } catch (RuntimeException e) {
             Log.w("CodexMeterLock", "Unable to read lock widget size", e);
-            return new int[]{i2, 56};
+            return new int[]{defaultWidth, defaultHeight};
         }
     }
 
-    private static SizeF bestSize(ArrayList<SizeF> arrayList, Shape shape) {
-        float f;
-        SizeF sizeF;
-        float f2 = shape == Shape.SQUARE ? 1.0f : 2.2142856f;
-        SizeF sizeF2 = null;
-        float f3 = Float.MAX_VALUE;
-        for (SizeF sizeF3 : arrayList) {
-            if (sizeF3 == null || sizeF3.getWidth() <= 0.0f || sizeF3.getHeight() <= 0.0f) {
-                f = f3;
-                sizeF = sizeF2;
-            } else {
-                float fAbs = (Math.abs((sizeF3.getWidth() / sizeF3.getHeight()) - f2) * 100.0f) + (Math.abs(sizeF3.getHeight() - 56.0f) * 0.2f);
-                if (sizeF2 == null || fAbs < f3) {
-                    sizeF = sizeF3;
-                    f = fAbs;
-                } else {
-                    f = f3;
-                    sizeF = sizeF2;
-                }
-            }
-            sizeF2 = sizeF;
-            f3 = f;
+    // The typed getter is Android 13+; older versions only have the untyped one.
+    @SuppressWarnings("deprecation")
+    private static ArrayList<SizeF> widgetSizes(Bundle options) {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            return options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF.class);
         }
-        return sizeF2;
+        return options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES);
+    }
+
+    private static SizeF bestSize(ArrayList<SizeF> sizes, Shape shape) {
+        // Closest to the shape's aspect ratio, then closest to a 56 dp tall tile.
+        float aspect = shape == Shape.SQUARE ? 1.0f : 2.2142856f;
+        SizeF best = null;
+        float bestScore = Float.MAX_VALUE;
+        for (SizeF size : sizes) {
+            if (size == null || size.getWidth() <= 0.0f || size.getHeight() <= 0.0f) {
+                continue;
+            }
+            float score = (Math.abs((size.getWidth() / size.getHeight()) - aspect) * 100.0f)
+                    + (Math.abs(size.getHeight() - 56.0f) * 0.2f);
+            if (best == null || score < bestScore) {
+                best = size;
+                bestScore = score;
+            }
+        }
+        return best;
     }
 
     private static Context application(Context context) {

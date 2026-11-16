@@ -186,13 +186,17 @@ extension DashboardEditView {
             case DashboardSections.fiveHour:
                 DashboardEditItem(key: key, title: "5-hour limit", summary: "Rolling 5-hour \(name) window")
             case DashboardSections.weekly:
-                isCursor
-                    ? DashboardEditItem(key: key, title: "Included usage", summary: "Your plan's included usage, refreshed weekly")
-                    : DashboardEditItem(key: key, title: "Weekly limit", summary: "Rolling 7-day \(name) window")
+                if isCursor {
+                    DashboardEditItem(key: key, title: "Included usage", summary: "Your plan's included usage, refreshed weekly")
+                } else {
+                    DashboardEditItem(key: key, title: "Weekly limit", summary: "Rolling 7-day \(name) window")
+                }
             case DashboardSections.monthly:
-                isCursor
-                    ? DashboardEditItem(key: key, title: "Included usage", summary: "Your plan's included usage for the billing month")
-                    : DashboardEditItem(key: key, title: "Monthly limit", summary: "Monthly \(name) window")
+                if isCursor {
+                    DashboardEditItem(key: key, title: "Included usage", summary: "Your plan's included usage for the billing month")
+                } else {
+                    DashboardEditItem(key: key, title: "Monthly limit", summary: "Monthly \(name) window")
+                }
             default:
                 DashboardEditItem(
                     key: key,

@@ -14,6 +14,7 @@ import android.os.IBinder;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -29,7 +30,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class OAuthService extends Service {
     public static final String ACTION_START = "dev.bennett.codexmeter.oauth.START";
@@ -49,21 +49,10 @@ public final class OAuthService extends Service {
     private static final int NOTIFICATION_ID = 7301;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ServerSocket serverSocket;
-    /**
-     * One sign-in attempt. The service runs at most one at a time; cancelling or replacing an
-     * attempt marks it cancelled for good, so its thread stops even after a new attempt starts
-     * (a single shared flag used to be reset by the next attempt and revive the old loop).
-     */
-    private static final class Attempt {
-        volatile boolean cancelled;
-    }
-
-    /** The attempt the service is running, or null when idle. */
-    private volatile Attempt current;
+    private final SignInAttempts attempts = new SignInAttempts();
     /** The attempt the calling flow thread belongs to; null on the main thread. */
-    private final ThreadLocal<Attempt> mine = new ThreadLocal<>();
+    private final ThreadLocal<SignInAttempts.Attempt> mine = new ThreadLocal<>();
     private volatile UsageProvider provider = UsageProvider.CODEX;
 
     @Override
@@ -86,21 +75,21 @@ public final class OAuthService extends Service {
         boolean reauthenticate = intent != null
                 && intent.getBooleanExtra(EXTRA_REAUTHENTICATE, false);
         if (!reauthenticate && SecureTokenStore.isSignedIn(this, requested)) {
-            if (!running.get()) {
+            if (attempts.current() == null) {
                 AppPreferences.setOAuthPending(this, false, "");
                 broadcastResult(true, "Already signed in.");
                 finishService();
             }
             return START_NOT_STICKY;
         }
-        if (running.get() && requested != provider) {
+        SignInAttempts.Attempt open = attempts.current();
+        if (open != null && requested != open.provider) {
             broadcastResult(false, "A " + provider.accountName + " sign-in is still open. "
                     + "Finish it or cancel it from the notification first.");
             return START_NOT_STICKY;
         }
-        if (running.compareAndSet(false, true)) {
-            Attempt attempt = new Attempt();
-            this.current = attempt;
+        SignInAttempts.Attempt attempt = attempts.begin(requested);
+        if (attempt != null) {
             provider = requested;
             ProviderPreferences.setPendingSignIn(this, requested);
             startForegroundCompat(buildNotification("Preparing secure sign-in…", null));
@@ -631,25 +620,16 @@ public final class OAuthService extends Service {
      * one. On the main thread, true when no attempt is running.
      */
     private boolean cancelled() {
-        Attempt own = mine.get();
-        Attempt active = this.current;
-        if (own == null) {
-            return active == null || active.cancelled;
-        }
-        return own.cancelled || own != active;
+        return attempts.shouldStop(mine.get());
     }
 
     /** A flow thread whose attempt was replaced must not touch the newer attempt's service state. */
     private boolean superseded() {
-        Attempt own = mine.get();
-        return own != null && own != this.current;
+        return attempts.superseded(mine.get());
     }
 
     private void cancelFlow(String message, boolean broadcast) {
-        Attempt attempt = this.current;
-        if (attempt != null) {
-            attempt.cancelled = true;
-        }
+        attempts.cancel();
         AppPreferences.setOAuthPending(this, false, "");
         closeServer();
         if (broadcast) {
@@ -659,11 +639,9 @@ public final class OAuthService extends Service {
     }
 
     private void finishService() {
-        if (superseded()) {
+        if (!attempts.finish(mine.get())) {
             return;
         }
-        this.current = null;
-        running.set(false);
         try {
             stopForeground(STOP_FOREGROUND_REMOVE);
         } catch (RuntimeException ignored) {
@@ -676,13 +654,13 @@ public final class OAuthService extends Service {
         ServerSocket socket = serverSocket;
         serverSocket = null;
         if (socket != null) {
-            try { socket.close(); } catch (Exception ignored) {}
+            try { socket.close(); } catch (IOException closing) { /* the server is done either way */ }
         }
     }
 
     private static void closeQuietly(Socket socket) {
         if (socket != null) {
-            try { socket.close(); } catch (Exception ignored) {}
+            try { socket.close(); } catch (IOException closing) { /* the reply was already sent */ }
         }
     }
 
@@ -772,15 +750,11 @@ public final class OAuthService extends Service {
     }
 
     private static String cleanMessage(Exception exception) {
-        String message = exception.getMessage();
-        if (message == null || message.trim().isEmpty()) return "Sign-in could not be completed.";
-        return message.length() > 240 ? message.substring(0, 240) : message;
+        return Text.clip(Text.orDefault(exception.getMessage(), "Sign-in could not be completed."), 240);
     }
 
     private static String cleanMessage(RuntimeException exception) {
-        String message = exception.getMessage();
-        if (message == null || message.trim().isEmpty()) return exception.getClass().getSimpleName();
-        return message.length() > 200 ? message.substring(0, 200) : message;
+        return Text.clip(Text.orDefault(exception.getMessage(), exception.getClass().getSimpleName()), 200);
     }
 
     private static final class Callback {

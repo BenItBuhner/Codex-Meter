@@ -301,7 +301,7 @@ enum MacReleaseFeed {
             throw error
         }
         let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
-        guard (asset.size < 0 || written == asset.size), actual == expected else {
+        guard asset.size < 0 || written == asset.size, actual == expected else {
             try? FileManager.default.removeItem(at: partial)
             throw MacUpdateError.checksumMismatch
         }

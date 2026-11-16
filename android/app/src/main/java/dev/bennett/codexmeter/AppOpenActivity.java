@@ -31,6 +31,8 @@ public class AppOpenActivity extends Activity {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     }
 
+    // finish() has already run; overrideActivityTransition (API 34) must be set before the transition starts.
+    @SuppressWarnings("deprecation")
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);

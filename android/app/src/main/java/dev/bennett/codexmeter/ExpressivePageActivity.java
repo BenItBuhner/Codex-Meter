@@ -15,7 +15,7 @@ public final class ExpressivePageActivity extends AppCompatActivity {
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
-        Intent page = getIntent().getParcelableExtra(EXTRA_INTENT);
+        Intent page = Ui.intentExtra(getIntent(), EXTRA_INTENT);
         if (page == null || !ExpressivePages.show(this, page)) {
             finish();
         }

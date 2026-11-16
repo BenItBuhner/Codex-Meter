@@ -6,7 +6,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/* JADX INFO: loaded from: classes.dex */
+/** Parses the ChatGPT {@code wham/usage} response into a {@link UsageSnapshot}. */
 public final class UsageParser {
     private static final long FIVE_HOURS = 18000;
     private static final long WEEK = 604800;
@@ -20,84 +20,54 @@ public final class UsageParser {
     private UsageParser() {
     }
 
-    public static UsageSnapshot parse(String str, long j) throws JSONException {
-        boolean z;
-        boolean z2;
-        UsageWindow usageWindow;
-        JSONObject jSONObject = new JSONObject(str);
-        String strOptString = jSONObject.optString("plan_type", "");
-        JSONObject jSONObjectNullableObject = nullableObject(jSONObject, "rate_limit");
-        ArrayList arrayList = new ArrayList();
-        ArrayList<UsageLimit> additionalLimits = new ArrayList<>();
-        UsageWindow usageWindowFromJson = null;
-        if (jSONObjectNullableObject == null) {
-            z = true;
-            z2 = false;
-            usageWindow = null;
-        } else {
-            boolean zOptBoolean = jSONObjectNullableObject.optBoolean("allowed", true);
-            boolean zOptBoolean2 = jSONObjectNullableObject.optBoolean("limit_reached", false);
-            UsageWindow usageWindowFromJson2 = UsageWindow.fromJson(nullableObject(jSONObjectNullableObject, "primary_window"));
-            usageWindowFromJson = UsageWindow.fromJson(nullableObject(jSONObjectNullableObject, "secondary_window"));
-            if (usageWindowFromJson2 != null) {
-                arrayList.add(usageWindowFromJson2);
-            }
-            if (usageWindowFromJson != null) {
-                arrayList.add(usageWindowFromJson);
-            }
-            z = zOptBoolean;
-            z2 = zOptBoolean2;
-            usageWindow = usageWindowFromJson2;
+    public static UsageSnapshot parse(String body, long fetchedAtMillis) throws JSONException {
+        JSONObject root = new JSONObject(body);
+        String planType = root.optString("plan_type", "");
+        JSONObject rateLimit = nullableObject(root, "rate_limit");
+        List<UsageWindow> windows = new ArrayList<>();
+        boolean allowed = true;
+        boolean limitReached = false;
+        if (rateLimit != null) {
+            allowed = rateLimit.optBoolean("allowed", true);
+            limitReached = rateLimit.optBoolean("limit_reached", false);
+            UsageWindow primary = UsageWindow.fromJson(nullableObject(rateLimit, "primary_window"));
+            UsageWindow secondary = UsageWindow.fromJson(nullableObject(rateLimit, "secondary_window"));
+            if (primary != null) windows.add(primary);
+            if (secondary != null) windows.add(secondary);
         }
-        JSONArray jSONArrayOptJSONArray = jSONObject.optJSONArray("additional_rate_limits");
-        if (jSONArrayOptJSONArray != null) {
-            for (int i = 0; i < jSONArrayOptJSONArray.length(); i++) {
-                JSONObject jSONObjectOptJSONObject = jSONArrayOptJSONArray.optJSONObject(i);
-                if (jSONObjectOptJSONObject != null) {
-                    JSONObject jSONObjectNullableObject2 = nullableObject(jSONObjectOptJSONObject, "rate_limit");
-                    if (jSONObjectNullableObject2 == null) {
-                        jSONObjectNullableObject2 = jSONObjectOptJSONObject;
-                    }
-                    UsageWindow usageWindowFromJson3 = UsageWindow.fromJson(nullableObject(jSONObjectNullableObject2, "primary_window"));
-                    UsageWindow usageWindowFromJson4 = UsageWindow.fromJson(nullableObject(jSONObjectNullableObject2, "secondary_window"));
-                    if (usageWindowFromJson3 != null || usageWindowFromJson4 != null) {
-                        String name = jSONObjectOptJSONObject.optString("limit_name", "");
-                        String feature = jSONObjectOptJSONObject.optString("metered_feature", "");
-                        String id = firstNonEmpty(
-                                jSONObjectOptJSONObject.optString("limit_id", ""),
-                                name, feature, "additional");
-                        additionalLimits.add(new UsageLimit(
-                                id + "-" + i,
-                                name,
-                                feature,
-                                jSONObjectNullableObject2.optBoolean("allowed", true),
-                                jSONObjectNullableObject2.optBoolean("limit_reached", false),
-                                usageWindowFromJson3,
-                                usageWindowFromJson4));
-                    }
-                }
-            }
+        List<UsageLimit> additionalLimits = new ArrayList<>();
+        JSONArray additional = root.optJSONArray("additional_rate_limits");
+        for (int i = 0; additional != null && i < additional.length(); i++) {
+            JSONObject entry = additional.optJSONObject(i);
+            if (entry == null) continue;
+            JSONObject limit = nullableObject(entry, "rate_limit");
+            if (limit == null) limit = entry;
+            UsageWindow primary = UsageWindow.fromJson(nullableObject(limit, "primary_window"));
+            UsageWindow secondary = UsageWindow.fromJson(nullableObject(limit, "secondary_window"));
+            if (primary == null && secondary == null) continue;
+            String name = entry.optString("limit_name", "");
+            String feature = entry.optString("metered_feature", "");
+            String id = firstNonEmpty(entry.optString("limit_id", ""), name, feature, "additional");
+            additionalLimits.add(new UsageLimit(id + "-" + i, name, feature,
+                    limit.optBoolean("allowed", true), limit.optBoolean("limit_reached", false),
+                    primary, secondary));
         }
-        UsageWindow usageWindowNearest = nearest(arrayList, FIVE_HOURS, 10800L, 28800L);
-        UsageWindow usageWindowNearestExcluding = nearestExcluding(arrayList, WEEK, 432000L, 777600L, usageWindowNearest);
-        UsageWindow usageWindowMonthly = nearestExcluding(arrayList, MONTH, MONTH_MIN, MONTH_MAX,
-                usageWindowNearest, usageWindowNearestExcluding);
-        JSONObject jSONObjectNullableObject3 = nullableObject(jSONObject, "rate_limit_reset_credits");
-        UsageCredits usageCredits = UsageCredits.fromJson(nullableObject(jSONObject, "credits"));
-        SpendControl spendControl = SpendControl.fromJson(nullableObject(jSONObject, "spend_control"));
+        UsageWindow fiveHour = nearestExcluding(windows, FIVE_HOURS, 10800L, 28800L);
+        UsageWindow weekly = nearestExcluding(windows, WEEK, 432000L, 777600L, fiveHour);
+        UsageWindow monthly = nearestExcluding(windows, MONTH, MONTH_MIN, MONTH_MAX, fiveHour, weekly);
+        JSONObject resetCredits = nullableObject(root, "rate_limit_reset_credits");
         return new UsageSnapshot(
-                strOptString,
-                z,
-                z2,
-                usageWindowNearest,
-                usageWindowNearestExcluding,
-                usageWindowMonthly,
+                planType,
+                allowed,
+                limitReached,
+                fiveHour,
+                weekly,
+                monthly,
                 additionalLimits,
-                usageCredits,
-                spendControl,
-                jSONObjectNullableObject3 == null
-                        ? -1 : jSONObjectNullableObject3.optInt("available_count", -1),
-                j);
+                UsageCredits.fromJson(nullableObject(root, "credits")),
+                SpendControl.fromJson(nullableObject(root, "spend_control")),
+                resetCredits == null ? -1 : resetCredits.optInt("available_count", -1),
+                fetchedAtMillis);
     }
 
     private static String firstNonEmpty(String... values) {
@@ -109,40 +79,14 @@ public final class UsageParser {
         return "";
     }
 
-    private static JSONObject nullableObject(JSONObject jSONObject, String str) {
-        if (jSONObject == null || jSONObject.isNull(str)) {
+    private static JSONObject nullableObject(JSONObject parent, String key) {
+        if (parent == null || parent.isNull(key)) {
             return null;
         }
-        return jSONObject.optJSONObject(str);
+        return parent.optJSONObject(key);
     }
 
-    private static UsageWindow nearest(List<UsageWindow> list, long j, long j2, long j3) {
-        UsageWindow usageWindow;
-        long j4;
-        UsageWindow usageWindow2 = null;
-        long j5 = Long.MAX_VALUE;
-        for (UsageWindow usageWindow3 : list) {
-            if (usageWindow3.windowSeconds < j2 || usageWindow3.windowSeconds > j3) {
-                long j6 = j5;
-                usageWindow = usageWindow2;
-                j4 = j6;
-            } else {
-                long jAbs = Math.abs(usageWindow3.windowSeconds - j);
-                if (jAbs < j5) {
-                    usageWindow = usageWindow3;
-                    j4 = jAbs;
-                } else {
-                    long j7 = j5;
-                    usageWindow = usageWindow2;
-                    j4 = j7;
-                }
-            }
-            usageWindow2 = usageWindow;
-            j5 = j4;
-        }
-        return usageWindow2;
-    }
-
+    /** The window closest to {@code target} seconds within the range, skipping ones already used. */
     private static UsageWindow nearestExcluding(List<UsageWindow> list, long target,
             long minimumSeconds, long maximumSeconds, UsageWindow... excluded) {
         UsageWindow best = null;

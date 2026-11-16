@@ -66,6 +66,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 .putExtra(EXTRA_PAGE, PAGE_DIAGNOSTICS);
     }
 
+    // finish() has already run; overrideActivityTransition (API 34) must be set before the transition starts.
+    @SuppressWarnings("deprecation")
     @Override
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
@@ -155,6 +157,9 @@ public final class SettingsActivity extends AppCompatActivity {
     // One UI's lint detector only associates this fragment with preferences_settings.xml.
     // This fragment intentionally loads one of several page-specific preference resources.
     @SuppressLint("FindPreferenceKeyNotFound")
+    // The settings pages still ask for permissions and documents with request codes and
+    // onActivityResult; moving them to registerForActivityResult is its own change.
+    @SuppressWarnings("deprecation")
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private static final String ARG_PAGE = "page";
         private static final int REQUEST_EXPORT_TRANSFER = 9201;
@@ -288,6 +293,22 @@ public final class SettingsActivity extends AppCompatActivity {
             } else {
                 view.setBackgroundColor(Ui.background(requireContext(), Ui.isDark(requireContext())));
             }
+        }
+
+        /** The live monitor's summary follows its real state: the service posts, reposts and stops it later. */
+        private final android.content.SharedPreferences.OnSharedPreferenceChangeListener nowBarChanged =
+                (prefs, key) -> updateNowBarSummary();
+
+        @Override
+        public void onStart() {
+            super.onStart();
+            NowBarManager.addStateListener(requireContext(), nowBarChanged);
+        }
+
+        @Override
+        public void onStop() {
+            NowBarManager.removeStateListener(requireContext(), nowBarChanged);
+            super.onStop();
         }
 
         @Override
@@ -675,9 +696,10 @@ public final class SettingsActivity extends AppCompatActivity {
                 AppPreferences.setDesign(requireContext(), choice);
                 design.setValue(choice);
                 design.setSummary(designLabel(requireContext()));
-                // Restart the whole app so every page is built fresh with the new design.
+                // Restart the whole app so every page is built fresh with the new design. setDesign
+                // commits synchronously; posting lets the choice dialog finish closing first.
                 Activity activity = requireActivity();
-                getListView().postDelayed(() -> restartForDesign(activity), 250);
+                getListView().post(() -> restartForDesign(activity));
                 return false;
             });
         }
@@ -749,6 +771,8 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         /** Relaunches the app on Settings → Appearance in a fresh process. */
+        // finish() has already run; overrideActivityTransition (API 34) must be set before the transition starts.
+        @SuppressWarnings("deprecation")
         private static void restartForDesign(Activity activity) {
             Intent main = new Intent(activity, MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -1758,10 +1782,6 @@ public final class SettingsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
-                View settingsView = getView();
-                if (started && settingsView != null) {
-                    settingsView.postDelayed(this::updateNowBarSummary, 1500L);
-                }
                 PhoneWearSync.pushSettings(requireContext());
                 return started;
             });

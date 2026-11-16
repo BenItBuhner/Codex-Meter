@@ -47,7 +47,7 @@ final class JWTClaimsTests: XCTestCase {
 
     private func token(payload: [String: Any]) -> String {
         let header = Data("{\"alg\":\"none\"}".utf8).base64URLEncodedString()
-        let data = try! JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        let data = (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])) ?? Data()
         return "\(header).\(data.base64URLEncodedString()).x"
     }
 }

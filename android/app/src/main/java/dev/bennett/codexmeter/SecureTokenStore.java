@@ -71,11 +71,11 @@ public final class SecureTokenStore {
         synchronized (LOCK) {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(1, getOrCreateKey(keyAlias(provider)));
-            byte[] bArrDoFinal = cipher.doFinal(authTokens.toJson().toString().getBytes(StandardCharsets.UTF_8));
-            JSONObject jSONObject = new JSONObject();
-            jSONObject.put("iv", Base64.getEncoder().encodeToString(cipher.getIV()));
-            jSONObject.put("ct", Base64.getEncoder().encodeToString(bArrDoFinal));
-            if (!context.getSharedPreferences(prefsName(provider), 0).edit().putString(KEY_BLOB, jSONObject.toString()).commit()) {
+            byte[] ciphertext = cipher.doFinal(authTokens.toJson().toString().getBytes(StandardCharsets.UTF_8));
+            JSONObject blob = new JSONObject();
+            blob.put("iv", Base64.getEncoder().encodeToString(cipher.getIV()));
+            blob.put("ct", Base64.getEncoder().encodeToString(ciphertext));
+            if (!context.getSharedPreferences(prefsName(provider), 0).edit().putString(KEY_BLOB, blob.toString()).commit()) {
                 throw new Exception("Could not persist encrypted credentials.");
             }
             SIGNED_IN.put(prefsName(provider), authTokens.isUsable());
@@ -87,19 +87,19 @@ public final class SecureTokenStore {
         synchronized (LOCK) {
             SharedPreferences sharedPreferences =
                     context.getSharedPreferences(prefsName(provider), 0);
-            String string = sharedPreferences.getString(KEY_BLOB, null);
-            if (string != null && !string.isEmpty()) {
+            String stored = sharedPreferences.getString(KEY_BLOB, null);
+            if (stored != null && !stored.isEmpty()) {
                 try {
-                    JSONObject jSONObject = new JSONObject(string);
-                    byte[] bArrDecode = Base64.getDecoder().decode(jSONObject.getString("iv"));
-                    byte[] bArrDecode2 = Base64.getDecoder().decode(jSONObject.getString("ct"));
+                    JSONObject blob = new JSONObject(stored);
+                    byte[] iv = Base64.getDecoder().decode(blob.getString("iv"));
+                    byte[] ciphertext = Base64.getDecoder().decode(blob.getString("ct"));
                     Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-                    cipher.init(2, getOrCreateKey(keyAlias(provider)), new GCMParameterSpec(128, bArrDecode));
-                    AuthTokens authTokensFromJson = AuthTokens.fromJson(new JSONObject(new String(cipher.doFinal(bArrDecode2), StandardCharsets.UTF_8)));
-                    if (!authTokensFromJson.isUsable()) {
-                        authTokensFromJson = null;
+                    cipher.init(2, getOrCreateKey(keyAlias(provider)), new GCMParameterSpec(128, iv));
+                    AuthTokens decoded = AuthTokens.fromJson(new JSONObject(new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8)));
+                    if (!decoded.isUsable()) {
+                        decoded = null;
                     }
-                    authTokens = authTokensFromJson;
+                    authTokens = decoded;
                 } catch (Exception e) {
                     sharedPreferences.edit().remove(KEY_BLOB).commit();
                 }
@@ -119,7 +119,11 @@ public final class SecureTokenStore {
                 if (keyStore.containsAlias(keyAlias(provider))) {
                     keyStore.deleteEntry(keyAlias(provider));
                 }
-            } catch (Exception e) {
+            } catch (Exception error) {
+                // The tokens are already gone with the preferences; a leftover key can't decrypt
+                // anything, but it should show up in diagnostics.
+                DiagnosticLog.error(context, "auth", "token_key_delete_failed", error,
+                        "provider", provider.id);
             }
         }
     }

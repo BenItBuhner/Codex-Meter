@@ -436,13 +436,20 @@ public sealed class SettingsPage : PageBase
         return button;
     }
 
-    private static SettingsCard Card(string header, string? description, string glyph, FrameworkElement? content) => new()
+    private static SettingsCard Card(string header, string? description, string glyph, FrameworkElement? content)
     {
-        Header = header,
-        Description = description,
-        HeaderIcon = new FontIcon { Glyph = glyph },
-        Content = content,
-    };
+        var card = new SettingsCard
+        {
+            Header = header,
+            HeaderIcon = new FontIcon { Glyph = glyph },
+            Content = content,
+        };
+        if (description is not null)
+        {
+            card.Description = description;
+        }
+        return card;
+    }
 
     private static ComboBox Combo(string id, string[] items, int selected, Action<int> changed)
     {

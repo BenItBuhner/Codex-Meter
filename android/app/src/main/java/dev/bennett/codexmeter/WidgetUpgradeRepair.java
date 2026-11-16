@@ -66,7 +66,8 @@ public final class WidgetUpgradeRepair {
                         .build();
                 scheduler.schedule(job);
             }
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(context, "widget", "repair_schedule_failed", error);
         }
     }
 
@@ -76,7 +77,8 @@ public final class WidgetUpgradeRepair {
                     new ComponentName(context, CodexUsageWidget.class),
                     PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                     PackageManager.DONT_KILL_APP);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(context, "widget", "repair_enable_failed", error);
         }
         SamsungLockWidgetSupport.enableAllProviders(context);
         WidgetRenderer.updateAll(context);
@@ -86,6 +88,8 @@ public final class WidgetUpgradeRepair {
         }
     }
 
+    // getLongVersionCode() is Android 9+; older versions only have versionCode.
+    @SuppressWarnings("deprecation")
     private static long versionCode(Context context) {
         try {
             PackageInfo info = context.getPackageManager()

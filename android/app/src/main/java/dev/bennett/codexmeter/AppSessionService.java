@@ -35,8 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class AppSessionService extends AccessibilityService {
     static final String TAG = "CodexAppSession";
-    /** Leaving and returning within this window (share sheets, a quick app switch) keeps it up. */
-    private static final long LEAVE_GRACE_MILLIS = 600L;
     /** Re-reads the window list once transitions settle, in case the last change sent no event. */
     private static final long SETTLE_RECHECK_MILLIS = 400L;
 
@@ -48,14 +46,13 @@ public final class AppSessionService extends AccessibilityService {
     /** Window id to the package that owns it; filled from events and from window reads. */
     private final Map<Integer, String> windowPackages = new ConcurrentHashMap<>();
     private final Map<String, Boolean> activityCache = new HashMap<>();
-    private final Runnable leave = this::leaveNow;
-    private boolean leavePending;
+    private final Runnable graceCheck = this::onGraceElapsed;
     private final Runnable readNow = () -> readWindows(false);
     private final Runnable readSettled = () -> readWindows(true);
     /** Bumped on every event that decided something itself; older window reads are stale. */
     private volatile int eventGeneration;
-    /** The matched app in front, whether or not its monitor is showing. */
-    private String currentPackage;
+    /** The matched app in front and whether it is leaving. Main thread only. */
+    private final AppSessionRules.Session session = new AppSessionRules.Session();
     private boolean debuggable;
 
     /** Whether the detector is connected right now. */
@@ -141,21 +138,22 @@ public final class AppSessionService extends AccessibilityService {
     /** Acts on the app in front. Main thread only. */
     private void apply(String front, long sinceUptime, String source) {
         if (!AppSessionPreferences.isEnabled(this)) {
-            if (currentPackage != null) leaveNow();
+            if (session.app() != null) leaveNow();
             return;
         }
         Map<String, UsageProvider> mapping = AppSessionPreferences.mapping(this);
         AppSessionRules.Decision decision = AppSessionRules.decide(front, true, mapping,
-                currentPackage);
+                session.app());
         switch (decision.action) {
             case ENTER:
-                cancelLeave();
-                currentPackage = front;
+                handler.removeCallbacks(graceCheck);
+                session.enter(front);
                 AppSessionPreferences.setDismissed(this, null);
                 show(decision.provider, front, sinceUptime, source);
                 break;
             case STAY:
-                cancelLeave();
+                handler.removeCallbacks(graceCheck);
+                session.stay();
                 // Self-heal: if the monitor went away (expiry, another monitor ending) while the
                 // app stayed in front, bring it back unless the user dismissed it here.
                 if (!NowBarManager.isAppSessionFor(this, front)
@@ -165,10 +163,8 @@ public final class AppSessionService extends AccessibilityService {
                 }
                 break;
             case LEAVE:
-                if (!leavePending) {
-                    leavePending = true;
-                    handler.postDelayed(leave, LEAVE_GRACE_MILLIS);
-                }
+                long checkAt = session.startLeaving(SystemClock.uptimeMillis());
+                if (checkAt >= 0) handler.postAtTime(graceCheck, checkAt);
                 break;
             case NONE:
             default:
@@ -176,9 +172,9 @@ public final class AppSessionService extends AccessibilityService {
         }
     }
 
-    private void cancelLeave() {
-        handler.removeCallbacks(leave);
-        leavePending = false;
+    private void onGraceElapsed() {
+        String left = session.graceElapsed(SystemClock.uptimeMillis());
+        if (left != null) hide(left);
     }
 
     private void show(UsageProvider provider, String packageName, long sinceUptime,
@@ -194,9 +190,11 @@ public final class AppSessionService extends AccessibilityService {
     }
 
     private void leaveNow() {
-        cancelLeave();
-        String left = currentPackage;
-        currentPackage = null;
+        handler.removeCallbacks(graceCheck);
+        hide(session.end());
+    }
+
+    private void hide(String left) {
         AppSessionPreferences.setDismissed(this, null);
         long started = SystemClock.uptimeMillis();
         NowBarManager.endAppSession(this);
@@ -280,7 +278,7 @@ public final class AppSessionService extends AccessibilityService {
         if (worker != null) worker.removeCallbacksAndMessages(null);
         if (workerThread != null) workerThread.quitSafely();
         handler.removeCallbacksAndMessages(null);
-        if (currentPackage != null) leaveNow();
+        if (session.app() != null) leaveNow();
         super.onDestroy();
     }
 }

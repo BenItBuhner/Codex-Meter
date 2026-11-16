@@ -57,7 +57,8 @@ public static class CursorUsageParser
         var planSpent = (plan?.UsedPercent ?? 0) >= 100;
         var limitReached = planSpent && (onDemand?.LimitReached ?? true);
         return new UsageSnapshot(planLabel, !limitReached, limitReached, null, weekly ? plan : null,
-            weekly ? null : plan, null, limits, null, null, fetchedAt) { IncludedValueUsd = includedCents / 100 };
+            weekly ? null : plan, null, limits, null, null, fetchedAt)
+        { IncludedValueUsd = includedCents / 100 };
     }
 
     public static bool IsWeeklyCycle(long cycleSeconds) => cycleSeconds > 0 && cycleSeconds <= 10 * 24 * 60 * 60;

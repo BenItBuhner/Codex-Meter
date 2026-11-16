@@ -117,6 +117,8 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
      * In Liquid Glass, a ported activity hands its intent to MainActivity, which shows its glass
      * page, and finishes. Call right after super.onCreate; returns true when it did.
      */
+    // finish() has already run; overrideActivityTransition (API 34) must be set before the transition starts.
+    @SuppressWarnings("deprecation")
     static boolean redirect(AppCompatActivity from) {
         if (ExpressivePages.redirect(from)) {
             // Material 3 Expressive draws these pages too (no One UI page in between)

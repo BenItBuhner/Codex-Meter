@@ -171,6 +171,8 @@ final class OneUi9Page implements Ui.Header {
      * The page draws behind the status and navigation bars, as One UI 9 pages do: the content
      * runs under the status bar and fades there instead of stopping at a header edge.
      */
+    // Android 15 draws apps edge to edge and ignores bar colors; the minSdk 26-34 devices still need them.
+    @SuppressWarnings("deprecation")
     private void edgeToEdge() {
         Window window = activity.getWindow();
         WindowCompat.setDecorFitsSystemWindows(window, false);

@@ -37,7 +37,7 @@ public class ServiceFlowTests
             .On("GET", CodexService.CreditsUrl, 200, Fixtures.Read("reset-credits"));
         var service = new CodexService(http.Context(now));
 
-        string? browserPage = null;
+        var browserPage = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var tokens = await service.SignInAsync(async url =>
         {
             var query = Query(url);
@@ -53,7 +53,7 @@ public class ServiceFlowTests
                 Assert.Equal(HttpStatusCode.NotFound, (await Browser.GetAsync(root + "/favicon.ico")).StatusCode);
                 Assert.Equal(HttpStatusCode.BadRequest, (await Browser.GetAsync(redirect + "?code=x&state=stale")).StatusCode);
                 var response = await Browser.GetAsync($"{redirect}?code=the-code&state={Uri.EscapeDataString(query["state"])}");
-                browserPage = await response.Content.ReadAsStringAsync();
+                browserPage.SetResult(await response.Content.ReadAsStringAsync());
             });
             await Task.CompletedTask;
         }, CancellationToken.None);
@@ -62,8 +62,8 @@ public class ServiceFlowTests
         Assert.Equal("acct_42", tokens.AccountId);
         Assert.Equal("dev@example.com", tokens.Email);
         Assert.Equal(now.AddHours(1), tokens.ExpiresAt);
-        for (var i = 0; i < 50 && browserPage is null; i++) await Task.Delay(20);
-        Assert.Contains("You're signed in", browserPage ?? "", StringComparison.Ordinal);
+        Assert.Contains("You're signed in", await browserPage.Task.WaitAsync(TimeSpan.FromSeconds(10)),
+            StringComparison.Ordinal);
 
         var snapshot = await service.RefreshAsync();
         Assert.Equal(37, snapshot.FiveHour!.UsedPercent);
@@ -259,11 +259,24 @@ public class ServiceFlowTests
         var store = new MemoryTokenStore();
         await store.SaveAsync("codex", new AuthTokens("a", "r", "", DateTimeOffset.UtcNow.AddHours(1)));
         var usageCalls = 0;
+        // The first request holds the usage call open until every other refresh has asked too.
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
         var http = new FakeHttp()
-            .On("GET", CodexService.UsageUrl, (_, _) => { Interlocked.Increment(ref usageCalls); Thread.Sleep(100); return (200, Fixtures.Read("usage-standard")); })
+            .On("GET", CodexService.UsageUrl, (_, _) =>
+            {
+                Interlocked.Increment(ref usageCalls);
+                entered.Set();
+                Assert.True(release.Wait(TimeSpan.FromSeconds(10)), "test released the request");
+                return (200, Fixtures.Read("usage-standard"));
+            })
             .On("GET", CodexService.CreditsUrl, 200, "{}");
         var service = new CodexService(http.Context(null, store));
-        var results = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Task.Run(() => service.RefreshAsync())));
+        var first = Task.Run(() => service.RefreshAsync());
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10)), "first refresh reached the network");
+        var joined = Enumerable.Range(0, 4).Select(_ => service.RefreshAsync()).ToList();
+        release.Set();
+        var results = await Task.WhenAll(joined.Prepend(first));
         Assert.Equal(1, usageCalls);
         Assert.All(results, r => Assert.Equal(37, r.FiveHour!.UsedPercent));
         await service.RefreshAsync();

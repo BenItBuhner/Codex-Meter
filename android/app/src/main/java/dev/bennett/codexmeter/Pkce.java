@@ -5,29 +5,30 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
-/* JADX INFO: loaded from: classes.dex */
+/** A PKCE verifier, its S256 challenge, and an OAuth state value, all fresh and random. */
 public final class Pkce {
     public final String challenge;
     public final String state;
     public final String verifier;
 
-    private Pkce(String str, String str2, String str3) {
-        this.verifier = str;
-        this.challenge = str2;
-        this.state = str3;
+    private Pkce(String verifier, String challenge, String state) {
+        this.verifier = verifier;
+        this.challenge = challenge;
+        this.state = state;
     }
 
     public static Pkce generate() throws Exception {
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] bArr = new byte[64];
-        byte[] bArr2 = new byte[32];
-        secureRandom.nextBytes(bArr);
-        secureRandom.nextBytes(bArr2);
-        String strBase64Url = base64Url(bArr);
-        return new Pkce(strBase64Url, base64Url(MessageDigest.getInstance("SHA-256").digest(strBase64Url.getBytes(StandardCharsets.US_ASCII))), base64Url(bArr2));
+        SecureRandom random = new SecureRandom();
+        byte[] verifierBytes = new byte[64];
+        byte[] stateBytes = new byte[32];
+        random.nextBytes(verifierBytes);
+        random.nextBytes(stateBytes);
+        String verifier = base64Url(verifierBytes);
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII));
+        return new Pkce(verifier, base64Url(digest), base64Url(stateBytes));
     }
 
-    private static String base64Url(byte[] bArr) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bArr);
+    private static String base64Url(byte[] bytes) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

@@ -223,4 +223,9 @@ done
 
 cat "$RESULTS"
 echo "$FAILS failed" | tee -a "$RESULTS"
+if [[ $FAILS != 0 ]]; then
+  # The app's crashes and its own warnings, so a failure can be read from the job log.
+  echo "--- crash buffer"; adb logcat -b crash -d 2>/dev/null | tail -n 80 || true
+  echo "--- app warnings"; grep -E " [WEF]/(CodexMeter|AndroidRuntime|ActivityTaskManager)" "$OUT/logcat.txt" | tail -n 60 || true
+fi
 [[ $FAILS == 0 ]]

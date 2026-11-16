@@ -112,12 +112,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
             if (AppConstants.ACTION_OAUTH_RESULT.equals(action)) {
                 boolean booleanExtra = intent.getBooleanExtra(AppConstants.EXTRA_SUCCESS, false);
-                String stringExtra2 = intent.getStringExtra(AppConstants.EXTRA_MESSAGE);
+                String message = intent.getStringExtra(AppConstants.EXTRA_MESSAGE);
                 MainActivity mainActivity = MainActivity.this;
-                if (stringExtra2 == null) {
-                    stringExtra2 = booleanExtra ? "Signed in." : "Sign-in failed.";
+                if (message == null) {
+                    message = booleanExtra ? "Signed in." : "Sign-in failed.";
                 }
-                Toast.makeText(mainActivity, stringExtra2, Toast.LENGTH_LONG).show();
+                Toast.makeText(mainActivity, message, Toast.LENGTH_LONG).show();
                 PhoneWearSync.pushAll(MainActivity.this);
                 MainActivity.this.rebuild();
                 return;
@@ -351,7 +351,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (this.receiverRegistered) {
             try {
                 unregisterReceiver(this.authReceiver);
-            } catch (RuntimeException e) {
+            } catch (IllegalArgumentException alreadyUnregistered) {
+                // Nothing to undo.
             }
             this.receiverRegistered = false;
         }
@@ -486,7 +487,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 this.glass.openSettings(glassPage, true);
             }
         }
-        Intent glassIntent = intent == null ? null : intent.getParcelableExtra(GlassApp.EXTRA_GLASS_INTENT);
+        Intent glassIntent = Ui.intentExtra(intent, GlassApp.EXTRA_GLASS_INTENT);
         if (glassIntent != null) {
             intent.removeExtra(GlassApp.EXTRA_GLASS_INTENT);
             if (this.glass != null) {
@@ -961,22 +962,23 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (!PriorityPrefs.isViewEnabled(app) || !PrioritySummary.isEnabled(app)) {
             return;
         }
-        List<PriorityView.Item>[] items = new List[1];
+        java.util.concurrent.atomic.AtomicReference<List<PriorityView.Item>> items =
+                new java.util.concurrent.atomic.AtomicReference<>();
         java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(1);
         runOnUiThread(() -> {
-            items[0] = priorityItems();
+            items.set(priorityItems());
             ready.countDown();
         });
         try {
-            if (!ready.await(5, java.util.concurrent.TimeUnit.SECONDS) || items[0] == null
-                    || !PriorityView.needsAttention(items[0])) {
+            if (!ready.await(5, java.util.concurrent.TimeUnit.SECONDS) || items.get() == null
+                    || !PriorityView.needsAttention(items.get())) {
                 return;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return;
         }
-        if (PrioritySummary.refreshIfDue(app, items[0])) {
+        if (PrioritySummary.refreshIfDue(app, items.get())) {
             runOnUiThread(() -> {
                 if (!isFinishing() && !isDestroyed()) {
                     rebuild();
@@ -1621,21 +1623,21 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             });
             linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
         } else {
-            final Button button2 = Ui.button(this, "Refresh", true, this.dark);
-            button2.setCompoundDrawables(null, null, null, null);
-            button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.4
+            final Button refreshButton = Ui.button(this, "Refresh", true, this.dark);
+            refreshButton.setCompoundDrawables(null, null, null, null);
+            refreshButton.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.4
                 @Override // android.view.View.OnClickListener
                 public void onClick(View view) {
-                    MainActivity.this.refreshNow(button2);
+                    MainActivity.this.refreshNow(refreshButton);
                 }
             });
-            linearLayoutHorizontal.addView(button2, new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f));
-            Button button3 = Ui.button(this, "Sign out", false, this.dark);
-            button3.setCompoundDrawables(null, null, null, null);
-            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f);
-            layoutParams4.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
-            linearLayoutHorizontal.addView(button3, layoutParams4);
-            button3.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.5
+            linearLayoutHorizontal.addView(refreshButton, new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f));
+            Button signOutButton = Ui.button(this, "Sign out", false, this.dark);
+            signOutButton.setCompoundDrawables(null, null, null, null);
+            LinearLayout.LayoutParams signOutParams = new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f);
+            signOutParams.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
+            linearLayoutHorizontal.addView(signOutButton, signOutParams);
+            signOutButton.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.5
                 @Override // android.view.View.OnClickListener
                 public void onClick(View view) {
                     MainActivity.this.confirmSignOut();
@@ -1646,9 +1648,9 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         return linearLayoutCard;
     }
 
-    private void addUsageRow(LinearLayout linearLayout, String str, UsageWindow usageWindow) {
+    private void addUsageRow(LinearLayout linearLayout, String label, UsageWindow usageWindow) {
         LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 80);
-        linearLayoutHorizontal.addView(Ui.text(this, str, 13.0f, Ui.secondaryText(this.dark)), new LinearLayout.LayoutParams(0, -2, 1.0f));
+        linearLayoutHorizontal.addView(Ui.text(this, label, 13.0f, Ui.secondaryText(this.dark)), new LinearLayout.LayoutParams(0, -2, 1.0f));
         TextView textViewText = Ui.text(this, usageWindow == null ? "Unavailable" : usageWindow.remainingPercent() + "% left", 20.0f, Ui.mainText(this.dark));
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutHorizontal.addView(textViewText);
@@ -1659,9 +1661,9 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         progressBarProgress.setProgress(usageWindow == null ? 0 : usageWindow.remainingPercent());
         linearLayout.addView(progressBarProgress);
         View viewText = Ui.text(this, usageWindow == null ? "Reset time unavailable" : UsageFormat.reset(this, usageWindow, "both", System.currentTimeMillis()), 11.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams2.setMargins(0, Ui.dp(this, 5.0f), 0, Ui.dp(this, 13.0f));
-        linearLayout.addView(viewText, layoutParams2);
+        LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(-1, -2);
+        barParams.setMargins(0, Ui.dp(this, 5.0f), 0, Ui.dp(this, 13.0f));
+        linearLayout.addView(viewText, barParams);
     }
 
     /** The Reset credits card, shared by Codex reset credits and Claude Code saved resets. */
@@ -1749,15 +1751,15 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     private LinearLayout buildWidgetCard() {
-        String str;
+        String summary;
         LinearLayout linearLayoutCard = Ui.card(this, this.dark);
         int length = AppWidgetManager.getInstance(this).getAppWidgetIds(new ComponentName(this, (Class<?>) CodexUsageWidget.class)).length + SamsungLockWidgetSupport.countAll(this);
         if (length == 0) {
-            str = "Add Codex Meter widgets";
+            summary = "Add Codex Meter widgets";
         } else {
-            str = length + " widget" + (length == 1 ? "" : "s") + " active";
+            summary = length + " widget" + (length == 1 ? "" : "s") + " active";
         }
-        TextView textViewText = Ui.text(this, str, 16.0f, Ui.mainText(this.dark));
+        TextView textViewText = Ui.text(this, summary, 16.0f, Ui.mainText(this.dark));
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutCard.addView(textViewText);
         View viewText = Ui.text(this, "Home and Galaxy lock-screen widgets use two battery-style dials for 5-hour and weekly usage remaining, with One UI Home handling the native frame and blur.", 13.0f, Ui.secondaryText(this.dark));
@@ -1773,11 +1775,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
         });
         linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
-        Button button2 = Ui.button(this, "Customize", false, this.dark);
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f);
-        layoutParams2.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
-        linearLayoutHorizontal.addView(button2, layoutParams2);
-        button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.8
+        Button customizeButton = Ui.button(this, "Customize", false, this.dark);
+        LinearLayout.LayoutParams customizeParams = new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f);
+        customizeParams.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
+        linearLayoutHorizontal.addView(customizeButton, customizeParams);
+        customizeButton.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.8
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
                 Ui.startSecondaryActivity(MainActivity.this, SettingsActivity.class);
@@ -1792,16 +1794,16 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         TextView textViewText = Ui.text(this, "Automatic refresh every " + AppPreferences.getRefreshMinutes(this) + " minutes", 15.0f, Ui.mainText(this.dark));
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutCard.addView(textViewText);
-        TextView textViewText2 = Ui.text(this, "Manual refreshes run immediately. Scheduled work follows Android battery and network policy, and another update is requested after the next known reset. Cached values remain visible offline.", 13.0f, Ui.secondaryText(this.dark));
+        TextView note = Ui.text(this, "Manual refreshes run immediately. Scheduled work follows Android battery and network policy, and another update is requested after the next known reset. Cached values remain visible offline.", 13.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
         layoutParams.setMargins(0, Ui.dp(this, 7.0f), 0, 0);
-        linearLayoutCard.addView(textViewText2, layoutParams);
+        linearLayoutCard.addView(note, layoutParams);
         String schedulerError = AppPreferences.getSchedulerError(this);
         if (!schedulerError.isEmpty()) {
-            TextView textViewText3 = Ui.text(this, schedulerError, 12.0f, Ui.danger(this.dark));
-            LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams2.setMargins(0, Ui.dp(this, 10.0f), 0, 0);
-            linearLayoutCard.addView(textViewText3, layoutParams2);
+            TextView errorText = Ui.text(this, schedulerError, 12.0f, Ui.danger(this.dark));
+            LinearLayout.LayoutParams errorParams = new LinearLayout.LayoutParams(-1, -2);
+            errorParams.setMargins(0, Ui.dp(this, 10.0f), 0, 0);
+            linearLayoutCard.addView(errorText, errorParams);
         }
         return linearLayoutCard;
     }
@@ -1829,7 +1831,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
      * replaces the saved tokens in place, so usage history and settings are kept.
      */
     void launchSignIn(UsageProvider target) {
-        String str;
+        String status;
         if (ProviderCatalog.get(target).usesSignInScreen()) {
             SignInActivity.start(this, target);
             return;
@@ -1841,11 +1843,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                     .putExtra(OAuthService.EXTRA_REAUTHENTICATE,
                             SecureTokenStore.isSignedIn(this, target)));
             if (ProviderPreferences.isSignInPending(this, target)) {
-                str = "Resuming secure " + target.vendorName + " sign-in…";
+                status = "Resuming secure " + target.vendorName + " sign-in…";
             } else {
-                str = "Opening secure " + target.vendorName + " sign-in…";
+                status = "Opening secure " + target.vendorName + " sign-in…";
             }
-            Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, status, Toast.LENGTH_SHORT).show();
         } catch (RuntimeException e) {
             DiagnosticLog.error(this, "auth", "sign_in_service_start_failed", e);
             AppPreferences.setOAuthPending(this, false, "");
@@ -1853,11 +1855,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         }
     }
 
-    public void openAuthUrl(String str) {
-        if (!str.equals(this.lastLaunchedAuthUrl) || hasWindowFocus()) {
-            this.lastLaunchedAuthUrl = str;
+    public void openAuthUrl(String url) {
+        if (!url.equals(this.lastLaunchedAuthUrl) || hasWindowFocus()) {
+            this.lastLaunchedAuthUrl = url;
             try {
-                startActivity(new Intent("android.intent.action.VIEW", Uri.parse(str)));
+                startActivity(new Intent("android.intent.action.VIEW", Uri.parse(url)));
             } catch (RuntimeException e) {
                 Toast.makeText(this, "No browser is available to complete sign-in.", Toast.LENGTH_LONG).show();
             }

@@ -151,33 +151,33 @@ public final class ResetCreditApi {
         return credits.preferredCreditId(nowMillis);
     }
 
-    private static Response request(Context context, String operation, String str, String str2,
-            AuthTokens authTokens, byte[] bArr) throws Exception {
-        HttpsURLConnection httpsURLConnection = (HttpsURLConnection) URI.create(str2).toURL().openConnection();
+    private static Response request(Context context, String operation, String method, String url,
+            AuthTokens authTokens, byte[] payload) throws Exception {
+        HttpsURLConnection connection = (HttpsURLConnection) URI.create(url).toURL().openConnection();
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(context, "network", "request_started",
                 "operation", operation,
-                "method", str,
-                "url", DiagnosticSanitizer.safeUrl(str2),
-                "request_bytes", bArr == null ? 0 : bArr.length);
+                "method", method,
+                "url", DiagnosticSanitizer.safeUrl(url),
+                "request_bytes", payload == null ? 0 : payload.length);
         try {
-            UsageApi.applyHeaders(httpsURLConnection, authTokens);
-            httpsURLConnection.setRequestMethod(str);
-            if (bArr != null) {
-                httpsURLConnection.setDoOutput(true);
-                httpsURLConnection.setRequestProperty("Content-Type", "application/json");
-                httpsURLConnection.setFixedLengthStreamingMode(bArr.length);
-                OutputStream outputStream = httpsURLConnection.getOutputStream();
+            UsageApi.applyHeaders(connection, authTokens);
+            connection.setRequestMethod(method);
+            if (payload != null) {
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setFixedLengthStreamingMode(payload.length);
+                OutputStream outputStream = connection.getOutputStream();
                 try {
-                    outputStream.write(bArr);
+                    outputStream.write(payload);
                     if (outputStream != null) {
                         outputStream.close();
                     }
                 } finally {
                 }
             }
-            int responseCode = httpsURLConnection.getResponseCode();
-            String body = OAuthClient.readBody(httpsURLConnection, responseCode);
+            int responseCode = connection.getResponseCode();
+            String body = OAuthClient.readBody(connection, responseCode);
             DiagnosticLog.info(context, "network", "request_finished",
                     "operation", operation,
                     "status", responseCode,
@@ -191,28 +191,29 @@ public final class ResetCreditApi {
                     "duration_ms", SystemClock.elapsedRealtime() - started);
             throw exception;
         } finally {
-            httpsURLConnection.disconnect();
+            connection.disconnect();
         }
     }
 
-    private static void ensureSuccess(Response response, String str) throws Exception {
-        String str2;
+    private static void ensureSuccess(Response response, String operation) throws Exception {
+        String fallbackError;
         if (response.status < 200 || response.status >= 300) {
             if (response.status == 403) {
-                str2 = str + ": this account is not allowed to use reset credits.";
+                fallbackError = operation + ": this account is not allowed to use reset credits.";
             } else if (response.status == 404) {
-                str2 = str + ": the reset-credit endpoint is unavailable.";
+                fallbackError = operation + ": the reset-credit endpoint is unavailable.";
             } else {
-                str2 = str + " (HTTP " + response.status + ").";
+                fallbackError = operation + " (HTTP " + response.status + ").";
             }
-            throw new Exception(OAuthClient.readError(response.body, str2));
+            throw new Exception(OAuthClient.readError(response.body, fallbackError));
         }
     }
 
     private static void notifyUpdated(Context context) {
         try {
             context.sendBroadcast(new Intent(AppConstants.ACTION_RESET_CREDITS_UPDATED).setPackage(context.getPackageName()), "dev.bennett.codexmeter.permission.INTERNAL");
-        } catch (RuntimeException e) {
+        } catch (RuntimeException error) {
+            DiagnosticLog.error(context, "reset", "credits_broadcast_failed", error);
         }
     }
 
@@ -220,9 +221,9 @@ public final class ResetCreditApi {
         final String body;
         final int status;
 
-        Response(int i, String str) {
-            this.status = i;
-            this.body = str == null ? "" : str;
+        Response(int status, String body) {
+            this.status = status;
+            this.body = body == null ? "" : body;
         }
     }
 }
