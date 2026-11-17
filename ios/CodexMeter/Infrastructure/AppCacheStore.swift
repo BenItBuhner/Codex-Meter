@@ -6,6 +6,8 @@ nonisolated public struct AppCacheSnapshot: Codable, Sendable, Equatable {
     public var credits: ResetCreditsSnapshot?
     public var lastError: String?
     public var resetCreditsError: String?
+    /// Claude Code only: the saved usage-limit resets from the last usage response.
+    public var claudeSavedResets: ClaudeSavedResets?
     public var updatedAt: Date
 
     public init(
@@ -13,12 +15,14 @@ nonisolated public struct AppCacheSnapshot: Codable, Sendable, Equatable {
         credits: ResetCreditsSnapshot? = nil,
         lastError: String? = nil,
         resetCreditsError: String? = nil,
+        claudeSavedResets: ClaudeSavedResets? = nil,
         updatedAt: Date = Date()
     ) {
         self.usage = usage
         self.credits = credits
         self.lastError = lastError
         self.resetCreditsError = resetCreditsError
+        self.claudeSavedResets = claudeSavedResets
         self.updatedAt = updatedAt
     }
 }
@@ -119,6 +123,14 @@ public actor AppCacheStore {
         snapshot.updatedAt = date
         try await save(snapshot)
         return snapshot
+    }
+
+    /// Stores Claude saved resets; `nil` clears them.
+    public func updateClaudeSavedResets(_ resets: ClaudeSavedResets?, at date: Date = Date()) async throws {
+        var snapshot = (try await load()) ?? AppCacheSnapshot(updatedAt: date)
+        snapshot.claudeSavedResets = resets
+        snapshot.updatedAt = date
+        try await save(snapshot)
     }
 
     public func recordUsageError(_ message: String, at date: Date = Date()) async {

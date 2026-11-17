@@ -51,7 +51,8 @@ public enum DashboardSections {
         snapshot: UsageSnapshot?,
         emptyDefaults: [String],
         includeHistory: Bool = true,
-        includeValue: Bool = false
+        includeValue: Bool = false,
+        includeResets: Bool = false
     ) -> [String] {
         var result: [String] = []
         if let snapshot {
@@ -70,6 +71,10 @@ public enum DashboardSections {
         if includeValue, !result.contains(valueEstimates) {
             result.append(valueEstimates)
         }
+        // Claude Code's saved resets, last like Codex's reset credits card.
+        if includeResets, !result.contains(resetCredits) {
+            result.append(resetCredits)
+        }
         if includeHistory, !result.contains(usageHistory) {
             result.append(usageHistory)
         }
@@ -82,13 +87,15 @@ public enum DashboardSections {
         savedOrder: [String],
         hidden: [String],
         includeHistory: Bool = false,
-        includeValue: Bool = false
+        includeValue: Bool = false,
+        includeResets: Bool = false
     ) -> [String] {
         let available = providerSections(
             snapshot: snapshot,
             emptyDefaults: [],
             includeHistory: includeHistory,
-            includeValue: includeValue
+            includeValue: includeValue,
+            includeResets: includeResets
         )
         let hiddenKeys = Set(hidden)
         return resolveOrder(saved: savedOrder, available: available)

@@ -95,17 +95,17 @@ final class IPadLayoutTests: XCTestCase {
         capture("10-portrait-codex")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Portrait iPad shows two columns")
 
-        UITestSupport.tap(app.buttons["Cursor"])
+        selectTab("Cursor", shortcut: "3", in: app)
         XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("11-portrait-cursor")
 
-        UITestSupport.tap(app.buttons["Copilot"])
+        selectTab("Copilot", shortcut: "4", in: app)
         XCTAssertTrue(app.navigationBars["Copilot"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("12-portrait-copilot")
 
-        UITestSupport.tap(app.buttons["Codex"])
+        selectTab("Codex", shortcut: "1", in: app)
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         UITestSupport.scrollDashboard(untilVisible: app.buttons["Use 1 reset"], in: app)
         UITestSupport.settle(0.8)
@@ -157,6 +157,19 @@ final class IPadLayoutTests: XCTestCase {
     }
 
     /// Shows the sidebar from the tab bar's sidebar button, if this iPadOS version offers one.
+    /// Taps a tab in the portrait floating tab bar. When the bar is too narrow for every tab
+    /// (Priority plus four providers on the 11-inch and mini iPads), the rest are reached from
+    /// the sidebar or the keyboard; the test uses the provider's ⌘ number, as a keyboard user would.
+    private func selectTab(_ name: String, shortcut: String, in app: XCUIApplication) {
+        let button = app.buttons[name].firstMatch
+        if button.waitForExistence(timeout: 2), button.isHittable {
+            button.tap()
+            // On the mini the last tab that fits can be clipped, so a tap may land beside it.
+            if app.navigationBars[name].waitForExistence(timeout: 3) { return }
+        }
+        _ = UITestSupport.press(shortcut, in: app, until: app.navigationBars[name])
+    }
+
     private func openSidebar(in app: XCUIApplication) -> Bool {
         let button = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'sidebar'")).firstMatch
         guard button.waitForExistence(timeout: 3) else { return false }

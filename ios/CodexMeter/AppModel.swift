@@ -103,6 +103,7 @@ final class AppModel {
     private static let enabledProvidersDefaultsKey = "codex-meter.enabled-providers-v1"
     private static let providerOrderDefaultsKey = "codex-meter.provider-order-v1"
     private static let onboardingCompleteDefaultsKey = "codex-meter.onboarding-complete-v1"
+    private static let priorityTabDefaultsKey = "codex-meter.priority-tab-selected-v1"
 
     /// Claude Code tab state. Independent of the Codex session below.
     let claude: ClaudeUsageModel
@@ -146,12 +147,19 @@ final class AppModel {
     /// First-run setup, shown once on a fresh install.
     var isShowingOnboarding = false
     var diagnosticsUnlocked = false
+    /// The Priority tab is showing instead of a provider dashboard (Settings › Appearance ›
+    /// Priority tab). Remembered, like the selected provider.
+    var isPriorityTabSelected = false
+    /// New models seen in OpenRouter's public catalog, for the Priority tab.
+    var modelDiscoveryState = ModelDiscoveryState()
+    /// Followed models running much slower than usual, for the Priority tab.
+    var modelSlowdowns: [PriorityItem] = []
 
     private let liveService: LiveCodexService
     private var demoService: DemoCodexService
     private let cache: AppCacheStore
     private let settingsStore: AppSettingsStore
-    private let notificationCoordinator: NotificationCoordinator
+    let notificationCoordinator: NotificationCoordinator
     private let usageHistoryStore: UsageHistoryStore
     private let refreshEngagementStore: RefreshEngagementStore
     private let defaults: UserDefaults
@@ -162,7 +170,7 @@ final class AppModel {
     private var uiTestRefreshCount = 0
 #endif
     private var signInTask: Task<Void, Never>?
-    private let isPreview: Bool
+    let isPreview: Bool
     /// True once a provider list was saved (setup or Settings → Providers), or a UI test set
     /// one; until then the tabs follow `UsageProvider.migrationDefault(signedIn:)`.
     private var hasProviderChoice: Bool
@@ -191,7 +199,7 @@ final class AppModel {
         self.claude = claude ?? ClaudeUsageModel(preview: preview)
         self.cursor = cursor ?? CursorUsageModel(preview: preview)
         var addedProviders: [UsageProvider: ProviderUsageModel] = [:]
-        for provider in UsageProvider.allCases where !provider.isBuiltIn && ProviderCatalog.isAvailableOnIOS(provider) {
+        for provider in UsageProvider.allCases where !provider.isBuiltIn && ProviderCatalog.isAvailableHere(provider) {
             addedProviders[provider] = ProviderUsageModel(provider: provider)
         }
         self.addedProviders = addedProviders
@@ -250,6 +258,9 @@ final class AppModel {
         self.settings = settingsStore.settings
         self.isPreview = preview
         self.diagnosticsUnlocked = DiagnosticLog.isUnlocked(defaults: defaults)
+        self.isPriorityTabSelected = settingsStore.settings.showPriority
+            && defaults.bool(forKey: Self.priorityTabDefaultsKey)
+        self.claude.settingsProvider = { [weak self] in self?.settings ?? .defaults }
         for added in addedProviders.values {
             added.onSignedIn = { [weak self] provider in
                 self?.providerConnected(provider)
@@ -343,6 +354,7 @@ final class AppModel {
         }
         await startSession()
         await resolveProviderSetup()
+        Task { await refreshModelInsights() }
     }
 
     private func startSession() async {
@@ -696,6 +708,13 @@ final class AppModel {
             isShowingReset = false
             isShowingSignIn = false
             isShowingSettings = true
+        case "priority":
+            isShowingSettings = false
+            isShowingReset = false
+            isShowingSignIn = false
+            if settings.showPriority {
+                setPriorityTabSelected(true)
+            }
         default:
             break
         }
@@ -714,6 +733,7 @@ final class AppModel {
             await startIfNeeded()
             return
         }
+        Task { await refreshModelInsights() }
         if selectedProvider == .claudeCode {
             // Claude is never refreshed in the background; foregrounding the visible tab
             // re-checks only when its data is older than five minutes.
@@ -965,6 +985,7 @@ final class AppModel {
 
     /// Selects and remembers a dashboard tab. Safe to call again for the current tab.
     func select(provider: UsageProvider) {
+        setPriorityTabSelected(false)
         if selectedProvider != provider {
             selectedProvider = provider
         }
@@ -1021,6 +1042,7 @@ final class AppModel {
         scheduleBackgroundRefresh()
         await autoApplyExpiringCreditsIfNeeded()
         await autoUseCreditOnLowUsageIfNeeded()
+        await syncLiveActivity()
     }
 
     private static let handledExpiryTokensKey = "codexMeter.autoUse.handledExpiryTokens"
@@ -1089,7 +1111,8 @@ final class AppModel {
         }
         let decision = LowUsageAutoUse.evaluate(
             snapshot: usage,
-            metric: settings.lowUsageAutoUseMetric,
+            // Settings no longer offer a choice: running-low use watches both limits.
+            metric: .both,
             threshold: settings.lowUsageAutoUseThreshold,
             availableCredits: credits?.availableCount ?? usage?.resetCreditsAvailable,
             lastFiredToken: defaults.string(forKey: Self.lowUsageWindowTokenKey),
@@ -1283,5 +1306,17 @@ final class AppModel {
                 succeeded: false
             )
         }
+    }
+}
+
+extension AppModel {
+    /// Shows or leaves the Priority tab, and remembers the choice for the next launch.
+    func setPriorityTabSelected(_ selected: Bool) {
+        let selected = selected && settings.showPriority
+        if isPriorityTabSelected != selected {
+            isPriorityTabSelected = selected
+        }
+        guard defaults.bool(forKey: Self.priorityTabDefaultsKey) != selected else { return }
+        defaults.set(selected, forKey: Self.priorityTabDefaultsKey)
     }
 }

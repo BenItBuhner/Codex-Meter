@@ -108,9 +108,16 @@ public actor ClaudeCodeService {
     private func performRefresh() async throws -> UsageSnapshot {
         do {
             var tokens = try await usableTokens()
-            var usage = try await get(ClaudeCodeAPI.usageURL, tokens: tokens)
+            // Claude Code's own `/usage` route also reports saved resets. If Anthropic ever
+            // refuses that variant, fall back to the plain route and keep the last saved resets.
+            var usage = try await get(ClaudeSavedResets.usageURL, tokens: tokens, asClaudeCode: true)
             if usage.statusCode == 401 {
                 tokens = try await refreshTokens(tokens)
+                usage = try await get(ClaudeSavedResets.usageURL, tokens: tokens, asClaudeCode: true)
+            }
+            var plainOnly = false
+            if [400, 404, 422].contains(usage.statusCode) {
+                plainOnly = true
                 usage = try await get(ClaudeCodeAPI.usageURL, tokens: tokens)
             }
             guard (200..<300).contains(usage.statusCode) else {
@@ -147,6 +154,12 @@ public actor ClaudeCodeService {
                 )
             }
             try await cache.updateUsage(snapshot, at: now())
+            if !plainOnly {
+                try? await cache.updateClaudeSavedResets(
+                    ClaudeSavedResets.fromUsageBody(usage.data, fetchedAt: now()),
+                    at: now()
+                )
+            }
             return snapshot
         } catch is CancellationError {
             throw CancellationError()
@@ -227,13 +240,92 @@ public actor ClaudeCodeService {
         return try ClaudeTokenResponse.parse(payload.data)
     }
 
-    private func get(_ url: URL, tokens: AuthTokens) async throws -> HTTPPayload {
+    private func get(_ url: URL, tokens: AuthTokens, asClaudeCode: Bool = false) async throws -> HTTPPayload {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        authorize(&request, tokens: tokens, asClaudeCode: asClaudeCode)
+        return try await HTTPClientSupport.send(request, using: session)
+    }
+
+    /// Anthropic only reports and redeems saved resets for a Claude Code client, so those
+    /// requests carry Claude Code's user agent and `x-app` header.
+    private func authorize(_ request: inout URLRequest, tokens: AuthTokens, asClaudeCode: Bool) {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue(ClaudeCodeAPI.oauthBeta, forHTTPHeaderField: "anthropic-beta")
+        if asClaudeCode {
+            request.setValue(ClaudeSavedResets.cliUserAgent, forHTTPHeaderField: "User-Agent")
+            request.setValue(ClaudeSavedResets.cliApp, forHTTPHeaderField: "x-app")
+        }
+    }
+
+    // MARK: Saved resets
+
+    public func cachedSavedResets() async -> ClaudeSavedResets? {
+        try? await cache.load()?.claudeSavedResets
+    }
+
+    /// Spends one saved reset from `grantID`. Anthropic answers `not_limited` and spends nothing
+    /// when no limit is in the way, so this is safe to call early. The usage is re-read after a
+    /// reset so the dashboard shows the refilled limits.
+    public func claimSavedReset(grantID: String) async throws -> ClaudeResetClaimResult {
+        var tokens = try await usableTokens()
+        let organization = try await organizationID(tokens)
+        guard let url = ClaudeSavedResets.resetURL(organization: organization),
+              let body = ClaudeSavedResets.claimBody(grantID: grantID, requestID: UUID().uuidString.lowercased()) else {
+            return ClaudeResetClaimResult(result: .error, reason: "bad_request")
+        }
+        var payload = try await post(url, body: body, tokens: tokens)
+        if payload.statusCode == 401 {
+            tokens = try await refreshTokens(tokens)
+            payload = try await post(url, body: body, tokens: tokens)
+        }
+        let result: ClaudeResetClaimResult
+        switch payload.statusCode {
+        case 200..<300:
+            result = ClaudeResetClaimResult.parse(payload.data)
+        case 401:
+            result = ClaudeResetClaimResult(result: .authError)
+        case 429:
+            result = ClaudeResetClaimResult(result: .rateLimited)
+        default:
+            // A 4xx body may still carry the server's word (`ineligible`, `cooldown`, ...).
+            let parsed = ClaudeResetClaimResult.parse(payload.data)
+            result = parsed.result == .error || payload.statusCode >= 500
+                ? ClaudeResetClaimResult(result: .error, reason: "http_\(payload.statusCode)")
+                : parsed
+        }
+        if result.applied {
+            _ = try? await refreshUsage()
+        } else if let saved = await cachedSavedResets(), result.result == .alreadyUsed {
+            try? await cache.updateClaudeSavedResets(saved.afterUse(grantID), at: now())
+        }
+        return result
+    }
+
+    private func post(_ url: URL, body: Data, tokens: AuthTokens) async throws -> HTTPPayload {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        authorize(&request, tokens: tokens, asClaudeCode: true)
         return try await HTTPClientSupport.send(request, using: session)
+    }
+
+    /// The organization a reset is claimed for: saved at sign-in, else read from the profile.
+    private func organizationID(_ tokens: AuthTokens) async throws -> String {
+        if !tokens.accountID.isEmpty { return tokens.accountID }
+        let profile = try await get(ClaudeCodeAPI.profileURL, tokens: tokens)
+        let organization = (try? JSONSerialization.jsonObject(with: profile.data) as? [String: Any])
+            .flatMap { $0["organization"] as? [String: Any] }
+        guard let uuid = organization?["uuid"] as? String, !uuid.isEmpty else {
+            throw ClaudeServiceError.message("Claude did not say which organization to reset. Sign in with Claude again.")
+        }
+        try? await tokenStore.save(AuthTokens(
+            accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, idToken: tokens.idToken,
+            expiresAt: tokens.expiresAt, accountID: uuid, email: tokens.email
+        ))
+        return uuid
     }
 
     nonisolated static func usageErrorMessage(_ payload: HTTPPayload) -> String {

@@ -15,8 +15,10 @@ public enum ClaudeCodeAPI {
     public static let manualRedirectURI = "https://platform.claude.com/oauth/code/callback"
     /// Required beta header for OAuth-token access to api.anthropic.com.
     public static let oauthBeta = "oauth-2025-04-20"
-    /// Read-only scopes: profile for the plan badge, inference matches Claude Code's grant.
-    public static let scope = "user:profile user:inference"
+    /// Claude Code's own grant. Profile feeds the plan badge; `user:sessions:claude_code` is
+    /// what makes Anthropic report saved usage-limit resets. Codex Meter never sends prompts.
+    public static let scope =
+        "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
 
     public static func authorizeURL(redirectURI: String, challenge: String, state: String) -> URL {
         let parameters: [(String, String)] = [

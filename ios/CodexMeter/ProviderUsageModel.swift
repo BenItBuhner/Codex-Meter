@@ -23,6 +23,8 @@ final class ProviderUsageModel {
         case device(DeviceAuth.DeviceCode)
         /// Checking a pasted token or key.
         case checking
+        /// The provider's page is open in the browser; waiting for it to come back.
+        case browser
     }
 
     let provider: UsageProvider
@@ -51,7 +53,7 @@ final class ProviderUsageModel {
 
     init(provider: UsageProvider, service: ProviderUsageService? = nil, preview: Bool = false) {
         self.provider = provider
-        self.entry = ProviderCatalog.iOSEntry(for: provider)
+        self.entry = ProviderCatalog.platformEntry(for: provider)
         self.service = service ?? ProviderUsageService(provider: provider)
         if preview {
             loadTask = Task {}
@@ -73,6 +75,11 @@ final class ProviderUsageModel {
 
     var supportsPaste: Bool {
         entry.signIn == .codePaste
+    }
+
+    /// Browser sign-in through a local callback (Mac only).
+    var supportsLoopback: Bool {
+        entry.signIn == .loopback
     }
 
     var pasteHint: String {
@@ -230,6 +237,61 @@ final class ProviderUsageModel {
         self.attempt = attempt
         return service.pasteURL(attempt)
     }
+
+    #if os(macOS)
+    /// Opens a one-shot local server and returns the provider's sign-in page; the sign-in
+    /// finishes on its own when the browser comes back to the server.
+    func beginLoopbackSignIn() async -> URL? {
+        guard let service else { return nil }
+        cancelSignIn()
+        let attempt = ProviderSignInSession()
+        self.attempt = attempt
+        do {
+            let server = try await LoopbackServer.start()
+            guard let url = try service.loopbackURL(redirectURI: server.redirectURI, attempt: attempt) else {
+                server.stop()
+                return nil
+            }
+            DiagnosticLog.info("oauth", "provider_loopback_started", details: ["provider": provider.rawValue])
+            signInStep = .browser
+            signInTask = Task {
+                defer { server.stop() }
+                do {
+                    let parameters = try await server.waitForCallback()
+                    guard self.attempt === attempt else { return }
+                    // OpenRouter returns the state inside the callback URL we gave it.
+                    guard parameters["state"] == attempt.state else {
+                        throw ProviderClientError.message("The sign-in reply didn't match. Start again.")
+                    }
+                    if let error = parameters["error"], !error.isEmpty {
+                        throw ProviderClientError.message("\(self.provider.displayName) sign-in was cancelled.")
+                    }
+                    guard let code = parameters["code"], !code.isEmpty else {
+                        throw ProviderClientError.message("\(self.provider.displayName) didn't return a sign-in code.")
+                    }
+                    self.signInStep = .checking
+                    let tokens = try await service.finishLoopback(attempt, parameters: parameters,
+                                                                  redirectURI: server.redirectURI)
+                    guard self.attempt === attempt else { return }
+                    await self.signedIn(tokens)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    guard self.attempt === attempt else { return }
+                    DiagnosticLog.error("oauth", "provider_sign_in_failed", error: error,
+                                        details: ["provider": self.provider.rawValue])
+                    self.signInError = error.localizedDescription
+                    self.signInStep = .idle
+                }
+            }
+            return url
+        } catch {
+            signInError = error.localizedDescription
+            signInStep = .idle
+            return nil
+        }
+    }
+    #endif
 
     func submitPaste(_ text: String) {
         guard let service else { return }

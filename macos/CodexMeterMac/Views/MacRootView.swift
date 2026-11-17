@@ -26,13 +26,15 @@ struct MacRootView: View {
             NavigationStack {
                 if MacLaunchOptions.diagnosticDisables("dashboard") {
                     Text("Dashboard")
+                } else if model.isPriorityTabSelected, model.settings.showPriority {
+                    PriorityView()
                 } else {
                     DashboardView(provider: model.selectedProvider)
                 }
             }
             // A fresh stack per provider, so a pushed Edit dashboard or history page never
             // carries over to another provider.
-            .id(model.selectedProvider)
+            .id(model.isPriorityTabSelected ? AppModel.priorityTag : model.selectedProvider.rawValue)
         }
         .frame(minWidth: 780, minHeight: 560)
         .sheet(isPresented: $model.isShowingReset) {
@@ -92,10 +94,15 @@ struct MacSidebar: View {
 
     var body: some View {
         List(selection: selection) {
+            if model.settings.showPriority, model.hasPriorityContent {
+                MacPrioritySidebarRow()
+                    .tag(AppModel.priorityTag)
+                    .accessibilityIdentifier("sidebar-priority")
+            }
             Section("Providers") {
                 ForEach(model.enabledProviders) { provider in
                     MacSidebarRow(status: model.macStatus(for: provider))
-                        .tag(provider)
+                        .tag(provider.rawValue)
                         .accessibilityIdentifier("sidebar-\(provider.rawValue)")
                 }
             }
@@ -107,15 +114,39 @@ struct MacSidebar: View {
         .navigationTitle("Codex Meter")
     }
 
-    private var selection: Binding<UsageProvider?> {
+    private var selection: Binding<String?> {
         Binding(
-            get: { model.selectedProvider },
-            set: { provider in
-                if let provider {
+            get: { model.isPriorityTabSelected ? AppModel.priorityTag : model.selectedProvider.rawValue },
+            set: { tag in
+                if tag == AppModel.priorityTag {
+                    model.setPriorityTabSelected(true)
+                } else if let tag, let provider = UsageProvider(rawValue: tag) {
                     model.select(provider: provider)
                 }
             }
         )
+    }
+}
+
+/// The sidebar's first row: Priority, with how many things need attention.
+private struct MacPrioritySidebarRow: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let count = model.priorityReport().attentionCount
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle")
+                .frame(width: 18, height: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Priority")
+                Text(count == 0 ? "Nothing needs you" : "\(count) need\(count == 1 ? "s" : "") attention")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -531,7 +531,9 @@ struct ProviderDashboardCards: View {
             snapshot: usage,
             savedOrder: model.settings.savedDashboardOrder(for: provider),
             hidden: model.settings.hiddenDashboardSections(for: provider),
-            includeValue: pricing != nil
+            includeValue: pricing != nil,
+            // Only once Anthropic reports saved resets for this account.
+            includeResets: provider == .claudeCode && model.claude.savedResets?.eligible == true
         )
     }
 
@@ -610,6 +612,8 @@ struct ProviderDashboardCards: View {
             if let pricing {
                 ValueEstimatesCard(usage: usage, pricing: pricing)
             }
+        case DashboardSections.resetCredits:
+            ClaudeSavedResetsCard()
         default:
             if let limit = usage.additionalLimits.first(where: { DashboardSections.limitKey($0) == key }) {
                 if provider == .cursor {

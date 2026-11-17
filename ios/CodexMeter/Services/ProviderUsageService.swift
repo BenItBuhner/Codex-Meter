@@ -78,6 +78,15 @@ actor ProviderUsageService {
         try await store(client.finishPaste(attempt, pasted: pasted, http: session))
     }
 
+    nonisolated func loopbackURL(redirectURI: String, attempt: ProviderSignInSession) throws -> URL? {
+        try client.loopbackURL(redirectURI: redirectURI, session: attempt)
+    }
+
+    func finishLoopback(_ attempt: ProviderSignInSession, parameters: [String: String],
+                        redirectURI: String) async throws -> AuthTokens {
+        try await store(client.finishLoopback(attempt, parameters: parameters, redirectURI: redirectURI, http: session))
+    }
+
     func connect(apiKey: String) async throws -> AuthTokens {
         try await store(client.fromAPIKey(apiKey, http: session))
     }

@@ -18,6 +18,23 @@ nonisolated public enum AlertMetric: String, Codable, Sendable, CaseIterable, Id
     public var id: String { rawValue }
 }
 
+/// How strongly the app taps back when a refresh lands or a reset is used.
+nonisolated public enum HapticsLevel: String, Codable, Sendable, CaseIterable, Identifiable {
+    case off
+    case light
+    case strong
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .off: "Off"
+        case .light: "Light"
+        case .strong: "Strong"
+        }
+    }
+}
+
 nonisolated public enum RefreshMode: String, Codable, Sendable, CaseIterable, Identifiable {
     case automatic
     case manual
@@ -75,6 +92,25 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var usagePaceEnabled: Bool
     /// `.off` keeps the projection but never flags it as accelerated.
     public var usagePaceSensitivity: UsagePaceSensitivity
+    /// The Priority tab, first among the tabs: limits to watch, used-up limits, what's coming
+    /// up, slowdowns and new models across every connected service. On by default.
+    public var showPriority: Bool
+    /// Notify when OpenRouter lists a new model from a maker the user is signed in to.
+    public var notifyNewModels: Bool
+    /// Follow the newest Codex, Claude and Grok models' public OpenRouter speed and warn on the
+    /// Priority tab when one runs much slower than usual.
+    public var slowdownWarningsEnabled: Bool
+    /// Claude Code saved resets, the same two rules as the Codex reset credits. Both off by
+    /// default: a saved reset is a scarce, server-side grant.
+    public var claudeResetExpiryAutoUseEnabled: Bool
+    public var claudeResetExpiryLeadMinutes: Int
+    public var claudeResetLowUsageAutoUseEnabled: Bool
+    public var claudeResetLowUsageThreshold: Int
+    public var haptics: HapticsLevel
+    /// Start the Live Activity on its own when the tightest limit reaches the Low allowance
+    /// level from Notifications, or when it is being used fast. Both off by default.
+    public var liveActivityWhenLow: Bool
+    public var liveActivityWhenFast: Bool
 
     public init(
         appearance: AppAppearance = .system,
@@ -107,7 +143,17 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         lowUsageAutoUseThreshold: Int = LowUsageAutoUse.defaultThreshold,
         lowUsageAutoUseMetric: LowUsageAutoUseMetric = .both,
         usagePaceEnabled: Bool = true,
-        usagePaceSensitivity: UsagePaceSensitivity = .balanced
+        usagePaceSensitivity: UsagePaceSensitivity = .balanced,
+        showPriority: Bool = true,
+        notifyNewModels: Bool = true,
+        slowdownWarningsEnabled: Bool = true,
+        claudeResetExpiryAutoUseEnabled: Bool = false,
+        claudeResetExpiryLeadMinutes: Int = CreditExpiryAutoApply.defaultLeadMinutes,
+        claudeResetLowUsageAutoUseEnabled: Bool = false,
+        claudeResetLowUsageThreshold: Int = LowUsageAutoUse.defaultThreshold,
+        haptics: HapticsLevel = .light,
+        liveActivityWhenLow: Bool = false,
+        liveActivityWhenFast: Bool = false
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
@@ -145,6 +191,16 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.lowUsageAutoUseMetric = lowUsageAutoUseMetric
         self.usagePaceEnabled = usagePaceEnabled
         self.usagePaceSensitivity = usagePaceSensitivity
+        self.showPriority = showPriority
+        self.notifyNewModels = notifyNewModels
+        self.slowdownWarningsEnabled = slowdownWarningsEnabled
+        self.claudeResetExpiryAutoUseEnabled = claudeResetExpiryAutoUseEnabled
+        self.claudeResetExpiryLeadMinutes = CreditExpiryAutoApply.normalizedLeadMinutes(claudeResetExpiryLeadMinutes)
+        self.claudeResetLowUsageAutoUseEnabled = claudeResetLowUsageAutoUseEnabled
+        self.claudeResetLowUsageThreshold = LowUsageAutoUse.normalizedThreshold(claudeResetLowUsageThreshold)
+        self.haptics = haptics
+        self.liveActivityWhenLow = liveActivityWhenLow
+        self.liveActivityWhenFast = liveActivityWhenFast
     }
 
     public var effectiveCreditExpiryLeadMinutes: [Int] {
@@ -328,6 +384,16 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case lowUsageAutoUseMetric
         case usagePaceEnabled
         case usagePaceSensitivity
+        case showPriority
+        case notifyNewModels
+        case slowdownWarningsEnabled
+        case claudeResetExpiryAutoUseEnabled
+        case claudeResetExpiryLeadMinutes
+        case claudeResetLowUsageAutoUseEnabled
+        case claudeResetLowUsageThreshold
+        case haptics
+        case liveActivityWhenLow
+        case liveActivityWhenFast
     }
 
     public init(from decoder: any Decoder) throws {
@@ -372,7 +438,23 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
                 ?? .both,
             usagePaceEnabled: try container.decodeIfPresent(Bool.self, forKey: .usagePaceEnabled) ?? true,
             usagePaceSensitivity: try container.decodeIfPresent(UsagePaceSensitivity.self, forKey: .usagePaceSensitivity)
-                ?? .balanced
+                ?? .balanced,
+            showPriority: try container.decodeIfPresent(Bool.self, forKey: .showPriority) ?? true,
+            notifyNewModels: try container.decodeIfPresent(Bool.self, forKey: .notifyNewModels) ?? true,
+            slowdownWarningsEnabled: try container.decodeIfPresent(Bool.self, forKey: .slowdownWarningsEnabled) ?? true,
+            claudeResetExpiryAutoUseEnabled: try container.decodeIfPresent(
+                Bool.self, forKey: .claudeResetExpiryAutoUseEnabled
+            ) ?? false,
+            claudeResetExpiryLeadMinutes: try container.decodeIfPresent(Int.self, forKey: .claudeResetExpiryLeadMinutes)
+                ?? CreditExpiryAutoApply.defaultLeadMinutes,
+            claudeResetLowUsageAutoUseEnabled: try container.decodeIfPresent(
+                Bool.self, forKey: .claudeResetLowUsageAutoUseEnabled
+            ) ?? false,
+            claudeResetLowUsageThreshold: try container.decodeIfPresent(Int.self, forKey: .claudeResetLowUsageThreshold)
+                ?? LowUsageAutoUse.defaultThreshold,
+            haptics: (try? container.decodeIfPresent(HapticsLevel.self, forKey: .haptics)) ?? .light,
+            liveActivityWhenLow: try container.decodeIfPresent(Bool.self, forKey: .liveActivityWhenLow) ?? false,
+            liveActivityWhenFast: try container.decodeIfPresent(Bool.self, forKey: .liveActivityWhenFast) ?? false
         )
     }
 }

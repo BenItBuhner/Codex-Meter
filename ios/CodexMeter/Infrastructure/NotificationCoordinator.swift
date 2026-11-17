@@ -241,6 +241,19 @@ public actor NotificationCoordinator {
         await post(content, identifier: "codex-meter.low-usage-auto-use.failure")
     }
 
+    /// A model newly listed on OpenRouter from a maker the user is signed in to. Opens Priority.
+    public func notifyNewModel(title: String, body: String, identifier: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.userInfo = [NotificationDeduplication.routeUserInfoKey: "priority"]
+        try? await center.add(UNNotificationRequest(
+            identifier: "\(NotificationDeduplication.identifierPrefix)\(identifier)",
+            content: content,
+            trigger: nil
+        ))
+    }
+
     private func post(_ content: UNMutableNotificationContent, identifier: String) async {
         content.sound = .default
         content.userInfo = [NotificationDeduplication.routeUserInfoKey: "reset"]

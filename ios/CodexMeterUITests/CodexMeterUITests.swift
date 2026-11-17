@@ -23,10 +23,10 @@ final class CodexMeterUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Mode"].exists)
         XCTAssertTrue(app.buttons["Leave Demo"].exists)
-        // Assert in scroll order: "System permission" sits above "Send test
-        // notification" in the Notifications section, and scrolling straight to
-        // the button can cull the earlier row out of the lazy Form hierarchy.
-        UITestSupport.scrollForm(untilExists: app.staticTexts["System permission"], in: app, maxAttempts: 6)
+        // Alerts & live usage > Notifications is its own page.
+        UITestSupport.scrollForm(untilExists: app.buttons["settings-notifications"], in: app, maxAttempts: 6)
+        UITestSupport.tap(app.buttons["settings-notifications"])
+        XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["System permission"].waitForExistence(timeout: 3))
         UITestSupport.scrollForm(untilExists: app.buttons["Send test notification"], in: app, maxAttempts: 6)
         XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 3))
@@ -112,8 +112,13 @@ final class CodexMeterUITests: XCTestCase {
 
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
-        UITestSupport.scrollForm(untilExists: app.switches["Estimated usage time"], in: app)
-        XCTAssertTrue(UITestSupport.flipToggle(labeled: "Estimated usage time", in: app))
+        UITestSupport.tap(app.buttons["settings-dashboard"])
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 3))
+        UITestSupport.scrollForm(untilExists: app.switches["Usage estimates"], in: app)
+        XCTAssertTrue(UITestSupport.flipToggle(labeled: "Usage estimates", in: app))
+        let bar = app.navigationBars["Dashboard"]
+        UITestSupport.tap(bar.buttons["BackButton"].exists ? bar.buttons["BackButton"] : bar.buttons["Settings"])
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         app.buttons["Done"].tap()
 
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 3))
