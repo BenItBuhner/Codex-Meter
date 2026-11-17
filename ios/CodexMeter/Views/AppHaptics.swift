@@ -19,10 +19,12 @@ private struct AppHaptics: ViewModifier {
         content
             // Only a refresh of data already on screen; the first load at launch stays quiet.
             .sensoryFeedback(trigger: refreshTrigger) { old, new in
-                zip(old, new).contains { $0 != nil && $0 != $1 } ? feedback(strong: false) : nil
+                guard zip(old, new).contains(where: { $0 != nil && $0 != $1 }) else { return nil }
+                return feedback(strong: false)
             }
             .sensoryFeedback(trigger: resetTrigger) { _, new in
-                new.contains { $0 != nil } ? feedback(strong: true) : nil
+                guard new.contains(where: { $0 != nil }) else { return nil }
+                return feedback(strong: true)
             }
         #else
         content
@@ -32,8 +34,8 @@ private struct AppHaptics: ViewModifier {
     private func feedback(strong: Bool) -> SensoryFeedback? {
         switch model.settings.haptics {
         case .off: nil
-        case .light: strong ? .impact(weight: .medium) : .impact(weight: .light)
-        case .strong: strong ? .success : .impact(weight: .heavy)
+        case .light: .impact(weight: strong ? .medium : .light)
+        case .strong: if strong { .success } else { .impact(weight: .heavy) }
         }
     }
 }
