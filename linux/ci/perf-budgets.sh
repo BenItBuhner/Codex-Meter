@@ -17,8 +17,10 @@ set -euo pipefail
 APP="${1:?path to the codex-meter executable required}"
 LAUNCHES="${LAUNCHES:-7}"
 
-MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-1500}"
-MAX_WORKING_SET_MB="${MAX_WORKING_SET_MB:-260}"
+# First measured 2026-11-17: 7 first frames between 516 and 551 ms (median 536 ms), working set
+# 176.0-177.2 MB. The ceilings leave about 45% and 30% headroom over the worst launch.
+MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-800}"
+MAX_WORKING_SET_MB="${MAX_WORKING_SET_MB:-230}"
 
 report="$(mktemp)"
 launch() {

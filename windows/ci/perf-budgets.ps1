@@ -12,9 +12,11 @@
 param([Parameter(Mandatory)][string]$App)
 $ErrorActionPreference = 'Stop'
 
+# First measured 2026-11-17: 7 first frames between 783 and 971 ms (median 810 ms), working set
+# 156.4-159 MB. The ceilings leave about 35% and 30% headroom over the worst launch.
 $launches = if ($env:LAUNCHES) { [int]$env:LAUNCHES } else { 7 }
-$maxFirstFrameMs = if ($env:MAX_FIRST_FRAME_MS) { [double]$env:MAX_FIRST_FRAME_MS } else { 3000 }
-$maxWorkingSetMb = if ($env:MAX_WORKING_SET_MB) { [double]$env:MAX_WORKING_SET_MB } else { 300 }
+$maxFirstFrameMs = if ($env:MAX_FIRST_FRAME_MS) { [double]$env:MAX_FIRST_FRAME_MS } else { 1300 }
+$maxWorkingSetMb = if ($env:MAX_WORKING_SET_MB) { [double]$env:MAX_WORKING_SET_MB } else { 210 }
 
 $report = Join-Path ([IO.Path]::GetTempPath()) 'codexmeter-perf.txt'
 function Measure-Launch {

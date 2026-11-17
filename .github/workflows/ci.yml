@@ -409,6 +409,7 @@ jobs:
           APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
           macos/ci/perf-budgets.sh ios "$APP" "$DEVICE_NAME"
       - name: Measure Mac start-up and memory
+        if: success() || failure()
         run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
 
   gate:

@@ -71,14 +71,21 @@ launch() {
     pid=$!
   fi
   for _ in $(seq 120); do
-    if grep -q "^$MARKER" "$log"; then
-      frame="$(grep "^$MARKER" "$log" | head -n 1 | cut -d= -f2)"
+    # NSLog prefixes a timestamp and the process name, so match the marker anywhere.
+    if grep -qE "$MARKER-?[0-9]+" "$log"; then
+      frame="$(grep -oE "$MARKER-?[0-9]+" "$log" | head -n 1 | cut -d= -f2)"
       return
     fi
     sleep 0.5
   done
   echo "::error::The app printed no first-frame time within 60 s" >&2
+  echo "pid: ${pid:-none}; app output:" >&2
   cat "$log" >&2
+  ps -p "${pid:-0}" -o pid,stat,etime,command >&2 || echo "the app is not running" >&2
+  if [[ "$PLATFORM" == ios ]]; then
+    xcrun simctl spawn "$DEVICE" log show --last 2m --style compact \
+      --predicate 'process CONTAINS "CodexMeter"' 2>&1 | tail -n 60 >&2 || true
+  fi
   exit 1
 }
 
