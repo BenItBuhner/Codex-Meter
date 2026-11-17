@@ -111,8 +111,12 @@ enum UITestSupport {
         guard element.exists else { return false }
         let frame = element.frame
         guard !frame.isEmpty else { return false }
-        let form = app.collectionViews.firstMatch
-        let bounds = form.exists ? form.frame : app.frame
+        // The Form is the smallest scroll container the row overlaps; on iPad the dashboard's
+        // own list sits behind the sheet and covers the whole window.
+        let containers = app.collectionViews.allElementsBoundByIndex
+            .map(\.frame)
+            .filter { $0.intersects(frame) }
+        let bounds = containers.min { $0.width * $0.height < $1.width * $1.height } ?? app.frame
         return bounds.contains(frame)
     }
 
