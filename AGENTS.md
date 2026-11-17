@@ -31,7 +31,7 @@ A stable release (3.0.0 first) ships only when every item below holds on the com
 - Every optional workflow that a release depends on (iOS CI with the iPad suite, macOS CI, Windows UI tests, the update proof, the galleries) has passed on the release commit or on a commit with the same code for that platform.
 
 **Performance and size.** Budgets are enforced in CI, not checked by hand. Raise a ceiling only with a measured reason in the PR; lower ceilings as the app gets leaner.
-- Android release APK: cold start (median of 7 launches), total PSS after launch and APK size, measured on an emulator by `android/ci/perf-budgets.sh` (the "Android performance budgets" job).
+- Android release APK: cold start (median of 11 launches), total PSS after launch and APK size, measured on an emulator by `android/ci/perf-budgets.sh` (the "Android performance budgets" job).
 - Wire payloads (widget, Wear, live monitor): `android/tests/PayloadBudgetSelfTest.java`, reported on each PR by the "Payload budgets" job.
 - A refresh never blocks the UI thread, never retries without backoff, and keeps the last good snapshot on screen when it fails.
 
