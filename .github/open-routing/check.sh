@@ -61,8 +61,21 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
   adb shell input tap $xy
 }
 
-# Taps the middle of the home-screen widget (the first view the app draws on the launcher).
+# Taps the widget, and taps again if the launcher is still in front a few seconds later: on a busy
+# emulator the launcher can drop a tap that lands while it is still settling after HOME. A widget
+# that opens the wrong screen still fails, because only "nothing opened" is retried.
 tap_widget() {
+  tap_widget_once
+  for _ in 1 2; do
+    sleep 3
+    [[ "$(top_activity)" == *nexuslauncher* ]] || return 0
+    echo "the launcher is still in front; tapping the widget again" >&2
+    tap_widget_once
+  done
+}
+
+# Taps the middle of the home-screen widget (the first view the app draws on the launcher).
+tap_widget_once() {
   local xy
   xy=$(dump | python3 -c '
 import re, sys
