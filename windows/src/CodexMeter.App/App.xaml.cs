@@ -85,6 +85,13 @@ public partial class App : Application
 
             _ = State.RefreshAllAsync(force: false);
 
+            if (options.PerfBudgetFile is { } perfFile)
+            {
+                // Low-priority work runs after the dispatcher's layout and render passes, so after the first frame.
+                window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low,
+                    () => _ = ReportPerfBudgetAsync(perfFile, PerfBudget.MillisecondsSinceProcessStart()));
+            }
+
             if (options.ScreenshotDirectory is { } directory)
             {
                 ExitCode = await new ScreenshotRunner(window, State, directory).RunAsync();
@@ -204,6 +211,20 @@ public partial class App : Application
     {
         ShowMainWindow();
         if (page is not null) window?.Navigate(page);
+    }
+
+    private async Task ReportPerfBudgetAsync(string path, double firstFrameMilliseconds)
+    {
+        try
+        {
+            await PerfBudget.WriteAfterSettleAsync(path, firstFrameMilliseconds);
+        }
+        catch (Exception error)
+        {
+            Log("Performance budget report failed: " + error);
+            ExitCode = 4;
+        }
+        Quit();
     }
 
     public void Quit()

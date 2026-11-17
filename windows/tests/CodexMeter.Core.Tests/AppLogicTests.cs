@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using CodexMeter.Core.Auth;
 using CodexMeter.Core.Formatting;
@@ -188,5 +189,31 @@ public class StorageTests
         var cached = await hub[UsageProvider.Codex].CachedAsync();
         Assert.Equal(1, cached!.Credits!.AvailableCount);
         Assert.Equal(0, cached.Usage!.FiveHour!.UsedPercent);
+    }
+}
+
+public class PerfBudgetTests
+{
+    [Fact]
+    public void ReportIsOneInvariantKeyValuePerLine()
+    {
+        var previous = CultureInfo.CurrentCulture;
+        try
+        {
+            // A decimal comma would break the budget scripts' parsing.
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            Assert.Equal("first_frame_ms=1235\nworking_set_mb=96.5\n", PerfBudget.Report(1234.6, 101_187_584));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    [Fact]
+    public void ProcessStartIsInThePast()
+    {
+        var elapsed = PerfBudget.MillisecondsSinceProcessStart();
+        Assert.InRange(elapsed, 0, TimeSpan.FromHours(1).TotalMilliseconds);
     }
 }

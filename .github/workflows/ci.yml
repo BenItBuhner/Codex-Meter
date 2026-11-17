@@ -315,10 +315,107 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test
 
+  # Start-up time and memory for the desktop and Apple apps, as the Android job above measures the
+  # phone app. Each app, launched with -perf-budget / --perf-budget, reports its own first frame;
+  # the scripts hold the ceilings and why they are where they are.
+  linux-performance:
+    name: Linux performance budgets
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install GTK 4, libadwaita and a virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-1 libadwaita-1-0 libsecret-1-0 adwaita-icon-theme fonts-cantarell \
+            xvfb xauth dbus dbus-x11
+      - name: Publish the release build
+        run: linux/packaging/publish.sh x64
+      - name: Measure start-up and memory
+        env:
+          GSK_RENDERER: cairo
+          GTK_A11Y: none
+        run: |
+          xvfb-run -a -s "-screen 0 1400x1000x24" dbus-run-session -- \
+            linux/ci/perf-budgets.sh linux/out/publish-x64/codex-meter
+
+  windows-performance:
+    name: Windows performance budgets
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish the release build
+        run: dotnet publish src/CodexMeter.App/CodexMeter.App.csproj -c Release -r win-x64 -p:Platform=x64 -o out/perf
+      - name: Measure start-up and memory
+        run: ./ci/perf-budgets.ps1 -App out/perf/CodexMeter.exe
+      - name: Show app log
+        if: failure()
+        run: |
+          $log = Join-Path $env:LOCALAPPDATA 'CodexMeter/codexmeter.log'
+          if (Test-Path $log) { Get-Content $log } else { 'No log written.' }
+
+  apple-performance:
+    name: Apple performance budgets
+    needs: changes
+    if: needs.changes.outputs.apple == 'true'
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
+    steps:
+      - uses: actions/checkout@v7
+      - name: Pick an iPhone simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          DEVICE="$(xcrun simctl list devices available \
+            | sed -nE 's/^[[:space:]]+(iPhone [A-Za-z0-9 ]*[A-Za-z0-9]) \(.*/\1/p' | head -n 1)"
+          [[ -n "$DEVICE" ]] || { echo "::error::No iPhone simulator on this runner"; exit 1; }
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+      - name: Build the Release iPhone app
+        env:
+          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
+        run: |
+          set -euo pipefail
+          xcodebuild build -project ios/CodexMeter.xcodeproj -scheme CodexMeter -configuration Release \
+            -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
+            -derivedDataPath "$RUNNER_TEMP/ios" CODE_SIGNING_ALLOWED=NO -quiet
+      - name: Build the Release Mac app
+        run: |
+          set -euo pipefail
+          xcodebuild build -project macos/CodexMeterMac.xcodeproj -scheme CodexMeterMac -configuration Release \
+            -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/mac" $SIGNING_ARGS -quiet
+      - name: Measure iPhone start-up and memory
+        env:
+          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
+        run: |
+          set -euo pipefail
+          APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
+          macos/ci/perf-budgets.sh ios "$APP" "$DEVICE_NAME"
+      - name: Measure Mac start-up and memory
+        run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
+
   gate:
     name: CI gate
     if: always()
-    needs: [changes, android, performance, payload, desktop, windows-app, apple]
+    needs: [changes, android, performance, payload, desktop, windows-app, apple,
+            linux-performance, windows-performance, apple-performance]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

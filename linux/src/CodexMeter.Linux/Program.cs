@@ -37,6 +37,9 @@ public sealed record LaunchOptions(bool Demo, string? ScreenshotDirectory, bool 
     /// <summary><c>--installed-version X</c> (only with <c>--update-feed</c>): pretend to be another version.</summary>
     public string? InstalledVersionOverride { get; init; }
 
+    /// <summary><c>--perf-budget FILE</c>: demo mode, then write the start-up time and memory to FILE and quit (CI budgets).</summary>
+    public string? PerfBudgetFile { get; init; }
+
     public const string Usage = """
         Usage: codex-meter [options]
 
@@ -47,6 +50,7 @@ public sealed record LaunchOptions(bool Demo, string? ScreenshotDirectory, bool 
           --minimized            Start in the tray (used by "Start when you log in").
           --screenshots DIR      Capture every page in light and dark into DIR, then exit.
           --update-feed URL      Check a local test release feed (http://127.0.0.1:PORT/releases).
+          --perf-budget FILE     Demo mode; write start-up time and memory to FILE, then quit.
         """;
 
     public bool AllowMultipleInstances => Demo || ScreenshotDirectory is not null;
@@ -62,11 +66,13 @@ public sealed record LaunchOptions(bool Demo, string? ScreenshotDirectory, bool 
         var screenshots = Value("--screenshots");
         var signedOut = Flag("--demo-signed-out");
         var feed = Value("--update-feed");
-        return new LaunchOptions(Flag("--demo") || signedOut || screenshots is not null, screenshots, Flag("--minimized"),
+        var perf = Value("--perf-budget");
+        return new LaunchOptions(Flag("--demo") || signedOut || screenshots is not null || perf is not null, screenshots, Flag("--minimized"),
             Value("--theme"), Value("--page"), signedOut, Flag("--help") || Flag("-h"))
         {
             UpdateFeed = feed,
             InstalledVersionOverride = feed is null ? null : Value("--installed-version"),
+            PerfBudgetFile = perf,
         };
     }
 }
