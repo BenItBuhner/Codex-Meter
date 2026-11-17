@@ -168,6 +168,60 @@ jobs:
             if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
             else await github.rest.issues.createComment({ owner, repo, issue_number, body });
 
+  performance:
+    name: Android performance budgets
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+      - name: Install Android platforms
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+      # The release build users install, signed with a throwaway key through the same
+      # localRelease signing config a local release build uses.
+      - name: Build the release phone app
+        working-directory: android
+        run: |
+          set -euo pipefail
+          mkdir -p .local-signing
+          printf 'perfbudget' > .local-signing/password
+          keytool -genkeypair -keystore .local-signing/codex-meter-local.p12 -storetype PKCS12 \
+            -storepass perfbudget -keypass perfbudget -alias codexmeter -keyalg RSA -keysize 2048 \
+            -validity 1 -dname CN=perf >/dev/null
+          ./gradlew --console=plain :app:assembleRelease
+          cp "$(ls app/build/outputs/apk/release/*.apk | head -n 1)" "$RUNNER_TEMP/app-release.apk"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Measure start-up, memory and size
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release.apk"
+
   desktop:
     name: Desktop core and Linux
     needs: changes
@@ -260,7 +314,7 @@ jobs:
   gate:
     name: CI gate
     if: always()
-    needs: [changes, android, payload, desktop, windows-app, apple]
+    needs: [changes, android, performance, payload, desktop, windows-app, apple]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
