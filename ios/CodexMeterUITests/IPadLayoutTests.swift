@@ -164,9 +164,10 @@ final class IPadLayoutTests: XCTestCase {
         let button = app.buttons[name].firstMatch
         if button.waitForExistence(timeout: 2), button.isHittable {
             button.tap()
-        } else {
-            _ = UITestSupport.press(shortcut, in: app, until: app.navigationBars[name])
+            // On the mini the last tab that fits can be clipped, so a tap may land beside it.
+            if app.navigationBars[name].waitForExistence(timeout: 3) { return }
         }
+        _ = UITestSupport.press(shortcut, in: app, until: app.navigationBars[name])
     }
 
     private func openSidebar(in app: XCUIApplication) -> Bool {
