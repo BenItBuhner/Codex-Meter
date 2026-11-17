@@ -88,6 +88,33 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
   adb shell input tap $xy
 }
 
+# Whether the launcher has a Codex Meter widget bound. Unknown (no Widgets section in the dump)
+# counts as yes, so a changed dumpsys format can't block the check.
+widget_pinned() {
+  local widgets
+  widgets="$(adb shell dumpsys appwidget | tr -d '\r' | sed -n '/^Widgets:/,/^Hosts:/p')"
+  [[ -z "$widgets" ]] || grep -q "$PKG" <<<"$widgets"
+}
+
+# Asks the launcher to add the widget and accepts its dialog, retrying when the dialog was slow
+# to appear and nothing got added. Without this, a missed dialog left an empty home screen and
+# the widget taps landed on the launcher's own date and search widgets.
+pin_widget() {
+  for _ in 1 2 3; do
+    harness pin
+    for _ in 1 2 3 4 5; do
+      sleep 2
+      tap_view "Add to home screen" 2>/dev/null || tap_view "ADD TO HOME SCREEN" 2>/dev/null \
+        || tap_view "Add automatically" 2>/dev/null || tap_view "Add" 2>/dev/null || continue
+      break
+    done
+    sleep 3; home
+    widget_pinned && return 0
+    echo "widget not added yet; asking the launcher again" >&2
+  done
+  return 1
+}
+
 # Taps the live notification showing provider $1 (its display name) in the open shade.
 tap_notification() {
   local xy
@@ -149,10 +176,7 @@ for DESIGN in "${DESIGNS[@]}"; do
   demo --es open_provider codex
   home
   if [[ $PINNED == 0 ]]; then
-    harness pin; sleep 2
-    tap_view "Add to home screen" || tap_view "ADD TO HOME SCREEN" || tap_view "Add automatically" \
-      || tap_view "Add"
-    sleep 3; home
+    pin_widget || { echo "::error::The launcher never added the widget, so its taps can't be checked" >&2; exit 1; }
     PINNED=1
   fi
   harness widget_provider --es id claude_code
