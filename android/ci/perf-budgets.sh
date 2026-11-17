@@ -24,10 +24,12 @@ LAUNCHES="${LAUNCHES:-11}"
 # First measured 2026-11-17 on alpha: APK 74.8 MB, cold start median 3607 ms, PSS 55.9 MB. The
 # release APK then dropped its x86_64 Skia copy: 48.6 MB. Before the post-boot compile was let
 # finish, cold starts swung from 2.3 to 6.3 s with the runner; after it, 11 launches fell between
-# 1469 and 2032 ms (median 1663 ms, PSS 69.6 MB). The ceilings leave about 50% headroom over that.
+# 1469 and 2032 ms (median 1663 ms). The ceilings leave about 30-50% headroom over the worst run.
+# PSS after launch has ranged 54.6-79.7 MB across runs of the same code (how much compiled code
+# is mapped varies), so its ceiling sits above that range.
 MAX_APK_MB="${MAX_APK_MB:-55}"
 MAX_COLD_START_MS="${MAX_COLD_START_MS:-2500}"
-MAX_PSS_MB="${MAX_PSS_MB:-90}"
+MAX_PSS_MB="${MAX_PSS_MB:-105}"
 
 adb wait-for-device
 adb shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done'
