@@ -180,10 +180,11 @@ public sealed class DashboardPage : IPage
             child.SetFocusable(false);
             flow.Append(child);
         }
-        void AddMeter(string text, UsageWindow? usageWindow, string id, bool reached = false)
+        void AddMeter(string text, UsageWindow? usageWindow, string id, bool reached = false, UsageHistory? history = null)
         {
             if (usageWindow is null) return;
-            Add(Cards.Meter(text, Cards.Icon(usageWindow.WindowSeconds), usageWindow, usage.FetchedAt, options, reached, id));
+            Add(Cards.Meter(text, Cards.Icon(usageWindow.WindowSeconds), usageWindow, usage.FetchedAt, options, reached, id,
+                history?.UsageStart(usageWindow, usage.FetchedAt)));
         }
 
         foreach (var key in state.VisibleSections(provider))
@@ -191,13 +192,13 @@ public sealed class DashboardPage : IPage
             switch (key)
             {
                 case DashboardSections.FiveHour:
-                    AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour");
+                    AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour", history: entry.History.FiveHour);
                     break;
                 case DashboardSections.Weekly:
-                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly");
+                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly", history: entry.History.Weekly);
                     break;
                 case DashboardSections.Monthly:
-                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly");
+                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly", history: entry.History.Monthly);
                     break;
                 case DashboardSections.SpendControl when usage.SpendControlLimit is { } spend:
                     AddMeter("Monthly credit limit", new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt),

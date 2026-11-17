@@ -93,7 +93,7 @@ public static class Cards
 
     /// <summary>The main meter card: ring, title, value, the other half, reset time and pace.</summary>
     public static Gtk.Widget Meter(string title, string icon, UsageWindow window, DateTimeOffset fetchedAt, MeterOptions options,
-        bool limitReached = false, string? name = null)
+        bool limitReached = false, string? name = null, DateTimeOffset? usageStart = null)
     {
         var now = DateTimeOffset.UtcNow;
         var value = UsageFormat.Value(window, options.Display);
@@ -117,7 +117,7 @@ public static class Cards
         if (reset.Length > 0) details.Append(Label(reset));
         if (options.ShowPace)
         {
-            var pace = UsagePace.Describe(window, fetchedAt, now, options.Sensitivity);
+            var pace = UsagePace.Describe(window, fetchedAt, now, options.Sensitivity, usageStart);
             if (pace.Length > 0)
                 details.Append(pace.StartsWith("At this pace", StringComparison.Ordinal)
                     ? Label(pace, "caption", "error", "pace-warning")

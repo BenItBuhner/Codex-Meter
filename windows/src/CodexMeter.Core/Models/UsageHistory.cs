@@ -81,6 +81,46 @@ public sealed record UsageHistory
     public IReadOnlyList<UsageSample> CurrentWindowSamples =>
         Samples.Count == 0 ? [] : Samples.Where(s => SameWindow(s, Samples[^1])).ToList();
 
+    /// <summary>
+    /// When usage was reset partway through the latest window without moving its reset time, or null.
+    /// Claude Code saved resets work this way: usage drops to zero but the weekly deadline stays, so
+    /// the full-window average would count the time before the reset against usage that started
+    /// after it. The reset is placed halfway between the last sample before the drop and the first
+    /// after it, or at that first sample when it still reads zero (same rule as Android and Apple).
+    /// </summary>
+    [JsonIgnore]
+    public DateTimeOffset? InWindowResetAt
+    {
+        get
+        {
+            var current = CurrentWindowSamples;
+            for (var i = current.Count - 1; i > 0; i--)
+            {
+                var before = current[i - 1];
+                var after = current[i];
+                if (!IsResetDrop(before, after)) continue;
+                return after.UsedPercent <= 0 ? after.ObservedAt : before.ObservedAt + (after.ObservedAt - before.ObservedAt) / 2;
+            }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// When the newest samples describe <paramref name="window"/>, the moment its current usage
+    /// started counting: a saved reset partway through, or null for the window start.
+    /// </summary>
+    public DateTimeOffset? UsageStart(UsageWindow window, DateTimeOffset observedAt)
+    {
+        if (Samples.Count == 0 || window.EffectiveResetDate(observedAt) is not { } resetAt) return null;
+        var latest = Samples[^1];
+        if (!SameWindow(latest, new UsageSample(observedAt, window.UsedPercent, resetAt, window.WindowSeconds))) return null;
+        return InWindowResetAt is { } start && start < observedAt ? start : null;
+    }
+
+    /// <summary>Usage only falls inside a window when it is reset; a small dip is rounding noise unless it lands on zero.</summary>
+    private static bool IsResetDrop(UsageSample before, UsageSample after) =>
+        after.UsedPercent < before.UsedPercent && (after.UsedPercent <= 0 || before.UsedPercent - after.UsedPercent >= 3);
+
     /// <summary>The most recent reset windows, oldest window first and oldest sample first.</summary>
     public List<List<UsageSample>> RecentWindows(int maximum)
     {
@@ -254,7 +294,11 @@ public static class UsageStats
         var first = samples[0];
         var last = samples[^1];
         var span = last.ObservedAt - first.ObservedAt;
-        var burned = last.UsedPercent - first.UsedPercent;
+        // Count only increases, so a saved reset partway through (usage drops to zero and climbs
+        // again) doesn't cancel out the usage before it.
+        var burned = 0;
+        for (var index = 1; index < samples.Count; index++)
+            burned += Math.Max(0, samples[index].UsedPercent - samples[index - 1].UsedPercent);
         var average = span > TimeSpan.Zero && burned > 0 ? burned / span.TotalHours : 0;
         var peak = 0.0;
         for (var index = 1; index < samples.Count; index++)

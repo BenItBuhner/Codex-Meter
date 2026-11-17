@@ -192,10 +192,11 @@ public sealed class DashboardPage : PageBase
         if (!entry.SignedIn || usage is null) return;
 
         var options = new Cards.MeterOptions(settings.DisplayMode, settings.ResetDisplay, settings.Use24HourClock, settings.ShowPace, settings.PaceSensitivity);
-        void AddMeter(string name, UsageWindow? window, string id, bool reached = false)
+        void AddMeter(string name, UsageWindow? window, string id, bool reached = false, UsageHistory? history = null)
         {
             if (window is null) return;
-            cards.Children.Add(Cards.Meter(name, Cards.Glyph(window.WindowSeconds), window, usage.FetchedAt, options, reached, id));
+            cards.Children.Add(Cards.Meter(name, Cards.Glyph(window.WindowSeconds), window, usage.FetchedAt, options, reached, id,
+                history?.UsageStart(window, usage.FetchedAt)));
         }
 
         foreach (var key in State.VisibleSections(provider))
@@ -203,17 +204,17 @@ public sealed class DashboardPage : PageBase
             switch (key)
             {
                 case DashboardSections.FiveHour:
-                    AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour");
+                    AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour", history: entry.History.FiveHour);
                     if (provider == UsageProvider.ClaudeCode && usage.FiveHour is null && usage.Weekly is not null)
                     {
                         cards.Children.Add(Cards.Text(ClaudeUsageParser.NoSessionLimitNote, "CaptionSecondaryTextStyle"));
                     }
                     break;
                 case DashboardSections.Weekly:
-                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly");
+                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly", history: entry.History.Weekly);
                     break;
                 case DashboardSections.Monthly:
-                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly");
+                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly", history: entry.History.Monthly);
                     break;
                 case DashboardSections.SpendControl when usage.SpendControlLimit is { } spend:
                     AddMeter("Monthly credit limit", new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt),
