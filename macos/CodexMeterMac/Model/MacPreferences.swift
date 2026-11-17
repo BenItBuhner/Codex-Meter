@@ -14,6 +14,8 @@ enum MacPreferences {
     static let menuBarProviderKey = "codex-meter.mac.menu-bar-provider-v1"
     /// Show the provider of the AI app in front while it's in front.
     static let menuBarFollowsAppsKey = "codex-meter.mac.menu-bar-follows-apps-v1"
+    /// "While using AI apps": the user's changes to the app list, as `DesktopAppList` JSON.
+    static let menuBarAppsKey = "codex-meter.mac.menu-bar-apps-v1"
     /// `MacLiveWindow` raw value.
     static let menuBarWindowKey = "codex-meter.mac.menu-bar-window-v1"
     /// `MacMenuBarStyle` raw value.
@@ -35,19 +37,33 @@ enum MacPreferences {
     static func menuBarReading(
         storedID: String,
         followsApps: Bool,
+        apps: String,
         window: MacLiveWindow,
         model: AppModel
     ) -> MacLiveReading? {
         let candidates = model.enabledProviders.filter { model.macStatus(for: $0).snapshot != nil }
         guard let provider = MacLiveUsage.chooseProvider(
             chosen: UsageProvider(rawValue: storedID),
-            frontApp: followsApps ? MacFrontmostApp.shared.provider : nil,
+            frontApp: followsApps ? MacFrontmostApp.shared.provider(using: appMatcher(apps)) : nil,
             candidates: candidates
         ) else { return nil }
         let status = model.macStatus(for: provider)
         guard let snapshot = status.snapshot,
               let meter = MacLiveUsage.chooseMeter(snapshot, window: window) else { return nil }
         return MacLiveReading(provider: provider, meter: meter, fetchedAt: snapshot.fetchedAt)
+    }
+}
+
+extension MacPreferences {
+    @MainActor private static var cachedMatcher: (json: String, matcher: DesktopAppMatcher)?
+
+    /// The matcher for the stored app list, decoded once per change.
+    @MainActor
+    static func appMatcher(_ json: String) -> DesktopAppMatcher {
+        if let cachedMatcher, cachedMatcher.json == json { return cachedMatcher.matcher }
+        let matcher = DesktopAppList(json: json).matcher
+        cachedMatcher = (json, matcher)
+        return matcher
     }
 }
 

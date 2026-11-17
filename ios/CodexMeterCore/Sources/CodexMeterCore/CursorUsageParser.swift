@@ -52,7 +52,9 @@ public enum CursorUsageParser {
         let weekly = isWeeklyCycle(cycleSeconds)
         var plan: UsageWindow?
         var limits: [UsageLimit] = []
+        var includedCents: Double?
         if let planUsage = JSONSupport.object(root["planUsage"]) {
+            includedCents = number(planUsage["limit"])
             var percent = number(planUsage["totalPercentUsed"])
             if percent == nil, let limit = number(planUsage["limit"]), limit > 0 {
                 let used = number(planUsage["includedSpend"]) ?? number(planUsage["totalSpend"]) ?? 0
@@ -107,6 +109,9 @@ public enum CursorUsageParser {
             weekly: weekly ? plan : nil,
             monthly: weekly ? nil : plan,
             additionalLimits: limits,
+            // planUsage.limit is the plan's included usage at API prices, in cents: Cursor's own
+            // figure for what the subscription covers this cycle.
+            includedValueUsd: includedCents.map { $0 / 100 },
             fetchedAt: fetchedAt
         )
     }

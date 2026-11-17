@@ -10,8 +10,9 @@ namespace CodexMeter.Core.Services;
 
 // Sign-in and usage routes for every provider added through Accounts → Add account. A port of
 // Android's and iOS's ProviderClients: client ids, endpoints and headers are the ones each
-// provider's own CLI or editor sends, and none of these usage routes is a documented public API.
-// Codex, Claude Code and Cursor keep their own services.
+// provider's own CLI or editor sends. Synthetic and v0 document their usage routes; the rest are
+// confirmed against the providers' open-source clients and trackers. Codex, Claude Code and
+// Cursor keep their own services.
 
 /// <summary>One request; headers keep insertion order. Bodies and headers are never logged.</summary>
 public sealed class ProviderRequest
@@ -45,6 +46,15 @@ public sealed class ProviderRequest
         Method = HttpMethod.Post;
         Body = payload.ToJsonString();
         ContentType = "application/json";
+        return this;
+    }
+
+    /// <summary>A POST with a raw body of <paramref name="type"/>.</summary>
+    public ProviderRequest Raw(string body, string type)
+    {
+        Method = HttpMethod.Post;
+        Body = body;
+        ContentType = type;
         return this;
     }
 
@@ -217,14 +227,15 @@ public static class ProviderTokens
 
 public static class ProviderClients
 {
-    /// <summary>The client for <paramref name="provider"/>, or null for Codex, Claude Code, Cursor and Antigravity.</summary>
+    /// <summary>The client for <paramref name="provider"/>, or null for Codex, Claude Code and Cursor.</summary>
     public static ProviderClient? For(UsageProvider provider) => provider.Id switch
     {
+        "antigravity" => new AntigravityClient(),
         "copilot" => new CopilotClient(),
         "kimi" => new KimiClient(),
         "factory" => new FactoryClient(),
         "grok" => new GrokClient(),
-        "devin" => new CodeiumClient(UsageProvider.Devin, "devin"),
+        "devin" => new DevinClient(),
         "windsurf" => new CodeiumClient(UsageProvider.Windsurf, "windsurf"),
         "augment" => new AugmentClient(),
         "cline" => new ClineClient(),
@@ -236,9 +247,9 @@ public static class ProviderClients
         "openrouter" => new OpenRouterClient(),
         "kilo" => new KiloClient(),
         "codebuff" => new CodebuffClient(),
-        "synthetic" => new KeyQuotaClient(UsageProvider.Synthetic, "https://api.synthetic.new/v2/quotas", 5 * ProviderUsageParsers.Hour),
-        "chutes" => new KeyQuotaClient(UsageProvider.Chutes, "https://api.chutes.ai/users/me/subscription_usage", ProviderUsageParsers.Day),
-        "v0" => new KeyQuotaClient(UsageProvider.V0, "https://api.v0.dev/v1/rate-limits", ProviderUsageParsers.Day),
+        "synthetic" => new SyntheticClient(),
+        "chutes" => new ChutesClient(),
+        "v0" => new V0Client(),
         "warp" => new WarpClient(),
         _ => null,
     };
@@ -461,11 +472,11 @@ public sealed class ClineClient() : StandardDeviceClient(UsageProvider.Cline)
 
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
+        // Cline's own clients send the session as "workos:<token>"; a pasted key goes as is.
         const string url = "https://api.cline.bot/api/v1/users/me/plan/usage-limits";
-        var response = await SendAsync(context, "cline_usage", ProviderRequest.Get(url).Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false);
-        if (response.Status == 401 && !tokens.AccessToken.StartsWith("workos:", StringComparison.Ordinal))
-            response = await SendAsync(context, "cline_usage_workos", ProviderRequest.Get(url).Bearer("workos:" + tokens.AccessToken), cancellationToken).ConfigureAwait(false);
-        Check(response, "usage");
+        var bearer = tokens.IsApiKey || tokens.AccessToken.StartsWith("workos:", StringComparison.Ordinal)
+            ? tokens.AccessToken : "workos:" + tokens.AccessToken;
+        var response = Check(await SendAsync(context, "cline_usage", ProviderRequest.Get(url).Bearer(bearer), cancellationToken).ConfigureAwait(false), "usage");
         return NonEmpty(ProviderUsageParsers.Cline(response.Body, context.Now()));
     }
 }
@@ -495,7 +506,7 @@ public sealed class GrokClient() : StandardDeviceClient(UsageProvider.Grok)
     }
 }
 
-// ---------------------------------------------------------------------- Devin and Windsurf
+// ---------------------------------------------------------------------- Windsurf
 
 public sealed class CodeiumClient(UsageProvider provider, string ideName) : ProviderClient(provider)
 {
@@ -622,9 +633,15 @@ public sealed class OpenCodeGoClient() : ProviderClient(UsageProvider.OpencodeGo
             ["client_id"] = "opencode-cli",
             ["supports_org_scope"] = true,
         }), cancellationToken).ConfigureAwait(false);
-        var code = DeviceAuth.ParseDeviceCode(response.Body);
-        if (!response.Ok || !code.IsValid)
+        var parsed = DeviceAuth.ParseDeviceCode(response.Body);
+        if (!response.Ok || !parsed.IsValid)
             throw new ProviderException(ProviderHttp.ServerMessage(response.Body, $"OpenCode could not start sign-in (HTTP {response.Status})."));
+        // OpenCode answers with site-relative pages ("/console/device").
+        var code = parsed with
+        {
+            VerificationUri = DeviceAuth.Absolute("https://opencode.ai", parsed.VerificationUri),
+            VerificationUriComplete = DeviceAuth.Absolute("https://opencode.ai", parsed.VerificationUriComplete),
+        };
         attempt.Device = code;
         return code;
     }
@@ -686,8 +703,15 @@ public sealed class MiniMaxClient() : ProviderClient(UsageProvider.MiniMax)
             ("code_challenge_method", "S256"),
             ("state", attempt.State)), cancellationToken).ConfigureAwait(false);
         var parsed = DeviceAuth.ParseDeviceCode(response.Body);
-        // MiniMax polls with the user code itself.
-        var code = parsed with { Code = parsed.Code.Length == 0 ? parsed.UserCode : parsed.Code };
+        // MiniMax polls with the user code itself, gives the interval in milliseconds and the
+        // expiry as an epoch-milliseconds time ("expired_in").
+        var body = ProviderJson.Object(response.Body);
+        var intervalMillis = ProviderJson.Int(body, "interval", 2000);
+        var expiresAt = ProviderUsageParsers.EpochSeconds(ProviderJson.Get(body, "expired_in"));
+        var nowSeconds = context.Now().ToUnixTimeSeconds();
+        var code = new DeviceCode(parsed.Code.Length == 0 ? parsed.UserCode : parsed.Code, parsed.UserCode, parsed.VerificationUri,
+            parsed.VerificationUriComplete, Math.Max(1, (intervalMillis + 999) / 1000),
+            expiresAt > nowSeconds ? expiresAt - nowSeconds : parsed.ExpiresInSeconds);
         if (!response.Ok || !code.IsValid)
             throw new ProviderException(ProviderHttp.ServerMessage(response.Body, $"MiniMax could not start sign-in (HTTP {response.Status})."));
         attempt.Device = code;
@@ -827,9 +851,12 @@ public sealed class KiroClient() : ProviderClient(UsageProvider.Kiro)
 
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
+        // The AWS JSON protocol call kiro-cli makes; Builder ID accounts send no profile.
         var response = Check(await SendAsync(context, "kiro_usage",
-            ProviderRequest.Get("https://codewhisperer.us-east-1.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST")
-                .Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "usage");
+            ProviderRequest.Post("https://codewhisperer.us-east-1.amazonaws.com/")
+                .Bearer(tokens.AccessToken)
+                .Header("X-Amz-Target", "AmazonCodeWhispererService.GetUsageLimits")
+                .Raw("{}", "application/x-amz-json-1.0"), cancellationToken).ConfigureAwait(false), "usage");
         return NonEmpty(ProviderUsageParsers.Kiro(response.Body, context.Now()));
     }
 }
@@ -880,6 +907,124 @@ public sealed class OpenRouterClient() : ProviderClient(UsageProvider.OpenRouter
         var credits = await TrySendAsync(context, "openrouter_credits",
             ProviderRequest.Get("https://openrouter.ai/api/v1/credits").Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false);
         return NonEmpty(ProviderUsageParsers.OpenRouter(key.Body, credits is { Ok: true } ? credits.Body : "", context.Now()));
+    }
+}
+
+// ---------------------------------------------------------------------- Antigravity (Google)
+
+/// <summary>
+/// Antigravity's Google OAuth client. As on Android, the id and secret are supplied when the app is
+/// built (the release workflows pass the <c>ANTIGRAVITY_CLIENT_ID</c> and
+/// <c>ANTIGRAVITY_CLIENT_SECRET</c> repository secrets) and never live in the repo. A developer
+/// build can set the same two environment variables with a <c>CODEX_METER_</c> prefix at run time.
+/// The secret only ever goes to Google's token endpoint, from this device; Google treats an
+/// installed app's secret as not confidential, so it protects nothing beyond the PKCE sign-in.
+/// </summary>
+public static class AntigravityOAuth
+{
+    public const string AuthorizeUrl = "https://accounts.google.com/o/oauth2/v2/auth";
+    public const string TokenUrl = "https://oauth2.googleapis.com/token";
+    public const string Scope = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email";
+
+    private static readonly (string Id, string Secret) Client = Read();
+
+    public static string ClientId => Client.Id;
+    public static string ClientSecret => Client.Secret;
+    public static bool Configured => Client.Id.Length > 0 && Client.Secret.Length > 0;
+
+    private static (string, string) Read()
+    {
+        var id = Environment.GetEnvironmentVariable("CODEX_METER_ANTIGRAVITY_CLIENT_ID") ?? "";
+        var secret = Environment.GetEnvironmentVariable("CODEX_METER_ANTIGRAVITY_CLIENT_SECRET") ?? "";
+        if (id.Length > 0 && secret.Length > 0) return (id.Trim(), secret.Trim());
+        var metadata = typeof(AntigravityOAuth).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>().ToDictionary(a => a.Key, a => a.Value ?? "");
+        return (metadata.GetValueOrDefault("AntigravityClientId", "").Trim(), metadata.GetValueOrDefault("AntigravityClientSecret", "").Trim());
+    }
+}
+
+public sealed class AntigravityClient() : ProviderClient(UsageProvider.Antigravity)
+{
+    private static readonly string[] Hosts = ["https://cloudcode-pa.googleapis.com", "https://daily-cloudcode-pa.googleapis.com"];
+
+    public override string? LoopbackAuthUrl(string redirectUri, SignInAttempt attempt)
+    {
+        if (!AntigravityOAuth.Configured) throw new ProviderException("Antigravity sign-in isn't set up in this build of Codex Meter.");
+        return AntigravityOAuth.AuthorizeUrl + "?" + ProviderRequest.Query(
+            ("client_id", AntigravityOAuth.ClientId),
+            ("redirect_uri", redirectUri),
+            ("response_type", "code"),
+            ("scope", AntigravityOAuth.Scope),
+            ("access_type", "offline"),
+            ("prompt", "select_account consent"),
+            ("code_challenge", attempt.Challenge),
+            ("code_challenge_method", "S256"),
+            ("state", attempt.State));
+    }
+
+    public override async Task<AuthTokens> FinishLoopbackAsync(SignInAttempt attempt, string code, ProviderContext context,
+        CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(context, "antigravity_exchange", ProviderRequest.Post(AntigravityOAuth.TokenUrl).Form(
+            ("code", code),
+            ("client_id", AntigravityOAuth.ClientId),
+            ("client_secret", AntigravityOAuth.ClientSecret),
+            ("redirect_uri", attempt.ExtraValue("redirect_uri")),
+            ("grant_type", "authorization_code"),
+            ("code_verifier", attempt.Verifier)), cancellationToken).ConfigureAwait(false);
+        var tokens = DeviceAuth.ParseTokens(response.Body, context.Now());
+        if (!response.Ok || tokens.AccessToken.Length == 0 || tokens.RefreshToken.Length == 0)
+            throw new ProviderException(ProviderHttp.ServerMessage(response.Body, $"Google sign-in failed (HTTP {response.Status})."));
+        var email = "";
+        var info = await TrySendAsync(context, "antigravity_userinfo",
+            ProviderRequest.Get("https://www.googleapis.com/oauth2/v2/userinfo").Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false);
+        if (info is { Ok: true }) email = BodyString(info, "email");
+        return tokens.Stored(context.Now()) with { AccountId = "", Email = email };
+    }
+
+    public override bool CanRefresh(AuthTokens tokens) => tokens.RefreshToken.Length > 0 && tokens.RefreshToken != tokens.AccessToken;
+
+    public override async Task<AuthTokens> RefreshAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(context, "antigravity_token_refresh", ProviderRequest.Post(AntigravityOAuth.TokenUrl).Form(
+            ("grant_type", "refresh_token"),
+            ("refresh_token", tokens.RefreshToken),
+            ("client_id", AntigravityOAuth.ClientId),
+            ("client_secret", AntigravityOAuth.ClientSecret)), cancellationToken).ConfigureAwait(false);
+        if (response.Status is 400 or 401)
+            throw new ProviderUnauthorizedException("Your Google sign-in for Antigravity expired. Sign in again from Accounts.");
+        var parsed = DeviceAuth.ParseTokens(response.Body, context.Now());
+        if (!response.Ok || parsed.AccessToken.Length == 0)
+            throw new ProviderException($"Google sign-in refresh failed (HTTP {response.Status}).");
+        // Google doesn't send a new refresh token on refresh; the old one stays.
+        return tokens with { AccessToken = parsed.AccessToken, ExpiresAt = context.Now().AddSeconds(Math.Max(60, parsed.ExpiresInSeconds)) };
+    }
+
+    public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        ProviderException? last = null;
+        foreach (var host in Hosts)
+        {
+            try
+            {
+                var plan = "";
+                var assist = await SendAsync(context, "antigravity_plan", ProviderRequest.Post(host + "/v1internal:loadCodeAssist")
+                    .Bearer(tokens.AccessToken)
+                    .Header("User-Agent", "antigravity/2.24.0 (aidev_client; os_type=darwin; arch=arm64)")
+                    .Json(new JsonObject
+                    {
+                        ["metadata"] = new JsonObject { ["ideType"] = "ANTIGRAVITY", ["platform"] = "PLATFORM_UNSPECIFIED", ["pluginType"] = "GEMINI" },
+                    }), cancellationToken).ConfigureAwait(false);
+                if (assist.Status == 401) Check(assist, "plan");
+                if (assist.Ok) plan = ProviderUsageParsers.AntigravityPlan(assist.Body);
+                var quota = Check(await SendAsync(context, "antigravity_usage", ProviderRequest.Post(host + "/v1internal:retrieveUserQuotaSummary")
+                    .Bearer(tokens.AccessToken).Header("User-Agent", "antigravity").Json([]), cancellationToken).ConfigureAwait(false), "usage");
+                return NonEmpty(ProviderUsageParsers.Antigravity(quota.Body, plan, context.Now()));
+            }
+            catch (ProviderUnauthorizedException) { throw; }
+            catch (ProviderException error) { last = error; }
+        }
+        throw last ?? new ProviderException("Antigravity usage is unavailable.");
     }
 }
 
@@ -973,29 +1118,129 @@ public sealed class CodebuffClient() : ProviderClient(UsageProvider.Codebuff)
 
 // ---------------------------------------------------------------------- Key-only providers
 
-public sealed class KeyQuotaClient(UsageProvider provider, string url, long defaultSeconds) : ProviderClient(provider)
+public sealed class SyntheticClient() : ProviderClient(UsageProvider.Synthetic)
 {
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
-        var response = Check(await SendAsync(context, Provider.Id + "_usage", ProviderRequest.Get(url).Bearer(tokens.AccessToken),
+        var response = Check(await SendAsync(context, "synthetic_usage", ProviderRequest.Get("https://api.synthetic.new/v2/quotas")
+            .Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "usage");
+        return NonEmpty(ProviderUsageParsers.Synthetic(response.Body, context.Now()));
+    }
+}
+
+public sealed class ChutesClient() : ProviderClient(UsageProvider.Chutes)
+{
+    public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var response = Check(await SendAsync(context, "chutes_usage", ProviderRequest.Get("https://api.chutes.ai/users/me/subscription_usage")
+            .Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "usage");
+        if (!ProviderJson.Bool(ProviderJson.Object(response.Body), "subscription", false))
+            throw new ProviderException("This Chutes account has no subscription, so there are no limits to show.");
+        return NonEmpty(ProviderUsageParsers.Chutes(response.Body, context.Now()));
+    }
+}
+
+public sealed class V0Client() : ProviderClient(UsageProvider.V0)
+{
+    private const string Base = "https://api.v0.dev/v1/";
+
+    private static async Task<string> OptionalAsync(string path, AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var operation = "v0_" + path.Replace('/', '_').Replace('-', '_');
+        var response = await TrySendAsync(context, operation, ProviderRequest.Get(Base + path).Bearer(tokens.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        return response is { Ok: true } ? response.Body : "";
+    }
+
+    public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var billing = Check(await SendAsync(context, "v0_billing", ProviderRequest.Get(Base + "user/billing").Bearer(tokens.AccessToken),
             cancellationToken).ConfigureAwait(false), "usage");
-        return NonEmpty(ProviderUsageParsers.KeyQuota(response.Body, defaultSeconds, context.Now()));
+        var plan = await OptionalAsync("user/plan", tokens, context, cancellationToken).ConfigureAwait(false);
+        var rateLimits = await OptionalAsync("rate-limits", tokens, context, cancellationToken).ConfigureAwait(false);
+        return NonEmpty(ProviderUsageParsers.V0(billing.Body, plan, rateLimits, context.Now()));
     }
 }
 
 public sealed class WarpClient() : ProviderClient(UsageProvider.Warp)
 {
+    private const string Query = "query GetRequestLimitInfo($requestContext: RequestContext!) "
+        + "{ user(requestContext: $requestContext) { __typename ... on UserOutput { "
+        + "user { requestLimitInfo { isUnlimited nextRefreshTime requestLimit "
+        + "requestsUsedSinceLastRefresh } bonusGrants { requestCreditsGranted "
+        + "requestCreditsRemaining expiration } workspaces { bonusGrantsInfo { grants { "
+        + "requestCreditsGranted requestCreditsRemaining expiration } } } } } } }";
+
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
+        var osName = OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "macOS" : "Linux";
+        var version = Environment.OSVersion.Version.ToString();
         var query = new JsonObject
         {
             ["operationName"] = "GetRequestLimitInfo",
-            ["variables"] = new JsonObject(),
-            ["query"] = "query GetRequestLimitInfo { user { user { requestLimitInfo { isUnlimited nextRefreshTime requestLimit requestsUsedSinceLastRefresh } } } }",
+            ["variables"] = new JsonObject
+            {
+                ["requestContext"] = new JsonObject
+                {
+                    ["clientContext"] = new JsonObject(),
+                    ["osContext"] = new JsonObject { ["category"] = osName, ["name"] = osName, ["version"] = version },
+                },
+            },
+            ["query"] = Query,
         };
+        // Warp's edge rejects requests whose User-Agent isn't the app's ("Warp/…").
         var response = Check(await SendAsync(context, "warp_usage",
-            ProviderRequest.Post("https://app.warp.dev/graphql/v2?op=GetRequestLimitInfo").Bearer(tokens.AccessToken).Json(query),
-            cancellationToken).ConfigureAwait(false), "usage");
-        return NonEmpty(ProviderUsageParsers.KeyQuota(response.Body, ProviderUsageParsers.Month, context.Now()));
+            ProviderRequest.Post("https://app.warp.dev/graphql/v2?op=GetRequestLimitInfo")
+                .Bearer(tokens.AccessToken)
+                .Header("User-Agent", "Warp/1.0")
+                .Header("x-warp-client-id", "warp-app")
+                .Header("x-warp-os-category", osName)
+                .Header("x-warp-os-name", osName)
+                .Header("x-warp-os-version", version)
+                .Json(query), cancellationToken).ConfigureAwait(false), "usage");
+        var error = ProviderUsageParsers.WarpError(response.Body);
+        if (error.Length > 0) throw new ProviderException("Warp: " + error);
+        return NonEmpty(ProviderUsageParsers.Warp(response.Body, context.Now()));
+    }
+}
+
+// ---------------------------------------------------------------------- Devin
+
+/// <summary>
+/// Devin's own usage page reads <c>app.devin.ai/api/&lt;org&gt;/billing/quota/usage</c> with the
+/// browser session's bearer token and the organization in <c>x-cog-org-id</c>. There is no device
+/// or API-key route for it, so the user pastes that request.
+/// </summary>
+public sealed class DevinClient() : ProviderClient(UsageProvider.Devin)
+{
+    public override string? PasteUrl(SignInAttempt attempt) => "https://app.devin.ai/settings/usage";
+
+    public override string PasteHint =>
+        "Open Usage & Limits on app.devin.ai, then in the browser's developer tools (Network) copy the billing/quota/usage request as cURL and paste it here.";
+
+    public override async Task<AuthTokens> FinishPasteAsync(SignInAttempt attempt, string pasted, ProviderContext context,
+        CancellationToken cancellationToken)
+    {
+        var (token, org) = DeviceAuth.ParseDevinRequest(pasted);
+        if (token.Length == 0)
+            throw new ProviderException("No session token found. Copy the whole request, including its Authorization header.");
+        if (org.Length == 0)
+            throw new ProviderException("No organization found. Copy the whole request, including its x-cog-org-id header.");
+        var tokens = new AuthTokens(token, token, "", AuthTokens.NeverExpires, org);
+        await FetchAsync(tokens, context, cancellationToken).ConfigureAwait(false);
+        return tokens;
+    }
+
+    public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var org = tokens.AccountId;
+        if (org.Length == 0 || tokens.IsApiKey)
+            throw new ProviderUnauthorizedException("Connect Devin again from Accounts.");
+        var response = await SendAsync(context, "devin_usage", ProviderRequest.Get($"https://app.devin.ai/api/{org}/billing/quota/usage")
+            .Bearer(tokens.AccessToken).Header("x-cog-org-id", org), cancellationToken).ConfigureAwait(false);
+        if (response.Status is 401 or 403)
+            throw new ProviderUnauthorizedException("Your Devin session expired. Paste a new request from Accounts.");
+        Check(response, "usage");
+        return NonEmpty(ProviderUsageParsers.Devin(response.Body, context.Now()));
     }
 }

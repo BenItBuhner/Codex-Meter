@@ -48,9 +48,13 @@ public static class AppPaths
 
 public static class AppLog
 {
+    /// <summary>The opt-in diagnostic log; messages go there too while it is on.</summary>
+    public static DiagnosticLog? Diagnostics { get; set; }
+
     public static void Write(string message)
     {
         Console.Error.WriteLine(message);
+        Diagnostics?.Write("app", message);
         try
         {
             Directory.CreateDirectory(AppPaths.CacheDirectory);

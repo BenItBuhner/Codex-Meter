@@ -73,6 +73,11 @@ jobs:
         run: dotnet test tests/CodexMeter.Core.Tests
 
       - name: Publish x64 and ARM64
+        # The Antigravity (Google) OAuth client is built in from secrets, as on Android; without
+        # them (forks) Antigravity stays out of the provider picker.
+        env:
+          ANTIGRAVITY_CLIENT_ID: ${{ secrets.ANTIGRAVITY_CLIENT_ID }}
+          ANTIGRAVITY_CLIENT_SECRET: ${{ secrets.ANTIGRAVITY_CLIENT_SECRET }}
         run: |
           # Release builds carry the tag's version (v2.9.0-alpha.14 -> 2.9.0-alpha.14).
           $versionArgs = @()

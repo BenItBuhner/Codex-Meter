@@ -376,6 +376,9 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     public let additionalLimits: [UsageLimit]
     public let usageCredits: UsageCredits?
     public let spendControl: SpendControl?
+    /// The usage the plan includes per cycle at API prices, when the provider reports it
+    /// (Cursor's `planUsage.limit`), in dollars. `nil` for every other provider.
+    public let includedValueUsd: Double?
     public let fetchedAt: Date
 
     public init(
@@ -389,6 +392,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         additionalLimits: [UsageLimit] = [],
         usageCredits: UsageCredits? = nil,
         spendControl: SpendControl? = nil,
+        includedValueUsd: Double? = nil,
         fetchedAt: Date
     ) {
         self.planType = planType
@@ -403,6 +407,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         }
         self.usageCredits = usageCredits
         self.spendControl = spendControl
+        self.includedValueUsd = includedValueUsd.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
         self.fetchedAt = fetchedAt
     }
 
@@ -454,6 +459,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         case additionalLimits
         case usageCredits
         case spendControl
+        case includedValueUsd
         case fetchedAt
     }
 
@@ -470,6 +476,7 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
             additionalLimits: try container.decodeIfPresent([UsageLimit].self, forKey: .additionalLimits) ?? [],
             usageCredits: try container.decodeIfPresent(UsageCredits.self, forKey: .usageCredits),
             spendControl: try container.decodeIfPresent(SpendControl.self, forKey: .spendControl),
+            includedValueUsd: try container.decodeIfPresent(Double.self, forKey: .includedValueUsd),
             fetchedAt: try container.decodeIfPresent(Date.self, forKey: .fetchedAt)
                 ?? Date(timeIntervalSince1970: 0)
         )

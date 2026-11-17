@@ -47,7 +47,12 @@ final class MacGalleryTests: XCTestCase {
     }
 
     private func tour(appearance: String, prefix: String) {
-        let app = MacUITestSupport.launch(MacUITestSupport.demo, appearance: appearance)
+        // A user's own "While using AI apps" entry, as Settings → Menu Bar stores it.
+        let apps = #"{"added":[{"app":"Grok Bot","providerID":"cursor"}],"off":[],"removed":[]}"#
+        let app = MacUITestSupport.launch(
+            MacUITestSupport.demo + ["-codex-meter.mac.menu-bar-apps-v1", apps],
+            appearance: appearance
+        )
         XCTAssertTrue(MacUITestSupport.text("5-hour", in: app).waitForExistence(timeout: 12))
         MacUITestSupport.settle(1.5)
         capture("\(prefix)-01-codex", app)
@@ -98,6 +103,13 @@ final class MacGalleryTests: XCTestCase {
             if MacUITestSupport.click(app.buttons["Menu Bar"], timeout: 4) {
                 MacUITestSupport.settle(0.8)
                 capture("\(prefix)-07-settings-menu-bar", app)
+                // The AI apps list, with Grok Bot pointed at Cursor (seeded at launch).
+                let settingsScroll = app.windows.firstMatch.scrollViews.firstMatch
+                if settingsScroll.exists {
+                    settingsScroll.scroll(byDeltaX: 0, deltaY: -500)
+                    MacUITestSupport.settle(0.8)
+                    capture("\(prefix)-07a-settings-ai-apps", app)
+                }
             }
             if MacUITestSupport.click(app.buttons["Updates"], timeout: 4) {
                 MacUITestSupport.settle(0.8)

@@ -27,6 +27,12 @@ public sealed record AppSettings
     public string LiveProvider { get; init; } = LiveUsage.AutomaticProvider;
     /// <summary>Live usage: show the provider of the AI app in front (ChatGPT, Claude, Cursor, ...) while it's in front.</summary>
     public bool LiveFollowApps { get; init; } = true;
+    /// <summary>"While using AI apps": apps the user added, or built-in ones they pointed at another service. See <see cref="AppMappings"/>.</summary>
+    public List<AppMapping> LiveAppsAdded { get; init; } = [];
+    /// <summary>"While using AI apps": apps switched off, by <see cref="AppMappings.Key"/>.</summary>
+    public List<string> LiveAppsOff { get; init; } = [];
+    /// <summary>"While using AI apps": built-in apps the user removed, by <see cref="AppMappings.Key"/>.</summary>
+    public List<string> LiveAppsRemoved { get; init; } = [];
     /// <summary>Live usage: 5-hour, weekly, or whichever has less left.</summary>
     public LiveWindowChoice LiveWindow { get; init; } = LiveWindowChoice.Auto;
     public LiveIconStyle LiveIconStyle { get; init; } = LiveIconStyle.Ring;
@@ -36,6 +42,12 @@ public sealed record AppSettings
     public bool NotifyResets { get; init; } = true;
     public bool NotifyLow { get; init; } = true;
     public int LowThreshold { get; init; } = 15;
+    /// <summary>Notifications → Low allowance → Alert for: both limits, or only the 5-hour or weekly one.</summary>
+    public Models.LowUsageAutoUseMetric LowAlertMetric { get; init; } = Models.LowUsageAutoUseMetric.Both;
+    /// <summary>Notifications → New reset credits.</summary>
+    public bool NotifyNewResets { get; init; } = true;
+    /// <summary>Notifications → Expiring reset credits: a reminder a day before one expires unused.</summary>
+    public bool NotifyExpiringResets { get; init; } = true;
     public bool OnboardingDone { get; init; }
 
     /// <summary>Edit dashboard: card order per provider id (missing means default order).</summary>
@@ -67,6 +79,19 @@ public sealed record AppSettings
     public bool NotifyNewModels { get; init; } = true;
     /// <summary>Show the Priority page first in the sidebar (Android: the Priority tab).</summary>
     public bool ShowPriority { get; init; } = true;
+    /// <summary>
+    /// Service status: official status pages (OpenAI, Anthropic, Cursor, xAI) and public OpenRouter
+    /// speed figures, shown on Priority and as a card on a provider's page when something is wrong.
+    /// </summary>
+    public bool ShowServiceStatus { get; init; } = true;
+    /// <summary>Dashboard → Model slowdown warnings: public OpenRouter speed figures for your providers' newest models.</summary>
+    public bool ShowSlowdowns { get; init; } = true;
+    /// <summary>Settings → Reset credits → Claude Code saved resets: the automatic-use rules.</summary>
+    public ClaudeResetRules ClaudeResets { get; init; } = new();
+    /// <summary>Privacy &amp; data: keep an on-device, privacy-filtered diagnostic log (off by default).</summary>
+    public bool DiagnosticLogging { get; init; }
+    /// <summary>Dashboard → Fast-usage warnings: how readily "at this pace, runs out" appears.</summary>
+    public Formatting.PaceSensitivity PaceSensitivity { get; init; }
 
     public List<string> SectionOrderFor(string providerId) => SectionOrder.GetValueOrDefault(providerId) ?? [];
     public List<string> HiddenSectionsFor(string providerId) => HiddenSections.GetValueOrDefault(providerId) ?? [];
@@ -78,6 +103,22 @@ public sealed record AppSettings
     };
 
     public static readonly int[] RefreshChoices = [5, 15, 30, 60];
+    /// <summary>Low allowance → Alert when remaining reaches.</summary>
+    public static readonly int[] LowThresholdChoices = [10, 15, 25, 50];
+}
+
+/// <summary>Automatic use of Claude Code saved resets, as on Android.</summary>
+public sealed record ClaudeResetRules
+{
+    public bool AutoUseExpiring { get; init; }
+    public int LeadMinutes { get; init; } = Models.CreditExpiryAutoApply.DefaultLeadMinutes;
+    public bool AutoUseWhenLow { get; init; }
+    public Models.LowUsageAutoUseMetric Metric { get; init; } = Models.LowUsageAutoUseMetric.Both;
+    public int Threshold { get; init; } = Models.LowUsageAutoUse.DefaultThreshold;
+    /// <summary>The grant the expiry rule last tried, so it tries once.</summary>
+    public string? LastExpiryKey { get; init; }
+    /// <summary>The window the low-usage rule last fired for, so it fires once per window.</summary>
+    public string? LastLowToken { get; init; }
 }
 
 public sealed class SettingsStore(string? path)

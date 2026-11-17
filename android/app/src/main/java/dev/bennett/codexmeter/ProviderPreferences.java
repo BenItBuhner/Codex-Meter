@@ -243,6 +243,7 @@ public final class ProviderPreferences {
         }
         // Codex reaches the live monitor through UsageApi.
         if (saved) NowBarManager.onProviderUsageUpdated(context, provider, snapshot);
+        if (saved) ResetNotificationManager.onProviderUsageUpdated(context, provider, snapshot);
         if (saved) UsageRefillAlerts.onUsageSaved(context, provider, snapshot);
         if (saved) ProviderAlerts.onUsageSaved(context, provider, previous, snapshot);
         if (saved) PhoneWearSync.pushProviders(context);
@@ -278,6 +279,22 @@ public final class ProviderPreferences {
     }
 
     /** Saved usage-limit resets (Claude Code); null when none were reported. */
+    /**
+     * A provider's banked resets as one shape: Codex reset credits or Claude Code saved resets.
+     * Null for providers without resets, or before the first check.
+     */
+    public static ResetCreditsSnapshot loadResetCredits(Context context, UsageProvider provider,
+            long nowMillis) {
+        if (provider == UsageProvider.CODEX) {
+            return AppPreferences.loadResetCredits(context);
+        }
+        if (provider == UsageProvider.CLAUDE_CODE) {
+            ClaudeSavedResets saved = loadSavedResets(context, provider);
+            return saved == null ? null : saved.toResetCreditsSnapshot(nowMillis);
+        }
+        return null;
+    }
+
     public static ClaudeSavedResets loadSavedResets(Context context, UsageProvider provider) {
         String json = prefs(context).getString(provider.id + SUFFIX_SAVED_RESETS, null);
         if (json == null || json.isEmpty()) return null;

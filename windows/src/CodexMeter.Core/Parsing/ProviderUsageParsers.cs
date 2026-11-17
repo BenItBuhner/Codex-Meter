@@ -9,9 +9,10 @@ namespace CodexMeter.Core.Parsing;
 /// <summary>
 /// Turns each added provider's usage response into a <see cref="UsageSnapshot"/>. A line-for-line
 /// port of Android's and iOS's <c>ProviderUsageParsers</c>, so every app reads the same windows
-/// from the same body. None of these routes is documented publicly; the shapes follow the
-/// providers' own CLIs and editors, so every reader is defensive: a missing field leaves a
-/// window out rather than failing the whole refresh.
+/// from the same body. Synthetic and v0 document their routes; Chutes publishes its API source;
+/// the rest follow the providers' own CLIs and editors and open-source trackers (CodexBar,
+/// OpenClaw). Every reader is defensive: a missing field leaves a window out rather than failing
+/// the whole refresh.
 ///
 /// Windows land in the snapshot by length: up to a day is the short window (<c>FiveHour</c>,
 /// labelled on the dashboard by its real length), about a week is <c>Weekly</c>, about a month
@@ -741,7 +742,7 @@ public static class ProviderUsageParsers
 
     // ------------------------------------------------------------------ Kiro
 
-    /// <summary>CodeWhisperer <c>GetUsageLimits</c>: monthly agentic requests or credits.</summary>
+    /// <summary>CodeWhisperer <c>GetUsageLimits</c>: monthly credits, plus any other metered resource.</summary>
     public static UsageSnapshot Kiro(string body, DateTimeOffset now)
     {
         var root = ProviderJson.Object(body);
@@ -751,9 +752,18 @@ public static class ProviderUsageParsers
         };
         var list = ProviderJson.Arr(root, "usageBreakdownList") ?? ProviderJson.Arr(root, "limits");
         var fallbackReset = EpochSeconds(First(root, "nextDateReset", "resetDate"));
-        for (var index = 0; index < (list?.Count ?? 0); index++)
+        // Kiro's credits (resourceType CREDIT) are the plan's main meter; list them first.
+        var entries = (list ?? []).OfType<JsonObject>().ToList();
+        var credit = entries.FindIndex(e => Str(e, "resourceType").Equals("CREDIT", StringComparison.OrdinalIgnoreCase));
+        if (credit > 0)
         {
-            if (list![index] is not JsonObject entry) continue;
+            var first = entries[credit];
+            entries.RemoveAt(credit);
+            entries.Insert(0, first);
+        }
+        for (var index = 0; index < entries.Count; index++)
+        {
+            var entry = entries[index];
             var limit = Number(entry, "usageLimitWithPrecision", "usageLimit", "limit");
             var used = Number(entry, "currentUsageWithPrecision", "currentUsage", "used");
             var reset = EpochSeconds(First(entry, "nextDateReset", "resetDate"));
@@ -818,15 +828,25 @@ public static class ProviderUsageParsers
 
     // ------------------------------------------------------------------ Amp
 
-    private static readonly Regex AmpFree = new(@"\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*/\s*\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*remaining",
+    private const string AmountPattern = @"([0-9][0-9,]*(?:\.[0-9]+)?)";
+    private static readonly Regex AmpFree = new(@"Amp Free:\s*\$\s*" + AmountPattern + @"\s*/\s*\$\s*" + AmountPattern + @"\s*remaining",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex AmpCredits = new(@"\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:in\s+)?(?:individual\s+)?credits",
+    private static readonly Regex AmpFreePercent = new(@"Amp Free:\s*" + AmountPattern + @"\s*%\s*remaining",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex AmpTier = new(@"Amp\s+(.+?)\s+(?:Tier|Subscription):\s*agent usage\s*\$\s*" + AmountPattern
+        + @"\s*of\s*\$\s*" + AmountPattern + @"\s*remaining", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex AmpOrb = new(@"orb usage\s*" + AmountPattern + @"\s*h\s*of\s*" + AmountPattern + @"\s*h",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex AmpPeriod = new(@"period\s+(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex AmpCredits = new(@"(?:Individual credits:\s*\$\s*" + AmountPattern + @"\s*remaining|\$\s*" + AmountPattern
+        + @"\s*(?:in\s+)?(?:individual\s+)?credits)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
-    /// <c>ampcode.com/api/internal?userDisplayBalanceInfo</c>: Amp returns the sentence the CLI
-    /// prints, e.g. "Amp Free: $7.12/$10 remaining (replenishes +$0.42/hour) · $5.00 credits".
-    /// The free tier refills continuously, so it is shown as a daily window.
+    /// <c>ampcode.com/api/internal?userDisplayBalanceInfo</c>: Amp returns the text the CLI's
+    /// <c>amp usage</c> prints. Amp Free is a daily allowance that resets at 8 PM New York time
+    /// (older replies give dollars, newer ones a percentage); paid tiers report agent dollars and
+    /// orb hours for the billing period; individual credits are a dollar balance.
     /// </summary>
     public static UsageSnapshot Amp(string body, DateTimeOffset now)
     {
@@ -838,10 +858,62 @@ public static class ProviderUsageParsers
         if (AmpFree.Match(text) is { Success: true } free)
         {
             output.Plan = "Free";
-            output.Add("Free usage", MakeWindow(PercentUsed(Amount(free.Groups[2].Value), double.NaN, Amount(free.Groups[1].Value)), Day, 0, now));
+            output.Add("Free usage", MakeWindow(PercentUsed(Amount(free.Groups[2].Value), double.NaN, Amount(free.Groups[1].Value)),
+                Day, AmpFreeReset(now), now));
         }
-        if (AmpCredits.Match(text) is { Success: true } credits) output.Credits = Balance(Amount(credits.Groups[1].Value));
+        else if (AmpFreePercent.Match(text) is { Success: true } percent)
+        {
+            output.Plan = "Free";
+            output.Add("Free usage", MakeWindow(100 - Amount(percent.Groups[1].Value), Day, AmpFreeReset(now), now));
+        }
+        if (AmpTier.Match(text) is { Success: true } tier)
+        {
+            output.Plan = TitleCase(tier.Groups[1].Value);
+            var seconds = Month;
+            long reset = 0;
+            if (AmpPeriod.Match(text) is { Success: true } period)
+            {
+                seconds = Span(JsonValue.Create(period.Groups[1].Value), JsonValue.Create(period.Groups[2].Value), Month);
+                reset = EpochSeconds(period.Groups[2].Value);
+            }
+            var agent = MakeWindow(PercentUsed(Amount(tier.Groups[3].Value), double.NaN, Amount(tier.Groups[2].Value)), seconds, reset, now);
+            if (seconds >= 27 * Day && seconds <= 32 * Day) output.Monthly = agent;
+            else output.Extra("Agent usage", agent);
+            if (AmpOrb.Match(text) is { Success: true } orb)
+            {
+                output.Extra("Orb hours", MakeWindow(PercentUsed(Amount(orb.Groups[2].Value), double.NaN, Amount(orb.Groups[1].Value)),
+                    seconds, reset, now));
+            }
+        }
+        if (AmpCredits.Match(text) is { Success: true } credits)
+        {
+            var group = credits.Groups[1].Success ? credits.Groups[1] : credits.Groups[2];
+            output.Credits = Balance(Amount(group.Value));
+        }
         return output.Build();
+    }
+
+    /// <summary>Amp Free refills at 8 PM in New York.</summary>
+    internal static long AmpFreeReset(DateTimeOffset now)
+    {
+        TimeZoneInfo zone;
+        try
+        {
+            zone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        }
+        catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return 0;
+        }
+        var local = TimeZoneInfo.ConvertTime(now, zone);
+        var evening = new DateTime(local.Year, local.Month, local.Day, 20, 0, 0, DateTimeKind.Unspecified);
+        var reset = new DateTimeOffset(evening, zone.GetUtcOffset(evening));
+        if (reset <= now)
+        {
+            var next = evening.AddDays(1);
+            reset = new DateTimeOffset(next, zone.GetUtcOffset(next));
+        }
+        return reset.ToUnixTimeSeconds();
     }
 
     private static double Amount(string text) =>
@@ -880,75 +952,220 @@ public static class ProviderUsageParsers
         return output.Build();
     }
 
-    // ------------------------------------------------------------------ Key-only heuristics
+    // ------------------------------------------------------------------ Synthetic
 
     /// <summary>
-    /// Synthetic, Chutes, v0 and Warp don't publish one stable shape, so this walks the response
-    /// for anything that looks like a quota: an object with a limit and a used or remaining count,
-    /// or a percent, plus a reset time. Window length comes from its name ("5h", "weekly",
-    /// "daily", "monthly") or, failing that, from <paramref name="defaultSeconds"/>.
+    /// <c>api.synthetic.new/v2/quotas</c> (documented at dev.synthetic.new/docs/synthetic/quotas).
+    /// Current plans meter weekly credits in <c>planWeeklyLimit</c>, whose <c>percentRemaining</c>
+    /// is in percentage points and regenerates continuously, so <c>nextRegenAt</c> is when the
+    /// next slice comes back. Older plans report <c>rollingFiveHourLimit</c> and
+    /// <c>weeklyTokenLimit</c> as fractions, and the retired <c>subscription</c> request counter is
+    /// read only when nothing else is there. The search tool has its own hourly allowance.
     /// </summary>
-    public static UsageSnapshot KeyQuota(string body, long defaultSeconds, DateTimeOffset now)
+    public static UsageSnapshot Synthetic(string body, DateTimeOffset now)
     {
         var root = ProviderJson.Object(body);
-        var output = new Builder(now) { Plan = TitleCase(Str(root, "plan", "planName", "tier", "subscription")) };
-        WalkQuotas(root, "", defaultSeconds, output, 0);
+        var data = ProviderJson.Obj(root, "data");
+        var source = data is not null && !ProviderJson.Has(root, "planWeeklyLimit") && !ProviderJson.Has(root, "rollingFiveHourLimit")
+                     && !ProviderJson.Has(root, "weeklyTokenLimit") ? data : root;
+        var output = new Builder(now) { Plan = TitleCase(Str(source, "plan", "planName", "plan_name", "tier")) };
+        if (output.Plan.Length == 0) output.Plan = TitleCase(Str(root, "plan", "planName", "tier"));
+        if (ProviderJson.Obj(source, "planWeeklyLimit") is { } planWeekly)
+        {
+            output.Weekly = MakeWindow(QuotaUsed(planWeekly, true), Week, QuotaReset(planWeekly, now), now);
+        }
+        else
+        {
+            if (ProviderJson.Obj(source, "rollingFiveHourLimit") is { } rolling)
+                output.ShortWindow = MakeWindow(QuotaUsed(rolling, false), 5 * Hour, QuotaReset(rolling, now), now);
+            if (ProviderJson.Obj(source, "weeklyTokenLimit") is { } weekly)
+                output.Weekly = MakeWindow(QuotaUsed(weekly, false), Week, QuotaReset(weekly, now), now);
+        }
+        if (Path(source, "search", "hourly") is { } search)
+            output.Extra("Search (hourly)", MakeWindow(QuotaUsed(search, false), Hour, QuotaReset(search, now), now));
+        if (output.ShortWindow is null && output.Weekly is null && ProviderJson.Obj(source, "subscription") is { } subscription)
+            output.ShortWindow = MakeWindow(QuotaUsed(subscription, false), 5 * Hour, QuotaReset(subscription, now), now);
         return output.Build();
     }
 
-    private static void WalkQuotas(JsonNode? node, string name, long defaultSeconds, Builder output, int depth)
+    private static readonly string[] QuotaLimitKeys = ["limit", "max", "total", "quota", "cap", "requestLimit", "messageLimit", "maxRequests"];
+    private static readonly string[] QuotaUsedKeys = ["used", "usage", "requests", "requestCount", "consumed", "spent", "messagesUsed"];
+    private static readonly string[] QuotaLeftKeys = ["remaining", "left", "available"];
+    private static readonly string[] QuotaLeftPercentKeys = ["percentRemaining", "remainingPercent", "remaining_percent", "percent_remaining"];
+    private static readonly string[] QuotaResetKeys = ["nextRegenAt", "next_regen_at", "renewsAt", "renews_at", "periodEnd", "period_end"];
+
+    internal static long QuotaReset(JsonObject quota, DateTimeOffset now)
     {
-        if (depth > 6) return;
-        switch (node)
+        var at = EpochSeconds(First(quota, QuotaResetKeys));
+        return at > 0 ? at : ResetFrom(quota, now);
+    }
+
+    /// <summary>
+    /// Percent used of one quota object. Percent fields win over counts; <paramref name="points"/>
+    /// says the percentages are already 0–100 (otherwise values up to 1 are read as fractions).
+    /// </summary>
+    internal static double QuotaUsed(JsonObject quota, bool points)
+    {
+        var used = Number(quota, "percentUsed", "usedPercent", "usagePercent", "used_percent");
+        var left = Number(quota, QuotaLeftPercentKeys);
+        if (double.IsNaN(used) && !double.IsNaN(left)) used = 100 - (!points && left <= 1 ? left * 100 : left);
+        else if (!double.IsNaN(used) && !points && used <= 1) used *= 100;
+        if (!double.IsNaN(used)) return used;
+        var limit = Number(quota, QuotaLimitKeys);
+        var count = Number(quota, QuotaUsedKeys);
+        var remaining = Number(quota, QuotaLeftKeys);
+        if (double.IsNaN(limit) && !double.IsNaN(count) && !double.IsNaN(remaining)) limit = count + remaining;
+        return PercentUsed(limit, count, remaining);
+    }
+
+    // ------------------------------------------------------------------ Chutes
+
+    /// <summary>
+    /// <c>api.chutes.ai/users/me/subscription_usage</c>, from Chutes' own API source
+    /// (<c>api/user/router.py</c>): a rolling 4-hour cap and a monthly cap, both in dollars of
+    /// pay-as-you-go value, or <c>{"subscription": false}</c> without a plan. Custom plans only
+    /// enforce the 4-hour cap and report <c>monthly.uncapped</c>.
+    /// </summary>
+    public static UsageSnapshot Chutes(string body, DateTimeOffset now)
+    {
+        var root = ProviderJson.Object(body);
+        var output = new Builder(now);
+        if (!ProviderJson.Bool(root, "subscription", false)) return output.Build();
+        var price = Number(root, "monthly_price");
+        if (ProviderJson.Bool(root, "custom", false)) output.Plan = "Custom";
+        else if (!double.IsNaN(price) && price > 0) output.Plan = Money(price).Replace(".00", "") + "/month";
+        if (ProviderJson.Obj(root, "four_hour") is { } fourHour)
         {
-            case JsonArray array:
-                foreach (var value in array)
-                {
-                    var itemName = value is JsonObject o ? Str(o, "name", "type", "window", "period", "label", "id") : "";
-                    WalkQuotas(value, itemName.Length == 0 ? name : itemName, defaultSeconds, output, depth + 1);
-                }
-                break;
-            case JsonObject obj:
-                var percent = Number(obj, PercentKeys);
-                if (!double.IsNaN(percent) && percent <= 1 && ProviderJson.Has(obj, "utilization")) percent *= 100;
-                if (double.IsNaN(percent))
-                {
-                    percent = PercentUsed(
-                        Number(obj, "limit", "max", "total", "quota", "allowed", "requestLimit"),
-                        Number(obj, "used", "usage", "count", "consumed", "requestsUsedSinceLastRefresh", "requestsUsed"),
-                        Number(obj, "remaining", "left", "available"));
-                }
-                if (!double.IsNaN(percent))
-                {
-                    var seconds = SecondsFromName(name);
-                    if (seconds <= 0) seconds = SecondsFromObject(obj);
-                    if (seconds <= 0) seconds = defaultSeconds;
-                    var label = name.Length == 0 ? DurationName(seconds) + " limit" : TitleCase(name);
-                    output.Add(label, MakeWindow(percent, seconds, ResetFrom(obj, output.Now), output.Now));
-                    return;
-                }
-                foreach (var pair in obj.ToList()) WalkQuotas(pair.Value, pair.Key, defaultSeconds, output, depth + 1);
-                break;
+            output.ShortWindow = MakeWindow(PercentUsed(Number(fourHour, "cap"), Number(fourHour, "usage"), Number(fourHour, "remaining")),
+                4 * Hour, EpochSeconds(ProviderJson.Get(fourHour, "reset_at")), now);
         }
+        if (ProviderJson.Obj(root, "monthly") is { } monthly && !ProviderJson.Bool(monthly, "uncapped", false))
+        {
+            output.Monthly = MakeWindow(PercentUsed(Number(monthly, "cap"), Number(monthly, "usage"), Number(monthly, "remaining")),
+                Month, EpochSeconds(ProviderJson.Get(monthly, "reset_at")), now);
+        }
+        return output.Build();
     }
 
-    internal static long SecondsFromName(string? name)
+    // ------------------------------------------------------------------ v0
+
+    /// <summary>
+    /// The v0 Platform API (<c>v0.app/docs/api/v1</c>): <c>/v1/user/billing</c> gives the credit
+    /// balance for the billing cycle (token billing) or a legacy allowance, <c>/v1/user/plan</c>
+    /// names the plan, and <c>/v1/rate-limits</c> gives the request limit plus, for free accounts,
+    /// the daily message limit.
+    /// </summary>
+    public static UsageSnapshot V0(string billingBody, string planBody, string rateBody, DateTimeOffset now)
     {
-        var value = (name ?? "").ToLowerInvariant();
-        if (value.Length == 0) return 0;
-        if (value.Contains("five") || value.Contains("5h") || value.Contains("5_hour") || value.Contains("rolling")) return 5 * Hour;
-        if (value.Contains("hour")) return Hour;
-        if (value.Contains("week") || value.Contains("7d")) return Week;
-        if (value.Contains("day") || value.Contains("daily") || value.Contains("24h")) return Day;
-        if (value.Contains("month") || value.Contains("30d")) return Month;
-        return 0;
+        var billing = ProviderJson.Object(billingBody);
+        var plan = ProviderJson.Object(planBody);
+        var rate = ProviderJson.Object(rateBody);
+        var output = new Builder(now) { Plan = TitleCase(Str(plan, "plan")) };
+        UsageWindow? CycleWindow(JsonObject? balance, JsonObject? cycle) =>
+            MakeWindow(PercentUsed(Number(balance, "total"), double.NaN, Number(balance, "remaining")),
+                cycle is null ? Month : Span(ProviderJson.Get(cycle, "start"), ProviderJson.Get(cycle, "end"), Month),
+                EpochSeconds(ProviderJson.Get(cycle, "end")), now);
+        UsageWindow? credits = null;
+        if (ProviderJson.Obj(billing, "data") is { } data)
+        {
+            if (ProviderJson.Obj(data, "balance") is { } balance)
+            {
+                credits = CycleWindow(balance, ProviderJson.Obj(data, "billingCycle"));
+                var onDemand = Number(ProviderJson.Obj(data, "onDemand"), "balance");
+                if (!double.IsNaN(onDemand) && onDemand > 0) output.Credits = Balance(onDemand);
+            }
+            else
+            {
+                credits = MakeWindow(PercentUsed(Number(data, "limit"), double.NaN, Number(data, "remaining")),
+                    Month, EpochSeconds(ProviderJson.Get(data, "reset")), now);
+            }
+        }
+        credits ??= CycleWindow(ProviderJson.Obj(plan, "balance"), ProviderJson.Obj(plan, "billingCycle"));
+        if (credits is not null)
+        {
+            if (credits.WindowSeconds >= 27 * Day && credits.WindowSeconds <= 32 * Day) output.Monthly = credits;
+            else output.Extra("Credits", credits);
+        }
+        if (ProviderJson.Obj(rate, "dailyLimit") is { } daily && !ProviderJson.Bool(daily, "isWithinGracePeriod", false))
+        {
+            output.ShortWindow = MakeWindow(PercentUsed(Number(daily, "limit"), double.NaN, Number(daily, "remaining")),
+                Day, EpochSeconds(ProviderJson.Get(daily, "reset")), now);
+        }
+        output.Extra("API requests", MakeWindow(PercentUsed(Number(rate, "limit"), double.NaN, Number(rate, "remaining")),
+            Day, EpochSeconds(ProviderJson.Get(rate, "reset")), now));
+        return output.Build();
     }
 
-    private static long SecondsFromObject(JsonObject o)
+    // ------------------------------------------------------------------ Warp
+
+    /// <summary>
+    /// Warp's <c>GetRequestLimitInfo</c> GraphQL query: monthly credits (Warp still names them
+    /// requests) and add-on credit grants for the user and their workspaces.
+    /// </summary>
+    public static UsageSnapshot Warp(string body, DateTimeOffset now)
     {
-        var seconds = Number(o, "windowSeconds", "window_seconds", "periodSeconds", "durationSeconds");
-        if (!double.IsNaN(seconds) && seconds > 0) return (long)seconds;
-        return SecondsFromName(Str(o, "window", "period", "interval", "refreshDuration"));
+        var output = new Builder(now);
+        if (Path(ProviderJson.Object(body), "data", "user", "user") is not { } user) return output.Build();
+        if (ProviderJson.Obj(user, "requestLimitInfo") is { } info)
+        {
+            if (ProviderJson.Bool(info, "isUnlimited", false))
+            {
+                output.Plan = "Unlimited";
+                output.Credits = new UsageCredits(true, true, null);
+            }
+            else
+            {
+                output.Monthly = MakeWindow(PercentUsed(Number(info, "requestLimit"), Number(info, "requestsUsedSinceLastRefresh"), double.NaN),
+                    Month, EpochSeconds(ProviderJson.Get(info, "nextRefreshTime")), now);
+            }
+        }
+        var grants = new List<JsonObject>();
+        grants.AddRange((ProviderJson.Arr(user, "bonusGrants") ?? []).OfType<JsonObject>());
+        foreach (var workspace in (ProviderJson.Arr(user, "workspaces") ?? []).OfType<JsonObject>())
+            grants.AddRange((ProviderJson.Arr(ProviderJson.Obj(workspace, "bonusGrantsInfo"), "grants") ?? []).OfType<JsonObject>());
+        double remaining = 0;
+        var any = false;
+        foreach (var grant in grants)
+        {
+            var left = Number(grant, "requestCreditsRemaining");
+            if (double.IsNaN(left) || left <= 0) continue;
+            remaining += left;
+            any = true;
+        }
+        if (any && output.Credits is null) output.Credits = new UsageCredits(true, false, WholeCount(remaining) + " add-on credits");
+        return output.Build();
+    }
+
+    /// <summary>The first GraphQL error message in a Warp reply, or "".</summary>
+    public static string WarpError(string body) =>
+        ProviderJson.Arr(ProviderJson.Object(body), "errors") is { Count: > 0 } errors && errors[0] is JsonObject first
+            ? Str(first, "message") : "";
+
+    // ------------------------------------------------------------------ Devin
+
+    /// <summary>
+    /// <c>app.devin.ai/api/&lt;org&gt;/billing/quota/usage</c>: daily and weekly quota percentages
+    /// used, their reset times, and the extra-usage balance.
+    /// </summary>
+    public static UsageSnapshot Devin(string body, DateTimeOffset now)
+    {
+        var root = ProviderJson.Object(body);
+        var output = new Builder(now) { Plan = TitleCase(Str(root, "plan_name", "planName", "plan", "tier")) };
+        if (!ProviderJson.Bool(root, "hide_daily_quota", false))
+        {
+            output.Add("Daily quota", MakeWindow(Number(root, "daily_percentage", "dailyPercentage"), Day,
+                EpochSeconds(First(root, "daily_reset_at", "dailyResetAt")), now));
+        }
+        output.Weekly = MakeWindow(Number(root, "weekly_percentage", "weeklyPercentage"), Week,
+            EpochSeconds(First(root, "weekly_reset_at", "weeklyResetAt")), now);
+        var overage = Number(root, "overage_balance");
+        if (double.IsNaN(overage))
+        {
+            var cents = Number(root, "overage_balance_cents");
+            if (!double.IsNaN(cents)) overage = cents / 100;
+        }
+        if (!double.IsNaN(overage) && overage > 0) output.Credits = Balance(overage);
+        return output.Build();
     }
 
     /// <summary>"5-hour", "Weekly", "Daily", "Monthly" or "N-day" for a window length.</summary>

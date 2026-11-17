@@ -28,22 +28,27 @@ public sealed class PriorityPage : PageBase
     {
         State.ProviderChanged += OnChanged;
         State.ProvidersChanged += Render;
+        State.ServiceChanged += OnServiceChanged;
         ticker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         ticker.Tick += (_, _) => Render();
         ticker.Start();
         Render();
         _ = State.RefreshAllAsync(force: false);
+        _ = State.RefreshServiceAsync(foreground: true);
     }
 
     protected override void Detach()
     {
         State.ProviderChanged -= OnChanged;
         State.ProvidersChanged -= Render;
+        State.ServiceChanged -= OnServiceChanged;
         ticker?.Stop();
         ticker = null;
     }
 
     private void OnChanged(Core.Providers.UsageProvider _) => Render();
+
+    private void OnServiceChanged() => DispatcherQueue.TryEnqueue(Render);
 
     private void Render()
     {
@@ -52,6 +57,9 @@ public sealed class PriorityPage : PageBase
         var headline = Cards.Text(report.Headline, "SecondaryTextStyle");
         AutomationProperties.SetAutomationId(headline, "PriorityHeadline");
         content.Children.Add(headline);
+        Section("Service status", "\uE7BA", report.Service, "PriorityService");
+        if (Section("Running slow", "\uE916", report.Slow, "PrioritySlow"))
+            content.Children.Add(Cards.Text(PriorityReport.SlowNote, "CaptionSecondaryTextStyle"));
         Section("Limits to watch", "", report.Watch, "PriorityWatch");
         Section("Used up", "", report.UsedUp, "PriorityUsedUp");
         Section("Coming up", "", report.ComingUp, "PriorityComingUp");
@@ -75,6 +83,8 @@ public sealed class PriorityPage : PageBase
             var texts = new StackPanel { Spacing = 1 };
             texts.Children.Add(Cards.Text(item.Title, "BodyStrongTextBlockStyle"));
             texts.Children.Add(Cards.Text(item.Detail, "SecondaryTextStyle"));
+            if (item.Link is { } link && Uri.TryCreate(link, UriKind.Absolute, out var uri))
+                texts.Children.Add(new HyperlinkButton { Content = "Open status page", NavigateUri = uri, Padding = new Thickness(0, 2, 0, 0) });
             if (item.RemainingPercent is { } left && left > 0) texts.Children.Add(Cards.Bar(left, Cards.Level(left)));
             Grid.SetColumn(texts, 1);
             row.Children.Add(texts);

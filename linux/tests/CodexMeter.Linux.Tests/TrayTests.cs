@@ -58,6 +58,35 @@ public class TrayTests
     }
 
     [Fact]
+    public async Task TrayFollowsTheAppInFrontByTheUsersAppList()
+    {
+        var state = await DemoStateAsync();
+        state.Settings.Update(s => s with { EnabledProviders = ["codex", "claude_code", "cursor"] });
+        // What X11 reports for the SpaceXSI Grok app: process "Grok Bot", window class "Grok Bot".
+        var grokBot = new FrontWindow(4242, "Grok Bot", "grok-bot", "Grok Bot", "grok-bot");
+        var zed = new FrontWindow(4343, "zed-editor", "zed-editor", "dev.zed.Zed", "zed");
+        UsageProvider? Shows(FrontWindow front) => TrayIcon.Current(state, TrayIcon.FrontApp(state, front))?.Provider;
+
+        // Grok isn't connected, so the built-in Grok Bot → Grok leaves the icon on Codex.
+        Assert.Equal(UsageProvider.Codex, Shows(grokBot));
+        Assert.Equal(UsageProvider.Codex, Shows(zed));
+
+        state.Settings.Update(s => AppMappings.Set(s, "Grok Bot", UsageProvider.Cursor));
+        state.Settings.Update(s => AppMappings.Set(s, "zed", UsageProvider.ClaudeCode));
+        Assert.Equal(UsageProvider.Cursor, Shows(grokBot));
+        Assert.StartsWith("Cursor · ", TrayIcon.SummaryLines(state, TrayIcon.FrontApp(state, grokBot))[0]);
+        // Matched by the window instance when the process name doesn't match.
+        Assert.Equal(UsageProvider.ClaudeCode, Shows(zed));
+
+        state.Settings.Update(s => AppMappings.SetOn(s, "Grok Bot", false));
+        Assert.Equal(UsageProvider.Codex, Shows(grokBot));
+        Assert.Equal(UsageProvider.ClaudeCode, Shows(zed));
+
+        state.Settings.Update(s => s with { LiveFollowApps = false });
+        Assert.Equal(UsageProvider.Codex, Shows(zed));
+    }
+
+    [Fact]
     public void BadgeIsStraightAlphaArgbInNetworkOrder()
     {
         var bytes = TrayIcon.ToArgb(TrayIcon.Draw(Reading(38), LiveIconStyle.Number, UsageDisplayMode.Remaining, 32, Now), 32);

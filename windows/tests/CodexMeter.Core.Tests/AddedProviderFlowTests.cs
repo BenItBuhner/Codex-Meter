@@ -121,7 +121,7 @@ public class AddedProviderFlowTests
     {
         var hub = ProviderHub.Live(new FakeHttp().Context());
         Assert.Equal(UsageProvider.All.Where(p => p.IsAvailable), hub.Providers);
-        Assert.False(hub.Supports(UsageProvider.Antigravity));
+        Assert.Equal(AntigravityOAuth.Configured, hub.Supports(UsageProvider.Antigravity));
         Assert.IsType<AddedProviderService>(hub[UsageProvider.Copilot]);
     }
 }

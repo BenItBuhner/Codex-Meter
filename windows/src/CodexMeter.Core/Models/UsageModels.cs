@@ -314,7 +314,10 @@ public sealed record ResetConsumeResult(ResetConsumeOutcome Outcome, int Windows
 
     public bool Applied => Outcome == ResetConsumeOutcome.Reset;
 
-    public string UserMessage => Outcome switch
+    /// <summary>The provider's own wording (Claude saved resets), used instead of the Codex copy.</summary>
+    public string? Message { get; init; }
+
+    public string UserMessage => Message ?? Outcome switch
     {
         ResetConsumeOutcome.Reset => (WindowsReset > 0
             ? $"Reset applied to {WindowsReset} usage window{(WindowsReset == 1 ? "." : "s.")}"

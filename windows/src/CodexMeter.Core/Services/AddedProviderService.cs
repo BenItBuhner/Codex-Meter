@@ -30,6 +30,7 @@ public sealed class AddedProviderService(UsageProvider provider, ProviderClient 
         {
             using var server = LoopbackCallbackServer.Start([]);
             var redirect = $"http://localhost:{server.Port}{CallbackPath}";
+            attempt.Extra["redirect_uri"] = redirect;
             var url = Client.LoopbackAuthUrl(redirect, attempt)
                 ?? throw new ProviderException($"No browser sign-in for {Provider.DisplayName}.");
             return await RunLoopbackAsync(server, CallbackPath, attempt.State, new Uri(url), prompt.OpenBrowser,

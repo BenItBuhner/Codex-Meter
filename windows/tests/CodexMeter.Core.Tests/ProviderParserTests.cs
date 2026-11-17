@@ -33,9 +33,13 @@ public class ProviderParserTests
             if (provider.SignIn == SignInStyle.ApiKey) Assert.True(provider.AcceptsApiKey, provider.Id);
         }
         Assert.Equal(["codex", "claude_code", "cursor", "copilot", "kimi", "factory", "grok"], all.Take(7).Select(p => p.Id));
-        foreach (var provider in new[] { UsageProvider.Grok, UsageProvider.Devin, UsageProvider.MiniMax, UsageProvider.Cline, UsageProvider.OpencodeGo, UsageProvider.Kiro })
-            Assert.True(provider.Inferred, provider.Id);
-        Assert.False(UsageProvider.Copilot.Inferred);
+        // Every route is confirmed, so no provider carries the experimental note.
+        foreach (var provider in all) Assert.False(provider.Inferred, provider.Id);
+        Assert.Equal("Devin session", UsageProvider.Devin.SignInSummary);
+        Assert.Equal("Windsurf token", UsageProvider.Windsurf.SignInSummary);
+        Assert.Equal("Included usage · Weekly", UsageProvider.Cursor.MeterTitle("Weekly"));
+        Assert.Equal("Weekly", UsageProvider.Copilot.MeterTitle("Weekly"));
+        Assert.Equal("Included usage and extra spend", UsageProvider.Cursor.Meters);
         Assert.False(UsageProvider.Copilot.IsBuiltIn);
         Assert.True(UsageProvider.Cursor.IsBuiltIn);
         Assert.Equal("Add API key", UsageProvider.Zai.SignInLabel);
@@ -48,8 +52,13 @@ public class ProviderParserTests
         foreach (var provider in UsageProvider.All.Where(p => !p.IsBuiltIn))
         {
             var client = Core.Services.ProviderClients.For(provider);
-            if (!provider.IsAvailable) { Assert.Null(client); continue; }
             Assert.NotNull(client);
+            if (!provider.IsAvailable)
+            {
+                // Antigravity without its build-time sign-in client: the client says so instead of opening Google.
+                Assert.Throws<Core.Services.ProviderException>(() => client!.LoopbackAuthUrl("http://localhost:1/callback", new Core.Services.SignInAttempt()));
+                continue;
+            }
             Assert.Equal(provider, client!.Provider);
             switch (provider.SignIn)
             {
@@ -66,9 +75,9 @@ public class ProviderParserTests
         var picker = UsageProvider.PickerProviders([UsageProvider.Codex, UsageProvider.Cursor], "");
         Assert.DoesNotContain(UsageProvider.Codex, picker);
         Assert.Equal(UsageProvider.ClaudeCode, picker[0]);
-        // Antigravity needs a client secret that this build doesn't have.
-        Assert.DoesNotContain(UsageProvider.Antigravity, picker);
-        Assert.Equal(UsageProvider.All.Count - 3, picker.Count);
+        // Antigravity is offered only when the build has its Google sign-in client.
+        Assert.Equal(Core.Services.AntigravityOAuth.Configured, picker.Contains(UsageProvider.Antigravity));
+        Assert.Equal(UsageProvider.All.Count - (Core.Services.AntigravityOAuth.Configured ? 2 : 3), picker.Count);
         Assert.Equal([UsageProvider.Copilot], UsageProvider.PickerProviders([], "github"));
         Assert.Equal([UsageProvider.Kimi], UsageProvider.PickerProviders([], "  KIMI "));
         var cognition = UsageProvider.PickerProviders([], "cognition");
@@ -123,6 +132,9 @@ public class ProviderParserTests
         Assert.Equal("c1", DeviceAuth.ExtractPasted("""{"code":"c1","state":"s"}""", "code"));
         Assert.Equal("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", Pkce.S256("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"));
         Assert.Equal(43, DeviceAuth.RandomToken(32).Length);
+        Assert.Equal("https://opencode.ai/console/device?user_code=AB", DeviceAuth.Absolute("https://opencode.ai", "/console/device?user_code=AB"));
+        Assert.Equal("https://x.ai/a", DeviceAuth.Absolute("https://o", "https://x.ai/a"));
+        Assert.Equal("", DeviceAuth.Absolute("https://o", ""));
         var stored = done.Tokens.Stored(Now);
         Assert.Equal(Now.AddHours(1), stored.ExpiresAt);
         var forever = new DeviceTokens("key").Stored(Now);
@@ -293,6 +305,10 @@ public class ProviderParserTests
         Assert.Equal("PRO", kiro.PlanType);
         Assert.Equal(25, kiro.Monthly?.UsedPercent);
         Assert.Equal(1_791_000_000, ResetSeconds(kiro.Monthly));
+        // Credits lead even when listed second.
+        var mixed = P.Kiro("""{"nextDateReset":1791000000,"usageBreakdownList":[{"resourceType":"AGENTIC_REQUEST","currentUsageWithPrecision":5,"usageLimitWithPrecision":50},{"resourceType":"CREDIT","currentUsageWithPrecision":100.5,"usageLimitWithPrecision":201}]}""", Now);
+        Assert.Equal(50, mixed.Monthly?.UsedPercent);
+        Assert.Single(mixed.AdditionalLimits);
 
         var router = P.OpenRouter("""{"data":{"limit":20,"usage":30,"usage_monthly":5,"limit_reset":"monthly","is_free_tier":false}}""",
             """{"data":{"total_credits":50,"total_usage":12.345}}""", Now);
@@ -305,18 +321,122 @@ public class ProviderParserTests
         Assert.Equal("Free", amp.PlanType);
         Assert.Equal(25, amp.FiveHour?.UsedPercent);
         Assert.Equal("$5.00", amp.UsageCredits?.Balance);
+        // 2026-09-21T13:33:20Z is 09:33 in New York, so Amp Free refills at 20:00 EDT that day.
+        Assert.Equal(P.EpochSeconds("2026-09-22T00:00:00Z"), ResetSeconds(amp.FiveHour));
+        var percent = P.Amp("""{"ok":true,"result":{"displayText":"Signed in as user@example.com\nAmp Free: 61% remaining today (resets daily)\nIndividual credits: $12.50 remaining"}}""", Now);
+        Assert.Equal(39, percent.FiveHour?.UsedPercent);
+        Assert.Equal("$12.50", percent.UsageCredits?.Balance);
+        var tier = P.Amp("""{"ok":true,"result":{"displayText":"Amp Megawatt Tier: agent usage $18.57 of $20 remaining (93%), orb usage 732.8h of 750h a1.small orb hours remaining (98%) - period 2026-09-13 to 2026-10-13, resets upon renewal in 27 days"}}""", Now);
+        Assert.Equal("Megawatt", tier.PlanType);
+        Assert.Equal(7, tier.Monthly?.UsedPercent);
+        Assert.Equal(P.EpochSeconds("2026-10-13"), ResetSeconds(tier.Monthly));
+        Assert.Single(tier.AdditionalLimits);
+        Assert.Equal("Orb hours", tier.AdditionalLimits[0].Name);
+        Assert.Equal(2, tier.AdditionalLimits[0].Primary?.UsedPercent);
     }
 
     [Fact]
-    public void BalancesAndKeyQuota()
+    public void Balances()
     {
         Assert.Equal("$4.20", P.Kilo("""{"balance":4.2}""", Now).UsageCredits?.Balance);
         Assert.Equal(25, P.Codebuff("""{"usage":250,"quota":1000,"next_quota_reset":"2026-10-01T00:00:00Z"}""", Now).Monthly?.UsedPercent);
-        var synthetic = P.KeyQuota("""{"subscription":{"limit":135,"requests":20},"rollingFiveHourLimit":{"limit":200,"used":50,"resetAt":"2026-09-21T15:00:00Z"},"weeklyTokenLimit":{"limit":1000,"remaining":900}}""", 5 * 3600, Now);
-        Assert.Equal(25, synthetic.FiveHour?.UsedPercent);
-        Assert.Equal(10, synthetic.Weekly?.UsedPercent);
-        var warp = P.KeyQuota("""{"data":{"user":{"user":{"requestLimitInfo":{"isUnlimited":false,"nextRefreshTime":"2026-10-01T00:00:00Z","requestLimit":150,"requestsUsedSinceLastRefresh":30}}}}}""", P.Month, Now);
+    }
+
+    [Fact]
+    public void Synthetic()
+    {
+        var current = P.Synthetic("""{"subscription":{"limit":135,"requests":20},"planWeeklyLimit":{"nextRegenAt":"2026-09-21T15:00:00Z","percentRemaining":0.6,"nextRegenPercent":2},"search":{"hourly":{"limit":250,"requests":25}}}""", Now);
+        // planWeeklyLimit is in percentage points, and the retired counter is ignored.
+        Assert.Equal(99, current.Weekly?.UsedPercent);
+        Assert.Null(current.FiveHour);
+        Assert.Equal(P.EpochSeconds("2026-09-21T15:00:00Z"), ResetSeconds(current.Weekly));
+        Assert.Single(current.AdditionalLimits);
+        Assert.Equal(10, current.AdditionalLimits[0].Primary?.UsedPercent);
+        var legacy = P.Synthetic("""{"data":{"rollingFiveHourLimit":{"percentRemaining":0.75},"weeklyTokenLimit":{"percentRemaining":0.98}}}""", Now);
+        Assert.Equal(25, legacy.FiveHour?.UsedPercent);
+        Assert.Equal(5 * 3600, legacy.FiveHour?.WindowSeconds);
+        Assert.Equal(2, legacy.Weekly?.UsedPercent);
+        var counter = P.Synthetic("""{"subscription":{"limit":135,"requests":27,"renewsAt":"2026-09-21T15:00:00Z"}}""", Now);
+        Assert.Equal(20, counter.FiveHour?.UsedPercent);
+        Assert.False(P.Synthetic("{}", Now).HasDisplayableData);
+    }
+
+    [Fact]
+    public void Chutes()
+    {
+        var pro = P.Chutes("""{"subscription":true,"custom":false,"monthly_price":20,"anchor_date":"2026-09-01T00:00:00","four_hour":{"usage":2.5,"cap":8.333,"remaining":5.833,"reset_at":"2026-09-21T16:00:00+00:00"},"monthly":{"usage":25,"cap":100,"remaining":75,"reset_at":"2026-10-01T00:00:00+00:00"}}""", Now);
+        Assert.Equal("$20/month", pro.PlanType);
+        Assert.Equal(30, pro.FiveHour?.UsedPercent);
+        Assert.Equal(4 * 3600, pro.FiveHour?.WindowSeconds);
+        Assert.Equal(P.EpochSeconds("2026-09-21T16:00:00Z"), ResetSeconds(pro.FiveHour));
+        Assert.Equal(25, pro.Monthly?.UsedPercent);
+        var custom = P.Chutes("""{"subscription":true,"custom":true,"monthly_price":50,"four_hour":{"usage":1,"cap":4,"remaining":3,"reset_at":"2026-09-21T16:00:00+00:00"},"monthly":{"uncapped":true}}""", Now);
+        Assert.Equal("Custom", custom.PlanType);
+        Assert.Null(custom.Monthly);
+        Assert.Equal(25, custom.FiveHour?.UsedPercent);
+        Assert.False(P.Chutes("""{"subscription":false}""", Now).HasDisplayableData);
+    }
+
+    [Fact]
+    public void V0()
+    {
+        const long cycleEnd = 1_790_726_400_000; // 2026-09-30T00:00:00Z, in milliseconds
+        const long cycleStart = cycleEnd - 30L * 86_400_000;
+        const long soon = NowSeconds * 1000 + 3_600_000;
+        static string Fill(string json) => json.Replace("@S@", $"{cycleStart}").Replace("@E@", $"{cycleEnd}").Replace("@N@", $"{soon}");
+        var token = P.V0(
+            Fill("""{"billingType":"token","data":{"balance":{"total":20,"remaining":15},"billingCycle":{"start":@S@,"end":@E@},"onDemand":{"balance":4.5}}}"""),
+            """{"object":"plan","plan":"premium"}""",
+            Fill("""{"limit":1000,"remaining":900,"reset":@N@}"""), Now);
+        Assert.Equal("Premium", token.PlanType);
+        Assert.Equal(25, token.Monthly?.UsedPercent);
+        Assert.Equal(cycleEnd / 1000, ResetSeconds(token.Monthly));
+        Assert.Equal("$4.50", token.UsageCredits?.Balance);
+        Assert.Null(token.FiveHour);
+        Assert.Single(token.AdditionalLimits);
+        Assert.Equal(10, token.AdditionalLimits[0].Primary?.UsedPercent);
+        var free = P.V0(
+            Fill("""{"billingType":"legacy","data":{"limit":5,"remaining":1,"reset":@E@}}"""), "",
+            Fill("""{"limit":100,"remaining":100,"dailyLimit":{"limit":10,"remaining":4,"reset":@N@,"isWithinGracePeriod":false}}"""), Now);
+        Assert.Equal(80, free.Monthly?.UsedPercent);
+        Assert.Equal(60, free.FiveHour?.UsedPercent);
+        Assert.Equal(86_400, free.FiveHour?.WindowSeconds);
+        var planOnly = P.V0("{}",
+            Fill("""{"plan":"free","balance":{"remaining":3,"total":5},"billingCycle":{"start":@S@,"end":@E@}}"""), "", Now);
+        Assert.Equal(40, planOnly.Monthly?.UsedPercent);
+    }
+
+    [Fact]
+    public void Warp()
+    {
+        var warp = P.Warp("""{"data":{"user":{"__typename":"UserOutput","user":{"requestLimitInfo":{"isUnlimited":false,"nextRefreshTime":"2026-10-01T00:00:00Z","requestLimit":1500,"requestsUsedSinceLastRefresh":300},"bonusGrants":[{"requestCreditsGranted":100,"requestCreditsRemaining":40}],"workspaces":[{"bonusGrantsInfo":{"grants":[{"requestCreditsGranted":50,"requestCreditsRemaining":10}]}}]}}}}""", Now);
         Assert.Equal(20, warp.Monthly?.UsedPercent);
-        Assert.False(P.KeyQuota("""{"ok":true}""", 3600, Now).HasDisplayableData);
+        Assert.Equal(P.EpochSeconds("2026-10-01"), ResetSeconds(warp.Monthly));
+        Assert.Equal("50 add-on credits", warp.UsageCredits?.Balance);
+        var unlimited = P.Warp("""{"data":{"user":{"user":{"requestLimitInfo":{"isUnlimited":true}}}}}""", Now);
+        Assert.Equal("Unlimited", unlimited.PlanType);
+        Assert.Null(unlimited.Monthly);
+        Assert.True(unlimited.UsageCredits?.Unlimited);
+        Assert.Equal("Not authorized", P.WarpError("""{"errors":[{"message":"Not authorized"}],"data":null}"""));
+        Assert.False(P.Warp("""{"data":null}""", Now).HasDisplayableData);
+    }
+
+    [Fact]
+    public void Devin()
+    {
+        var devin = P.Devin($$"""{"plan_name":"core","daily_percentage":30,"daily_reset_at":"2026-09-22T00:00:00Z","weekly_percentage":45,"weekly_reset_at":{{NowSeconds + 3 * 86_400}},"overage_balance_cents":1250}""", Now);
+        Assert.Equal("Core", devin.PlanType);
+        Assert.Equal(30, devin.FiveHour?.UsedPercent);
+        Assert.Equal(86_400, devin.FiveHour?.WindowSeconds);
+        Assert.Equal(45, devin.Weekly?.UsedPercent);
+        Assert.Equal("$12.50", devin.UsageCredits?.Balance);
+        Assert.Null(P.Devin("""{"hide_daily_quota":true,"daily_percentage":10,"weekly_percentage":20}""", Now).FiveHour);
+        const string curl = "curl 'https://app.devin.ai/api/org-a1b2c3d4e5/billing/quota/usage' \\\n"
+            + "  -H 'accept: application/json' \\\n"
+            + "  -H 'authorization: Bearer auth1_abcdefghijklmnopqrstuvwxyz012345' \\\n"
+            + "  -H 'x-cog-org-id: org-a1b2c3d4e5'";
+        Assert.Equal(("auth1_abcdefghijklmnopqrstuvwxyz012345", "org-a1b2c3d4e5"), DeviceAuth.ParseDevinRequest(curl));
+        Assert.Equal(("auth1_tokenvalue1234", "org_ZYXWVU98"), DeviceAuth.ParseDevinRequest("auth1_tokenvalue1234 org_ZYXWVU98"));
+        Assert.Equal("", DeviceAuth.ParseDevinRequest("hello").Token);
     }
 }

@@ -136,6 +136,7 @@ public sealed class DashboardPage : IPage
         body.Append(hero);
 
         if (StatusNotice(entry) is { } notice) body.Append(notice);
+        if (ServiceNotice(entry, now) is { } serviceNotice) body.Append(serviceNotice);
 
         if (!entry.SignedIn)
         {
@@ -144,7 +145,7 @@ public sealed class DashboardPage : IPage
         }
         if (usage is null) return;
 
-        var options = new Cards.MeterOptions(settings.DisplayMode, settings.ResetDisplay, settings.Use24HourClock, settings.ShowPace);
+        var options = new Cards.MeterOptions(settings.DisplayMode, settings.ResetDisplay, settings.Use24HourClock, settings.ShowPace, settings.PaceSensitivity);
         // Cards in the order chosen in Edit dashboard. Meter-sized cards flow two to a row; the
         // history chart takes the full width.
         Gtk.FlowBox? flow = null;
@@ -193,10 +194,10 @@ public sealed class DashboardPage : IPage
                     AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour");
                     break;
                 case DashboardSections.Weekly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
+                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly");
                     break;
                 case DashboardSections.Monthly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · monthly" : "Monthly", usage.Monthly, "Meter_monthly");
+                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly");
                     break;
                 case DashboardSections.SpendControl when usage.SpendControlLimit is { } spend:
                     AddMeter("Monthly credit limit", new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt),
@@ -209,7 +210,7 @@ public sealed class DashboardPage : IPage
                     Add(History(entry, settings).Root, wide: true);
                     break;
                 case DashboardSections.ResetCredits:
-                    Add(ResetCreditsCard(entry.Cache?.Credits, usage.ResetCreditsAvailable ?? 0));
+                    Add(ResetCreditsCard(entry.Cache, usage.ResetCreditsAvailable ?? 0));
                     break;
                 case DashboardSections.ValueEstimate when PlanPricing.ForProvider(provider.Id, usage) is { } pricing:
                     Add(ValueCard(pricing, usage));
@@ -259,6 +260,15 @@ public sealed class DashboardPage : IPage
             if (args.Response == "clear") await state.ClearHistoryAsync(provider);
         };
         confirm.Present(window.Window);
+    }
+
+    /// <summary>An official outage or maintenance on a component this service depends on.</summary>
+    private Gtk.Widget? ServiceNotice(ProviderEntry entry, DateTimeOffset now)
+    {
+        if (!entry.SignedIn || state.ServiceStatus(provider, now) is not { ShouldShowCard: true } report) return null;
+        var kind = report.State is ServiceState.MajorOutage or ServiceState.PartialOutage ? "error"
+            : report.State == ServiceState.Maintenance ? "info" : "warning";
+        return PageScaffold.Status(kind, report.Headline(provider.DisplayName), report.Detail, "ServiceNotice");
     }
 
     private Gtk.Widget? StatusNotice(ProviderEntry entry)
@@ -325,42 +335,31 @@ public sealed class DashboardPage : IPage
         return box;
     }
 
-    private Gtk.Widget ResetCreditsCard(ResetCreditsSnapshot? credits, int fallbackCount)
+    private Gtk.Widget ResetCreditsCard(ProviderCacheEntry? cache, int fallbackCount)
     {
-        var now = DateTimeOffset.UtcNow;
-        var count = credits?.AvailableCount ?? fallbackCount;
+        var model = Core.Models.ResetCreditsCard.For(provider, cache, fallbackCount, state.Settings.Current, DateTimeOffset.UtcNow);
         var panel = Gtk.Box.New(Gtk.Orientation.Vertical, 6);
         var header = Gtk.Box.New(Gtk.Orientation.Horizontal, 8);
         header.Append(Gtk.Image.NewFromIconName("emblem-synchronizing-symbolic"));
         header.Append(Cards.Label("Reset credits", "heading"));
         panel.Append(header);
-        var countText = Cards.Label(count == 1 ? "1 reset available" : $"{count} resets available", "title-3");
+        var countText = Cards.Label(model.Count, "title-3");
         countText.SetName("ResetCreditCount");
         panel.Append(countText);
-        panel.Append(Cards.Label("A reset clears your Codex 5-hour and weekly limits right away.", "dim-label"));
-        foreach (var credit in (credits?.Credits ?? []).Where(c => c.IsAvailable && (c.ExpiresAt is null || c.ExpiresAt > now))
-                     .OrderBy(c => c.ExpiresAt ?? DateTimeOffset.MaxValue).Take(4))
+        panel.Append(Cards.Label(model.Description, "dim-label"));
+        foreach (var line in model.Lines) panel.Append(Cards.Label(line, "caption", "dim-label"));
+        if (model.AutoUse is { } rules)
         {
-            var expiry = credit.ExpiresAt is { } at
-                ? $"expires {UsageFormat.Absolute(at, now, state.Settings.Current.Use24HourClock)} ({UsageFormat.Relative(at, now)})"
-                : "no expiry";
-            panel.Append(Cards.Label($"• {(credit.Title.Length > 0 ? credit.Title : "Reset")}, {expiry}", "caption", "dim-label"));
-        }
-        var settings = state.Settings.Current;
-        if (settings.AutoUseExpiringResets || settings.AutoUseWhenLow)
-        {
-            var rules = new List<string>();
-            if (settings.AutoUseExpiringResets) rules.Add($"before one expires ({CreditExpiryAutoApply.LeadLabel(settings.AutoUseLeadMinutes)})");
-            if (settings.AutoUseWhenLow) rules.Add($"when a limit falls to {settings.AutoUseThreshold}% left");
-            var auto = Cards.Label("Auto-use is on: " + string.Join(" and ", rules) + ".", "caption", "accent");
+            var auto = Cards.Label(rules, "caption", "accent");
             auto.SetName("AutoUseStatus");
             panel.Append(auto);
         }
+        if (model.Held is { } held) panel.Append(Cards.Label(held, "caption", "dim-label"));
         var button = Gtk.Button.NewWithLabel("Use a Reset");
         button.AddCssClass("suggested-action");
         button.SetHalign(Gtk.Align.Start);
         button.SetMarginTop(8);
-        button.SetSensitive(count > 0);
+        button.SetSensitive(model.CanUse);
         button.SetName("UseResetButton");
         button.OnClicked += (_, _) => ConfirmUseReset(button);
         panel.Append(button);
@@ -373,8 +372,9 @@ public sealed class DashboardPage : IPage
     /// <summary>Asks before spending a banked reset. Public so the screenshot run can show it.</summary>
     public Adw.AlertDialog ConfirmUseReset(Gtk.Button? button = null)
     {
-        var confirm = Adw.AlertDialog.New("Use a reset now?",
-            "This clears your Codex 5-hour and weekly limits. The reset that expires first is used.");
+        var model = Core.Models.ResetCreditsCard.For(provider, state[provider].Cache, state[provider].Usage?.ResetCreditsAvailable ?? 0,
+            state.Settings.Current, DateTimeOffset.UtcNow);
+        var confirm = Adw.AlertDialog.New("Use a reset now?", model.ConfirmText);
         confirm.AddResponse("cancel", "_Cancel");
         confirm.AddResponse("use", "_Use Reset");
         confirm.SetResponseAppearance("use", Adw.ResponseAppearance.Suggested);
@@ -386,7 +386,7 @@ public sealed class DashboardPage : IPage
             button?.SetSensitive(false);
             try
             {
-                var result = await state.UseResetAsync(null);
+                var result = await state.UseResetAsync(provider, model.CreditId);
                 ShowMessage(result.UserMessage, result.Applied ? "info" : "warning");
             }
             catch (Exception error)

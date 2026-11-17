@@ -32,11 +32,12 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
 
     /// <summary>
     /// The sign-in flow is known, but it isn't yet confirmed that its token is accepted by the
-    /// usage route. The Add account dialog and the sign-in dialog say so.
+    /// usage route. The Add account dialog and the sign-in dialog say so. No current provider sets
+    /// it: every route has been checked against public docs or open-source clients.
     /// </summary>
     public bool Inferred { get; init; }
 
-    /// <summary>False when this build can't connect the provider (Antigravity needs a client secret).</summary>
+    /// <summary>False when this build can't connect the provider (Antigravity without its sign-in client).</summary>
     public bool IsAvailable { get; init; } = true;
 
     public static readonly UsageProvider Codex = new("codex", "Codex", "ChatGPT", "OpenAI", SignInStyle.Loopback,
@@ -44,7 +45,7 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     public static readonly UsageProvider ClaudeCode = new("claude_code", "Claude Code", "Claude", "Anthropic",
         SignInStyle.Loopback, "5-hour and weekly limits", "Claude sign-in");
     public static readonly UsageProvider Cursor = new("cursor", "Cursor", "Cursor", "Cursor", SignInStyle.BrowserPoll,
-        "Included usage and on-demand spend", "Cursor sign-in");
+        "Included usage and extra spend", "Cursor sign-in");
 
     // Added through Accounts → Add account; the same ids, sign-in flows and routes as Android and iOS.
     public static readonly UsageProvider Copilot = new("copilot", "Copilot", "GitHub", "GitHub", SignInStyle.DeviceCode,
@@ -55,41 +56,35 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     public static readonly UsageProvider Factory = new("factory", "Factory", "Factory", "Factory", SignInStyle.DeviceCode,
         "5-hour, weekly and monthly limits", "Factory sign-in");
     public static readonly UsageProvider Grok = new("grok", "Grok", "xAI", "xAI", SignInStyle.DeviceCode,
-        "SuperGrok credits for the billing period", "xAI sign-in")
-    { Inferred = true };
+        "SuperGrok credits for the billing period", "xAI sign-in");
     public static readonly UsageProvider Antigravity = new("antigravity", "Antigravity", "Google", "Google", SignInStyle.Loopback,
         "Gemini and Claude model limits, 5-hour and weekly", "Google sign-in")
-    { IsAvailable = false };
+    { IsAvailable = Services.AntigravityOAuth.Configured };
     public static readonly UsageProvider Devin = new("devin", "Devin", "Devin", "Cognition", SignInStyle.CodePaste,
-        "Daily and weekly quota", "Windsurf token")
-    { Inferred = true };
+        "Daily and weekly quota", "Devin session");
     public static readonly UsageProvider Windsurf = new("windsurf", "Windsurf", "Windsurf", "Cognition", SignInStyle.CodePaste,
-        "Daily and weekly quota", "Windsurf token")
-    { Inferred = true };
+        "Daily and weekly quota", "Windsurf token");
     public static readonly UsageProvider Augment = new("augment", "Augment", "Augment", "Augment Code", SignInStyle.CodePaste,
         "Monthly credits", "Augment sign-in");
     public static readonly UsageProvider Cline = new("cline", "Cline", "Cline", "Cline", SignInStyle.DeviceCode,
-        "5-hour, weekly and monthly limits", "Cline sign-in")
-    { Inferred = true };
+        "5-hour, weekly and monthly limits", "Cline sign-in");
     public static readonly UsageProvider OpencodeGo = new("opencode_go", "OpenCode Go", "OpenCode", "OpenCode", SignInStyle.DeviceCode,
         "5-hour, weekly and monthly limits", "OpenCode sign-in")
-    { KeyUrl = "https://opencode.ai/auth", AcceptsApiKey = true, Inferred = true };
+    { KeyUrl = "https://opencode.ai/auth", AcceptsApiKey = true };
     public static readonly UsageProvider MiniMax = new("minimax", "MiniMax", "MiniMax", "MiniMax", SignInStyle.DeviceCode,
         "Coding plan prompts per window", "MiniMax sign-in")
     {
         KeyUrl = "https://platform.minimax.io/user-center/basic-information/interface-key",
         AcceptsApiKey = true,
-        Inferred = true,
     };
     public static readonly UsageProvider Zai = new("zai", "Z.ai", "Z.ai", "Z.ai", SignInStyle.ApiKey,
         "5-hour and weekly limits", "API key")
     { KeyUrl = "https://z.ai/manage-apikey/apikey-list", AcceptsApiKey = true };
     public static readonly UsageProvider Kiro = new("kiro", "Kiro", "AWS Builder ID", "AWS", SignInStyle.DeviceCode,
-        "Monthly credits", "AWS Builder ID")
-    { Inferred = true };
+        "Monthly credits", "AWS Builder ID");
     public static readonly UsageProvider Amp = new("amp", "Amp", "Amp", "Amp", SignInStyle.ApiKey,
-        "Free daily usage and credits", "Access token")
-    { KeyUrl = "https://ampcode.com/settings", AcceptsApiKey = true, Inferred = true };
+        "Free daily usage, plan usage and credits", "Access token")
+    { KeyUrl = "https://ampcode.com/settings", AcceptsApiKey = true };
     public static readonly UsageProvider OpenRouter = new("openrouter", "OpenRouter", "OpenRouter", "OpenRouter", SignInStyle.Loopback,
         "Key limit and credit balance", "OpenRouter sign-in")
     { KeyUrl = "https://openrouter.ai/settings/keys", AcceptsApiKey = true };
@@ -97,20 +92,19 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
         "Credit balance", "Kilo sign-in")
     { KeyUrl = "https://app.kilo.ai/profile", AcceptsApiKey = true };
     public static readonly UsageProvider Codebuff = new("codebuff", "Codebuff", "Codebuff", "Codebuff", SignInStyle.DeviceCode,
-        "Subscription credits", "Codebuff sign-in")
-    { Inferred = true };
+        "Subscription credits", "Codebuff sign-in");
     public static readonly UsageProvider Synthetic = new("synthetic", "Synthetic", "Synthetic", "Synthetic", SignInStyle.ApiKey,
-        "5-hour and weekly limits", "API key")
+        "Weekly credits and hourly search", "API key")
     { KeyUrl = "https://synthetic.new/billing", AcceptsApiKey = true };
     public static readonly UsageProvider Chutes = new("chutes", "Chutes", "Chutes", "Chutes", SignInStyle.ApiKey,
-        "Subscription quota", "API key")
-    { KeyUrl = "https://chutes.ai/app/api", AcceptsApiKey = true, Inferred = true };
+        "4-hour and monthly subscription caps", "API key")
+    { KeyUrl = "https://chutes.ai/app/settings/api-keys", AcceptsApiKey = true };
     public static readonly UsageProvider V0 = new("v0", "v0", "v0", "Vercel", SignInStyle.ApiKey,
-        "Rate limits", "API key")
-    { KeyUrl = "https://v0.app/chat/settings/keys", AcceptsApiKey = true, Inferred = true };
+        "Monthly credits and rate limits", "API key")
+    { KeyUrl = "https://v0.app/settings/keys", AcceptsApiKey = true };
     public static readonly UsageProvider Warp = new("warp", "Warp", "Warp", "Warp", SignInStyle.ApiKey,
-        "AI request limit", "API key")
-    { KeyUrl = "https://app.warp.dev/settings/api-keys", AcceptsApiKey = true, Inferred = true };
+        "Monthly credits and add-on credits", "API key")
+    { KeyUrl = "https://oz.warp.dev/settings", AcceptsApiKey = true };
 
     public static readonly UsageProvider Default = Codex;
 
@@ -125,6 +119,12 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     public static IReadOnlyList<UsageProvider> BuiltIns { get; } = [Codex, ClaudeCode, Cursor];
 
     public bool IsBuiltIn => this == Codex || this == ClaudeCode || this == Cursor;
+
+    /// <summary>
+    /// A dashboard meter's title. Cursor's weekly and monthly meters are its included usage, so
+    /// every platform names them "Included usage · Weekly" and "Included usage · Monthly".
+    /// </summary>
+    public string MeterTitle(string cadence) => this == Cursor ? "Included usage · " + cadence : cadence;
 
     public string SignInLabel => SignIn switch
     {
@@ -181,12 +181,17 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
         return order;
     }
 
-    /// <summary>Enabled providers from saved ids; nothing valid saved means Codex plus anything signed in.</summary>
+    /// <summary>
+    /// Enabled providers from saved ids. Nothing valid saved means only the providers that are signed
+    /// in, as Android now does; with none signed in, Codex, so the window still has a page.
+    /// </summary>
     public static List<UsageProvider> EnabledFromIds(IEnumerable<string>? ids, ICollection<UsageProvider> signedIn)
     {
         var set = (ids ?? []).Select(i => i.Trim().ToLowerInvariant()).ToHashSet();
         var enabled = All.Where(p => set.Contains(p.Id)).ToList();
-        return enabled.Count > 0 ? enabled : All.Where(p => p == Default || signedIn.Contains(p)).ToList();
+        if (enabled.Count > 0) return enabled;
+        var connected = All.Where(signedIn.Contains).ToList();
+        return connected.Count > 0 ? connected : [Default];
     }
 
     /// <summary><paramref name="enabled"/> with one provider switched; the last one can't be turned off.</summary>

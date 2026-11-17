@@ -115,6 +115,14 @@ public sealed class App
             {
                 tray = new TrayIcon(State, () => window.ShowAndActivate(), () => _ = State.RefreshAllAsync(force: true), Quit);
                 _ = tray.StartAsync();
+                try
+                {
+                    tray.Foreground = ForegroundApp.TryStart();
+                }
+                catch (Exception error)
+                {
+                    AppLog.Write("Foreground app tracking unavailable: " + error.Message);
+                }
                 window.TrayAvailable = () => tray.IsShowing;
                 GLib.Functions.TimeoutAddSeconds(GLib.Constants.PRIORITY_DEFAULT, 60, () =>
                 {
@@ -209,7 +217,8 @@ public sealed class App
             var now = DateTimeOffset.UtcNow;
             foreach (var provider in hub.Providers.Where(p => connected.Contains(p.Id)))
                 await history.SetAsync(provider.Id, DemoData.History(provider, now));
-            return new AppState(hub, settings, history);
+            // Demo mode saves nothing: the diagnostic log switch works but keeps no file.
+            return new AppState(hub, settings, history) { Diagnostics = new DiagnosticLog(null) };
         }
 
         AppPaths.EnsurePrivate(AppPaths.DataDirectory);
@@ -217,13 +226,20 @@ public sealed class App
         AppPaths.EnsurePrivate(AppPaths.CacheDirectory);
         var protector = await Task.Run(() => AesKeyProtector.Open(AppPaths.DataDirectory));
         KeyLocation = protector.Location;
+        var diagnostics = new DiagnosticLog(AppPaths.CacheDirectory);
+        AppLog.Diagnostics = diagnostics;
         var live = new ProviderContext(CreateHttpClient(), new FileTokenStore(AppPaths.DataDirectory, protector),
             new ProviderCacheStore(AppPaths.CacheDirectory))
         { Log = (category, message) => AppLog.Write($"[{category}] {message}") };
+        // Status feeds and OpenRouter speed figures are public: their own client, no account headers.
+        var publicHttp = CreateHttpClient();
         return new AppState(ProviderHub.Live(live), new SettingsStore(Path.Combine(AppPaths.ConfigDirectory, "settings.json")),
             new UsageHistoryStore(AppPaths.DataDirectory))
         {
             Models = new ModelDiscoveryStore(AppPaths.CacheDirectory, CreateHttpClient()),
+            Status = new ProviderStatusStore(AppPaths.CacheDirectory, publicHttp),
+            Speed = new ModelSpeedStore(AppPaths.CacheDirectory, publicHttp),
+            Diagnostics = diagnostics,
         };
     }
 
@@ -277,6 +293,7 @@ public sealed class App
 
     public void Quit()
     {
+        tray?.Foreground?.Dispose();
         tray?.Dispose();
         tray = null;
         if (window is not null)

@@ -32,6 +32,7 @@ public sealed class DashboardPage : PageBase
     private readonly AppBarButton refreshButton;
     private readonly AppBarButton editButton;
     private readonly InfoBar status = new() { IsClosable = true, IsOpen = false, Margin = new Thickness(0, 8, 0, 4) };
+    private readonly InfoBar service = new() { IsClosable = false, IsOpen = false, Margin = new Thickness(0, 8, 0, 4) };
     private readonly StackPanel signedOutPanel = new() { Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 460 };
     private readonly Border signedOutCard;
     private readonly CardPanel cards = new() { MinColumnWidth = 300, Spacing = 12, Margin = new Thickness(0, 8, 0, 0) };
@@ -59,6 +60,7 @@ public sealed class DashboardPage : PageBase
         AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level1);
         AutomationProperties.SetAutomationId(subtitle, "DashboardSubtitle");
         AutomationProperties.SetAutomationId(status, "StatusBar");
+        AutomationProperties.SetAutomationId(service, "ServiceStatusBar");
 
         refreshButton = new AppBarButton { Label = "Refresh", Icon = new SymbolIcon(Symbol.Refresh) };
         refreshButton.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = VirtualKey.F5 });
@@ -105,6 +107,7 @@ public sealed class DashboardPage : PageBase
         header.Children.Add(commands);
         Body.Children.Add(header);
         Body.Children.Add(status);
+        Body.Children.Add(service);
 
         signedOutCard = Cards.Card(signedOutPanel);
         signedOutCard.Padding = new Thickness(36);
@@ -119,17 +122,20 @@ public sealed class DashboardPage : PageBase
     {
         State.ProviderChanged += OnProviderChanged;
         State.Settings.Changed += OnSettingsChanged;
+        State.ServiceChanged += OnServiceChanged;
         ticker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         ticker.Tick += (_, _) => Render();
         ticker.Start();
         Render();
         _ = State.RefreshAsync(provider, force: false);
+        _ = State.RefreshServiceAsync(foreground: true);
     }
 
     protected override void Detach()
     {
         State.ProviderChanged -= OnProviderChanged;
         State.Settings.Changed -= OnSettingsChanged;
+        State.ServiceChanged -= OnServiceChanged;
         ticker?.Stop();
         ticker = null;
     }
@@ -140,6 +146,8 @@ public sealed class DashboardPage : PageBase
     }
 
     private void OnSettingsChanged(object? sender, AppSettings settings) => Render();
+
+    private void OnServiceChanged() => DispatcherQueue.TryEnqueue(Render);
 
     private void ShowMessage(string message, InfoBarSeverity severity)
     {
@@ -176,13 +184,14 @@ public sealed class DashboardPage : PageBase
         subtitle.Text = string.Join("  ·  ", parts);
 
         RenderStatus(entry);
+        RenderService(entry, now);
         signedOutCard.Visibility = entry.SignedIn ? Visibility.Collapsed : Visibility.Visible;
         if (!entry.SignedIn) RenderSignedOut(entry);
 
         cards.Children.Clear();
         if (!entry.SignedIn || usage is null) return;
 
-        var options = new Cards.MeterOptions(settings.DisplayMode, settings.ResetDisplay, settings.Use24HourClock, settings.ShowPace);
+        var options = new Cards.MeterOptions(settings.DisplayMode, settings.ResetDisplay, settings.Use24HourClock, settings.ShowPace, settings.PaceSensitivity);
         void AddMeter(string name, UsageWindow? window, string id, bool reached = false)
         {
             if (window is null) return;
@@ -201,10 +210,10 @@ public sealed class DashboardPage : PageBase
                     }
                     break;
                 case DashboardSections.Weekly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
+                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly");
                     break;
                 case DashboardSections.Monthly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · monthly" : "Monthly", usage.Monthly, "Meter_monthly");
+                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly");
                     break;
                 case DashboardSections.SpendControl when usage.SpendControlLimit is { } spend:
                     AddMeter("Monthly credit limit", new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt),
@@ -217,7 +226,7 @@ public sealed class DashboardPage : PageBase
                     cards.Children.Add(History(entry, settings).Root);
                     break;
                 case DashboardSections.ResetCredits:
-                    cards.Children.Add(ResetCreditsCard(entry.Cache?.Credits, usage.ResetCreditsAvailable ?? 0));
+                    cards.Children.Add(ResetCreditsCard(entry.Cache, usage.ResetCreditsAvailable ?? 0));
                     break;
                 case DashboardSections.ValueEstimate when PlanPricing.ForProvider(provider.Id, usage) is { } pricing:
                     cards.Children.Add(ValueCard(pricing, usage));
@@ -328,52 +337,57 @@ public sealed class DashboardPage : PageBase
         status.IsOpen = false;
     }
 
-    private Border ResetCreditsCard(ResetCreditsSnapshot? credits, int fallbackCount)
+    /// <summary>An official outage or maintenance on a component this service depends on.</summary>
+    private void RenderService(ProviderEntry entry, DateTimeOffset now)
     {
-        var now = DateTimeOffset.UtcNow;
-        var count = credits?.AvailableCount ?? fallbackCount;
+        if (!entry.SignedIn || State.ServiceStatus(provider, now) is not { ShouldShowCard: true } report)
+        {
+            service.IsOpen = false;
+            return;
+        }
+        service.Title = report.Headline(provider.DisplayName);
+        service.Message = report.Detail;
+        service.Severity = report.State is ServiceState.MajorOutage or ServiceState.PartialOutage ? InfoBarSeverity.Error
+            : report.State == ServiceState.Maintenance ? InfoBarSeverity.Informational : InfoBarSeverity.Warning;
+        var link = report.Issues.Select(i => i.Link).FirstOrDefault(l => l.StartsWith("https://", StringComparison.Ordinal)) ?? report.PageUrl;
+        service.ActionButton = Uri.TryCreate(link, UriKind.Absolute, out var uri)
+            ? new HyperlinkButton { Content = "Status page", NavigateUri = uri }
+            : null;
+        service.IsOpen = true;
+    }
+
+    private Border ResetCreditsCard(ProviderCacheEntry? cache, int fallbackCount)
+    {
+        var model = Core.Models.ResetCreditsCard.For(provider, cache, fallbackCount, State.Settings.Current, DateTimeOffset.UtcNow);
         var panel = new StackPanel { Spacing = 6 };
-        panel.Children.Add(Cards.Header("", "Reset credits"));
-        var countText = Cards.Text(count == 1 ? "1 reset available" : $"{count} resets available", "SubtitleTextBlockStyle");
+        panel.Children.Add(Cards.Header("\uE777", "Reset credits"));
+        var countText = Cards.Text(model.Count, "SubtitleTextBlockStyle");
         countText.Margin = new Thickness(0, 4, 0, 0);
         AutomationProperties.SetAutomationId(countText, "ResetCreditCount");
         panel.Children.Add(countText);
-        panel.Children.Add(Cards.Text("A reset clears your Codex 5-hour and weekly limits right away.", "SecondaryTextStyle"));
-        foreach (var credit in (credits?.Credits ?? []).Where(c => c.IsAvailable && (c.ExpiresAt is null || c.ExpiresAt > now))
-                     .OrderBy(c => c.ExpiresAt ?? DateTimeOffset.MaxValue).Take(4))
-        {
-            var expiry = credit.ExpiresAt is { } at
-                ? $"expires {UsageFormat.Absolute(at, now, State.Settings.Current.Use24HourClock)} ({UsageFormat.Relative(at, now)})"
-                : "no expiry";
-            panel.Children.Add(Cards.Text($"• {(credit.Title.Length > 0 ? credit.Title : "Reset")}, {expiry}", "CaptionSecondaryTextStyle"));
-        }
-        var settings = State.Settings.Current;
-        if (settings.AutoUseExpiringResets || settings.AutoUseWhenLow)
-        {
-            var rules = new List<string>();
-            if (settings.AutoUseExpiringResets) rules.Add($"before one expires ({CreditExpiryAutoApply.LeadLabel(settings.AutoUseLeadMinutes)})");
-            if (settings.AutoUseWhenLow) rules.Add($"when a limit falls to {settings.AutoUseThreshold}% left");
-            panel.Children.Add(Cards.Status("Auto-use is on: " + string.Join(" and ", rules) + ".", "CaptionSecondaryTextStyle", "", "AccentTextFillColorPrimaryBrush"));
-        }
+        panel.Children.Add(Cards.Text(model.Description, "SecondaryTextStyle"));
+        foreach (var line in model.Lines) panel.Children.Add(Cards.Text(line, "CaptionSecondaryTextStyle"));
+        if (model.AutoUse is { } auto)
+            panel.Children.Add(Cards.Status(auto, "CaptionSecondaryTextStyle", "\uE945", "AccentTextFillColorPrimaryBrush"));
+        if (model.Held is { } held) panel.Children.Add(Cards.Text(held, "CaptionSecondaryTextStyle"));
         var button = new Button
         {
             Content = "Use a reset",
             Style = Cards.Style("AccentButtonStyle"),
             Margin = new Thickness(0, 8, 0, 0),
-            IsEnabled = count > 0,
+            IsEnabled = model.CanUse,
         };
         AutomationProperties.SetAutomationId(button, "UseResetButton");
         button.Click += async (_, _) =>
         {
-            var confirm = SignInFlow.Dialog(XamlRoot, "Use a reset now?",
-                Cards.Text("This clears your Codex 5-hour and weekly limits. The reset that expires first is used.", "BodyTextBlockStyle"), "UseResetDialog");
+            var confirm = SignInFlow.Dialog(XamlRoot, "Use a reset now?", Cards.Text(model.ConfirmText, "BodyTextBlockStyle"), "UseResetDialog");
             confirm.PrimaryButtonText = "Use reset";
             confirm.DefaultButton = ContentDialogButton.Primary;
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             button.IsEnabled = false;
             try
             {
-                var result = await State.UseResetAsync(null);
+                var result = await State.UseResetAsync(provider, model.CreditId);
                 ShowMessage(result.UserMessage, result.Applied ? InfoBarSeverity.Success : InfoBarSeverity.Warning);
             }
             catch (Exception error)

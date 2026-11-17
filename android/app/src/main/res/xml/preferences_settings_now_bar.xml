@@ -22,18 +22,6 @@
         <SwitchPreferenceCompat
             android:key="now_bar_auto_start_ui"
             android:title="When allowance is low" />
-        <ListPreference
-            android:entries="@array/settings_metric_entries"
-            android:entryValues="@array/settings_metric_values"
-            android:key="now_bar_metric_ui"
-            android:title="Watch"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/settings_threshold_entries"
-            android:entryValues="@array/settings_threshold_values"
-            android:key="now_bar_threshold_ui"
-            android:title="Start when remaining reaches"
-            app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             android:key="now_bar_accelerated_ui"
             android:summary="When usage is on pace to run out early"

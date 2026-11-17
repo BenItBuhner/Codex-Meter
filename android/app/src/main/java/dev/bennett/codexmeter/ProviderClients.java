@@ -13,10 +13,10 @@ import org.json.JSONObject;
  * The sign-in and usage routes for every provider added through the Add account picker.
  * Codex, Claude Code and Cursor keep their own classes and are not here.
  *
- * <p>Client ids, endpoints and headers are the ones each provider's own CLI or editor sends;
- * none of these usage routes is a documented public API. Providers marked
- * {@code inferred} in {@link ProviderCatalog} have a known sign-in flow, but whether that
- * token is accepted by the usage route has not been confirmed against a live account.
+ * <p>Client ids, endpoints and headers are the ones each provider's own CLI or editor sends.
+ * Synthetic and v0 document their usage routes, Chutes publishes its API source, and the rest
+ * match the providers' own open-source clients (Cline, the Windsurf editor plugins, OpenCode)
+ * or open-source trackers (CodexBar, OpenClaw) that read them with the same kind of token.
  */
 public final class ProviderClients {
     private ProviderClients() {
@@ -36,7 +36,7 @@ public final class ProviderClients {
             case ANTIGRAVITY:
                 return new Antigravity();
             case DEVIN:
-                return new Codeium(UsageProvider.DEVIN, "devin");
+                return new Devin();
             case WINDSURF:
                 return new Codeium(UsageProvider.WINDSURF, "windsurf");
             case AUGMENT:
@@ -60,15 +60,11 @@ public final class ProviderClients {
             case CODEBUFF:
                 return new Codebuff();
             case SYNTHETIC:
-                return new KeyQuota(UsageProvider.SYNTHETIC, "https://api.synthetic.new/v2/quotas",
-                        5 * ProviderUsageParsers.HOUR);
+                return new Synthetic();
             case CHUTES:
-                return new KeyQuota(UsageProvider.CHUTES,
-                        "https://api.chutes.ai/users/me/subscription_usage",
-                        ProviderUsageParsers.DAY);
+                return new Chutes();
             case V0:
-                return new KeyQuota(UsageProvider.V0, "https://api.v0.dev/v1/rate-limits",
-                        ProviderUsageParsers.DAY);
+                return new V0();
             case WARP:
                 return new Warp();
             default:
@@ -350,14 +346,12 @@ public final class ProviderClients {
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            // Cline's own clients send the session as "workos:<token>"; a pasted key goes as is.
             String url = "https://api.cline.bot/api/v1/users/me/plan/usage-limits";
-            ProviderHttp.Response response = ProviderHttp.send(context, "cline_usage",
-                    ProviderHttp.get(url).bearer(tokens.accessToken));
-            if (response.status == 401 && !tokens.accessToken.startsWith("workos:")) {
-                response = ProviderHttp.send(context, "cline_usage_workos",
-                        ProviderHttp.get(url).bearer("workos:" + tokens.accessToken));
-            }
-            check(response, "usage");
+            String bearer = isApiKey(tokens) || tokens.accessToken.startsWith("workos:")
+                    ? tokens.accessToken : "workos:" + tokens.accessToken;
+            ProviderHttp.Response response = check(ProviderHttp.send(context, "cline_usage",
+                    ProviderHttp.get(url).bearer(bearer)), "usage");
             return nonEmpty(ProviderUsageParsers.cline(response.body, now()));
         }
     }
@@ -680,13 +674,17 @@ public final class ProviderClients {
                     ProviderHttp.post(BASE + "code").json(new JSONObject()
                             .put("client_id", "opencode-cli")
                             .put("supports_org_scope", true)));
-            DeviceAuth.DeviceCode code = DeviceAuth.parseDeviceCode(response.body);
-            if (!response.ok() || !code.isValid()) {
+            DeviceAuth.DeviceCode parsed = DeviceAuth.parseDeviceCode(response.body);
+            if (!response.ok() || !parsed.isValid()) {
                 throw new Exception(OAuthClient.readError(response.body,
                         "OpenCode could not start sign-in (HTTP " + response.status + ")."));
             }
-            session.device = code;
-            return code;
+            // OpenCode answers with site-relative pages ("/console/device").
+            session.device = new DeviceAuth.DeviceCode(parsed.deviceCode, parsed.userCode,
+                    DeviceAuth.absolute("https://opencode.ai", parsed.verificationUri),
+                    DeviceAuth.absolute("https://opencode.ai", parsed.verificationUriComplete),
+                    parsed.intervalSeconds, parsed.expiresInSeconds);
+            return session.device;
         }
 
         @Override
@@ -754,11 +752,17 @@ public final class ProviderClients {
                             "code_challenge_method", "S256",
                             "state", session.state)));
             DeviceAuth.DeviceCode parsed = DeviceAuth.parseDeviceCode(response.body);
-            // MiniMax polls with the user code itself.
+            JSONObject body = response.json();
+            // MiniMax polls with the user code itself, gives the interval in milliseconds and
+            // the expiry as an epoch-milliseconds time ("expired_in").
+            long intervalMillis = body.optLong("interval", 2000L);
+            long expiresAt = ProviderUsageParsers.epochSeconds(body.opt("expired_in"));
+            long expiresIn = expiresAt > now() / 1000L ? expiresAt - now() / 1000L
+                    : parsed.expiresInSeconds;
             DeviceAuth.DeviceCode code = new DeviceAuth.DeviceCode(
                     parsed.deviceCode.isEmpty() ? parsed.userCode : parsed.deviceCode,
                     parsed.userCode, parsed.verificationUri, parsed.verificationUriComplete,
-                    parsed.intervalSeconds, parsed.expiresInSeconds);
+                    Math.max(1L, (intervalMillis + 999L) / 1000L), expiresIn);
             if (!response.ok() || !code.isValid()) {
                 throw new Exception(OAuthClient.readError(response.body,
                         "MiniMax could not start sign-in (HTTP " + response.status + ")."));
@@ -935,10 +939,12 @@ public final class ProviderClients {
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            // The AWS JSON protocol call kiro-cli makes; Builder ID accounts send no profile.
             ProviderHttp.Response response = check(ProviderHttp.send(context, "kiro_usage",
-                    ProviderHttp.get("https://codewhisperer.us-east-1.amazonaws.com/"
-                            + "getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST")
-                            .bearer(tokens.accessToken)), "usage");
+                    ProviderHttp.post("https://codewhisperer.us-east-1.amazonaws.com/")
+                            .bearer(tokens.accessToken)
+                            .header("X-Amz-Target", "AmazonCodeWhispererService.GetUsageLimits")
+                            .body("{}", "application/x-amz-json-1.0")), "usage");
             return nonEmpty(ProviderUsageParsers.kiro(response.body, now()));
         }
     }
@@ -1120,43 +1126,162 @@ public final class ProviderClients {
 
     // ================================================================ key-only providers
 
-    static final class KeyQuota extends ProviderClient {
-        final String url;
-        final long defaultSeconds;
-
-        KeyQuota(UsageProvider provider, String url, long defaultSeconds) {
-            super(provider);
-            this.url = url;
-            this.defaultSeconds = defaultSeconds;
+    static final class Synthetic extends ProviderClient {
+        Synthetic() {
+            super(UsageProvider.SYNTHETIC);
         }
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
-            ProviderHttp.Response response = check(ProviderHttp.send(context,
-                    provider.id + "_usage", ProviderHttp.get(url).bearer(tokens.accessToken)),
+            ProviderHttp.Response response = check(ProviderHttp.send(context, "synthetic_usage",
+                    ProviderHttp.get("https://api.synthetic.new/v2/quotas")
+                            .bearer(tokens.accessToken)), "usage");
+            return nonEmpty(ProviderUsageParsers.synthetic(response.body, now()));
+        }
+    }
+
+    static final class Chutes extends ProviderClient {
+        Chutes() {
+            super(UsageProvider.CHUTES);
+        }
+
+        @Override
+        public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            ProviderHttp.Response response = check(ProviderHttp.send(context, "chutes_usage",
+                    ProviderHttp.get("https://api.chutes.ai/users/me/subscription_usage")
+                            .bearer(tokens.accessToken)), "usage");
+            if (!response.json().optBoolean("subscription", false)) {
+                throw new Exception("This Chutes account has no subscription, so there are no "
+                        + "limits to show.");
+            }
+            return nonEmpty(ProviderUsageParsers.chutes(response.body, now()));
+        }
+    }
+
+    static final class V0 extends ProviderClient {
+        static final String BASE = "https://api.v0.dev/v1/";
+
+        V0() {
+            super(UsageProvider.V0);
+        }
+
+        private String optional(Context context, String path, AuthTokens tokens) {
+            try {
+                ProviderHttp.Response response = ProviderHttp.send(context, "v0_" + path
+                        .replace('/', '_').replace('-', '_'), ProviderHttp.get(BASE + path)
+                        .bearer(tokens.accessToken));
+                return response.ok() ? response.body : "";
+            } catch (Exception ignored) {
+                return "";
+            }
+        }
+
+        @Override
+        public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            ProviderHttp.Response billing = check(ProviderHttp.send(context, "v0_billing",
+                    ProviderHttp.get(BASE + "user/billing").bearer(tokens.accessToken)),
                     "usage");
-            return nonEmpty(ProviderUsageParsers.keyQuota(response.body, defaultSeconds, now()));
+            return nonEmpty(ProviderUsageParsers.v0(billing.body,
+                    optional(context, "user/plan", tokens),
+                    optional(context, "rate-limits", tokens), now()));
         }
     }
 
     static final class Warp extends ProviderClient {
+        static final String QUERY = "query GetRequestLimitInfo($requestContext: RequestContext!) "
+                + "{ user(requestContext: $requestContext) { __typename ... on UserOutput { "
+                + "user { requestLimitInfo { isUnlimited nextRefreshTime requestLimit "
+                + "requestsUsedSinceLastRefresh } bonusGrants { requestCreditsGranted "
+                + "requestCreditsRemaining expiration } workspaces { bonusGrantsInfo { grants { "
+                + "requestCreditsGranted requestCreditsRemaining expiration } } } } } } }";
+
         Warp() {
             super(UsageProvider.WARP);
         }
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            String version = Build.VERSION.RELEASE == null ? "" : Build.VERSION.RELEASE;
+            JSONObject os = new JSONObject().put("category", "Android").put("name", "Android")
+                    .put("version", version);
             JSONObject query = new JSONObject()
                     .put("operationName", "GetRequestLimitInfo")
-                    .put("variables", new JSONObject())
-                    .put("query", "query GetRequestLimitInfo { user { user { "
-                            + "requestLimitInfo { isUnlimited nextRefreshTime requestLimit "
-                            + "requestsUsedSinceLastRefresh } } } }");
+                    .put("variables", new JSONObject().put("requestContext", new JSONObject()
+                            .put("clientContext", new JSONObject()).put("osContext", os)))
+                    .put("query", QUERY);
+            // Warp's edge rejects requests whose User-Agent isn't the app's ("Warp/…").
             ProviderHttp.Response response = check(ProviderHttp.send(context, "warp_usage",
                     ProviderHttp.post("https://app.warp.dev/graphql/v2?op=GetRequestLimitInfo")
-                            .bearer(tokens.accessToken).json(query)), "usage");
-            return nonEmpty(ProviderUsageParsers.keyQuota(response.body,
-                    ProviderUsageParsers.MONTH, now()));
+                            .bearer(tokens.accessToken)
+                            .header("User-Agent", "Warp/1.0")
+                            .header("x-warp-client-id", "warp-app")
+                            .header("x-warp-os-category", "Android")
+                            .header("x-warp-os-name", "Android")
+                            .header("x-warp-os-version", version)
+                            .json(query)), "usage");
+            String error = ProviderUsageParsers.warpError(response.body);
+            if (!error.isEmpty()) throw new Exception("Warp: " + error);
+            return nonEmpty(ProviderUsageParsers.warp(response.body, now()));
+        }
+    }
+
+    // ================================================================ Devin
+
+    /**
+     * Devin's own usage page reads {@code app.devin.ai/api/<org>/billing/quota/usage} with the
+     * browser session's bearer token and the organization in {@code x-cog-org-id}. There is no
+     * device or API-key route for it, so the user pastes that request from a computer.
+     */
+    static final class Devin extends ProviderClient {
+        Devin() {
+            super(UsageProvider.DEVIN);
+        }
+
+        @Override
+        public String pasteUrl(Session session) {
+            return "https://app.devin.ai/settings/usage";
+        }
+
+        @Override
+        public String pasteHint() {
+            return "On a computer, open Usage & Limits on app.devin.ai, then in the browser's "
+                    + "developer tools (Network) copy the billing/quota/usage request as cURL "
+                    + "and paste it here.";
+        }
+
+        @Override
+        public AuthTokens finishPaste(Context context, Session session, String pasted)
+                throws Exception {
+            String[] parts = DeviceAuth.parseDevinRequest(pasted);
+            if (parts[0].isEmpty()) {
+                throw new Exception("No session token found. Copy the whole request, including "
+                        + "its Authorization header.");
+            }
+            if (parts[1].isEmpty()) {
+                throw new Exception("No organization found. Copy the whole request, including "
+                        + "its x-cog-org-id header.");
+            }
+            AuthTokens tokens = new AuthTokens(parts[0], parts[0], "", 0L, parts[1], "");
+            fetch(context, tokens);
+            return tokens;
+        }
+
+        @Override
+        public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            String org = tokens.accountId;
+            if (org.isEmpty() || ProviderClient.API_KEY_ACCOUNT.equals(org)) {
+                throw new Unauthorized("Connect Devin again from Settings → Accounts.");
+            }
+            ProviderHttp.Response response = ProviderHttp.send(context, "devin_usage",
+                    ProviderHttp.get("https://app.devin.ai/api/" + org + "/billing/quota/usage")
+                            .bearer(tokens.accessToken)
+                            .header("x-cog-org-id", org));
+            if (response.status == 401 || response.status == 403) {
+                throw new Unauthorized("Your Devin session expired. Paste a new request from "
+                        + "Settings → Accounts.");
+            }
+            check(response, "usage");
+            return nonEmpty(ProviderUsageParsers.devin(response.body, now()));
         }
     }
 }

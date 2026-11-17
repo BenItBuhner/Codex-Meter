@@ -39,6 +39,7 @@ public final class AppPreferences {
     /** Before the Duo layout had a choice it was a switch: off there means "off" now. */
     static final String KEY_GLASS_DUO_LAYOUT = "glass_duo_layout";
     static final String KEY_GLASS_DUO_MODE = "glass_duo_mode";
+    static final String KEY_HAPTICS = "haptics";
     private static final String KEY_ERROR = "last_error";
     private static final String KEY_ERROR_AT = "last_error_at";
     private static final String KEY_OAUTH_PENDING = "oauth_pending";
@@ -585,6 +586,15 @@ public final class AppPreferences {
      * the right edge: "off", "wide" (wide screens such as an unfolded Galaxy Z Fold or a tablet; the
      * default) or "always" (phones and a folded Fold's cover screen too).
      */
+    /** Touch feedback: off, light (the default) or strong. */
+    public static String getHaptics(Context context) {
+        return AppHaptics.normalize(prefs(context).getString(KEY_HAPTICS, AppHaptics.LIGHT));
+    }
+
+    public static void setHaptics(Context context, String level) {
+        prefs(context).edit().putString(KEY_HAPTICS, AppHaptics.normalize(level)).apply();
+    }
+
     public static String getGlassDuoMode(Context context) {
         SharedPreferences prefs = prefs(context);
         String mode = prefs.getString(KEY_GLASS_DUO_MODE, null);

@@ -173,7 +173,9 @@ extension DashboardEditView {
         let available = DashboardSections.providerSections(
             snapshot: usage,
             emptyDefaults: provider.usualDashboardSections,
-            includeHistory: false
+            includeHistory: false,
+            // Shown once the plan has a figure; listed up front so it can be arranged early.
+            includeValue: provider == .claudeCode || provider == .cursor
         )
         let limits = usage?.additionalLimits ?? []
         let isCursor = provider == .cursor
@@ -197,6 +199,10 @@ extension DashboardEditView {
                 } else {
                     DashboardEditItem(key: key, title: "Monthly limit", summary: "Monthly \(name) window")
                 }
+            case DashboardSections.valueEstimates:
+                DashboardEditItem(key: key, title: "Estimated value",
+                                  summary: isCursor ? "Cursor's figure for the usage your plan includes"
+                                      : "What your plan's usage would cost at API prices")
             default:
                 DashboardEditItem(
                     key: key,

@@ -97,7 +97,7 @@ struct UsageHistoryView: View {
         guard model.settings.isHistorySectionVisible(HistorySections.valueEstimates) else {
             return nil
         }
-        return PlanPricing.forPlan(model.usage?.planType)
+        return PlanPricing.forProvider(.codex, snapshot: model.usage)
     }
 
     /// The plan when it has a dollar figure; charts and insights only show dollars then.
@@ -486,37 +486,30 @@ private struct HistoryInsightsCard: View {
     }
 }
 
-private struct ValueEstimatesCard: View {
+/// The Estimated value card: Codex shows it in usage history, Claude Code and Cursor on their
+/// dashboards. Rows come from `PlanPricing.summaryRows`, so every platform shows the same lines.
+struct ValueEstimatesCard: View {
     let usage: UsageSnapshot?
     let pricing: PlanPricing
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("\(pricing.planLabel) · \(PlanPricing.formatUsd(pricing.monthlyPriceUsd))/month")
-                .font(.headline.bold())
-            if pricing.hasValue {
-                estimateRow("Est. included usage", PlanPricing.formatUsd(pricing.monthlyValueUsd) + "/month")
-                estimateRow("Weekly allowance", PlanPricing.formatUsd(pricing.weeklyValueUsd))
-                estimateRow("5-hour allowance", PlanPricing.formatUsd(pricing.fiveHourValueUsd))
-                estimateRow("Vs. subscription price", "≈ \(Int(pricing.valueMultiplier.rounded()))x the monthly cost")
-                if let weekly = usage?.weekly {
-                    estimateRow(
-                        "Weekly value remaining",
-                        PlanPricing.formatUsd(
-                            pricing.estimatedValueUsd(for: .weekly, usedPercent: Double(weekly.remainingPercent))
-                        )
-                    )
+            Label {
+                Text(pricing.title)
+            } icon: {
+                Image(systemName: "dollarsign.circle")
+            }
+            .font(.headline.bold())
+            ForEach(Array(pricing.summaryRows(for: usage).enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .firstTextBaseline) {
+                    Text(row.label)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 12)
+                    Text(row.value)
+                        .multilineTextAlignment(.trailing)
                 }
-                if let monthly = usage?.monthly, usage?.weekly == nil {
-                    estimateRow(
-                        "Monthly value remaining",
-                        PlanPricing.formatUsd(
-                            pricing.estimatedValueUsd(for: .monthly, usedPercent: Double(monthly.remainingPercent))
-                        )
-                    )
-                }
-            } else {
-                estimateRow("Est. included usage", "Unknown")
+                .font(.subheadline)
+                .accessibilityElement(children: .combine)
             }
             Text(pricing.basis)
                 .font(.caption)
@@ -524,17 +517,9 @@ private struct ValueEstimatesCard: View {
                 .padding(.top, 4)
         }
         .padding(AppChrome.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
-    }
-
-    private func estimateRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 12)
-            Text("≈ \(value)")
-        }
-        .font(.subheadline)
+        .accessibilityIdentifier("value-estimates-card")
     }
 }
 

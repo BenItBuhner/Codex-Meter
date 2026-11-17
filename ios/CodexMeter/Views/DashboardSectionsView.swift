@@ -521,11 +521,17 @@ struct ProviderDashboardCards: View {
         var limitWindow: AdditionalLimitWindow?
     }
 
+    /// The plan's value estimate, for Claude Code and Cursor (Codex shows it in history).
+    private var pricing: PlanPricing? {
+        provider == .codex ? nil : PlanPricing.forProvider(provider, snapshot: usage)
+    }
+
     private var keys: [String] {
         DashboardSections.visibleProviderSections(
             snapshot: usage,
             savedOrder: model.settings.savedDashboardOrder(for: provider),
-            hidden: model.settings.hiddenDashboardSections(for: provider)
+            hidden: model.settings.hiddenDashboardSections(for: provider),
+            includeValue: pricing != nil
         )
     }
 
@@ -586,7 +592,7 @@ struct ProviderDashboardCards: View {
             )
         case DashboardSections.weekly:
             UsageMeterCard(
-                title: provider == .cursor ? "Included usage · Weekly" : "Weekly",
+                title: LocalizedStringKey(ProviderCatalog.meterTitle(provider, "Weekly")),
                 systemImage: "calendar",
                 window: usage.weekly,
                 accent: provider == .cursor ? .indigo : .brown,
@@ -594,12 +600,16 @@ struct ProviderDashboardCards: View {
             )
         case DashboardSections.monthly:
             UsageMeterCard(
-                title: provider == .cursor ? "Included usage · Monthly" : "Monthly",
+                title: LocalizedStringKey(ProviderCatalog.meterTitle(provider, "Monthly")),
                 systemImage: "calendar.badge.clock",
                 window: usage.monthly,
                 accent: .indigo,
                 fetchedAt: usage.fetchedAt
             )
+        case DashboardSections.valueEstimates:
+            if let pricing {
+                ValueEstimatesCard(usage: usage, pricing: pricing)
+            }
         default:
             if let limit = usage.additionalLimits.first(where: { DashboardSections.limitKey($0) == key }) {
                 if provider == .cursor {

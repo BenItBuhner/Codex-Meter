@@ -37,10 +37,14 @@ public final class ProviderParsersSelfTest {
         testOpenRouter();
         testAmp();
         testBalances();
-        testKeyQuota();
+        testSynthetic();
+        testChutes();
+        testV0();
+        testWarp();
+        testDevin();
         testAppSessionRules();
         testAppSessionTransitions();
-        System.out.println("Provider catalog, tabs, device sign-in, and 21 usage parsers verified.");
+        System.out.println("Provider catalog, tabs, device sign-in, and 25 usage parsers verified.");
     }
 
     private static void testCatalog() {
@@ -60,12 +64,20 @@ public final class ProviderParsersSelfTest {
                 UsageProvider.CODEX, UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR,
                 UsageProvider.COPILOT, UsageProvider.KIMI, UsageProvider.FACTORY,
                 UsageProvider.GROK)), "picker leads with the most-used providers");
-        for (UsageProvider provider : new UsageProvider[] {UsageProvider.GROK,
-                UsageProvider.DEVIN, UsageProvider.MINIMAX, UsageProvider.CLINE,
-                UsageProvider.OPENCODE_GO, UsageProvider.KIRO}) {
-            check(ProviderCatalog.get(provider).inferred,
-                    provider.id + " is flagged experimental");
+        for (UsageProvider provider : UsageProvider.values()) {
+            check(!ProviderCatalog.get(provider).inferred,
+                    provider.id + "'s usage route is confirmed, so it is not experimental");
         }
+        check("Devin session".equals(ProviderCatalog.get(UsageProvider.DEVIN).signInSummary)
+                        && "Windsurf token".equals(
+                                ProviderCatalog.get(UsageProvider.WINDSURF).signInSummary),
+                "Devin signs in with its own session, not a Windsurf token");
+        check("Included usage · Weekly".equals(ProviderCatalog.meterTitle(UsageProvider.CURSOR,
+                        "Weekly")) && "Weekly".equals(ProviderCatalog.meterTitle(
+                                UsageProvider.CODEX, "Weekly"))
+                        && "Included usage and extra spend".equals(
+                                ProviderCatalog.get(UsageProvider.CURSOR).meters),
+                "Cursor meter copy");
         check(!ProviderCatalog.get(UsageProvider.COPILOT).inferred
                         && !ProviderCatalog.get(UsageProvider.CODEX).usesSignInScreen()
                         && ProviderCatalog.get(UsageProvider.COPILOT).usesSignInScreen(),
@@ -112,6 +124,11 @@ public final class ProviderParsersSelfTest {
                 + "#/device?user_code=WXYZ-9876\",\"expiresIn\":600,\"interval\":1}");
         check(aws.isValid() && aws.openUrl().contains("user_code=WXYZ-9876"),
                 "camelCase device code prefers the pre-filled page");
+        check("https://opencode.ai/console/device?user_code=AB".equals(DeviceAuth.absolute(
+                        "https://opencode.ai", "/console/device?user_code=AB"))
+                        && "https://x.ai/a".equals(DeviceAuth.absolute("https://o", "https://x.ai/a"))
+                        && DeviceAuth.absolute("https://o", "").isEmpty(),
+                "site-relative sign-in pages are opened on the provider's site");
         check(DeviceAuth.parsePoll(200, "{\"error\":\"authorization_pending\"}").state
                 == DeviceAuth.PollState.PENDING, "GitHub answers pending with HTTP 200");
         check(DeviceAuth.parsePoll(400, "{\"error\":\"slow_down\"}").state
@@ -363,6 +380,13 @@ public final class ProviderParsersSelfTest {
                 + "\"usageLimit\":1000}]}", NOW);
         check("PRO".equals(snapshot.planType) && snapshot.monthly.usedPercent == 25
                 && snapshot.monthly.resetAtEpochSeconds == 1_791_000_000L, "Kiro credits");
+        UsageSnapshot mixed = ProviderUsageParsers.kiro("{\"nextDateReset\":1791000000,"
+                + "\"usageBreakdownList\":[{\"resourceType\":\"AGENTIC_REQUEST\","
+                + "\"currentUsageWithPrecision\":5,\"usageLimitWithPrecision\":50},{"
+                + "\"resourceType\":\"CREDIT\",\"currentUsageWithPrecision\":100.5,"
+                + "\"usageLimitWithPrecision\":201}]}", NOW);
+        check(mixed.monthly.usedPercent == 50 && mixed.additionalLimits.size() == 1,
+                "Kiro credits lead even when listed second");
     }
 
     private static void testOpenRouter() {
@@ -387,6 +411,27 @@ public final class ProviderParsersSelfTest {
         check("Free".equals(snapshot.planType) && snapshot.fiveHour.usedPercent == 25,
                 "Amp free tier");
         check("$5.00".equals(snapshot.usageCredits.balance), "Amp credits");
+        // 2026-09-21T13:33:20Z is 09:33 in New York, so Amp Free refills at 20:00 EDT that day.
+        check(snapshot.fiveHour.resetAtEpochSeconds
+                        == ProviderUsageParsers.epochSeconds("2026-09-22T00:00:00Z"),
+                "Amp Free resets at 8 PM New York time");
+        UsageSnapshot percent = ProviderUsageParsers.amp("{\"ok\":true,\"result\":{"
+                + "\"displayText\":\"Signed in as user@example.com\\nAmp Free: 61% remaining "
+                + "today (resets daily)\\nIndividual credits: $12.50 remaining\"}}", NOW);
+        check(percent.fiveHour.usedPercent == 39, "Amp Free as a percentage");
+        check("$12.50".equals(percent.usageCredits.balance), "Amp individual credits");
+        UsageSnapshot tier = ProviderUsageParsers.amp("{\"ok\":true,\"result\":{"
+                + "\"displayText\":\"Amp Megawatt Tier: agent usage $18.57 of $20 remaining "
+                + "(93%), orb usage 732.8h of 750h a1.small orb hours remaining (98%) - period "
+                + "2026-09-13 to 2026-10-13, resets upon renewal in 27 days\"}}", NOW);
+        check("Megawatt".equals(tier.planType) && tier.monthly.usedPercent == 7
+                        && tier.monthly.resetAtEpochSeconds
+                        == ProviderUsageParsers.epochSeconds("2026-10-13"),
+                "Amp tier agent dollars for the billing period");
+        check(tier.additionalLimits.size() == 1
+                        && "Orb hours".equals(tier.additionalLimits.get(0).name)
+                        && tier.additionalLimits.get(0).primary.usedPercent == 2,
+                "Amp orb hours");
     }
 
     private static void testBalances() {
@@ -397,21 +442,117 @@ public final class ProviderParsersSelfTest {
         check(codebuff.monthly.usedPercent == 25, "Codebuff credits");
     }
 
-    private static void testKeyQuota() {
-        UsageSnapshot synthetic = ProviderUsageParsers.keyQuota("{\"subscription\":{\"limit\":"
-                + "135,\"requests\":20},\"rollingFiveHourLimit\":{\"limit\":200,\"used\":50,"
-                + "\"resetAt\":\"2026-09-21T15:00:00Z\"},\"weeklyTokenLimit\":{\"limit\":1000,"
-                + "\"remaining\":900}}", 5 * 3600, NOW);
-        check(synthetic.fiveHour != null && synthetic.fiveHour.usedPercent == 25,
-                "rolling 5-hour quota");
-        check(synthetic.weekly != null && synthetic.weekly.usedPercent == 10, "weekly quota");
-        UsageSnapshot warp = ProviderUsageParsers.keyQuota("{\"data\":{\"user\":{\"user\":{"
-                + "\"requestLimitInfo\":{\"isUnlimited\":false,\"nextRefreshTime\":"
-                + "\"2026-10-01T00:00:00Z\",\"requestLimit\":150,"
-                + "\"requestsUsedSinceLastRefresh\":30}}}}}", ProviderUsageParsers.MONTH, NOW);
-        check(warp.monthly != null && warp.monthly.usedPercent == 20, "Warp request limit");
-        UsageSnapshot nothing = ProviderUsageParsers.keyQuota("{\"ok\":true}", 3600, NOW);
-        check(!nothing.hasDisplayableData(), "no quota-like data -> empty");
+    private static void testSynthetic() {
+        UsageSnapshot current = ProviderUsageParsers.synthetic("{\"subscription\":{\"limit\":"
+                + "135,\"requests\":20},\"planWeeklyLimit\":{\"nextRegenAt\":"
+                + "\"2026-09-21T15:00:00Z\",\"percentRemaining\":0.6,\"nextRegenPercent\":2},"
+                + "\"search\":{\"hourly\":{\"limit\":250,\"requests\":25}}}", NOW);
+        check(current.weekly.usedPercent == 99 && current.fiveHour == null,
+                "planWeeklyLimit is in percentage points, and the retired counter is ignored");
+        check(current.weekly.resetAtEpochSeconds
+                == ProviderUsageParsers.epochSeconds("2026-09-21T15:00:00Z"), "next regen time");
+        check(current.additionalLimits.size() == 1
+                        && current.additionalLimits.get(0).primary.usedPercent == 10,
+                "hourly search allowance");
+        UsageSnapshot legacy = ProviderUsageParsers.synthetic("{\"data\":{"
+                + "\"rollingFiveHourLimit\":{\"percentRemaining\":0.75},\"weeklyTokenLimit\":{"
+                + "\"percentRemaining\":0.98}}}", NOW);
+        check(legacy.fiveHour.usedPercent == 25 && legacy.fiveHour.windowSeconds == 5 * 3600L
+                && legacy.weekly.usedPercent == 2, "older plans report fractions");
+        UsageSnapshot counter = ProviderUsageParsers.synthetic("{\"subscription\":{\"limit\":"
+                + "135,\"requests\":27,\"renewsAt\":\"2026-09-21T15:00:00Z\"}}", NOW);
+        check(counter.fiveHour.usedPercent == 20, "the old request counter as a fallback");
+        check(!ProviderUsageParsers.synthetic("{}", NOW).hasDisplayableData(), "empty reply");
+    }
+
+    private static void testChutes() {
+        UsageSnapshot pro = ProviderUsageParsers.chutes("{\"subscription\":true,\"custom\":false,"
+                + "\"monthly_price\":20,\"anchor_date\":\"2026-09-01T00:00:00\",\"four_hour\":{"
+                + "\"usage\":2.5,\"cap\":8.333,\"remaining\":5.833,\"reset_at\":"
+                + "\"2026-09-21T16:00:00+00:00\"},\"monthly\":{\"usage\":25,\"cap\":100,"
+                + "\"remaining\":75,\"reset_at\":\"2026-10-01T00:00:00+00:00\"}}", NOW);
+        check("$20/month".equals(pro.planType), "Chutes plan by price");
+        check(pro.fiveHour.usedPercent == 30 && pro.fiveHour.windowSeconds == 4 * 3600L
+                        && pro.fiveHour.resetAtEpochSeconds
+                        == ProviderUsageParsers.epochSeconds("2026-09-21T16:00:00Z"),
+                "rolling 4-hour cap");
+        check(pro.monthly.usedPercent == 25, "monthly cap");
+        UsageSnapshot custom = ProviderUsageParsers.chutes("{\"subscription\":true,\"custom\":true,"
+                + "\"monthly_price\":50,\"four_hour\":{\"usage\":1,\"cap\":4,\"remaining\":3,"
+                + "\"reset_at\":\"2026-09-21T16:00:00+00:00\"},\"monthly\":{\"uncapped\":true}}",
+                NOW);
+        check("Custom".equals(custom.planType) && custom.monthly == null
+                && custom.fiveHour.usedPercent == 25, "custom plans only cap 4 hours");
+        check(!ProviderUsageParsers.chutes("{\"subscription\":false}", NOW)
+                .hasDisplayableData(), "no subscription, nothing to show");
+    }
+
+    private static void testV0() {
+        long cycleEnd = 1_790_726_400_000L; // 2026-09-30T00:00:00Z, in milliseconds
+        UsageSnapshot token = ProviderUsageParsers.v0("{\"billingType\":\"token\",\"data\":{"
+                + "\"balance\":{\"total\":20,\"remaining\":15},\"billingCycle\":{\"start\":"
+                + (cycleEnd - 30L * 86_400_000L) + ",\"end\":" + cycleEnd + "},\"onDemand\":{"
+                + "\"balance\":4.5}}}", "{\"object\":\"plan\",\"plan\":\"premium\"}",
+                "{\"limit\":1000,\"remaining\":900,\"reset\":" + (NOW + 3_600_000L) + "}", NOW);
+        check("Premium".equals(token.planType) && token.monthly.usedPercent == 25
+                && token.monthly.resetAtEpochSeconds == cycleEnd / 1000L, "v0 credits");
+        check("$4.50".equals(token.usageCredits.balance), "v0 on-demand balance");
+        check(token.fiveHour == null && token.additionalLimits.size() == 1
+                && token.additionalLimits.get(0).primary.usedPercent == 10, "v0 API requests");
+        UsageSnapshot free = ProviderUsageParsers.v0("{\"billingType\":\"legacy\",\"data\":{"
+                + "\"limit\":5,\"remaining\":1,\"reset\":" + cycleEnd + "}}", "",
+                "{\"limit\":100,\"remaining\":100,\"dailyLimit\":{\"limit\":10,\"remaining\":4,"
+                + "\"reset\":" + (NOW + 3_600_000L) + ",\"isWithinGracePeriod\":false}}", NOW);
+        check(free.monthly.usedPercent == 80 && free.fiveHour.usedPercent == 60
+                && free.fiveHour.windowSeconds == 86_400L, "legacy allowance and daily messages");
+        UsageSnapshot planOnly = ProviderUsageParsers.v0("{}", "{\"plan\":\"free\",\"balance\":{"
+                + "\"remaining\":3,\"total\":5},\"billingCycle\":{\"start\":"
+                + (cycleEnd - 30L * 86_400_000L) + ",\"end\":" + cycleEnd + "}}", "", NOW);
+        check(planOnly.monthly.usedPercent == 40, "the plan's balance when billing is empty");
+    }
+
+    private static void testWarp() {
+        UsageSnapshot warp = ProviderUsageParsers.warp("{\"data\":{\"user\":{\"__typename\":"
+                + "\"UserOutput\",\"user\":{\"requestLimitInfo\":{\"isUnlimited\":false,"
+                + "\"nextRefreshTime\":\"2026-10-01T00:00:00Z\",\"requestLimit\":1500,"
+                + "\"requestsUsedSinceLastRefresh\":300},\"bonusGrants\":[{"
+                + "\"requestCreditsGranted\":100,\"requestCreditsRemaining\":40}],\"workspaces\":"
+                + "[{\"bonusGrantsInfo\":{\"grants\":[{\"requestCreditsGranted\":50,"
+                + "\"requestCreditsRemaining\":10}]}}]}}}}", NOW);
+        check(warp.monthly.usedPercent == 20 && warp.monthly.resetAtEpochSeconds
+                == ProviderUsageParsers.epochSeconds("2026-10-01"), "Warp monthly credits");
+        check("50 add-on credits".equals(warp.usageCredits.balance), "Warp add-on credits");
+        UsageSnapshot unlimited = ProviderUsageParsers.warp("{\"data\":{\"user\":{\"user\":{"
+                + "\"requestLimitInfo\":{\"isUnlimited\":true}}}}}", NOW);
+        check("Unlimited".equals(unlimited.planType) && unlimited.monthly == null
+                && unlimited.usageCredits.unlimited, "unlimited Warp plan");
+        check("Not authorized".equals(ProviderUsageParsers.warpError("{\"errors\":[{\"message\":"
+                + "\"Not authorized\"}],\"data\":null}")) && !ProviderUsageParsers.warp(
+                        "{\"data\":null}", NOW).hasDisplayableData(), "GraphQL errors");
+    }
+
+    private static void testDevin() {
+        UsageSnapshot devin = ProviderUsageParsers.devin("{\"plan_name\":\"core\","
+                + "\"daily_percentage\":30,\"daily_reset_at\":\"2026-09-22T00:00:00Z\","
+                + "\"weekly_percentage\":45,\"weekly_reset_at\":" + (NOW_S + 3 * 86_400L)
+                + ",\"overage_balance_cents\":1250}", NOW);
+        check("Core".equals(devin.planType) && devin.fiveHour.usedPercent == 30
+                        && devin.fiveHour.windowSeconds == 86_400L && devin.weekly.usedPercent == 45,
+                "Devin daily and weekly quota");
+        check("$12.50".equals(devin.usageCredits.balance), "Devin extra usage balance");
+        check(ProviderUsageParsers.devin("{\"hide_daily_quota\":true,\"daily_percentage\":10,"
+                + "\"weekly_percentage\":20}", NOW).fiveHour == null, "hidden daily quota");
+        String curl = "curl 'https://app.devin.ai/api/org-a1b2c3d4e5/billing/quota/usage' \\\n"
+                + "  -H 'accept: application/json' \\\n"
+                + "  -H 'authorization: Bearer auth1_abcdefghijklmnopqrstuvwxyz012345' \\\n"
+                + "  -H 'x-cog-org-id: org-a1b2c3d4e5'";
+        String[] parts = DeviceAuth.parseDevinRequest(curl);
+        check("auth1_abcdefghijklmnopqrstuvwxyz012345".equals(parts[0])
+                && "org-a1b2c3d4e5".equals(parts[1]), "Devin request copied as cURL");
+        String[] bare = DeviceAuth.parseDevinRequest("auth1_tokenvalue1234 org_ZYXWVU98");
+        check("auth1_tokenvalue1234".equals(bare[0]) && "org_ZYXWVU98".equals(bare[1]),
+                "Devin token and organization pasted on their own");
+        check(DeviceAuth.parseDevinRequest("hello")[0].isEmpty(), "nothing to read");
     }
 
     /**
@@ -443,9 +584,12 @@ public final class ProviderParsersSelfTest {
                 "an idle 5-hour session runs the monitor until the weekly reset");
         saved.put(UsageProvider.CODEX, idle);
         check(MonitorProviderPicker.pick(UsageProvider.CLAUDE_CODE, order, canMonitor)
-                == UsageProvider.CODEX, "Codex still leads when it has limits");
+                == UsageProvider.CLAUDE_CODE, "the selected tab leads even when Codex has limits");
+        check(MonitorProviderPicker.pick(UsageProvider.CURSOR, java.util.Arrays.asList(
+                        UsageProvider.CODEX, UsageProvider.CLAUDE_CODE), canMonitor)
+                == UsageProvider.CODEX, "otherwise the first provider in tab order with limits");
         check(MonitorProviderPicker.pick(null, null, provider -> false) == UsageProvider.CODEX,
-                "nothing to monitor falls back to Codex (and the start is refused)");
+                "nothing to monitor and no tab: Codex (and the start is refused)");
         check(MonitorProviderPicker.until(null, now) == 0L, "no snapshot, no monitor");
         System.out.println("Live monitor: a Claude-only account starts on Claude Code, idle 5-hour included.");
     }

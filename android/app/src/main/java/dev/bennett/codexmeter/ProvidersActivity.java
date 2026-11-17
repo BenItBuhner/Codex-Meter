@@ -45,7 +45,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        LinearLayout content = Ui.installPage(this, "Dashboard tabs", true).content;
+        LinearLayout content = Ui.installPage(this, "Providers", true).content;
         // Pull-to-refresh would swallow downward drag gestures while rearranging rows.
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =
                 findViewById(R.id.dashboard_refresh);
