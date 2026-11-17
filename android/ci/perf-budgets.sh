@@ -22,12 +22,11 @@ ACTIVITY="$PACKAGE/.MainActivity"
 LAUNCHES="${LAUNCHES:-11}"
 
 # First measured 2026-11-17 on alpha: APK 74.8 MB, cold start median 3607 ms, PSS 55.9 MB. The
-# release APK then dropped its x86_64 Skia copy: 48.6 MB. Cold start on the software-rendered
-# emulator swings with the runner (single launches 2258-6335 ms, medians 3607 and 5039 ms across
-# two runs of the same code), so the script lets post-boot work settle first and the ceiling
-# sits above that spread; it catches a real regression (seconds), not runner noise.
+# release APK then dropped its x86_64 Skia copy: 48.6 MB. Before the post-boot compile was let
+# finish, cold starts swung from 2.3 to 6.3 s with the runner; after it, 11 launches fell between
+# 1469 and 2032 ms (median 1663 ms, PSS 69.6 MB). The ceilings leave about 50% headroom over that.
 MAX_APK_MB="${MAX_APK_MB:-55}"
-MAX_COLD_START_MS="${MAX_COLD_START_MS:-7000}"
+MAX_COLD_START_MS="${MAX_COLD_START_MS:-2500}"
 MAX_PSS_MB="${MAX_PSS_MB:-90}"
 
 adb wait-for-device
