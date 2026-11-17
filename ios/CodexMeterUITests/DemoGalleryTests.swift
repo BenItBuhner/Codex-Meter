@@ -247,8 +247,14 @@ final class DemoGalleryTests: XCTestCase {
         // card; scroll there blind and ask the accessibility tree only once.
         UITestSupport.scrollDashboardToBottom(in: app)
         UITestSupport.settle(0.8)
-        if app.buttons["Use 1 reset"].waitForExistence(timeout: 5),
-           UITestSupport.isFullyVisible(app.buttons["Use 1 reset"], in: app) {
+        let useReset = app.buttons["Use 1 reset"]
+        // A stroke the history chart swallows can leave the blind passes short of the end, so
+        // finish with the checked scroll, which stops once the button is in view.
+        if !(useReset.waitForExistence(timeout: 5) && UITestSupport.isFullyVisible(useReset, in: app)) {
+            UITestSupport.scrollDashboard(untilVisible: useReset, in: app, maxAttempts: 6)
+            UITestSupport.settle(0.6)
+        }
+        if useReset.exists, UITestSupport.isFullyVisible(useReset, in: app) {
             capture("16e-demo-reset-credits-ax5")
         } else {
             XCTFail("Reset credits card was not reached at the AX5 text size")
