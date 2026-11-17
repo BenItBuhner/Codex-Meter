@@ -15,7 +15,8 @@
 #
 # Ceilings are set from measured CI runs (macos-26 runner) with headroom for runner noise. Raise
 # one only with a reason in the PR that needs it; lower them as the app gets leaner.
-set -euo pipefail
+set -Eeuo pipefail
+trap 'echo "::error::perf-budgets.sh line $LINENO: \"$BASH_COMMAND\" exited $?" >&2' ERR
 
 PLATFORM="${1:?ios or mac}"
 APP="${2:?path to the .app required}"
@@ -38,8 +39,11 @@ case "$PLATFORM" in
     MARKER_FILE="$(xcrun simctl get_app_container "$DEVICE" "$BUNDLE_ID" data)/tmp/codexmeter-first-frame.txt"
     ;;
   mac)
-    MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-3000}"
-    MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-300}"
+    # First measured 2026-11-17 (warm launches): medians 2917 and 3121 ms, single launches
+    # 2.8-5.7 s on the VM runner; footprint 43.8-45.4 MB. The first frame is slow for a Mac app
+    # and worth a profile; the ceiling keeps it from getting worse meanwhile.
+    MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-4500}"
+    MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-65}"
     TITLE="Mac"
     BIN="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")"
     defaults write "$BUNDLE_ID" "$MODE_KEY" demo
