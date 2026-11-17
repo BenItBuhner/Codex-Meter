@@ -3,7 +3,7 @@
 #   - APK size
 #   - cold start: median `am start -W` TotalTime over several launches, after one warm-up
 #   - memory: total PSS a few seconds after the first screen settles
-# Prints a Markdown table to stdout (CI appends it to the job summary).
+# Prints a Markdown table to the log, and to the job summary when run in GitHub Actions.
 #
 #   android/ci/perf-budgets.sh path/to/app-release.apk
 #
@@ -54,6 +54,9 @@ pss_kb="$(adb shell dumpsys meminfo "$PACKAGE" | tr -d '\r' \
 
 apk_mb="$(awk -v b="$apk_bytes" 'BEGIN { printf "%.1f", b / 1048576 }')"
 pss_mb="$(awk -v k="$pss_kb" 'BEGIN { printf "%.1f", k / 1024 }')"
+
+# Everything from here on goes to the log and, in Actions, the job summary.
+exec > >(tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}")
 
 failed=0
 row() { # name value ceiling unit

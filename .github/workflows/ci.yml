@@ -220,10 +220,7 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release.apk" > perf.md
-      - name: Add the table to the job summary
-        if: success() || failure()
-        run: cat perf.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          script: ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release.apk"
 
   desktop:
     name: Desktop core and Linux
