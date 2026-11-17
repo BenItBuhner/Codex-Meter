@@ -253,6 +253,71 @@ public final class ParserSelfTest {
         System.out.println("Usage-pace demo: 15% of a week in one hour projects about 6h 40m.");
     }
 
+    /**
+     * Claude Code saved resets drop usage to zero without moving the weekly reset. The estimate
+     * must restart from the reset instead of averaging post-reset usage over the whole week.
+     */
+    private static void testInWindowResetPace(long start) {
+        long hour = TimeUnit.HOURS.toMillis(1);
+        long weekSeconds = TimeUnit.DAYS.toSeconds(7);
+        long weeklyReset = start + TimeUnit.DAYS.toMillis(7);
+        UsageHistory weekly = UsageHistory.empty(UsageHistory.WEEKLY);
+        // Steady climb to 70% over the first 66 hours of the week.
+        for (int h = 6; h <= 66; h += 6) {
+            weekly = weekly.append(new UsageWindow(h * 70 / 66, weekSeconds, 0L,
+                    weeklyReset / 1000L), start + h * hour);
+        }
+        long resetSampleAt = start + 67 * hour;
+        weekly = weekly.append(new UsageWindow(0, weekSeconds, 0L, weeklyReset / 1000L),
+                resetSampleAt);
+        check(weekly.inWindowResetAtMillis() == resetSampleAt,
+                "a drop to zero inside the window marks a saved reset");
+        long now = resetSampleAt + 2 * hour;
+        weekly = weekly.append(new UsageWindow(5, weekSeconds, 0L, weeklyReset / 1000L),
+                resetSampleAt + hour);
+        UsageWindow afterReset = new UsageWindow(10, weekSeconds, 0L, weeklyReset / 1000L);
+        weekly = weekly.append(afterReset, now);
+        check(weekly.samplesSinceInWindowReset().size() == 3,
+                "burn trend only uses samples taken after the saved reset");
+        UsagePace.Assessment wholeWeek = UsagePace.assess(afterReset, now, now,
+                UsagePace.BALANCED);
+        UsagePace.Assessment sinceReset = UsagePace.assess(afterReset, weekly, now, now,
+                UsagePace.BALANCED);
+        check(wholeWeek.estimatedRemainingMillis > TimeUnit.DAYS.toMillis(20),
+                "averaging over the whole week badly overestimates after a saved reset");
+        check(sinceReset.available && Math.abs(sinceReset.estimatedRemainingMillis - 18 * hour)
+                        < hour,
+                "10% in two hours since a saved reset runs out in about 18 hours");
+        check(sinceReset.accelerated, "fast use after a saved reset is flagged as accelerated");
+        check(sinceReset.resetAtMillis == weeklyReset, "a saved reset keeps the weekly deadline");
+
+        // A one-point dip is rounding noise, not a reset.
+        UsageHistory jitter = UsageHistory.empty(UsageHistory.WEEKLY)
+                .append(new UsageWindow(20, weekSeconds, 0L, weeklyReset / 1000L), start + hour)
+                .append(new UsageWindow(19, weekSeconds, 0L, weeklyReset / 1000L),
+                        start + 2 * hour);
+        check(jitter.inWindowResetAtMillis() == 0L, "a one-point dip is not a saved reset");
+
+        // A reset that moves the deadline (Codex) starts a new window; nothing extra to detect.
+        UsageHistory moved = UsageHistory.empty(UsageHistory.WEEKLY)
+                .append(new UsageWindow(60, weekSeconds, 0L, weeklyReset / 1000L), start + hour)
+                .append(new UsageWindow(2, weekSeconds, 0L,
+                        (start + 2 * hour + TimeUnit.DAYS.toMillis(7)) / 1000L), start + 2 * hour);
+        check(moved.inWindowResetAtMillis() == 0L,
+                "a reset that restarts the week is handled as a new window");
+
+        // History from a different window never shifts the current estimate.
+        UsageWindow nextWeek = new UsageWindow(10, weekSeconds, 0L,
+                (weeklyReset + TimeUnit.DAYS.toMillis(7)) / 1000L);
+        long nextNow = weeklyReset + TimeUnit.DAYS.toMillis(1);
+        check(UsagePace.assess(nextWeek, weekly, nextNow, nextNow, UsagePace.BALANCED)
+                        .estimatedExhaustionAtMillis
+                        == UsagePace.assess(nextWeek, nextNow, nextNow, UsagePace.BALANCED)
+                        .estimatedExhaustionAtMillis,
+                "a saved reset from an older window is ignored");
+        System.out.println("Saved reset pace: 10% in 2h after a mid-week reset projects ~18h.");
+    }
+
     private static void testUsageHistory() throws Exception {
         long start = 2_000_000_000_000L;
         long reset = start + TimeUnit.HOURS.toMillis(5);
@@ -285,6 +350,8 @@ public final class ParserSelfTest {
         check(history.currentWindowSamples().size() == 1, "latest reset window is isolated");
         check(history.recentWindows(5).size() == 2,
                 "chart receives current and completed historical windows");
+
+        testInWindowResetPace(start);
 
         UsageHistory restored = UsageHistory.fromJson(history.toJson(), UsageHistory.FIVE_HOUR);
         check(restored.samples.size() == history.samples.size(), "usage history JSON round trip");

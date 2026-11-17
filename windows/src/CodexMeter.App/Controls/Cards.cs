@@ -110,7 +110,7 @@ public static class Cards
     /// A usage window: title, the big number, a progress bar, the other half, reset time and pace.
     /// </summary>
     public static Border Meter(string title, string glyph, UsageWindow window, DateTimeOffset fetchedAt, MeterOptions options,
-        bool limitReached = false, string? automationId = null)
+        bool limitReached = false, string? automationId = null, DateTimeOffset? usageStart = null)
     {
         var now = DateTimeOffset.UtcNow;
         var value = UsageFormat.Value(window, options.Display);
@@ -138,7 +138,7 @@ public static class Cards
         panel.Children.Add(Text(reset.Length > 0 ? $"{complement} · {reset}" : complement, "CaptionSecondaryTextStyle"));
         if (options.ShowPace)
         {
-            var pace = UsagePace.Describe(window, fetchedAt, now, options.Sensitivity);
+            var pace = UsagePace.Describe(window, fetchedAt, now, options.Sensitivity, usageStart);
             if (pace.Length > 0)
             {
                 var accelerated = pace.StartsWith("At this pace", StringComparison.Ordinal);

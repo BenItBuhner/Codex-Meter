@@ -85,6 +85,12 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("localRelease")
+            // Phones run arm64. Each ABI carries its own 27 MB copy of Skia (skiko), so the release
+            // APK ships arm64 only; -PreleaseAbis=x86_64 builds one for the x86_64 CI emulator.
+            ndk {
+                abiFilters += (providers.gradleProperty("releaseAbis").orNull ?: "arm64-v8a")
+                    .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            }
         }
     }
 
@@ -104,6 +110,9 @@ android {
         checkDependencies = false
         // Newer versions are Dependabot's to raise; as lint errors they would break CI on any day.
         disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
+        // The release APK is arm64 only on purpose (see buildTypes.release); x86 ChromeOS devices
+        // run it through ChromeOS's ARM translation.
+        disable += "ChromeOsAbiSupport"
     }
 
     testOptions {

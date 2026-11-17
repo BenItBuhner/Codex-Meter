@@ -1,3 +1,4 @@
+using CodexMeter.Core.Formatting;
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Providers;
 using CodexMeter.Core.Services;
@@ -23,6 +24,39 @@ public class HistoryAndSectionsTests
         Assert.Equal(2, history.RecentWindows(5).Count);
         // Older observations are ignored.
         Assert.Same(history, history.Appending(new UsageWindow(50, 18_000, 0, reset), Now));
+    }
+
+    [Fact]
+    public void SavedResetRestartsPaceAndKeepsEarlierBurn()
+    {
+        // Claude Code saved resets drop usage to zero without moving the weekly reset.
+        const long week = 7 * 24 * 3600;
+        var start = Now;
+        var weeklyReset = start.AddDays(7);
+        var history = UsageHistory.Empty(UsageHistoryKind.Weekly);
+        for (var h = 6; h <= 66; h += 6)
+            history = history.Appending(new UsageWindow(h * 70 / 66, week, 0, weeklyReset), start.AddHours(h));
+        var resetSampleAt = start.AddHours(67);
+        history = history.Appending(new UsageWindow(0, week, 0, weeklyReset), resetSampleAt);
+        Assert.Equal(resetSampleAt, history.InWindowResetAt);
+        history = history.Appending(new UsageWindow(5, week, 0, weeklyReset), resetSampleAt.AddHours(1));
+        var now = resetSampleAt.AddHours(2);
+        var afterReset = new UsageWindow(10, week, 0, weeklyReset);
+        history = history.Appending(afterReset, now);
+
+        var wholeWeek = UsagePace.Assess(afterReset, now, now);
+        Assert.True(wholeWeek.EstimatedRemaining > TimeSpan.FromDays(20));
+        var sinceReset = UsagePace.Assess(afterReset, now, now, PaceSensitivity.Balanced, history.UsageStart(afterReset, now));
+        Assert.True(sinceReset.IsAvailable);
+        Assert.True(sinceReset.IsAccelerated);
+        Assert.InRange(sinceReset.EstimatedRemaining, TimeSpan.FromHours(17), TimeSpan.FromHours(19));
+        // A sample from another window gives no restart point.
+        Assert.Null(history.UsageStart(new UsageWindow(10, week, 0, weeklyReset.AddDays(7)), now));
+
+        // The drop does not cancel out the burn before it.
+        var stats = UsageStats.Breakdown(history, 1).Single();
+        // 6% to 70%, then 0% to 10%: 74 points over 63 hours, not the 4-point net change.
+        Assert.Equal(74 / 63.0, stats.AverageBurnPercentPerHour, 3);
     }
 
     [Fact]

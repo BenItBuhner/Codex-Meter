@@ -5,7 +5,10 @@
 #   - memory: total PSS a few seconds after the first screen settles
 # Prints a Markdown table to the log, and to the job summary when run in GitHub Actions.
 #
-#   android/ci/perf-budgets.sh path/to/app-release.apk
+#   android/ci/perf-budgets.sh path/to/app-release.apk [path/to/shipped.apk]
+#
+# The first APK is installed and launched, so it must match the emulator's ABI. The size budget
+# applies to the second, the APK users install, when it is given (default: the first).
 #
 # Ceilings are set from measured CI runs (swiftshader x86_64 emulator, API 35) with headroom for
 # runner noise. Raise one only with a reason in the PR that needs it; lower them as the app gets
@@ -13,22 +16,27 @@
 set -euo pipefail
 
 APK="${1:?apk path required}"
+SIZE_APK="${2:-$APK}"
 PACKAGE="dev.bennett.codexmeter"
 ACTIVITY="$PACKAGE/.MainActivity"
-LAUNCHES="${LAUNCHES:-7}"
+LAUNCHES="${LAUNCHES:-11}"
 
-# First measured 2026-11-17 on alpha: APK 74.8 MB (R8 is off and skiko ships x86_64 and arm64
-# libraries), cold start median 3607 ms (single launches 2258-4085 ms on the software-rendered
-# emulator), PSS 55.9 MB. The ceilings stop regressions; bringing the first two down is v3 work.
-MAX_APK_MB="${MAX_APK_MB:-80}"
-MAX_COLD_START_MS="${MAX_COLD_START_MS:-5000}"
+# First measured 2026-11-17 on alpha: APK 74.8 MB, cold start median 3607 ms, PSS 55.9 MB. The
+# release APK then dropped its x86_64 Skia copy: 48.6 MB. Before the post-boot compile was let
+# finish, cold starts swung from 2.3 to 6.3 s with the runner; after it, 11 launches fell between
+# 1469 and 2032 ms (median 1663 ms, PSS 69.6 MB). The ceilings leave about 50% headroom over that.
+MAX_APK_MB="${MAX_APK_MB:-55}"
+MAX_COLD_START_MS="${MAX_COLD_START_MS:-2500}"
 MAX_PSS_MB="${MAX_PSS_MB:-90}"
 
 adb wait-for-device
 adb shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done'
 adb install -r -g "$APK" >/dev/null
+# Right after boot the system is still compiling packages in the background, which competes with
+# every launch on a two-core emulator. Run that work now, so it is done before the clock starts.
+timeout 300 adb shell cmd package bg-dexopt-job >/dev/null 2>&1 || true
 
-apk_bytes="$(stat -c %s "$APK")"
+apk_bytes="$(stat -c %s "$SIZE_APK")"
 
 cold_start() {
   adb shell am force-stop "$PACKAGE"

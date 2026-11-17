@@ -40,14 +40,18 @@ public static class UsagePace
         _ => (5, Math.Max(5 * 60, duration / 200), 75),
     };
 
+    /// <param name="usageStart">When usage was reset partway through the window (a Claude Code saved
+    /// reset, from <see cref="UsageHistory.UsageStart"/>): the average is measured from there instead of
+    /// the window start. The reset time stays the same.</param>
     public static UsagePaceAssessment Assess(UsageWindow? window, DateTimeOffset observedAt, DateTimeOffset now,
-        PaceSensitivity sensitivity = PaceSensitivity.Balanced)
+        PaceSensitivity sensitivity = PaceSensitivity.Balanced, DateTimeOffset? usageStart = null)
     {
         if (window is null || window.WindowSeconds <= 0 || window.EffectiveResetDate(observedAt) is not { } resetAt
             || resetAt <= observedAt || resetAt <= now)
             return UsagePaceAssessment.Unavailable;
         var duration = (double)window.WindowSeconds;
         var windowStart = resetAt.AddSeconds(-duration);
+        if (usageStart is { } start && start > windowStart) windowStart = start;
         var elapsed = (observedAt - windowStart).TotalSeconds;
         if (elapsed <= 0 || elapsed > duration || window.UsedPercent <= 0) return UsagePaceAssessment.Unavailable;
         var policy = Policy(sensitivity, duration);
@@ -64,9 +68,9 @@ public static class UsagePace
 
     /// <summary>Short pace line for a card, or empty when there's nothing useful to say.</summary>
     public static string Describe(UsageWindow? window, DateTimeOffset observedAt, DateTimeOffset now,
-        PaceSensitivity sensitivity = PaceSensitivity.Balanced)
+        PaceSensitivity sensitivity = PaceSensitivity.Balanced, DateTimeOffset? usageStart = null)
     {
-        var pace = Assess(window, observedAt, now, sensitivity);
+        var pace = Assess(window, observedAt, now, sensitivity, usageStart);
         if (!pace.IsAvailable) return "";
         if (window!.UsedPercent >= 100) return "";
         return pace.IsAccelerated
