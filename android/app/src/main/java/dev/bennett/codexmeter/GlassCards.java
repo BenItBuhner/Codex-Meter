@@ -155,6 +155,11 @@ final class GlassCards {
         return c;
     }
 
+    /** Codex's Edit dashboard choices, read through the same per-provider API as the others. */
+    private static boolean codexShows(MainActivity a, String key) {
+        return ProviderPreferences.isDashboardSectionVisible(a, UsageProvider.CODEX, key);
+    }
+
     private static void codex(MainActivity a, UsageSnapshot snapshot, long now, List<Card> out) {
         Map<String, List<UsageLimit>> limitsByKey = new LinkedHashMap<>();
         List<String> available = new ArrayList<>();
@@ -168,38 +173,38 @@ final class GlassCards {
                 }
                 group.add(limit);
             }
-            if (AppPreferences.showDashboardFiveHour(a) && snapshot.fiveHour != null) {
+            if (codexShows(a, DashboardSections.FIVE_HOUR) && snapshot.fiveHour != null) {
                 available.add(DashboardSections.FIVE_HOUR);
             }
-            if (AppPreferences.showDashboardWeekly(a) && snapshot.weekly != null) {
+            if (codexShows(a, DashboardSections.WEEKLY) && snapshot.weekly != null) {
                 available.add(DashboardSections.WEEKLY);
             }
-            if (AppPreferences.showDashboardMonthly(a) && snapshot.monthly != null) {
+            if (codexShows(a, DashboardSections.MONTHLY) && snapshot.monthly != null) {
                 available.add(DashboardSections.MONTHLY);
             }
-            if (AppPreferences.showDashboardSpendControl(a) && snapshot.spendControl != null) {
+            if (codexShows(a, DashboardSections.SPEND_CONTROL) && snapshot.spendControl != null) {
                 available.add(DashboardSections.SPEND_CONTROL);
             }
             if (AppPreferences.showDashboardAdditionalLimits(a)) {
                 for (String key : limitsByKey.keySet()) {
-                    if (!AppPreferences.isDashboardSectionHidden(a, key)) {
+                    if (codexShows(a, key)) {
                         available.add(key);
                     }
                 }
             }
-            if (AppPreferences.showDashboardUsageCredits(a) && snapshot.usageCredits != null
+            if (codexShows(a, DashboardSections.USAGE_CREDITS) && snapshot.usageCredits != null
                     && snapshot.usageCredits.shouldDisplay()) {
                 available.add(DashboardSections.USAGE_CREDITS);
             }
-            if (AppPreferences.showDashboardUsageHistory(a) && snapshot.fetchedAtMillis > 0L
+            if (codexShows(a, DashboardSections.USAGE_HISTORY) && snapshot.fetchedAtMillis > 0L
                     && (snapshot.fiveHour != null || snapshot.weekly != null || snapshot.monthly != null)) {
                 available.add(DashboardSections.USAGE_HISTORY);
             }
         }
-        if (AppPreferences.showDashboardResetCredits(a) && a.shouldShowResetCreditsCard(snapshot)) {
+        if (codexShows(a, DashboardSections.RESET_CREDITS) && a.shouldShowResetCreditsCard(snapshot)) {
             available.add(DashboardSections.RESET_CREDITS);
         }
-        for (String key : DashboardSections.resolveOrder(AppPreferences.getDashboardOrder(a), available)) {
+        for (String key : DashboardSections.resolveOrder(ProviderPreferences.getDashboardOrder(a, UsageProvider.CODEX), available)) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
                 out.add(meter(a, UsageProvider.CODEX, "5-hour", snapshot, snapshot.fiveHour, now));
             } else if (DashboardSections.WEEKLY.equals(key)) {

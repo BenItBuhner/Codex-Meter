@@ -1211,6 +1211,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         this.content.addView(textViewText, layoutParams);
     }
 
+    /** Codex's Edit dashboard choices, read through the same per-provider API as the others. */
+    private boolean codexShows(Context context, String key) {
+        return ProviderPreferences.isDashboardSectionVisible(context, UsageProvider.CODEX, key);
+    }
+
     private LinearLayout buildUsageDashboard() {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         boolean signedIn = SecureTokenStore.isSignedIn(this);
@@ -1231,33 +1236,33 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 }
                 group.add(limit);
             }
-            if (AppPreferences.showDashboardFiveHour(this) && snapshot.fiveHour != null) {
+            if (codexShows(this, DashboardSections.FIVE_HOUR) && snapshot.fiveHour != null) {
                 available.add(DashboardSections.FIVE_HOUR);
             }
-            if (AppPreferences.showDashboardWeekly(this) && snapshot.weekly != null) {
+            if (codexShows(this, DashboardSections.WEEKLY) && snapshot.weekly != null) {
                 available.add(DashboardSections.WEEKLY);
             }
-            if (AppPreferences.showDashboardMonthly(this) && snapshot.monthly != null) {
+            if (codexShows(this, DashboardSections.MONTHLY) && snapshot.monthly != null) {
                 available.add(DashboardSections.MONTHLY);
             }
             // Accounts without workspace spend controls never see this card.
-            if (AppPreferences.showDashboardSpendControl(this) && snapshot.spendControl != null) {
+            if (codexShows(this, DashboardSections.SPEND_CONTROL) && snapshot.spendControl != null) {
                 available.add(DashboardSections.SPEND_CONTROL);
             }
             if (AppPreferences.showDashboardAdditionalLimits(this)) {
                 for (String key : limitsByKey.keySet()) {
-                    if (!AppPreferences.isDashboardSectionHidden(this, key)) {
+                    if (codexShows(this, key)) {
                         available.add(key);
                     }
                 }
             }
             // Zero, near-zero, and negative balances are always hidden regardless of settings.
-            if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null
+            if (codexShows(this, DashboardSections.USAGE_CREDITS) && snapshot.usageCredits != null
                     && snapshot.usageCredits.shouldDisplay()) {
                 available.add(DashboardSections.USAGE_CREDITS);
             }
             // Usage history only appears once at least one window can feed a burn chart.
-            if (AppPreferences.showDashboardUsageHistory(this)
+            if (codexShows(this, DashboardSections.USAGE_HISTORY)
                     && snapshot.fetchedAtMillis > 0L
                     && (snapshot.fiveHour != null || snapshot.weekly != null
                             || snapshot.monthly != null)) {
@@ -1265,12 +1270,12 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             }
         }
         // Zero available resets always hide the card, even when the Edit dashboard switch is on.
-        if (AppPreferences.showDashboardResetCredits(this) && shouldShowResetCreditsCard(snapshot)) {
+        if (codexShows(this, DashboardSections.RESET_CREDITS) && shouldShowResetCreditsCard(snapshot)) {
             available.add(DashboardSections.RESET_CREDITS);
         }
         boolean inverted = false;
         for (String key : DashboardSections.resolveOrder(
-                AppPreferences.getDashboardOrder(this), available)) {
+                ProviderPreferences.getDashboardOrder(this, UsageProvider.CODEX), available)) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
                         "5-hour", snapshot, snapshot.fiveHour, inverted));
