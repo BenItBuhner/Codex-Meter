@@ -85,6 +85,12 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("localRelease")
+            // Phones run arm64. Each ABI carries its own 27 MB copy of Skia (skiko), so the release
+            // APK ships arm64 only; -PreleaseAbis=x86_64 builds one for the x86_64 CI emulator.
+            ndk {
+                abiFilters += (providers.gradleProperty("releaseAbis").orNull ?: "arm64-v8a")
+                    .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            }
         }
     }
 

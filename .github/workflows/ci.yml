@@ -202,8 +202,12 @@ jobs:
           keytool -genkeypair -keystore .local-signing/codex-meter-local.p12 -storetype PKCS12 \
             -storepass perfbudget -keypass perfbudget -alias codexmeter -keyalg RSA -keysize 2048 \
             -validity 1 -dname CN=perf >/dev/null
+          # The APK users install (arm64) is measured for size; the emulator is x86_64, so the
+          # same release build for x86_64 is the one that launches.
           ./gradlew --console=plain :app:assembleRelease
-          cp "$(ls app/build/outputs/apk/release/*.apk | head -n 1)" "$RUNNER_TEMP/app-release.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release.apk"
+          ./gradlew --console=plain :app:assembleRelease -PreleaseAbis=x86_64
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release-x86_64.apk"
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -220,7 +224,7 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release.apk"
+          script: ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release-x86_64.apk" "$RUNNER_TEMP/app-release.apk"
 
   desktop:
     name: Desktop core and Linux

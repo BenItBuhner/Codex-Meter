@@ -5,7 +5,10 @@
 #   - memory: total PSS a few seconds after the first screen settles
 # Prints a Markdown table to the log, and to the job summary when run in GitHub Actions.
 #
-#   android/ci/perf-budgets.sh path/to/app-release.apk
+#   android/ci/perf-budgets.sh path/to/app-release.apk [path/to/shipped.apk]
+#
+# The first APK is installed and launched, so it must match the emulator's ABI. The size budget
+# applies to the second, the APK users install, when it is given (default: the first).
 #
 # Ceilings are set from measured CI runs (swiftshader x86_64 emulator, API 35) with headroom for
 # runner noise. Raise one only with a reason in the PR that needs it; lower them as the app gets
@@ -13,6 +16,7 @@
 set -euo pipefail
 
 APK="${1:?apk path required}"
+SIZE_APK="${2:-$APK}"
 PACKAGE="dev.bennett.codexmeter"
 ACTIVITY="$PACKAGE/.MainActivity"
 LAUNCHES="${LAUNCHES:-7}"
@@ -28,7 +32,7 @@ adb wait-for-device
 adb shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done'
 adb install -r -g "$APK" >/dev/null
 
-apk_bytes="$(stat -c %s "$APK")"
+apk_bytes="$(stat -c %s "$SIZE_APK")"
 
 cold_start() {
   adb shell am force-stop "$PACKAGE"
