@@ -97,11 +97,23 @@ enum UITestSupport {
     ) {
         let target = element.firstMatch
         // Existing isn't enough: a lazy Form keeps rows below the fold in the hierarchy, and on
-        // an iPad sheet a row can exist under the sheet's bottom edge, where a tap misses it.
+        // an iPad sheet a row can exist under the sheet's bottom edge, where a tap misses it. So
+        // stop once the row sits inside the Form's own frame (the sheet's content area on iPad).
+        // Frames, not isHittable: plain text rows are never hittable, and swiping past them
+        // culls them from the lazy Form.
         for _ in 0..<maxAttempts {
-            if target.exists, target.isHittable { return }
+            if isInsideForm(target, in: app) { return }
             app.swipeUp()
         }
+    }
+
+    private static func isInsideForm(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard !frame.isEmpty else { return false }
+        let form = app.collectionViews.firstMatch
+        let bounds = form.exists ? form.frame : app.frame
+        return bounds.contains(frame)
     }
 
     /// Flips a SwiftUI `Toggle` that shows its label and waits for its value to change.
