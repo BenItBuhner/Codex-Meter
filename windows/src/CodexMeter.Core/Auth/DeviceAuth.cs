@@ -147,6 +147,39 @@ public static class DeviceAuth
         return Regex.Replace(text, @"\s+", "");
     }
 
+    /// <summary><paramref name="url"/> made absolute against <paramref name="origin"/> when a provider sends a site path.</summary>
+    public static string Absolute(string origin, string? url)
+    {
+        if (string.IsNullOrEmpty(url)) return "";
+        if (url.StartsWith("https://", StringComparison.Ordinal) || url.StartsWith("http://", StringComparison.Ordinal)) return url;
+        return origin + (url.StartsWith('/') ? "" : "/") + url;
+    }
+
+    private static readonly Regex DevinBearer = new(@"(?i)bearer\s+([A-Za-z0-9._~+/=-]{16,})", RegexOptions.Compiled);
+    private static readonly Regex DevinOrgHeader = new(@"(?i)x-cog-org-id['""]?\s*[:=]\s*['""]?([A-Za-z0-9_-]+)", RegexOptions.Compiled);
+    private static readonly Regex DevinOrgId = new(@"\b(org[-_][A-Za-z0-9]{6,})\b", RegexOptions.Compiled);
+
+    /// <summary>
+    /// The session token and organization id in a request copied from Devin's Usage &amp; Limits
+    /// page ("Copy as cURL", or the two headers); either is "" when missing.
+    /// </summary>
+    public static (string Token, string Org) ParseDevinRequest(string? pasted)
+    {
+        var text = pasted ?? "";
+        var bearer = DevinBearer.Match(text);
+        var token = bearer.Success ? bearer.Groups[1].Value : "";
+        var header = DevinOrgHeader.Match(text);
+        var org = header.Success ? header.Groups[1].Value : "";
+        if (org.Length == 0 && DevinOrgId.Match(text) is { Success: true } id) org = id.Groups[1].Value;
+        if (token.Length == 0)
+        {
+            token = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Trim('\'', '"'))
+                .FirstOrDefault(part => part.StartsWith("auth1_", StringComparison.Ordinal)) ?? "";
+        }
+        return (token, org);
+    }
+
     /// <summary>The first non-empty string value among <paramref name="keys"/>.</summary>
     internal static string Str(JsonObject? o, params string[] keys)
     {

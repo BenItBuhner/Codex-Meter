@@ -365,7 +365,7 @@ final class GlassScreens {
         @Override
         GlassModel.Page page() {
             Context c = activity();
-            GlassModel.Page page = new GlassModel.Page(PREFIX + "tabs", "Dashboard tabs");
+            GlassModel.Page page = new GlassModel.Page(PREFIX + "tabs", "Providers");
             page.intro = "Tap Edit to reorder, or touch and hold a tab. Switch off to hide one.";
             Section list = section(null);
             list.footer = "With five or more on, the first three get tabs and the rest go under More.";

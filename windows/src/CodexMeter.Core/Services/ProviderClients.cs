@@ -10,8 +10,9 @@ namespace CodexMeter.Core.Services;
 
 // Sign-in and usage routes for every provider added through Accounts → Add account. A port of
 // Android's and iOS's ProviderClients: client ids, endpoints and headers are the ones each
-// provider's own CLI or editor sends, and none of these usage routes is a documented public API.
-// Codex, Claude Code and Cursor keep their own services.
+// provider's own CLI or editor sends. Synthetic and v0 document their usage routes; the rest are
+// confirmed against the providers' open-source clients and trackers. Codex, Claude Code and
+// Cursor keep their own services.
 
 /// <summary>One request; headers keep insertion order. Bodies and headers are never logged.</summary>
 public sealed class ProviderRequest
@@ -45,6 +46,15 @@ public sealed class ProviderRequest
         Method = HttpMethod.Post;
         Body = payload.ToJsonString();
         ContentType = "application/json";
+        return this;
+    }
+
+    /// <summary>A POST with a raw body of <paramref name="type"/>.</summary>
+    public ProviderRequest Raw(string body, string type)
+    {
+        Method = HttpMethod.Post;
+        Body = body;
+        ContentType = type;
         return this;
     }
 
@@ -225,7 +235,7 @@ public static class ProviderClients
         "kimi" => new KimiClient(),
         "factory" => new FactoryClient(),
         "grok" => new GrokClient(),
-        "devin" => new CodeiumClient(UsageProvider.Devin, "devin"),
+        "devin" => new DevinClient(),
         "windsurf" => new CodeiumClient(UsageProvider.Windsurf, "windsurf"),
         "augment" => new AugmentClient(),
         "cline" => new ClineClient(),
@@ -237,9 +247,9 @@ public static class ProviderClients
         "openrouter" => new OpenRouterClient(),
         "kilo" => new KiloClient(),
         "codebuff" => new CodebuffClient(),
-        "synthetic" => new KeyQuotaClient(UsageProvider.Synthetic, "https://api.synthetic.new/v2/quotas", 5 * ProviderUsageParsers.Hour),
-        "chutes" => new KeyQuotaClient(UsageProvider.Chutes, "https://api.chutes.ai/users/me/subscription_usage", ProviderUsageParsers.Day),
-        "v0" => new KeyQuotaClient(UsageProvider.V0, "https://api.v0.dev/v1/rate-limits", ProviderUsageParsers.Day),
+        "synthetic" => new SyntheticClient(),
+        "chutes" => new ChutesClient(),
+        "v0" => new V0Client(),
         "warp" => new WarpClient(),
         _ => null,
     };
@@ -462,11 +472,11 @@ public sealed class ClineClient() : StandardDeviceClient(UsageProvider.Cline)
 
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
+        // Cline's own clients send the session as "workos:<token>"; a pasted key goes as is.
         const string url = "https://api.cline.bot/api/v1/users/me/plan/usage-limits";
-        var response = await SendAsync(context, "cline_usage", ProviderRequest.Get(url).Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false);
-        if (response.Status == 401 && !tokens.AccessToken.StartsWith("workos:", StringComparison.Ordinal))
-            response = await SendAsync(context, "cline_usage_workos", ProviderRequest.Get(url).Bearer("workos:" + tokens.AccessToken), cancellationToken).ConfigureAwait(false);
-        Check(response, "usage");
+        var bearer = tokens.IsApiKey || tokens.AccessToken.StartsWith("workos:", StringComparison.Ordinal)
+            ? tokens.AccessToken : "workos:" + tokens.AccessToken;
+        var response = Check(await SendAsync(context, "cline_usage", ProviderRequest.Get(url).Bearer(bearer), cancellationToken).ConfigureAwait(false), "usage");
         return NonEmpty(ProviderUsageParsers.Cline(response.Body, context.Now()));
     }
 }
@@ -496,7 +506,7 @@ public sealed class GrokClient() : StandardDeviceClient(UsageProvider.Grok)
     }
 }
 
-// ---------------------------------------------------------------------- Devin and Windsurf
+// ---------------------------------------------------------------------- Windsurf
 
 public sealed class CodeiumClient(UsageProvider provider, string ideName) : ProviderClient(provider)
 {
@@ -623,9 +633,15 @@ public sealed class OpenCodeGoClient() : ProviderClient(UsageProvider.OpencodeGo
             ["client_id"] = "opencode-cli",
             ["supports_org_scope"] = true,
         }), cancellationToken).ConfigureAwait(false);
-        var code = DeviceAuth.ParseDeviceCode(response.Body);
-        if (!response.Ok || !code.IsValid)
+        var parsed = DeviceAuth.ParseDeviceCode(response.Body);
+        if (!response.Ok || !parsed.IsValid)
             throw new ProviderException(ProviderHttp.ServerMessage(response.Body, $"OpenCode could not start sign-in (HTTP {response.Status})."));
+        // OpenCode answers with site-relative pages ("/console/device").
+        var code = parsed with
+        {
+            VerificationUri = DeviceAuth.Absolute("https://opencode.ai", parsed.VerificationUri),
+            VerificationUriComplete = DeviceAuth.Absolute("https://opencode.ai", parsed.VerificationUriComplete),
+        };
         attempt.Device = code;
         return code;
     }
@@ -687,8 +703,15 @@ public sealed class MiniMaxClient() : ProviderClient(UsageProvider.MiniMax)
             ("code_challenge_method", "S256"),
             ("state", attempt.State)), cancellationToken).ConfigureAwait(false);
         var parsed = DeviceAuth.ParseDeviceCode(response.Body);
-        // MiniMax polls with the user code itself.
-        var code = parsed with { Code = parsed.Code.Length == 0 ? parsed.UserCode : parsed.Code };
+        // MiniMax polls with the user code itself, gives the interval in milliseconds and the
+        // expiry as an epoch-milliseconds time ("expired_in").
+        var body = ProviderJson.Object(response.Body);
+        var intervalMillis = ProviderJson.Int(body, "interval", 2000);
+        var expiresAt = ProviderUsageParsers.EpochSeconds(ProviderJson.Get(body, "expired_in"));
+        var nowSeconds = context.Now().ToUnixTimeSeconds();
+        var code = new DeviceCode(parsed.Code.Length == 0 ? parsed.UserCode : parsed.Code, parsed.UserCode, parsed.VerificationUri,
+            parsed.VerificationUriComplete, Math.Max(1, (intervalMillis + 999) / 1000),
+            expiresAt > nowSeconds ? expiresAt - nowSeconds : parsed.ExpiresInSeconds);
         if (!response.Ok || !code.IsValid)
             throw new ProviderException(ProviderHttp.ServerMessage(response.Body, $"MiniMax could not start sign-in (HTTP {response.Status})."));
         attempt.Device = code;
@@ -828,9 +851,12 @@ public sealed class KiroClient() : ProviderClient(UsageProvider.Kiro)
 
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
+        // The AWS JSON protocol call kiro-cli makes; Builder ID accounts send no profile.
         var response = Check(await SendAsync(context, "kiro_usage",
-            ProviderRequest.Get("https://codewhisperer.us-east-1.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST")
-                .Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "usage");
+            ProviderRequest.Post("https://codewhisperer.us-east-1.amazonaws.com/")
+                .Bearer(tokens.AccessToken)
+                .Header("X-Amz-Target", "AmazonCodeWhispererService.GetUsageLimits")
+                .Raw("{}", "application/x-amz-json-1.0"), cancellationToken).ConfigureAwait(false), "usage");
         return NonEmpty(ProviderUsageParsers.Kiro(response.Body, context.Now()));
     }
 }
@@ -1092,29 +1118,129 @@ public sealed class CodebuffClient() : ProviderClient(UsageProvider.Codebuff)
 
 // ---------------------------------------------------------------------- Key-only providers
 
-public sealed class KeyQuotaClient(UsageProvider provider, string url, long defaultSeconds) : ProviderClient(provider)
+public sealed class SyntheticClient() : ProviderClient(UsageProvider.Synthetic)
 {
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
-        var response = Check(await SendAsync(context, Provider.Id + "_usage", ProviderRequest.Get(url).Bearer(tokens.AccessToken),
+        var response = Check(await SendAsync(context, "synthetic_usage", ProviderRequest.Get("https://api.synthetic.new/v2/quotas")
+            .Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "usage");
+        return NonEmpty(ProviderUsageParsers.Synthetic(response.Body, context.Now()));
+    }
+}
+
+public sealed class ChutesClient() : ProviderClient(UsageProvider.Chutes)
+{
+    public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var response = Check(await SendAsync(context, "chutes_usage", ProviderRequest.Get("https://api.chutes.ai/users/me/subscription_usage")
+            .Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "usage");
+        if (!ProviderJson.Bool(ProviderJson.Object(response.Body), "subscription", false))
+            throw new ProviderException("This Chutes account has no subscription, so there are no limits to show.");
+        return NonEmpty(ProviderUsageParsers.Chutes(response.Body, context.Now()));
+    }
+}
+
+public sealed class V0Client() : ProviderClient(UsageProvider.V0)
+{
+    private const string Base = "https://api.v0.dev/v1/";
+
+    private static async Task<string> OptionalAsync(string path, AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var operation = "v0_" + path.Replace('/', '_').Replace('-', '_');
+        var response = await TrySendAsync(context, operation, ProviderRequest.Get(Base + path).Bearer(tokens.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        return response is { Ok: true } ? response.Body : "";
+    }
+
+    public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var billing = Check(await SendAsync(context, "v0_billing", ProviderRequest.Get(Base + "user/billing").Bearer(tokens.AccessToken),
             cancellationToken).ConfigureAwait(false), "usage");
-        return NonEmpty(ProviderUsageParsers.KeyQuota(response.Body, defaultSeconds, context.Now()));
+        var plan = await OptionalAsync("user/plan", tokens, context, cancellationToken).ConfigureAwait(false);
+        var rateLimits = await OptionalAsync("rate-limits", tokens, context, cancellationToken).ConfigureAwait(false);
+        return NonEmpty(ProviderUsageParsers.V0(billing.Body, plan, rateLimits, context.Now()));
     }
 }
 
 public sealed class WarpClient() : ProviderClient(UsageProvider.Warp)
 {
+    private const string Query = "query GetRequestLimitInfo($requestContext: RequestContext!) "
+        + "{ user(requestContext: $requestContext) { __typename ... on UserOutput { "
+        + "user { requestLimitInfo { isUnlimited nextRefreshTime requestLimit "
+        + "requestsUsedSinceLastRefresh } bonusGrants { requestCreditsGranted "
+        + "requestCreditsRemaining expiration } workspaces { bonusGrantsInfo { grants { "
+        + "requestCreditsGranted requestCreditsRemaining expiration } } } } } } }";
+
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
+        var osName = OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "macOS" : "Linux";
+        var version = Environment.OSVersion.Version.ToString();
         var query = new JsonObject
         {
             ["operationName"] = "GetRequestLimitInfo",
-            ["variables"] = new JsonObject(),
-            ["query"] = "query GetRequestLimitInfo { user { user { requestLimitInfo { isUnlimited nextRefreshTime requestLimit requestsUsedSinceLastRefresh } } } }",
+            ["variables"] = new JsonObject
+            {
+                ["requestContext"] = new JsonObject
+                {
+                    ["clientContext"] = new JsonObject(),
+                    ["osContext"] = new JsonObject { ["category"] = osName, ["name"] = osName, ["version"] = version },
+                },
+            },
+            ["query"] = Query,
         };
+        // Warp's edge rejects requests whose User-Agent isn't the app's ("Warp/…").
         var response = Check(await SendAsync(context, "warp_usage",
-            ProviderRequest.Post("https://app.warp.dev/graphql/v2?op=GetRequestLimitInfo").Bearer(tokens.AccessToken).Json(query),
-            cancellationToken).ConfigureAwait(false), "usage");
-        return NonEmpty(ProviderUsageParsers.KeyQuota(response.Body, ProviderUsageParsers.Month, context.Now()));
+            ProviderRequest.Post("https://app.warp.dev/graphql/v2?op=GetRequestLimitInfo")
+                .Bearer(tokens.AccessToken)
+                .Header("User-Agent", "Warp/1.0")
+                .Header("x-warp-client-id", "warp-app")
+                .Header("x-warp-os-category", osName)
+                .Header("x-warp-os-name", osName)
+                .Header("x-warp-os-version", version)
+                .Json(query), cancellationToken).ConfigureAwait(false), "usage");
+        var error = ProviderUsageParsers.WarpError(response.Body);
+        if (error.Length > 0) throw new ProviderException("Warp: " + error);
+        return NonEmpty(ProviderUsageParsers.Warp(response.Body, context.Now()));
+    }
+}
+
+// ---------------------------------------------------------------------- Devin
+
+/// <summary>
+/// Devin's own usage page reads <c>app.devin.ai/api/&lt;org&gt;/billing/quota/usage</c> with the
+/// browser session's bearer token and the organization in <c>x-cog-org-id</c>. There is no device
+/// or API-key route for it, so the user pastes that request.
+/// </summary>
+public sealed class DevinClient() : ProviderClient(UsageProvider.Devin)
+{
+    public override string? PasteUrl(SignInAttempt attempt) => "https://app.devin.ai/settings/usage";
+
+    public override string PasteHint =>
+        "Open Usage & Limits on app.devin.ai, then in the browser's developer tools (Network) copy the billing/quota/usage request as cURL and paste it here.";
+
+    public override async Task<AuthTokens> FinishPasteAsync(SignInAttempt attempt, string pasted, ProviderContext context,
+        CancellationToken cancellationToken)
+    {
+        var (token, org) = DeviceAuth.ParseDevinRequest(pasted);
+        if (token.Length == 0)
+            throw new ProviderException("No session token found. Copy the whole request, including its Authorization header.");
+        if (org.Length == 0)
+            throw new ProviderException("No organization found. Copy the whole request, including its x-cog-org-id header.");
+        var tokens = new AuthTokens(token, token, "", AuthTokens.NeverExpires, org);
+        await FetchAsync(tokens, context, cancellationToken).ConfigureAwait(false);
+        return tokens;
+    }
+
+    public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
+    {
+        var org = tokens.AccountId;
+        if (org.Length == 0 || tokens.IsApiKey)
+            throw new ProviderUnauthorizedException("Connect Devin again from Accounts.");
+        var response = await SendAsync(context, "devin_usage", ProviderRequest.Get($"https://app.devin.ai/api/{org}/billing/quota/usage")
+            .Bearer(tokens.AccessToken).Header("x-cog-org-id", org), cancellationToken).ConfigureAwait(false);
+        if (response.Status is 401 or 403)
+            throw new ProviderUnauthorizedException("Your Devin session expired. Paste a new request from Accounts.");
+        Check(response, "usage");
+        return NonEmpty(ProviderUsageParsers.Devin(response.Body, context.Now()));
     }
 }

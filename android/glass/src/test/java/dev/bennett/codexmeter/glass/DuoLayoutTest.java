@@ -36,10 +36,20 @@ public class DuoLayoutTest {
     }
 
     @Test
-    public void tabTicksAreFirm() {
-        CodexGlass.setDuoMode(CodexGlass.duoMode());
-        org.junit.Assert.assertEquals(com.benitbuhner.glasse.ui.Haptic.RIGID,
-                com.benitbuhner.glasse.ui.TabView.getTICK());
+    public void hapticsFollowTheSetting() {
+        try {
+            CodexGlass.setHaptics(CodexGlass.HAPTICS_LIGHT);
+            org.junit.Assert.assertEquals(com.benitbuhner.glasse.ui.Haptic.LIGHT,
+                    com.benitbuhner.glasse.ui.TabView.getTICK());
+            assertTrue(com.benitbuhner.glasse.ui.Haptics.getEnabled());
+            CodexGlass.setHaptics(CodexGlass.HAPTICS_STRONG);
+            org.junit.Assert.assertEquals(com.benitbuhner.glasse.ui.Haptic.RIGID,
+                    com.benitbuhner.glasse.ui.TabView.getTICK());
+            CodexGlass.setHaptics(CodexGlass.HAPTICS_OFF);
+            assertFalse(com.benitbuhner.glasse.ui.Haptics.getEnabled());
+        } finally {
+            CodexGlass.setHaptics(CodexGlass.HAPTICS_LIGHT);
+        }
     }
 
     @Test

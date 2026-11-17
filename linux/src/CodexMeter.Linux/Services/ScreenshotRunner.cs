@@ -137,6 +137,30 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             await Delay(500);
         }
 
+        // Settings → AI apps, with Grok Bot pointed at Cursor as a user would, then the Add an App dialog.
+        state.Settings.Update(s => Core.Formatting.AppMappings.Set(s, "Grok Bot", Core.Providers.UsageProvider.Cursor));
+        window.Navigate("settings");
+        await Delay(900);
+        if (window.CurrentPage is SettingsPage settings && Find(settings.Page, "LiveAppsGroup") is { } apps)
+        {
+            var content = settings.Scroller.GetChild()!;
+            apps.TranslateCoordinates(content, 0, 0, out _, out var y);
+            settings.Scroller.GetVadjustment().SetValue(Math.Max(0, y - 24));
+            await Delay(600);
+            failures += Capture($"{name}-{shot:00}-ai-apps.png") ? 0 : 1;
+            var add = settings.EditLiveApp(null, "Grok Bot", Core.Providers.UsageProvider.Cursor);
+            await Delay(900);
+            failures += Capture($"{name}-{shot:00}-ai-apps-dialog.png") ? 0 : 1;
+            add.ForceClose();
+            await Delay(500);
+            settings.Scroller.GetVadjustment().SetValue(0);
+        }
+        else
+        {
+            AppLog.Write("Settings has no AI apps group.");
+            failures++;
+        }
+
         if (state.Entries.FirstOrDefault(e => !e.SignedIn && e.Provider.SignIn == Core.Providers.SignInStyle.DeviceCode) is { } device)
         {
             opened = null;

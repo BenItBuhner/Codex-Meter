@@ -594,7 +594,7 @@ struct ProviderDashboardCards: View {
             )
         case DashboardSections.weekly:
             UsageMeterCard(
-                title: provider == .cursor ? "Included usage · Weekly" : "Weekly",
+                title: LocalizedStringKey(ProviderCatalog.meterTitle(provider, "Weekly")),
                 systemImage: "calendar",
                 window: usage.weekly,
                 accent: provider == .cursor ? .indigo : .brown,
@@ -602,7 +602,7 @@ struct ProviderDashboardCards: View {
             )
         case DashboardSections.monthly:
             UsageMeterCard(
-                title: provider == .cursor ? "Included usage · Monthly" : "Monthly",
+                title: LocalizedStringKey(ProviderCatalog.meterTitle(provider, "Monthly")),
                 systemImage: "calendar.badge.clock",
                 window: usage.monthly,
                 accent: .indigo,

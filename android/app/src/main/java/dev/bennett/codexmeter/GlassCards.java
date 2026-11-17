@@ -39,11 +39,10 @@ final class GlassCards {
             d.cards.add(signIn(activity, provider));
             return d;
         }
-        UsageSnapshot snapshot = provider == UsageProvider.CODEX
-                ? AppPreferences.loadSnapshot(activity)
-                : ProviderPreferences.loadSnapshot(activity, provider);
+        UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(activity, provider);
         long now = System.currentTimeMillis();
-        String error = provider == UsageProvider.CODEX ? "" : ProviderPreferences.getLastError(activity, provider);
+        // Codex's refresh errors show here too, as they do on the One UI dashboard.
+        String error = ProviderPreferences.getLastError(activity, provider);
         if (ClaudeUsageApi.SIGN_IN_AGAIN_MESSAGE.equals(error)) {
             // The saved sign-in was rejected: offer to sign in again over it (history is kept).
             Card again = new Card(Card.Kind.UPDATE);
@@ -236,7 +235,7 @@ final class GlassCards {
         if (out.isEmpty()) {
             Card empty = new Card(Card.Kind.MESSAGE);
             empty.title = "No dashboard items are available. Refresh usage, or choose items in "
-                    + "Settings, Refresh & dashboard, Edit dashboard.";
+                    + "Settings, Dashboard, Edit dashboard.";
             out.add(empty);
         }
     }
@@ -275,9 +274,11 @@ final class GlassCards {
                     out.add(meter(a, target, MainActivity.cadenceLabel(snapshot.fiveHour), snapshot,
                             snapshot.fiveHour, now));
                 } else if (DashboardSections.WEEKLY.equals(key)) {
-                    out.add(meter(a, target, "Weekly", snapshot, snapshot.weekly, now));
+                    out.add(meter(a, target, ProviderCatalog.meterTitle(target, "Weekly"),
+                            snapshot, snapshot.weekly, now));
                 } else if (DashboardSections.MONTHLY.equals(key)) {
-                    out.add(meter(a, target, "Monthly", snapshot, snapshot.monthly, now));
+                    out.add(meter(a, target, ProviderCatalog.meterTitle(target, "Monthly"),
+                            snapshot, snapshot.monthly, now));
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                     out.add(history(a, target, snapshot));
                 } else if (DashboardSections.RESET_CREDITS.equals(key)) {
@@ -389,10 +390,7 @@ final class GlassCards {
     private static Card resetCredits(MainActivity a, UsageProvider target, long now) {
         boolean claude = target == UsageProvider.CLAUDE_CODE;
         boolean signedIn = SecureTokenStore.isSignedIn(a, target);
-        ClaudeSavedResets saved = claude ? ProviderPreferences.loadSavedResets(a, target) : null;
-        ResetCreditsSnapshot credits = claude
-                ? (saved == null ? null : saved.toResetCreditsSnapshot(now))
-                : AppPreferences.loadResetCredits(a);
+        ResetCreditsSnapshot credits = ProviderPreferences.loadResetCredits(a, target, now);
         int available = credits == null ? 0 : credits.availableCount;
         long nextExpiry = credits == null ? 0L : credits.nextExpiryMillis(now);
         Card c = new Card(Card.Kind.LINK);

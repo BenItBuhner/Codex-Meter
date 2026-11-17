@@ -116,10 +116,12 @@ public final class SettingsActivity extends AppCompatActivity {
                 || PAGE_NOW_BAR.equals(page)
                 || PAGE_APP_SESSIONS.equals(page)
                 || PAGE_UPDATES.equals(page)
-                || PAGE_TRANSFER.equals(page)
-                || PAGE_PRIVACY.equals(page)
-                || PAGE_DIAGNOSTICS.equals(page)) {
+                || PAGE_PRIVACY.equals(page)) {
             return page;
+        }
+        // Backup & transfer and Diagnostics are sections of Privacy & data now.
+        if (PAGE_TRANSFER.equals(page) || PAGE_DIAGNOSTICS.equals(page)) {
+            return PAGE_PRIVACY;
         }
         return PAGE_ROOT;
     }
@@ -131,23 +133,19 @@ public final class SettingsActivity extends AppCompatActivity {
             case PAGE_APPEARANCE:
                 return "Appearance";
             case PAGE_REFRESH_USAGE:
-                return "Refresh & dashboard";
+                return "Dashboard";
             case PAGE_RESET_CREDITS:
                 return "Reset credits";
             case PAGE_NOTIFICATIONS:
                 return "Notifications";
             case PAGE_NOW_BAR:
-                return "Now Bar";
+                return "Live notification";
             case PAGE_APP_SESSIONS:
                 return "While using AI apps";
             case PAGE_UPDATES:
                 return "Updates";
-            case PAGE_TRANSFER:
-                return "Backup & transfer";
             case PAGE_PRIVACY:
-                return "Privacy";
-            case PAGE_DIAGNOSTICS:
-                return "Diagnostics";
+                return "Privacy & data";
             case PAGE_ROOT:
             default:
                 return "Settings";
@@ -170,7 +168,6 @@ public final class SettingsActivity extends AppCompatActivity {
         private Preference expiryTimesPreference;
         private Preference permissionPreference;
         private Preference testNotificationPreference;
-        private PreferenceCategory notificationLowUsageCategory;
         private PreferenceCategory notificationResetCreditCategory;
         private PreferenceCategory notificationTroubleshootingCategory;
         private ListPreference notificationStylePreference;
@@ -179,8 +176,6 @@ public final class SettingsActivity extends AppCompatActivity {
         private SwitchPreferenceCompat nowBarAcceleratedPreference;
         private ListPreference nowBarDisplayModePreference;
         private ListPreference nowBarPercentModePreference;
-        private ListPreference nowBarMetricPreference;
-        private ListPreference nowBarThresholdPreference;
         private ListPreference usagePaceSensitivityPreference;
         private Preference nowBarPermissionPreference;
         private SwitchPreferenceCompat automaticUpdatePreference;
@@ -224,10 +219,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     break;
                 case PAGE_RESET_CREDITS:
                     addPreferencesFromResource(R.xml.preferences_settings_reset_credits);
-                    bindResetCreditAutoUse();
-                    bindClaudeSavedResets();
-                    bindResetStatus();
-                    bindClaudeResetCheck();
+                    bindResetCredits();
                     break;
                 case PAGE_NOTIFICATIONS:
                     addPreferencesFromResource(R.xml.preferences_settings_notifications);
@@ -245,15 +237,9 @@ public final class SettingsActivity extends AppCompatActivity {
                     addPreferencesFromResource(R.xml.preferences_settings_updates);
                     bindUpdates();
                     break;
-                case PAGE_TRANSFER:
-                    addPreferencesFromResource(R.xml.preferences_settings_transfer);
-                    bindTransfer();
-                    break;
                 case PAGE_PRIVACY:
                     addPreferencesFromResource(R.xml.preferences_settings_privacy);
-                    break;
-                case PAGE_DIAGNOSTICS:
-                    addPreferencesFromResource(R.xml.preferences_settings_diagnostics);
+                    bindTransfer();
                     bindDiagnostics();
                     break;
                 case PAGE_ROOT:
@@ -331,7 +317,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 updateAppSessions();
             } else if (PAGE_UPDATES.equals(page)) {
                 updateUpdateSummary();
-            } else if (PAGE_DIAGNOSTICS.equals(page)) {
+            } else if (PAGE_PRIVACY.equals(page)) {
                 updateDiagnosticSummary();
             } else if (PAGE_RESET_CREDITS.equals(page)) {
                 updateResetStatus();
@@ -354,7 +340,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             bindPageLink("settings_updates", PAGE_UPDATES);
-            bindPageLink("settings_transfer", PAGE_TRANSFER);
             bindPageLink("settings_privacy", PAGE_PRIVACY);
             findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
                 Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
@@ -410,7 +395,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void updateDiagnosticSummary() {
-            if (!PAGE_DIAGNOSTICS.equals(page) || getContext() == null) {
+            if (!PAGE_PRIVACY.equals(page) || getContext() == null) {
                 return;
             }
             boolean enabled = DiagnosticLog.isEnabled(requireContext());
@@ -569,10 +554,20 @@ public final class SettingsActivity extends AppCompatActivity {
             return "Starts " + joined;
         }
 
-        private String metricLabel(String metric) {
+        private static String metricLabel(String metric) {
             if ("five_hour".equals(metric)) return "5-hour";
             if ("weekly".equals(metric)) return "Weekly";
             return "Both limits";
+        }
+
+        /** "25% remaining on either limit": the one low-allowance level, as a phrase. */
+        static String lowAllowanceLabel(Context context) {
+            String metric = ResetAlertPreferences.getMetric(context);
+            String scope = "five_hour".equals(metric) ? "the 5-hour limit"
+                    : "weekly".equals(metric) ? "the weekly limit" : "either limit";
+            int threshold = ResetAlertPreferences.getThreshold(context);
+            return threshold >= 100 ? "any level on " + scope
+                    : threshold + "% remaining on " + scope;
         }
 
         /**
@@ -744,6 +739,16 @@ public final class SettingsActivity extends AppCompatActivity {
                 AppPreferences.setGlassIncreaseContrast(requireContext(), (Boolean) value);
                 return true;
             });
+            ListPreference haptics = findPreference(AppPreferences.KEY_HAPTICS);
+            if (haptics != null) {
+                haptics.setValue(AppPreferences.getHaptics(context));
+                haptics.setOnPreferenceChangeListener((preference, value) -> {
+                    AppPreferences.setHaptics(requireContext(), String.valueOf(value));
+                    AppHaptics.apply(requireContext());
+                    AppHaptics.tick(getView());
+                    return true;
+                });
+            }
             ListPreference duo = findPreference(AppPreferences.KEY_GLASS_DUO_MODE);
             if (duo != null) {
                 duo.setPersistent(false);
@@ -849,132 +854,179 @@ public final class SettingsActivity extends AppCompatActivity {
                             DashboardReorderActivity.EXTRA_PROVIDER, provider.id));
         }
 
-        private void bindResetCreditAutoUse() {
-            Context context = requireContext();
-            SwitchPreferenceCompat expiry = findPreference("reset_credit_expiry_auto_apply_ui");
-            ListPreference lead = findPreference("reset_credit_expiry_auto_apply_lead_ui");
-            SwitchPreferenceCompat lowUsage = findPreference("reset_credit_low_usage_auto_use_ui");
-            ListPreference threshold = findPreference("reset_credit_low_usage_threshold_ui");
-            ListPreference metric = findPreference("reset_credit_low_usage_metric_ui");
+        /** Providers with banked resets, in the order their sections appear. */
+        private static final UsageProvider[] RESET_PROVIDERS = {
+                UsageProvider.CODEX, UsageProvider.CLAUDE_CODE};
 
-            expiry.setPersistent(false);
-            expiry.setChecked(ResetAlertPreferences.resetCreditExpiryAutoApplyEnabled(context));
-            lead.setPersistent(false);
-            lead.setValue(String.valueOf(
-                    ResetAlertPreferences.resetCreditExpiryAutoApplyLeadMillis(context)));
-            lead.setVisible(expiry.isChecked());
-            expiry.setOnPreferenceChangeListener((preference, value) -> {
-                boolean enabled = (Boolean) value;
-                ResetAlertPreferences.setResetCreditExpiryAutoApplyEnabled(requireContext(), enabled);
-                lead.setVisible(enabled);
-                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
-                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
-                return true;
-            });
-            lead.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setResetCreditExpiryAutoApplyLeadMillis(requireContext(),
-                        Long.parseLong(String.valueOf(value)));
-                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
-                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
-                return true;
-            });
-
-            lowUsage.setPersistent(false);
-            lowUsage.setChecked(ResetAlertPreferences.resetCreditLowUsageAutoUseEnabled(context));
-            threshold.setPersistent(false);
-            threshold.setValue(String.valueOf(
-                    ResetAlertPreferences.resetCreditLowUsageThreshold(context)));
-            metric.setPersistent(false);
-            metric.setValue(ResetAlertPreferences.resetCreditLowUsageMetric(context));
-            threshold.setVisible(lowUsage.isChecked());
-            metric.setVisible(lowUsage.isChecked());
-            lowUsage.setOnPreferenceChangeListener((preference, value) -> {
-                boolean enabled = (Boolean) value;
-                if (!enabled) {
-                    ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
-                            requireContext(), false);
-                    threshold.setVisible(false);
-                    metric.setVisible(false);
-                    return true;
-                }
-                new AppDialog(requireContext())
-                        .setTitle("Use resets automatically?")
-                        .setMessage("Codex Meter will spend one banked reset when your "
-                                + "remaining usage reaches the level you choose. It checks "
-                                + "after each refresh and skips a limit that refills on its "
-                                + "own within 15 minutes. Used resets cannot be undone.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Turn on", (dialog, which) -> {
-                            ResetAlertPreferences.setResetCreditLowUsageAutoUseEnabled(
-                                    requireContext(), true);
-                            lowUsage.setChecked(true);
-                            threshold.setVisible(true);
-                            metric.setVisible(true);
-                        })
-                        .show();
-                return false;
-            });
-            threshold.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setResetCreditLowUsageThreshold(requireContext(),
-                        Integer.parseInt(String.valueOf(value)));
-                return true;
-            });
-            metric.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setResetCreditLowUsageMetric(requireContext(),
-                        String.valueOf(value));
-                return true;
-            });
-        }
-
-        /** "Your resets" rows: what each provider has right now; tap opens its reset screen. */
-        private void bindResetStatus() {
-            bindResetStatusRow("reset_credit_status_ui", UsageProvider.CODEX);
-            bindResetStatusRow("claude_saved_reset_status_ui", UsageProvider.CLAUDE_CODE);
+        /**
+         * Reset credits: one section per provider with banked resets, all from the same
+         * template. Rows that only matter once their switch is on stay hidden until then.
+         */
+        private void bindResetCredits() {
+            for (UsageProvider provider : RESET_PROVIDERS) {
+                bindResetSection(provider);
+            }
             updateResetStatus();
         }
 
-        private void bindResetStatusRow(String key, UsageProvider provider) {
-            Preference row = findPreference(key);
-            if (row == null) return;
-            row.setOnPreferenceClickListener(preference -> {
+        private static String resetKey(UsageProvider provider, String row) {
+            return "reset_" + provider.id + "_" + row;
+        }
+
+        private void bindResetSection(UsageProvider provider) {
+            Context context = getPreferenceManager().getContext();
+            PreferenceCategory section = new PreferenceCategory(context);
+            section.setKey(resetKey(provider, "section"));
+            section.setTitle(provider.displayName);
+            section.setIconSpaceReserved(false);
+            getPreferenceScreen().addPreference(section);
+
+            Preference status = new Preference(context);
+            status.setKey(resetKey(provider, "status"));
+            status.setTitle("Your resets");
+            status.setIconSpaceReserved(false);
+            status.setOnPreferenceClickListener(preference -> {
                 if (!SecureTokenStore.isSignedIn(requireContext(), provider)) return true;
                 Ui.startSecondaryActivity(requireActivity(),
                         ResetCreditActivity.intent(requireContext(), provider));
                 return true;
             });
+            section.addPreference(status);
+
+            SwitchPreferenceCompat expiry = new SwitchPreferenceCompat(context);
+            expiry.setKey(resetKey(provider, "expiry"));
+            expiry.setTitle("Use before they expire");
+            expiry.setPersistent(false);
+            expiry.setIconSpaceReserved(false);
+            section.addPreference(expiry);
+            ListPreference lead = new ListPreference(context);
+            lead.setKey(resetKey(provider, "expiry_lead"));
+            lead.setTitle("When to use it");
+            lead.setDialogTitle("When to use it");
+            lead.setEntries(R.array.settings_reset_auto_lead_entries);
+            lead.setEntryValues(R.array.settings_reset_auto_lead_values);
+            lead.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            lead.setPersistent(false);
+            lead.setIconSpaceReserved(false);
+            section.addPreference(lead);
+
+            SwitchPreferenceCompat low = new SwitchPreferenceCompat(context);
+            low.setKey(resetKey(provider, "low"));
+            low.setTitle("Use when running low");
+            low.setPersistent(false);
+            low.setIconSpaceReserved(false);
+            section.addPreference(low);
+            ListPreference threshold = new ListPreference(context);
+            threshold.setKey(resetKey(provider, "threshold"));
+            threshold.setTitle("Use when remaining reaches");
+            threshold.setDialogTitle("Use when remaining reaches");
+            threshold.setEntries(R.array.settings_reset_auto_threshold_entries);
+            threshold.setEntryValues(R.array.settings_reset_auto_threshold_values);
+            threshold.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            threshold.setPersistent(false);
+            threshold.setIconSpaceReserved(false);
+            section.addPreference(threshold);
+
+            if (provider == UsageProvider.CLAUDE_CODE) {
+                Preference check = new Preference(context);
+                check.setKey(resetKey(provider, "check"));
+                check.setTitle("Check with Anthropic");
+                check.setSummary(CHECK_SUMMARY);
+                check.setIconSpaceReserved(false);
+                section.addPreference(check);
+                bindClaudeResetCheck(check);
+            }
+
+            expiry.setChecked(ResetAlertPreferences.expiryAutoUseEnabled(context, provider));
+            lead.setValue(String.valueOf(
+                    ResetAlertPreferences.expiryAutoUseLeadMillis(context, provider)));
+            lead.setVisible(expiry.isChecked());
+            expiry.setOnPreferenceChangeListener((preference, value) -> {
+                boolean enabled = (Boolean) value;
+                ResetAlertPreferences.setExpiryAutoUseEnabled(requireContext(), provider, enabled);
+                lead.setVisible(enabled);
+                rescheduleResetAutoUse(provider);
+                return true;
+            });
+            lead.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setExpiryAutoUseLeadMillis(requireContext(), provider,
+                        Long.parseLong(String.valueOf(value)));
+                rescheduleResetAutoUse(provider);
+                return true;
+            });
+
+            low.setChecked(ResetAlertPreferences.lowUsageAutoUseEnabled(context, provider));
+            threshold.setValue(String.valueOf(
+                    ResetAlertPreferences.lowUsageAutoUseThreshold(context, provider)));
+            threshold.setVisible(low.isChecked());
+            low.setOnPreferenceChangeListener((preference, value) -> {
+                if (!(Boolean) value) {
+                    ResetAlertPreferences.setLowUsageAutoUseEnabled(requireContext(), provider,
+                            false);
+                    threshold.setVisible(false);
+                    return true;
+                }
+                new AppDialog(requireContext())
+                        .setTitle("Use resets automatically?")
+                        .setMessage("Codex Meter will spend one banked reset when your 5-hour "
+                                + "or weekly limit reaches the level you choose. It checks "
+                                + "after each refresh and skips a limit that refills on its "
+                                + "own within 15 minutes. Used resets cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Turn on", (dialog, which) -> {
+                            ResetAlertPreferences.setLowUsageAutoUseEnabled(requireContext(),
+                                    provider, true);
+                            low.setChecked(true);
+                            threshold.setVisible(true);
+                        })
+                        .show();
+                return false;
+            });
+            threshold.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setLowUsageAutoUseThreshold(requireContext(), provider,
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+        }
+
+        private void rescheduleResetAutoUse(UsageProvider provider) {
+            if (provider == UsageProvider.CLAUDE_CODE) {
+                ClaudeResetExpiryReceiver.schedule(requireContext());
+            } else {
+                ResetNotificationManager.onResetCreditExpiryAutoApplySettingsChanged(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
+            }
         }
 
         private void updateResetStatus() {
             Context context = requireContext();
             long now = System.currentTimeMillis();
             // Only providers the user is signed in to get a section, so a Claude-only account
-            // doesn't open on an empty Codex block. Signed in to neither: both, to sign in.
-            boolean codexIn = SecureTokenStore.isSignedIn(context, UsageProvider.CODEX);
-            boolean claudeIn = SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE);
-            boolean none = !codexIn && !claudeIn;
-            Preference codexSection = findPreference("reset_credit_auto_use_category");
-            if (codexSection != null) codexSection.setVisible(codexIn || none);
-            Preference claudeSection = findPreference("claude_saved_reset_category");
-            if (claudeSection != null) claudeSection.setVisible(claudeIn || none);
-            Preference codex = findPreference("reset_credit_status_ui");
-            if (codex != null) {
-                ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
-                codex.setSummary(!SecureTokenStore.isSignedIn(context, UsageProvider.CODEX)
-                        ? "Sign in to view reset credits"
-                        : credits == null ? "Not checked yet. Refresh the Codex tab."
-                        : resetStatus(context, credits.availableCount,
-                                credits.nextExpiryMillis(now), now));
+            // doesn't open on an empty Codex block. Signed in to none: all of them, to sign in.
+            boolean none = true;
+            for (UsageProvider provider : RESET_PROVIDERS) {
+                if (SecureTokenStore.isSignedIn(context, provider)) none = false;
             }
-            Preference claude = findPreference("claude_saved_reset_status_ui");
-            if (claude != null) {
-                claude.setSummary(claudeResetStatus(context, now));
+            for (UsageProvider provider : RESET_PROVIDERS) {
+                boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
+                Preference section = findPreference(resetKey(provider, "section"));
+                if (section != null) section.setVisible(signedIn || none);
+                Preference status = findPreference(resetKey(provider, "status"));
+                if (status == null) continue;
+                if (provider == UsageProvider.CLAUDE_CODE) {
+                    status.setSummary(claudeResetStatus(context, now));
+                } else {
+                    ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(context);
+                    status.setSummary(!signedIn ? "Sign in to view reset credits"
+                            : credits == null ? "Not checked yet. Refresh the Codex tab."
+                            : resetStatus(context, credits.availableCount,
+                                    credits.nextExpiryMillis(now), now));
+                }
             }
         }
 
         /** "Check with Anthropic": one fresh request, then the server's answer in a dialog. */
-        private void bindClaudeResetCheck() {
-            Preference check = findPreference("claude_saved_reset_check_ui");
-            if (check == null) return;
+        private void bindClaudeResetCheck(Preference check) {
             check.setOnPreferenceClickListener(preference -> {
                 Context context = requireContext().getApplicationContext();
                 if (!SecureTokenStore.isSignedIn(context, UsageProvider.CLAUDE_CODE)) {
@@ -1051,84 +1103,6 @@ public final class SettingsActivity extends AppCompatActivity {
                     : available == 1 ? "1 reset available" : available + " resets available";
             if (available <= 0 || nextExpiry <= 0L) return count;
             return count + " · Next expires " + UsageFormat.absolute(context, nextExpiry, now);
-        }
-
-        private void bindClaudeSavedResets() {
-            Context context = requireContext();
-            SwitchPreferenceCompat expiry = findPreference("claude_saved_reset_expiry_ui");
-            ListPreference lead = findPreference("claude_saved_reset_expiry_lead_ui");
-            SwitchPreferenceCompat lowUsage = findPreference("claude_saved_reset_low_usage_ui");
-            ListPreference threshold = findPreference("claude_saved_reset_threshold_ui");
-            ListPreference metric = findPreference("claude_saved_reset_metric_ui");
-            if (expiry == null || lead == null || lowUsage == null || threshold == null
-                    || metric == null) {
-                return;
-            }
-            expiry.setPersistent(false);
-            expiry.setChecked(ResetAlertPreferences.claudeSavedResetExpiryEnabled(context));
-            lead.setPersistent(false);
-            lead.setValue(String.valueOf(
-                    ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context)));
-            lead.setVisible(expiry.isChecked());
-            expiry.setOnPreferenceChangeListener((preference, value) -> {
-                boolean enabled = (Boolean) value;
-                ResetAlertPreferences.setClaudeSavedResetExpiryEnabled(requireContext(),
-                        enabled);
-                lead.setVisible(enabled);
-                ClaudeResetExpiryReceiver.schedule(requireContext());
-                return true;
-            });
-            lead.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setClaudeSavedResetExpiryLeadMillis(requireContext(),
-                        Long.parseLong(String.valueOf(value)));
-                ClaudeResetExpiryReceiver.schedule(requireContext());
-                return true;
-            });
-
-            lowUsage.setPersistent(false);
-            lowUsage.setChecked(ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context));
-            threshold.setPersistent(false);
-            threshold.setValue(String.valueOf(
-                    ResetAlertPreferences.claudeSavedResetThreshold(context)));
-            metric.setPersistent(false);
-            metric.setValue(ResetAlertPreferences.claudeSavedResetMetric(context));
-            threshold.setVisible(lowUsage.isChecked());
-            metric.setVisible(lowUsage.isChecked());
-            lowUsage.setOnPreferenceChangeListener((preference, value) -> {
-                if (!(Boolean) value) {
-                    ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(requireContext(),
-                            false);
-                    threshold.setVisible(false);
-                    metric.setVisible(false);
-                    return true;
-                }
-                new AppDialog(requireContext())
-                        .setTitle("Use resets automatically?")
-                        .setMessage("Codex Meter will spend one banked reset when your "
-                                + "remaining usage reaches the level you choose. It checks "
-                                + "after each refresh and skips a limit that refills on its "
-                                + "own within 15 minutes. Used resets cannot be undone.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Turn on", (dialog, which) -> {
-                            ResetAlertPreferences.setClaudeSavedResetLowUsageEnabled(
-                                    requireContext(), true);
-                            lowUsage.setChecked(true);
-                            threshold.setVisible(true);
-                            metric.setVisible(true);
-                        })
-                        .show();
-                return false;
-            });
-            threshold.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setClaudeSavedResetThreshold(requireContext(),
-                        Integer.parseInt(String.valueOf(value)));
-                return true;
-            });
-            metric.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setClaudeSavedResetMetric(requireContext(),
-                        String.valueOf(value));
-                return true;
-            });
         }
 
         private void bindPriority() {
@@ -1395,7 +1369,6 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindNotifications() {
-            notificationLowUsageCategory = findPreference("notification_low_usage_category");
             notificationResetCreditCategory =
                     findPreference("notification_reset_credit_category");
             notificationTroubleshootingCategory =
@@ -1506,9 +1479,6 @@ public final class SettingsActivity extends AppCompatActivity {
             boolean enabled = ResetAlertPreferences.enabled(requireContext());
             if (notificationStylePreference != null) {
                 notificationStylePreference.setEnabled(enabled);
-            }
-            if (notificationLowUsageCategory != null) {
-                notificationLowUsageCategory.setVisible(enabled);
             }
             if (notificationResetCreditCategory != null) {
                 notificationResetCreditCategory.setVisible(enabled);
@@ -1812,27 +1782,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
-            nowBarMetricPreference = findPreference("now_bar_metric_ui");
-            nowBarMetricPreference.setPersistent(false);
-            nowBarMetricPreference.setValue(NowBarPreferences.getMetric(requireContext()));
-            nowBarMetricPreference.setOnPreferenceChangeListener((preference, value) -> {
-                saveNowBarAutoStart(NowBarPreferences.isAutoStartEnabled(requireContext()),
-                        String.valueOf(value),
-                        NowBarPreferences.getThreshold(requireContext()));
-                return true;
-            });
-
-            nowBarThresholdPreference = findPreference("now_bar_threshold_ui");
-            nowBarThresholdPreference.setPersistent(false);
-            nowBarThresholdPreference.setValue(
-                    String.valueOf(NowBarPreferences.getThreshold(requireContext())));
-            nowBarThresholdPreference.setOnPreferenceChangeListener((preference, value) -> {
-                saveNowBarAutoStart(NowBarPreferences.isAutoStartEnabled(requireContext()),
-                        NowBarPreferences.getMetric(requireContext()),
-                        Integer.parseInt(String.valueOf(value)));
-                return true;
-            });
-
             Preference preview = findPreference("now_bar_preview");
             preview.setVisible((requireContext().getApplicationInfo().flags
                     & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
@@ -1874,7 +1823,9 @@ public final class SettingsActivity extends AppCompatActivity {
                         .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
                 return true;
             });
-            findPreference("now_bar_setup_help").setOnPreferenceClickListener(preference -> {
+            Preference setupHelp = findPreference("now_bar_setup_help");
+            setupHelp.setVisible("samsung".equalsIgnoreCase(Build.MANUFACTURER));
+            setupHelp.setOnPreferenceClickListener(preference -> {
                 showSamsungNowBarHelp();
                 return true;
             });
@@ -2231,9 +2182,9 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void updateNowBarAutoStartEnabledState() {
-            boolean enabled = NowBarPreferences.isAutoStartEnabled(requireContext());
-            if (nowBarMetricPreference != null) nowBarMetricPreference.setVisible(enabled);
-            if (nowBarThresholdPreference != null) nowBarThresholdPreference.setVisible(enabled);
+            if (nowBarAutoStartPreference == null || getContext() == null) return;
+            // The level is the app's one low-allowance setting under Notifications.
+            nowBarAutoStartPreference.setSummary("At " + lowAllowanceLabel(requireContext()));
         }
 
         private void updateNowBarAcceleratedEnabledState() {

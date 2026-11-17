@@ -194,10 +194,10 @@ public sealed class DashboardPage : IPage
                     AddMeter(usage.FiveHour is { } five ? UsageFormat.WindowName(five.WindowSeconds) : "5-hour", usage.FiveHour, "Meter_fiveHour");
                     break;
                 case DashboardSections.Weekly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
+                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly");
                     break;
                 case DashboardSections.Monthly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · monthly" : "Monthly", usage.Monthly, "Meter_monthly");
+                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly");
                     break;
                 case DashboardSections.SpendControl when usage.SpendControlLimit is { } spend:
                     AddMeter("Monthly credit limit", new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt),

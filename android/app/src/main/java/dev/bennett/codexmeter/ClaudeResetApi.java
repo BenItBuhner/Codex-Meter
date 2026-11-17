@@ -166,7 +166,7 @@ public final class ClaudeResetApi {
                     ProviderPreferences.loadSnapshot(context, PROVIDER),
                     expiry, ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context),
                     lowUsage, ResetAlertPreferences.claudeSavedResetThreshold(context),
-                    ResetAlertPreferences.claudeSavedResetMetric(context),
+                    ResetCreditLowUsageAutoUse.METRIC_BOTH,
                     ProviderPreferences.getSavedResetAttempt(context, PROVIDER, RULE_EXPIRY),
                     ProviderPreferences.getSavedResetAttempt(context, PROVIDER, RULE_LOW_USAGE),
                     System.currentTimeMillis());

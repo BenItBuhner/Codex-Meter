@@ -7,7 +7,6 @@ import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import dev.bennett.codexmeter.glass.GlassModel;
@@ -176,7 +175,7 @@ final class ExpressiveChartView extends View {
                 int bucket = (int) (scrub * 24);
                 if (bucket != lastBucket) {
                     lastBucket = bucket;
-                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                    AppHaptics.tick(this);
                 }
                 if (readout != null) {
                     readout.on(chart.scrub.at(window, scrub));

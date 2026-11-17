@@ -37,7 +37,6 @@ final class GlassSettings {
         ICONS.put("settings_reset_credits", new String[] {"bolt", "#ff9f0a"});
         ICONS.put("settings_appearance", new String[] {"paintbrush", "#5856d6"});
         ICONS.put("settings_updates", new String[] {"download", "#8e8e93"});
-        ICONS.put("settings_transfer", new String[] {"arrows", "#34c759"});
         ICONS.put("settings_privacy", new String[] {"hand", "#007aff"});
         ICONS.put("about_codex_meter", new String[] {"info", "#8e8e93"});
     }

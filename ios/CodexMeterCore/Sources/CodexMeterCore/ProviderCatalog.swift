@@ -30,7 +30,8 @@ public enum ProviderCatalog {
         /// Whether the provider also accepts a pasted API key on the sign-in screen.
         public let acceptsAPIKey: Bool
         /// The sign-in flow is known, but it isn't yet confirmed that its token is accepted by
-        /// the usage route. The picker and sign-in screen say so.
+        /// the usage route. The picker and sign-in screen say so. No current provider sets it:
+        /// every route has been checked against public docs or open-source clients.
         public let inferred: Bool
 
         /// One line for picker rows: "5-hour and weekly limits · GitHub sign-in".
@@ -50,7 +51,7 @@ public enum ProviderCatalog {
               signInSummary: "ChatGPT sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .claudeCode, signIn: .browser, meters: "5-hour and weekly limits",
               signInSummary: "Claude sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
-        Entry(provider: .cursor, signIn: .browser, meters: "Included usage and on-demand spend",
+        Entry(provider: .cursor, signIn: .browser, meters: "Included usage and extra spend",
               signInSummary: "Cursor sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .copilot, signIn: .deviceCode, meters: "Monthly premium requests and chat",
               signInSummary: "GitHub sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
@@ -59,43 +60,43 @@ public enum ProviderCatalog {
         Entry(provider: .factory, signIn: .deviceCode, meters: "5-hour, weekly and monthly limits",
               signInSummary: "Factory sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .grok, signIn: .deviceCode, meters: "SuperGrok credits for the billing period",
-              signInSummary: "xAI sign-in", keyURL: "", acceptsAPIKey: false, inferred: true),
+              signInSummary: "xAI sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .antigravity, signIn: .loopback, meters: "Gemini and Claude model limits, 5-hour and weekly",
               signInSummary: "Google sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .devin, signIn: .codePaste, meters: "Daily and weekly quota",
-              signInSummary: "Windsurf token", keyURL: "", acceptsAPIKey: false, inferred: true),
+              signInSummary: "Devin session", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .windsurf, signIn: .codePaste, meters: "Daily and weekly quota",
-              signInSummary: "Windsurf token", keyURL: "", acceptsAPIKey: false, inferred: true),
+              signInSummary: "Windsurf token", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .augment, signIn: .codePaste, meters: "Monthly credits",
               signInSummary: "Augment sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .cline, signIn: .deviceCode, meters: "5-hour, weekly and monthly limits",
-              signInSummary: "Cline sign-in", keyURL: "", acceptsAPIKey: false, inferred: true),
+              signInSummary: "Cline sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .opencodeGo, signIn: .deviceCode, meters: "5-hour, weekly and monthly limits",
-              signInSummary: "OpenCode sign-in", keyURL: "https://opencode.ai/auth", acceptsAPIKey: true, inferred: true),
+              signInSummary: "OpenCode sign-in", keyURL: "https://opencode.ai/auth", acceptsAPIKey: true, inferred: false),
         Entry(provider: .minimax, signIn: .deviceCode, meters: "Coding plan prompts per window",
               signInSummary: "MiniMax sign-in",
               keyURL: "https://platform.minimax.io/user-center/basic-information/interface-key",
-              acceptsAPIKey: true, inferred: true),
+              acceptsAPIKey: true, inferred: false),
         Entry(provider: .zai, signIn: .apiKey, meters: "5-hour and weekly limits",
               signInSummary: "API key", keyURL: "https://z.ai/manage-apikey/apikey-list", acceptsAPIKey: true, inferred: false),
         Entry(provider: .kiro, signIn: .deviceCode, meters: "Monthly credits",
-              signInSummary: "AWS Builder ID", keyURL: "", acceptsAPIKey: false, inferred: true),
-        Entry(provider: .amp, signIn: .apiKey, meters: "Free daily usage and credits",
-              signInSummary: "Access token", keyURL: "https://ampcode.com/settings", acceptsAPIKey: true, inferred: true),
+              signInSummary: "AWS Builder ID", keyURL: "", acceptsAPIKey: false, inferred: false),
+        Entry(provider: .amp, signIn: .apiKey, meters: "Free daily usage, plan usage and credits",
+              signInSummary: "Access token", keyURL: "https://ampcode.com/settings", acceptsAPIKey: true, inferred: false),
         Entry(provider: .openrouter, signIn: .loopback, meters: "Key limit and credit balance",
               signInSummary: "OpenRouter sign-in", keyURL: "https://openrouter.ai/settings/keys", acceptsAPIKey: true, inferred: false),
         Entry(provider: .kilo, signIn: .deviceCode, meters: "Credit balance",
               signInSummary: "Kilo sign-in", keyURL: "https://app.kilo.ai/profile", acceptsAPIKey: true, inferred: false),
         Entry(provider: .codebuff, signIn: .deviceCode, meters: "Subscription credits",
-              signInSummary: "Codebuff sign-in", keyURL: "", acceptsAPIKey: false, inferred: true),
-        Entry(provider: .synthetic, signIn: .apiKey, meters: "5-hour and weekly limits",
+              signInSummary: "Codebuff sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
+        Entry(provider: .synthetic, signIn: .apiKey, meters: "Weekly credits and hourly search",
               signInSummary: "API key", keyURL: "https://synthetic.new/billing", acceptsAPIKey: true, inferred: false),
-        Entry(provider: .chutes, signIn: .apiKey, meters: "Subscription quota",
-              signInSummary: "API key", keyURL: "https://chutes.ai/app/api", acceptsAPIKey: true, inferred: true),
-        Entry(provider: .v0, signIn: .apiKey, meters: "Rate limits",
-              signInSummary: "API key", keyURL: "https://v0.app/chat/settings/keys", acceptsAPIKey: true, inferred: true),
-        Entry(provider: .warp, signIn: .apiKey, meters: "AI request limit",
-              signInSummary: "API key", keyURL: "https://app.warp.dev/settings/api-keys", acceptsAPIKey: true, inferred: true),
+        Entry(provider: .chutes, signIn: .apiKey, meters: "4-hour and monthly subscription caps",
+              signInSummary: "API key", keyURL: "https://chutes.ai/app/settings/api-keys", acceptsAPIKey: true, inferred: false),
+        Entry(provider: .v0, signIn: .apiKey, meters: "Monthly credits and rate limits",
+              signInSummary: "API key", keyURL: "https://v0.app/settings/keys", acceptsAPIKey: true, inferred: false),
+        Entry(provider: .warp, signIn: .apiKey, meters: "Monthly credits and add-on credits",
+              signInSummary: "API key", keyURL: "https://oz.warp.dev/settings", acceptsAPIKey: true, inferred: false),
     ]
 
     public static func entry(for provider: UsageProvider) -> Entry {
@@ -140,6 +141,12 @@ public enum ProviderCatalog {
         #else
         isAvailableOnIOS(provider)
         #endif
+    }
+
+    /// A dashboard meter's title. Cursor's weekly and monthly meters are its included usage,
+    /// so every platform names them "Included usage · Weekly" and "Included usage · Monthly".
+    public static func meterTitle(_ provider: UsageProvider, _ cadence: String) -> String {
+        provider == .cursor ? "Included usage · \(cadence)" : cadence
     }
 
     /// Every provider in recommended order.

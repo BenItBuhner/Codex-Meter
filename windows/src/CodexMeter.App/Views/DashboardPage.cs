@@ -210,10 +210,10 @@ public sealed class DashboardPage : PageBase
                     }
                     break;
                 case DashboardSections.Weekly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · weekly" : "Weekly", usage.Weekly, "Meter_weekly");
+                    AddMeter(provider.MeterTitle("Weekly"), usage.Weekly, "Meter_weekly");
                     break;
                 case DashboardSections.Monthly:
-                    AddMeter(provider == UsageProvider.Cursor ? "Included usage · monthly" : "Monthly", usage.Monthly, "Meter_monthly");
+                    AddMeter(provider.MeterTitle("Monthly"), usage.Monthly, "Meter_monthly");
                     break;
                 case DashboardSections.SpendControl when usage.SpendControlLimit is { } spend:
                     AddMeter("Monthly credit limit", new UsageWindow(spend.UsedPercent, 2_592_000, spend.ResetAfterSeconds, spend.ResetAt),

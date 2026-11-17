@@ -26,6 +26,13 @@
             android:key="app_design_ui"
             android:persistent="false"
             android:title="App design" />
+        <ListPreference
+            android:entries="@array/haptics_entries"
+            android:entryValues="@array/haptics_values"
+            android:key="haptics"
+            android:persistent="false"
+            android:title="Haptics"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory

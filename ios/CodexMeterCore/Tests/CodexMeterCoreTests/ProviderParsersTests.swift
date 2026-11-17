@@ -26,10 +26,15 @@ final class ProviderParsersTests: XCTestCase {
             if entry.signIn == .apiKey { XCTAssertTrue(entry.acceptsAPIKey, provider.rawValue) }
         }
         XCTAssertEqual(Array(order.prefix(7)), [.codex, .claudeCode, .cursor, .copilot, .kimi, .factory, .grok])
-        for provider in [UsageProvider.grok, .devin, .minimax, .cline, .opencodeGo, .kiro] {
-            XCTAssertTrue(ProviderCatalog.entry(for: provider).inferred, provider.rawValue)
+        // Every route is confirmed, so no provider carries the experimental note.
+        for provider in order {
+            XCTAssertFalse(ProviderCatalog.entry(for: provider).inferred, provider.rawValue)
         }
-        XCTAssertFalse(ProviderCatalog.entry(for: .copilot).inferred)
+        XCTAssertEqual(ProviderCatalog.entry(for: .devin).signInSummary, "Devin session")
+        XCTAssertEqual(ProviderCatalog.entry(for: .windsurf).signInSummary, "Windsurf token")
+        XCTAssertEqual(ProviderCatalog.meterTitle(.cursor, "Weekly"), "Included usage · Weekly")
+        XCTAssertEqual(ProviderCatalog.meterTitle(.copilot, "Weekly"), "Weekly")
+        XCTAssertEqual(ProviderCatalog.entry(for: .cursor).meters, "Included usage and extra spend")
         XCTAssertFalse(ProviderCatalog.entry(for: .codex).usesSignInScreen)
         XCTAssertTrue(ProviderCatalog.entry(for: .copilot).usesSignInScreen)
     }
@@ -108,6 +113,10 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(DeviceAuth.extractPasted(#"{"code":"c1","state":"s"}"#, keys: ["code"]), "c1")
         XCTAssertEqual(DeviceAuth.s256("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"), "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
         XCTAssertEqual(DeviceAuth.randomToken(bytes: 32).count, 43)
+        XCTAssertEqual(DeviceAuth.absolute("https://opencode.ai", "/console/device?user_code=AB"),
+                       "https://opencode.ai/console/device?user_code=AB")
+        XCTAssertEqual(DeviceAuth.absolute("https://o", "https://x.ai/a"), "https://x.ai/a")
+        XCTAssertEqual(DeviceAuth.absolute("https://o", ""), "")
     }
 
     // MARK: Timestamps
@@ -256,6 +265,10 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(kiro.planType, "PRO")
         XCTAssertEqual(kiro.monthly?.usedPercent, 25)
         XCTAssertEqual(resetSeconds(kiro.monthly), 1_791_000_000)
+        // Credits lead even when listed second.
+        let mixed = ProviderUsageParsers.kiro(#"{"nextDateReset":1791000000,"usageBreakdownList":[{"resourceType":"AGENTIC_REQUEST","currentUsageWithPrecision":5,"usageLimitWithPrecision":50},{"resourceType":"CREDIT","currentUsageWithPrecision":100.5,"usageLimitWithPrecision":201}]}"#, now: now)
+        XCTAssertEqual(mixed.monthly?.usedPercent, 50)
+        XCTAssertEqual(mixed.additionalLimits.count, 1)
 
         let router = ProviderUsageParsers.openrouter(
             keyBody: #"{"data":{"limit":20,"usage":30,"usage_monthly":5,"limit_reset":"monthly","is_free_tier":false}}"#,
@@ -271,17 +284,125 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(amp.planType, "Free")
         XCTAssertEqual(amp.fiveHour?.usedPercent, 25)
         XCTAssertEqual(amp.usageCredits?.balance, "$5.00")
+        // 2026-09-21T13:33:20Z is 09:33 in New York, so Amp Free refills at 20:00 EDT that day.
+        XCTAssertEqual(resetSeconds(amp.fiveHour), ProviderUsageParsers.epochSeconds("2026-09-22T00:00:00Z"))
+        let percent = ProviderUsageParsers.amp(#"{"ok":true,"result":{"displayText":"Signed in as user@example.com\nAmp Free: 61% remaining today (resets daily)\nIndividual credits: $12.50 remaining"}}"#, now: now)
+        XCTAssertEqual(percent.fiveHour?.usedPercent, 39)
+        XCTAssertEqual(percent.usageCredits?.balance, "$12.50")
+        let tier = ProviderUsageParsers.amp(#"{"ok":true,"result":{"displayText":"Amp Megawatt Tier: agent usage $18.57 of $20 remaining (93%), orb usage 732.8h of 750h a1.small orb hours remaining (98%) - period 2026-09-13 to 2026-10-13, resets upon renewal in 27 days"}}"#, now: now)
+        XCTAssertEqual(tier.planType, "Megawatt")
+        XCTAssertEqual(tier.monthly?.usedPercent, 7)
+        XCTAssertEqual(resetSeconds(tier.monthly), ProviderUsageParsers.epochSeconds("2026-10-13"))
+        XCTAssertEqual(tier.additionalLimits.count, 1)
+        XCTAssertEqual(tier.additionalLimits.first?.name, "Orb hours")
+        XCTAssertEqual(tier.additionalLimits.first?.primary?.usedPercent, 2)
     }
 
-    func testBalancesAndKeyQuota() {
+    func testBalances() {
         XCTAssertEqual(ProviderUsageParsers.kilo(#"{"balance":4.2}"#, now: now).usageCredits?.balance, "$4.20")
         XCTAssertEqual(ProviderUsageParsers.codebuff(#"{"usage":250,"quota":1000,"next_quota_reset":"2026-10-01T00:00:00Z"}"#, now: now).monthly?.usedPercent, 25)
-        let synthetic = ProviderUsageParsers.keyQuota(#"{"subscription":{"limit":135,"requests":20},"rollingFiveHourLimit":{"limit":200,"used":50,"resetAt":"2026-09-21T15:00:00Z"},"weeklyTokenLimit":{"limit":1000,"remaining":900}}"#, defaultSeconds: 5 * 3600, now: now)
-        XCTAssertEqual(synthetic.fiveHour?.usedPercent, 25)
-        XCTAssertEqual(synthetic.weekly?.usedPercent, 10)
-        let warp = ProviderUsageParsers.keyQuota(#"{"data":{"user":{"user":{"requestLimitInfo":{"isUnlimited":false,"nextRefreshTime":"2026-10-01T00:00:00Z","requestLimit":150,"requestsUsedSinceLastRefresh":30}}}}}"#, defaultSeconds: ProviderUsageParsers.month, now: now)
+    }
+
+    func testSynthetic() {
+        let current = ProviderUsageParsers.synthetic(#"{"subscription":{"limit":135,"requests":20},"planWeeklyLimit":{"nextRegenAt":"2026-09-21T15:00:00Z","percentRemaining":0.6,"nextRegenPercent":2},"search":{"hourly":{"limit":250,"requests":25}}}"#, now: now)
+        // planWeeklyLimit is in percentage points, and the retired counter is ignored.
+        XCTAssertEqual(current.weekly?.usedPercent, 99)
+        XCTAssertNil(current.fiveHour)
+        XCTAssertEqual(resetSeconds(current.weekly), ProviderUsageParsers.epochSeconds("2026-09-21T15:00:00Z"))
+        XCTAssertEqual(current.additionalLimits.count, 1)
+        XCTAssertEqual(current.additionalLimits.first?.primary?.usedPercent, 10)
+        let legacy = ProviderUsageParsers.synthetic(#"{"data":{"rollingFiveHourLimit":{"percentRemaining":0.75},"weeklyTokenLimit":{"percentRemaining":0.98}}}"#, now: now)
+        XCTAssertEqual(legacy.fiveHour?.usedPercent, 25)
+        XCTAssertEqual(legacy.fiveHour?.windowSeconds, 5 * 3600)
+        XCTAssertEqual(legacy.weekly?.usedPercent, 2)
+        let counter = ProviderUsageParsers.synthetic(#"{"subscription":{"limit":135,"requests":27,"renewsAt":"2026-09-21T15:00:00Z"}}"#, now: now)
+        XCTAssertEqual(counter.fiveHour?.usedPercent, 20)
+        XCTAssertFalse(ProviderUsageParsers.synthetic("{}", now: now).hasDisplayableData)
+    }
+
+    func testChutes() {
+        let pro = ProviderUsageParsers.chutes(#"{"subscription":true,"custom":false,"monthly_price":20,"anchor_date":"2026-09-01T00:00:00","four_hour":{"usage":2.5,"cap":8.333,"remaining":5.833,"reset_at":"2026-09-21T16:00:00+00:00"},"monthly":{"usage":25,"cap":100,"remaining":75,"reset_at":"2026-10-01T00:00:00+00:00"}}"#, now: now)
+        XCTAssertEqual(pro.planType, "$20/month")
+        XCTAssertEqual(pro.fiveHour?.usedPercent, 30)
+        XCTAssertEqual(pro.fiveHour?.windowSeconds, 4 * 3600)
+        XCTAssertEqual(resetSeconds(pro.fiveHour), ProviderUsageParsers.epochSeconds("2026-09-21T16:00:00Z"))
+        XCTAssertEqual(pro.monthly?.usedPercent, 25)
+        let custom = ProviderUsageParsers.chutes(#"{"subscription":true,"custom":true,"monthly_price":50,"four_hour":{"usage":1,"cap":4,"remaining":3,"reset_at":"2026-09-21T16:00:00+00:00"},"monthly":{"uncapped":true}}"#, now: now)
+        XCTAssertEqual(custom.planType, "Custom")
+        XCTAssertNil(custom.monthly)
+        XCTAssertEqual(custom.fiveHour?.usedPercent, 25)
+        XCTAssertFalse(ProviderUsageParsers.chutes(#"{"subscription":false}"#, now: now).hasDisplayableData)
+    }
+
+    func testV0() {
+        let cycleEnd: Int64 = 1_790_726_400_000 // 2026-09-30T00:00:00Z, in milliseconds
+        let cycleStart = cycleEnd - 30 * 86_400_000
+        let soon = nowSeconds * 1000 + 3_600_000
+        let token = ProviderUsageParsers.v0(
+            billing: #"{"billingType":"token","data":{"balance":{"total":20,"remaining":15},"billingCycle":{"start":\#(cycleStart),"end":\#(cycleEnd)},"onDemand":{"balance":4.5}}}"#,
+            plan: #"{"object":"plan","plan":"premium"}"#,
+            rateLimits: #"{"limit":1000,"remaining":900,"reset":\#(soon)}"#,
+            now: now
+        )
+        XCTAssertEqual(token.planType, "Premium")
+        XCTAssertEqual(token.monthly?.usedPercent, 25)
+        XCTAssertEqual(resetSeconds(token.monthly), cycleEnd / 1000)
+        XCTAssertEqual(token.usageCredits?.balance, "$4.50")
+        XCTAssertNil(token.fiveHour)
+        XCTAssertEqual(token.additionalLimits.count, 1)
+        XCTAssertEqual(token.additionalLimits.first?.primary?.usedPercent, 10)
+        let free = ProviderUsageParsers.v0(
+            billing: #"{"billingType":"legacy","data":{"limit":5,"remaining":1,"reset":\#(cycleEnd)}}"#,
+            plan: "",
+            rateLimits: #"{"limit":100,"remaining":100,"dailyLimit":{"limit":10,"remaining":4,"reset":\#(soon),"isWithinGracePeriod":false}}"#,
+            now: now
+        )
+        XCTAssertEqual(free.monthly?.usedPercent, 80)
+        XCTAssertEqual(free.fiveHour?.usedPercent, 60)
+        XCTAssertEqual(free.fiveHour?.windowSeconds, 86_400)
+        let planOnly = ProviderUsageParsers.v0(
+            billing: "{}",
+            plan: #"{"plan":"free","balance":{"remaining":3,"total":5},"billingCycle":{"start":\#(cycleStart),"end":\#(cycleEnd)}}"#,
+            rateLimits: "",
+            now: now
+        )
+        XCTAssertEqual(planOnly.monthly?.usedPercent, 40)
+    }
+
+    func testWarp() {
+        let warp = ProviderUsageParsers.warp(#"{"data":{"user":{"__typename":"UserOutput","user":{"requestLimitInfo":{"isUnlimited":false,"nextRefreshTime":"2026-10-01T00:00:00Z","requestLimit":1500,"requestsUsedSinceLastRefresh":300},"bonusGrants":[{"requestCreditsGranted":100,"requestCreditsRemaining":40}],"workspaces":[{"bonusGrantsInfo":{"grants":[{"requestCreditsGranted":50,"requestCreditsRemaining":10}]}}]}}}}"#, now: now)
         XCTAssertEqual(warp.monthly?.usedPercent, 20)
-        XCTAssertFalse(ProviderUsageParsers.keyQuota(#"{"ok":true}"#, defaultSeconds: 3600, now: now).hasDisplayableData)
+        XCTAssertEqual(resetSeconds(warp.monthly), ProviderUsageParsers.epochSeconds("2026-10-01"))
+        XCTAssertEqual(warp.usageCredits?.balance, "50 add-on credits")
+        let unlimited = ProviderUsageParsers.warp(#"{"data":{"user":{"user":{"requestLimitInfo":{"isUnlimited":true}}}}}"#, now: now)
+        XCTAssertEqual(unlimited.planType, "Unlimited")
+        XCTAssertNil(unlimited.monthly)
+        XCTAssertEqual(unlimited.usageCredits?.unlimited, true)
+        XCTAssertEqual(ProviderUsageParsers.warpError(#"{"errors":[{"message":"Not authorized"}],"data":null}"#), "Not authorized")
+        XCTAssertFalse(ProviderUsageParsers.warp(#"{"data":null}"#, now: now).hasDisplayableData)
+    }
+
+    func testDevin() {
+        let devin = ProviderUsageParsers.devin(#"{"plan_name":"core","daily_percentage":30,"daily_reset_at":"2026-09-22T00:00:00Z","weekly_percentage":45,"weekly_reset_at":\#(nowSeconds + 3 * 86_400),"overage_balance_cents":1250}"#, now: now)
+        XCTAssertEqual(devin.planType, "Core")
+        XCTAssertEqual(devin.fiveHour?.usedPercent, 30)
+        XCTAssertEqual(devin.fiveHour?.windowSeconds, 86_400)
+        XCTAssertEqual(devin.weekly?.usedPercent, 45)
+        XCTAssertEqual(devin.usageCredits?.balance, "$12.50")
+        XCTAssertNil(ProviderUsageParsers.devin(#"{"hide_daily_quota":true,"daily_percentage":10,"weekly_percentage":20}"#, now: now).fiveHour)
+        let curl = """
+        curl 'https://app.devin.ai/api/org-a1b2c3d4e5/billing/quota/usage' \\
+          -H 'accept: application/json' \\
+          -H 'authorization: Bearer auth1_abcdefghijklmnopqrstuvwxyz012345' \\
+          -H 'x-cog-org-id: org-a1b2c3d4e5'
+        """
+        let parts = DeviceAuth.parseDevinRequest(curl)
+        XCTAssertEqual(parts.token, "auth1_abcdefghijklmnopqrstuvwxyz012345")
+        XCTAssertEqual(parts.org, "org-a1b2c3d4e5")
+        let bare = DeviceAuth.parseDevinRequest("auth1_tokenvalue1234 org_ZYXWVU98")
+        XCTAssertEqual(bare.token, "auth1_tokenvalue1234")
+        XCTAssertEqual(bare.org, "org_ZYXWVU98")
+        XCTAssertEqual(DeviceAuth.parseDevinRequest("hello").token, "")
     }
 
     func testBuiltInsAndWidgetFiles() {

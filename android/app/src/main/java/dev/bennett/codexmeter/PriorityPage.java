@@ -187,9 +187,9 @@ final class PriorityPage {
             }
         }
         for (UsageProvider p : page.providers) {
-            ClaudeSavedResets saved = p == UsageProvider.CLAUDE_CODE ? ProviderPreferences.loadSavedResets(a, p) : null;
-            ResetCreditsSnapshot credits = p == UsageProvider.CODEX ? AppPreferences.loadResetCredits(a)
-                    : saved == null ? null : saved.toResetCreditsSnapshot(now);
+            ClaudeSavedResets saved = p == UsageProvider.CLAUDE_CODE
+                    ? ProviderPreferences.loadSavedResets(a, p) : null;
+            ResetCreditsSnapshot credits = ProviderPreferences.loadResetCredits(a, p, now);
             int available = credits == null ? 0 : credits.availableCount;
             if (available <= 0) {
                 continue;
