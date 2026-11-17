@@ -191,18 +191,19 @@ jobs:
           [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
-      # The release build users install, signed with a throwaway key so it can be installed.
-      - name: Build and sign the release phone app
+      # The release build users install, signed with a throwaway key through the same
+      # localRelease signing config a local release build uses.
+      - name: Build the release phone app
         working-directory: android
         run: |
           set -euo pipefail
+          mkdir -p .local-signing
+          printf 'perfbudget' > .local-signing/password
+          keytool -genkeypair -keystore .local-signing/codex-meter-local.p12 -storetype PKCS12 \
+            -storepass perfbudget -keypass perfbudget -alias codexmeter -keyalg RSA -keysize 2048 \
+            -validity 1 -dname CN=perf >/dev/null
           ./gradlew --console=plain :app:assembleRelease
-          keytool -genkeypair -keystore "$RUNNER_TEMP/perf.p12" -storetype PKCS12 -storepass perfbudget \
-            -alias perf -keyalg RSA -keysize 2048 -validity 1 -dname CN=perf >/dev/null
-          APKSIGNER="$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner"
-          UNSIGNED="$(ls app/build/outputs/apk/release/*.apk | head -n 1)"
-          "$APKSIGNER" sign --ks "$RUNNER_TEMP/perf.p12" --ks-pass pass:perfbudget \
-            --out "$RUNNER_TEMP/app-release.apk" "$UNSIGNED"
+          cp "$(ls app/build/outputs/apk/release/*.apk | head -n 1)" "$RUNNER_TEMP/app-release.apk"
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
