@@ -165,7 +165,7 @@ final class IPadLayoutTests: XCTestCase {
         if button.waitForExistence(timeout: 2), button.isHittable {
             button.tap()
         } else {
-            app.typeKey(shortcut, modifierFlags: .command)
+            _ = UITestSupport.press(shortcut, in: app, until: app.navigationBars[name])
         }
     }
 
