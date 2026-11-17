@@ -110,6 +110,9 @@ android {
         checkDependencies = false
         // Newer versions are Dependabot's to raise; as lint errors they would break CI on any day.
         disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
+        // The release APK is arm64 only on purpose (see buildTypes.release); x86 ChromeOS devices
+        // run it through ChromeOS's ARM translation.
+        disable += "ChromeOsAbiSupport"
     }
 
     testOptions {
