@@ -411,6 +411,13 @@ jobs:
       - name: Measure Mac start-up and memory
         if: success() || failure()
         run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
+      - name: Upload screenshots of a launch that printed no first frame
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apple-perf-budget-screens
+          path: ${{ runner.temp }}/perf-budget-*.png
+          if-no-files-found: ignore
 
   gate:
     name: CI gate

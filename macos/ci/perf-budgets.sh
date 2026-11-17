@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Measures the Release iPhone app (in a simulator) or Mac app and fails past a ceiling:
 #   - first frame: median time from process start to the first screen, over several launches
-#     after one warm-up, with the file cache purged before each launch
+#     after one warm-up (warm launches: purging the file cache also evicts the system frameworks,
+#     which made Mac launches swing from 3.7 to 12 s)
 #   - memory: physical footprint (what Xcode's memory gauge shows) five seconds after the first
 #     frame of the last launch
 # The app is put in demo mode first, so the dashboard shows sample usage. Launched with
-# `-perf-budget`, it writes `codexmeter.first_frame_ms=N` to standard error (PerfBudgetProbe).
+# `-perf-budget`, it logs `codexmeter.first_frame_ms=N` (PerfBudgetProbe): the Mac app's standard
+# error carries it, and on the simulator it is read from a file in the app's tmp directory.
 # Prints a Markdown table to the log, and to the job summary when run in GitHub Actions.
 #
 #   macos/ci/perf-budgets.sh ios "path/to/Codex Meter.app" "iPhone 17"
@@ -33,6 +35,7 @@ case "$PLATFORM" in
     xcrun simctl bootstatus "$DEVICE" -b >/dev/null
     xcrun simctl install "$DEVICE" "$APP"
     xcrun simctl spawn "$DEVICE" defaults write "$BUNDLE_ID" "$MODE_KEY" demo
+    MARKER_FILE="$(xcrun simctl get_app_container "$DEVICE" "$BUNDLE_ID" data)/tmp/codexmeter-first-frame.txt"
     ;;
   mac)
     MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-3000}"
@@ -62,15 +65,16 @@ trap stop EXIT
 frame=""
 launch() {
   stop
-  sync && sudo purge 2>/dev/null || true
   : > "$log"
   if [[ "$PLATFORM" == ios ]]; then
+    rm -f "$MARKER_FILE"
     pid="$(xcrun simctl launch --stderr="$log" "$DEVICE" "$BUNDLE_ID" -perf-budget | awk -F': ' '{ print $2 }')"
   else
     "$BIN" -perf-budget 2>"$log" >/dev/null &
     pid=$!
   fi
   for _ in $(seq 120); do
+    [[ "$PLATFORM" == ios && -f "$MARKER_FILE" ]] && cat "$MARKER_FILE" >> "$log"
     # NSLog prefixes a timestamp and the process name, so match the marker anywhere.
     if grep -qE "$MARKER-?[0-9]+" "$log"; then
       frame="$(grep -oE "$MARKER-?[0-9]+" "$log" | head -n 1 | cut -d= -f2)"
@@ -83,8 +87,11 @@ launch() {
   cat "$log" >&2
   ps -p "${pid:-0}" -o pid,stat,etime,command >&2 || echo "the app is not running" >&2
   if [[ "$PLATFORM" == ios ]]; then
+    xcrun simctl io "$DEVICE" screenshot "${RUNNER_TEMP:-/tmp}/perf-budget-ios.png" >&2 || true
     xcrun simctl spawn "$DEVICE" log show --last 2m --style compact \
-      --predicate 'process CONTAINS "CodexMeter"' 2>&1 | tail -n 60 >&2 || true
+      --predicate 'process == "CodexMeter"' 2>&1 | tail -n 60 >&2 || true
+  else
+    screencapture -x "${RUNNER_TEMP:-/tmp}/perf-budget-mac.png" >&2 || true
   fi
   exit 1
 }

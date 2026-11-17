@@ -4,13 +4,15 @@ import Darwin
 #endif
 
 /// Launch timing for the CI performance budgets. It does nothing unless the app is launched with
-/// `-perf-budget`; then the first screen logs one line, which the budget scripts read from
-/// standard error or the system log: `codexmeter.first_frame_ms=<milliseconds since the process
-/// started>` (-1 when the kernel's start time can't be read).
+/// `-perf-budget`; then the first screen logs one line, `codexmeter.first_frame_ms=<milliseconds
+/// since the process started>` (-1 when the kernel's start time can't be read), and writes the
+/// same line to `tmp/codexmeter-first-frame.txt` in the app's container, which the budget scripts
+/// read on the simulator.
 @MainActor
 public enum PerfBudgetProbe {
     public static let argument = "-perf-budget"
     public static let marker = "codexmeter.first_frame_ms="
+    public static let fileName = "codexmeter-first-frame.txt"
     private static var reported = false
 
     public static var isEnabled: Bool {
@@ -23,8 +25,10 @@ public enum PerfBudgetProbe {
         guard isEnabled, !reported else { return }
         reported = true
         DispatchQueue.main.async {
-            let elapsed = millisecondsSinceProcessStart() ?? -1
-            NSLog("%@", "\(marker)\(elapsed)")
+            let line = "\(marker)\(millisecondsSinceProcessStart() ?? -1)"
+            NSLog("%@", line)
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+            try? Data((line + "\n").utf8).write(to: file, options: .atomic)
         }
     }
 
