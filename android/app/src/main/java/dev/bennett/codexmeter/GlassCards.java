@@ -37,8 +37,10 @@ final class GlassCards {
         boolean signedIn = SecureTokenStore.isSignedIn(activity, provider);
         if (!signedIn) {
             d.cards.add(signIn(activity, provider));
+            if (DemoMode.PROVIDERS.contains(provider)) d.cards.add(exploreDemo(activity));
             return d;
         }
+        if (DemoMode.isOn(activity, provider)) d.cards.add(demoNotice(activity));
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(activity, provider);
         long now = System.currentTimeMillis();
         // Codex's refresh errors show here too, as they do on the One UI dashboard.
@@ -451,6 +453,27 @@ final class GlassCards {
         c.button = "Review update";
         c.onPress = () -> a.startActivity(new Intent(a, UpdateActivity.class)
                 .putExtra(UpdateActivity.EXTRA_VERSION, release.version));
+        return c;
+    }
+
+    /** Under a sign-in card: look around with sample usage first. */
+    private static Card exploreDemo(MainActivity a) {
+        Card c = new Card(Card.Kind.UPDATE);
+        c.title = "Just looking?";
+        c.summary = "See Codex, Claude Code and Cursor with sample usage. Nothing is sent "
+                + "anywhere, and signing in replaces the sample data.";
+        c.button = "Explore demo";
+        c.onPress = a::enterDemo;
+        return c;
+    }
+
+    /** At the top of a dashboard showing sample usage. */
+    private static Card demoNotice(MainActivity a) {
+        Card c = new Card(Card.Kind.UPDATE);
+        c.title = "Demo data";
+        c.summary = "This tab shows sample usage. Sign in from Settings, Accounts to see your own.";
+        c.button = "Leave demo";
+        c.onPress = a::leaveDemo;
         return c;
     }
 

@@ -53,6 +53,7 @@ public final class ProviderUsageApi {
 
     public static UsageSnapshot refreshAndCache(Context context, UsageProvider provider)
             throws Exception {
+        if (DemoMode.isOn(context, provider)) return DemoMode.refresh(context, provider);
         ProviderClient client = ProviderClients.get(provider);
         if (client == null) throw new IllegalArgumentException(provider.id);
         long started = SystemClock.elapsedRealtime();
@@ -111,6 +112,7 @@ public final class ProviderUsageApi {
 
     private static AuthTokens usableTokens(Context context, ProviderClient client)
             throws Exception {
+        DemoMode.requireRealAccount(context, client.provider);
         AuthTokens tokens = SecureTokenStore.load(context, client.provider);
         if (tokens == null) {
             throw new Exception("Connect " + client.provider.displayName

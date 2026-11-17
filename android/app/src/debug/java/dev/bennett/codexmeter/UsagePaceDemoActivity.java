@@ -27,6 +27,25 @@ public final class UsagePaceDemoActivity extends Activity {
         if (duoMode != null && !duoMode.isEmpty()) {
             AppPreferences.setGlassDuoMode(this, duoMode);
         }
+        // Optional: the user-facing demo mode, as "Explore demo" and "Leave demo" do it, for
+        // designs whose buttons a gallery script can't find in the view tree.
+        if (getIntent().getBooleanExtra("enter_demo", false)
+                || getIntent().getBooleanExtra("leave_demo", false)) {
+            try {
+                if (getIntent().getBooleanExtra("enter_demo", false)) {
+                    AppPreferences.completeOnboarding(this);
+                    DemoMode.enter(this);
+                } else {
+                    DemoMode.leave(this);
+                }
+            } catch (Exception exception) {
+                throw new IllegalStateException("Could not change demo mode", exception);
+            }
+            startActivity(new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
         String settingsPage = getIntent().getStringExtra("open_settings_page");
         if (settingsPage != null && !settingsPage.isEmpty()) {
             startActivity(new Intent(this, SettingsActivity.class)

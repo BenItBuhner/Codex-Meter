@@ -258,6 +258,19 @@ public final class OnboardingActivity extends AppCompatActivity {
             this.content.addView(design, designParams);
         }
         addPrimaryAction("Continue", () -> showStep(OnboardingFlow.STEP_PROVIDERS));
+        Button demo = Ui.button(this, "Explore demo", false, this.dark);
+        demo.setOnClickListener(view -> exploreDemo());
+        this.content.addView(demo, new LinearLayout.LayoutParams(-1, Ui.dp(this, 56)));
+    }
+
+    /** Skips setup and opens Codex, Claude Code and Cursor with sample usage. */
+    private void exploreDemo() {
+        try {
+            DemoMode.enter(this);
+        } catch (Exception exception) {
+            DiagnosticLog.error(this, "user", "demo_enter_failed", exception);
+        }
+        completeAndOpenMain();
     }
 
     private void buildProviders() {

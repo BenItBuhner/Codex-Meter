@@ -91,7 +91,7 @@ public final class ProviderAccounts {
         // Keeps background refresh alive for the providers that are still signed in.
         RefreshScheduler.schedulePeriodic(app);
         WidgetRenderer.updateAll(app);
-        if (provider == UsageProvider.CODEX && tokens != null) {
+        if (provider == UsageProvider.CODEX && tokens != null && !DemoMode.isDemoTokens(tokens)) {
             new Thread(() -> OAuthClient.revokeBestEffort(app, tokens), "codex-sign-out").start();
         }
     }

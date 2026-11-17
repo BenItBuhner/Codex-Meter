@@ -88,6 +88,41 @@ stop_record() {
   adb shell rm -f "/sdcard/$1.mp4" || true
 }
 
+# Taps the first view whose text or description matches $1; fails when there is none (Liquid
+# Glass draws its own controls, so its buttons aren't in the view tree).
+tap_text() {
+  local b
+  b=$(bounds_of "$1") || true
+  [ -n "$b" ] || return 1
+  set -- $b
+  adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
+}
+
+# Demo mode from a fresh install: setup's Explore demo, the sample dashboards with their notice,
+# Leave demo back to the sign-in screen, and Explore demo from there.
+run_demo() {
+  local d="$1" p="demo-$1"
+  adb shell pm clear "$PKG" >/dev/null
+  adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
+  adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es design "$d" --es theme light \
+    --es open_activity OnboardingActivity >/dev/null
+  shot "$p-01-setup" 6
+  if tap_text "Explore demo"; then sleep 8; else
+    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez enter_demo true >/dev/null
+  fi
+  shot "$p-02-codex" 6
+  scroll_down;                       shot "$p-03-codex-scrolled" 3
+  adb shell am start -W -S -n "$PKG/.MainActivity" --es provider claude_code >/dev/null
+  shot "$p-04-claude-code" 6
+  adb shell am start -W -S -n "$PKG/.MainActivity" --es provider cursor >/dev/null
+  shot "$p-05-cursor" 6
+  if ! tap_text "Leave demo"; then
+    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez leave_demo true >/dev/null
+  fi
+  shot "$p-06-left-demo" 6
+  if tap_text "Explore demo"; then shot "$p-07-demo-again" 8; fi
+}
+
 run_design() {
   local d="$1" t="$2" p="$1-$2"
   # Dashboard: title alone (no subheader), the real Usage history chart instead of bars.
@@ -111,6 +146,13 @@ run_design() {
     --es open_widget_metric five_hour >/dev/null
   shot "$p-14-widget-settings" 7
 }
+
+for design in liquid_glass one_ui_9 material_3_expressive; do
+  run_demo "$design"
+done
+# The tester scenes below start from a clean install, not from the demo.
+adb shell pm clear "$PKG" >/dev/null
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
 
 for design in material_3_expressive liquid_glass one_ui_9 classic; do
   run_design "$design" light

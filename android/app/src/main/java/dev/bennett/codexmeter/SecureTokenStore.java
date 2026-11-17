@@ -68,6 +68,10 @@ public final class SecureTokenStore {
 
     public static void save(Context context, UsageProvider provider, AuthTokens authTokens)
             throws Exception {
+        // A real sign-in replaces the demo account: its sample usage goes first.
+        if (!DemoMode.isDemoTokens(authTokens) && DemoMode.isOn(context, provider)) {
+            DemoMode.clear(context, provider);
+        }
         synchronized (LOCK) {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(1, getOrCreateKey(keyAlias(provider)));
@@ -110,6 +114,7 @@ public final class SecureTokenStore {
     }
 
     public static void clear(Context context, UsageProvider provider) {
+        DemoMode.clear(context, provider);
         synchronized (LOCK) {
             SIGNED_IN.put(prefsName(provider), false);
             context.getSharedPreferences(prefsName(provider), 0).edit().clear().commit();

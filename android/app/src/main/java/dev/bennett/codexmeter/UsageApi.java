@@ -18,6 +18,9 @@ public final class UsageApi {
     }
 
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
+        if (DemoMode.isOn(context, UsageProvider.CODEX)) {
+            return DemoMode.refresh(context, UsageProvider.CODEX);
+        }
         AuthTokens authTokens;
         Response response;
         String fallbackError;
@@ -94,6 +97,7 @@ public final class UsageApi {
     }
 
     static AuthTokens usableTokens(Context context) throws Exception {
+        DemoMode.requireRealAccount(context, UsageProvider.CODEX);
         AuthTokens authTokensLoad = SecureTokenStore.load(context);
         if (authTokensLoad == null) {
             throw new Exception("Sign in to ChatGPT first.");
