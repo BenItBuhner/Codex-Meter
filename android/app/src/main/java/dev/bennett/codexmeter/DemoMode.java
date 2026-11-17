@@ -33,6 +33,8 @@ public final class DemoMode {
 
     /** Raised instead of a network request for a provider showing demo data. */
     public static final class DemoDataException extends Exception {
+        private static final long serialVersionUID = 1L;
+
         DemoDataException() {
             super(NO_NETWORK_MESSAGE);
         }
