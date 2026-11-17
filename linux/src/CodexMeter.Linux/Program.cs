@@ -1,3 +1,5 @@
+using CodexMeter.Linux.Services;
+
 [assembly: System.Runtime.Versioning.SupportedOSPlatform("linux")]
 
 namespace CodexMeter.Linux;
@@ -12,6 +14,14 @@ public static class Program
             Console.WriteLine(LaunchOptions.Usage);
             return 0;
         }
+        // A crash leaves a line in codexmeter.log (and the opt-in diagnostic log) naming what threw,
+        // and a forgotten task's failure is logged instead of passing silently.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => AppLog.Write("Unhandled: " + e.ExceptionObject);
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            AppLog.Write("Unobserved task: " + e.Exception);
+            e.SetObserved();
+        };
         Adw.Module.Initialize();
         return new App(options).Run();
     }

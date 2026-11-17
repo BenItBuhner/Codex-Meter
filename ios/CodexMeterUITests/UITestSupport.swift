@@ -96,10 +96,28 @@ enum UITestSupport {
         maxAttempts: Int = 8
     ) {
         let target = element.firstMatch
+        // Existing isn't enough: a lazy Form keeps rows below the fold in the hierarchy, and on
+        // an iPad sheet a row can exist under the sheet's bottom edge, where a tap misses it. So
+        // stop once the row sits inside the Form's own frame (the sheet's content area on iPad).
+        // Frames, not isHittable: plain text rows are never hittable, and swiping past them
+        // culls them from the lazy Form.
         for _ in 0..<maxAttempts {
-            if target.exists { return }
+            if isInsideForm(target, in: app) { return }
             app.swipeUp()
         }
+    }
+
+    private static func isInsideForm(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard !frame.isEmpty else { return false }
+        // The Form is the smallest scroll container the row overlaps; on iPad the dashboard's
+        // own list sits behind the sheet and covers the whole window.
+        let containers = app.collectionViews.allElementsBoundByIndex
+            .map(\.frame)
+            .filter { $0.intersects(frame) }
+        let bounds = containers.min { $0.width * $0.height < $1.width * $1.height } ?? app.frame
+        return bounds.contains(frame)
     }
 
     /// Flips a SwiftUI `Toggle` that shows its label and waits for its value to change.
@@ -115,14 +133,38 @@ enum UITestSupport {
         let toggle = app.switches[label].firstMatch
         guard toggle.waitForExistence(timeout: timeout) else { return false }
         let expected = (toggle.value as? String) == "1" ? "0" : "1"
-        toggle
-            .coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-            .withOffset(CGVector(dx: -40, dy: 0))
-            .tap()
-        return app.switches
+        let flipped = app.switches
             .matching(NSPredicate(format: "label == %@ AND value == %@", label, expected))
             .firstMatch
-            .waitForExistence(timeout: timeout)
+        // A starved simulator can drop the first tap; one more tap is safe because the value is
+        // checked before it, so the switch never flips twice.
+        for _ in 0..<2 {
+            toggle
+                .coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+                .withOffset(CGVector(dx: -40, dy: 0))
+                .tap()
+            if flipped.waitForExistence(timeout: timeout / 2) { return true }
+        }
+        return false
+    }
+
+    /// Sends a keyboard shortcut and waits for `result`. When the first press doesn't land
+    /// (focus still in the sidebar, or the simulator dropped the event), it gives the detail
+    /// column focus by tapping its navigation bar and presses once more.
+    @discardableResult
+    static func press(
+        _ key: String,
+        modifiers: XCUIElement.KeyModifierFlags = .command,
+        in app: XCUIApplication,
+        until result: XCUIElement,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        app.typeKey(key, modifierFlags: modifiers)
+        if result.waitForExistence(timeout: timeout) { return true }
+        let bar = app.navigationBars.firstMatch
+        if bar.exists, bar.isHittable { bar.tap() }
+        app.typeKey(key, modifierFlags: modifiers)
+        return result.waitForExistence(timeout: timeout)
     }
 }
 

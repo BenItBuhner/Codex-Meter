@@ -60,31 +60,26 @@ final class IPadLayoutTests: XCTestCase {
         }
 
         // ⌘1…⌘4 follow the tab order; ⌘R refreshes the visible tab without leaving it.
-        app.typeKey("3", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Cursor"].waitForExistence(timeout: 5), "⌘3 opens Cursor")
+        XCTAssertTrue(UITestSupport.press("3", in: app, until: app.navigationBars["Cursor"]), "⌘3 opens Cursor")
         XCTAssertTrue(app.staticTexts["Included usage · Weekly"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("04-landscape-cursor")
 
-        app.typeKey("4", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Copilot"].waitForExistence(timeout: 5), "⌘4 opens Copilot")
+        XCTAssertTrue(UITestSupport.press("4", in: app, until: app.navigationBars["Copilot"]), "⌘4 opens Copilot")
         UITestSupport.settle(0.8)
         capture("05-landscape-copilot")
 
-        app.typeKey("2", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "⌘2 opens Claude Code")
+        XCTAssertTrue(UITestSupport.press("2", in: app, until: app.navigationBars["Claude Code"]), "⌘2 opens Claude Code")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Claude Code windows share a row")
         UITestSupport.settle(0.6)
         capture("06-landscape-claude")
 
-        app.typeKey("1", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5), "⌘1 returns to Codex")
+        XCTAssertTrue(UITestSupport.press("1", in: app, until: app.navigationBars["Codex"]), "⌘1 returns to Codex")
         app.typeKey("r", modifierFlags: .command)
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["5-hour"].waitForExistence(timeout: 5), "⌘R keeps the dashboard")
 
-        app.typeKey(",", modifierFlags: .command)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "⌘, opens Settings")
+        XCTAssertTrue(UITestSupport.press(",", in: app, until: app.navigationBars["Settings"]), "⌘, opens Settings")
         UITestSupport.settle(0.8)
         capture("07-landscape-settings")
         UITestSupport.tap(app.buttons["Done"])
