@@ -110,10 +110,35 @@ done
 sorted="$(printf '%s\n' "${frames[@]}" | sort -n)"
 frame_median="$(sed -n "$(( (LAUNCHES + 1) / 2 ))p" <<< "$sorted")"
 
-# Memory once the last launch's dashboard has settled.
+echo "First frames: $(tr '\n' ' ' <<< "$sorted")ms"
+
+# Runs a command for at most $1 seconds (macOS has no `timeout`), printing its output.
+bounded() {
+  local seconds="$1" out
+  shift
+  out="$(mktemp)"
+  "$@" >"$out" 2>/dev/null &
+  local cmd=$!
+  for _ in $(seq $(( seconds * 2 ))); do
+    kill -0 "$cmd" 2>/dev/null || break
+    sleep 0.5
+  done
+  kill "$cmd" 2>/dev/null || true
+  wait "$cmd" 2>/dev/null || true
+  cat "$out"
+}
+
+# Memory once the last launch's dashboard has settled. vmmap can stall for minutes on a
+# simulator process, so it gets a minute, then `footprint` (which reports the same number) does.
 sleep 5
-footprint="$(vmmap --summary "$pid" 2>/dev/null | awk '/^Physical footprint:/ { print $3; exit }')"
-[[ -n "$footprint" ]] || { echo "::error::vmmap printed no physical footprint for $pid" >&2; exit 1; }
+footprint="$(bounded 60 vmmap --summary "$pid" | awk '/^Physical footprint:/ { print $3; exit }')"
+if [[ -z "$footprint" ]]; then
+  echo "vmmap gave no footprint within 60 s; trying footprint" >&2
+  footprint="$(bounded 60 footprint "$pid" \
+    | awk 'tolower($0) ~ /footprint:/ { for (i = 1; i < NF; i++) if (tolower($i) ~ /footprint:/) {
+        v = $(i + 1); u = $(i + 2); sub(/B$/, "", u); print v u; exit } }')"
+fi
+[[ -n "$footprint" ]] || { echo "::error::Neither vmmap nor footprint gave a physical footprint for $pid" >&2; exit 1; }
 footprint_mb="$(awk -v f="$footprint" 'BEGIN {
   n = f + 0; u = substr(f, length(f))
   if (u == "K") n /= 1024; else if (u == "G") n *= 1024; else if (u != "M") n /= 1048576
