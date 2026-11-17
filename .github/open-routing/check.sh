@@ -61,21 +61,8 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
   adb shell input tap $xy
 }
 
-# Taps the widget, and taps again if the launcher is still in front a few seconds later: on a busy
-# emulator the launcher can drop a tap that lands while it is still settling after HOME. A widget
-# that opens the wrong screen still fails, because only "nothing opened" is retried.
-tap_widget() {
-  tap_widget_once
-  for _ in 1 2; do
-    sleep 3
-    [[ "$(top_activity)" == *nexuslauncher* ]] || return 0
-    echo "the launcher is still in front; tapping the widget again" >&2
-    tap_widget_once
-  done
-}
-
 # Taps the middle of the home-screen widget (the first view the app draws on the launcher).
-tap_widget_once() {
+tap_widget() {
   local xy
   xy=$(dump | python3 -c '
 import re, sys
@@ -209,6 +196,10 @@ for DESIGN in "${DESIGNS[@]}"; do
   # 2. Warm: the user was on the Cursor tab with Settings › Appearance open, then went home.
   log_step "widget warm $DESIGN"
   demo --es open_provider cursor
+  # demo force-stops the app, and a force stop cancels every PendingIntent the app made, the
+  # widget's tap target included, until the widget is drawn again (a user's force stop does the
+  # same). Redraw it, as the cold step does, so the tap below tests routing and not that.
+  harness widget_provider --es id claude_code
   open_settings_appearance
   shot "$DESIGN-03-settings-open-before-home" 0
   home
