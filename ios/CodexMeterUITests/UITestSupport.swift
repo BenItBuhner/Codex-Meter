@@ -96,8 +96,10 @@ enum UITestSupport {
         maxAttempts: Int = 8
     ) {
         let target = element.firstMatch
+        // Existing isn't enough: a lazy Form keeps rows below the fold in the hierarchy, and on
+        // an iPad sheet a row can exist under the sheet's bottom edge, where a tap misses it.
         for _ in 0..<maxAttempts {
-            if target.exists { return }
+            if target.exists, target.isHittable { return }
             app.swipeUp()
         }
     }
@@ -115,14 +117,38 @@ enum UITestSupport {
         let toggle = app.switches[label].firstMatch
         guard toggle.waitForExistence(timeout: timeout) else { return false }
         let expected = (toggle.value as? String) == "1" ? "0" : "1"
-        toggle
-            .coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-            .withOffset(CGVector(dx: -40, dy: 0))
-            .tap()
-        return app.switches
+        let flipped = app.switches
             .matching(NSPredicate(format: "label == %@ AND value == %@", label, expected))
             .firstMatch
-            .waitForExistence(timeout: timeout)
+        // A starved simulator can drop the first tap; one more tap is safe because the value is
+        // checked before it, so the switch never flips twice.
+        for _ in 0..<2 {
+            toggle
+                .coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+                .withOffset(CGVector(dx: -40, dy: 0))
+                .tap()
+            if flipped.waitForExistence(timeout: timeout / 2) { return true }
+        }
+        return false
+    }
+
+    /// Sends a keyboard shortcut and waits for `result`. When the first press doesn't land
+    /// (focus still in the sidebar, or the simulator dropped the event), it gives the detail
+    /// column focus by tapping its navigation bar and presses once more.
+    @discardableResult
+    static func press(
+        _ key: String,
+        modifiers: XCUIElement.KeyModifierFlags = .command,
+        in app: XCUIApplication,
+        until result: XCUIElement,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        app.typeKey(key, modifierFlags: modifiers)
+        if result.waitForExistence(timeout: timeout) { return true }
+        let bar = app.navigationBars.firstMatch
+        if bar.exists, bar.isHittable { bar.tap() }
+        app.typeKey(key, modifierFlags: modifiers)
+        return result.waitForExistence(timeout: timeout)
     }
 }
 

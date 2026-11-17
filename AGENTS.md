@@ -21,6 +21,34 @@ CI's `CI gate` job is the required check, and every job behind it treats warning
 
 Write tests that exercise behavior. Don't add checks that grep source for a string; a rule that matters belongs in a linter, `android/ci/resource-checks.py` (manifest and resource constraints) or `release-invariants.sh`. Tests wait on signals, never on sleeps.
 
+## Release bar
+
+A stable release (3.0.0 first) ships only when every item below holds on the commit being released. An alpha may ship with known gaps, but each one is written in its PR or the alpha's changelog section. A failing item blocks the release; it is never waived by editing this list in the same change.
+
+**CI**
+- `CI gate` is green on the commit, and the ruleset on `main` and `alpha` requires it, so nothing merges around it.
+- No flaky tests, in the gate or in the optional workflows. A test that fails without a code change is a bug: fix its cause (wait on the right signal, scroll until the element is hittable, retry an input the simulator drops) in the PR that sees it. Never skip, quarantine or delete a test to get green, and don't lean on `-retry-tests-on-failure` to hide a real failure.
+- Every optional workflow that a release depends on (iOS CI with the iPad suite, macOS CI, Windows UI tests, the update proof, the galleries) has passed on the release commit or on a commit with the same code for that platform.
+
+**Performance and size.** Budgets are enforced in CI, not checked by hand. Raise a ceiling only with a measured reason in the PR; lower ceilings as the app gets leaner.
+- Android release APK: cold start (median of 7 launches), total PSS after launch and APK size, measured on an emulator by `android/ci/perf-budgets.sh` (the "Android performance budgets" job).
+- Wire payloads (widget, Wear, live monitor): `android/tests/PayloadBudgetSelfTest.java`, reported on each PR by the "Payload budgets" job.
+- A refresh never blocks the UI thread, never retries without backoff, and keeps the last good snapshot on screen when it fails.
+
+**Errors and crashes**
+- No uncaught exception path. Every platform logs crashes and unobserved background failures to its local log and, when on, the opt-in diagnostic log.
+- Every network or parse failure shows a plain message and keeps cached data visible. Tests cover the failure path, not just the happy path.
+- No `force_try` or `force_cast`, no swallowed exception without a comment saying why, and `async void` only for UI event handlers that catch their own failures.
+
+**Parity and providers**
+- Settings use the shared layout and names on Android, iOS, macOS, Windows and Linux (Providers, Notifications, Live usage, Appearance, Updates, Privacy & data, About; each provider page has Account, Meters, Plan and, where the provider has them, Reset credits). A feature missing on a platform is listed in its PR with the reason.
+- Every provider works on every platform where it can: no artificial gates, no `inferred` routes, no heuristic parsers. Parsers change together in Java, Swift and C#, with shared fixtures.
+- Value estimates use dated, sourced figures and show Unknown rather than a guess.
+
+**Feedback and real devices**
+- Every tester report is either fixed and confirmed in a build the tester used, or written down as deferred with Bennett's agreement.
+- Before a stable release, the release candidate is installed and used on real hardware: an Android phone (One UI) with widgets, live notification and the in-app updater; Wear OS; an iPhone with widgets and Live Activity; a Mac; Windows; and Linux. Emulators and simulators don't count for this step.
+
 ## Platform judgment
 
 - Android builds resolve One UI and SESL from `android/vendor/m2`, because GitHub Packages needs credentials even for public packages. Vendor any new pinned version there.

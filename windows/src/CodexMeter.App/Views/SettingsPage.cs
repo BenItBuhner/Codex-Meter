@@ -622,7 +622,14 @@ public sealed class SettingsPage : PageBase
     private async void ShowNote(string message)
     {
         var dialog = SignInFlow.Dialog(XamlRoot, "Settings", Cards.Text(message, "BodyTextBlockStyle"), "SettingsNoteDialog");
-        await dialog.ShowAsync();
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // WinUI allows one open ContentDialog; while another is up the note is dropped, not a crash.
+        }
     }
 
     private static async Task<bool> SaveFileAsync(string name, string kind, string extension, string text)

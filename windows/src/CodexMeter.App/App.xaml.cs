@@ -30,6 +30,12 @@ public partial class App : Application
                 Exit();
             }
         };
+        // Work that nothing awaits still leaves a line in the log when it fails.
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Log("Unobserved task: " + e.Exception);
+            e.SetObserved();
+        };
     }
 
     public static new App? Current => Application.Current as App;
