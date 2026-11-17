@@ -19,18 +19,23 @@ APK="${1:?apk path required}"
 SIZE_APK="${2:-$APK}"
 PACKAGE="dev.bennett.codexmeter"
 ACTIVITY="$PACKAGE/.MainActivity"
-LAUNCHES="${LAUNCHES:-7}"
+LAUNCHES="${LAUNCHES:-11}"
 
-# First measured 2026-11-17 on alpha: APK 74.8 MB (R8 is off and skiko ships x86_64 and arm64
-# libraries), cold start median 3607 ms (single launches 2258-4085 ms on the software-rendered
-# emulator), PSS 55.9 MB. The ceilings stop regressions; bringing the first two down is v3 work.
-MAX_APK_MB="${MAX_APK_MB:-80}"
-MAX_COLD_START_MS="${MAX_COLD_START_MS:-5000}"
+# First measured 2026-11-17 on alpha: APK 74.8 MB, cold start median 3607 ms, PSS 55.9 MB. The
+# release APK then dropped its x86_64 Skia copy: 48.6 MB. Cold start on the software-rendered
+# emulator swings with the runner (single launches 2258-6335 ms, medians 3607 and 5039 ms across
+# two runs of the same code), so the script lets post-boot work settle first and the ceiling
+# sits above that spread; it catches a real regression (seconds), not runner noise.
+MAX_APK_MB="${MAX_APK_MB:-55}"
+MAX_COLD_START_MS="${MAX_COLD_START_MS:-7000}"
 MAX_PSS_MB="${MAX_PSS_MB:-90}"
 
 adb wait-for-device
 adb shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done'
 adb install -r -g "$APK" >/dev/null
+# Right after boot the system is still compiling packages in the background, which competes with
+# every launch on a two-core emulator. Run that work now, so it is done before the clock starts.
+timeout 300 adb shell cmd package bg-dexopt-job >/dev/null 2>&1 || true
 
 apk_bytes="$(stat -c %s "$SIZE_APK")"
 
