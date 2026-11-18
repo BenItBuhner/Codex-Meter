@@ -127,7 +127,8 @@ final class FakeSource implements GlassSource {
         GlassModel.Card models = new GlassModel.Card(GlassModel.Card.Kind.STATS);
         models.title = "New models";
         models.detail = models.title;
-        String[][] listed = {{"Claude Fable 5.1", "For Claude Code"}, {"GPT-5.6 Codex", "For Codex"}};
+        String[][] listed = {{"Claude Fable 5.1", "For Claude Code"}, {"GPT-5.6 Codex", "For Codex"},
+                {"GPT-5.6 Sol", "For Codex"}, {"GPT-5.6 Sol Pro", "For Codex"}};
         for (int i = 0; i < listed.length; i++) {
             if (dismissedModels.contains(i)) {
                 continue;
@@ -140,8 +141,9 @@ final class FakeSource implements GlassSource {
             });
         }
         models.dismissAll = () -> {
-            dismissedModels.add(0);
-            dismissedModels.add(1);
+            for (int i = 0; i < listed.length; i++) {
+                dismissedModels.add(i);
+            }
             changed();
         };
         if (!models.stats.isEmpty()) {
