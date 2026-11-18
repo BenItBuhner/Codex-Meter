@@ -3,7 +3,7 @@
   "component": {
     "group": "com.github.BenItBuhner.Glasse",
     "module": "glasskit",
-    "version": "859b0211d0",
+    "version": "c12370edd1",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -36,8 +36,8 @@
       ],
       "files": [
         {
-          "name": "glasskit-859b0211d0.jar",
-          "url": "glasskit-859b0211d0.jar",
+          "name": "glasskit-c12370edd1.jar",
+          "url": "glasskit-c12370edd1.jar",
           "size": 962742,
           "sha512": "7df6764f0f80e242f1330b052707373d337d86536d01fbfef58ea4bf54df7c4df6e125ded87b9156f06f0567b8a10b6cd0890780c033803aa0d9dc92d790acf8",
           "sha256": "011272a76d06a6f703f04541a3c5176d8196909117268ef2b5e385aebbe5d628",
@@ -68,8 +68,8 @@
       ],
       "files": [
         {
-          "name": "glasskit-859b0211d0.jar",
-          "url": "glasskit-859b0211d0.jar",
+          "name": "glasskit-c12370edd1.jar",
+          "url": "glasskit-c12370edd1.jar",
           "size": 962742,
           "sha512": "7df6764f0f80e242f1330b052707373d337d86536d01fbfef58ea4bf54df7c4df6e125ded87b9156f06f0567b8a10b6cd0890780c033803aa0d9dc92d790acf8",
           "sha256": "011272a76d06a6f703f04541a3c5176d8196909117268ef2b5e385aebbe5d628",

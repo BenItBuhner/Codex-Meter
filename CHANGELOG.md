@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.9.0-alpha.30 — 2026-11-18
+
+### Added
+
+- **Priority on iPhone, iPad and Mac.** A Priority tab comes first: limits to watch, used up, coming up, model slowdowns and new models across every connected service. iOS, macOS.
+- **Claude Code saved resets on iPhone, Mac, Windows and Linux.** A Reset credits card with Use and Check with Anthropic, plus the two automatic rules (before they expire, when running low). iOS, macOS, Windows, Linux.
+- **Live Activity and Dynamic Island** for your tightest limit, started by hand or automatically. iOS.
+- **Service status and model slowdowns on Windows and Linux.** Priority lists outages and slow models with status page links, and dashboards show an official outage or maintenance notice. Windows, Linux.
+- **Settings export and import, and opt-in diagnostic logs**, under Privacy & data. Sign-ins are never exported. Windows, Linux, iOS, macOS.
+- **A customizable "While using AI apps" list** on the desktop, as on Android. Windows, Linux, macOS.
+- **Browser sign-in for OpenRouter and Antigravity on the Mac.** macOS.
+
+### Changed
+
+- **Touch and hold in the Liquid Glass design now uses an iOS-style context menu.** The row lifts out over a blurred background and its menu grows from it. You can slide onto an item and let go to pick it. It used to open and close like a toolbar menu. Android.
+- **Swipe to dismiss in the Liquid Glass design follows your finger.** The row slides off and closes up, and the rows below move into its place, instead of popping out. On Priority, "Dismiss all" asks before clearing a section. Android.
+- **Settings use the same four groups everywhere:** Usage, Alerts & live usage, App and About, with one Low allowance level, Reset credits per provider, Haptics, and Privacy & data on one page. Android, iOS, macOS, Windows, Linux.
+- **Usage estimates restart after a mid-window saved reset**, so a Claude Code reset no longer spreads your new usage over the whole week. Android, iOS, macOS, Windows, Linux.
+- **Claude and Cursor value estimates on iPhone and Mac** show the same rows as Android and Windows. iOS, macOS.
+- **Every provider's usage route is confirmed.** Synthetic, Chutes, v0 and Warp have real parsers, Devin uses its own pasted session, and Amp, Kiro, Cline, OpenCode and MiniMax read their usage more accurately. Android, iOS, macOS, Windows, Linux.
+- **A smaller phone download:** the release APK is built for arm64 only. Android.
+- **Wear OS keeps every signed-in provider's main limits** within a smaller payload, so no provider shows up blank. Wear OS.
+- **Updates only trust this repository's release pages and downloads.** Android.
+
+### Fixed
+
+- **The Windows title bar is as tall as its caption buttons**, so Close no longer hangs over the page toolbar. Windows.
+- **Crash logging:** Linux and Windows log unhandled background errors, and a Settings note no longer crashes when another dialog is open. Windows, Linux.
+
+### Known gaps
+
+- The Liquid Glass context menu and swipe timings were matched by eye against iOS, not traced frame by frame. The cost of the blurred background hasn't been measured on a phone yet.
+- After a dismiss, Priority still rebuilds the page. That now happens once the animation has finished.
+
 ## 2.9.0-alpha.29 — 2026-11-15
 
 ### Added
