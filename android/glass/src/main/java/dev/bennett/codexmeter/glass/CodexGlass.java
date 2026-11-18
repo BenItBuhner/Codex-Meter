@@ -20,7 +20,7 @@ import static com.benitbuhner.glasse.kit.KitMore.GlassSheet;
 import static com.benitbuhner.glasse.kit.KitControls.ActivityIndicator;
 import static com.benitbuhner.glasse.kit.KitControls.ProgressBar;
 import static com.benitbuhner.glasse.kit.KitControls.TextFieldRow;
-import static com.benitbuhner.glasse.kit.KitPopup.ContextMenu;
+import static com.benitbuhner.glasse.kit.KitPresent.GlassActionSheet;
 import static com.benitbuhner.glasse.kit.KitPopup.GlassPopupMenu;
 import static com.benitbuhner.glasse.kit.KitLists.SwipeRow;
 import static com.benitbuhner.glasse.kit.KitUi.GlassAlert;
@@ -47,6 +47,7 @@ import com.benitbuhner.glasse.kit.Kit;
 import com.benitbuhner.glasse.kit.KitScreen;
 import com.benitbuhner.glasse.kit.NodeDraw;
 import com.benitbuhner.glasse.kit.KitLists;
+import com.benitbuhner.glasse.kit.KitPresent;
 import com.benitbuhner.glasse.kit.OnBool;
 import com.benitbuhner.glasse.kit.OnInt;
 import com.benitbuhner.glasse.kit.OnNum;
@@ -521,9 +522,43 @@ public final class CodexGlass {
     }
 
     /**
+     * One row the person can dismiss (Recent activity, New models): Glassé's SwipeRow, so a swipe
+     * left opens Dismiss and a full swipe dismisses it, and its context menu, so a touch and hold
+     * lifts the row with Dismiss and Dismiss all. Dismiss animates the row away before the app drops
+     * it; Dismiss all asks first in a confirmation dialog, since it clears the whole section for good.
+     */
+    private static final Comp DismissRow = p -> {
+        KTheme t = Kit.useTheme();
+        State<Boolean> confirm = R.useState(false);
+        Runnable dismiss = (Runnable) p.get("dismiss");
+        Runnable dismissAll = (Runnable) p.get("dismissAll");
+        double h = p.d("h", 66.0);
+        List<PopupItem> items = new ArrayList<>();
+        items.add(new PopupItem("Dismiss").icon("xmark").deletesRow(true).onSelect(dismiss));
+        if (dismissAll != null) {
+            items.add(new PopupItem("Dismiss all").icon("trash").destructive(true).onSelect(() -> confirm.set(true)));
+        }
+        String section = p.s("section");
+        int count = p.i("count");
+        El sheet = dismissAll == null ? null : GlassActionSheet(P.of("open", confirm.get(),
+                "onClose", (Runnable) () -> confirm.set(false),
+                "message", "All " + count + (section != null ? " in " + section : "") + " will be dismissed for good.",
+                "actions", java.util.Arrays.asList(
+                        new KitPresent.SheetAction("Dismiss All", "destructive", dismissAll),
+                        new KitPresent.SheetAction("Cancel", "cancel", null))));
+        // two lines: what happened, then where and when ("Claude Code · 32m ago")
+        return Box(P.of(),
+                SwipeRow(P.of("h", h, "actionLabel", "Dismiss", "onDelete", dismiss, "contextMenu", items),
+                        Box(P.of("flex", 1, "gap", 2),
+                                Text(P.of("size", 17, "ls", -0.34, "lh", 22, "lines", 1, "color", t.pal.label), p.s("title")),
+                                Text(P.of("size", 13, "lh", 16.5, "lines", 1, "color", t.pal.label2), p.s("value")))),
+                sheet);
+    };
+
+    /**
      * Label and value rows, like a Settings detail list, in one grouped card. Rows the app lets the
-     * person dismiss (Priority's Recent activity) swipe left to a Dismiss capsule, and a touch and
-     * hold opens a menu with Dismiss (and Dismiss all). The hairlines between rows are drawn in
+     * person dismiss (Priority's Recent activity, New models) are DismissRow: swipe left to a Dismiss
+     * capsule, or touch and hold for the context menu with Dismiss (and Dismiss all). The hairlines between rows are drawn in
      * the rows themselves, 0.5 pt at their top edge, so a row that wraps can never stretch one
      * into a grey bar.
      */
@@ -539,16 +574,9 @@ public final class CodexGlass {
             if (dismiss != null) {
                 // two lines: what happened, then where and when ("Claude Code · 32m ago")
                 double h = 66;
-                El content = Box(P.of("flex", 1, "gap", 2),
-                        Text(P.of("size", 17, "ls", -0.34, "lh", 22, "lines", 1, "color", t.pal.label), title),
-                        Text(P.of("size", 13, "lh", 16.5, "lines", 1, "color", t.pal.label2), value));
-                List<PopupItem> items = new ArrayList<>();
-                items.add(new PopupItem("Dismiss").icon("xmark").onSelect(dismiss));
-                if (c.dismissAll != null) {
-                    items.add(new PopupItem("Dismiss all").icon("trash").destructive(true).onSelect(c.dismissAll));
-                }
-                row = ContextMenu(P.of("key", "s" + i + ":" + title, "h", h, "r", 22, "items", items),
-                        SwipeRow(P.of("h", h, "label", "Dismiss", "onDelete", dismiss), content));
+                row = R.h(DismissRow, P.of("key", "s" + i + ":" + title, "h", h, "title", title, "value", value,
+                        "dismiss", dismiss, "dismissAll", c.dismissAll, "count", c.statDismiss.size(),
+                        "section", c.title != null ? c.title : c.detail));
             } else {
                 double h = title.length() + value.length() > 36 ? 66 : 52;
                 row = ListRow(P.of("key", "s" + i, "h", h,
