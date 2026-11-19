@@ -7,20 +7,16 @@ public protocol TokenStoring: Sendable {
     func delete() async throws
 }
 
-/// The Keychain service for the app's tokens, outside the actor so the initializer's default
-/// argument doesn't read the actor's own static.
-@usableFromInline let keychainTokenService = "com.bukovinafilip.CodexMeter.auth"
-
 /// App-only credential persistence. This type is intentionally absent from the
 /// widget target and does not use an access group shared with extensions.
 public actor KeychainTokenStore: TokenStoring {
-    public nonisolated static let defaultService = keychainTokenService
+    public nonisolated static let defaultService = "com.bukovinafilip.CodexMeter.auth"
 
     private let service: String
     private let account: String
 
     public init(
-        service: String = keychainTokenService,
+        service: String = KeychainTokenStore.defaultService,
         account: String = "chatgpt-tokens"
     ) {
         self.service = service
