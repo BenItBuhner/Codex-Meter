@@ -29,8 +29,10 @@ MARKER="codexmeter.first_frame_ms="
 case "$PLATFORM" in
   ios)
     [[ -n "$DEVICE" ]] || { echo "::error::A simulator name is required for ios" >&2; exit 1; }
+    # First measured 2026-11-17: median 1832 ms (1.7-2.0 s, one 11.5 s outlier), footprint
+    # 45.6 MB on an iPhone 17 Pro simulator.
     MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-3000}"
-    MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-300}"
+    MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-70}"
     TITLE="iPhone (simulator)"
     xcrun simctl boot "$DEVICE" 2>/dev/null || true
     xcrun simctl bootstatus "$DEVICE" -b >/dev/null
