@@ -95,8 +95,23 @@ tap_text() {
   b=$(bounds_of "$1") || true
   [ -n "$b" ] || return 1
   set -- $b
+  # A view below the fold is in the tree too; tapping it would hit whatever is on screen there.
+  (( ($2 + $4) / 2 < H * 93 / 100 )) || return 1
   adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
 }
+
+# Taps $1, scrolling down up to three times to bring it on screen.
+tap_text_scrolling() {
+  local i
+  for i in 0 1 2 3; do
+    tap_text "$1" && return 0
+    (( i < 3 )) && scroll_down
+  done
+  return 1
+}
+
+# Whether demo mode is on: its tabs carry the "Leave demo" button.
+in_demo() { [ -n "$(bounds_of "Leave demo")" ]; }
 
 # Demo mode from a fresh install: setup's Explore demo, the sample dashboards with their notice,
 # Leave demo back to the sign-in screen, and Explore demo from there.
@@ -107,8 +122,13 @@ run_demo() {
   adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es design "$d" --es theme light \
     --es open_activity OnboardingActivity >/dev/null
   shot "$p-01-setup" 6
-  if tap_text "Explore demo"; then sleep 8; else
+  if tap_text_scrolling "Explore demo"; then
+    sleep 8
+    [ "$d" = liquid_glass ] || in_demo || echo "::warning::Explore demo on the $d setup screen did not start demo mode"
+  fi
+  if ! in_demo; then
     adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez enter_demo true >/dev/null
+    sleep 6
   fi
   shot "$p-02-codex" 6
   scroll_down;                       shot "$p-03-codex-scrolled" 3
@@ -116,11 +136,11 @@ run_demo() {
   shot "$p-04-claude-code" 6
   adb shell am start -W -S -n "$PKG/.MainActivity" --es provider cursor >/dev/null
   shot "$p-05-cursor" 6
-  if ! tap_text "Leave demo"; then
+  if ! tap_text_scrolling "Leave demo"; then
     adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez leave_demo true >/dev/null
   fi
   shot "$p-06-left-demo" 6
-  if tap_text "Explore demo"; then shot "$p-07-demo-again" 8; fi
+  if tap_text_scrolling "Explore demo"; then shot "$p-07-demo-again" 8; fi
 }
 
 run_design() {
