@@ -294,7 +294,11 @@ public final class CodexGlass {
         return Box(P.of("fill", true, "bg", t.pal.bg),
                 GlassScrollView(P.of("padT", t.T + 56, "padX", Math.max(24, Math.round((t.W - 520) / 2)),
                         "tail", bottom + 8), body.toArray()),
-                EdgeFade(P.of("edge", "bottom", "h", bottom + 24, "color", bg)),
+                // The status bar and the button's bar stay clear: rows fade out under the status bar,
+                // and the button sits on solid page colour with a soft fade above it.
+                EdgeFade(P.of("edge", "top", "h", t.T + 24, "color", bg)),
+                EdgeFade(P.of("edge", "bottom", "h", bottom + 36, "color", bg)),
+                Box(P.of("abs", true, "left", 0, "w", t.W, "top", t.H - bottom, "h", bottom, "bg", t.pal.bg)),
                 Box(P.of("abs", true, "left", Math.round((t.W - width) / 2), "w", width,
                                 "top", t.H - t.B - 16 - INTRO_BUTTON_H),
                         GlassButton(P.of("key", "done", "w", width, "h", INTRO_BUTTON_H, "r", INTRO_BUTTON_H / 2,

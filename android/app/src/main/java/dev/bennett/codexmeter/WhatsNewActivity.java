@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -188,8 +190,8 @@ public final class WhatsNewActivity extends AppCompatActivity {
             case "value": return R.drawable.ic_oui_symbol_dollar;
             case "status": return R.drawable.ic_oui_speed;
             case "widgets": return R.drawable.ic_oui_widget_outline;
-            case "duo": return R.drawable.ic_oui_open_split_view;
-            case "desktop": return R.drawable.ic_oui_devices;
+            case "duo": return R.drawable.ic_oui_folding_status;
+            case "desktop": return R.drawable.ic_oui_link_to_windows;
             default: return R.drawable.ic_oui_settings_outline;
         }
     }
@@ -385,7 +387,7 @@ public final class WhatsNewActivity extends AppCompatActivity {
     // ------------------------------------------------------------------ shared
 
     /**
-     * Draws under the status and navigation bars: the page scrolls under the status bar, and the
+     * Draws under the status and navigation bars: the page scrolls under a status bar in the page colour, and the
      * button bar sits above the navigation bar with the list running out behind it.
      */
     // Android 15 draws apps edge to edge and ignores bar colors; the minSdk 26-34 devices still need them.
@@ -397,10 +399,22 @@ public final class WhatsNewActivity extends AppCompatActivity {
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
         WindowCompat.getInsetsController(getWindow(), root).setAppearanceLightStatusBars(!dark);
         WindowCompat.getInsetsController(getWindow(), root).setAppearanceLightNavigationBars(!dark);
+        // The status bar keeps the page colour, as in One UI's and Material's own pages, so scrolled
+        // rows never run under the clock and icons.
+        View scrim = new View(this);
+        Drawable barFill = bar.getBackground();
+        if (barFill instanceof ColorDrawable) {
+            scrim.setBackgroundColor(((ColorDrawable) barFill).getColor());
+        } else {
+            scrim.setBackgroundColor(Ui.background(this, dark));
+        }
+        root.addView(scrim, new FrameLayout.LayoutParams(-1, 0, Gravity.TOP));
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
                     | WindowInsetsCompat.Type.displayCutout());
             scroll.setPadding(bars.left, bars.top, bars.right, 0);
+            scrim.getLayoutParams().height = bars.top;
+            scrim.requestLayout();
             bar.setPadding(barSide + bars.left, barTop, barSide + bars.right, bars.bottom + barTop);
             return WindowInsetsCompat.CONSUMED;
         });
