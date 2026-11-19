@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.9.0-alpha.31 — 2026-11-19
+
+### Added
+
+- **A What's new page for big updates, starting with 3.0.** It opens once, full screen, for anyone who used the app before the update; new installs finish setup instead. Settings, About opens it again. Each design and platform draws it its own way. Android, iOS, macOS, Windows, Linux.
+- **Explore demo on Android.** Setup's first page, and every sign-in screen, can fill the Codex, Claude Code and Cursor tabs with sample usage, history and reset credits, marked Demo data with a Leave demo button. A demo never touches a signed-in account and never goes online. Android.
+- **First-run setup in Material 3 Expressive** uses Material pages with a wavy step bar, like sign-in and the other pages in that design. Android.
+- **A filter button on every Liquid Glass tab.** It picks what Priority or a provider's dashboard shows, and Rearrange cards replaces the Edit pencil. Priority's section choices apply in every design. Android.
+
+### Changed
+
+- **Phones from makers other than Samsung start in Material 3 Expressive**, not One UI 8.5. Existing installs keep their design. Android.
+- **A much smaller download:** the phone APK went from 48.6 to 18.2 MB and the watch app from 15.7 to 2.0 MB. Android, Wear OS.
+- **Faster desktop start-up:** Linux shows its first window in about 220 ms instead of 540, and Windows in about 610 ms instead of 810. Windows, Linux.
+- **iPhone, iPad and Mac show the full alpha version** (2.9.0-alpha.31) in About and diagnostics, instead of only 2.9.0. iOS, macOS.
+- **Edit → Done in Liquid Glass** blends one label into the other instead of the button vanishing for a moment. Android.
+
+### Fixed
+
+- **Widgets work again after the app is force-stopped or updated.** Their taps used to do nothing until the next scheduled refresh. Android.
+- **Dismissing a row on Priority** no longer jumps or dismisses the wrong row in Liquid Glass. Android.
+
+### Known gaps
+
+- Start-up and memory are now checked on every change for Android, iPhone, Mac, Windows and Linux, but the ceilings are set from CI runners, not real phones and computers.
+
 ## 2.9.0-alpha.30 — 2026-11-18
 
 ### Added
