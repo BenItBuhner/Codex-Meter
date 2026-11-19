@@ -208,9 +208,8 @@ for DESIGN in "${DESIGNS[@]}"; do
   log_step "widget warm $DESIGN"
   demo --es open_provider cursor
   # demo force-stops the app, and a force stop cancels every PendingIntent the app made, the
-  # widget's tap target included, until the widget is drawn again (a user's force stop does the
-  # same). Redraw it, as the cold step does, so the tap below tests routing and not that.
-  harness widget_provider --es id claude_code
+  # widget's tap target included. The app redraws its widgets a moment after it starts, so the
+  # tap below also checks that the widget works again after a force stop.
   open_settings_appearance
   shot "$DESIGN-03-settings-open-before-home" 0
   home

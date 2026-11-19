@@ -24,6 +24,16 @@ has "$A/build.sh" "VERSION_NAME=\"$NAME\""
 for props in "$ROOT/windows/Directory.Build.props" "$ROOT/linux/Directory.Build.props"; do
   has "$props" "<Version>$NAME</Version>"
 done
+# The Apple apps: numbers-only short version (2.9.0), plus the full version for About and the updater.
+for project in "$ROOT/ios/CodexMeter.xcodeproj/project.pbxproj" "$ROOT/macos/CodexMeterMac.xcodeproj/project.pbxproj"; do
+  if grep -E 'MARKETING_VERSION = ' "$project" | grep -vqF "MARKETING_VERSION = ${NAME%%-*};"; then
+    bad "$project has a MARKETING_VERSION other than ${NAME%%-*}"
+  fi
+  if grep -E 'CODEX_METER_RELEASE_VERSION = ' "$project" | grep -vqF "CODEX_METER_RELEASE_VERSION = $NAME;" \
+      || ! grep -qF "CODEX_METER_RELEASE_VERSION = $NAME;" "$project"; then
+    bad "$project should set CODEX_METER_RELEASE_VERSION = $NAME everywhere"
+  fi
+done
 grep -q "^## $NAME\b" "$ROOT/CHANGELOG.md" || bad "CHANGELOG.md has no '## $NAME' section; the release job needs its notes"
 
 # The in-app updater reads one page of this repository's releases.

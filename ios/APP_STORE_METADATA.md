@@ -9,7 +9,7 @@ The installed app display name remains **Codex Meter**. The exact App Store name
 
 ## Version
 
-- Marketing version: `2.8.0`
+- Marketing version: `2.9.0` (full version 2.9.0-alpha.N in `CODEX_METER_RELEASE_VERSION`)
 - Build number: `1`
 
 ## Subtitle

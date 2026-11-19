@@ -39,7 +39,7 @@ enum DiagnosticLog {
             UserDefaults.standard.set(UUID().uuidString, forKey: sessionKey)
             UserDefaults.standard.set(true, forKey: enabledKey)
             info("diagnostics", "tracing_enabled", details: [
-                "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+                "app_version": AppVersion.display,
                 "ios": ProcessInfo.processInfo.operatingSystemVersionString
             ])
         } else {
