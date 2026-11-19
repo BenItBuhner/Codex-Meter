@@ -40,7 +40,8 @@ public final class ProviderStatusStore {
             return null;
         }
         try {
-            return ProviderStatus.fromJson(new JSONObject(raw));
+            return ParsedCache.get("status/" + provider.id, raw,
+                    text -> ProviderStatus.fromJson(new JSONObject(text)));
         } catch (Exception e) {
             return null;
         }

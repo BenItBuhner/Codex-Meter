@@ -40,6 +40,10 @@ cp "$SOURCE_APK" "$OUT"
 WEAR_SOURCE_APK="$ROOT/wear/build/outputs/apk/release/wear-release.apk"
 WEAR_OUT="$DIST/CodexMeter-Wear-$VERSION_NAME.apk"
 cp "$WEAR_SOURCE_APK" "$WEAR_OUT"
+# R8's maps from shrunk names back to the libraries' own, for reading a crash report. The app's own
+# classes keep their names (app/proguard-rules.pro), so most traces read without them.
+cp "$ROOT/app/build/outputs/mapping/release/mapping.txt" "$DIST/CodexMeter-$VERSION_NAME-mapping.txt"
+cp "$ROOT/wear/build/outputs/mapping/release/mapping.txt" "$DIST/CodexMeter-Wear-$VERSION_NAME-mapping.txt"
 
 APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -1)"
 "$APKSIGNER" verify --verbose --print-certs "$OUT"
