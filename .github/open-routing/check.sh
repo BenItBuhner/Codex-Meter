@@ -88,12 +88,14 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
   adb shell input tap $xy
 }
 
-# Whether the launcher has a Codex Meter widget bound. Unknown (no Widgets section in the dump)
-# counts as yes, so a changed dumpsys format can't block the check.
+# Whether a Codex Meter widget is placed: the app's own count of bound home widgets, which only
+# includes a pinned widget once the launcher has accepted it.
 widget_pinned() {
-  local widgets
-  widgets="$(adb shell dumpsys appwidget | tr -d '\r' | sed -n '/^Widgets:/,/^Hosts:/p')"
-  [[ -z "$widgets" ]] || grep -q "$PKG" <<<"$widgets"
+  harness widget_count
+  local count
+  count="$(adb logcat -d -s RoutingHarness:I | sed -n 's/.*widgets=\([0-9]*\).*/\1/p' | tail -1)"
+  echo "placed widgets: ${count:-unknown}" >&2
+  [[ "${count:-0}" -gt 0 ]]
 }
 
 # Asks the launcher to add the widget and accepts its dialog, retrying when the dialog was slow
@@ -112,6 +114,7 @@ pin_widget() {
     widget_pinned && return 0
     echo "widget not added yet; asking the launcher again" >&2
   done
+  shot widget-not-added 0
   return 1
 }
 
