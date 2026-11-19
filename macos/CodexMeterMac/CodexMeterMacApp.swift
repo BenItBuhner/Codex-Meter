@@ -13,12 +13,28 @@ extension Notification.Name {
 /// mirrors the iOS app delegate's notification handling.
 @MainActor
 final class MacAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
-    let model = AppModel()
+    let model: AppModel
+
+    override init() {
+        PerfBudgetProbe.mark("delegate")
+        model = AppModel()
+        PerfBudgetProbe.mark("model")
+        super.init()
+    }
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        PerfBudgetProbe.mark("will_finish")
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        PerfBudgetProbe.mark("did_finish")
         UNUserNotificationCenter.current().delegate = self
         MacLaunchOptions.applyAppearanceOverride()
-        Task { await model.startIfNeeded() }
+        Task {
+            PerfBudgetProbe.mark("start")
+            await model.startIfNeeded()
+            PerfBudgetProbe.mark("started")
+        }
         // Automatic update checks: the updater decides when one is due (daily by default).
         Task {
             try? await Task.sleep(for: .seconds(20))
@@ -93,6 +109,10 @@ struct CodexMeterMacApp: App {
     @AppStorage(MacPreferences.showsMenuBarExtraKey) private var showsMenuBarExtra = true
 
     private var model: AppModel { appDelegate.model }
+
+    init() {
+        PerfBudgetProbe.mark("app")
+    }
 
     /// MenuBarExtra writes its isInserted binding back on every scene update. Writing an
     /// unchanged value to @AppStorage still posts a defaults change, which re-evaluates the

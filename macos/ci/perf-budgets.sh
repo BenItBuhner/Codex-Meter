@@ -25,6 +25,7 @@ BUNDLE_ID="com.bukovinafilip.CodexMeter"
 MODE_KEY="codex-meter.session-mode-v1"
 LAUNCHES="${LAUNCHES:-7}"
 MARKER="codexmeter.first_frame_ms="
+PHASES_MARKER="codexmeter.phases="
 
 case "$PLATFORM" in
   ios)
@@ -84,6 +85,8 @@ launch() {
     # NSLog prefixes a timestamp and the process name, so match the marker anywhere.
     if grep -qE "$MARKER-?[0-9]+" "$log"; then
       frame="$(grep -oE "$MARKER-?[0-9]+" "$log" | head -n 1 | cut -d= -f2)"
+      # Where the launch's time went (PerfBudgetProbe.mark), ms since process start.
+      echo "launch: $frame ms; $(grep -oE "${PHASES_MARKER}.*" "$log" | head -n 1 | cut -d= -f2-)"
       return
     fi
     sleep 0.5

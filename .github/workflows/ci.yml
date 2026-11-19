@@ -338,8 +338,12 @@ jobs:
       - name: Publish the release build
         run: linux/packaging/publish.sh x64
       - name: Measure start-up and memory
+        # The runner has no GPU, so the app draws with cairo. GTK still opens an OpenGL context at
+        # start-up unless told not to, which loads Mesa's software renderer (llvmpipe, libLLVM):
+        # about 70 MB and 50 ms the cairo-drawn app never uses. Turning GL off measures the app.
         env:
           GSK_RENDERER: cairo
+          GDK_DEBUG: gl-disable
           GTK_A11Y: none
         run: |
           xvfb-run -a -s "-screen 0 1400x1000x24" dbus-run-session -- \
@@ -410,7 +414,16 @@ jobs:
           macos/ci/perf-budgets.sh ios "$APP" "$DEVICE_NAME"
       - name: Measure Mac start-up and memory
         if: success() || failure()
-        run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
+        run: |
+          top -l 1 -o cpu -n 10 -stats pid,command,cpu,mem | tail -n 12
+          MAX_FIRST_FRAME_MS=99999 macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app" || true
+      - name: EXPERIMENT Mac again with the simulator shut down
+        if: success() || failure()
+        run: |
+          xcrun simctl shutdown all || true
+          sleep 20
+          top -l 1 -o cpu -n 10 -stats pid,command,cpu,mem | tail -n 12
+          macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
       - name: Upload screenshots of a launch that printed no first frame
         if: failure()
         uses: actions/upload-artifact@v7
