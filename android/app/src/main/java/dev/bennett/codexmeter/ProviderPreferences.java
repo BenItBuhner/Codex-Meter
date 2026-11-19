@@ -211,15 +211,17 @@ public final class ProviderPreferences {
         String json = prefs(context).getString(provider.id + SUFFIX_SNAPSHOT, null);
         if (json == null || json.isEmpty()) return null;
         try {
-            UsageSnapshot snapshot = UsageSnapshot.fromJson(new JSONObject(json));
-            if (provider == UsageProvider.CLAUDE_CODE) {
-                // Badges saved before Anthropic's October 2026 rename read "Max 5x"/"Max 20x".
-                String renamed = ClaudeUsageParser.currentPlanName(snapshot.planType);
-                if (!renamed.equals(snapshot.planType)) {
-                    snapshot = snapshot.withPlanType(renamed);
+            return ParsedCache.get("snapshot/" + provider.id, json, raw -> {
+                UsageSnapshot snapshot = UsageSnapshot.fromJson(new JSONObject(raw));
+                if (provider == UsageProvider.CLAUDE_CODE) {
+                    // Badges saved before Anthropic's October 2026 rename read "Max 5x"/"Max 20x".
+                    String renamed = ClaudeUsageParser.currentPlanName(snapshot.planType);
+                    if (!renamed.equals(snapshot.planType)) {
+                        snapshot = snapshot.withPlanType(renamed);
+                    }
                 }
-            }
-            return snapshot;
+                return snapshot;
+            });
         } catch (Exception ignored) {
             return null;
         }
@@ -469,7 +471,8 @@ public final class ProviderPreferences {
         String stored = prefs(context).getString(provider.id + SUFFIX_HISTORY + kind, null);
         if (stored == null || stored.isEmpty()) return UsageHistory.empty(kind);
         try {
-            return UsageHistory.fromJson(new JSONObject(stored), kind);
+            return ParsedCache.get("history/" + provider.id + "/" + kind, stored,
+                    raw -> UsageHistory.fromJson(new JSONObject(raw), kind));
         } catch (Exception ignored) {
             return UsageHistory.empty(kind);
         }

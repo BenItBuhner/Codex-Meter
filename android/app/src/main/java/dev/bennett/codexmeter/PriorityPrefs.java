@@ -23,6 +23,18 @@ final class PriorityPrefs {
         prefs(context).edit().putBoolean("view", on).apply();
     }
 
+    /**
+     * A Priority section the filter menu switched off (one of {@link PriorityPage#SECTIONS}'s keys).
+     * Every section shows by default.
+     */
+    static boolean isSectionShown(Context context, String key) {
+        return !prefs(context).getBoolean("hide_" + key, false);
+    }
+
+    static void setSectionShown(Context context, String key, boolean shown) {
+        prefs(context).edit().putBoolean("hide_" + key, !shown).apply();
+    }
+
     /** The Priority tab was the one showing when the app was last left, so it opens there again. */
     static boolean isTabSelected(Context context) {
         return prefs(context).getBoolean("tab_selected", false);

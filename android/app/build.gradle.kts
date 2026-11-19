@@ -39,7 +39,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 30
-        versionName = "2.9.0-alpha.29"
+        versionName = "2.9.0-alpha.30"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -82,8 +82,20 @@ android {
     }
 
     buildTypes {
+        debug {
+            // -PshrinkDebug=true shrinks the debug build (with its demo entry points) by the release
+            // rules, so CI can open every screen on R8 output (ci/shrunk-smoke.sh).
+            if (providers.gradleProperty("shrinkDebug").orNull == "true") {
+                isMinifyEnabled = true
+                isShrinkResources = true
+                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            }
+        }
         release {
-            isMinifyEnabled = false
+            // R8 removes unused code and resources: rules in proguard-rules.pro and the libraries'.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("localRelease")
             // Phones run arm64. Each ABI carries its own 27 MB copy of Skia (skiko), so the release
             // APK ships arm64 only; -PreleaseAbis=x86_64 builds one for the x86_64 CI emulator.
@@ -99,8 +111,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // The app is written in English only, so the libraries' translations (SESL, Material, Play
+    // services) would only mix other languages into an English screen.
+    androidResources {
+        localeFilters += "en"
+    }
+
     packaging {
         resources.excludes += setOf("META-INF/AL2.0", "META-INF/LGPL2.1", "META-INF/LICENSE*")
+        // Skia (skiko) is 28 MB stored and 10 MB compressed. The APK is downloaded from GitHub, not a
+        // store that compresses it in transit, so ship it compressed and let the installer extract it.
+        jniLibs.useLegacyPackaging = true
     }
 
     lint {
@@ -145,7 +166,7 @@ dependencies {
     // The Liquid Glass design: Codex Meter's glass screens (:glass) on Glassé's Android host. Glassé
     // is private, so it is built from a commit and vendored in vendor/m2 (ci/vendor-glasse.sh).
     implementation(project(":glass"))
-    implementation("com.github.BenItBuhner.Glasse:glasse-android:9ccf79e427")
+    implementation("com.github.BenItBuhner.Glasse:glasse-android:dd2d7953da")
     sesl9.forEach { (module, pinned) ->
         implementation(module) { version { strictly(pinned) } }
     }

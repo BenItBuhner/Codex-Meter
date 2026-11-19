@@ -63,7 +63,7 @@ final class ExpressivePages implements GlassScreens.Host {
 
     /**
      * Shows page {@code id} in {@code host} and returns it, for pages their activity builds (Add
-     * account, sign-in), which call {@link #changed} when they change; null when there is no such page.
+     * account, sign-in, first-run setup), which call {@link #changed} when they change; null when there is no such page.
      */
     static ExpressivePages attach(AppCompatActivity host, String id, Intent intent) {
         if (id == null) {
@@ -113,6 +113,26 @@ final class ExpressivePages implements GlassScreens.Host {
                 this.screens.dispose();
             }
         });
+    }
+
+    /** Shows or hides the page's back button. */
+    void setBackVisible(boolean visible) {
+        if (this.view != null) {
+            this.view.setBackVisible(visible);
+        }
+    }
+
+    /** A step label and progress bar over the title ({@link ExpressiveSettings#setProgress}). */
+    void setProgress(String label, double fraction) {
+        if (this.view != null) {
+            this.view.setProgress(label, fraction);
+        }
+    }
+
+    void scrollToTop() {
+        if (this.view != null) {
+            this.view.scrollToTop();
+        }
     }
 
     @Override

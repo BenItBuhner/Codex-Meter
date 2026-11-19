@@ -61,10 +61,9 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
   adb shell input tap $xy
 }
 
-# Taps the middle of the home-screen widget (the first view the app draws on the launcher).
-tap_widget() {
-  local xy
-  xy=$(dump | python3 -c '
+# Prints the middle of the home-screen widget on the current launcher page, if it is there.
+widget_xy() {
+  dump | python3 -c '
 import re, sys
 for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
     attrs = dict(re.findall(r"([\w-]+)=\"([^\"]*)\"", node))
@@ -76,16 +75,25 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
         x1, y1, x2, y2 = map(int, re.findall(r"\d+", attrs["bounds"]))
         print((x1 + x2) // 2, (y1 + y2) // 2)
         break
-')
-  if [[ -z "$xy" ]]; then
-    # The launcher's view tree is often not readable (the dump comes back empty); the pinned
-    # widget sits in the top-left cells of the first home page (see 01-home-with-claude-widget).
-    adb exec-out cat /sdcard/ui.xml > "$OUT/home-dump.xml" 2>/dev/null || true
-    echo "widget not in the view dump; tapping its home-screen position" >&2
-    at 0.27 0.15
-    return 0
-  fi
-  adb shell input tap $xy
+'
+}
+
+# Taps the home-screen widget. The launcher may have added it to a later page (when the first is
+# full), so this looks through the first few pages.
+tap_widget() {
+  local xy page
+  for page in 1 2 3; do
+    xy="$(widget_xy)"
+    [[ -n "$xy" ]] && { adb shell input tap $xy; return 0; }
+    adb exec-out cat /sdcard/ui.xml > "$OUT/home-dump-$page.xml" 2>/dev/null || true
+    adb shell input swipe "$(( W * 85 / 100 ))" "$(( H / 2 ))" "$(( W * 15 / 100 ))" "$(( H / 2 ))" 250
+    sleep 1
+  done
+  # Older launcher builds return an empty view dump; there the widget sits in the top-left cells
+  # of the first page (see 01-home-with-claude-widget).
+  home
+  echo "widget not in the view dump; tapping its home-screen position" >&2
+  at 0.27 0.15
 }
 
 # Whether a Codex Meter widget is placed: the app's own count of bound home widgets, which only

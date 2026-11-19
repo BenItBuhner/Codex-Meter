@@ -34,6 +34,7 @@ A stable release (3.0.0 first) ships only when every item below holds on the com
 - Android release APK: cold start (median of 11 launches), total PSS after launch and APK size, measured on an emulator by `android/ci/perf-budgets.sh` (the "Android performance budgets" job).
 - iPhone (simulator) and Mac Release builds: first frame (median of 7 launches) and physical footprint after launch, by `macos/ci/perf-budgets.sh` (the "Apple performance budgets" job).
 - Windows and Linux release builds: first frame (median of 7 launches) and working set after launch, by `windows/ci/perf-budgets.ps1` and `linux/ci/perf-budgets.sh` (the "Windows/Linux performance budgets" jobs).
+- Android release builds (phone and watch) are shrunk by R8. Code reached only by reflection or by name needs a keep rule in `app/proguard-rules.pro` or `wear/proguard-rules.pro`; the same job runs `android/ci/shrunk-smoke.sh`, which opens every design and screen on a debug build shrunk by those rules (`-PshrinkDebug=true`) and fails on a crash.
 - Wire payloads (widget, Wear, live monitor): `android/tests/PayloadBudgetSelfTest.java`, reported on each PR by the "Payload budgets" job.
 - A refresh never blocks the UI thread, never retries without backoff, and keeps the last good snapshot on screen when it fails.
 

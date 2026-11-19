@@ -23,6 +23,17 @@ final class PriorityNote {
     /** The newly listed model behind it ({@link ModelDiscoveryStore#dismiss}); null for other notes. */
     final ModelDiscovery.Entry model;
 
+    /**
+     * What the row stands for, for designs that key rows by identity (Liquid Glass): the event or
+     * the model; null for a note that can't be dismissed.
+     */
+    String id() {
+        if (eventKey != null) {
+            return "event:" + eventKey;
+        }
+        return model != null ? "model:" + model.source + ":" + model.id : null;
+    }
+
     PriorityNote(UsageProvider provider, String title, String value) {
         this(provider, title, value, null, null);
     }
