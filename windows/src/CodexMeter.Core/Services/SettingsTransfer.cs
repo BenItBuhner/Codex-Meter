@@ -68,6 +68,7 @@ public static class SettingsTransfer
         AutoUseLastToken = null,
         ClaudeResets = settings.ClaudeResets with { LastExpiryKey = null, LastLowToken = null },
         Updates = settings.Updates with { LastCheck = null, LastNotified = null },
+        WhatsNewSeen = null,
         // Whether the app starts with the OS is registered with the OS, not just a setting.
         StartWithWindows = false,
     };
@@ -81,6 +82,7 @@ public static class SettingsTransfer
         StartWithWindows = current.StartWithWindows,
         StartMinimized = current.StartMinimized,
         OnboardingDone = current.OnboardingDone || imported.OnboardingDone,
+        WhatsNewSeen = current.WhatsNewSeen,
     };
 
     /// <summary>Unknown enum numbers and out-of-range values fall back to the defaults.</summary>

@@ -92,6 +92,10 @@ struct SettingsView: View {
                 NavigationLink("About Codex Meter") {
                     AboutView()
                 }
+                NavigationLink("What's new in \(WhatsNew.release)") {
+                    WhatsNewView()
+                }
+                .accessibilityIdentifier("settings-whats-new")
             } header: {
                 Text("About")
             }

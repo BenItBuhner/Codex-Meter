@@ -273,6 +273,36 @@ public sealed class MainWindow : Window
         ShowPage(tag);
     }
 
+    /// <summary>The What's new page while it's open, over the navigation and page.</summary>
+    public WhatsNewView? WhatsNewPage { get; private set; }
+
+    /// <summary>At launch: opens What's new for someone who used the app before this release, once.</summary>
+    public void ShowWhatsNewIfDue()
+    {
+        var (show, kept) = Core.Services.WhatsNew.AtLaunch(state.Settings.Current, state.SignedIn.Count);
+        if (show) ShowWhatsNew();
+        else if (kept.WhatsNewSeen != state.Settings.Current.WhatsNewSeen)
+            state.Settings.Update(s => s with { WhatsNewSeen = kept.WhatsNewSeen });
+    }
+
+    /// <summary>Opens What's new over the whole window below the title bar (also from Settings → About).</summary>
+    public void ShowWhatsNew()
+    {
+        if (WhatsNewPage is not null) return;
+        WhatsNewPage = new WhatsNewView(CloseWhatsNew);
+        Grid.SetRow(WhatsNewPage, 1);
+        root.Children.Add(WhatsNewPage);
+    }
+
+    /// <summary>Continue: closes the page and keeps it from opening on its own again for this release.</summary>
+    public void CloseWhatsNew()
+    {
+        if (WhatsNewPage is null) return;
+        root.Children.Remove(WhatsNewPage);
+        WhatsNewPage = null;
+        state.Settings.Update(s => s with { WhatsNewSeen = Core.Services.WhatsNew.Release });
+    }
+
     /// <summary>Builds the current page again, e.g. after settings were imported.</summary>
     public void Reload() => ShowPage(currentTag);
 

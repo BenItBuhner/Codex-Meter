@@ -268,6 +268,19 @@ public final class GlassModel {
         }
     }
 
+    /**
+     * A full-screen page about a big update: the app's logo, a title, one row per feature (icon,
+     * title and summary) and a button that closes it.
+     */
+    public static final class Intro {
+        public String title = "";
+        public String button = "Continue";
+        /** The app icon as PNG bytes; null for none. */
+        public byte[] logo;
+        public final List<Row> features = new ArrayList<>();
+        public Runnable onDone;
+    }
+
     /** A number with − and + buttons over a unit picker. */
     public static final class Amount {
         public int value = 1;

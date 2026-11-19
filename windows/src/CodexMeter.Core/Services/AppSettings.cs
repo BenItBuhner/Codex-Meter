@@ -49,6 +49,8 @@ public sealed record AppSettings
     /// <summary>Notifications → Expiring reset credits: a reminder a day before one expires unused.</summary>
     public bool NotifyExpiringResets { get; init; } = true;
     public bool OnboardingDone { get; init; }
+    /// <summary>The release whose What's new page was last shown (<see cref="WhatsNew.Release"/>).</summary>
+    public string? WhatsNewSeen { get; init; }
 
     /// <summary>Edit dashboard: card order per provider id (missing means default order).</summary>
     public Dictionary<string, List<string>> SectionOrder { get; init; } = [];

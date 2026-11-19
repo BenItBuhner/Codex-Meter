@@ -510,6 +510,8 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void completeAndOpenMain() {
         cancelPendingSignIn();
         AppPreferences.completeOnboarding(this);
+        // A new install has just seen what the app does; What's new is for upgrades.
+        AppPreferences.markWhatsNewSeen(this);
         openMain();
     }
 

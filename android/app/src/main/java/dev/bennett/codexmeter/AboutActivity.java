@@ -98,6 +98,10 @@ public final class AboutActivity extends AppCompatActivity {
 
     private void build(LinearLayout content) {
         content.addView(buildAppCard());
+        RoundedLinearLayout whatsNew = Ui.cardGroup(this, dark);
+        whatsNew.addView(Ui.actionRow(this, "What's new in " + WhatsNew.RELEASE, null,
+                R.drawable.ic_oui_star_outline, view -> WhatsNewActivity.open(this)));
+        content.addView(whatsNew);
         content.addView(sectionTitle("Credits"));
         RoundedLinearLayout credits = Ui.cardGroup(this, dark);
         credits.addView(personRow("BenIt Buhner", "App creator and AI geek", R.drawable.benit_github_avatar, false,

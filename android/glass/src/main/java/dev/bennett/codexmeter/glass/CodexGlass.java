@@ -254,6 +254,59 @@ public final class CodexGlass {
         return Kit.makeKitScreen(env, app, ACCENT);
     }
 
+    /**
+     * The What's new page (a {@link GlassModel.Intro}), drawn like iOS's own welcome screens: the
+     * app icon and a large centred title over the features, each a tinted symbol beside its title and
+     * line, and a prominent Continue button that stays at the bottom while the list scrolls.
+     */
+    public static Screen whatsNew(Env env, GlassModel.Intro intro) {
+        GlassIcons.register();
+        Comp app = p -> R.h(WhatsNewPage, p.with("intro", intro));
+        return Kit.makeKitScreen(env, app, ACCENT);
+    }
+
+    /** Room the pinned button takes under the list: the button and the space around it. */
+    static final double INTRO_BUTTON_H = 52;
+
+    private static final Comp WhatsNewPage = p -> {
+        KTheme t = Kit.useTheme();
+        GlassModel.Intro intro = p.g("intro");
+        double[] bg = t.pal.pageRGB;
+        List<Object> body = new ArrayList<>();
+        body.add(Box(P.of("align", "center", "mb", 22),
+                intro.logo == null ? null : Img(P.of("src", GlassImages.of(intro.logo),
+                        "w", 96, "h", 96, "r", 96 * 0.225))));
+        body.add(Text(P.of("size", 34, "weight", 700, "ls", -1.19, "lh", 39, "lines", 3,
+                "align", "center", "ml", 12, "mr", 12, "mb", 34, "color", t.pal.label), intro.title));
+        for (int i = 0; i < intro.features.size(); i++) {
+            GlassModel.Row f = intro.features.get(i);
+            body.add(Row(P.of("key", "f" + i, "align", "start", "gap", 16, "ml", 8, "mr", 8, "mb", 24),
+                    Box(P.of("w", 40, "align", "center", "mt", 2),
+                            Icon(P.of("name", f.icon, "size", 30, "color", f.color != null ? f.color : t.accent))),
+                    Box(P.of("flex", 1),
+                            Text(P.of("size", 17, "weight", 600, "ls", -0.41, "lines", 2,
+                                    "color", t.pal.label), f.title),
+                            f.summary == null ? null : Text(P.of("size", 15, "ls", -0.24, "lh", 20,
+                                    "lines", 4, "mt", 2, "color", t.pal.label2), f.summary))));
+        }
+        double bottom = t.B + 16 + INTRO_BUTTON_H + 16;
+        double width = Math.min(t.W - 2 * 24, 420);
+        return Box(P.of("fill", true, "bg", t.pal.bg),
+                GlassScrollView(P.of("padT", t.T + 56, "padX", Math.max(24, Math.round((t.W - 520) / 2)),
+                        "tail", bottom + 8), body.toArray()),
+                // The status bar and the button's bar stay clear: rows fade out under the status bar,
+                // and the button sits on solid page colour with a soft fade above it.
+                EdgeFade(P.of("edge", "top", "h", t.T + 28, "color", bg)),
+                Box(P.of("abs", true, "left", 0, "w", t.W, "top", 0, "h", t.T, "bg", t.pal.bg)),
+                EdgeFade(P.of("edge", "bottom", "h", bottom + 36, "color", bg)),
+                Box(P.of("abs", true, "left", 0, "w", t.W, "top", t.H - bottom, "h", bottom, "bg", t.pal.bg)),
+                Box(P.of("abs", true, "left", Math.round((t.W - width) / 2), "w", width,
+                                "top", t.H - t.B - 16 - INTRO_BUTTON_H),
+                        GlassButton(P.of("key", "done", "w", width, "h", INTRO_BUTTON_H, "r", INTRO_BUTTON_H / 2,
+                                "variant", "filled", "fillColor", t.accent, "color", "#fff",
+                                "label", intro.button, "onPress", intro.onDone))));
+    };
+
     /** Re-renders the calling component whenever the source says something changed. */
     private static int useSource(KitScreen kit, GlassSource src) {
         State<Integer> version = R.useState(0);

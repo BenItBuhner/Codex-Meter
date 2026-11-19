@@ -26,6 +26,12 @@ final class MacGalleryTests: XCTestCase {
         capture("onboarding-01-welcome", app)
         app.terminate()
 
+        app = MacUITestSupport.launch(["-ui-testing-whats-new"])
+        XCTAssertTrue(app.buttons["whats-new-continue"].waitForExistence(timeout: 10))
+        MacUITestSupport.settle(1.0)
+        capture("whats-new-01", app)
+        app.terminate()
+
         app = MacUITestSupport.launch(MacUITestSupport.signedOut)
         XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 10))
         MacUITestSupport.settle(1.0)

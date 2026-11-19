@@ -481,6 +481,11 @@ final class GlassScreens {
             card.imageSize = 60;
             card.onPress = this::onVersionTap;
             app.rows.add(card);
+            Row whatsNew = row(Row.Kind.LINK, "whats_new", "What's new in " + WhatsNew.RELEASE, null);
+            whatsNew.icon = "star";
+            whatsNew.color = "#ff9500";
+            whatsNew.onPress = () -> WhatsNewActivity.open(c);
+            app.rows.add(whatsNew);
             page.sections.add(app);
 
             Section credits = section("Credits");

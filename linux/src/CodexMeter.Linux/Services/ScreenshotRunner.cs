@@ -65,6 +65,15 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                     }
                 }
             }
+            if (state.SignedIn.Count > 0)
+            {
+                // What's new after a big update, filling the window.
+                window.ShowWhatsNew();
+                await Delay(900);
+                failures += Capture($"{name}-{pages.Count + 1:00}-whats-new.png") ? 0 : 1;
+                window.CloseWhatsNew();
+                await Delay(400);
+            }
             failures += await ExtrasAsync(name, pages, shot);
             shot += 4;
             // Narrow window: the split view collapses into one pane with a back button.
