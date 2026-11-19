@@ -16,6 +16,8 @@ adb wait-for-device
 adb shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done'
 adb shell settings put global hide_error_dialogs 1 || true
 adb shell svc power stayon true || true
+# The release build signed with another key may be installed already (perf-budgets.sh).
+adb uninstall "$PKG" >/dev/null 2>&1 || true
 adb install -r -g "$APK" >/dev/null
 adb logcat -c || true
 adb logcat -v time > "$OUT/logcat.txt" 2>/dev/null &
