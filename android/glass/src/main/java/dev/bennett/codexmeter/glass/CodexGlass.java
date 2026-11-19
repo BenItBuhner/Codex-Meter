@@ -296,7 +296,8 @@ public final class CodexGlass {
                         "tail", bottom + 8), body.toArray()),
                 // The status bar and the button's bar stay clear: rows fade out under the status bar,
                 // and the button sits on solid page colour with a soft fade above it.
-                EdgeFade(P.of("edge", "top", "h", t.T + 24, "color", bg)),
+                EdgeFade(P.of("edge", "top", "h", t.T + 28, "color", bg)),
+                Box(P.of("abs", true, "left", 0, "w", t.W, "top", 0, "h", t.T, "bg", t.pal.bg)),
                 EdgeFade(P.of("edge", "bottom", "h", bottom + 36, "color", bg)),
                 Box(P.of("abs", true, "left", 0, "w", t.W, "top", t.H - bottom, "h", bottom, "bg", t.pal.bg)),
                 Box(P.of("abs", true, "left", Math.round((t.W - width) / 2), "w", width,

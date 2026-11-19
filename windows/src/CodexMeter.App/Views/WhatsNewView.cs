@@ -82,10 +82,14 @@ public sealed class WhatsNewView : UserControl
             BorderBrush = Cards.Brush("CardStrokeColorDefaultBrush"),
         };
 
-        var layout = new Grid
-        {
-            Background = Cards.Brush("SolidBackgroundFillColorBaseBrush"),
-        };
+        var layout = new Grid();
+        // The page covers the window, so it takes the base fill of the theme it actually shows in
+        // (SolidBackgroundFillColorBase): read from ActualTheme, it follows a theme change while open.
+        void Fill() => layout.Background = new SolidColorBrush(ActualTheme == ElementTheme.Dark
+            ? Microsoft.UI.ColorHelper.FromArgb(255, 0x20, 0x20, 0x20)
+            : Microsoft.UI.ColorHelper.FromArgb(255, 0xF3, 0xF3, 0xF3));
+        ActualThemeChanged += (_, _) => Fill();
+        Loaded += (_, _) => Fill();
         layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.Children.Add(scroller);

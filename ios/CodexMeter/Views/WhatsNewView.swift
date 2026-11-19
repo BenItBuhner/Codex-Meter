@@ -69,6 +69,8 @@ struct WhatsNewView: View {
             .padding(.top, 12)
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity)
+            // The list scrolls out of sight behind the button, as on Apple's welcome screens.
+            .background(.background)
         }
         .interactiveDismissDisabled()
     }
