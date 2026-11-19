@@ -28,8 +28,18 @@ adb logcat -c || true
 W=1440
 H=3088
 
+# Closes a system "isn't responding" dialog (the emulator's launcher can stall while the app
+# starts), which hide_error_dialogs no longer hides, by waiting on it.
+dismiss_anr() {
+  adb shell dumpsys window | grep -q "Application Not Responding" || return 0
+  echo "::warning::A system isn't-responding dialog was on screen; waiting on it"
+  tap_text Wait || adb shell input keyevent KEYCODE_BACK
+  sleep 1
+}
+
 shot() {
   sleep "${2:-5}"
+  dismiss_anr
   adb exec-out screencap -p > "$OUT/$1.png"
   echo "Saved $1.png"
 }
@@ -135,7 +145,9 @@ run_demo() {
     [ "$d" = liquid_glass ] || in_demo || echo "::warning::Explore demo on the $d setup screen did not start demo mode"
   fi
   if ! in_demo; then
-    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez enter_demo true >/dev/null
+    # Clear the task: a plain start only brings setup's task, which this activity began, to the
+    # front without running it again, so the shortcut never applied.
+    adb shell am start -W --activity-clear-task -n "$PKG/.UsagePaceDemoActivity" --ez enter_demo true >/dev/null
     sleep 6
   fi
   shot "$p-02-codex" 6
@@ -147,7 +159,7 @@ run_demo() {
   adb shell am start -W -S -n "$PKG/.MainActivity" --es provider cursor >/dev/null
   shot "$p-05-cursor" 6
   if ! tap_text_scrolling "Leave demo"; then
-    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez leave_demo true >/dev/null
+    adb shell am start -W --activity-clear-task -n "$PKG/.UsagePaceDemoActivity" --ez leave_demo true >/dev/null
   fi
   shot "$p-06-left-demo" 6
   if tap_text_scrolling "Explore demo"; then shot "$p-07-demo-again" 8; fi
