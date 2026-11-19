@@ -88,6 +88,9 @@ final class FakeSource implements GlassSource {
 
     /** the Priority tab, with Recent activity like the person's phone showed */
     boolean priority;
+    /** what the filter menu switched off, by label */
+    final java.util.Set<String> hidden = new java.util.HashSet<>();
+    int rearranged;
     /** Recent activity rows dismissed so far */
     final List<Integer> dismissed = new ArrayList<>();
 
@@ -256,8 +259,26 @@ final class FakeSource implements GlassSource {
         if (noEdit) {
             return Arrays.asList(new MenuEntry("Settings", "gearshape", false, null));
         }
+        String[] shows = priority
+                ? new String[] {"Outages and slowdowns", "Recent activity", "Limits to watch", "Used up",
+                        "Saved resets you can use", "Coming up", "New models"}
+                : new String[] {"5-hour limit", "Weekly limit", "Usage history", "Reset credits"};
+        List<Toggle> toggles = new ArrayList<>();
+        for (String label : shows) {
+            boolean on = !hidden.contains(label);
+            toggles.add(new Toggle(label, on, () -> {
+                if (on) {
+                    hidden.add(label);
+                } else {
+                    hidden.remove(label);
+                }
+                changed();
+            }));
+        }
+        List<MenuEntry> actions = priority ? null
+                : Arrays.asList(new MenuEntry("Rearrange cards", "arrows", false, () -> rearranged++));
         return Arrays.asList(
-                new MenuEntry("Edit dashboard", "squarePencil", false, null),
+                new MenuEntry("Filter", "filter", toggles, actions),
                 new MenuEntry("Settings", "gearshape", false, () -> {
                     if (onSettings != null) {
                         onSettings.run();
