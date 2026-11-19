@@ -33,6 +33,7 @@ H=3088
 dismiss_anr() {
   adb shell dumpsys window | grep -q "Application Not Responding" || return 0
   echo "::warning::A system isn't-responding dialog was on screen; waiting on it"
+  adb logcat -d -b events | grep am_anr | tail -1 || true
   tap_text Wait || adb shell input keyevent KEYCODE_BACK
   sleep 1
 }
