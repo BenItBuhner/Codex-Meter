@@ -2,6 +2,7 @@ using CodexMeter.App.Controls;
 using CodexMeter.Core.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -47,7 +48,7 @@ public sealed class WhatsNewView : UserControl
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(0, 2, 0, 0),
             };
-            AutomationProperties.SetAccessibilityView(icon, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+            AutomationProperties.SetAccessibilityView(icon, AccessibilityView.Raw);
             row.Children.Add(icon);
             var text = new StackPanel { Spacing = 2 };
             text.Children.Add(Cards.Text(feature.Title, "BodyStrongTextBlockStyle"));
