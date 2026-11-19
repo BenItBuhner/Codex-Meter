@@ -280,6 +280,8 @@ public final class CodexGlass {
         State<Boolean> past = R.useState(false);
         State<Boolean> min = R.useState(false);
         State<Boolean> more = R.useState(false);
+        // Duo: the rail has no room for a menu, so the filter button opens its switches in a sheet
+        State<Boolean> filters = R.useState(false);
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> {
             past.set(y > 46);
             min.set(s.minimized);
@@ -322,8 +324,9 @@ public final class CodexGlass {
             List<El> out = new ArrayList<>();
             for (GlassSource.MenuEntry entry : src.menu()) {
                 if (entry != null) {
-                    out.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
-                            "icon", entry.icon, "onPress", entry.onSelect)));
+                    out.add(entry.toggles != null ? filterMenu(entry)
+                            : GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
+                                    "icon", entry.icon, "onPress", entry.onSelect)));
                 }
             }
             return out;
@@ -359,7 +362,8 @@ public final class CodexGlass {
                     // Settings' Back takes over (LEAD), so opening Settings merges Edit into it the way
                     // the bar merges Edit into Settings, and its symbol swaps to Back
                     boolean lead = "gearshape".equals(entry.icon);
-                    railButtons.add(new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon, entry.onSelect, false));
+                    railButtons.add(new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon,
+                            entry.toggles != null ? (Runnable) () -> filters.set(true) : entry.onSelect, false));
                 }
             }
             if (shared) {
@@ -387,6 +391,7 @@ public final class CodexGlass {
                                 src.selectTab(id);
                                 more.set(false);
                             })) : null,
+                    filterSheet(src.menu(), t, filters),
                     R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", DASHBOARD, "v", version)));
         }
         return Box(P.of("fill", true, "bg", t.pal.grouped),
@@ -415,6 +420,60 @@ public final class CodexGlass {
                         })) : null,
                 R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", DASHBOARD, "v", version)));
     };
+
+    /**
+     * A bar's filter button: a glass ⋯-style menu of switches (a check on what the tab shows) that stays open
+     * while they flip, then the tab's actions after a separator.
+     */
+    private static El filterMenu(GlassSource.MenuEntry entry) {
+        List<MenuItem> items = new ArrayList<>();
+        for (GlassSource.Toggle toggle : entry.toggles) {
+            items.add(new MenuItem(toggle.label, null, false, toggle.flip, toggle.on, null, false, true));
+        }
+        if (entry.actions != null && !entry.actions.isEmpty()) {
+            items.add(null);
+            for (GlassSource.MenuEntry action : entry.actions) {
+                items.add(new MenuItem(action.label, action.icon, action.destructive, action.onSelect));
+            }
+        }
+        return GlassMenu(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon, "icon", entry.icon,
+                "width", 260, "items", items));
+    }
+
+    /** Duo: the filter button's switches and actions in a sheet, since the rail can't hold a menu. */
+    private static El filterSheet(List<GlassSource.MenuEntry> menu, KTheme t, State<Boolean> open) {
+        GlassSource.MenuEntry entry = null;
+        for (GlassSource.MenuEntry e : menu) {
+            if (e != null && e.toggles != null) {
+                entry = e;
+            }
+        }
+        if (entry == null) {
+            return null;
+        }
+        Runnable close = () -> open.set(false);
+        List<El> rows = new ArrayList<>();
+        for (GlassSource.Toggle toggle : entry.toggles) {
+            rows.add(ListRow(P.of("key", "t:" + toggle.label, "label", toggle.label, "onPress", toggle.flip),
+                    toggle.on ? Icon(P.of("name", "check", "size", 18, "color", t.accent)) : null));
+        }
+        List<El> actions = new ArrayList<>();
+        int n = entry.toggles.size();
+        if (entry.actions != null) {
+            for (GlassSource.MenuEntry action : entry.actions) {
+                actions.add(ListRow(P.of("key", "a:" + action.label, "label", action.label, "onPress",
+                        (Runnable) () -> {
+                            close.run();
+                            action.onSelect.run();
+                        })));
+                n++;
+            }
+        }
+        return GlassSheet(P.of("open", open.get(), "onClose", close, "title", entry.label,
+                "detents", new double[] {sheetDetent(t, n + 1, 0, false)}),
+                ListSection(P.of("mb", 0), rows),
+                actions.isEmpty() ? null : ListSection(P.of("mb", 0), actions));
+    }
 
     private static int buttons(List<GlassSource.MenuEntry> menu) {
         int n = 0;
@@ -707,7 +766,7 @@ public final class CodexGlass {
         State<Boolean> past = R.useState(false);
         State<String> query = R.useState("");
         // the page whose reorderable lists are in edit mode (≡ handles), "" for none
-        State<String> editing = R.useState("");
+        State<String> editing = R.useState(start != null && src.editsOnOpen(start) ? start : "");
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> past.set(y > 46));
         OnStr push = R.useMemo(R.deps(), () -> (OnStr) id -> stack.update(s -> {
             List<String> n = new ArrayList<>(s);

@@ -20,6 +20,7 @@ import dev.bennett.codexmeter.glass.GlassIcons;
 import dev.bennett.codexmeter.glass.GlassLook;
 import dev.bennett.codexmeter.glass.GlassModel;
 import dev.bennett.codexmeter.glass.GlassSource;
+import dev.bennett.codexmeter.glass.GlassSource.Toggle;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -429,15 +430,47 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
     @Override
     public List<MenuEntry> menu() {
         List<MenuEntry> menu = new ArrayList<>();
-        if (!main().onPriorityTab()) {
-            // The Priority page has no layout of its own to edit.
-            menu.add(new MenuEntry("Edit dashboard", "squarePencil", false, main()::glassEditDashboard));
-        }
+        // The filter button, grouped with Settings: switches for what this tab shows, and on a
+        // provider's tab, Rearrange cards (the old Edit dashboard, opened with its handles out).
+        menu.add(main().onPriorityTab() ? priorityFilter() : providerFilter(main().glassProvider()));
         menu.add(new MenuEntry("Settings", "gearshape", false, () -> {
             DiagnosticLog.info(activity, "user", "settings_opened");
             openSettings("root", false);
         }));
         return menu;
+    }
+
+    private MenuEntry priorityFilter() {
+        List<Toggle> toggles = new ArrayList<>();
+        for (String[] section : PriorityPage.SECTIONS) {
+            boolean on = PriorityPrefs.isSectionShown(activity, section[0]);
+            toggles.add(new Toggle(section[1], on, () -> {
+                DiagnosticLog.info(activity, "user", "priority_filter " + section[0] + " " + !on);
+                PriorityPrefs.setSectionShown(activity, section[0], !on);
+                main().rebuild();
+            }));
+        }
+        return new MenuEntry("Filter", "filter", toggles, null);
+    }
+
+    private MenuEntry providerFilter(UsageProvider provider) {
+        List<Toggle> toggles = new ArrayList<>();
+        for (String[] card : GlassScreens.Reorder.cards(activity, provider)) {
+            boolean on = ProviderPreferences.isDashboardSectionVisible(activity, provider, card[0]);
+            toggles.add(new Toggle(card[1], on, () -> {
+                DiagnosticLog.info(activity, "user", "dashboard_filter " + provider.id + " " + card[0] + " " + !on);
+                ProviderPreferences.setDashboardSectionVisible(activity, provider, card[0], !on);
+                main().rebuild();
+            }));
+        }
+        List<MenuEntry> actions = new ArrayList<>();
+        actions.add(new MenuEntry("Rearrange cards", "arrows", false, main()::glassEditDashboard));
+        return new MenuEntry("Filter", "filter", toggles, actions);
+    }
+
+    @Override
+    public boolean editsOnOpen(String page) {
+        return page != null && page.startsWith(GlassScreens.PREFIX + "reorder:");
     }
 
     @Override
