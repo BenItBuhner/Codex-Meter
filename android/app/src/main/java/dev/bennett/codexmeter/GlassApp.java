@@ -411,8 +411,16 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
 
     @Override
     public GlassModel.Dashboard dashboard() {
-        return main().onPriorityTab() ? GlassCards.priorityPage(main())
+        long start = android.os.SystemClock.uptimeMillis();
+        boolean priority = main().onPriorityTab();
+        GlassModel.Dashboard d = priority ? GlassCards.priorityPage(main())
                 : GlassCards.build(main(), main().glassProvider());
+        if (BuildConfig.DEBUG) {
+            // Read by CI's shrunk smoke test, which times the page rebuild after a dismiss.
+            android.util.Log.i("GlassBuild", (priority ? "priority" : "provider") + " page built in "
+                    + (android.os.SystemClock.uptimeMillis() - start) + " ms");
+        }
+        return d;
     }
 
     @Override
