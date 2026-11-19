@@ -12,3 +12,8 @@
 # oneui-design is built for SESL8. Its immersive-scroll helper names a SESL8 class that SESL9 dropped;
 # the One UI 9 chrome never takes that path, and without R8 the reference was just as unresolved.
 -dontwarn com.google.android.material.appbar.SeslImmersiveScrollBehavior
+
+# ML Kit (the transfer screen's QR scanner) finds its components through Firebase's
+# ComponentDiscovery, which builds each registrar named in the manifest by reflection. ML Kit
+# ships no rule for it, and without one R8 drops their constructors (seen in ci/shrunk-smoke.sh).
+-keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }

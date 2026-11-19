@@ -27,7 +27,10 @@ LAUNCHES="${LAUNCHES:-11}"
 # 1469 and 2032 ms (median 1663 ms). The ceilings leave about 30-50% headroom over the worst run.
 # PSS after launch has ranged 54.6-79.7 MB across runs of the same code (how much compiled code
 # is mapped varies), so its ceiling sits above that range.
-MAX_APK_MB="${MAX_APK_MB:-55}"
+# R8 (code and resources), English-only resources and a compressed Skia library took the APK from
+# 48.6 MB to 18.2 MB on 2026-11-19 (cold start median 1917 ms and PSS 56.3 MB in the same run, inside
+# the earlier spread), so the size ceiling now sits about 20% above it.
+MAX_APK_MB="${MAX_APK_MB:-22}"
 MAX_COLD_START_MS="${MAX_COLD_START_MS:-2500}"
 MAX_PSS_MB="${MAX_PSS_MB:-105}"
 

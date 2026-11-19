@@ -30,7 +30,14 @@ check() { # name, then demo extras
   adb shell am force-stop "$PKG"
   adb shell am start -W -n "$DEMO" --ez demo_providers true "$@" >/dev/null 2>&1 || true
   sleep 4
-  adb exec-out screencap -p > "$OUT/$name.png" || true
+  # Liquid Glass's first frame can take several seconds in a debuggable build on a software-GPU
+  # emulator; a nearly black screen compresses to under 40 KB, so look again a few times.
+  local k
+  for k in 1 2 3 4; do
+    adb exec-out screencap -p > "$OUT/$name.png" || true
+    (( $(stat -c %s "$OUT/$name.png" 2>/dev/null || echo 0) > 40000 )) && break
+    sleep 3
+  done
   if [[ -z "$(adb shell pidof "$PKG" | tr -d '\r')" ]]; then
     echo "::error::$name: the app is not running (crashed?)"
     failed=1
@@ -65,11 +72,13 @@ for design in liquid_glass one_ui_9; do
   adb shell am force-stop "$PKG"
   adb shell am start -W -n "$DEMO" --ez demo_providers true --es design "$design" --ez open_priority true \
     --es demo_new_models relevant --ez demo_cursor_used_up true --ez demo_refill_notification true >/dev/null 2>&1
-  sleep 6
+  sleep 8
+  adb exec-out screencap -p > "$OUT/$design-priority-before-dismiss.png" || true
   adb logcat -c || true
   for y in 85 75 65 55 45; do
     adb shell input swipe $((W * 85 / 100)) $((H * y / 100)) $((W * 10 / 100)) $((H * y / 100)) 250
     sleep 2
+    adb exec-out screencap -p > "$OUT/$design-priority-swipe-$y.png" || true
   done
   adb exec-out screencap -p > "$OUT/$design-priority-after-dismiss.png" || true
   adb logcat -d -s GlassBuild:I MainThreadWatch:W > "$OUT/$design-dismiss-timing.txt" || true

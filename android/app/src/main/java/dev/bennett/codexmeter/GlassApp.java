@@ -417,8 +417,15 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
                 : GlassCards.build(main(), main().glassProvider());
         if (BuildConfig.DEBUG) {
             // Read by CI's shrunk smoke test, which times the page rebuild after a dismiss.
+            int dismissible = 0;
+            for (GlassModel.Card c : d.cards) {
+                for (Runnable r : c.statDismiss) {
+                    dismissible += r != null ? 1 : 0;
+                }
+            }
             android.util.Log.i("GlassBuild", (priority ? "priority" : "provider") + " page built in "
-                    + (android.os.SystemClock.uptimeMillis() - start) + " ms");
+                    + (android.os.SystemClock.uptimeMillis() - start) + " ms, " + d.cards.size() + " cards, "
+                    + dismissible + " dismissible rows");
         }
         return d;
     }
