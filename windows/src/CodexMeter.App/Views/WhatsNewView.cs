@@ -44,7 +44,7 @@ public sealed class WhatsNewView : UserControl
             {
                 Glyph = Glyph(feature.Id),
                 FontSize = 26,
-                Foreground = (Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
+                Foreground = Cards.Brush("AccentTextFillColorPrimaryBrush"),
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(0, 2, 0, 0),
             };
@@ -79,12 +79,12 @@ public sealed class WhatsNewView : UserControl
             Child = next,
             Padding = new Thickness(24, 16, 24, 24),
             BorderThickness = new Thickness(0, 1, 0, 0),
-            BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
+            BorderBrush = Cards.Brush("CardStrokeColorDefaultBrush"),
         };
 
         var layout = new Grid
         {
-            Background = (Brush)Application.Current.Resources["SolidBackgroundFillColorBaseBrush"],
+            Background = Cards.Brush("SolidBackgroundFillColorBaseBrush"),
         };
         layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });

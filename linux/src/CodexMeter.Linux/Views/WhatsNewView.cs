@@ -64,18 +64,21 @@ public sealed class WhatsNewView
 
     public Gtk.Button Continue { get; }
 
-    /// <summary>Adwaita symbolic icons for each feature.</summary>
+    /// <summary>
+    /// Symbolic icons for each feature, all from the set GTK 4 itself ships, so they show even where
+    /// the Adwaita icon theme is missing or partial.
+    /// </summary>
     public static string IconName(string id) => id switch
     {
         "providers" => "view-grid-symbolic",
-        "priority" => "dialog-warning-symbolic",
+        "priority" => "emoji-flags-symbolic",
         "resets" => "view-refresh-symbolic",
         "live" => "document-open-recent-symbolic",
-        "alerts" => "preferences-system-notifications-symbolic",
-        "value" => "starred-symbolic",
+        "alerts" => "emblem-important-symbolic",
+        "value" => "emoji-objects-symbolic",
         "status" => "dialog-information-symbolic",
-        "updates" => "software-update-available-symbolic",
-        "devices" => "system-users-symbolic",
+        "updates" => "folder-download-symbolic",
+        "devices" => "user-desktop-symbolic",
         _ => "emblem-system-symbolic",
     };
 }

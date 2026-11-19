@@ -64,7 +64,8 @@ struct MacRootView: View {
         }
         .sheet(isPresented: $model.isShowingWhatsNew) {
             WhatsNewView()
-                .frame(minWidth: 560, idealWidth: 600, minHeight: 640, idealHeight: 760)
+                // Fits a small window: the list scrolls and Continue stays inside the sheet.
+                .frame(minWidth: 520, idealWidth: 600, minHeight: 460, idealHeight: 680)
         }
         // The shared dashboards ask for Settings with this flag (a sheet on iOS); on the Mac
         // it opens the Settings window instead.
