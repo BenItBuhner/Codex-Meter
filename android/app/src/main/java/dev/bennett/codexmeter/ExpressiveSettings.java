@@ -59,6 +59,12 @@ final class ExpressiveSettings {
     private final TextView heading;
     private final View root;
     private final ExpressiveCards look;
+    private final NestedScrollView scroll;
+    private final MaterialButton back;
+    /** A step label and wavy bar over the title (first-run setup); hidden until {@link #setProgress}. */
+    private final LinearLayout progress;
+    private final TextView progressLabel;
+    private final ExpressiveWave progressBar;
 
     /** A Settings page, drawn from its preferences. */
     ExpressiveSettings(AppCompatActivity activity, String page, String title) {
@@ -106,6 +112,7 @@ final class ExpressiveSettings {
         frame.addView(fragments, new FrameLayout.LayoutParams(1, 1));
 
         NestedScrollView scroll = new NestedScrollView(this.ctx);
+        this.scroll = scroll;
         scroll.setClipToPadding(false);
         LinearLayout column = new LinearLayout(this.ctx);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -120,6 +127,7 @@ final class ExpressiveSettings {
         back.setIconTint(ColorStateList.valueOf(color(R.attr.colorOnSurface)));
         back.setContentDescription("Back");
         back.setOnClickListener(v -> activity.getOnBackPressedDispatcher().onBackPressed());
+        this.back = back;
         // Back on the left, the page's own actions (Customize, Edit…) on the right.
         LinearLayout bar = new LinearLayout(this.ctx);
         bar.setGravity(Gravity.CENTER_VERTICAL);
@@ -131,6 +139,20 @@ final class ExpressiveSettings {
         LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, -2);
         bp.topMargin = dp(8);
         column.addView(bar, bp);
+
+        this.progress = new LinearLayout(this.ctx);
+        this.progress.setOrientation(LinearLayout.VERTICAL);
+        this.progress.setVisibility(View.GONE);
+        this.progressLabel = text("", R.attr.textAppearanceLabelLargeEmphasized, R.attr.colorPrimary);
+        this.progress.addView(this.progressLabel, new LinearLayout.LayoutParams(-1, -2));
+        this.progressBar = new ExpressiveWave(this.ctx, color(R.attr.colorPrimary),
+                color(R.attr.colorSecondaryContainer));
+        LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(-1, -2);
+        wp.topMargin = dp(10);
+        this.progress.addView(this.progressBar, wp);
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, -2);
+        pp.setMargins(dp(8), dp(20), dp(8), 0);
+        column.addView(this.progress, pp);
 
         this.heading = text(title, R.attr.textAppearanceDisplaySmallEmphasized, R.attr.colorOnSurface);
         ExpressiveCards.weight(this.heading, 560);
@@ -184,6 +206,29 @@ final class ExpressiveSettings {
     private void scheduleRender() {
         this.root.removeCallbacks(this.renderOnce);
         this.root.post(this.renderOnce);
+    }
+
+    /** Shows or hides the back button (hidden on a flow's first step, where back leaves the app). */
+    void setBackVisible(boolean visible) {
+        this.back.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    /**
+     * A step label ("Step 2 of 5") and a wavy progress bar over the title, for a flow of pages
+     * such as first-run setup; a null label hides them.
+     */
+    void setProgress(String label, double fraction) {
+        if (label == null) {
+            this.progress.setVisibility(View.GONE);
+            return;
+        }
+        this.progress.setVisibility(View.VISIBLE);
+        this.progressLabel.setText(label);
+        this.progressBar.setFraction(fraction);
+    }
+
+    void scrollToTop() {
+        this.scroll.post(() -> this.scroll.scrollTo(0, 0));
     }
 
     /** Draws the page from its model; call again after anything changes. */

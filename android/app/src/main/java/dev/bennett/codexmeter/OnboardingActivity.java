@@ -20,6 +20,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.widget.NestedScrollView;
 
+import dev.bennett.codexmeter.glass.GlassModel;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.List;
 /**
  * First-run setup built from the same One UI Design Library primitives as the app: welcome,
  * choose providers (nothing preselected), sign in to each chosen provider or skip, then done.
+ * In Material 3 Expressive the same steps are drawn with Material views ({@link #expressivePage}).
  */
 public final class OnboardingActivity extends AppCompatActivity {
     @Override
@@ -39,6 +41,10 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private LinearLayout content;
     private Ui.Page page;
+    /** Material 3 Expressive: {@link #expressivePage} drawn with Material views, or null for One UI. */
+    private ExpressivePages expressive;
+    /** The provider step's search text in Material 3 Expressive (One UI's picker keeps its own). */
+    private String query = "";
     private boolean dark;
     private int step;
     /** Providers picked on the second step, in enum order; drives the sign-in steps. */
@@ -93,9 +99,6 @@ public final class OnboardingActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        this.page = Ui.installPage(this, "Codex Meter", false);
-        this.content = this.page.content;
-        findViewById(R.id.dashboard_refresh).setEnabled(false);
         boolean oauthReturn = getIntent().getBooleanExtra(EXTRA_AUTH_RETURN, false);
         this.oauthRequested = AppPreferences.isOAuthPending(this);
         this.chosen.addAll(AppPreferences.getOnboardingProviders(this));
@@ -105,6 +108,15 @@ public final class OnboardingActivity extends AppCompatActivity {
         UsageProvider target = currentSignInProvider();
         if (oauthReturn && target != null && !SecureTokenStore.isSignedIn(this, target)) {
             this.authMessage = "Sign-in did not complete. You can safely try again.";
+        }
+        if (AppPreferences.isMaterialExpressiveDesign(this)) {
+            this.expressive = ExpressivePages.attach(this, GlassScreens.PREFIX + "onboarding",
+                    getIntent());
+        }
+        if (this.expressive == null) {
+            this.page = Ui.installPage(this, "Codex Meter", false);
+            this.content = this.page.content;
+            findViewById(R.id.dashboard_refresh).setEnabled(false);
         }
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -138,7 +150,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         super.onResume();
         // Back from the browser: show the connected state of the current sign-in step.
         UsageProvider target = currentSignInProvider();
-        if (this.content != null && target != null) {
+        if ((this.content != null || this.expressive != null) && target != null) {
             if (SecureTokenStore.isSignedIn(this, target)) this.authMessage = "";
             render();
         }
@@ -186,6 +198,10 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void render() {
+        if (this.expressive != null) {
+            renderExpressive();
+            return;
+        }
         if (this.content == null) return;
         this.content.removeAllViews();
         this.page.header.setTitle("Codex Meter");
@@ -418,6 +434,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.step = OnboardingFlow.normalizeStep(requestedStep, this.chosen.size());
         AppPreferences.setOnboardingStep(this, this.step);
         render();
+        if (this.expressive != null) {
+            this.expressive.scrollToTop();
+        }
     }
 
     private void goBack() {
@@ -499,6 +518,190 @@ public final class OnboardingActivity extends AppCompatActivity {
         startActivity(new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finish();
+    }
+
+    // ------------------------------------------------------------------ Material 3 Expressive
+
+    /** Total steps so far and the step label, as the One UI progress row counts them. */
+    private int plannedSteps() {
+        int planned = this.step <= OnboardingFlow.STEP_PROVIDERS
+                ? Math.max(1, this.picked.size()) : this.chosen.size();
+        return OnboardingFlow.stepCount(planned);
+    }
+
+    private void renderExpressive() {
+        int total = plannedSteps();
+        this.expressive.setProgress("Step " + (this.step + 1) + " of " + total,
+                (this.step + 1) / (double) total);
+        this.expressive.setBackVisible(this.step > OnboardingFlow.STEP_WELCOME);
+        this.expressive.changed();
+    }
+
+    /** The current step for Material 3 Expressive: the same steps, state and actions as One UI's. */
+    GlassModel.Page expressivePage() {
+        UsageProvider target = currentSignInProvider();
+        if (this.step == OnboardingFlow.STEP_WELCOME) return expressiveWelcome();
+        if (this.step == OnboardingFlow.STEP_PROVIDERS) return expressiveProviders();
+        if (target != null) return expressiveSignIn(target);
+        return expressiveComplete();
+    }
+
+    private GlassModel.Page expressiveWelcome() {
+        GlassModel.Page page = expressiveSkeleton("Meet Codex Meter",
+                "Your Codex, Claude Code, Cursor, Copilot and other AI coding limits, reset timing, "
+                        + "and credits in one place. Next, pick the ones you use.");
+        GlassModel.Section cards = GlassScreens.cards(GlassScreens.note(
+                "Made with Material 3 Expressive",
+                "Expressive shapes, wavy usage meters and your phone’s colors, drawn with Google’s "
+                        + "own Material components."));
+        page.sections.add(cards);
+        String suggested = AppPreferences.firstRunSuggestedDesign(this);
+        GlassModel.Section actions = GlassScreens.section(null);
+        actions.rows.add(expressiveButton("continue", "Continue",
+                () -> showStep(OnboardingFlow.STEP_PROVIDERS)));
+        if (suggested != null) {
+            actions.footer = "Codex Meter starts in the " + DesignIds.label(suggested)
+                    + " design on this phone. You can pick another any time in Settings, "
+                    + "Appearance, App design.";
+        }
+        page.sections.add(actions);
+        return page;
+    }
+
+    private GlassModel.Page expressiveProviders() {
+        GlassModel.Page page = expressiveSkeleton("Choose your providers",
+                "Pick every service you want to track. Each one gets a tab on the dashboard, and "
+                        + "you can add more later in Settings, Accounts.");
+        if (!this.picked.isEmpty()) {
+            page.actions.add(new GlassModel.Action("Continue", null, true,
+                    this::saveProvidersAndContinue));
+        }
+        GlassModel.Section search = GlassScreens.section(null);
+        GlassModel.Row field = GlassScreens.row(GlassModel.Row.Kind.FIELD, "search",
+                "Search providers", null);
+        field.hint = "Search providers";
+        field.value = this.query;
+        field.onText = text -> {
+            this.query = text == null ? "" : text.trim();
+            render();
+        };
+        search.rows.add(field);
+        page.sections.add(search);
+
+        GlassModel.Section list = GlassScreens.section(this.picked.isEmpty() ? "Providers"
+                : this.picked.size() == 1 ? "1 chosen" : this.picked.size() + " chosen");
+        for (UsageProvider provider : ProviderCatalog.pickerProviders(null, this.query)) {
+            ProviderCatalog.Entry entry = ProviderCatalog.get(provider);
+            GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.SWITCH, provider.id,
+                    provider.displayName, entry.inferred
+                            ? "Experimental · " + entry.pickerSummary() : entry.pickerSummary());
+            row.icon = "provider_" + provider.id;
+            row.plainIcon = true;
+            row.tag = entry.inferred ? "Experimental" : null;
+            row.checked = this.picked.contains(provider);
+            row.onToggle = on -> {
+                if (on && !this.picked.contains(provider)) this.picked.add(provider);
+                if (!on) this.picked.remove(provider);
+                render();
+            };
+            list.rows.add(row);
+        }
+        if (list.rows.isEmpty()) {
+            list.rows.add(GlassScreens.text("none", "No providers match."));
+        }
+        page.sections.add(list);
+
+        GlassModel.Section actions = GlassScreens.section(null);
+        GlassModel.Row next = expressiveButton("continue", "Continue", this::saveProvidersAndContinue);
+        next.enabled = !this.picked.isEmpty();
+        actions.rows.add(next);
+        if (this.picked.isEmpty()) {
+            actions.footer = "Choose at least one provider to continue.";
+        }
+        page.sections.add(actions);
+        return page;
+    }
+
+    private GlassModel.Page expressiveSignIn(UsageProvider provider) {
+        boolean signedIn = SecureTokenStore.isSignedIn(this, provider);
+        GlassModel.Page page = expressiveSkeleton("Connect " + provider.displayName,
+                signedIn
+                        ? "Your " + provider.accountName + " account is connected."
+                        : "Sign in with the " + provider.accountName + " account you use in "
+                                + provider.displayName + ". The browser handles your password; "
+                                + "Codex Meter never sees it.");
+        if (signedIn) {
+            GlassModel.Section account = GlassScreens.section("Account");
+            account.rows.add(GlassScreens.row(GlassModel.Row.Kind.INFO, "account",
+                    provider.accountName + " connected", ProviderAccounts.summary(this, provider)));
+            page.sections.add(account);
+            GlassModel.Section actions = GlassScreens.section(null);
+            actions.rows.add(expressiveButton("continue", "Continue", this::goNext));
+            page.sections.add(actions);
+            return page;
+        }
+
+        GlassModel.Section privacy = GlassScreens.section("Private by design");
+        privacy.rows.add(GlassScreens.row(GlassModel.Row.Kind.INFO, "encrypted",
+                "Encrypted on this device", "Session tokens are protected by Android Keystore"));
+        privacy.rows.add(GlassScreens.row(GlassModel.Row.Kind.INFO, "direct",
+                "Straight to " + provider.vendorName,
+                "No Codex Meter server or analytics SDK in between"));
+        page.sections.add(privacy);
+
+        if (!this.authMessage.isEmpty()) {
+            page.sections.add(GlassScreens.cards(GlassScreens.note("Sign-in", this.authMessage)));
+        }
+        GlassModel.Section actions = GlassScreens.section(null);
+        actions.rows.add(expressiveButton("signin", ProviderPreferences.isSignInPending(this, provider)
+                ? "Continue sign-in with " + provider.accountName
+                : provider.signInLabel(), () -> startSignIn(provider)));
+        GlassModel.Row later = GlassScreens.row(GlassModel.Row.Kind.ACTION, "skip",
+                "Skip for now", "Sign in any time from Settings, Accounts");
+        later.onPress = () -> {
+            cancelPendingSignIn();
+            goNext();
+        };
+        actions.rows.add(later);
+        page.sections.add(actions);
+        return page;
+    }
+
+    private GlassModel.Page expressiveComplete() {
+        boolean any = false;
+        for (UsageProvider provider : this.chosen) {
+            any |= SecureTokenStore.isSignedIn(this, provider);
+        }
+        GlassModel.Page page = expressiveSkeleton(any ? "You’re all set" : "Setup complete",
+                any ? "Codex Meter will load your latest usage as the app opens."
+                        : "You can sign in any time from Settings, Accounts.");
+        GlassModel.Section accounts = GlassScreens.section("Accounts");
+        for (UsageProvider provider : this.chosen) {
+            GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.INFO, provider.id,
+                    provider.displayName, SecureTokenStore.isSignedIn(this, provider)
+                            ? ProviderAccounts.summary(this, provider)
+                            : "Not signed in · sign in later from Settings");
+            row.icon = "provider_" + provider.id;
+            row.plainIcon = true;
+            accounts.rows.add(row);
+        }
+        page.sections.add(accounts);
+        GlassModel.Section actions = GlassScreens.section(null);
+        actions.rows.add(expressiveButton("open", "Open Codex Meter", this::completeAndOpenMain));
+        page.sections.add(actions);
+        return page;
+    }
+
+    private static GlassModel.Page expressiveSkeleton(String title, String intro) {
+        GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "onboarding", title);
+        page.intro = intro;
+        return page;
+    }
+
+    private static GlassModel.Row expressiveButton(String key, String label, Runnable onPress) {
+        GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.BUTTON, key, label, null);
+        row.onPress = onPress;
+        return row;
     }
 
     private static String safeMessage(RuntimeException exception) {
