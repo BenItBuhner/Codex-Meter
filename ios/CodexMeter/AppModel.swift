@@ -103,6 +103,8 @@ final class AppModel {
     private static let enabledProvidersDefaultsKey = "codex-meter.enabled-providers-v1"
     private static let providerOrderDefaultsKey = "codex-meter.provider-order-v1"
     private static let onboardingCompleteDefaultsKey = "codex-meter.onboarding-complete-v1"
+    /// The release whose What's new page was last shown (`WhatsNew.release`).
+    private static let whatsNewSeenDefaultsKey = "codex-meter.whats-new-seen"
     private static let priorityTabDefaultsKey = "codex-meter.priority-tab-selected-v1"
 
     /// Claude Code tab state. Independent of the Codex session below.
@@ -146,6 +148,8 @@ final class AppModel {
     var isAddingAccount = false
     /// First-run setup, shown once on a fresh install.
     var isShowingOnboarding = false
+    /// The full-screen What's new page, once per big release (`WhatsNew`).
+    var isShowingWhatsNew = false
     var diagnosticsUnlocked = false
     /// The Priority tab is showing instead of a provider dashboard (Settings › Appearance ›
     /// Priority tab). Remembered, like the selected provider.
@@ -894,6 +898,10 @@ final class AppModel {
             isShowingOnboarding = true
             return
         }
+        if arguments.contains("-ui-testing-whats-new") {
+            isShowingWhatsNew = true
+            return
+        }
         // Other UI-testing launches go straight to the dashboard they set up.
         if arguments.contains(where: { $0.hasPrefix("-ui-testing") }) {
             return
@@ -905,9 +913,15 @@ final class AppModel {
             || addedProviders.values.contains { $0.phase != .signedOut }
         if OnboardingFlow.shouldShow(completed: completed, hasExistingSetup: hasExistingSetup) {
             isShowingOnboarding = true
-        } else if !completed {
+            return
+        }
+        if !completed {
             // Installs from before setup existed never see it.
             defaults.set(true, forKey: Self.onboardingCompleteDefaultsKey)
+        }
+        // Anyone who used the app before this release gets its What's new page once.
+        if WhatsNew.shouldShow(seen: defaults.string(forKey: Self.whatsNewSeenDefaultsKey), setUp: true) {
+            isShowingWhatsNew = true
         }
     }
 
@@ -926,8 +940,17 @@ final class AppModel {
 
     func finishOnboarding() {
         defaults.set(true, forKey: Self.onboardingCompleteDefaultsKey)
+        // A new install has just seen what the app does; What's new is for upgrades.
+        defaults.set(WhatsNew.release, forKey: Self.whatsNewSeenDefaultsKey)
         isShowingOnboarding = false
         DiagnosticLog.info("process", "onboarding_finished")
+    }
+
+    /// Closes What's new and keeps it from opening on its own again for this release.
+    func finishWhatsNew() {
+        defaults.set(WhatsNew.release, forKey: Self.whatsNewSeenDefaultsKey)
+        isShowingWhatsNew = false
+        DiagnosticLog.info("process", "whats_new_finished")
     }
 
     /// "Explore demo" from setup: Codex, Claude Code and Cursor get tabs with local demo data.

@@ -303,6 +303,36 @@ public sealed class MainWindow
             state.Settings.Update(s => s with { SelectedProvider = tag });
     }
 
+    /// <summary>The What's new page while it's open, in place of the split view.</summary>
+    public WhatsNewView? WhatsNewPage { get; private set; }
+
+    /// <summary>At launch: opens What's new for someone who used the app before this release, once.</summary>
+    public void ShowWhatsNewIfDue()
+    {
+        var (show, kept) = WhatsNew.AtLaunch(state.Settings.Current, state.SignedIn.Count);
+        if (show) ShowWhatsNew();
+        else if (kept.WhatsNewSeen != state.Settings.Current.WhatsNewSeen)
+            state.Settings.Update(s => s with { WhatsNewSeen = kept.WhatsNewSeen });
+    }
+
+    /// <summary>Opens What's new over the whole window (also from Settings → About).</summary>
+    public void ShowWhatsNew()
+    {
+        if (WhatsNewPage is not null) return;
+        WhatsNewPage = new WhatsNewView(CloseWhatsNew);
+        toasts.SetChild(WhatsNewPage.View);
+        WhatsNewPage.Continue.GrabFocus();
+    }
+
+    /// <summary>Continue: back to the app, and the page doesn't open on its own again for this release.</summary>
+    public void CloseWhatsNew()
+    {
+        if (WhatsNewPage is null) return;
+        WhatsNewPage = null;
+        toasts.SetChild(split);
+        state.Settings.Update(s => s with { WhatsNewSeen = WhatsNew.Release });
+    }
+
     /// <summary>Builds the current page again, e.g. after settings were imported.</summary>
     public void Reload()
     {

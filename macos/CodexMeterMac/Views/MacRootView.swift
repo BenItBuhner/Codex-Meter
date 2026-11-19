@@ -62,6 +62,10 @@ struct MacRootView: View {
             OnboardingView()
                 .frame(minWidth: 580, idealWidth: 640, minHeight: 640, idealHeight: 720)
         }
+        .sheet(isPresented: $model.isShowingWhatsNew) {
+            WhatsNewView()
+                .frame(minWidth: 560, idealWidth: 600, minHeight: 640, idealHeight: 760)
+        }
         // The shared dashboards ask for Settings with this flag (a sheet on iOS); on the Mac
         // it opens the Settings window instead.
         .onChange(of: model.isShowingSettings, initial: true) { _, isShowing in

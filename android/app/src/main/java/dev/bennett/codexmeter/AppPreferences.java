@@ -48,6 +48,8 @@ public final class AppPreferences {
     private static final String KEY_ONBOARDING_COMPLETE = "onboarding_complete";
     private static final String KEY_ONBOARDING_STEP = "onboarding_step";
     private static final String KEY_ONBOARDING_PROVIDERS = "onboarding_providers";
+    /** The release whose What's new page was last shown ({@link WhatsNew#RELEASE}). */
+    private static final String KEY_WHATS_NEW_SEEN = "whats_new_seen";
     private static final String KEY_AUTOMATIC_REFRESH = "automatic_refresh";
     private static final String KEY_REFRESH_FAILURES = "refresh_failures";
     private static final String KEY_REFRESH_MINUTES = "refresh_minutes";
@@ -917,5 +919,15 @@ public final class AppPreferences {
                 .remove(KEY_ONBOARDING_STEP)
                 .remove(KEY_ONBOARDING_PROVIDERS)
                 .apply();
+    }
+
+    /** The release whose What's new page was last shown, or null for none. */
+    public static String getWhatsNewSeen(Context context) {
+        return prefs(context).getString(KEY_WHATS_NEW_SEEN, null);
+    }
+
+    /** Marks this release's What's new page as shown, so it never opens on its own again. */
+    public static void markWhatsNewSeen(Context context) {
+        prefs(context).edit().putString(KEY_WHATS_NEW_SEEN, WhatsNew.RELEASE).apply();
     }
 }

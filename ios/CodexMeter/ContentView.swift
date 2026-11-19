@@ -81,6 +81,9 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $model.isShowingOnboarding) {
             OnboardingView()
         }
+        .fullScreenCover(isPresented: $model.isShowingWhatsNew) {
+            WhatsNewView()
+        }
         .preferredColorScheme(model.settings.appearance.colorScheme)
         .onOpenURL { model.handle(url: $0) }
         // Keeps the Apple Watch app and its complications on the same providers and usage.

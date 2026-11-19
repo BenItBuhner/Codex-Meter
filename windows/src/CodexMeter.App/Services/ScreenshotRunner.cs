@@ -53,6 +53,18 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 failures += await CaptureAsync(File(page)) ? 0 : 1;
             }
 
+            // What's new after a big update, over the whole window.
+            window.ShowWhatsNew();
+            await Task.Delay(1200);
+            if (window.WhatsNewPage is null)
+            {
+                App.Log("What's new didn't open.");
+                failures++;
+            }
+            failures += await CaptureAsync(File("whats-new")) ? 0 : 1;
+            window.CloseWhatsNew();
+            await Task.Delay(400);
+
             // The dashboard's title bar with the pointer over Close, so the caption buttons can be
             // checked against the bar and the page header (Refresh, Edit dashboard) below them.
             window.Navigate(firstProvider);

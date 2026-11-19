@@ -149,8 +149,11 @@ javac -encoding UTF-8 -Xlint:all -Werror -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/RefreshTracker.java" \
   "$ROOT/tests/RefreshTrackerSelfTest.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateFlow.java" \
-  "$ROOT/tests/UpdateFlowSelfTest.java"
+  "$ROOT/tests/UpdateFlowSelfTest.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WhatsNew.java" \
+  "$ROOT/tests/WhatsNewSelfTest.java"
 java -ea -cp "$OUT" dev.bennett.codexmeter.DesignIdsSelfTest
 java -ea -cp "$OUT" dev.bennett.codexmeter.RefreshTrackerSelfTest
 java -ea -cp "$OUT" dev.bennett.codexmeter.UpdateFlowSelfTest
+java -ea -cp "$OUT" dev.bennett.codexmeter.WhatsNewSelfTest
 python3 "$ROOT/ci/resource-checks.py" "$ROOT"

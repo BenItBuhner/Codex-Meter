@@ -325,6 +325,16 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("22-onboarding-connect")
 
+        // What's new after a big update: full screen, Continue closes it for good.
+        app.terminate()
+        app.launchArguments = ["-ui-testing-whats-new"]
+        app.launch()
+        XCTAssertTrue(app.buttons["whats-new-continue"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.0)
+        capture("22b-whats-new")
+        UITestSupport.tap(app.buttons["whats-new-continue"])
+        XCTAssertTrue(app.buttons["whats-new-continue"].waitForNonExistence(timeout: 5))
+
         // Settings → Accounts opens its own page: connected accounts, then Add account
         // (nothing is connected on a signed-out install).
         app.terminate()

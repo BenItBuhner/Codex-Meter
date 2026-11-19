@@ -148,6 +148,9 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (routeToOnboarding(getIntent())) {
             return;
         }
+        if (bundle == null) {
+            WhatsNewActivity.showOnce(this);
+        }
         this.dark = Ui.isDark(this);
         if (AppPreferences.isLiquidGlassDesign(this)) {
             this.glass = new GlassApp(this, super::dispatchTouchEvent);

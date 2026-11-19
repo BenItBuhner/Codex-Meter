@@ -110,6 +110,10 @@ run_design() {
   adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es design "$d" --es theme "$t" \
     --es open_widget_metric five_hour >/dev/null
   shot "$p-14-widget-settings" 7
+  # What's new after a big update: the design's own full-screen page with the logo.
+  screen "$d" "$t" WhatsNewActivity; shot "$p-15-whats-new" 6
+  scroll_down;                       shot "$p-16-whats-new-scrolled" 3
+  scroll_down;                       shot "$p-17-whats-new-bottom" 3
 }
 
 for design in material_3_expressive liquid_glass one_ui_9 classic; do

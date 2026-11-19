@@ -73,6 +73,9 @@
             android:name="dev.bennett.codexmeter.ExpressivePageActivity"
             android:exported="false"/>
         <activity
+            android:name="dev.bennett.codexmeter.WhatsNewActivity"
+            android:exported="false"/>
+        <activity
             android:name="dev.bennett.codexmeter.LockWidgetsActivity"
             android:exported="false"/>
         <activity

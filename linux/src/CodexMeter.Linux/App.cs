@@ -132,6 +132,7 @@ public sealed class App
             }
 
             window.ShowInitialPage(options.Page);
+            if (options.ScreenshotDirectory is null) window.ShowWhatsNewIfDue();
             var hidden = options.StartHidden && State.Settings.Current.ShowTrayIcon;
             if (!hidden) window.ShowAndActivate();
             else
@@ -209,6 +210,8 @@ public sealed class App
             {
                 CloseToTray = false,
                 OnboardingDone = !options.SignedOutDemo,
+                // Demo mode opens on the dashboards; the screenshots open What's new themselves.
+                WhatsNewSeen = WhatsNew.Release,
                 EnabledProviders = connected.Count > 0 ? connected : s.EnabledProviders,
                 ProviderOrder = connected.Concat(s.ProviderOrder).Distinct().ToList(),
             });

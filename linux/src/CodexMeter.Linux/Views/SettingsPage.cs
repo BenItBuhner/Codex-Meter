@@ -288,6 +288,14 @@ public sealed class SettingsPage : IPage
         version.SetName("VersionText");
         aboutRow.AddSuffix(version);
         about.Add(aboutRow);
+        var whatsNew = Adw.ActionRow.New();
+        whatsNew.SetTitle("What's new in " + WhatsNew.Release);
+        whatsNew.SetSubtitle("Every feature that's new in this version.");
+        whatsNew.SetActivatable(true);
+        whatsNew.SetName("WhatsNewShow");
+        whatsNew.AddSuffix(Gtk.Image.NewFromIconName("go-next-symbolic"));
+        whatsNew.OnActivated += (_, _) => window.ShowWhatsNew();
+        about.Add(whatsNew);
         var source = Adw.ActionRow.New();
         source.SetTitle("Source code and releases");
         source.SetSubtitle("github.com/BenItBuhner/Codex-Meter");

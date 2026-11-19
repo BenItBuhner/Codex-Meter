@@ -42,6 +42,9 @@ public final class GlassIcons {
         // the Priority tab's flag (res/drawable/ic_priority.xml)
         stroke("flag", "M5.5 21V4.5M5.5 4.8c2.2-1.3 4.3-1.3 6.5 0s4.3 1.3 6.5 0v8.7c-2.2 1.3-4.3 1.3-6.5 0s-4.3-1.3-6.5 0", 1.9);
         stroke("widget", "M5 4.5h5A1.5 1.5 0 0 1 11.5 6v5A1.5 1.5 0 0 1 10 12.5H5A1.5 1.5 0 0 1 3.5 11V6A1.5 1.5 0 0 1 5 4.5zM14 4.5h5A1.5 1.5 0 0 1 20.5 6v14A1.5 1.5 0 0 1 19 21.5h-5a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 14 4.5zM5 15.5h5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 20v-3A1.5 1.5 0 0 1 5 15.5z", 1.8);
+        // What's new: a desktop display and a page with a side column (the Duo layout)
+        stroke("desktop", "M4 4.5h16A1.5 1.5 0 0 1 21.5 6v10a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 16V6A1.5 1.5 0 0 1 4 4.5zM9 21h6M12 17.5V21", 1.8);
+        stroke("sidebar", "M4 4.5h16A1.5 1.5 0 0 1 21.5 6v12a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 18V6A1.5 1.5 0 0 1 4 4.5zM16 4.5v15M18 8.5h1.5M18 12h1.5", 1.8);
     }
 
     /** A provider's logo from its vector drawable's path (24 x 24, filled). */

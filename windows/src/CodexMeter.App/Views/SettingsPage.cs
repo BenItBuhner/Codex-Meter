@@ -714,6 +714,15 @@ public sealed class SettingsPage : PageBase
             HeaderIcon = new BitmapIcon { UriSource = new Uri("ms-appx:///Assets/AppIcon.png"), ShowAsMonochrome = false },
             Content = Cards.Text($"Version {version} ({arch})", "CaptionSecondaryTextStyle", wrap: false),
         };
+        var whatsNew = new Button { Content = "Show" };
+        AutomationProperties.SetAutomationId(whatsNew, "WhatsNewShow");
+        whatsNew.Click += (_, _) => App.Current?.Window?.ShowWhatsNew();
+        about.Items.Add(new SettingsCard
+        {
+            Header = "What's new in " + WhatsNew.Release,
+            Description = "Every feature that's new in this version.",
+            Content = whatsNew,
+        });
         about.Items.Add(new SettingsCard
         {
             Header = "Source code and releases",

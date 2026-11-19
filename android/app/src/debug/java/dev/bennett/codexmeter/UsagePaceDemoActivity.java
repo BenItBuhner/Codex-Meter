@@ -155,6 +155,8 @@ public final class UsagePaceDemoActivity extends Activity {
             AppPreferences.setRefreshOnLaunch(this, false);
             AppPreferences.setDashboardVisibility(this, true, true, true, true, true, true, true);
             AppPreferences.completeOnboarding(this);
+            // Seeded scenes open on their page, not on What's new (galleries open it themselves).
+            AppPreferences.markWhatsNewSeen(this);
             // Each scene starts with nothing waiting to reset, so reseeding never posts "usage is back".
             for (UsageProvider p : UsageProvider.values()) {
                 UsageRefillAlerts.clear(this, p);
@@ -240,6 +242,8 @@ public final class UsagePaceDemoActivity extends Activity {
         }
         AppPreferences.setRefreshOnLaunch(this, false);
         AppPreferences.completeOnboarding(this);
+        // Seeded scenes open on their page, not on What's new (galleries open it themselves).
+        AppPreferences.markWhatsNewSeen(this);
     }
 
     /**
@@ -352,6 +356,8 @@ public final class UsagePaceDemoActivity extends Activity {
         UsagePacePreferences.setEnabled(this, true);
         AppPreferences.setRefreshOnLaunch(this, false);
         AppPreferences.completeOnboarding(this);
+        // Seeded scenes open on their page, not on What's new (galleries open it themselves).
+        AppPreferences.markWhatsNewSeen(this);
         for (UsageProvider p : UsageProvider.values()) {
             UsageRefillAlerts.clear(this, p);
         }

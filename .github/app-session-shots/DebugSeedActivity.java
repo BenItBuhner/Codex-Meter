@@ -33,6 +33,8 @@ public class DebugSeedActivity extends Activity {
             long now = System.currentTimeMillis();
             long s = now / 1000L;
             AppPreferences.completeOnboarding(this);
+            // Seeded scenes open on their page, not on What's new (galleries open it themselves).
+            AppPreferences.markWhatsNewSeen(this);
             getSharedPreferences("codex_meter_settings_v1", 0).edit()
                     .putBoolean("one_ui_9_design", !"classic".equals(design)).commit();
             AppPreferences.setRefreshOnLaunch(this, false);
