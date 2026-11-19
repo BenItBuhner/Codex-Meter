@@ -44,10 +44,10 @@ case "$PLATFORM" in
   mac)
     # First measured 2026-11-17 (warm launches): medians 2917 and 3121 ms, but only in a run whose
     # iPhone step had just left vmmap stalled on the simulator for minutes. On a quiet runner the
-    # medians are 628-748 ms (single launches 536-1386 ms), footprint 42.6-45.4 MB, so CI now
-    # measures the Mac before the simulator boots. The ceilings leave about 2x the median and 20%
-    # over the largest footprint.
-    MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-1500}"
+    # medians are 626-922 ms (single launches 536-1466 ms; runners differ by about 50%),
+    # footprint 42.6-45.4 MB, so CI now measures the Mac before the simulator boots. The ceilings
+    # leave about 2x the slowest runner's median and 20% over the largest footprint.
+    MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-2000}"
     MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-55}"
     TITLE="Mac"
     BIN="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")"
