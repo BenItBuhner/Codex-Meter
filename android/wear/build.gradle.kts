@@ -34,8 +34,20 @@ android {
     }
 
     buildTypes {
+        debug {
+            // -PshrinkDebug=true shrinks the debug build (with its demo entry points) by the release
+            // rules, so CI can open every screen on R8 output (ci/shrunk-smoke.sh).
+            if (providers.gradleProperty("shrinkDebug").orNull == "true") {
+                isMinifyEnabled = true
+                isShrinkResources = true
+                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            }
+        }
         release {
-            isMinifyEnabled = false
+            // R8 removes unused code and resources: rules in proguard-rules.pro and the libraries'.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("localRelease")
         }
     }

@@ -58,22 +58,35 @@ public final class ModelSpeedStore {
 
     public static ModelSpeed load(Context context, String model) {
         String body = prefs(context).getString("body_" + model, null);
-        return body == null ? null : ModelSpeed.parse(body, prefs(context).getLong("fetched_" + model, 0L));
+        if (body == null) {
+            return null;
+        }
+        long fetched = prefs(context).getLong("fetched_" + model, 0L);
+        try {
+            ModelSpeed speed = ParsedCache.get("speed/" + model, body, raw -> ModelSpeed.parse(raw, fetched));
+            // A refresh can save the same body at a new time; the cached parse carries the old one.
+            return speed == null || speed.fetchedAtMillis == fetched ? speed : ModelSpeed.parse(body, fetched);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** The model's earlier samples, oldest first: {throughput, latency ms}, NaN when missing. */
     static List<double[]> history(Context context, String model) {
-        List<double[]> out = new ArrayList<>();
         try {
-            JSONArray a = new JSONArray(prefs(context).getString("hist_" + model, "[]"));
-            for (int i = 0; i < a.length(); i++) {
-                JSONArray x = a.getJSONArray(i);
-                out.add(new double[] {x.optDouble(1, Double.NaN), x.optDouble(2, Double.NaN)});
-            }
+            return ParsedCache.get("speed_history/" + model, prefs(context).getString("hist_" + model, "[]"), raw -> {
+                List<double[]> out = new ArrayList<>();
+                JSONArray a = new JSONArray(raw);
+                for (int i = 0; i < a.length(); i++) {
+                    JSONArray x = a.getJSONArray(i);
+                    out.add(new double[] {x.optDouble(1, Double.NaN), x.optDouble(2, Double.NaN)});
+                }
+                return java.util.Collections.unmodifiableList(out);
+            });
         } catch (Exception ignored) {
             // A bad history only means no baseline yet.
+            return new ArrayList<>();
         }
-        return out;
     }
 
     /** Significant slowdowns of the provider's followed models right now; empty when normal. */

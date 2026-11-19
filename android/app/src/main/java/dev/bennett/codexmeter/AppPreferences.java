@@ -97,7 +97,8 @@ public final class AppPreferences {
             return null;
         }
         try {
-            return UsageSnapshot.fromJson(new JSONObject(string));
+            return ParsedCache.get("snapshot/codex", string,
+                    raw -> UsageSnapshot.fromJson(new JSONObject(raw)));
         } catch (Exception e) {
             return null;
         }

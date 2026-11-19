@@ -627,13 +627,14 @@ public final class CodexGlass {
         for (int i = 0; i < c.stats.size(); i++) {
             String[] stat = c.stats.get(i);
             Runnable dismiss = i < c.statDismiss.size() ? c.statDismiss.get(i) : null;
+            String id = i < c.statIds.size() ? c.statIds.get(i) : null;
             String title = stat[0];
             String value = stat.length > 1 ? stat[1] : "";
             El row;
             if (dismiss != null) {
                 // two lines: what happened, then where and when ("Claude Code · 32m ago")
                 double h = 66;
-                row = R.h(DismissRow, P.of("key", "s" + i + ":" + title, "h", h, "title", title, "value", value,
+                row = R.h(DismissRow, P.of("key", id != null ? "d:" + id : "s" + i + ":" + title, "h", h, "title", title, "value", value,
                         "dismiss", dismiss, "dismissAll", c.dismissAll, "count", c.statDismiss.size(),
                         "section", c.title != null ? c.title : c.detail));
             } else {
@@ -642,7 +643,7 @@ public final class CodexGlass {
                                 "label", Text(P.of("size", 17, "ls", -0.34, "lines", 2, "color", t.pal.label), title)),
                         Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label2), value));
             }
-            rows.add(withHairline(row, i > 0, t, "r" + i + ":" + title));
+            rows.add(withHairline(row, i > 0, t, id != null ? "r:" + id : "r" + i + ":" + title));
         }
         if (c.onPress != null) {
             // a closing row that acts on the card ("Change model")

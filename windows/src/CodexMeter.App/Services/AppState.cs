@@ -341,7 +341,7 @@ public sealed class AppState
 
     public async Task ClearHistoryAsync(UsageProvider? provider = null)
     {
-        foreach (var entry in provider is null ? Entries : [this[provider]])
+        foreach (var entry in provider is null ? Entries : (ProviderEntry[])[this[provider]])
         {
             await HistoryStore.ClearAsync(entry.Provider.Id);
             entry.History = new ProviderHistory();
@@ -400,7 +400,7 @@ public sealed class AppState
                 {
                     ClaudeResets = expiring ? s.ClaudeResets with { LastExpiryKey = null } : s.ClaudeResets with { LastLowToken = null },
                 });
-            Alerts?.Invoke([new UsageAlert(UsageAlertKind.Reset, expiring ? "Used an expiring Claude reset" : "Used a Claude reset",
+            Alerts?.Invoke((UsageAlert[])[new UsageAlert(UsageAlertKind.Reset, expiring ? "Used an expiring Claude reset" : "Used a Claude reset",
                 !result.Applied ? result.UserMessage
                 : expiring ? $"Your {decision.Grant.Title} would have expired soon, so Codex Meter used it. {decision.Grant.RefillsText}"
                 : $"Your {decision.WindowLabel} limit was down to {decision.RemainingPercent}%, so Codex Meter used a saved reset. {decision.Grant.RefillsText}",
@@ -436,7 +436,7 @@ public sealed class AppState
                 {
                     if (!autoUsedCredits.Add(due.Token)) continue;
                     var result = await UseResetAsync(due.CreditId);
-                    Alerts?.Invoke([new UsageAlert(UsageAlertKind.Reset, "Used an expiring Codex reset",
+                    Alerts?.Invoke((UsageAlert[])[new UsageAlert(UsageAlertKind.Reset, "Used an expiring Codex reset",
                         result.Applied ? "It would have expired soon, so Codex Meter used it. Your 5-hour and weekly limits are clear."
                             : result.UserMessage, "autouse:" + due.Token)]);
                     return;
@@ -449,7 +449,7 @@ public sealed class AppState
                 if (!decision.Fires) return;
                 Settings.Update(s => s with { AutoUseLastToken = decision.WindowToken });
                 var result = await UseResetAsync(null);
-                Alerts?.Invoke([new UsageAlert(UsageAlertKind.Reset, "Used a Codex reset",
+                Alerts?.Invoke((UsageAlert[])[new UsageAlert(UsageAlertKind.Reset, "Used a Codex reset",
                     result.Applied ? $"Your {decision.WindowLabel} limit was down to {decision.RemainingPercent}%, so Codex Meter used a banked reset."
                         : result.UserMessage, "autouse:" + decision.WindowToken)]);
             }
