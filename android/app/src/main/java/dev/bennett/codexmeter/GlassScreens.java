@@ -233,6 +233,13 @@ final class GlassScreens {
                         return ((AddAccountActivity) activity()).glassPage();
                     }
                 } : null;
+            case "onboarding":
+                return activity instanceof OnboardingActivity ? new Hosted(this) {
+                    @Override
+                    GlassModel.Page page() {
+                        return ((OnboardingActivity) activity()).expressivePage();
+                    }
+                } : null;
             case "signin":
                 return activity instanceof SignInActivity ? new Hosted(this) {
                     @Override
@@ -245,7 +252,7 @@ final class GlassScreens {
         }
     }
 
-    /** A page whose activity builds it (Add account, sign-in): its model comes from that activity. */
+    /** A page whose activity builds it (Add account, sign-in, first-run setup): its model comes from that activity. */
     private abstract static class Hosted extends Screen {
         Hosted(GlassScreens screens) {
             super(screens);
