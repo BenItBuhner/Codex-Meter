@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -71,6 +72,7 @@ public final class WhatsNewActivity extends AppCompatActivity {
         from.startActivity(intent);
     }
 
+    @SuppressLint("ThreadConstraint")
     @Override
     protected void onCreate(Bundle bundle) {
         boolean expressive = AppPreferences.isMaterialExpressiveDesign(this);
@@ -103,6 +105,8 @@ public final class WhatsNewActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ Liquid Glass
 
+    // The 96dp logo is encoded to PNG on the main thread before the page draws. Lint 9.5 marks
+    // Bitmap.compress @WorkerThread (flagged at onCreate); it is a few kilobytes, as in GlassWidgetScreens.
     private void showGlass() {
         GlassApp.applyLook(this);
         GlassModel.Intro intro = new GlassModel.Intro();
