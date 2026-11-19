@@ -7,16 +7,31 @@ import Darwin
 /// `-perf-budget`; then the first screen logs one line, `codexmeter.first_frame_ms=<milliseconds
 /// since the process started>` (-1 when the kernel's start time can't be read), and writes the
 /// same line to `tmp/codexmeter-first-frame.txt` in the app's container, which the budget scripts
-/// read on the simulator.
+/// read on the simulator. Launch steps marked with `mark(_:)` before then are logged on a second
+/// line, `codexmeter.phases=<name>:<ms> ...`, so a slow launch shows where its time went.
 @MainActor
 public enum PerfBudgetProbe {
     public static let argument = "-perf-budget"
     public static let marker = "codexmeter.first_frame_ms="
     public static let fileName = "codexmeter-first-frame.txt"
+    public static let phasesMarker = "codexmeter.phases="
     private static var reported = false
+    private static var phasesClosed = false
+    private static var phases: [String] = []
+    private static let enabled = ProcessInfo.processInfo.arguments.contains(argument)
 
-    public static var isEnabled: Bool {
-        ProcessInfo.processInfo.arguments.contains(argument)
+    public static var isEnabled: Bool { enabled }
+
+    /// Notes that launch reached `phase`, in milliseconds since the process started. Does nothing
+    /// without `-perf-budget`, or once the first frame was reported.
+    public static func mark(_ phase: String) {
+        guard enabled, !phasesClosed else { return }
+        phases.append("\(phase):\(millisecondsSinceProcessStart() ?? -1)")
+    }
+
+    /// The marked phases as the report's second line, oldest first.
+    static func phasesLine() -> String {
+        phasesMarker + phases.joined(separator: " ")
     }
 
     /// Call from the first screen's `onAppear`. The report waits one main-queue turn, so it lands
@@ -24,11 +39,15 @@ public enum PerfBudgetProbe {
     public static func firstScreenAppeared() {
         guard isEnabled, !reported else { return }
         reported = true
+        mark("appeared")
         DispatchQueue.main.async {
+            phasesClosed = true
             let line = "\(marker)\(millisecondsSinceProcessStart() ?? -1)"
+            let phases = phasesLine()
+            NSLog("%@", phases)
             NSLog("%@", line)
             let file = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-            try? Data((line + "\n").utf8).write(to: file, options: .atomic)
+            try? Data((phases + "\n" + line + "\n").utf8).write(to: file, options: .atomic)
         }
     }
 

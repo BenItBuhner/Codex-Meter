@@ -17,6 +17,10 @@
     <SelfContained>true</SelfContained>
     <EnableMsixTooling>true</EnableMsixTooling>
     <PublishTrimmed>false</PublishTrimmed>
+    <!-- Start-up: precompile the app and its WinUI projections instead of JIT-compiling them at
+         launch. Tiered PGO's instrumentation buys nothing for an app this small. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <TieredPGO>false</TieredPGO>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>

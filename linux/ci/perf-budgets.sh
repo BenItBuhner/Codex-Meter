@@ -18,9 +18,13 @@ APP="${1:?path to the codex-meter executable required}"
 LAUNCHES="${LAUNCHES:-7}"
 
 # First measured 2026-11-17: 7 first frames between 516 and 551 ms (median 536 ms), working set
-# 176.0-177.2 MB. The ceilings leave about 45% and 30% headroom over the worst launch.
-MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-800}"
-MAX_WORKING_SET_MB="${MAX_WORKING_SET_MB:-230}"
+# 176.0-177.2 MB. 70 MB of that was Mesa's software OpenGL, which GTK loaded although the app drew
+# with cairo (the job now sets GDK_DEBUG=gl-disable), and much of the start-up was the JIT
+# compiling the GTK bindings (the release build is now ReadyToRun). Measured 2026-11-19: 211-233 ms
+# (median 221 ms), 114.6-115.3 MB. The ceilings leave about 70% and 20% headroom over the worst
+# launch: a shared runner's first frames swing more, in proportion, than its memory does.
+MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-400}"
+MAX_WORKING_SET_MB="${MAX_WORKING_SET_MB:-140}"
 
 report="$(mktemp)"
 launch() {

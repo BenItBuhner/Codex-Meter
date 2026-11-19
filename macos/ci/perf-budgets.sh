@@ -25,6 +25,7 @@ BUNDLE_ID="com.bukovinafilip.CodexMeter"
 MODE_KEY="codex-meter.session-mode-v1"
 LAUNCHES="${LAUNCHES:-7}"
 MARKER="codexmeter.first_frame_ms="
+PHASES_MARKER="codexmeter.phases="
 
 case "$PLATFORM" in
   ios)
@@ -41,11 +42,13 @@ case "$PLATFORM" in
     MARKER_FILE="$(xcrun simctl get_app_container "$DEVICE" "$BUNDLE_ID" data)/tmp/codexmeter-first-frame.txt"
     ;;
   mac)
-    # First measured 2026-11-17 (warm launches): medians 2917 and 3121 ms, single launches
-    # 2.8-5.7 s on the VM runner; footprint 43.8-45.4 MB. The first frame is slow for a Mac app
-    # and worth a profile; the ceiling keeps it from getting worse meanwhile.
-    MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-4500}"
-    MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-65}"
+    # First measured 2026-11-17 (warm launches): medians 2917 and 3121 ms, but only in a run whose
+    # iPhone step had just left vmmap stalled on the simulator for minutes. On a quiet runner the
+    # medians are 626-922 ms (single launches 536-1466 ms; runners differ by about 50%),
+    # footprint 42.6-45.4 MB, so CI now measures the Mac before the simulator boots. The ceilings
+    # leave about 2x the slowest runner's median and 20% over the largest footprint.
+    MAX_FIRST_FRAME_MS="${MAX_FIRST_FRAME_MS:-2000}"
+    MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-55}"
     TITLE="Mac"
     BIN="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")"
     defaults write "$BUNDLE_ID" "$MODE_KEY" demo
@@ -84,6 +87,8 @@ launch() {
     # NSLog prefixes a timestamp and the process name, so match the marker anywhere.
     if grep -qE "$MARKER-?[0-9]+" "$log"; then
       frame="$(grep -oE "$MARKER-?[0-9]+" "$log" | head -n 1 | cut -d= -f2)"
+      # Where the launch's time went (PerfBudgetProbe.mark), ms since process start.
+      echo "launch: $frame ms; $(grep -oE "${PHASES_MARKER}.*" "$log" | head -n 1 | cut -d= -f2-)"
       return
     fi
     sleep 0.5

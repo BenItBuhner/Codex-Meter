@@ -14,6 +14,8 @@ final class PerfBudgetProbeTests: XCTestCase {
     @MainActor
     func testOffWithoutTheLaunchArgument() {
         XCTAssertFalse(PerfBudgetProbe.isEnabled)
+        PerfBudgetProbe.mark("launch") // ignored without the argument
         PerfBudgetProbe.firstScreenAppeared() // must not write anything or crash
+        XCTAssertEqual(PerfBudgetProbe.phasesLine(), PerfBudgetProbe.phasesMarker)
     }
 }
