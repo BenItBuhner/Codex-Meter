@@ -18,7 +18,18 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(2.0)
         defer { gallery.mark("tour-finished") }
 
-        let app = UITestSupport.launch(arguments: ["-ui-testing-reset-settings"])
+        // What's new after a big update comes first: the whole tour runs close to its time cap.
+        // Full screen; Continue closes it for good.
+        let app = UITestSupport.launch(arguments: ["-ui-testing-whats-new"])
+        XCTAssertTrue(app.buttons["whats-new-continue"].waitForExistence(timeout: 8))
+        UITestSupport.settle(1.0)
+        capture("00-whats-new")
+        UITestSupport.tap(app.buttons["whats-new-continue"])
+        XCTAssertTrue(app.buttons["whats-new-continue"].waitForNonExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments = ["-ui-testing-reset-settings"]
+        app.launch()
         XCTAssertTrue(app.buttons["Explore demo"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.0)
         capture("01-signed-out")
@@ -324,16 +335,6 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Connect Claude Code"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
         capture("22-onboarding-connect")
-
-        // What's new after a big update: full screen, Continue closes it for good.
-        app.terminate()
-        app.launchArguments = ["-ui-testing-whats-new"]
-        app.launch()
-        XCTAssertTrue(app.buttons["whats-new-continue"].waitForExistence(timeout: 8))
-        UITestSupport.settle(1.0)
-        capture("22b-whats-new")
-        UITestSupport.tap(app.buttons["whats-new-continue"])
-        XCTAssertTrue(app.buttons["whats-new-continue"].waitForNonExistence(timeout: 5))
 
         // Settings → Accounts opens its own page: connected accounts, then Add account
         // (nothing is connected on a signed-out install).
