@@ -69,6 +69,12 @@ public final class GlassModel {
          * null entry, or a list shorter than {@link #stats}, leaves that row fixed.
          */
         public final List<Runnable> statDismiss = new ArrayList<>();
+        /**
+         * STATS: per row, what the row stands for (an event, a model), so a row keeps its identity
+         * when one above it is dismissed. Without it a row moving up took over the dismissed row's
+         * key, and with it its swiped-away state, and vanished. Null entries key by position.
+         */
+        public final List<String> statIds = new ArrayList<>();
         /** STATS: "Dismiss all" in a row's hold menu; null for none. */
         public Runnable dismissAll;
 

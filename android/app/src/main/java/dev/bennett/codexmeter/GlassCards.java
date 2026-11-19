@@ -135,6 +135,7 @@ final class GlassCards {
         int dismissible = PriorityNote.dismissible(notes);
         for (PriorityNote n : notes) {
             c.stats.add(n.dismissible() ? n.lines() : new String[] {n.title, n.value});
+            c.statIds.add(n.id());
             c.statDismiss.add(n.dismissible() ? () -> {
                 PriorityPage.dismiss(a, n);
                 a.rebuild();
