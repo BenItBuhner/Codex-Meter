@@ -595,14 +595,19 @@ final class GlassScreens {
             return page;
         }
 
-        private void add(String key, String title, String summary) {
-            items.add(new String[] {key, title, summary});
+        private void build(Context c) {
+            items.addAll(cards(c, provider));
         }
 
-        private void build(Context c) {
+        /**
+         * The cards {@code provider}'s dashboard can show, in the saved order: {key, title, summary}
+         * each. Edit dashboard lists them, and the dashboard's filter menu switches them.
+         */
+        static List<String[]> cards(Context c, UsageProvider provider) {
+            List<String[]> items = new ArrayList<>();
             if (provider != UsageProvider.CODEX) {
-                buildProvider(c);
-                return;
+                buildProvider(c, provider, items);
+                return items;
             }
             UsageSnapshot snapshot = AppPreferences.loadSnapshot(c);
             List<UsageLimit> limits = snapshot == null
@@ -612,27 +617,28 @@ final class GlassScreens {
                     DashboardSections.defaultOrder(limits));
             for (String key : ordered) {
                 if (DashboardSections.FIVE_HOUR.equals(key)) {
-                    add(key, "5-hour limit", "Rolling 5-hour Codex window");
+                    add(items, key, "5-hour limit", "Rolling 5-hour Codex window");
                 } else if (DashboardSections.WEEKLY.equals(key)) {
-                    add(key, "Weekly limit", "Rolling 7-day Codex window");
+                    add(items, key, "Weekly limit", "Rolling 7-day Codex window");
                 } else if (DashboardSections.MONTHLY.equals(key)) {
-                    add(key, "Monthly limit", "Rolling ~30-day Codex window (free tier)");
+                    add(items, key, "Monthly limit", "Rolling ~30-day Codex window (free tier)");
                 } else if (DashboardSections.SPEND_CONTROL.equals(key)) {
-                    add(key, "Monthly credit limit",
+                    add(items, key, "Monthly credit limit",
                             "Workspace spend limit · shown only when OpenAI reports one");
                 } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
-                    add(key, "Usage-credit balance", "Hidden automatically at a zero or negative balance");
+                    add(items, key, "Usage-credit balance", "Hidden automatically at a zero or negative balance");
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
-                    add(key, "Usage history", "Shown only when a 5-hour or weekly window is available");
+                    add(items, key, "Usage history", "Shown only when a 5-hour or weekly window is available");
                 } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                    add(key, "Reset credits", "Hidden automatically when no resets are available");
+                    add(items, key, "Reset credits", "Hidden automatically when no resets are available");
                 } else {
-                    add(key, limitName(limits, key), "Model-specific limit · detected automatically");
+                    add(items, key, limitName(limits, key), "Model-specific limit · detected automatically");
                 }
             }
+            return items;
         }
 
-        private void buildProvider(Context c) {
+        private static void buildProvider(Context c, UsageProvider provider, List<String[]> items) {
             UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(c, provider);
             List<UsageLimit> limits = snapshot == null
                     ? Collections.<UsageLimit>emptyList() : snapshot.additionalLimits;
@@ -647,23 +653,27 @@ final class GlassScreens {
             boolean cursor = provider == UsageProvider.CURSOR;
             for (String key : ordered) {
                 if (DashboardSections.FIVE_HOUR.equals(key)) {
-                    add(key, "5-hour limit", "Rolling 5-hour " + provider.displayName + " window");
+                    add(items, key, "5-hour limit", "Rolling 5-hour " + provider.displayName + " window");
                 } else if (DashboardSections.WEEKLY.equals(key)) {
-                    add(key, cursor ? "Weekly usage" : "Weekly limit",
+                    add(items, key, cursor ? "Weekly usage" : "Weekly limit",
                             cursor ? "Your plan's usage, refreshed weekly"
                                     : "Rolling 7-day " + provider.displayName + " window");
                 } else if (DashboardSections.MONTHLY.equals(key)) {
-                    add(key, cursor ? "Monthly usage" : "Monthly limit",
+                    add(items, key, cursor ? "Monthly usage" : "Monthly limit",
                             cursor ? "Your plan's usage for the billing month"
                                     : "Monthly " + provider.displayName + " window");
                 } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
-                    add(key, "Usage history", "Burn charts from usage samples kept on this device");
+                    add(items, key, "Usage history", "Burn charts from usage samples kept on this device");
                 } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                    add(key, "Reset credits", "Hidden automatically when no resets are available");
+                    add(items, key, "Reset credits", "Hidden automatically when no resets are available");
                 } else {
-                    add(key, limitName(limits, key), "Reported by " + provider.vendorName + " for your plan");
+                    add(items, key, limitName(limits, key), "Reported by " + provider.vendorName + " for your plan");
                 }
             }
+        }
+
+        private static void add(List<String[]> items, String key, String title, String summary) {
+            items.add(new String[] {key, title, summary});
         }
 
         private static String limitName(List<UsageLimit> limits, String key) {

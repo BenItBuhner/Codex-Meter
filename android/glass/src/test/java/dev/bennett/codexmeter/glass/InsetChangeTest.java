@@ -16,7 +16,7 @@ public class InsetChangeTest {
     /** A foldable window whose status bar inset arrives after the first frame. */
     @Test
     public void navButtonsMoveBelowAStatusBarThatArrivesLate() {
-        // the top bar's buttons (Duo would put them in the right-edge column)
+        // the top bar's glass buttons, Filter and Settings (Duo would put them in the right-edge column)
         CodexGlass.setDuoMode(CodexGlass.DUO_OFF);
         FakeSource src = new FakeSource();
         Map<String, ScreenMaker> makers = new LinkedHashMap<>();
@@ -28,7 +28,7 @@ public class InsetChangeTest {
         c.run(2500);
         com.benitbuhner.glasse.kit.KitScreen kit =
                 (com.benitbuhner.glasse.kit.KitScreen) c.host.apps.get(CodexGlass.DASHBOARD);
-        Matcher m = Pattern.compile("icon 6\\d\\d(?:\\.\\d+)?,([-0-9.]+),22,22").matcher(c.dump(kit.scene.root));
+        Matcher m = Pattern.compile("glass (?:5[5-9]|6\\d)\\d(?:\\.\\d+)?,([-0-9.]+),44,44").matcher(c.dump(kit.scene.root));
         int buttons = 0;
         while (m.find()) {
             buttons++;

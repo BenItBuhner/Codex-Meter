@@ -3,7 +3,7 @@
   "component": {
     "group": "com.github.BenItBuhner.Glasse",
     "module": "glasse-demo-kt",
-    "version": "c12370edd1",
+    "version": "dd2d7953da",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -30,14 +30,14 @@
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasskit",
           "version": {
-            "requires": "c12370edd1"
+            "requires": "dd2d7953da"
           }
         },
         {
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasse-assets",
           "version": {
-            "requires": "c12370edd1"
+            "requires": "dd2d7953da"
           }
         },
         {
@@ -50,8 +50,8 @@
       ],
       "files": [
         {
-          "name": "glasse-demo-kt-c12370edd1.jar",
-          "url": "glasse-demo-kt-c12370edd1.jar",
+          "name": "glasse-demo-kt-dd2d7953da.jar",
+          "url": "glasse-demo-kt-dd2d7953da.jar",
           "size": 171597,
           "sha512": "fd5fc3a3c581c2de17118a36d1e24ac532948fa9dfd3efc0996cdcbbdcf31717b734b2f4786fa3e1600964ec7e2adbf3b39d6c66487557199dd8862671bf75df",
           "sha256": "24321dbdd0380d17f16ce0b6747d0f53858190af1db494cef9dbbc2e4da654d0",
@@ -76,14 +76,14 @@
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasskit",
           "version": {
-            "requires": "c12370edd1"
+            "requires": "dd2d7953da"
           }
         },
         {
           "group": "com.github.BenItBuhner.Glasse",
           "module": "glasse-assets",
           "version": {
-            "requires": "c12370edd1"
+            "requires": "dd2d7953da"
           }
         },
         {
@@ -96,8 +96,8 @@
       ],
       "files": [
         {
-          "name": "glasse-demo-kt-c12370edd1.jar",
-          "url": "glasse-demo-kt-c12370edd1.jar",
+          "name": "glasse-demo-kt-dd2d7953da.jar",
+          "url": "glasse-demo-kt-dd2d7953da.jar",
           "size": 171597,
           "sha512": "fd5fc3a3c581c2de17118a36d1e24ac532948fa9dfd3efc0996cdcbbdcf31717b734b2f4786fa3e1600964ec7e2adbf3b39d6c66487557199dd8862671bf75df",
           "sha256": "24321dbdd0380d17f16ce0b6747d0f53858190af1db494cef9dbbc2e4da654d0",

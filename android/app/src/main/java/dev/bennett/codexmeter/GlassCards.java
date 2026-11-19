@@ -94,7 +94,7 @@ final class GlassCards {
         long now = System.currentTimeMillis();
         if (page.allClear()) {
             Card clear = new Card(Card.Kind.MESSAGE);
-            clear.title = PriorityPage.ALL_CLEAR;
+            clear.title = page.emptyLine();
             d.cards.add(clear);
         }
         addNotes(a, d, PriorityPage.NEWS, page.news);
