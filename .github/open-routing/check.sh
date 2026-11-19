@@ -61,10 +61,9 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
   adb shell input tap $xy
 }
 
-# Taps the middle of the home-screen widget (the first view the app draws on the launcher).
-tap_widget() {
-  local xy
-  xy=$(dump | python3 -c '
+# Prints the middle of the home-screen widget on the current launcher page, if it is there.
+widget_xy() {
+  dump | python3 -c '
 import re, sys
 for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
     attrs = dict(re.findall(r"([\w-]+)=\"([^\"]*)\"", node))
@@ -76,16 +75,55 @@ for node in re.findall(r"<node [^>]*>", sys.stdin.read()):
         x1, y1, x2, y2 = map(int, re.findall(r"\d+", attrs["bounds"]))
         print((x1 + x2) // 2, (y1 + y2) // 2)
         break
-')
-  if [[ -z "$xy" ]]; then
-    # The launcher's view tree is often not readable (the dump comes back empty); the pinned
-    # widget sits in the top-left cells of the first home page (see 01-home-with-claude-widget).
-    adb exec-out cat /sdcard/ui.xml > "$OUT/home-dump.xml" 2>/dev/null || true
-    echo "widget not in the view dump; tapping its home-screen position" >&2
-    at 0.27 0.15
-    return 0
-  fi
-  adb shell input tap $xy
+'
+}
+
+# Taps the home-screen widget. The launcher may have added it to a later page (when the first is
+# full), so this looks through the first few pages.
+tap_widget() {
+  local xy page
+  for page in 1 2 3; do
+    xy="$(widget_xy)"
+    [[ -n "$xy" ]] && { adb shell input tap $xy; return 0; }
+    adb exec-out cat /sdcard/ui.xml > "$OUT/home-dump-$page.xml" 2>/dev/null || true
+    adb shell input swipe "$(( W * 85 / 100 ))" "$(( H / 2 ))" "$(( W * 15 / 100 ))" "$(( H / 2 ))" 250
+    sleep 1
+  done
+  # Older launcher builds return an empty view dump; there the widget sits in the top-left cells
+  # of the first page (see 01-home-with-claude-widget).
+  home
+  echo "widget not in the view dump; tapping its home-screen position" >&2
+  at 0.27 0.15
+}
+
+# Whether a Codex Meter widget is placed: the app's own count of bound home widgets, which only
+# includes a pinned widget once the launcher has accepted it.
+widget_pinned() {
+  harness widget_count
+  local count
+  count="$(adb logcat -d -s RoutingHarness:I | sed -n 's/.*widgets=\([0-9]*\).*/\1/p' | tail -1)"
+  echo "placed widgets: ${count:-unknown}" >&2
+  [[ "${count:-0}" -gt 0 ]]
+}
+
+# Asks the launcher to add the widget and accepts its dialog, retrying when the dialog was slow
+# to appear and nothing got added. Without this, a missed dialog left an empty home screen and
+# the widget taps landed on the launcher's own date and search widgets.
+pin_widget() {
+  for _ in 1 2 3; do
+    harness pin
+    for _ in 1 2 3 4 5; do
+      sleep 2
+      tap_view "Add to home screen" 2>/dev/null || tap_view "ADD TO HOME SCREEN" 2>/dev/null \
+        || tap_view "Add automatically" 2>/dev/null || tap_view "Add" 2>/dev/null || continue
+      break
+    done
+    sleep 3; home
+    widget_pinned && return 0
+    echo "widget not added yet; asking the launcher again" >&2
+  done
+  shot widget-not-added 0
+  return 1
 }
 
 # Taps the live notification showing provider $1 (its display name) in the open shade.
@@ -149,10 +187,7 @@ for DESIGN in "${DESIGNS[@]}"; do
   demo --es open_provider codex
   home
   if [[ $PINNED == 0 ]]; then
-    harness pin; sleep 2
-    tap_view "Add to home screen" || tap_view "ADD TO HOME SCREEN" || tap_view "Add automatically" \
-      || tap_view "Add"
-    sleep 3; home
+    pin_widget || { echo "::error::The launcher never added the widget, so its taps can't be checked" >&2; exit 1; }
     PINNED=1
   fi
   harness widget_provider --es id claude_code
@@ -172,6 +207,10 @@ for DESIGN in "${DESIGNS[@]}"; do
   # 2. Warm: the user was on the Cursor tab with Settings › Appearance open, then went home.
   log_step "widget warm $DESIGN"
   demo --es open_provider cursor
+  # demo force-stops the app, and a force stop cancels every PendingIntent the app made, the
+  # widget's tap target included, until the widget is drawn again (a user's force stop does the
+  # same). Redraw it, as the cold step does, so the tap below tests routing and not that.
+  harness widget_provider --es id claude_code
   open_settings_appearance
   shot "$DESIGN-03-settings-open-before-home" 0
   home

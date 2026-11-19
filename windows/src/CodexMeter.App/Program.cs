@@ -47,6 +47,9 @@ public sealed record LaunchOptions(bool Demo, string? ScreenshotDirectory, bool 
     /// <summary><c>--installed-version X</c> (only with <c>--update-feed</c>): pretend to be another version.</summary>
     public string? InstalledVersionOverride { get; init; }
 
+    /// <summary><c>--perf-budget FILE</c>: demo mode, then write the start-up time and memory to FILE and quit (CI budgets).</summary>
+    public string? PerfBudgetFile { get; init; }
+
     public bool AllowMultipleInstances => Demo || ScreenshotDirectory is not null;
 
     public static LaunchOptions Parse(string[] args)
@@ -59,11 +62,13 @@ public sealed record LaunchOptions(bool Demo, string? ScreenshotDirectory, bool 
         bool Flag(string name) => args.Any(a => string.Equals(a, name, StringComparison.OrdinalIgnoreCase));
         var screenshots = Value("--screenshots");
         var feed = Value("--update-feed");
-        return new LaunchOptions(Flag("--demo") || screenshots is not null, screenshots, Flag("--minimized"),
+        var perf = Value("--perf-budget");
+        return new LaunchOptions(Flag("--demo") || screenshots is not null || perf is not null, screenshots, Flag("--minimized"),
             Value("--theme"), Value("--page"), Flag("--demo-signed-out"))
         {
             UpdateFeed = feed,
             InstalledVersionOverride = feed is null ? null : Value("--installed-version"),
+            PerfBudgetFile = perf,
         };
     }
 }

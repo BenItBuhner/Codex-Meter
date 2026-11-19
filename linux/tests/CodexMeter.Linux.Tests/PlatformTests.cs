@@ -92,6 +92,10 @@ public sealed class PlatformTests : IDisposable
         Assert.True(plain.StartHidden);
         Assert.False(plain.AllowMultipleInstances);
         Assert.True(LaunchOptions.Parse(["--demo-signed-out"]).SignedOutDemo);
+        var perf = LaunchOptions.Parse(["--perf-budget", "/tmp/perf.txt"]);
+        Assert.True(perf.Demo);
+        Assert.Equal("/tmp/perf.txt", perf.PerfBudgetFile);
+        Assert.Null(plain.PerfBudgetFile);
     }
 
     [Fact]

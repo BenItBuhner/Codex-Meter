@@ -146,6 +146,16 @@ public sealed class App
 
             _ = State.RefreshAllAsync(force: false);
 
+            if (options.PerfBudgetFile is { } perfFile)
+            {
+                // Redraws run at a higher priority than idle work, so this runs once the first frame is drawn.
+                GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
+                {
+                    _ = ReportPerfBudgetAsync(perfFile, PerfBudget.MillisecondsSinceProcessStart());
+                    return false;
+                });
+            }
+
             if (options.ScreenshotDirectory is { } directory)
             {
                 ExitCode = await new ScreenshotRunner(window, State, directory, options.SignedOutDemo ? "signed-out-" : "").RunAsync();
@@ -163,6 +173,20 @@ public sealed class App
             ExitCode = 2;
             Quit();
         }
+    }
+
+    private async Task ReportPerfBudgetAsync(string path, double firstFrameMilliseconds)
+    {
+        try
+        {
+            await PerfBudget.WriteAfterSettleAsync(path, firstFrameMilliseconds);
+        }
+        catch (Exception error)
+        {
+            AppLog.Write("Performance budget report failed: " + error);
+            ExitCode = 4;
+        }
+        Quit();
     }
 
     /// <summary>Holds the application open while "keep running" is on, so hiding the window doesn't quit.</summary>

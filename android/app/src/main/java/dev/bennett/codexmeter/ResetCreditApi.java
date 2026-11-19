@@ -18,6 +18,10 @@ public final class ResetCreditApi {
     }
 
     public static ResetCreditsSnapshot refreshAndCache(Context context) throws Exception {
+        if (DemoMode.isOn(context, UsageProvider.CODEX)) {
+            DemoMode.refresh(context, UsageProvider.CODEX);
+            return AppPreferences.loadResetCredits(context);
+        }
         ResetCreditsSnapshot resetCreditsSnapshotRefreshAndCacheLocked;
         synchronized (UsageApi.NETWORK_LOCK) {
             UsageApi.installCookieManager();
@@ -60,6 +64,7 @@ public final class ResetCreditApi {
 
     public static ResetConsumeResult consumeAvailable(Context context, String creditId)
             throws Exception {
+        DemoMode.requireRealAccount(context, UsageProvider.CODEX);
         Context app = context.getApplicationContext() == null ? context : context.getApplicationContext();
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(app, "user", "reset_credit_use_requested");

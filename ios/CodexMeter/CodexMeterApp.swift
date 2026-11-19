@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 import UserNotifications
 
@@ -60,6 +61,7 @@ struct CodexMeterApp: App {
         WindowGroup {
             ContentView()
                 .environment(model)
+                .onAppear { PerfBudgetProbe.firstScreenAppeared() }
                 .onReceive(NotificationCenter.default.publisher(for: .codexMeterOpenRoute)) { note in
                     if let route = note.userInfo?["route"] as? String {
                         model.handle(route: route)

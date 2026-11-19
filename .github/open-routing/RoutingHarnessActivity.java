@@ -11,6 +11,7 @@ import android.util.Log;
  * Debug-only helper for the open-routing check (copied in by the workflow, never shipped).
  * Extra "do":
  *   pin              asks the launcher to add a home-screen widget
+ *   widget_count     logs how many home widgets are placed ("widgets=N", tag RoutingHarness)
  *   widget_provider  shows provider "id" on every home widget
  *   live             starts the live notification for provider "id", as its app opening would
  *   stop_live        stops the live notification
@@ -26,6 +27,10 @@ public class RoutingHarnessActivity extends Activity {
             if ("pin".equals(action)) {
                 AppWidgetManager.getInstance(this).requestPinAppWidget(
                         new ComponentName(this, CodexUsageWidget.class), null, null);
+            } else if ("widget_count".equals(action)) {
+                int placed = AppWidgetManager.getInstance(this).getAppWidgetIds(
+                        new ComponentName(this, CodexUsageWidget.class)).length;
+                Log.i("RoutingHarness", "widgets=" + placed);
             } else if ("widget_provider".equals(action)) {
                 AppWidgetManager manager = AppWidgetManager.getInstance(this);
                 for (int widget : manager.getAppWidgetIds(

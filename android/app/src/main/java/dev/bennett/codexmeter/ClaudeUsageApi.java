@@ -65,6 +65,7 @@ public final class ClaudeUsageApi {
      *     refresh that follows spending a reset
      */
     static UsageSnapshot refreshAndCache(Context context, boolean autoUse) throws Exception {
+        if (DemoMode.isOn(context, PROVIDER)) return DemoMode.refresh(context, PROVIDER);
         UsageSnapshot fresh = refreshAndCacheLocked(context);
         if (autoUse) ClaudeResetApi.autoUseIfDue(context);
         try {
@@ -199,6 +200,7 @@ public final class ClaudeUsageApi {
     }
 
     static AuthTokens usableTokens(Context context) throws Exception {
+        DemoMode.requireRealAccount(context, PROVIDER);
         AuthTokens tokens = SecureTokenStore.load(context, PROVIDER);
         if (tokens == null) {
             throw new Exception("Sign in with Claude first.");

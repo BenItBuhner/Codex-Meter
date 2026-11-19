@@ -46,6 +46,7 @@ public final class CursorUsageApi {
     }
 
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
+        if (DemoMode.isOn(context, PROVIDER)) return DemoMode.refresh(context, PROVIDER);
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(context, "refresh", "cursor_usage_refresh_started");
         try {
@@ -129,6 +130,7 @@ public final class CursorUsageApi {
     }
 
     static AuthTokens usableTokens(Context context) throws Exception {
+        DemoMode.requireRealAccount(context, PROVIDER);
         AuthTokens tokens = SecureTokenStore.load(context, PROVIDER);
         if (tokens == null) {
             throw new Exception("Sign in with Cursor first.");

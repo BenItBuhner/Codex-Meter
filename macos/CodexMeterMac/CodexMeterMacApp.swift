@@ -116,6 +116,7 @@ struct CodexMeterMacApp: App {
             } else {
                 MacRootView()
                     .environment(model)
+                    .onAppear { PerfBudgetProbe.firstScreenAppeared() }
             }
         }
         .defaultSize(width: 1_040, height: 760)

@@ -88,6 +88,61 @@ stop_record() {
   adb shell rm -f "/sdcard/$1.mp4" || true
 }
 
+# Taps the first view whose text or description matches $1; fails when there is none (Liquid
+# Glass draws its own controls, so its buttons aren't in the view tree).
+tap_text() {
+  local b
+  b=$(bounds_of "$1") || true
+  [ -n "$b" ] || return 1
+  set -- $b
+  # A view below the fold is in the tree too; tapping it would hit whatever is on screen there.
+  (( ($2 + $4) / 2 < H * 93 / 100 )) || return 1
+  adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
+}
+
+# Taps $1, scrolling down up to three times to bring it on screen.
+tap_text_scrolling() {
+  local i
+  for i in 0 1 2 3; do
+    tap_text "$1" && return 0
+    (( i < 3 )) && scroll_down
+  done
+  return 1
+}
+
+# Whether demo mode is on: its tabs carry the "Leave demo" button.
+in_demo() { [ -n "$(bounds_of "Leave demo")" ]; }
+
+# Demo mode from a fresh install: setup's Explore demo, the sample dashboards with their notice,
+# Leave demo back to the sign-in screen, and Explore demo from there.
+run_demo() {
+  local d="$1" p="demo-$1"
+  adb shell pm clear "$PKG" >/dev/null
+  adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
+  adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es design "$d" --es theme light \
+    --es open_activity OnboardingActivity >/dev/null
+  shot "$p-01-setup" 6
+  if tap_text_scrolling "Explore demo"; then
+    sleep 8
+    [ "$d" = liquid_glass ] || in_demo || echo "::warning::Explore demo on the $d setup screen did not start demo mode"
+  fi
+  if ! in_demo; then
+    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez enter_demo true >/dev/null
+    sleep 6
+  fi
+  shot "$p-02-codex" 6
+  scroll_down;                       shot "$p-03-codex-scrolled" 3
+  adb shell am start -W -S -n "$PKG/.MainActivity" --es provider claude_code >/dev/null
+  shot "$p-04-claude-code" 6
+  adb shell am start -W -S -n "$PKG/.MainActivity" --es provider cursor >/dev/null
+  shot "$p-05-cursor" 6
+  if ! tap_text_scrolling "Leave demo"; then
+    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez leave_demo true >/dev/null
+  fi
+  shot "$p-06-left-demo" 6
+  if tap_text_scrolling "Explore demo"; then shot "$p-07-demo-again" 8; fi
+}
+
 run_design() {
   local d="$1" t="$2" p="$1-$2"
   # Dashboard: title alone (no subheader), the real Usage history chart instead of bars.
@@ -111,6 +166,13 @@ run_design() {
     --es open_widget_metric five_hour >/dev/null
   shot "$p-14-widget-settings" 7
 }
+
+for design in liquid_glass one_ui_9 material_3_expressive; do
+  run_demo "$design"
+done
+# The tester scenes below start from a clean install, not from the demo.
+adb shell pm clear "$PKG" >/dev/null
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
 
 for design in material_3_expressive liquid_glass one_ui_9 classic; do
   run_design "$design" light

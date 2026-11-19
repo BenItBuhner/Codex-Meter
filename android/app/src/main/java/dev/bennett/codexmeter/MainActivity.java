@@ -802,6 +802,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 Ui.addSpacer(this.content, 20);
             }
             addStatusCard(UsageProvider.CODEX);
+            if (DemoMode.isOn(this, UsageProvider.CODEX)) addDemoNotice();
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
                 this.content.addView(dashboard);
@@ -814,6 +815,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                                 ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
                 this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+                addExploreDemoButton(UsageProvider.CODEX);
                 Ui.addSpacer(this.content, 20);
             }
             if (signedIn && dashboard.getChildCount() == 0) {
@@ -2007,6 +2009,49 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         rebuild();
     }
 
+    /** "Explore demo": sample usage for the signed-out Codex, Claude Code and Cursor tabs. */
+    public void enterDemo() {
+        try {
+            List<UsageProvider> demo = DemoMode.enter(this);
+            if (!demo.isEmpty()) {
+                this.provider = demo.get(0);
+                PriorityPrefs.setTabSelected(this, false);
+            }
+        } catch (Exception exception) {
+            DiagnosticLog.error(this, "user", "demo_enter_failed", exception);
+            Toast.makeText(this, "Could not open the demo.", Toast.LENGTH_SHORT).show();
+        }
+        rebuild();
+    }
+
+    /** Removes the sample usage; real accounts stay signed in. */
+    public void leaveDemo() {
+        DemoMode.leave(this);
+        rebuild();
+    }
+
+    /** "Explore demo" under a One UI sign-in button, for the providers demo mode covers. */
+    private void addExploreDemoButton(UsageProvider target) {
+        if (!DemoMode.PROVIDERS.contains(target)) return;
+        Ui.addSpacer(this.content, 12);
+        Button demo = Ui.button(this, "Explore demo", false, this.dark);
+        demo.setOnClickListener(view -> enterDemo());
+        this.content.addView(demo, new LinearLayout.LayoutParams(-1, Ui.dp(this, 56)));
+    }
+
+    /** One UI's demo banner: says the tab is sample data and offers Leave demo. */
+    private void addDemoNotice() {
+        TextView note = Ui.text(this, "Demo data. Sign in from Settings, Accounts to see your "
+                + "own usage.", 14.0f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
+        noteParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 8));
+        this.content.addView(note, noteParams);
+        Button leave = Ui.button(this, "Leave demo", false, this.dark);
+        leave.setOnClickListener(view -> leaveDemo());
+        this.content.addView(leave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 52)));
+        Ui.addSpacer(this.content, 20);
+    }
+
     /**
      * Dashboard for providers other than Codex. It reuses the Codex metric cards; widgets,
      * Now Bar, Wear, alerts, and burn history remain Codex-only for now.
@@ -2027,8 +2072,10 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                             ? "Continue sign-in" : target.signInLabel());
             signIn.setOnClickListener(view -> startOrContinueSignIn(target));
             this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+            addExploreDemoButton(target);
             return;
         }
+        if (DemoMode.isOn(this, target)) addDemoNotice();
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(this, target);
         String error = ProviderPreferences.getLastError(this, target);
         if (!error.isEmpty()) {
