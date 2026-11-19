@@ -9,7 +9,7 @@ public protocol TokenStoring: Sendable {
 
 /// The Keychain service for the app's tokens, outside the actor so the initializer's default
 /// argument doesn't read the actor's own static.
-private let keychainTokenService = "com.bukovinafilip.CodexMeter.auth"
+@usableFromInline let keychainTokenService = "com.bukovinafilip.CodexMeter.auth"
 
 /// App-only credential persistence. This type is intentionally absent from the
 /// widget target and does not use an access group shared with extensions.
