@@ -113,6 +113,14 @@ tap_text_scrolling() {
 # Whether demo mode is on: its tabs carry the "Leave demo" button.
 in_demo() { [ -n "$(bounds_of "Leave demo")" ]; }
 
+# Logs what is on screen and the stored setup and demo flags, for a demo shot that looks wrong.
+demo_state() {
+  echo "-- $1: $(adb shell dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity' | tr -s ' ')"
+  adb shell run-as "$PKG" cat shared_prefs/codex_meter_settings_v1.xml 2>/dev/null \
+    | grep -E 'onboarding|demo' | sed 's/^/   /' || true
+  adb logcat -d -t 400 ActivityTaskManager:I '*:S' | grep -E 'START|Displayed' | tail -4 | sed 's/^/   /' || true
+}
+
 # Demo mode from a fresh install: setup's Explore demo, the sample dashboards with their notice,
 # Leave demo back to the sign-in screen, and Explore demo from there.
 run_demo() {
@@ -131,9 +139,11 @@ run_demo() {
     sleep 6
   fi
   shot "$p-02-codex" 6
+  demo_state "$p-02-codex"
   scroll_down;                       shot "$p-03-codex-scrolled" 3
   adb shell am start -W -S -n "$PKG/.MainActivity" --es provider claude_code >/dev/null
   shot "$p-04-claude-code" 6
+  demo_state "$p-04-claude-code"
   adb shell am start -W -S -n "$PKG/.MainActivity" --es provider cursor >/dev/null
   shot "$p-05-cursor" 6
   if ! tap_text_scrolling "Leave demo"; then

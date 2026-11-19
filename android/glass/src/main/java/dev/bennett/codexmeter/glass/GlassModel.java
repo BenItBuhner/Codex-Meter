@@ -203,6 +203,8 @@ public final class GlassModel {
         public boolean checked;
         public boolean enabled = true;
         public boolean destructive;
+        /** BUTTON: a secondary action under the primary one (tonal in Material 3 Expressive). */
+        public boolean secondary;
         public String[] entries;
         public int selected = -1;
         /** LINK and SWITCH_LINK: the page this row opens, when it is a settings page. */
