@@ -405,25 +405,18 @@ jobs:
           set -euo pipefail
           xcodebuild build -project macos/CodexMeterMac.xcodeproj -scheme CodexMeterMac -configuration Release \
             -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/mac" $SIGNING_ARGS -quiet
+      # The Mac goes first: a simulator that is booting, or a vmmap stalled on one, made Mac
+      # launches 4-5x slower (3.1 s medians against 0.6-0.7 s on a quiet runner).
+      - name: Measure Mac start-up and memory
+        run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
       - name: Measure iPhone start-up and memory
+        if: success() || failure()
         env:
           DEVICE_NAME: ${{ steps.simulator.outputs.device }}
         run: |
           set -euo pipefail
           APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
           macos/ci/perf-budgets.sh ios "$APP" "$DEVICE_NAME"
-      - name: Measure Mac start-up and memory
-        if: success() || failure()
-        run: |
-          top -l 1 -o cpu -n 10 -stats pid,command,cpu,mem | tail -n 12
-          MAX_FIRST_FRAME_MS=99999 macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app" || true
-      - name: EXPERIMENT Mac again with the simulator shut down
-        if: success() || failure()
-        run: |
-          xcrun simctl shutdown all || true
-          sleep 20
-          top -l 1 -o cpu -n 10 -stats pid,command,cpu,mem | tail -n 12
-          macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
       - name: Upload screenshots of a launch that printed no first frame
         if: failure()
         uses: actions/upload-artifact@v7
