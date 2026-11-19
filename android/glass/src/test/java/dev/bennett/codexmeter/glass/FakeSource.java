@@ -88,6 +88,9 @@ final class FakeSource implements GlassSource {
 
     /** the Priority tab, with Recent activity like the person's phone showed */
     boolean priority;
+    /** what the filter menu switched off, by label */
+    final java.util.Set<String> hidden = new java.util.HashSet<>();
+    int rearranged;
     /** Recent activity rows dismissed so far */
     final List<Integer> dismissed = new ArrayList<>();
 
@@ -127,7 +130,8 @@ final class FakeSource implements GlassSource {
         GlassModel.Card models = new GlassModel.Card(GlassModel.Card.Kind.STATS);
         models.title = "New models";
         models.detail = models.title;
-        String[][] listed = {{"Claude Fable 5.1", "For Claude Code"}, {"GPT-5.6 Codex", "For Codex"}};
+        String[][] listed = {{"Claude Fable 5.1", "For Claude Code"}, {"GPT-5.6 Codex", "For Codex"},
+                {"GPT-5.6 Sol", "For Codex"}, {"GPT-5.6 Sol Pro", "For Codex"}};
         for (int i = 0; i < listed.length; i++) {
             if (dismissedModels.contains(i)) {
                 continue;
@@ -140,8 +144,9 @@ final class FakeSource implements GlassSource {
             });
         }
         models.dismissAll = () -> {
-            dismissedModels.add(0);
-            dismissedModels.add(1);
+            for (int i = 0; i < listed.length; i++) {
+                dismissedModels.add(i);
+            }
             changed();
         };
         if (!models.stats.isEmpty()) {
@@ -254,8 +259,26 @@ final class FakeSource implements GlassSource {
         if (noEdit) {
             return Arrays.asList(new MenuEntry("Settings", "gearshape", false, null));
         }
+        String[] shows = priority
+                ? new String[] {"Outages and slowdowns", "Recent activity", "Limits to watch", "Used up",
+                        "Saved resets you can use", "Coming up", "New models"}
+                : new String[] {"5-hour limit", "Weekly limit", "Usage history", "Reset credits"};
+        List<Toggle> toggles = new ArrayList<>();
+        for (String label : shows) {
+            boolean on = !hidden.contains(label);
+            toggles.add(new Toggle(label, on, () -> {
+                if (on) {
+                    hidden.add(label);
+                } else {
+                    hidden.remove(label);
+                }
+                changed();
+            }));
+        }
+        List<MenuEntry> actions = priority ? null
+                : Arrays.asList(new MenuEntry("Rearrange cards", "arrows", false, () -> rearranged++));
         return Arrays.asList(
-                new MenuEntry("Edit dashboard", "squarePencil", false, null),
+                new MenuEntry("Filter", "filter", toggles, actions),
                 new MenuEntry("Settings", "gearshape", false, () -> {
                     if (onSettings != null) {
                         onSettings.run();

@@ -1025,7 +1025,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             Ui.addSpacer(this.content, 20);
         }
         if (page.allClear()) {
-            TextView clear = Ui.text(this, PriorityPage.ALL_CLEAR, 14.0f, Ui.secondaryText(this.dark));
+            TextView clear = Ui.text(this, page.emptyLine(), 14.0f, Ui.secondaryText(this.dark));
             clear.setGravity(Gravity.CENTER);
             this.content.addView(clear, new LinearLayout.LayoutParams(-1, -2));
             Ui.addSpacer(this.content, 20);

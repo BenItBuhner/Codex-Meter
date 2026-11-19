@@ -35,11 +35,43 @@ public interface GlassSource {
         public final boolean destructive;
         public final Runnable onSelect;
 
+        /**
+         * A filter menu instead of a plain button: the switches it opens with (checked = shown).
+         * Picking one flips it and keeps the menu open. Null for a plain button.
+         */
+        public final List<Toggle> toggles;
+        /** Actions under the switches, after a separator (Rearrange cards). */
+        public final List<MenuEntry> actions;
+
         public MenuEntry(String label, String icon, boolean destructive, Runnable onSelect) {
+            this(label, icon, destructive, onSelect, null, null);
+        }
+
+        public MenuEntry(String label, String icon, List<Toggle> toggles, List<MenuEntry> actions) {
+            this(label, icon, false, null, toggles, actions);
+        }
+
+        private MenuEntry(String label, String icon, boolean destructive, Runnable onSelect, List<Toggle> toggles,
+                List<MenuEntry> actions) {
             this.label = label;
             this.icon = icon;
             this.destructive = destructive;
             this.onSelect = onSelect;
+            this.toggles = toggles;
+            this.actions = actions;
+        }
+    }
+
+    /** One switch in a bar's filter menu: what it shows, whether it is on, and how to flip it. */
+    final class Toggle {
+        public final String label;
+        public final boolean on;
+        public final Runnable flip;
+
+        public Toggle(String label, boolean on, Runnable flip) {
+            this.label = label;
+            this.on = on;
+            this.flip = flip;
         }
     }
 
@@ -61,6 +93,11 @@ public interface GlassSource {
      * page), or null. Taking it clears it.
      */
     Nav takeNav();
+
+    /** True when {@code page} opens with its lists already in edit mode (Rearrange cards). */
+    default boolean editsOnOpen(String page) {
+        return false;
+    }
 
     /** The settings page now on top (to reopen it after the activity is rebuilt). */
     default void shown(String page) {

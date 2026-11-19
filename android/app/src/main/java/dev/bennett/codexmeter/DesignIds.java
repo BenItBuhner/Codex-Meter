@@ -63,21 +63,26 @@ final class DesignIds {
      * app's default. Advisory only: it is used once, on first run, when nothing is saved yet, and
      * Settings can change it any time.
      *
-     * <p>Pixels and other Google-made phones get Material 3 Expressive. Samsung phones get One UI 9
-     * only when the One UI version itself ({@code ro.build.version.oneui}) says 9 or later; the
-     * Android version is not the One UI version, so a Samsung phone that doesn't report it keeps
-     * the default (One UI 8.5).
+     * <p>Samsung phones get the One UI design closest to their own: One UI 9 when the One UI
+     * version itself ({@code ro.build.version.oneui}) says 9 or later, else One UI 8.5 (classic).
+     * The Android version is not the One UI version, so a Samsung phone that doesn't report it gets
+     * One UI 8.5. Every other phone (Pixels, OnePlus, Motorola, Nothing…) runs Google's Material
+     * look, so it gets Material 3 Expressive. Only a device that names no maker keeps the default.
      *
      * @param oneUiVersion {@code ro.build.version.oneui} as a number, or 0 when it can't be read
      */
     static String suggestFor(String manufacturer, String brand, int oneUiVersion) {
-        if (is("google", manufacturer) || is("google", brand)) {
-            return MATERIAL_3_EXPRESSIVE;
-        }
         if (is("samsung", manufacturer) || is("samsung", brand)) {
             return oneUiVersion >= ONE_UI_9_VERSION ? ONE_UI_9 : CLASSIC;
         }
+        if (known(manufacturer) || known(brand)) {
+            return MATERIAL_3_EXPRESSIVE;
+        }
         return null;
+    }
+
+    private static boolean known(String value) {
+        return value != null && !value.trim().isEmpty() && !is("unknown", value);
     }
 
     private static boolean is(String want, String value) {

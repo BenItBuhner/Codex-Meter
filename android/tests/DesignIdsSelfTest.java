@@ -29,8 +29,12 @@ public final class DesignIdsSelfTest {
         check(DesignIds.ONE_UI_9.equals(DesignIds.suggestFor("samsung", "samsung", 90100)), "One UI 9.1 reported");
         check(DesignIds.CLASSIC.equals(DesignIds.suggestFor("samsung", "samsung", 80500)), "One UI 8.5 reported");
         check(DesignIds.CLASSIC.equals(DesignIds.suggestFor("samsung", "samsung", 0)), "One UI unknown stays default");
-        check(DesignIds.suggestFor("OnePlus", "OnePlus", 0) == null, "others keep default");
+        check(DesignIds.MATERIAL_3_EXPRESSIVE.equals(DesignIds.suggestFor("OnePlus", "OnePlus", 0)), "OnePlus");
+        check(DesignIds.MATERIAL_3_EXPRESSIVE.equals(DesignIds.suggestFor("motorola", "motorola", 0)), "Motorola");
+        check(DesignIds.MATERIAL_3_EXPRESSIVE.equals(DesignIds.suggestFor("Nothing", "Nothing", 0)), "Nothing");
+        check(DesignIds.ONE_UI_9.equals(DesignIds.suggestFor("SAMSUNG", " Samsung ", 90000)), "Samsung casing");
         check(DesignIds.suggestFor(null, null, 0) == null, "nothing known");
+        check(DesignIds.suggestFor("unknown", "", 0) == null, "unknown maker keeps default");
         System.out.println("Design ids move both former Liquid Glass looks to the one Liquid Glass.");
     }
 

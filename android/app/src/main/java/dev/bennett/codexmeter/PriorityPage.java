@@ -118,8 +118,32 @@ final class PriorityPage {
 
     /** Shown when no limit is running out early or used up, and nothing is wrong. */
     static final String ALL_CLEAR = "Nothing needs attention right now.";
+    /** Shown instead when the filter menu hides everything there is. */
+    static final String ALL_FILTERED = "Everything here is filtered out.";
+
+    /** The line for an empty page: all clear, or all filtered out. */
+    String emptyLine() {
+        return filtered ? ALL_FILTERED : ALL_CLEAR;
+    }
     /** The heading over {@link #usedUp}. */
     static final String USED_UP = "Used up";
+
+    /**
+     * Priority's sections the filter menu switches, in page order: {key, label}. The keys are
+     * stored, so keep them when the labels change.
+     */
+    static final String[][] SECTIONS = {
+            {"alerts", "Outages and slowdowns"},
+            {"news", NEWS},
+            {"watch", "Limits to watch"},
+            {"used_up", USED_UP},
+            {"ready", READY},
+            {"coming_up", COMING_UP},
+            {"models", NEW_MODELS},
+    };
+
+    /** True when the filter menu hides something that would show now. */
+    boolean filtered;
 
     boolean allClear() {
         return watch.isEmpty() && usedUp.isEmpty() && alerts.isEmpty() && news.isEmpty() && ready.isEmpty()
@@ -164,7 +188,26 @@ final class PriorityPage {
                 page.alerts.add(item);
             }
         }
+        page.filter(a);
         return page;
+    }
+
+    /** Empties the sections the filter menu switched off. */
+    private void filter(Context context) {
+        hide(context, "alerts", alerts);
+        hide(context, "news", news);
+        hide(context, "watch", watch);
+        hide(context, "used_up", usedUp);
+        hide(context, "ready", ready);
+        hide(context, "coming_up", comingUp);
+        hide(context, "models", models);
+    }
+
+    private void hide(Context context, String key, List<?> list) {
+        if (!list.isEmpty() && !PriorityPrefs.isSectionShown(context, key)) {
+            list.clear();
+            filtered = true;
+        }
     }
 
     private static void addNotes(MainActivity a, PriorityPage page, List<Limit> limits, long now) {

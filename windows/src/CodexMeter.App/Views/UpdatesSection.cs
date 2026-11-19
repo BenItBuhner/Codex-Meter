@@ -71,8 +71,8 @@ public sealed class UpdatesSection
         AutomationProperties.SetAutomationId(notify, "UpdateNotifySwitch");
         notify.Toggled += (_, _) => save(p => p with { Notify = notify.IsOn });
 
-        Elements = new FrameworkElement[]
-        {
+        Elements = (FrameworkElement[])
+        [
             status,
             new SettingsCard { Header = "Release notes", HeaderIcon = new FontIcon { Glyph = "" }, Content = notes, Visibility = Visibility.Collapsed, Tag = "notes" },
             new SettingsCard
@@ -97,7 +97,7 @@ public sealed class UpdatesSection
                 HeaderIcon = new FontIcon { Glyph = "" },
                 Content = notify,
             },
-        };
+        ];
         Render();
     }
 

@@ -54,6 +54,41 @@ public final class UsagePaceDemoActivity extends Activity {
             finish();
             return;
         }
+        // Optional: first-run setup at a step ("onboarding_step", 0 = welcome), with the providers
+        // already chosen ("onboarding_providers", comma-separated ids) and Codex signed in when
+        // "onboarding_codex_signed_in" is set. Pair with open_activity=OnboardingActivity.
+        String onboardingStep = getIntent().getStringExtra("onboarding_step");
+        if (onboardingStep != null && !onboardingStep.isEmpty()) {
+            java.util.List<UsageProvider> providers = new java.util.ArrayList<>();
+            String ids = getIntent().getStringExtra("onboarding_providers");
+            if (ids != null && !ids.isEmpty()) {
+                for (String id : ids.split(",")) {
+                    providers.add(UsageProvider.fromId(id.trim()));
+                }
+            }
+            AppPreferences.setOnboardingProviders(this, providers);
+            if (!providers.isEmpty()) {
+                ProviderPreferences.setEnabledProviders(this, providers);
+            }
+            AppPreferences.setOnboardingStep(this, Integer.parseInt(onboardingStep.trim()));
+            if (getIntent().getBooleanExtra("onboarding_codex_signed_in", false)) {
+                try {
+                    SecureTokenStore.save(this, new AuthTokens(
+                            "debug-demo-access", "debug-demo-refresh", "", Long.MAX_VALUE,
+                            "debug-demo-account", "demo@codexmeter.local"));
+                } catch (Exception exception) {
+                    throw new IllegalStateException("Could not seed the Codex sign-in", exception);
+                }
+            }
+        }
+        // Optional: a provider's sign-in screen ("signin_provider", a provider id).
+        String signInProvider = getIntent().getStringExtra("signin_provider");
+        if (signInProvider != null && !signInProvider.isEmpty()) {
+            startActivity(SignInActivity.intent(this, UsageProvider.fromId(signInProvider))
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
         String screen = getIntent().getStringExtra("open_activity");
         if (screen != null && !screen.isEmpty()) {
             try {

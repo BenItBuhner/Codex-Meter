@@ -26,8 +26,8 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
     {
         Directory.CreateDirectory(directory);
         await Task.Delay(1500);
-        var pages = (state.Settings.Current.ShowPriority && state.SignedIn.Count > 0 ? new[] { "priority" } : Array.Empty<string>())
-            .Concat(state.EnabledProviders.Select(p => p.Id)).Concat(new[] { "accounts", "settings" }).ToList();
+        var pages = (state.Settings.Current.ShowPriority && state.SignedIn.Count > 0 ? new[] { "priority" } : [])
+            .Concat(state.EnabledProviders.Select(p => p.Id)).Concat((string[])["accounts", "settings"]).ToList();
         var firstProvider = state.EnabledProviders.FirstOrDefault()?.Id ?? "codex";
         var failures = 0;
         foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
