@@ -19,11 +19,16 @@ adb shell wm size 1440x3088
 adb shell wm density 600
 sleep 3
 adb install -r "$APK"
+# The scenes clear the app between shots, and Pixel Launcher stopped responding under that
+# churn: its "isn't responding" dialog covered every page. Nothing here needs a home screen.
+adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher >/dev/null || true
 W=1440
 H=3088
 
 shot() {
   sleep "${2:-5}"
+  adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+  sleep 1
   adb exec-out screencap -p > "$OUT/$1.png"
   echo "Saved $1.png"
 }
