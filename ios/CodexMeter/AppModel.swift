@@ -350,7 +350,7 @@ final class AppModel {
         apply(history: await usageHistoryStore.load())
         DiagnosticLog.info("process", "started", details: [
             "mode": mode.rawValue,
-            "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+            "app_version": AppVersion.display
         ])
         defer {
             hasFinishedStartup = true

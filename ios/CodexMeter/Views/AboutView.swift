@@ -10,7 +10,7 @@ struct AboutView: View {
     private static let diagnosticTaps = 7
 
     private var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        AppVersion.display
     }
 
     var body: some View {

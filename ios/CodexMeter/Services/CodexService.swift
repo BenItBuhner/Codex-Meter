@@ -10,7 +10,7 @@ public typealias CodexRefreshSnapshot = (
 ///
 /// Credentials deliberately do not appear in the refresh results, which keeps it
 /// straightforward to pass the resulting snapshots to the widget cache safely.
-nonisolated public protocol CodexService: Sendable {
+public protocol CodexService: Sendable {
     func refresh() async throws -> CodexRefreshSnapshot
     func refreshUsage() async throws -> UsageSnapshot
     func refreshResetCredits() async throws -> ResetCreditsSnapshot

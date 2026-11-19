@@ -574,6 +574,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         GlassModel.Section actions = GlassScreens.section(null);
         actions.rows.add(expressiveButton("continue", "Continue",
                 () -> showStep(OnboardingFlow.STEP_PROVIDERS)));
+        GlassModel.Row demo = expressiveButton("demo", "Explore demo", this::exploreDemo);
+        demo.secondary = true;
+        actions.rows.add(demo);
         if (suggested != null) {
             actions.footer = "Codex Meter starts in the " + DesignIds.label(suggested)
                     + " design on this phone. You can pick another any time in Settings, "

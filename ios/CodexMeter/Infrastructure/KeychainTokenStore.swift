@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-nonisolated public protocol TokenStoring: Sendable {
+public protocol TokenStoring: Sendable {
     func load() async throws -> AuthTokens?
     func save(_ tokens: AuthTokens) async throws
     func delete() async throws

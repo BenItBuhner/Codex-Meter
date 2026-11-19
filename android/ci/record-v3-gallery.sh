@@ -28,8 +28,19 @@ adb logcat -c || true
 W=1440
 H=3088
 
+# Closes a system "isn't responding" dialog (the emulator's launcher can stall while the app
+# starts), which hide_error_dialogs no longer hides, by waiting on it.
+dismiss_anr() {
+  adb shell dumpsys window | grep -q "Application Not Responding" || return 0
+  echo "::warning::A system isn't-responding dialog was on screen; waiting on it"
+  adb logcat -d -b events | grep am_anr | tail -1 || true
+  tap_text Wait || adb shell input keyevent KEYCODE_BACK
+  sleep 1
+}
+
 shot() {
   sleep "${2:-5}"
+  dismiss_anr
   adb exec-out screencap -p > "$OUT/$1.png"
   echo "Saved $1.png"
 }
@@ -113,6 +124,14 @@ tap_text_scrolling() {
 # Whether demo mode is on: its tabs carry the "Leave demo" button.
 in_demo() { [ -n "$(bounds_of "Leave demo")" ]; }
 
+# Logs what is on screen and the stored setup and demo flags, for a demo shot that looks wrong.
+demo_state() {
+  echo "-- $1: $(adb shell dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity' | tr -s ' ')"
+  adb shell run-as "$PKG" cat shared_prefs/codex_meter_settings_v1.xml 2>/dev/null \
+    | grep -E 'onboarding|demo' | sed 's/^/   /' || true
+  adb logcat -d -t 400 ActivityTaskManager:I '*:S' | grep -E 'START|Displayed' | tail -4 | sed 's/^/   /' || true
+}
+
 # Demo mode from a fresh install: setup's Explore demo, the sample dashboards with their notice,
 # Leave demo back to the sign-in screen, and Explore demo from there.
 run_demo() {
@@ -127,17 +146,21 @@ run_demo() {
     [ "$d" = liquid_glass ] || in_demo || echo "::warning::Explore demo on the $d setup screen did not start demo mode"
   fi
   if ! in_demo; then
-    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez enter_demo true >/dev/null
+    # Clear the task: a plain start only brings setup's task, which this activity began, to the
+    # front without running it again, so the shortcut never applied.
+    adb shell am start -W --activity-clear-task -n "$PKG/.UsagePaceDemoActivity" --ez enter_demo true >/dev/null
     sleep 6
   fi
   shot "$p-02-codex" 6
+  demo_state "$p-02-codex"
   scroll_down;                       shot "$p-03-codex-scrolled" 3
   adb shell am start -W -S -n "$PKG/.MainActivity" --es provider claude_code >/dev/null
   shot "$p-04-claude-code" 6
+  demo_state "$p-04-claude-code"
   adb shell am start -W -S -n "$PKG/.MainActivity" --es provider cursor >/dev/null
   shot "$p-05-cursor" 6
   if ! tap_text_scrolling "Leave demo"; then
-    adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --ez leave_demo true >/dev/null
+    adb shell am start -W --activity-clear-task -n "$PKG/.UsagePaceDemoActivity" --ez leave_demo true >/dev/null
   fi
   shot "$p-06-left-demo" 6
   if tap_text_scrolling "Explore demo"; then shot "$p-07-demo-again" 8; fi

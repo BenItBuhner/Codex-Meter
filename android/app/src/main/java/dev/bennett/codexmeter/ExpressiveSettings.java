@@ -492,6 +492,9 @@ final class ExpressiveSettings {
                 if (r.destructive) {
                     b.setBackgroundTintList(ColorStateList.valueOf(color(R.attr.colorError)));
                     b.setTextColor(color(R.attr.colorOnError));
+                } else if (r.secondary) {
+                    b.setBackgroundTintList(ColorStateList.valueOf(color(R.attr.colorSecondaryContainer)));
+                    b.setTextColor(color(R.attr.colorOnSecondaryContainer));
                 }
                 b.setEnabled(r.enabled);
                 b.setOnClickListener(v -> {
