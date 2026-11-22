@@ -1,12 +1,28 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.32 — 2026-11-22
+
+### Added
+
+- **One Providers page with your accounts.** Settings, Accounts is folded into Providers: one list shows each provider with its account, switch and tab, Edit reorders it, Add account signs in another, and each provider's page has Sign out. Android; iOS, macOS, Windows and Linux follow in a later alpha.
+- **Edit on every Liquid Glass tab replaces the Filter menu.** Edit turns the page itself into an edit view, like Photos: tap a section to show or hide it, and drag its handle to reorder. Hidden sections stay in the list so they can always be switched back on, and changes save as you make them. Android.
+- **Priority's sections can be reordered.** One UI, Classic and Material 3 Expressive draw Priority in the same order and hide the same sections. Android.
+- **Pull down on App update to check again.** Android.
 
 ### Changed
 
 - **Edit and Done in Liquid Glass lists animate.** In Providers and other reorderable lists, the drag handles slide in and fade up while the toggles glide aside to make room, and they slide back out on Done. Before, they appeared and disappeared in a single frame. Android.
 - **A dragged row's shadow fades out as the row drops into place** instead of vanishing at the end. Android.
 - **Newest Glassé (Liquid Glass kit)**: menus and pickers share the menu glass, pickers support press-and-drag, the glass strength setting reaches every menu, and the tab bar no longer turns too bright. Android.
+- **The widget editor's preview fills its card** edge to edge, and the bar's Edit button there is gone (touch and hold still reorders meters). Android.
+- **Removed Reduce transparency and Increase contrast** from Liquid Glass appearance settings. Android.
+
+### Fixed
+
+- **One title at a time in Liquid Glass.** Settings pages and the dashboard no longer show the small bar title next to the large one; it appears only once the large title has scrolled away. Android.
+- **Light and Dark unlock right after turning off System default** in Liquid Glass. Android.
+- **Slider thumbs stay inside their card** at both ends, even while pressed. Android.
+- **The Filter menu's switches** no longer get stuck off, since the menu is gone. Android.
 
 ## 2.9.0-alpha.31 — 2026-11-19
 
