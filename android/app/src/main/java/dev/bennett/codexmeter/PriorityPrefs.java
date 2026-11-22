@@ -24,8 +24,8 @@ final class PriorityPrefs {
     }
 
     /**
-     * A Priority section the filter menu switched off (one of {@link PriorityPage#SECTIONS}'s keys).
-     * Every section shows by default.
+     * Whether a Priority section shows (one of {@link PriorityPage#SECTIONS}'s keys). Every section
+     * shows by default; the tab's Edit mode switches them.
      */
     static boolean isSectionShown(Context context, String key) {
         return !prefs(context).getBoolean("hide_" + key, false);
@@ -33,6 +33,30 @@ final class PriorityPrefs {
 
     static void setSectionShown(Context context, String key, boolean shown) {
         prefs(context).edit().putBoolean("hide_" + key, !shown).apply();
+    }
+
+    /**
+     * Priority's section keys in the order the tab shows them: the order Edit mode saved, then any
+     * section it did not know about yet in its default place.
+     */
+    static List<String> sectionOrder(Context context) {
+        List<String> order = new java.util.ArrayList<>();
+        for (String key : prefs(context).getString("order", "").split(",")) {
+            if (PriorityPage.isSection(key) && !order.contains(key)) {
+                order.add(key);
+            }
+        }
+        for (int i = 0; i < PriorityPage.SECTIONS.length; i++) {
+            String key = PriorityPage.SECTIONS[i][0];
+            if (!order.contains(key)) {
+                order.add(Math.min(i, order.size()), key);
+            }
+        }
+        return order;
+    }
+
+    static void setSectionOrder(Context context, List<String> order) {
+        prefs(context).edit().putString("order", String.join(",", order)).apply();
     }
 
     /** The Priority tab was the one showing when the app was last left, so it opens there again. */

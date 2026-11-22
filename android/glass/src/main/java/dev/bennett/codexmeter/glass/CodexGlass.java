@@ -17,6 +17,7 @@ import static com.benitbuhner.glasse.kit.Kit.Row;
 import static com.benitbuhner.glasse.kit.Kit.Stack;
 import static com.benitbuhner.glasse.kit.Kit.Text;
 import static com.benitbuhner.glasse.kit.KitMore.GlassSheet;
+import static com.benitbuhner.glasse.kit.KitMore.Presence;
 import static com.benitbuhner.glasse.kit.KitControls.ActivityIndicator;
 import static com.benitbuhner.glasse.kit.KitControls.ProgressBar;
 import static com.benitbuhner.glasse.kit.KitControls.TextFieldRow;
@@ -47,6 +48,7 @@ import com.benitbuhner.glasse.kit.Kit;
 import com.benitbuhner.glasse.kit.KitScreen;
 import com.benitbuhner.glasse.kit.NodeDraw;
 import com.benitbuhner.glasse.kit.KitLists;
+import com.benitbuhner.glasse.kit.KitMore;
 import com.benitbuhner.glasse.kit.KitPresent;
 import com.benitbuhner.glasse.kit.OnBool;
 import com.benitbuhner.glasse.kit.OnInt;
@@ -59,6 +61,7 @@ import com.benitbuhner.glasse.kit.R;
 import com.benitbuhner.glasse.kit.Ref;
 import com.benitbuhner.glasse.kit.State;
 import com.benitbuhner.glasse.kit.TopTab;
+import com.benitbuhner.glasse.core.GlassStyles;
 import com.benitbuhner.glasse.port.Sk;
 import com.benitbuhner.glasse.ui.Env;
 import com.benitbuhner.glasse.ui.MenuItem;
@@ -333,8 +336,12 @@ public final class CodexGlass {
         State<Boolean> past = R.useState(false);
         State<Boolean> min = R.useState(false);
         State<Boolean> more = R.useState(false);
-        // Duo: the rail has no room for a menu, so the filter button opens its switches in a sheet
-        State<Boolean> filters = R.useState(false);
+        // Edit mode (the bar's Edit): the page's sections as one list, each with a check to show or
+        // hide it and a handle to move it, faded in over the page where it stands (Photos' Customize
+        // and Reorder). editPast is that list's own scroll, for the bar's fade.
+        State<Boolean> editing = R.useState(false);
+        State<Boolean> editPast = R.useState(false);
+        OnScroll onEditScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> editPast.set(y > 46));
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> {
             past.set(y > 46);
             min.set(s.minimized);
@@ -348,13 +355,21 @@ public final class CodexGlass {
         R.useEffectRun(R.deps(selected), () -> {
             past.set(false);
             min.set(false);
+            editing.set(false);
         });
         GlassModel.Dashboard d = R.useMemo(R.deps(version, selected), src::dashboard);
+        GlassModel.Section sections = R.useMemo(R.deps(version, selected), src::editSections);
+        boolean edit = editing.get() && sections != null;
+        Runnable toggleEdit = R.useMemo(R.deps(), () -> (Runnable) () -> {
+            editPast.set(false);
+            editing.update(e -> !e);
+        });
+        KitMore.useBackHandler(edit, () -> editing.set(false));
 
         // Up to four providers get a tab each; with more, the first three and More (iOS's rule).
         // The Duo layout's column fits as many as its height allows.
         double rail = rail(t);
-        int fit = rail > 0 ? railTabsFit(t.H, t.T, t.B, buttons(src.menu())) : 4;
+        int fit = rail > 0 ? railTabsFit(t.H, t.T, t.B, buttons(src.menu()) + (sections != null ? 1 : 0)) : 4;
         boolean showsMore = tabs.size() > fit;
         int own = showsMore ? fit - 1 : tabs.size();
         List<Tab> kitTabs = new ArrayList<>();
@@ -371,15 +386,25 @@ public final class CodexGlass {
         int index = indexOf(tabs, selected);
         String value = more.get() || index >= own ? MORE : selected;
 
-        // The bar's buttons (Edit dashboard, Settings): each its own glass button, side by side like
-        // iOS's toolbar items. Pull the page down to refresh.
-        List<El> trailing = R.useMemo(R.deps(version, selected), () -> {
+        // The bar's buttons: Edit, then Settings, each its own glass button side by side like iOS's
+        // toolbar items. Edit works like Photos' Select: in Edit mode its capsule shrinks into a blue
+        // ✓ Done circle (the label blur-replaces into the check, the tint fades in) and Settings
+        // merges away into it; Done runs it backwards. Pull the page down to refresh.
+        List<El> trailing = R.useMemo(R.deps(version, selected, edit, sections != null), () -> {
             List<El> out = new ArrayList<>();
-            for (GlassSource.MenuEntry entry : src.menu()) {
-                if (entry != null) {
-                    out.add(entry.toggles != null ? filterMenu(entry)
-                            : GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
-                                    "icon", entry.icon, "onPress", entry.onSelect)));
+            if (sections != null) {
+                out.add(edit
+                        ? GlassButton(P.of("key", "edit", "id", "edit", "icon", "check", "w", 44, "h", 44,
+                                "glass", GlassStyles.tinted(t.accent, 0.92), "onPress", toggleEdit))
+                        : GlassButton(P.of("key", "edit", "id", "edit", "label", "Edit", "h", 44, "padX", 14,
+                                "onPress", toggleEdit)));
+            }
+            if (!edit) {
+                for (GlassSource.MenuEntry entry : src.menu()) {
+                    if (entry != null) {
+                        out.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
+                                "icon", entry.icon, "onPress", entry.onSelect)));
+                    }
                 }
             }
             return out;
@@ -395,6 +420,8 @@ public final class CodexGlass {
         });
 
         double[] bg = t.pal.groupedRGB;
+        // the bar's fade and title follow whichever list is in front
+        boolean fade = edit ? editPast.get() : past.get();
         OnStr pickTab = id -> {
             if (MORE.equals(id)) {
                 more.set(true);
@@ -409,14 +436,17 @@ public final class CodexGlass {
                 railTabs.add(new TopTab(tab.id, tab.label, tab.icon));
             }
             List<RailButton> railButtons = new ArrayList<>();
+            if (sections != null) {
+                // Edit: the app's pencil, a filled ✓ in Edit mode (the column has room for icons only)
+                railButtons.add(new RailButton("edit", edit ? "check" : "squarePencil", toggleEdit, edit));
+            }
             for (GlassSource.MenuEntry entry : src.menu()) {
-                if (entry != null) {
+                if (entry != null && !edit) {
                     // the same buttons, icons and order as the dashboard's bar; Settings is the glass
                     // Settings' Back takes over (LEAD), so opening Settings merges Edit into it the way
                     // the bar merges Edit into Settings, and its symbol swaps to Back
                     boolean lead = "gearshape".equals(entry.icon);
-                    railButtons.add(new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon,
-                            entry.toggles != null ? (Runnable) () -> filters.set(true) : entry.onSelect, false));
+                    railButtons.add(new RailButton(lead ? LEAD : "b:" + entry.icon, entry.icon, entry.onSelect, false));
                 }
             }
             if (shared) {
@@ -429,11 +459,12 @@ public final class CodexGlass {
                                     "padX", readablePad(t.W - rail), "tail", 110,
                                     "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
                                     "refreshing", src.refreshing()), body.toArray()),
-                            EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
-                            EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
+                            editLayer(sections, edit, d.title, t, t.W - rail, 110, onEditScroll),
+                            EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", fade)),
+                            EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", fade)),
                             EdgeFade(P.of("edge", "bottom", "h", t.B + 40, "color", bg)),
                             GlassNavBar(P.of("key", navKey(t) + ":duo", "title", d.title,
-                                    "titleVisible", past.get()))),
+                                    "titleVisible", fade))),
                     shared ? null : duoColumn(t, rail, railButtons.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
                             P.of("buttons", railButtons,
                             "tabs", railTabs.size() >= 2 ? railTabs : null,
@@ -444,19 +475,19 @@ public final class CodexGlass {
                                 src.selectTab(id);
                                 more.set(false);
                             })) : null,
-                    filterSheet(src.menu(), t, filters),
                     R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", DASHBOARD, "v", version)));
         }
         return Box(P.of("fill", true, "bg", t.pal.grouped),
                 GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", readablePad(t.W), "tail", 150,
                         "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
                         "refreshing", src.refreshing()), body.toArray()),
-                EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", past.get())),
+                editLayer(sections, edit, d.title, t, t.W, 150, onEditScroll),
+                EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", fade)),
                 // Once content scrolls under the floating bars, the bar's own band gets an even
                 // backdrop (a second fade over just the bar) instead of only the soft fade.
-                EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
+                EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", fade)),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
-                GlassNavBar(P.of("key", navKey(t), "title", d.title, "titleVisible", past.get(),
+                GlassNavBar(P.of("key", navKey(t), "title", d.title, "titleVisible", fade,
                         "trailing", trailing)),
                 kitTabs.size() >= 2 ? GlassTabBar(P.of(
                         "key", tabKey.toString(),
@@ -475,57 +506,66 @@ public final class CodexGlass {
     };
 
     /**
-     * A bar's filter button: a glass ⋯-style menu of switches (a check on what the tab shows) that stays open
-     * while they flip, then the tab's actions after a separator.
+     * Edit mode's page, faded in over the dashboard where it stands: the same large title (so it
+     * holds still while the cards dissolve into the list), a line on what to do, and every section
+     * of the tab, shown or hidden, in one list. Tap a row to show or hide its section; drag its
+     * handle to move it. The changes apply as they are made, and Done fades back to the page.
      */
-    private static El filterMenu(GlassSource.MenuEntry entry) {
-        List<MenuItem> items = new ArrayList<>();
-        for (GlassSource.Toggle toggle : entry.toggles) {
-            items.add(new MenuItem(toggle.label, null, false, toggle.flip, toggle.on, null, false, true));
-        }
-        if (entry.actions != null && !entry.actions.isEmpty()) {
-            items.add(null);
-            for (GlassSource.MenuEntry action : entry.actions) {
-                items.add(new MenuItem(action.label, action.icon, action.destructive, action.onSelect));
-            }
-        }
-        return GlassMenu(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon, "icon", entry.icon,
-                "width", 260, "items", items));
-    }
-
-    /** Duo: the filter button's switches and actions in a sheet, since the rail can't hold a menu. */
-    private static El filterSheet(List<GlassSource.MenuEntry> menu, KTheme t, State<Boolean> open) {
-        GlassSource.MenuEntry entry = null;
-        for (GlassSource.MenuEntry e : menu) {
-            if (e != null && e.toggles != null) {
-                entry = e;
-            }
-        }
-        if (entry == null) {
+    private static El editLayer(GlassModel.Section sections, boolean visible, String title, KTheme t,
+            double width, double tail, OnScroll onScroll) {
+        if (sections == null) {
             return null;
         }
-        Runnable close = () -> open.set(false);
-        List<El> rows = new ArrayList<>();
-        for (GlassSource.Toggle toggle : entry.toggles) {
-            rows.add(ListRow(P.of("key", "t:" + toggle.label, "label", toggle.label, "onPress", toggle.flip),
-                    toggle.on ? Icon(P.of("name", "check", "size", 18, "color", t.accent)) : null));
+        List<String> items = new ArrayList<>();
+        Map<String, GlassModel.Row> byKey = new HashMap<>();
+        for (int i = 0; i < sections.rows.size(); i++) {
+            GlassModel.Row r = sections.rows.get(i);
+            String k = r.key != null && !byKey.containsKey(r.key) ? r.key : "row" + i;
+            items.add(k);
+            byKey.put(k, r);
         }
-        List<El> actions = new ArrayList<>();
-        int n = entry.toggles.size();
-        if (entry.actions != null) {
-            for (GlassSource.MenuEntry action : entry.actions) {
-                actions.add(ListRow(P.of("key", "a:" + action.label, "label", action.label, "onPress",
-                        (Runnable) () -> {
-                            close.run();
-                            action.onSelect.run();
-                        })));
-                n++;
+        GlassModel.Mover mover = sections.onMove;
+        return Presence(P.of("key", "edit-layer", "visible", visible, "abs", true, "left", 0, "top", 0,
+                        "w", width, "h", t.H, "from", P.of("opacity", 0, "scale", 1.0), "k", 300, "d", 34),
+                Box(P.of("fill", true, "bg", t.pal.grouped),
+                        GlassScrollView(P.of("key", "edit-list", "padT", t.T + 64, "padX", readablePad(width),
+                                        "tail", tail, "onScroll", onScroll),
+                                LargeTitle(title, 6.0),
+                                Text(P.of("size", 15, "lh", 20, "lines", 4, "ml", 4, "mr", 4, "mb", 22,
+                                        "color", t.pal.label2), sections.header),
+                                ReorderList(P.of("key", "edit-sections", "footer", sections.footer,
+                                        "items", items, "editing", true, "rowH", EDIT_ROW_H, "inset", 52,
+                                        "onMove", mover == null ? null : (KitLists.OnMove) mover::move,
+                                        "renderRow", (KitLists.RenderRow) (k, i) -> editRow(byKey.get(k), t))))));
+    }
+
+    static final double EDIT_ROW_H = 60;
+
+    /** An Edit mode row: a check circle (filled blue while the section shows), its name and what it holds. */
+    private static El editRow(GlassModel.Row r, KTheme t) {
+        if (r == null) {
+            return null;
+        }
+        boolean on = r.checked;
+        Runnable flip = () -> {
+            com.benitbuhner.glasse.ui.Haptics.selection();
+            if (r.onToggle != null) {
+                r.onToggle.on(!on);
             }
-        }
-        return GlassSheet(P.of("open", open.get(), "onClose", close, "title", entry.label,
-                "detents", new double[] {sheetDetent(t, n + 1, 0, false)}),
-                ListSection(P.of("mb", 0), rows),
-                actions.isEmpty() ? null : ListSection(P.of("mb", 0), actions));
+        };
+        El check = on
+                ? Box(P.of("key", "on", "w", 24, "h", 24, "r", 12, "bg", t.accent, "align", "center", "justify", "center"),
+                        Icon(P.of("name", "check", "size", 14, "color", "#fff")))
+                : Box(P.of("key", "off", "w", 24, "h", 24, "r", 12, "bg", t.pal.label3, "align", "center",
+                        "justify", "center"),
+                        Box(P.of("w", 21, "h", 21, "r", 10.5, "bg", t.pal.cell)));
+        return Row(P.of("flex", 1, "h", EDIT_ROW_H, "gap", 16, "align", "center", "onPress", flip),
+                check,
+                Box(P.of("flex", 1),
+                        Text(P.of("size", 17, "ls", -0.34, "lines", 1,
+                                "color", on ? t.pal.label : t.pal.label2), r.title),
+                        r.summary == null ? null : Text(P.of("size", 13, "ls", -0.08, "lines", 1, "mt", 1,
+                                "color", t.pal.label2), r.summary)));
     }
 
     private static int buttons(List<GlassSource.MenuEntry> menu) {
@@ -820,7 +860,7 @@ public final class CodexGlass {
         State<Boolean> past = R.useState(false);
         State<String> query = R.useState("");
         // the page whose reorderable lists are in edit mode (≡ handles), "" for none
-        State<String> editing = R.useState(start != null && src.editsOnOpen(start) ? start : "");
+        State<String> editing = R.useState("");
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> past.set(y > 46));
         OnStr push = R.useMemo(R.deps(), () -> (OnStr) id -> stack.update(s -> {
             List<String> n = new ArrayList<>(s);

@@ -20,7 +20,6 @@ import dev.bennett.codexmeter.glass.GlassIcons;
 import dev.bennett.codexmeter.glass.GlassLook;
 import dev.bennett.codexmeter.glass.GlassModel;
 import dev.bennett.codexmeter.glass.GlassSource;
-import dev.bennett.codexmeter.glass.GlassSource.Toggle;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -445,9 +444,7 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
     @Override
     public List<MenuEntry> menu() {
         List<MenuEntry> menu = new ArrayList<>();
-        // The filter button, grouped with Settings: switches for what this tab shows, and on a
-        // provider's tab, Rearrange cards (the old Edit dashboard, opened with its handles out).
-        menu.add(main().onPriorityTab() ? priorityFilter() : providerFilter(main().glassProvider()));
+        // Edit comes first in the bar, from editSections(); Settings after it
         menu.add(new MenuEntry("Settings", "gearshape", false, () -> {
             DiagnosticLog.info(activity, "user", "settings_opened");
             openSettings("root", false);
@@ -455,37 +452,82 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
         return menu;
     }
 
-    private MenuEntry priorityFilter() {
-        List<Toggle> toggles = new ArrayList<>();
-        for (String[] section : PriorityPage.SECTIONS) {
-            boolean on = PriorityPrefs.isSectionShown(activity, section[0]);
-            toggles.add(new Toggle(section[1], on, () -> {
-                DiagnosticLog.info(activity, "user", "priority_filter " + section[0] + " " + !on);
-                PriorityPrefs.setSectionShown(activity, section[0], !on);
-                main().rebuild();
-            }));
-        }
-        return new MenuEntry("Filter", "filter", toggles, null);
-    }
-
-    private MenuEntry providerFilter(UsageProvider provider) {
-        List<Toggle> toggles = new ArrayList<>();
-        for (String[] card : GlassScreens.Reorder.cards(activity, provider)) {
-            boolean on = ProviderPreferences.isDashboardSectionVisible(activity, provider, card[0]);
-            toggles.add(new Toggle(card[1], on, () -> {
-                DiagnosticLog.info(activity, "user", "dashboard_filter " + provider.id + " " + card[0] + " " + !on);
-                ProviderPreferences.setDashboardSectionVisible(activity, provider, card[0], !on);
-                main().rebuild();
-            }));
-        }
-        List<MenuEntry> actions = new ArrayList<>();
-        actions.add(new MenuEntry("Rearrange cards", "arrows", false, main()::glassEditDashboard));
-        return new MenuEntry("Filter", "filter", toggles, actions);
-    }
-
+    /**
+     * The selected tab's sections for its Edit mode: Priority's sections, or a provider's cards, each
+     * with a check to show or hide it, in the order the tab shows them. Changes save and redraw the
+     * page at once, so Done only fades back to it.
+     */
     @Override
-    public boolean editsOnOpen(String page) {
-        return page != null && page.startsWith(GlassScreens.PREFIX + "reorder:");
+    public GlassModel.Section editSections() {
+        return main().onPriorityTab() ? prioritySections() : providerSections(main().glassProvider());
+    }
+
+    private GlassModel.Section prioritySections() {
+        PriorityPage page = PriorityPage.build(main());
+        if (!page.signedInAnywhere()) {
+            return null;
+        }
+        GlassModel.Section section = new GlassModel.Section(null);
+        section.header = "Choose what Priority shows, and drag the handles to change the order.";
+        section.footer = "A section shows only while it has something in it.";
+        List<String> order = PriorityPrefs.sectionOrder(activity);
+        for (String key : order) {
+            GlassModel.Row row = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, key);
+            row.title = PriorityPage.label(key);
+            Integer size = page.sizes.get(key);
+            int n = size == null ? 0 : size;
+            row.summary = n == 0 ? "Nothing right now" : n == 1 ? "1 item now" : n + " items now";
+            row.checked = PriorityPrefs.isSectionShown(activity, key);
+            row.onToggle = on -> {
+                DiagnosticLog.info(activity, "user", "priority_section " + key + " " + on);
+                PriorityPrefs.setSectionShown(activity, key, on);
+                main().rebuild();
+            };
+            section.rows.add(row);
+        }
+        section.onMove = (from, to) -> {
+            List<String> moved = new ArrayList<>(PriorityPrefs.sectionOrder(activity));
+            moved.add(to, moved.remove(from));
+            DiagnosticLog.info(activity, "user", "priority_section_moved " + from + " " + to);
+            PriorityPrefs.setSectionOrder(activity, moved);
+            main().rebuild();
+        };
+        return section;
+    }
+
+    private GlassModel.Section providerSections(UsageProvider provider) {
+        List<String[]> cards = GlassScreens.Reorder.cards(activity, provider);
+        if (cards.isEmpty()) {
+            return null;
+        }
+        GlassModel.Section section = new GlassModel.Section(null);
+        section.header = "Choose the cards " + provider.displayName
+                + " shows, and drag the handles to change the order.";
+        section.footer = "Cards appear only while " + provider.vendorName
+                + " reports data for them, and new ones show up here automatically.";
+        for (String[] card : cards) {
+            GlassModel.Row row = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, card[0]);
+            row.title = card[1];
+            row.summary = card[2];
+            row.checked = ProviderPreferences.isDashboardSectionVisible(activity, provider, card[0]);
+            row.onToggle = on -> {
+                DiagnosticLog.info(activity, "user", "dashboard_card " + provider.id + " " + card[0] + " " + on);
+                ProviderPreferences.setDashboardSectionVisible(activity, provider, card[0], on);
+                main().rebuild();
+            };
+            section.rows.add(row);
+        }
+        section.onMove = (from, to) -> {
+            List<String> order = new ArrayList<>();
+            for (String[] card : GlassScreens.Reorder.cards(activity, provider)) {
+                order.add(card[0]);
+            }
+            order.add(to, order.remove(from));
+            DiagnosticLog.info(activity, "user", "dashboard_card_moved " + provider.id + " " + from + " " + to);
+            ProviderPreferences.setDashboardOrder(activity, provider, order);
+            main().rebuild();
+        };
+        return section;
     }
 
     @Override
