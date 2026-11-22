@@ -8,7 +8,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.BenItBuhner.Glasse</groupId>
   <artifactId>glasskit</artifactId>
-  <version>a814723da1</version>
+  <version>92bbdb7f5f</version>
   <dependencies>
     <dependency>
       <groupId>org.jetbrains.kotlin</groupId>
