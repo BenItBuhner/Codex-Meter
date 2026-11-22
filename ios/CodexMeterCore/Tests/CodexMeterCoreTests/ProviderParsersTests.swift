@@ -317,28 +317,27 @@ final class ProviderParsersTests: XCTestCase {
 
     /// Replies as CodexBar's tests record them, which these parsers used to miss (same cases as Android).
     func testRecordedReplies() {
-        typealias P = ProviderUsageParsers
-        let minimax = P.minimax(#"{"base_resp":{"status_code":"0"},"data":{"current_subscribe_title":"Max","model_remains":[{"current_interval_total_count":"15000","current_interval_usage_count":"14989","start_time":0,"end_time":0,"remains_time":8941292}]}}"#, now: now)
+        let minimax = ProviderUsageParsers.minimax(#"{"base_resp":{"status_code":"0"},"data":{"current_subscribe_title":"Max","model_remains":[{"current_interval_total_count":"15000","current_interval_usage_count":"14989","start_time":0,"end_time":0,"remains_time":8941292}]}}"#, now: now)
         XCTAssertEqual(minimax.planType, "Max")
         XCTAssertEqual(minimax.fiveHour?.usedPercent, 0)
-        let tokenPlan = P.minimax(#"{"model_remains":[{"model_name":"general","current_interval_total_count":0,"current_interval_usage_count":0,"current_interval_remaining_percent":100,"current_weekly_total_count":0,"current_weekly_usage_count":0,"current_weekly_remaining_percent":70}],"base_resp":{"status_code":0}}"#, now: now)
+        let tokenPlan = ProviderUsageParsers.minimax(#"{"model_remains":[{"model_name":"general","current_interval_total_count":0,"current_interval_usage_count":0,"current_interval_remaining_percent":100,"current_weekly_total_count":0,"current_weekly_usage_count":0,"current_weekly_remaining_percent":70}],"base_resp":{"status_code":0}}"#, now: now)
         XCTAssertEqual(tokenPlan.weekly?.usedPercent, 30)
-        let copilot = P.copilot(#"{"copilot_plan":"business","token_based_billing":true,"quota_snapshots":{"premium_interactions":{"entitlement":0,"remaining":0,"percent_remaining":100,"credits_used":31}}}"#, now: now)
+        let copilot = ProviderUsageParsers.copilot(#"{"copilot_plan":"business","token_based_billing":true,"quota_snapshots":{"premium_interactions":{"entitlement":0,"remaining":0,"percent_remaining":100,"credits_used":31}}}"#, now: now)
         XCTAssertTrue(copilot.hasDisplayableData)
         XCTAssertEqual(copilot.usageCredits?.unlimited, true)
         XCTAssertEqual(copilot.planType, "Business")
-        let kilo = P.kiloTrpc(#"[{"result":{"data":{"creditBlocks":[{"balance_mUsd":19000000,"amount_mUsd":19000000}],"totalBalance_mUsd":19000000}}},{"result":{"data":{"subscription":{"tier":"tier_19","currentPeriodUsageUsd":7.125,"currentPeriodBaseCreditsUsd":19.0,"currentPeriodBonusCreditsUsd":9.5,"nextBillingAt":"2026-10-28T04:00:00.000Z"}}}}]"#, now: now)
+        let kilo = ProviderUsageParsers.kiloTrpc(#"[{"result":{"data":{"creditBlocks":[{"balance_mUsd":19000000,"amount_mUsd":19000000}],"totalBalance_mUsd":19000000}}},{"result":{"data":{"subscription":{"tier":"tier_19","currentPeriodUsageUsd":7.125,"currentPeriodBaseCreditsUsd":19.0,"currentPeriodBonusCreditsUsd":9.5,"nextBillingAt":"2026-10-28T04:00:00.000Z"}}}}]"#, now: now)
         XCTAssertEqual(kilo.usageCredits?.balance, "$19.00")
         XCTAssertEqual(kilo.planType, "Starter")
         XCTAssertEqual(kilo.monthly?.usedPercent, 25)
-        XCTAssertEqual(P.kiloTrpc(#"[{"result":{"data":{"creditBlocks":[],"totalBalance_mUsd":0}}},{"result":{"data":{"subscription":null}}}]"#, now: now).usageCredits?.balance, "$0.00")
-        XCTAssertTrue(P.kiloUnauthorized(#"[{"error":{"json":{"data":{"code":"UNAUTHORIZED"}}}}]"#))
-        let codebuff = P.codebuffSubscription(P.codebuff(#"{"usage":1250,"quota":5000}"#, now: now),
+        XCTAssertEqual(ProviderUsageParsers.kiloTrpc(#"[{"result":{"data":{"creditBlocks":[],"totalBalance_mUsd":0}}},{"result":{"data":{"subscription":null}}}]"#, now: now).usageCredits?.balance, "$0.00")
+        XCTAssertTrue(ProviderUsageParsers.kiloUnauthorized(#"[{"error":{"json":{"data":{"code":"UNAUTHORIZED"}}}}]"#))
+        let codebuff = ProviderUsageParsers.codebuffSubscription(ProviderUsageParsers.codebuff(#"{"usage":1250,"quota":5000}"#, now: now),
             #"{"subscription":{"status":"active","tier":"pro"},"rateLimit":{"weeklyUsed":2100,"weeklyLimit":7000,"weeklyResetsAt":"2026-09-25T00:00:00Z"}}"#, now: now)
         XCTAssertEqual(codebuff.planType, "Pro")
         XCTAssertEqual(codebuff.weekly?.usedPercent, 30)
         XCTAssertEqual(codebuff.monthly?.usedPercent, 25)
-        XCTAssertTrue(P.grok(#"{"config":{"onDemandCap":{"val":1000.0},"onDemandUsed":{"val":250.5}}}"#, now: now).hasDisplayableData)
+        XCTAssertTrue(ProviderUsageParsers.grok(#"{"config":{"onDemandCap":{"val":1000.0},"onDemandUsed":{"val":250.5}}}"#, now: now).hasDisplayableData)
     }
 
     func testSynthetic() {
