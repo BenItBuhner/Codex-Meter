@@ -398,8 +398,9 @@ public final class ProviderClients {
             return !CLIENT_ID.isEmpty() && !CLIENT_SECRET.isEmpty();
         }
         static final String TOKEN_URL = "https://oauth2.googleapis.com/token";
-        static final String[] HOSTS = {"https://cloudcode-pa.googleapis.com",
-                "https://daily-cloudcode-pa.googleapis.com"};
+        static final String PROD = "https://cloudcode-pa.googleapis.com";
+        static final String DAILY = "https://daily-cloudcode-pa.googleapis.com";
+        static final String USER_AGENT = "antigravity/hub/2.9.1 linux/arm64";
 
         Antigravity() {
             super(UsageProvider.ANTIGRAVITY);
@@ -483,35 +484,74 @@ public final class ProviderClients {
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            // Same order as CodexBar: plan and project from loadCodeAssist, then the quota
+            // summary from the daily host (prod answers with stale Gemini numbers), then the
+            // older per-model quota calls.
+            JSONObject metadata = new JSONObject().put("ideType", "ANTIGRAVITY")
+                    .put("platform", "PLATFORM_UNSPECIFIED").put("pluginType", "GEMINI");
+            ProviderHttp.Response assist = send(context, "antigravity_plan",
+                    PROD + "/v1internal:loadCodeAssist", tokens,
+                    new JSONObject().put("metadata", metadata));
+            if (assist.status == 401) check(assist, "plan");
             String plan = "";
+            String project = "";
+            if (assist.ok()) {
+                if (ProviderUsageParsers.antigravityClientRejected(assist.body)) {
+                    throw new Unauthorized("This Google sign-in can't read Antigravity limits. "
+                            + "Sign in to Antigravity again.");
+                }
+                plan = ProviderUsageParsers.antigravityPlan(assist.body);
+                project = ProviderUsageParsers.antigravityProject(assist.body);
+                String tier = project.isEmpty()
+                        ? ProviderUsageParsers.antigravityOnboardTier(assist.body) : "";
+                if (!tier.isEmpty()) {
+                    try {
+                        ProviderHttp.Response onboard = send(context, "antigravity_onboard",
+                                PROD + "/v1internal:onboardUser", tokens,
+                                new JSONObject().put("tierId", tier).put("metadata", metadata));
+                        if (onboard.ok()) {
+                            project = ProviderUsageParsers.antigravityProject(onboard.body);
+                        }
+                    } catch (Exception ignored) {
+                        // Quota calls still answer without a project.
+                    }
+                }
+            }
+            JSONObject body = project.isEmpty() ? new JSONObject()
+                    : new JSONObject().put("project", project);
             Exception last = null;
-            for (String host : HOSTS) {
+            String[] calls = {DAILY + "/v1internal:retrieveUserQuotaSummary",
+                    PROD + "/v1internal:retrieveUserQuotaSummary",
+                    PROD + "/v1internal:fetchAvailableModels",
+                    PROD + "/v1internal:retrieveUserQuota"};
+            for (String url : calls) {
                 try {
-                    ProviderHttp.Response assist = ProviderHttp.send(context,
-                            "antigravity_plan", ProviderHttp.post(host
-                                    + "/v1internal:loadCodeAssist").bearer(tokens.accessToken)
-                                    .header("User-Agent", "antigravity/2.24.0 (aidev_client; "
-                                            + "os_type=darwin; arch=arm64)")
-                                    .json(new JSONObject().put("metadata", new JSONObject()
-                                            .put("ideType", "ANTIGRAVITY")
-                                            .put("platform", "PLATFORM_UNSPECIFIED")
-                                            .put("pluginType", "GEMINI"))));
-                    if (assist.status == 401) check(assist, "plan");
-                    if (assist.ok()) plan = ProviderUsageParsers.antigravityPlan(assist.body);
-                    ProviderHttp.Response quota = check(ProviderHttp.send(context,
-                            "antigravity_usage", ProviderHttp.post(host
-                                    + "/v1internal:retrieveUserQuotaSummary")
-                                    .bearer(tokens.accessToken)
-                                    .header("User-Agent", "antigravity")
-                                    .json(new JSONObject())), "usage");
-                    return nonEmpty(ProviderUsageParsers.antigravity(quota.body, plan, now()));
+                    ProviderHttp.Response quota = send(context, "antigravity_usage", url, tokens,
+                            body);
+                    if (quota.status == 401) check(quota, "usage");
+                    if (!quota.ok()) {
+                        last = new Exception("Antigravity usage failed (HTTP " + quota.status
+                                + ").");
+                        continue;
+                    }
+                    UsageSnapshot snapshot = ProviderUsageParsers.antigravity(quota.body, plan,
+                            now());
+                    if (snapshot.hasDisplayableData()) return snapshot;
                 } catch (Unauthorized unauthorized) {
                     throw unauthorized;
                 } catch (Exception exception) {
                     last = exception;
                 }
             }
-            throw last == null ? new Exception("Antigravity usage is unavailable.") : last;
+            if (last != null) throw last;
+            return nonEmpty(ProviderUsageParsers.antigravity("{}", plan, now()));
+        }
+
+        private static ProviderHttp.Response send(Context context, String what, String url,
+                AuthTokens tokens, JSONObject body) throws Exception {
+            // Cloud Code only serves quota to the Antigravity Hub client family.
+            return ProviderHttp.send(context, what, ProviderHttp.post(url)
+                    .bearer(tokens.accessToken).header("User-Agent", USER_AGENT).json(body));
         }
     }
 

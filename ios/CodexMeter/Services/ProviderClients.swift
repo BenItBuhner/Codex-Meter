@@ -1083,22 +1083,44 @@ nonisolated struct AntigravityClient: ProviderClient {
     }
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        // Same order as CodexBar (and Android): plan and project from loadCodeAssist, then the quota
+        // summary from the daily host (prod answers with stale Gemini numbers), then the older
+        // per-model quota calls.
+        let metadata = ["ideType": "ANTIGRAVITY", "platform": "PLATFORM_UNSPECIFIED", "pluginType": "GEMINI"]
+        let assist = try await post("antigravity_plan", AntigravityOAuth.prod + "/v1internal:loadCodeAssist", tokens,
+                                    ["metadata": metadata], http: http)
+        if assist.status == 401 { _ = try check(assist, "plan") }
+        var plan = ""
+        var project = ""
+        if assist.ok {
+            if ProviderUsageParsers.antigravityClientRejected(assist.body) {
+                throw ProviderClientError.unauthorized("This Google sign-in can't read Antigravity limits. Sign in to Antigravity again.")
+            }
+            plan = ProviderUsageParsers.antigravityPlan(assist.body)
+            project = ProviderUsageParsers.antigravityProject(assist.body)
+            let tier = project.isEmpty ? ProviderUsageParsers.antigravityOnboardTier(assist.body) : ""
+            if !tier.isEmpty, let onboard = try? await post("antigravity_onboard", AntigravityOAuth.prod + "/v1internal:onboardUser",
+                                                           tokens, ["tierId": tier, "metadata": metadata], http: http),
+               onboard.ok {
+                project = ProviderUsageParsers.antigravityProject(onboard.body)
+            }
+        }
+        let body: [String: Any] = project.isEmpty ? [:] : ["project": project]
         var last: Error?
-        for host in AntigravityOAuth.hosts {
+        let calls = [AntigravityOAuth.daily + "/v1internal:retrieveUserQuotaSummary",
+                     AntigravityOAuth.prod + "/v1internal:retrieveUserQuotaSummary",
+                     AntigravityOAuth.prod + "/v1internal:fetchAvailableModels",
+                     AntigravityOAuth.prod + "/v1internal:retrieveUserQuota"]
+        for url in calls {
             do {
-                var plan = ""
-                let assist = try await ProviderHTTP.send("antigravity_plan", ProviderRequest.post(host + "/v1internal:loadCodeAssist")
-                    .bearer(tokens.accessToken)
-                    .header("User-Agent", "antigravity/2.24.0 (aidev_client; os_type=darwin; arch=arm64)")
-                    .json(["metadata": ["ideType": "ANTIGRAVITY", "platform": "PLATFORM_UNSPECIFIED", "pluginType": "GEMINI"]]),
-                    session: http)
-                if assist.status == 401 { _ = try check(assist, "plan") }
-                if assist.ok { plan = ProviderUsageParsers.antigravityPlan(assist.body) }
-                let quota = try check(try await ProviderHTTP.send("antigravity_usage",
-                    ProviderRequest.post(host + "/v1internal:retrieveUserQuotaSummary")
-                        .bearer(tokens.accessToken).header("User-Agent", "antigravity").json([:]),
-                    session: http), "usage")
-                return try nonEmpty(ProviderUsageParsers.antigravity(quota.body, plan: plan, now: Date()))
+                let quota = try await post("antigravity_usage", url, tokens, body, http: http)
+                if quota.status == 401 { _ = try check(quota, "usage") }
+                guard quota.ok else {
+                    last = ProviderClientError.message("Antigravity usage failed (HTTP \(quota.status)).")
+                    continue
+                }
+                let snapshot = ProviderUsageParsers.antigravity(quota.body, plan: plan, now: Date())
+                if snapshot.hasDisplayableData { return ProviderFetch(snapshot: snapshot) }
             } catch let error as ProviderClientError {
                 if case .unauthorized = error { throw error }
                 last = error
@@ -1106,7 +1128,15 @@ nonisolated struct AntigravityClient: ProviderClient {
                 last = error
             }
         }
-        throw last ?? ProviderClientError.message("Antigravity usage is unavailable.")
+        if let last { throw last }
+        return try nonEmpty(ProviderUsageParsers.antigravity("{}", plan: plan, now: Date()))
+    }
+
+    /// Cloud Code only serves quota to the Antigravity Hub client family.
+    private func post(_ operation: String, _ url: String, _ tokens: AuthTokens, _ body: [String: Any],
+                      http: URLSession) async throws -> ProviderResponse {
+        try await ProviderHTTP.send(operation, ProviderRequest.post(url).bearer(tokens.accessToken)
+            .header("User-Agent", "antigravity/hub/2.9.1 darwin/arm64").json(body), session: http)
     }
 }
 

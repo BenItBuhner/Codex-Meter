@@ -478,66 +478,141 @@ public static class ProviderUsageParsers
     // ------------------------------------------------------------------ Antigravity (Google)
 
     /// <summary>
-    /// <c>v1internal:retrieveUserQuotaSummary</c>: buckets per model family. Gemini is the main
-    /// pair of windows; Claude and other third-party models become an additional limit.
+    /// Antigravity usage from any of Cloud Code's three quota replies:
+    /// <c>retrieveUserQuotaSummary</c> (<c>groups[].buckets[]</c> with <c>remaining</c>),
+    /// <c>fetchAvailableModels</c> (<c>models.&lt;id&gt;.quotaInfo</c>) or <c>retrieveUserQuota</c>
+    /// (<c>buckets[]</c> per model). Gemini is the main pair of windows; Claude and GPT become one
+    /// additional limit. A bucket with no fraction, or a disabled one, is unknown. Mirrors Android.
     /// </summary>
     public static UsageSnapshot Antigravity(string body, string? plan, DateTimeOffset now)
     {
         var root = ProviderJson.Object(body);
+        var wrapped = ProviderJson.Obj(root, "response") ?? ProviderJson.Obj(root, "summary");
+        if (wrapped is not null && ProviderJson.Has(wrapped, "groups")) root = wrapped;
         var output = new Builder(now) { Plan = plan ?? "" };
-        var buckets = new List<JsonObject>();
-        CollectBuckets(root, buckets);
         UsageWindow? thirdShort = null, thirdWeekly = null;
-        foreach (var bucket in buckets)
+        if (ProviderJson.Arr(root, "groups") is { } groups)
         {
-            var id = Str(bucket, "bucketId", "id", "name").ToLowerInvariant();
-            var fraction = Number(bucket, "remainingFraction", "remaining_fraction");
-            // proto3 omits zero: a bucket with a reset but no fraction is used up.
-            if (double.IsNaN(fraction) && (ProviderJson.Has(bucket, "resetTime") || ProviderJson.Has(bucket, "reset_time"))) fraction = 0;
-            if (double.IsNaN(fraction)) continue;
-            var weekly = id.Contains("week") || id.Contains("7d");
-            var seconds = weekly ? Week : 5 * Hour;
-            var window = MakeWindow((1 - fraction) * 100, seconds, EpochSeconds(First(bucket, "resetTime", "reset_time")), now);
-            if (id.StartsWith("gemini", StringComparison.Ordinal) && !id.Contains("argon"))
+            foreach (var group in groups.OfType<JsonObject>())
             {
-                if (weekly && output.Weekly is null) output.Weekly = window;
-                else if (!weekly && output.ShortWindow is null) output.ShortWindow = window;
+                var groupName = Str(group, "displayName", "name");
+                var family = AntigravityFamily(groupName);
+                foreach (var bucket in (ProviderJson.Arr(group, "buckets") ?? []).OfType<JsonObject>())
+                {
+                    if (ProviderJson.Bool(bucket, "disabled", false)) continue;
+                    var id = Str(bucket, "bucketId", "id", "name");
+                    var fraction = AntigravityFraction(bucket);
+                    if (double.IsNaN(fraction)) continue;
+                    var weekly = AntigravityWeekly(Str(bucket, "window") + " " + id + " " + Str(bucket, "displayName"));
+                    var window = MakeWindow((1 - fraction) * 100, weekly ? Week : 5 * Hour, EpochSeconds(First(bucket, "resetTime", "reset_time")), now);
+                    var bucketFamily = family.Length == 0 ? AntigravityFamily(id) : family;
+                    if (bucketFamily == "gemini")
+                    {
+                        if (weekly && output.Weekly is null) output.Weekly = window;
+                        else if (!weekly && output.ShortWindow is null) output.ShortWindow = window;
+                    }
+                    else if (bucketFamily == "third")
+                    {
+                        if (weekly) thirdWeekly ??= window; else thirdShort ??= window;
+                    }
+                    else
+                    {
+                        var label = groupName.Length == 0 ? TitleCase(id) : groupName;
+                        output.Extra(label + (weekly ? " weekly" : " 5-hour"), window);
+                    }
+                }
             }
-            else if (id.StartsWith("3p", StringComparison.Ordinal) || id.Contains("third"))
+        }
+        else
+        {
+            // Per-model quotas: each family shows its most used model.
+            var rows = new List<(string Name, double Fraction, JsonNode? Reset)>();
+            if (ProviderJson.Obj(root, "models") is { } models)
             {
-                if (weekly) thirdWeekly = window; else thirdShort = window;
+                foreach (var (id, node) in models)
+                {
+                    if (node is not JsonObject model || ProviderJson.Obj(model, "quotaInfo") is not { } quota) continue;
+                    rows.Add((id + " " + Str(model, "displayName", "label"), Number(quota, "remainingFraction"), First(quota, "resetTime")));
+                }
             }
-            else
+            foreach (var bucket in (ProviderJson.Arr(root, "buckets") ?? []).OfType<JsonObject>())
+                rows.Add((Str(bucket, "modelId", "bucketId"), Number(bucket, "remainingFraction"), First(bucket, "resetTime")));
+            (double Fraction, JsonNode? Reset)? gemini = null, third = null;
+            foreach (var row in rows)
             {
-                var label = Str(bucket, "displayName", "label");
-                output.Extra(label.Length == 0 ? TitleCase(id) : label, window);
+                if (double.IsNaN(row.Fraction)) continue;
+                var family = AntigravityFamily(row.Name);
+                if (family == "gemini" && (gemini is null || row.Fraction < gemini.Value.Fraction)) gemini = (row.Fraction, row.Reset);
+                else if (family == "third" && (third is null || row.Fraction < third.Value.Fraction)) third = (row.Fraction, row.Reset);
             }
+            if (gemini is { } g) output.ShortWindow = MakeWindow((1 - g.Fraction) * 100, 5 * Hour, EpochSeconds(g.Reset), now);
+            if (third is { } t) thirdShort = MakeWindow((1 - t.Fraction) * 100, 5 * Hour, EpochSeconds(t.Reset), now);
         }
         if ((thirdShort ?? thirdWeekly) is { } primary)
         {
             var secondary = thirdShort is not null ? thirdWeekly : null;
             var reached = primary.UsedPercent >= 100 || (secondary?.UsedPercent ?? 0) >= 100;
-            output.Extras.Insert(0, new UsageLimit("third_party", "Claude and other models", "", !reached, reached, primary, secondary));
+            output.Extras.Insert(0, new UsageLimit("third_party", "Claude and GPT models", "", !reached, reached, primary, secondary));
         }
         return output.Build();
     }
 
-    private static void CollectBuckets(JsonNode? node, List<JsonObject> into)
+    /// <summary>"gemini", "third" (Claude, GPT and other partner models) or "" for anything else.</summary>
+    private static string AntigravityFamily(string name)
     {
-        switch (node)
-        {
-            case JsonObject o:
-                if (ProviderJson.Has(o, "bucketId") || ProviderJson.Has(o, "remainingFraction"))
-                {
-                    into.Add(o);
-                    return;
-                }
-                foreach (var pair in o) CollectBuckets(pair.Value, into);
-                break;
-            case JsonArray array:
-                foreach (var item in array) CollectBuckets(item, into);
-                break;
-        }
+        var value = name.ToLowerInvariant();
+        if (value.Contains("claude") || value.Contains("gpt") || value.StartsWith("3p", StringComparison.Ordinal) || value.Contains("third")) return "third";
+        // A versioned family such as "Gemini 4 Argon" is a separate quota with its own name.
+        return value.Contains("gemini") && !value.Contains("argon") ? "gemini" : "";
+    }
+
+    private static bool AntigravityWeekly(string text)
+    {
+        var value = text.ToLowerInvariant();
+        return value.Contains("week") || value.Contains("7d") || value.Contains("7-day");
+    }
+
+    /// <summary><c>remaining</c> is <c>{remainingFraction}</c> or a oneof <c>{case, value}</c>.</summary>
+    private static double AntigravityFraction(JsonObject bucket)
+    {
+        var fraction = Number(bucket, "remainingFraction", "remaining_fraction");
+        if (!double.IsNaN(fraction)) return fraction;
+        if (ProviderJson.Obj(bucket, "remaining") is not { } remaining) return double.NaN;
+        fraction = Number(remaining, "remainingFraction", "remaining_fraction");
+        if (!double.IsNaN(fraction)) return fraction;
+        return Str(remaining, "case") == "remainingFraction" ? Number(remaining, "value") : double.NaN;
+    }
+
+    /// <summary>True when the account's OAuth client can't read consumer quota (sign in again).</summary>
+    public static bool AntigravityClientRejected(string body)
+    {
+        var root = ProviderJson.Object(body);
+        if (ProviderJson.Has(root, "currentTier") || AntigravityProject(body).Length > 0) return false;
+        return (ProviderJson.Arr(root, "ineligibleTiers") ?? []).OfType<JsonObject>()
+            .Any(tier => Str(tier, "reasonCode") == "GOOGLE_TOS_NOT_SUPPORTED_BY_CLIENT");
+    }
+
+    /// <summary>Google Cloud project the account's Code Assist quota is billed to, when given.</summary>
+    public static string AntigravityProject(string body)
+    {
+        var root = ProviderJson.Object(body);
+        // onboardUser wraps its answer in "response".
+        if (!ProviderJson.Has(root, "cloudaicompanionProject") && ProviderJson.Obj(root, "response") is { } inner) root = inner;
+        var project = ProviderJson.Get(root, "cloudaicompanionProject");
+        if (ProviderJson.IsNull(project)) return "";
+        return project is JsonObject o ? Str(o, "id", "projectId", "name") : ProviderJson.Text(project).Trim();
+    }
+
+    /// <summary>The tier to onboard an account that has no Code Assist project yet.</summary>
+    public static string AntigravityOnboardTier(string body)
+    {
+        var root = ProviderJson.Object(body);
+        var allowed = (ProviderJson.Arr(root, "allowedTiers") ?? []).OfType<JsonObject>().ToList();
+        var pick = allowed.FirstOrDefault(t => ProviderJson.Bool(t, "isDefault", false) && Str(t, "id").Length > 0)
+            ?? allowed.FirstOrDefault(t => Str(t, "id").Length > 0);
+        if (pick is not null) return Str(pick, "id");
+        var paid = Str(ProviderJson.Obj(root, "paidTier"), "id");
+        return paid.Length > 0 ? paid : Str(ProviderJson.Obj(root, "currentTier"), "id");
     }
 
     /// <summary>Plan from <c>v1internal:loadCodeAssist</c>.</summary>

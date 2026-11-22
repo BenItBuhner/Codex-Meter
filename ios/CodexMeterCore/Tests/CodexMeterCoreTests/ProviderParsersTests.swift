@@ -195,15 +195,27 @@ final class ProviderParsersTests: XCTestCase {
     }
 
     func testAntigravity() throws {
-        let body = #"{"groups":[{"name":"Gemini","buckets":[{"bucketId":"gemini-5h","remainingFraction":0.75,"resetTime":"2026-09-21T16:00:00Z"},{"bucketId":"gemini-weekly","remainingFraction":0.5}]},{"name":"Third party","buckets":[{"bucketId":"3p-5h","resetTime":"2026-09-21T15:00:00Z"},{"bucketId":"3p-weekly","remainingFraction":0.9}]}]}"#
+        // retrieveUserQuotaSummary, as CodexBar's fixtures record it (same cases as Android).
+        let body = #"{"response":{"groups":[{"displayName":"Gemini Models","buckets":[{"bucketId":"gemini-weekly","displayName":"Weekly Limit","remaining":{"remainingFraction":0.5},"resetTime":"2026-09-25T16:00:00Z"},{"bucketId":"gemini-5h","displayName":"Five Hour Limit","remaining":{"remainingFraction":0.75},"resetTime":"2026-09-21T16:00:00Z"}]},{"displayName":"Claude and GPT models","buckets":[{"bucketId":"3p-weekly","remaining":{"case":"remainingFraction","value":0.9}},{"bucketId":"3p-5h","remaining":{"remainingFraction":0},"resetTime":"2026-09-21T15:00:00Z"}]}]}}"#
         let snapshot = ProviderUsageParsers.antigravity(body, plan: "Pro", now: now)
         XCTAssertEqual(snapshot.fiveHour?.usedPercent, 25)
+        XCTAssertEqual(snapshot.fiveHour?.windowSeconds, 5 * 3600)
         XCTAssertEqual(snapshot.weekly?.usedPercent, 50)
         let third = try XCTUnwrap(snapshot.additionalLimits.first)
-        XCTAssertEqual(third.name, "Claude and other models")
+        XCTAssertEqual(third.name, "Claude and GPT models")
         XCTAssertEqual(third.primary?.usedPercent, 100)
         XCTAssertEqual(third.secondary?.usedPercent, 10)
         XCTAssertTrue(third.limitReached)
+        // A bucket with no fraction, or a disabled one, is unknown rather than used up.
+        XCTAssertFalse(ProviderUsageParsers.antigravity(#"{"groups":[{"displayName":"Gemini Models","buckets":[{"bucketId":"gemini-weekly","resetTime":"2026-09-25T16:00:00Z"},{"bucketId":"gemini-5h","disabled":true,"remaining":{"remainingFraction":1}}]}]}"#, plan: "", now: now).hasDisplayableData)
+        let models = ProviderUsageParsers.antigravity(#"{"models":{"gemini-3-pro-high":{"displayName":"Gemini 3 Pro","quotaInfo":{"remainingFraction":0.4,"resetTime":"2026-09-21T16:00:00Z"}},"gemini-3-flash":{"quotaInfo":{"remainingFraction":0.8}},"claude-sonnet-4-6":{"quotaInfo":{"remainingFraction":1}}}}"#, plan: "", now: now)
+        XCTAssertEqual(models.fiveHour?.usedPercent, 60)
+        XCTAssertEqual(models.additionalLimits.first?.primary?.usedPercent, 0)
+        XCTAssertEqual(ProviderUsageParsers.antigravity(#"{"buckets":[{"modelId":"gemini-2.5-pro","remainingFraction":0.3}]}"#, plan: "", now: now).fiveHour?.usedPercent, 70)
+        XCTAssertTrue(ProviderUsageParsers.antigravityClientRejected(#"{"ineligibleTiers":[{"reasonCode":"GOOGLE_TOS_NOT_SUPPORTED_BY_CLIENT"}]}"#))
+        XCTAssertFalse(ProviderUsageParsers.antigravityClientRejected(#"{"currentTier":{"id":"free-tier"},"cloudaicompanionProject":"p-1"}"#))
+        XCTAssertEqual(ProviderUsageParsers.antigravityProject(#"{"response":{"cloudaicompanionProject":{"id":"p-1"}}}"#), "p-1")
+        XCTAssertEqual(ProviderUsageParsers.antigravityOnboardTier(#"{"allowedTiers":[{"id":"free-tier"},{"id":"standard-tier","isDefault":true}]}"#), "standard-tier")
         XCTAssertEqual(ProviderUsageParsers.antigravityPlan(#"{"paidTier":{"id":"g1-ultra-tier"}}"#), "Ultra")
         XCTAssertEqual(ProviderUsageParsers.antigravityPlan(#"{"paidTier":{"id":"g1-ultra-lite-tier"}}"#), "Ultra Lite")
         XCTAssertEqual(ProviderUsageParsers.antigravityPlan(#"{"currentTier":{"name":"Free"}}"#), "Free")

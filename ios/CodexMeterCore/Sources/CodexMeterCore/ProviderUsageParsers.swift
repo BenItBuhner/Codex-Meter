@@ -518,38 +518,73 @@ public enum ProviderUsageParsers {
 
     // MARK: Antigravity (Google)
 
-    /// `v1internal:retrieveUserQuotaSummary`: buckets per model family. Gemini is the main pair
-    /// of windows; Claude and other third-party models become an additional limit.
+    /// Antigravity usage from any of Cloud Code's three quota replies: `retrieveUserQuotaSummary`
+    /// (`groups[].buckets[]` with `remaining`), `fetchAvailableModels` (`models.<id>.quotaInfo`) or
+    /// `retrieveUserQuota` (`buckets[]` per model). Gemini is the main pair of windows; Claude and
+    /// GPT become one additional limit. A bucket with no fraction, or a disabled one, is unknown.
+    /// Mirrors Android.
     public static func antigravity(_ body: String, plan: String?, now: Date) -> UsageSnapshot {
-        let root = object(body)
+        var root = object(body)
+        if let wrapped = root.object("response") ?? root.object("summary"), wrapped.has("groups") { root = wrapped }
         let out = Builder(now: now)
         out.plan = plan ?? ""
-        var buckets: [Object] = []
-        collectBuckets(.object(root), into: &buckets)
         var thirdShort: UsageWindow?
         var thirdWeekly: UsageWindow?
-        for bucket in buckets {
-            let id = string(bucket, "bucketId", "id", "name").lowercased()
-            var fraction = number(bucket, "remainingFraction", "remaining_fraction")
-            if fraction.isNaN, bucket.has("resetTime") || bucket.has("reset_time") {
-                // proto3 omits zero: a bucket with a reset but no fraction is used up.
-                fraction = 0
-            }
-            guard !fraction.isNaN else { continue }
-            let weekly = id.contains("week") || id.contains("7d")
-            let seconds = weekly ? Self.week : 5 * Self.hour
-            let window = makeWindow((1 - fraction) * 100, seconds, epochSeconds(first(bucket, "resetTime", "reset_time")), now)
-            if id.hasPrefix("gemini"), !id.contains("argon") {
-                if weekly, out.weekly == nil {
-                    out.weekly = window
-                } else if !weekly, out.shortWindow == nil {
-                    out.shortWindow = window
+        if let groups = root.array("groups") {
+            for case let .object(group) in groups {
+                let groupName = string(group, "displayName", "name")
+                let family = antigravityFamily(groupName)
+                for case let .object(bucket) in group.array("buckets") ?? [] {
+                    if bucket.bool("disabled", default: false) { continue }
+                    let id = string(bucket, "bucketId", "id", "name")
+                    let fraction = antigravityFraction(bucket)
+                    guard !fraction.isNaN else { continue }
+                    let weekly = antigravityWeekly(string(bucket, "window") + " " + id + " " + string(bucket, "displayName"))
+                    let window = makeWindow((1 - fraction) * 100, weekly ? Self.week : 5 * Self.hour,
+                                            epochSeconds(first(bucket, "resetTime", "reset_time")), now)
+                    let bucketFamily = family.isEmpty ? antigravityFamily(id) : family
+                    if bucketFamily == "gemini" {
+                        if weekly, out.weekly == nil {
+                            out.weekly = window
+                        } else if !weekly, out.shortWindow == nil {
+                            out.shortWindow = window
+                        }
+                    } else if bucketFamily == "third" {
+                        if weekly { thirdWeekly = thirdWeekly ?? window } else { thirdShort = thirdShort ?? window }
+                    } else {
+                        let label = groupName.isEmpty ? titleCase(id) : groupName
+                        out.extra(label + (weekly ? " weekly" : " 5-hour"), window)
+                    }
                 }
-            } else if id.hasPrefix("3p") || id.contains("third") {
-                if weekly { thirdWeekly = window } else { thirdShort = window }
-            } else {
-                let label = string(bucket, "displayName", "label")
-                out.extra(label.isEmpty ? titleCase(id) : label, window)
+            }
+        } else {
+            // Per-model quotas: each family shows its most used model.
+            var rows: [(name: String, fraction: Double, reset: ProviderJSON?)] = []
+            if let models = root.object("models") {
+                for id in models.keys {
+                    guard let model = models.object(id), let quota = model.object("quotaInfo") else { continue }
+                    rows.append((id + " " + string(model, "displayName", "label"), number(quota, "remainingFraction"),
+                                 first(quota, "resetTime")))
+                }
+            }
+            for case let .object(bucket) in root.array("buckets") ?? [] {
+                rows.append((string(bucket, "modelId", "bucketId"), number(bucket, "remainingFraction"), first(bucket, "resetTime")))
+            }
+            var gemini: (fraction: Double, reset: ProviderJSON?)?
+            var third: (fraction: Double, reset: ProviderJSON?)?
+            for row in rows where !row.fraction.isNaN {
+                let family = antigravityFamily(row.name)
+                if family == "gemini", gemini == nil || row.fraction < gemini!.fraction {
+                    gemini = (row.fraction, row.reset)
+                } else if family == "third", third == nil || row.fraction < third!.fraction {
+                    third = (row.fraction, row.reset)
+                }
+            }
+            if let gemini {
+                out.shortWindow = makeWindow((1 - gemini.fraction) * 100, 5 * Self.hour, epochSeconds(gemini.reset), now)
+            }
+            if let third {
+                thirdShort = makeWindow((1 - third.fraction) * 100, 5 * Self.hour, epochSeconds(third.reset), now)
             }
         }
         if let primary = thirdShort ?? thirdWeekly {
@@ -557,7 +592,7 @@ public enum ProviderUsageParsers {
             let reached = primary.usedPercent >= 100 || (secondary?.usedPercent ?? 0) >= 100
             out.extras.insert(UsageLimit(
                 id: "third_party",
-                name: "Claude and other models",
+                name: "Claude and GPT models",
                 allowed: !reached,
                 limitReached: reached,
                 primary: primary,
@@ -567,21 +602,59 @@ public enum ProviderUsageParsers {
         return out.build()
     }
 
-    private static func collectBuckets(_ node: ProviderJSON, into: inout [Object]) {
-        switch node {
-        case let .object(object):
-            if object.has("bucketId") || object.has("remainingFraction") {
-                into.append(object)
-                return
-            }
-            for key in object.keys {
-                if let child = object[key] { collectBuckets(child, into: &into) }
-            }
-        case let .array(values):
-            for value in values { collectBuckets(value, into: &into) }
-        default:
-            break
+    /// "gemini", "third" (Claude, GPT and other partner models) or "" for anything else.
+    private static func antigravityFamily(_ name: String) -> String {
+        let value = name.lowercased()
+        if value.contains("claude") || value.contains("gpt") || value.hasPrefix("3p") || value.contains("third") { return "third" }
+        // A versioned family such as "Gemini 4 Argon" is a separate quota with its own name.
+        return value.contains("gemini") && !value.contains("argon") ? "gemini" : ""
+    }
+
+    private static func antigravityWeekly(_ text: String) -> Bool {
+        let value = text.lowercased()
+        return value.contains("week") || value.contains("7d") || value.contains("7-day")
+    }
+
+    /// `remaining` is `{remainingFraction}` or a oneof `{case, value}`.
+    private static func antigravityFraction(_ bucket: Object) -> Double {
+        let direct = number(bucket, "remainingFraction", "remaining_fraction")
+        if !direct.isNaN { return direct }
+        guard let remaining = bucket.object("remaining") else { return .nan }
+        let nested = number(remaining, "remainingFraction", "remaining_fraction")
+        if !nested.isNaN { return nested }
+        return string(remaining, "case") == "remainingFraction" ? number(remaining, "value") : .nan
+    }
+
+    /// True when the account's OAuth client can't read consumer quota (sign in again).
+    public static func antigravityClientRejected(_ body: String) -> Bool {
+        let root = object(body)
+        if root.has("currentTier") || !antigravityProject(body).isEmpty { return false }
+        return (root.array("ineligibleTiers") ?? []).contains { node in
+            guard case let .object(tier) = node else { return false }
+            return string(tier, "reasonCode") == "GOOGLE_TOS_NOT_SUPPORTED_BY_CLIENT"
         }
+    }
+
+    /// Google Cloud project the account's Code Assist quota is billed to, when given.
+    public static func antigravityProject(_ body: String) -> String {
+        var root = object(body)
+        // onboardUser wraps its answer in "response".
+        if !root.has("cloudaicompanionProject"), let inner = root.object("response") { root = inner }
+        if let project = root.object("cloudaicompanionProject") { return string(project, "id", "projectId", "name") }
+        return string(root, "cloudaicompanionProject")
+    }
+
+    /// The tier to onboard an account that has no Code Assist project yet.
+    public static func antigravityOnboardTier(_ body: String) -> String {
+        let root = object(body)
+        var tiers: [Object] = []
+        for case let .object(tier) in root.array("allowedTiers") ?? [] { tiers.append(tier) }
+        if let pick = tiers.first(where: { $0.bool("isDefault", default: false) && !string($0, "id").isEmpty })
+            ?? tiers.first(where: { !string($0, "id").isEmpty }) {
+            return string(pick, "id")
+        }
+        let paid = string(root.object("paidTier"), "id")
+        return paid.isEmpty ? string(root.object("currentTier"), "id") : paid
     }
 
     /// Plan from `v1internal:loadCodeAssist`.

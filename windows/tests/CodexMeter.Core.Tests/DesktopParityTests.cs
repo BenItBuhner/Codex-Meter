@@ -385,9 +385,13 @@ public sealed class DesktopParityTests
                 Assert.Contains("grant_type=refresh_token", body);
                 return (200, """{"access_token":"g-new","expires_in":3599}""");
             })
-            .On("POST", "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist", 200, """{"paidTier":{"id":"g1-ultra-tier"}}""")
-            .On("POST", "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary", 200,
-                """{"buckets":[{"bucketId":"gemini-5h","remainingFraction":0.75,"resetTime":"2026-11-16T15:00:00Z"}]}""");
+            .On("POST", "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist", 200,
+                """{"paidTier":{"id":"g1-ultra-tier"},"currentTier":{"id":"standard-tier"},"cloudaicompanionProject":"p-1"}""")
+            .On("POST", "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary", (_, body) =>
+            {
+                Assert.Contains("\"project\":\"p-1\"", body);
+                return (200, """{"response":{"groups":[{"displayName":"Gemini Models","buckets":[{"bucketId":"gemini-5h","remaining":{"remainingFraction":0.75},"resetTime":"2026-11-16T15:00:00Z"}]}]}}""");
+            });
         var client = new AntigravityClient();
         var context = http.Context(Now);
         var refreshed = await client.RefreshAsync(new AuthTokens("g-old", "g-refresh", "", Now, "", "me@gmail.com"), context, CancellationToken.None);
@@ -395,6 +399,7 @@ public sealed class DesktopParityTests
         Assert.True(client.CanRefresh(refreshed));
         var fetched = await client.FetchAsync(refreshed, context, CancellationToken.None);
         Assert.Equal("Ultra", fetched.Snapshot.PlanType);
+        Assert.Equal(25, fetched.Snapshot.FiveHour?.UsedPercent);
         Assert.Equal(UsageProvider.Antigravity.IsAvailable, AntigravityOAuth.Configured);
     }
 

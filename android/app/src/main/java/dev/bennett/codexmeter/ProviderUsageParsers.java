@@ -558,44 +558,101 @@ public final class ProviderUsageParsers {
     // ---------------------------------------------------------------- Antigravity (Google)
 
     /**
-     * {@code v1internal:retrieveUserQuotaSummary}: buckets per model family. Gemini is the
-     * main pair of windows; Claude and other third-party models become an additional limit.
+     * Antigravity usage from any of Cloud Code's three quota replies:
+     * {@code retrieveUserQuotaSummary} ({@code groups[].buckets[]} with {@code remaining}),
+     * {@code fetchAvailableModels} ({@code models.<id>.quotaInfo}) or {@code retrieveUserQuota}
+     * ({@code buckets[]} per model). Gemini is the main pair of windows; Claude and GPT
+     * become one additional limit. A bucket with no fraction, or a disabled one, is unknown.
      */
     public static UsageSnapshot antigravity(String body, String plan, long now) {
         JSONObject root = object(body);
+        JSONObject wrapped = root.optJSONObject("response");
+        if (wrapped == null) wrapped = root.optJSONObject("summary");
+        if (wrapped != null && wrapped.has("groups")) root = wrapped;
         Builder out = new Builder(now);
         out.plan = plan == null ? "" : plan;
-        List<JSONObject> buckets = new ArrayList<>();
-        collectBuckets(root, buckets);
         UsageWindow thirdShort = null;
         UsageWindow thirdWeekly = null;
-        for (JSONObject bucket : buckets) {
-            String id = string(bucket, "bucketId", "id", "name").toLowerCase(Locale.ROOT);
-            double fraction = number(bucket, "remainingFraction", "remaining_fraction");
-            if (Double.isNaN(fraction) && (bucket.has("resetTime") || bucket.has("reset_time"))) {
-                // proto3 omits zero: a bucket with a reset but no fraction is used up.
-                fraction = 0.0;
+        JSONArray groups = root.optJSONArray("groups");
+        if (groups != null) {
+            for (int g = 0; g < groups.length(); g++) {
+                JSONObject group = groups.optJSONObject(g);
+                if (group == null) continue;
+                String groupName = string(group, "displayName", "name");
+                String family = antigravityFamily(groupName);
+                JSONArray buckets = group.optJSONArray("buckets");
+                if (buckets == null) continue;
+                for (int b = 0; b < buckets.length(); b++) {
+                    JSONObject bucket = buckets.optJSONObject(b);
+                    if (bucket == null || bucket.optBoolean("disabled", false)) continue;
+                    String id = string(bucket, "bucketId", "id", "name");
+                    double fraction = antigravityFraction(bucket);
+                    if (Double.isNaN(fraction)) continue;
+                    boolean weekly = antigravityWeekly(string(bucket, "window") + " " + id + " "
+                            + string(bucket, "displayName"));
+                    UsageWindow window = window((1.0 - fraction) * 100.0, weekly ? WEEK : 5 * HOUR,
+                            epochSeconds(first(bucket, "resetTime", "reset_time")), now);
+                    String bucketFamily = family.isEmpty() ? antigravityFamily(id) : family;
+                    if ("gemini".equals(bucketFamily)) {
+                        if (weekly && out.weekly == null) out.weekly = window;
+                        else if (!weekly && out.shortWindow == null) out.shortWindow = window;
+                    } else if ("third".equals(bucketFamily)) {
+                        if (weekly && thirdWeekly == null) thirdWeekly = window;
+                        else if (!weekly && thirdShort == null) thirdShort = window;
+                    } else {
+                        String label = groupName.isEmpty() ? titleCase(id) : groupName;
+                        out.extra(label + (weekly ? " weekly" : " 5-hour"), window);
+                    }
+                }
             }
-            if (Double.isNaN(fraction)) continue;
-            boolean weekly = id.contains("week") || id.contains("7d");
-            long seconds = weekly ? WEEK : 5 * HOUR;
-            UsageWindow window = window((1.0 - fraction) * 100.0, seconds,
-                    epochSeconds(first(bucket, "resetTime", "reset_time")), now);
-            if (id.startsWith("gemini") && !id.contains("argon")) {
-                if (weekly && out.weekly == null) {
-                    out.weekly = window;
-                } else if (!weekly && out.shortWindow == null) {
-                    out.shortWindow = window;
+        } else {
+            // Per-model quotas: each family shows its most used model.
+            List<String[]> rows = new ArrayList<>();
+            JSONObject models = root.optJSONObject("models");
+            if (models != null) {
+                Iterator<String> keys = models.keys();
+                while (keys.hasNext()) {
+                    String id = keys.next();
+                    JSONObject model = models.optJSONObject(id);
+                    JSONObject quota = model == null ? null : model.optJSONObject("quotaInfo");
+                    if (quota == null) continue;
+                    rows.add(new String[] {id, string(model, "displayName", "label"),
+                            String.valueOf(number(quota, "remainingFraction")),
+                            string(quota, "resetTime")});
                 }
-            } else if (id.startsWith("3p") || id.contains("third")) {
-                if (weekly) {
-                    thirdWeekly = window;
-                } else {
-                    thirdShort = window;
+            }
+            JSONArray buckets = root.optJSONArray("buckets");
+            if (buckets != null) {
+                for (int i = 0; i < buckets.length(); i++) {
+                    JSONObject bucket = buckets.optJSONObject(i);
+                    if (bucket == null) continue;
+                    rows.add(new String[] {string(bucket, "modelId", "bucketId"), "",
+                            String.valueOf(number(bucket, "remainingFraction")),
+                            string(bucket, "resetTime")});
                 }
-            } else {
-                String label = string(bucket, "displayName", "label");
-                out.extra(label.isEmpty() ? titleCase(id) : label, window);
+            }
+            double gemini = Double.NaN;
+            double third = Double.NaN;
+            String geminiReset = "";
+            String thirdReset = "";
+            for (String[] row : rows) {
+                double fraction = Double.parseDouble(row[2]);
+                if (Double.isNaN(fraction)) continue;
+                String family = antigravityFamily(row[0] + " " + row[1]);
+                if ("gemini".equals(family) && (Double.isNaN(gemini) || fraction < gemini)) {
+                    gemini = fraction;
+                    geminiReset = row[3];
+                } else if ("third".equals(family) && (Double.isNaN(third) || fraction < third)) {
+                    third = fraction;
+                    thirdReset = row[3];
+                }
+            }
+            if (!Double.isNaN(gemini)) {
+                out.shortWindow = window((1.0 - gemini) * 100.0, 5 * HOUR,
+                        epochSeconds(geminiReset), now);
+            }
+            if (!Double.isNaN(third)) {
+                thirdShort = window((1.0 - third) * 100.0, 5 * HOUR, epochSeconds(thirdReset), now);
             }
         }
         if (thirdShort != null || thirdWeekly != null) {
@@ -603,25 +660,75 @@ public final class ProviderUsageParsers {
             UsageWindow secondary = thirdShort != null ? thirdWeekly : null;
             boolean reached = primary.usedPercent >= 100
                     || (secondary != null && secondary.usedPercent >= 100);
-            out.extras.add(0, new UsageLimit("third_party", "Claude and other models", "",
+            out.extras.add(0, new UsageLimit("third_party", "Claude and GPT models", "",
                     !reached, reached, primary, secondary));
         }
         return out.build();
     }
 
-    private static void collectBuckets(Object node, List<JSONObject> into) {
-        if (node instanceof JSONObject) {
-            JSONObject object = (JSONObject) node;
-            if (object.has("bucketId") || object.has("remainingFraction")) {
-                into.add(object);
-                return;
-            }
-            Iterator<String> keys = object.keys();
-            while (keys.hasNext()) collectBuckets(object.opt(keys.next()), into);
-        } else if (node instanceof JSONArray) {
-            JSONArray array = (JSONArray) node;
-            for (int i = 0; i < array.length(); i++) collectBuckets(array.opt(i), into);
+    /** "gemini", "third" (Claude, GPT and other partner models) or "" for anything else. */
+    private static String antigravityFamily(String name) {
+        String value = name == null ? "" : name.toLowerCase(Locale.ROOT);
+        if (value.contains("claude") || value.contains("gpt") || value.startsWith("3p")
+                || value.contains("third")) {
+            return "third";
         }
+        // A versioned family such as "Gemini 4 Argon" is a separate quota with its own name.
+        if (value.contains("gemini") && !value.contains("argon")) return "gemini";
+        return "";
+    }
+
+    private static boolean antigravityWeekly(String text) {
+        String value = text.toLowerCase(Locale.ROOT);
+        return value.contains("week") || value.contains("7d") || value.contains("7-day");
+    }
+
+    /** {@code remaining} is {@code {remainingFraction}} or a oneof {@code {case, value}}. */
+    private static double antigravityFraction(JSONObject bucket) {
+        double fraction = number(bucket, "remainingFraction", "remaining_fraction");
+        if (!Double.isNaN(fraction)) return fraction;
+        JSONObject remaining = bucket.optJSONObject("remaining");
+        if (remaining == null) return Double.NaN;
+        fraction = number(remaining, "remainingFraction", "remaining_fraction");
+        if (!Double.isNaN(fraction)) return fraction;
+        return "remainingFraction".equals(remaining.optString("case"))
+                ? number(remaining, "value") : Double.NaN;
+    }
+
+    /** True when the account's OAuth client can't read consumer quota (sign in again). */
+    public static boolean antigravityClientRejected(String body) {
+        JSONObject root = object(body);
+        if (root.has("currentTier") || !antigravityProject(body).isEmpty()) return false;
+        JSONArray ineligible = root.optJSONArray("ineligibleTiers");
+        if (ineligible == null) return false;
+        for (int i = 0; i < ineligible.length(); i++) {
+            JSONObject tier = ineligible.optJSONObject(i);
+            if (tier != null && "GOOGLE_TOS_NOT_SUPPORTED_BY_CLIENT".equals(
+                    tier.optString("reasonCode"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The tier to onboard an account that has no Code Assist project yet. */
+    public static String antigravityOnboardTier(String body) {
+        JSONObject root = object(body);
+        JSONArray allowed = root.optJSONArray("allowedTiers");
+        if (allowed != null) {
+            for (int i = 0; i < allowed.length(); i++) {
+                JSONObject tier = allowed.optJSONObject(i);
+                if (tier != null && tier.optBoolean("isDefault") && !string(tier, "id").isEmpty()) {
+                    return string(tier, "id");
+                }
+            }
+            for (int i = 0; i < allowed.length(); i++) {
+                String id = string(allowed.optJSONObject(i), "id");
+                if (!id.isEmpty()) return id;
+            }
+        }
+        String paid = string(root.optJSONObject("paidTier"), "id");
+        return paid.isEmpty() ? string(root.optJSONObject("currentTier"), "id") : paid;
     }
 
     /** Plan from {@code v1internal:loadCodeAssist}. */
@@ -640,8 +747,14 @@ public final class ProviderUsageParsers {
     /** Google Cloud project the account's Code Assist quota is billed to, when given. */
     public static String antigravityProject(String body) {
         JSONObject root = object(body);
+        // onboardUser wraps its answer in "response".
+        if (!root.has("cloudaicompanionProject") && root.optJSONObject("response") != null) {
+            root = root.optJSONObject("response");
+        }
         Object project = root.opt("cloudaicompanionProject");
-        if (project instanceof JSONObject) return string((JSONObject) project, "id", "name");
+        if (project instanceof JSONObject) {
+            return string((JSONObject) project, "id", "projectId", "name");
+        }
         return project == null || project == JSONObject.NULL ? "" : String.valueOf(project);
     }
 

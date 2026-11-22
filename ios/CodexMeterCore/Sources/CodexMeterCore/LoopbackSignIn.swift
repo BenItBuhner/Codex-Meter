@@ -66,7 +66,8 @@ public enum OpenRouterOAuth {
 public enum AntigravityOAuth {
     public static let tokenURL = "https://oauth2.googleapis.com/token"
     public static let userInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
-    public static let hosts = ["https://cloudcode-pa.googleapis.com", "https://daily-cloudcode-pa.googleapis.com"]
+    public static let prod = "https://cloudcode-pa.googleapis.com"
+    public static let daily = "https://daily-cloudcode-pa.googleapis.com"
     public static let scope = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email"
 
     public static var clientID: String { infoValue("CodexMeterAntigravityClientID") }
