@@ -24,12 +24,8 @@
 - **Slider thumbs stay inside their card** at both ends, even while pressed. Android.
 - **The Filter menu's switches** no longer get stuck off, since the menu is gone. Android.
 - **Lists that open already in edit mode show their drag handles** in Liquid Glass. Android.
-- **Antigravity usage reads again.** It now asks Google's Cloud Code service the way the current Antigravity app does (load the account and project first, then the daily quota summary), so the Gemini and the Claude and GPT model limits show for 5 hours and the week. A sign-in from the wrong Google client now asks you to sign in again instead of failing quietly. Android, iOS, macOS, Windows, Linux.
+- **Antigravity usage reads again.** It now asks Google's Cloud Code service the way the current Antigravity app does (load the account and project first, then the daily quota summary), so the Gemini and the Claude and GPT model limits show for 5 hours and the week. A sign-in from the wrong Google client now asks you to sign in again instead of failing quietly, and Antigravity sign-in is switched on in release builds. Android, iOS, macOS, Windows, Linux.
 - **MiniMax, Copilot, Grok, Kilo and Codebuff read their newer replies.** MiniMax token plans (wrapped replies, weekly percent and plan names), Copilot plans with token billing or unlimited seats, Grok pay-as-you-go spend, Kilo credit blocks and the Kilo Pass month, and Codebuff's weekly limit and tier. An ended Copilot subscription now says so. Android, iOS, macOS, Windows, Linux.
-
-### Known gaps
-
-- **Antigravity sign-in is still switched off in these builds**, so its fixed usage reading can't be used yet. All platforms.
 
 ## 2.9.0-alpha.31 — 2026-11-19
 
