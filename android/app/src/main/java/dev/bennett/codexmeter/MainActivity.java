@@ -1011,42 +1011,64 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
             return;
         }
-        for (PriorityView.Item alert : page.alerts) {
-            LinearLayout card = Ui.card(this, this.dark);
-            card.addView(sectionLabel(alert.kind == PriorityView.Kind.DOWNTIME
-                    ? "Official incident" : "Performance warning", 0));
-            TextView title = Ui.text(this, alert.title, 16, alert.kind == PriorityView.Kind.DOWNTIME
-                    ? Ui.danger(this.dark) : Ui.warning(this.dark));
-            title.setTypeface(Ui.mediumTypeface(this));
-            LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-1, -2);
-            ap.setMargins(0, Ui.dp(this, 6), 0, 0);
-            card.addView(title, ap);
-            if (!alert.detail.isEmpty()) {
-                card.addView(Ui.text(this, alert.detail, 13, Ui.secondaryText(this.dark)));
-            }
-            this.content.addView(card);
-            Ui.addSpacer(this.content, 20);
-        }
         if (page.allClear()) {
             TextView clear = Ui.text(this, page.emptyLine(), 14.0f, Ui.secondaryText(this.dark));
             clear.setGravity(Gravity.CENTER);
             this.content.addView(clear, new LinearLayout.LayoutParams(-1, -2));
             Ui.addSpacer(this.content, 20);
         }
-        addNotesCard(PriorityPage.NEWS, page.news);
-        boolean inverted = false;
-        if (!page.watch.isEmpty()) {
-            this.content.addView(sectionLabel("Limits to watch", 10));
-            for (PriorityPage.Limit l : page.watch) {
-                this.content.addView(buildMetricCard(l.provider, l.title(), l.snapshot, l.window, inverted));
-                Ui.addSpacer(this.content, 20);
-                inverted = !inverted;
+        // the sections in the order Edit mode saved; the hidden ones are already empty
+        for (String key : PriorityPrefs.sectionOrder(this)) {
+            switch (key) {
+                case "alerts":
+                    for (PriorityView.Item alert : page.alerts) {
+                        LinearLayout card = Ui.card(this, this.dark);
+                        card.addView(sectionLabel(alert.kind == PriorityView.Kind.DOWNTIME
+                                ? "Official incident" : "Performance warning", 0));
+                        TextView title = Ui.text(this, alert.title, 16, alert.kind == PriorityView.Kind.DOWNTIME
+                                ? Ui.danger(this.dark) : Ui.warning(this.dark));
+                        title.setTypeface(Ui.mediumTypeface(this));
+                        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-1, -2);
+                        ap.setMargins(0, Ui.dp(this, 6), 0, 0);
+                        card.addView(title, ap);
+                        if (!alert.detail.isEmpty()) {
+                            card.addView(Ui.text(this, alert.detail, 13, Ui.secondaryText(this.dark)));
+                        }
+                        this.content.addView(card);
+                        Ui.addSpacer(this.content, 20);
+                    }
+                    break;
+                case "news":
+                    addNotesCard(PriorityPage.NEWS, page.news);
+                    break;
+                case "watch": {
+                    boolean inverted = false;
+                    if (!page.watch.isEmpty()) {
+                        this.content.addView(sectionLabel("Limits to watch", 10));
+                        for (PriorityPage.Limit l : page.watch) {
+                            this.content.addView(buildMetricCard(l.provider, l.title(), l.snapshot, l.window, inverted));
+                            Ui.addSpacer(this.content, 20);
+                            inverted = !inverted;
+                        }
+                    }
+                    break;
+                }
+                case "used_up":
+                    addUsedUpCard(page);
+                    break;
+                case "ready":
+                    addNotesCard(PriorityPage.READY, page.ready);
+                    break;
+                case "coming_up":
+                    addNotesCard(PriorityPage.COMING_UP, page.comingUp);
+                    break;
+                case "models":
+                    addNotesCard(PriorityPage.NEW_MODELS, page.models);
+                    break;
+                default:
+                    break;
             }
         }
-        addUsedUpCard(page);
-        addNotesCard(PriorityPage.READY, page.ready);
-        addNotesCard(PriorityPage.COMING_UP, page.comingUp);
-        addNotesCard(PriorityPage.NEW_MODELS, page.models);
     }
 
     /**
