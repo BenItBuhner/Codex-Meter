@@ -94,7 +94,7 @@ public sealed class AccountsPage : IPage
         connected.SetHeaderSuffix(add);
 
         var enabled = state.EnabledProviders;
-        var order = state.SidebarCandidates;
+        var order = state.SidebarCandidates.ToList();
         var listed = order.Concat(state.Entries.Where(e => e.SigningIn && !order.Contains(e.Provider)).Select(e => e.Provider)).ToList();
         for (var index = 0; index < listed.Count; index++)
         {

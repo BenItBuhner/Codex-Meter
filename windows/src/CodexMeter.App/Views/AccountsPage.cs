@@ -82,7 +82,7 @@ public sealed class AccountsPage : PageBase
     {
         connected.Children.Clear();
         var enabled = State.EnabledProviders;
-        var order = State.SidebarCandidates;
+        var order = State.SidebarCandidates.ToList();
         var listed = order.Concat(State.Entries.Where(e => e.SigningIn && !order.Contains(e.Provider)).Select(e => e.Provider)).ToList();
         foreach (var provider in listed)
         {
