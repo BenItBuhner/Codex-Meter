@@ -4,7 +4,7 @@
 
 ### Added
 
-- **One Providers page with your accounts.** Settings, Accounts is folded into Providers: one list shows each provider with its account, switch and tab, Edit reorders it, Add account signs in another, and each provider's page has Sign out. Android; iOS, macOS, Windows and Linux follow in a later alpha.
+- **One Providers page with your accounts.** Settings, Accounts is folded into Providers: one list shows each provider with its account, switch and tab, Edit reorders it, Add account signs in another, and each provider's page has Sign out. Android, iOS, macOS, Windows, Linux.
 - **Edit on every Liquid Glass tab replaces the Filter menu.** Edit turns the page itself into an edit view, like Photos: tap a section to show or hide it, and drag its handle to reorder. Hidden sections stay in the list so they can always be switched back on, and changes save as you make them. Android.
 - **Priority's sections can be reordered.** One UI, Classic and Material 3 Expressive draw Priority in the same order and hide the same sections. Android.
 - **Pull down on App update to check again.** Android.
@@ -28,7 +28,6 @@
 ### Known gaps
 
 - **Antigravity sign-in and usage don't work in this alpha.** Sign-in is switched off in these builds, and its usage reading is being fixed for a later alpha. All platforms.
-- Providers with accounts is Android-only so far; iPhone, Mac, Windows and Linux still have a separate Accounts page.
 
 ## 2.9.0-alpha.31 — 2026-11-19
 
