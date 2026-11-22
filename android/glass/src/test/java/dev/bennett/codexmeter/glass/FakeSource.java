@@ -90,7 +90,6 @@ final class FakeSource implements GlassSource {
     boolean priority;
     /** what the filter menu switched off, by label */
     final java.util.Set<String> hidden = new java.util.HashSet<>();
-    int rearranged;
     /** Recent activity rows dismissed so far */
     final List<Integer> dismissed = new ArrayList<>();
 
@@ -118,14 +117,15 @@ final class FakeSource implements GlassSource {
             dismissed.add(1);
             changed();
         };
+        java.util.Map<String, GlassModel.Card> built = new java.util.HashMap<>();
         if (!news.stats.isEmpty()) {
-            d.cards.add(news);
+            built.put("Recent activity", news);
         }
         GlassModel.Card used = new GlassModel.Card(GlassModel.Card.Kind.STATS);
         used.title = "Used up";
         used.detail = used.title;
         used.stats.add(new String[] {"Cursor · Monthly", "Resets Dec 1"});
-        d.cards.add(used);
+        built.put("Used up", used);
         // New models: the same dismiss model as Recent activity (two-line rows, swipe or hold)
         GlassModel.Card models = new GlassModel.Card(GlassModel.Card.Kind.STATS);
         models.title = "New models";
@@ -150,7 +150,14 @@ final class FakeSource implements GlassSource {
             changed();
         };
         if (!models.stats.isEmpty()) {
-            d.cards.add(models);
+            built.put("New models", models);
+        }
+        // the sections in Edit mode's order, less the hidden ones
+        for (String label : sectionOrder()) {
+            GlassModel.Card c = built.get(label);
+            if (c != null && !hidden.contains(label)) {
+                d.cards.add(c);
+            }
         }
         return d;
     }
@@ -259,31 +266,57 @@ final class FakeSource implements GlassSource {
         if (noEdit) {
             return Arrays.asList(new MenuEntry("Settings", "gearshape", false, null));
         }
-        String[] shows = priority
-                ? new String[] {"Outages and slowdowns", "Recent activity", "Limits to watch", "Used up",
-                        "Saved resets you can use", "Coming up", "New models"}
-                : new String[] {"5-hour limit", "Weekly limit", "Usage history", "Reset credits"};
-        List<Toggle> toggles = new ArrayList<>();
-        for (String label : shows) {
-            boolean on = !hidden.contains(label);
-            toggles.add(new Toggle(label, on, () -> {
-                if (on) {
-                    hidden.add(label);
-                } else {
-                    hidden.remove(label);
-                }
-                changed();
-            }));
-        }
-        List<MenuEntry> actions = priority ? null
-                : Arrays.asList(new MenuEntry("Rearrange cards", "arrows", false, () -> rearranged++));
         return Arrays.asList(
-                new MenuEntry("Filter", "filter", toggles, actions),
                 new MenuEntry("Settings", "gearshape", false, () -> {
                     if (onSettings != null) {
                         onSettings.run();
                     }
                 }));
+    }
+
+    /** Edit mode's order of each tab's sections, by label */
+    final List<String> priorityOrder = new ArrayList<>(Arrays.asList("Outages and slowdowns", "Recent activity",
+            "Limits to watch", "Used up", "Saved resets you can use", "Coming up", "New models"));
+    final List<String> cardOrder = new ArrayList<>(Arrays.asList("5-hour limit", "Weekly limit", "Reset credits",
+            "Usage history"));
+
+    List<String> sectionOrder() {
+        return priority ? priorityOrder : cardOrder;
+    }
+
+    @Override
+    public GlassModel.Section editSections() {
+        if (noEdit) {
+            return null;
+        }
+        GlassModel.Section s = new GlassModel.Section(null);
+        s.header = priority ? "Choose what Priority shows. Drag to change the order."
+                : "Choose the cards this tab shows. Drag to change the order.";
+        s.footer = "Sections show only while they have something in them.";
+        for (String label : sectionOrder()) {
+            GlassModel.Row r = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, label);
+            r.title = label;
+            r.summary = "Coming up".equals(label) || "Saved resets you can use".equals(label)
+                    || "Outages and slowdowns".equals(label) || "Limits to watch".equals(label)
+                    ? "Nothing right now" : priority ? "2 items" : "Shown when there is data";
+            r.checked = !hidden.contains(label);
+            r.onToggle = on -> {
+                if (on) {
+                    hidden.remove(label);
+                } else {
+                    hidden.add(label);
+                }
+                changed();
+            };
+            s.rows.add(r);
+        }
+        s.onMove = (from, to) -> {
+            List<String> order = sectionOrder();
+            order.add(to, order.remove(from));
+            moves++;
+            changed();
+        };
+        return s;
     }
 
     private static GlassModel.Row link(String key, String title, String icon, String color, String page) {

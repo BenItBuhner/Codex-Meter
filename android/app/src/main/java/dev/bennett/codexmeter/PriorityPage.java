@@ -118,8 +118,8 @@ final class PriorityPage {
 
     /** Shown when no limit is running out early or used up, and nothing is wrong. */
     static final String ALL_CLEAR = "Nothing needs attention right now.";
-    /** Shown instead when the filter menu hides everything there is. */
-    static final String ALL_FILTERED = "Everything here is filtered out.";
+    /** Shown instead when Edit mode hid everything there is. */
+    static final String ALL_FILTERED = "Everything here is hidden. Tap Edit to show sections again.";
 
     /** The line for an empty page: all clear, or all filtered out. */
     String emptyLine() {
@@ -129,8 +129,8 @@ final class PriorityPage {
     static final String USED_UP = "Used up";
 
     /**
-     * Priority's sections the filter menu switches, in page order: {key, label}. The keys are
-     * stored, so keep them when the labels change.
+     * Priority's sections in their default order: {key, label}. Edit mode switches and reorders them
+     * ({@link PriorityPrefs#sectionOrder}). The keys are stored, so keep them when the labels change.
      */
     static final String[][] SECTIONS = {
             {"alerts", "Outages and slowdowns"},
@@ -142,8 +142,28 @@ final class PriorityPage {
             {"models", NEW_MODELS},
     };
 
-    /** True when the filter menu hides something that would show now. */
+    /** True when Edit mode hides something that would show now. */
     boolean filtered;
+    /** How many items each section had before the hidden ones were emptied, by key. */
+    final java.util.Map<String, Integer> sizes = new java.util.HashMap<>();
+
+    static boolean isSection(String key) {
+        for (String[] section : SECTIONS) {
+            if (section[0].equals(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static String label(String key) {
+        for (String[] section : SECTIONS) {
+            if (section[0].equals(key)) {
+                return section[1];
+            }
+        }
+        return key;
+    }
 
     boolean allClear() {
         return watch.isEmpty() && usedUp.isEmpty() && alerts.isEmpty() && news.isEmpty() && ready.isEmpty()
@@ -192,7 +212,7 @@ final class PriorityPage {
         return page;
     }
 
-    /** Empties the sections the filter menu switched off. */
+    /** Empties the sections Edit mode switched off. */
     private void filter(Context context) {
         hide(context, "alerts", alerts);
         hide(context, "news", news);
@@ -204,6 +224,7 @@ final class PriorityPage {
     }
 
     private void hide(Context context, String key, List<?> list) {
+        sizes.put(key, list.size());
         if (!list.isEmpty() && !PriorityPrefs.isSectionShown(context, key)) {
             list.clear();
             filtered = true;

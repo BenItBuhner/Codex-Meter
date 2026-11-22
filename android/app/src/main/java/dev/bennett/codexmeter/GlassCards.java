@@ -86,39 +86,60 @@ final class GlassCards {
             d.cards.add(empty);
             return d;
         }
-        for (PriorityView.Item alert : page.alerts) {
-            Card c = new Card(Card.Kind.NOTE);
-            c.detail = alert.kind == PriorityView.Kind.DOWNTIME ? "Official incident" : "Performance warning";
-            c.title = alert.title;
-            c.summary = alert.detail;
-            d.cards.add(c);
-        }
         long now = System.currentTimeMillis();
         if (page.allClear()) {
             Card clear = new Card(Card.Kind.MESSAGE);
             clear.title = page.emptyLine();
             d.cards.add(clear);
         }
-        addNotes(a, d, PriorityPage.NEWS, page.news);
-        if (!page.watch.isEmpty()) {
-            d.cards.add(heading("Limits to watch"));
-            for (PriorityPage.Limit l : page.watch) {
-                d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
+        // the sections in the order Edit mode saved; the hidden ones are already empty
+        for (String key : PriorityPrefs.sectionOrder(a)) {
+            switch (key) {
+                case "alerts":
+                    for (PriorityView.Item alert : page.alerts) {
+                        Card c = new Card(Card.Kind.NOTE);
+                        c.detail = alert.kind == PriorityView.Kind.DOWNTIME ? "Official incident" : "Performance warning";
+                        c.title = alert.title;
+                        c.summary = alert.detail;
+                        d.cards.add(c);
+                    }
+                    break;
+                case "news":
+                    addNotes(a, d, PriorityPage.NEWS, page.news);
+                    break;
+                case "watch":
+                    if (!page.watch.isEmpty()) {
+                        d.cards.add(heading("Limits to watch"));
+                        for (PriorityPage.Limit l : page.watch) {
+                            d.cards.add(meter(a, l.provider, l.title(), l.snapshot, l.window, now));
+                        }
+                    }
+                    break;
+                case "used_up":
+                    if (!page.usedUp.isEmpty()) {
+                        // Used-up limits and when each resets, as one grouped list like New models.
+                        Card used = new Card(Card.Kind.STATS);
+                        used.detail = PriorityPage.USED_UP;
+                        used.title = PriorityPage.USED_UP;
+                        for (PriorityPage.Limit l : page.usedUp) {
+                            used.stats.add(new String[] {l.title(), l.resetText(a, now)});
+                        }
+                        d.cards.add(used);
+                    }
+                    break;
+                case "ready":
+                    addNotes(a, d, PriorityPage.READY, page.ready);
+                    break;
+                case "coming_up":
+                    addNotes(a, d, PriorityPage.COMING_UP, page.comingUp);
+                    break;
+                case "models":
+                    addNotes(a, d, PriorityPage.NEW_MODELS, page.models);
+                    break;
+                default:
+                    break;
             }
         }
-        if (!page.usedUp.isEmpty()) {
-            // Used-up limits and when each resets, as one grouped list like New models.
-            Card used = new Card(Card.Kind.STATS);
-            used.detail = PriorityPage.USED_UP;
-            used.title = PriorityPage.USED_UP;
-            for (PriorityPage.Limit l : page.usedUp) {
-                used.stats.add(new String[] {l.title(), l.resetText(a, now)});
-            }
-            d.cards.add(used);
-        }
-        addNotes(a, d, PriorityPage.READY, page.ready);
-        addNotes(a, d, PriorityPage.COMING_UP, page.comingUp);
-        addNotes(a, d, PriorityPage.NEW_MODELS, page.models);
         return d;
     }
 
