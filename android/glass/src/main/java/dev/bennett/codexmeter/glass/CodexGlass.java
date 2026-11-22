@@ -1209,8 +1209,10 @@ public final class CodexGlass {
         } else if (r.value != null) {
             trailing = Text(P.of("size", 17, "ls", -0.34, "lines", 1, "color", t.pal.label2), r.value);
         }
-        return Row(P.of("flex", 1, "gap", 12, "align", "center"),
-                leading, Box(P.of("flex", 1), label), trailing);
+        Runnable press = r.onPress;
+        return Row(P.of("flex", 1, "gap", 12, "align", "center", "onPress", press),
+                leading, Box(P.of("flex", 1), label), trailing,
+                press != null ? Icon(P.of("name", "chevronRight", "size", 15, "color", t.pal.label3)) : null);
     }
 
     /** A CHOICE row whose value opens an anchored glass pop-up menu (Picker .menu in a Form). */

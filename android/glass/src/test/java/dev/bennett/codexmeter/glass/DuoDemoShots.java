@@ -8,7 +8,7 @@ import org.junit.Test;
 
 /**
  * Every 60 Hz frame of the Duo column at work: switching tabs (tap and drag), opening Settings from
- * the column's gear, About's buttons splitting out of Back and merging back, Dashboard tabs' Edit,
+ * the column's gear, About's buttons splitting out of Back and merging back, Providers' Edit,
  * closing Settings with Back, the app's own back swipe (scrubbed back and forth, then let go) and
  * the system's predictive back (cancelled once, then committed). Only with
  * {@code -Dcap.demo=<dir>}; cap.w, cap.h, cap.duo (always, wide), cap.scheme and cap.dpr pick the
@@ -82,7 +82,7 @@ public class DuoDemoShots {
         step(70);
         tap(x, buttons + 22);
         step(70);
-        // Dashboard tabs: Edit splits out of Back
+        // Providers: Edit splits out of Back
         src.navigate(new GlassSource.Nav(false, "x:tabs"));
         step(60);
         tap(x, buttons + 22);

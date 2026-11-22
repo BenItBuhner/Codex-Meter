@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Settings → Accounts → Add account: every provider that isn't connected yet, searchable.
+ * Settings → Providers → Add account: every provider that isn't connected yet, searchable.
  * Picking one opens {@link SignInActivity}; once it connects, this page closes too and the
  * provider gets a dashboard tab.
  */

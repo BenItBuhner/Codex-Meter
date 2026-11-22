@@ -301,10 +301,9 @@ final class FakeSource implements GlassSource {
             case "root": {
                 GlassModel.Page p = new GlassModel.Page("root", "Settings");
                 GlassModel.Section accounts = new GlassModel.Section(null);
-                GlassModel.Row acc = link("settings_accounts", "Accounts", "person2", "#007aff", "accounts");
-                acc.value = "2";
-                accounts.rows.add(acc);
-                accounts.rows.add(link("settings_providers", "Dashboard tabs", "tabs", "#5856d6", null));
+                GlassModel.Row providers = link("settings_providers", "Providers", "tabs", "#5856d6", "x:tabs");
+                providers.value = "3 on";
+                accounts.rows.add(providers);
                 p.sections.add(accounts);
                 GlassModel.Section live = new GlassModel.Section(null);
                 live.rows.add(link("settings_now_bar", "Now Bar", "waveform", "#ff9500", "now_bar"));
@@ -403,6 +402,8 @@ final class FakeSource implements GlassSource {
                 return history();
             case "x:tabs":
                 return tabsPage();
+            case "x:provider":
+                return providerPage();
             case "x:about": {
                 GlassModel.Page p = new GlassModel.Page(id, "About");
                 p.actions.add(new GlassModel.Action("GitHub", "github", false, () -> { }));
@@ -615,20 +616,24 @@ final class FakeSource implements GlassSource {
         return p;
     }
 
+    /** Settings › Providers: accounts and dashboard tabs in one list, as GlassScreens.Tabs builds it. */
     private GlassModel.Page tabsPage() {
-        GlassModel.Page p = new GlassModel.Page("x:tabs", "Dashboard tabs");
-        p.intro = "Tap Edit to reorder, or touch and hold a tab. Switch off to hide one.";
-        GlassModel.Section list = new GlassModel.Section(null);
-        list.footer = "With five or more on, the first three get tabs and the rest go under More.";
+        GlassModel.Page p = new GlassModel.Page("x:tabs", "Providers");
+        GlassModel.Section list = new GlassModel.Section("On your dashboard");
+        list.footer = "Switch one off to hide its tab. Tap a provider for its account. With five or more "
+                + "on, the first three get tabs and the rest go under More.";
         String[] ids = {"codex", "claude_code", "cursor", "copilot"};
+        String[] accounts = {"you@example.com · Pro", "Max 5x", "Pro", "Not signed in"};
         List<String> names = Arrays.asList("Codex", "Claude Code", "Cursor", "Copilot");
         for (String name : tabOrder) {
-            GlassModel.Row r = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, name);
+            int i = names.indexOf(name);
+            GlassModel.Row r = new GlassModel.Row(GlassModel.Row.Kind.SWITCH_LINK, name);
             r.title = name;
-            r.icon = "provider_" + ids[names.indexOf(name)];
+            r.summary = accounts[i];
+            r.icon = "provider_" + ids[i];
             r.plainIcon = true;
             r.checked = !"Copilot".equals(name);
-            r.summary = "Copilot".equals(name) ? "Not signed in" : null;
+            r.onPress = () -> navigate(new Nav(false, "x:provider"));
             list.rows.add(r);
         }
         list.onMove = (from, to) -> {
@@ -637,6 +642,56 @@ final class FakeSource implements GlassSource {
             changed();
         };
         p.sections.add(list);
+        GlassModel.Section add = new GlassModel.Section(null);
+        GlassModel.Row a = new GlassModel.Row(GlassModel.Row.Kind.ACTION, "account_add");
+        a.title = "Add account";
+        a.icon = "plus";
+        a.color = "#34c759";
+        a.onPress = () -> { };
+        add.rows.add(a);
+        add.footer = "Codex, Claude Code, Cursor, Copilot, Gemini and more.";
+        p.sections.add(add);
+        return p;
+    }
+
+    /** Settings › Providers › Codex, as GlassScreens.Provider builds it. */
+    private GlassModel.Page providerPage() {
+        GlassModel.Page p = new GlassModel.Page("x:provider", "Codex");
+        GlassModel.Section account = new GlassModel.Section("Account");
+        GlassModel.Row who = new GlassModel.Row(GlassModel.Row.Kind.INFO, "who");
+        who.title = "Signed in as";
+        who.value = "you@example.com";
+        account.rows.add(who);
+        GlassModel.Row plan = new GlassModel.Row(GlassModel.Row.Kind.INFO, "plan");
+        plan.title = "Plan";
+        plan.value = "Pro";
+        account.rows.add(plan);
+        p.sections.add(account);
+        GlassModel.Section dashboard = new GlassModel.Section("Dashboard");
+        GlassModel.Row show = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, "show");
+        show.title = "Show on dashboard";
+        show.checked = true;
+        dashboard.rows.add(show);
+        GlassModel.Row cards = new GlassModel.Row(GlassModel.Row.Kind.LINK, "cards");
+        cards.title = "Arrange cards";
+        cards.onPress = () -> { };
+        dashboard.rows.add(cards);
+        p.sections.add(dashboard);
+        GlassModel.Section resets = new GlassModel.Section("Reset credits");
+        GlassModel.Row saved = new GlassModel.Row(GlassModel.Row.Kind.LINK, "saved_resets");
+        saved.title = "Saved resets";
+        saved.onPress = () -> { };
+        resets.rows.add(saved);
+        p.sections.add(resets);
+        GlassModel.Section out = new GlassModel.Section(null);
+        GlassModel.Row signOut = new GlassModel.Row(GlassModel.Row.Kind.ACTION, "sign_out");
+        signOut.title = "Sign out";
+        signOut.destructive = true;
+        signOut.onPress = () -> { };
+        out.rows.add(signOut);
+        out.footer = "Removes this account's tokens and cached usage from this device. Other accounts stay "
+                + "signed in.";
+        p.sections.add(out);
         return p;
     }
 

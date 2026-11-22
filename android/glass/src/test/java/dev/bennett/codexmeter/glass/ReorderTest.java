@@ -9,7 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.Test;
 
-/** Dashboard tabs reorder with Glassé's ReorderList: Edit shows the handles, a handle drag moves the row. */
+/** Providers reorder with Glassé's ReorderList: Edit shows the handles, a handle drag moves the row. */
 public class ReorderTest {
     static final double W = 393;
     static final double H = 852;

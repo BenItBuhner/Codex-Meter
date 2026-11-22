@@ -248,8 +248,9 @@ perf_scenes() {
   at 0.906 0.091; sleep 3
   shot perf-02-settings 0
   stall_report open-settings
-  for row in "Accounts:0.242" "Dashboard-tabs:0.300" "Notifications:0.465" "Lock-screen-widgets:0.522" \
-      "Refresh-and-dashboard:0.629" "Appearance:0.745" "Updates:0.851"; do
+  # Accounts is part of Providers now, so every row below it sits one row (0.058) higher.
+  for row in "Providers:0.242" "Notifications:0.407" "Lock-screen-widgets:0.464" \
+      "Refresh-and-dashboard:0.571" "Appearance:0.687" "Updates:0.793"; do
     at 0.4 "${row#*:}"; sleep 2.5
     shot "perf-03-${row%%:*}" 0
     adb shell input keyevent KEYCODE_BACK; sleep 2

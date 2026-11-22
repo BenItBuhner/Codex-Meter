@@ -472,7 +472,7 @@ final class GlassCards {
     private static Card demoNotice(MainActivity a) {
         Card c = new Card(Card.Kind.UPDATE);
         c.title = "Demo data";
-        c.summary = "This tab shows sample usage. Sign in from Settings, Accounts to see your own.";
+        c.summary = "This tab shows sample usage. Sign in from Settings, Providers to see your own.";
         c.button = "Leave demo";
         c.onPress = a::leaveDemo;
         return c;

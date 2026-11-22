@@ -68,7 +68,7 @@ public final class ProviderUsageApi {
                 } catch (ProviderClient.Unauthorized rejected) {
                     if (!client.canRefresh(tokens)) {
                         throw new Exception(rejected.getMessage() + " Sign in again from "
-                                + "Settings → Accounts.");
+                                + "Settings → Providers.");
                     }
                     DiagnosticLog.warn(context, "auth", "provider_token_rejected_refreshing",
                             "provider", provider.id);
@@ -116,7 +116,7 @@ public final class ProviderUsageApi {
         AuthTokens tokens = SecureTokenStore.load(context, client.provider);
         if (tokens == null) {
             throw new Exception("Connect " + client.provider.displayName
-                    + " from Settings → Accounts first.");
+                    + " from Settings → Providers first.");
         }
         if (client.canRefresh(tokens) && tokens.expiresAtMillis > 0L
                 && tokens.expiresAtMillis <= System.currentTimeMillis() + REFRESH_MARGIN_MILLIS) {

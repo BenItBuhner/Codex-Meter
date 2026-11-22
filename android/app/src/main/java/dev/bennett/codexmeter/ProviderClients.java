@@ -140,7 +140,7 @@ public final class ProviderClients {
             DeviceAuth.Tokens parsed = DeviceAuth.parseTokens(response.body);
             if (response.status == 400 || response.status == 401) {
                 throw new ProviderClient.Unauthorized("Your " + provider.displayName
-                        + " sign-in expired. Sign in again from Settings → Accounts.");
+                        + " sign-in expired. Sign in again from Settings → Providers.");
             }
             if (!response.ok() || parsed.accessToken.isEmpty()) {
                 throw new Exception(OAuthClient.readError(response.body, provider.displayName
@@ -471,7 +471,7 @@ public final class ProviderClients {
             DeviceAuth.Tokens parsed = DeviceAuth.parseTokens(response.body);
             if (response.status == 400 || response.status == 401) {
                 throw new Unauthorized("Your Google sign-in for Antigravity expired. "
-                        + "Sign in again from Settings → Accounts.");
+                        + "Sign in again from Settings → Providers.");
             }
             if (!response.ok() || parsed.accessToken.isEmpty()) {
                 throw new Exception("Google sign-in refresh failed (HTTP " + response.status
@@ -649,7 +649,7 @@ public final class ProviderClients {
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
             String tenant = tokens.accountId;
             if (!tenant.startsWith("https://")) {
-                throw new Unauthorized("Sign in to Augment again from Settings → Accounts.");
+                throw new Unauthorized("Sign in to Augment again from Settings → Providers.");
             }
             ProviderHttp.Response response = check(ProviderHttp.send(context, "augment_usage",
                     ProviderHttp.post(tenant + "get-billing-summary").bearer(tokens.accessToken)
@@ -1270,7 +1270,7 @@ public final class ProviderClients {
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
             String org = tokens.accountId;
             if (org.isEmpty() || ProviderClient.API_KEY_ACCOUNT.equals(org)) {
-                throw new Unauthorized("Connect Devin again from Settings → Accounts.");
+                throw new Unauthorized("Connect Devin again from Settings → Providers.");
             }
             ProviderHttp.Response response = ProviderHttp.send(context, "devin_usage",
                     ProviderHttp.get("https://app.devin.ai/api/" + org + "/billing/quota/usage")
@@ -1278,7 +1278,7 @@ public final class ProviderClients {
                             .header("x-cog-org-id", org));
             if (response.status == 401 || response.status == 403) {
                 throw new Unauthorized("Your Devin session expired. Paste a new request from "
-                        + "Settings → Accounts.");
+                        + "Settings → Providers.");
             }
             check(response, "usage");
             return nonEmpty(ProviderUsageParsers.devin(response.body, now()));
