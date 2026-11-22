@@ -41,6 +41,17 @@ public class ReorderTest {
         assertEquals(Arrays.asList("Claude Code", "Cursor", "Codex", "Copilot"), src.tabOrderView());
     }
 
+    /** A list that opens already editing (Rearrange cards) shows its handles at once and they drag. */
+    @Test
+    public void openingInEditModeShowsTheHandles() {
+        FakeSource src = new FakeSource();
+        src.editsOnOpenPage = "x:tabs";
+        Capture c = open(src);
+        c.drag(W - 43, ReorderTestRows.firstRowY, W - 43, ReorderTestRows.firstRowY + ReorderTestRows.step, 600.0);
+        c.run(1200);
+        assertEquals(Arrays.asList("Claude Code", "Cursor", "Codex", "Copilot"), src.tabOrderView());
+    }
+
     @Test
     public void touchAndHoldDragsWithoutEdit() {
         FakeSource src = new FakeSource();

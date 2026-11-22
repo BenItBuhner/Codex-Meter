@@ -34,6 +34,13 @@ final class FakeSource implements GlassSource {
     }
     /** only the first card, so the dashboard is shorter than the screen */
     boolean shortDashboard;
+    /** a page that opens already in edit mode (Rearrange cards) */
+    String editsOnOpenPage;
+
+    @Override
+    public boolean editsOnOpen(String page) {
+        return page.equals(editsOnOpenPage);
+    }
     /** only the Usage history card, first on the dashboard */
     boolean historyFirst;
 
