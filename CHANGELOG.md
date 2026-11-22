@@ -23,6 +23,7 @@
 - **Light and Dark unlock right after turning off System default** in Liquid Glass. Android.
 - **Slider thumbs stay inside their card** at both ends, even while pressed. Android.
 - **The Filter menu's switches** no longer get stuck off, since the menu is gone. Android.
+- **Lists that open already in edit mode show their drag handles** in Liquid Glass. Android.
 
 ### Known gaps
 
