@@ -8,7 +8,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.Test;
 
-/** Pull to refresh on the dashboard, including one shorter than the screen (a tall phone, few cards). */
+/**
+ * Pull to refresh on the dashboard, including one shorter than the screen (a tall phone, few cards), and
+ * on a settings page that offers it (App update checks again).
+ */
 public class PullRefreshTest {
     private static final double W = 393;
 
@@ -31,5 +34,16 @@ public class PullRefreshTest {
     @Test
     public void pullRefreshesAShortDashboard() {
         assertEquals(1, pull(true, 1400));
+    }
+
+    @Test
+    public void pullChecksAgainOnAPageThatRefreshes() {
+        FakeSource src = new FakeSource();
+        Capture c = new Capture(W, 852, 32, 24, 1, "light", env -> CodexGlass.page(env, src, "x:update"),
+                new LinkedHashMap<String, ScreenMaker>());
+        c.run(2500);
+        c.drag(W / 2, 300, W / 2, 560, 500);
+        c.run(500);
+        assertEquals(1, src.refreshes);
     }
 }

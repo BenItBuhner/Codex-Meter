@@ -97,6 +97,15 @@ public final class CodexGlass {
      */
     static final double READABLE_W = 720;
 
+    /**
+     * How far a page scrolls before its large title has gone under the bar: from there the bar shows
+     * the small title and the large one fades, so the name is never on screen twice (iOS's rule).
+     */
+    static final double PAST_TITLE = 40;
+
+    /** How far a slider's track steps in from the row's text edges (Glassé's thumb is 38 wide). */
+    static final double SLIDER_INSET = 14;
+
     static double readablePad(double width) {
         return Math.max(16, Math.round((width - READABLE_W) / 2));
     }
@@ -343,7 +352,7 @@ public final class CodexGlass {
         State<Boolean> editPast = R.useState(false);
         OnScroll onEditScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> editPast.set(y > 46));
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> {
-            past.set(y > 46);
+            past.set(y > PAST_TITLE);
             min.set(s.minimized);
         });
 
@@ -410,14 +419,17 @@ public final class CodexGlass {
             return out;
         });
 
-        List<Object> body = R.useMemo(R.deps(d, t), () -> {
+        List<Object> cards = R.useMemo(R.deps(d, t), () -> {
             List<Object> out = new ArrayList<>();
-            out.add(LargeTitle(d.title, 18.0));
             for (int i = 0; i < d.cards.size(); i++) {
                 out.add(card(d.cards.get(i), t, "c" + i));
             }
             return out;
         });
+        // the large title gives way to the bar's small one, so the name never shows twice
+        List<Object> body = new ArrayList<>(cards.size() + 1);
+        body.add(largeTitle(d.title, 18.0, past.get()));
+        body.addAll(cards);
 
         double[] bg = t.pal.groupedRGB;
         // the bar's fade and title follow whichever list is in front
@@ -459,7 +471,7 @@ public final class CodexGlass {
                                     "padX", readablePad(t.W - rail), "tail", 110,
                                     "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
                                     "refreshing", src.refreshing()), body.toArray()),
-                            editLayer(sections, edit, d.title, t, t.W - rail, 110, onEditScroll),
+                            editLayer(sections, edit, d.title, t, t.W - rail, 110, onEditScroll, editPast.get()),
                             EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", fade)),
                             EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", fade)),
                             EdgeFade(P.of("edge", "bottom", "h", t.B + 40, "color", bg)),
@@ -481,7 +493,7 @@ public final class CodexGlass {
                 GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", readablePad(t.W), "tail", 150,
                         "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
                         "refreshing", src.refreshing()), body.toArray()),
-                editLayer(sections, edit, d.title, t, t.W, 150, onEditScroll),
+                editLayer(sections, edit, d.title, t, t.W, 150, onEditScroll, editPast.get()),
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", fade)),
                 // Once content scrolls under the floating bars, the bar's own band gets an even
                 // backdrop (a second fade over just the bar) instead of only the soft fade.
@@ -512,7 +524,7 @@ public final class CodexGlass {
      * handle to move it. The changes apply as they are made, and Done fades back to the page.
      */
     private static El editLayer(GlassModel.Section sections, boolean visible, String title, KTheme t,
-            double width, double tail, OnScroll onScroll) {
+            double width, double tail, OnScroll onScroll, boolean past) {
         if (sections == null) {
             return null;
         }
@@ -530,7 +542,7 @@ public final class CodexGlass {
                 Box(P.of("fill", true, "bg", t.pal.grouped),
                         GlassScrollView(P.of("key", "edit-list", "padT", t.T + 64, "padX", readablePad(width),
                                         "tail", tail, "onScroll", onScroll),
-                                LargeTitle(title, 6.0),
+                                largeTitle(title, 6.0, past),
                                 Text(P.of("size", 15, "lh", 20, "lines", 4, "ml", 4, "mr", 4, "mb", 22,
                                         "color", t.pal.label2), sections.header),
                                 ReorderList(P.of("key", "edit-sections", "footer", sections.footer,
@@ -861,7 +873,11 @@ public final class CodexGlass {
         State<String> query = R.useState("");
         // the page whose reorderable lists are in edit mode (≡ handles), "" for none
         State<String> editing = R.useState("");
-        OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> past.set(y > 46));
+        // Each page in the stack keeps its own scroll, so going Back shows the right bar title for the
+        // page underneath; only the page on top moves the bar.
+        Ref<Map<String, Double>> scrolled = R.useRef(new HashMap<>());
+        Ref<String> shownTop = R.useRef(start != null ? start : ROOT);
+        Ref<Map<String, OnScroll>> scrolls = R.useRef(new HashMap<>());
         OnStr push = R.useMemo(R.deps(), () -> (OnStr) id -> stack.update(s -> {
             List<String> n = new ArrayList<>(s);
             n.add(id);
@@ -872,7 +888,9 @@ public final class CodexGlass {
         List<String> pages = stack.get();
         String top = pages.get(pages.size() - 1);
         R.useEffectRun(R.deps(top), () -> {
-            past.set(false);
+            shownTop.current = top;
+            Double y = scrolled.current.get(top);
+            past.set(y != null && y > PAST_TITLE);
             src.shown(top);
         });
         R.useEffectRun(R.deps(version), () -> {
@@ -934,8 +952,15 @@ public final class CodexGlass {
 
         List<El> els = new ArrayList<>();
         for (String id : pages) {
+            OnScroll onScroll = scrolls.current.computeIfAbsent(id, page -> (y, s) -> {
+                scrolled.current.put(page, y);
+                if (page.equals(shownTop.current)) {
+                    past.set(y > PAST_TITLE);
+                }
+            });
             els.add(Box(P.of("key", id, "fill", true),
                     R.h(CodexGlass.SettingsPageMemo, P.of("id", id, "src", src, "v", version, "onScroll", onScroll,
+                            "past", id.equals(top) && past.get(),
                             "editing", id.equals(editing.get()),
                             "push", push, "query", ROOT.equals(id) ? query.get() : ""))));
         }
@@ -980,7 +1005,7 @@ public final class CodexGlass {
                             EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
                             EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                             GlassNavBar(P.of("key", navKey(t) + ":duo", "title", navTitle, "titleVisible",
-                                    (sub || past.get()) && navTitleFits(navTitle, 0, false, t.W - rail))),
+                                    past.get() && navTitleFits(navTitle, 0, false, t.W - rail))),
                             ROOT.equals(pages.get(0)) ? Anim(P.of("abs", true,
                                             "left", readablePad(t.W - rail), "right", readablePad(t.W - rail),
                                             "bottom", t.B + 14,
@@ -999,7 +1024,7 @@ public final class CodexGlass {
                 EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", past.get())),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
                 GlassNavBar(P.of("key", navKey(t), "title", navTitle, "titleVisible",
-                        (sub || past.get()) && navTitleFits(navTitle, labelsWidth, sub, t.W),
+                        past.get() && navTitleFits(navTitle, labelsWidth, sub, t.W),
                         "trailing", actions.isEmpty() ? null : actions,
                         "onBack", back)),
                 ROOT.equals(pages.get(0)) ? Anim(P.of("abs", true, "left", 16, "right", 16, "bottom", t.B + 14,
@@ -1015,6 +1040,11 @@ public final class CodexGlass {
      * buttons never keep a place worked out for the old window (on a foldable they could stay
      * under the status bar).
      */
+    /** A page's large title, faded out once the bar's small title has taken over. */
+    static El largeTitle(String title, double mb, boolean past) {
+        return Anim(P.of("key", "large-title", "to", P.of("opacity", past ? 0 : 1)), LargeTitle(title, mb));
+    }
+
     static String navKey(com.benitbuhner.glasse.kit.KTheme t) {
         return "nav:" + Math.round(t.W) + ":" + Math.round(t.T);
     }
@@ -1091,7 +1121,7 @@ public final class CodexGlass {
             String rest = id.substring(CHOICE.length());
             String pageId = rest.substring(0, Math.max(0, rest.indexOf(':')));
             GlassModel.Row row = choiceRow(src, id);
-            body.add(LargeTitle(row == null ? "" : row.title, 18.0));
+            body.add(largeTitle(row == null ? "" : row.title, 18.0, p.b("past")));
             if (row != null && row.entries != null) {
                 List<El> rows = new ArrayList<>();
                 for (int i = 0; i < row.entries.length; i++) {
@@ -1114,7 +1144,7 @@ public final class CodexGlass {
         if (page == null) {
             return Page(P.of("onScroll", p.get("onScroll"), "maxW", READABLE_W));
         }
-        body.add(LargeTitle(page.title, page.intro != null ? 6.0 : 18.0));
+        body.add(largeTitle(page.title, page.intro != null ? 6.0 : 18.0, p.b("past")));
         if (page.intro != null) {
             body.add(Text(P.of("size", 15, "lh", 20, "lines", 12, "ml", 4, "mr", 4, "mb", 22,
                     "color", t.pal.label2), page.intro));
@@ -1130,10 +1160,19 @@ public final class CodexGlass {
                 }
             }
         }
+        if (page.onRefresh != null) {
+            // Page with pull to refresh: the same scroll view, top and readable width as Page
+            return GlassScrollView(P.of("padT", t.T + 64, "padX", readablePad(t.W), "tail", root ? 110 : 60,
+                    "onScroll", p.get("onScroll"), "onRefresh", page.onRefresh, "refreshing", page.refreshing),
+                    body.toArray());
+        }
         return Page(P.of("onScroll", p.get("onScroll"), "tail", root ? 110 : 60, "maxW", READABLE_W), body);
     };
 
     private static boolean reorderable(GlassModel.Page page) {
+        if (!page.editButton) {
+            return false;
+        }
         for (GlassModel.Section section : page.sections) {
             if (section.onMove != null && section.rows.size() > 1) {
                 return true;
@@ -1297,17 +1336,22 @@ public final class CodexGlass {
                                         r.title),
                                 r.value != null ? Text(P.of("size", 17, "lines", 1, "color", t.pal.label2),
                                         r.value) : null),
-                        GlassSlider(P.of("value", r.fraction, "min", 0.0, "max", 1.0,
-                                "step", r.steps > 1 ? 1.0 / (r.steps - 1) : 0.0, "ticks", r.steps > 1,
-                                "onChange", (OnNum) v -> {
-                                    if (r.onSlide != null) {
-                                        r.onSlide.on(v);
-                                    }
-                                })));
+                        // the thumb is centred on the track's ends, so the track steps in by about half
+                        // a thumb: at either end, and grown while dragged, it stays inside the card
+                        Box(P.of("padX", SLIDER_INSET),
+                                GlassSlider(P.of("value", r.fraction, "min", 0.0, "max", 1.0,
+                                        "step", r.steps > 1 ? 1.0 / (r.steps - 1) : 0.0, "ticks", r.steps > 1,
+                                        "onChange", (OnNum) v -> {
+                                            if (r.onSlide != null) {
+                                                r.onSlide.on(v);
+                                            }
+                                        }))));
                 break;
             case IMAGE:
-                el = ListPad(P.of("key", key, "padY", 16),
-                        Img(P.of("src", GlassImages.of(r.image), "h", r.imageHeight, "fit", "contain")));
+                el = r.imageFill
+                        ? Img(P.of("key", key, "src", GlassImages.of(r.image), "h", r.imageHeight, "fit", "cover"))
+                        : ListPad(P.of("key", key, "padY", 16),
+                                Img(P.of("src", GlassImages.of(r.image), "h", r.imageHeight, "fit", "contain")));
                 break;
             case FIELD: {
                 OnStr typed = text -> {

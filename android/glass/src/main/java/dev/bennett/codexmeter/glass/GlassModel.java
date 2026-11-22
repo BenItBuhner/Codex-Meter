@@ -214,6 +214,12 @@ public final class GlassModel {
         public boolean roundImage;
         public double imageSize = 30;
         public double imageHeight = 180;
+        /**
+         * The IMAGE row's picture fills its card edge to edge, centre-cropped, its corners the card's
+         * own: for a picture with a background of its own (the widget preview), which would otherwise
+         * sit as a square-cornered box inside the rounded card.
+         */
+        public boolean imageFill;
         /** A provider mark or other icon drawn in the text color, without a colored tile. */
         public boolean plainIcon;
         /** SLIDER: the position, 0 to 1. */
@@ -263,6 +269,16 @@ public final class GlassModel {
         public final List<Action> actions = new ArrayList<>();
         /** Text under the large title. */
         public String intro;
+        /** Pull down to run this (check again, reload); null when the page has nothing to refresh. */
+        public Runnable onRefresh;
+        /** The refresh is running: the pull spinner stays out until it ends. */
+        public boolean refreshing;
+        /**
+         * An Edit button in the bar for the page's reorderable lists. Off for a long page whose list is
+         * far down (the widget editor): Edit would change rows out of sight and look like it did
+         * nothing, so there the rows are dragged by touch and hold.
+         */
+        public boolean editButton = true;
 
         public Page(String id, String title) {
             this.id = id;

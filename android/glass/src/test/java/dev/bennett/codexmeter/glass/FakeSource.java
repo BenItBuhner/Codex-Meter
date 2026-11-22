@@ -447,6 +447,17 @@ final class FakeSource implements GlassSource {
             }
             case "x:widget":
                 return widgetPage();
+            case "x:update": {
+                GlassModel.Page p = new GlassModel.Page(id, "App update");
+                p.onRefresh = () -> {
+                    refreshes++;
+                    changed();
+                };
+                GlassModel.Section s = new GlassModel.Section(null);
+                s.rows.add(link("history", "Release history", "clock", "#8e8e93", null));
+                p.sections.add(s);
+                return p;
+            }
             default: {
                 GlassModel.Page p = new GlassModel.Page(id, id);
                 return p;
@@ -662,9 +673,37 @@ final class FakeSource implements GlassSource {
         return p;
     }
 
+    /** A stand-in for the widget preview: a backdrop across the whole picture, a widget in the middle. */
+    private static byte[] widgetPreview() {
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(720, 200,
+                java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setPaint(new java.awt.GradientPaint(0, 0, new java.awt.Color(0x5b6cff), 720, 200,
+                new java.awt.Color(0xff7aa8)));
+        g.fillRect(0, 0, 720, 200);
+        g.setColor(new java.awt.Color(255, 255, 255, 190));
+        g.fillRoundRect(360 - 166, 28, 332, 144, 56, 56);
+        g.dispose();
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        try {
+            javax.imageio.ImageIO.write(img, "png", out);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return out.toByteArray();
+    }
+
     private GlassModel.Page widgetPage() {
         GlassModel.Page p = new GlassModel.Page("x:widget", "Customize widget");
         p.actions.add(new GlassModel.Action("Save", null, true, () -> { }));
+        GlassModel.Section top = new GlassModel.Section(null);
+        GlassModel.Row preview = new GlassModel.Row(GlassModel.Row.Kind.IMAGE, "preview");
+        preview.title = "";
+        preview.image = widgetPreview();
+        preview.imageHeight = 200;
+        preview.imageFill = true;
+        top.rows.add(preview);
+        p.sections.add(top);
         GlassModel.Section look = new GlassModel.Section("Appearance");
         GlassModel.Row bg = new GlassModel.Row(GlassModel.Row.Kind.SWITCH, "bg");
         bg.title = "Background";

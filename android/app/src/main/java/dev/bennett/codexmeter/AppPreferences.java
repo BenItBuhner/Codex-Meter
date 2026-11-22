@@ -34,8 +34,6 @@ public final class AppPreferences {
     private static final String KEY_DESIGN_SUGGESTED = "design_suggested_on_first_run";
     /** Liquid Glass (iOS 27-inspired) tint, 0 (ultra clear) to 100 (fully tinted). */
     static final String KEY_GLASS_TINT = "glass_tint_level";
-    static final String KEY_GLASS_REDUCE_TRANSPARENCY = "glass_reduce_transparency";
-    static final String KEY_GLASS_INCREASE_CONTRAST = "glass_increase_contrast";
     /** Before the Duo layout had a choice it was a switch: off there means "off" now. */
     static final String KEY_GLASS_DUO_LAYOUT = "glass_duo_layout";
     static final String KEY_GLASS_DUO_MODE = "glass_duo_mode";
@@ -576,14 +574,6 @@ public final class AppPreferences {
         prefs(context).edit().putInt(KEY_GLASS_TINT, Math.max(0, Math.min(100, level))).apply();
     }
 
-    public static void setGlassReduceTransparency(Context context, boolean on) {
-        prefs(context).edit().putBoolean(KEY_GLASS_REDUCE_TRANSPARENCY, on).apply();
-    }
-
-    public static void setGlassIncreaseContrast(Context context, boolean on) {
-        prefs(context).edit().putBoolean(KEY_GLASS_INCREASE_CONTRAST, on).apply();
-    }
-
     /**
      * Liquid Glass's Duo layout, where Back, the toolbar buttons and the tabs stand in a column on
      * the right edge: "off", "wide" (wide screens such as an unfolded Galaxy Z Fold or a tablet; the
@@ -609,22 +599,6 @@ public final class AppPreferences {
 
     public static void setGlassDuoMode(Context context, String mode) {
         prefs(context).edit().putString(KEY_GLASS_DUO_MODE, mode).apply();
-    }
-
-    public static boolean isGlassReduceTransparency(Context context) {
-        return prefs(context).getBoolean(KEY_GLASS_REDUCE_TRANSPARENCY, false);
-    }
-
-    /**
-     * Increase Contrast for the glass. Off by default; Settings turns it on by default when the
-     * system's own contrast setting is high (see {@link Ui#systemPrefersHighContrast}).
-     */
-    public static boolean isGlassIncreaseContrast(Context context) {
-        SharedPreferences prefs = prefs(context);
-        if (prefs.contains(KEY_GLASS_INCREASE_CONTRAST)) {
-            return prefs.getBoolean(KEY_GLASS_INCREASE_CONTRAST, false);
-        }
-        return Ui.systemPrefersHighContrast(context);
     }
 
     public static String getAppStyle(Context context) {
