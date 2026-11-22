@@ -11,7 +11,7 @@ sidebar, Fluent cards and Settings cards, light and dark themes, and Segoe Fluen
   weekly limits and extra usage, Cursor's included usage, model pools and on-demand spend. Each meter
   has a ring, a bar, the reset time (countdown, date or both) and an optional pace estimate.
 - **Codex banked resets**: see how many you have and when they expire, and use one (with a confirmation).
-- **Accounts**: sign in to each provider in your browser (OAuth + PKCE with a localhost callback for
+- **Providers**: one page for accounts and sidebar pages (switch, order, Sign out, Add account). Sign in to each provider in your browser (OAuth + PKCE with a localhost callback for
   Codex and Claude Code, the editor's browser login for Cursor) and sign out again.
 - **Settings**: theme, window material, which providers appear and their order, used vs. remaining,
   reset format, 24-hour clock, pace, refresh interval, reset and low-allowance notifications,

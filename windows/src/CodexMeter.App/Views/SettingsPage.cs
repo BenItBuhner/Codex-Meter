@@ -17,7 +17,7 @@ namespace CodexMeter.App.Views;
 
 /// <summary>
 /// Settings in the Windows 11 Settings app style: grouped setting cards and expanders, with the
-/// same options and names as the phone apps and Linux: Usage (Accounts, Providers, Dashboard,
+/// same options and names as the phone apps and Linux: Usage (Providers, Dashboard,
 /// Reset credits), Alerts &amp; live usage (Notifications, Live usage), App (Appearance, Updates,
 /// Privacy &amp; data) and About, plus the Windows-only tray and startup choices.
 /// </summary>
@@ -26,9 +26,7 @@ public sealed class SettingsPage : PageBase
     private static readonly LowUsageAutoUseMetric[] AlertFor = [LowUsageAutoUseMetric.Both, LowUsageAutoUseMetric.FiveHour, LowUsageAutoUseMetric.Weekly];
     private const string SlowdownNote = "On the Priority page only when a Codex, Claude Code or Grok model runs much slower than usual, from public OpenRouter figures for each maker's newest models. Not your subscription's own speed.";
     private const string NewModelsNote = "When OpenRouter lists a new model from a maker you're signed in to (OpenAI for Codex, Anthropic for Claude Code, ...). Tools that offer many makers' models, like Cursor or Copilot, add none.";
-    private readonly SettingsExpander sidebar;
-    // Rows go through an observable ItemsSource: the expander doesn't notice later changes to Items.
-    private readonly System.Collections.ObjectModel.ObservableCollection<SettingsCard> sidebarRows = [];
+    private readonly SettingsCard providersCard;
     private bool sidebarDirty;
     private readonly UpdatesSection? updates;
     /// <summary>"While using AI apps": one card per app, then Add an app. Plain cards so UI tests reach them.</summary>
@@ -39,31 +37,15 @@ public sealed class SettingsPage : PageBase
         var s = State.Settings.Current;
         Body.Children.Add(PageTitle("Settings", "SettingsTitle"));
 
-        // Usage: accounts, the services in the sidebar, each dashboard, reset credits.
+        // Usage: providers and their accounts, each dashboard, reset credits.
         Body.Children.Add(GroupHeader("Usage"));
-        Body.Children.Add(SectionHeader("Accounts"));
-        var manage = new Button { Content = "Manage accounts" };
+        Body.Children.Add(SectionHeader("Providers"));
+        var manage = new Button { Content = "Manage providers" };
         AutomationProperties.SetAutomationId(manage, "ManageAccountsButton");
         manage.Click += (_, _) => App.Current?.Window?.Navigate("accounts");
-        Body.Children.Add(Card("Accounts", State.SignedIn.Count switch
-        {
-            0 => "No accounts connected",
-            1 => "1 account connected",
-            var n => $"{n} accounts connected",
-        }, "", manage));
-
-        Body.Children.Add(SectionHeader("Providers"));
-        sidebar = new SettingsExpander
-        {
-            Header = "Pages in the sidebar",
-            Description = "Choose which services get a page, and their order.",
-            HeaderIcon = new FontIcon { Glyph = "" },
-            IsExpanded = true,
-        };
-        AutomationProperties.SetAutomationId(sidebar, "ProvidersExpander");
-        BuildSidebar();
-        sidebar.ItemsSource = sidebarRows;
-        Body.Children.Add(sidebar);
+        providersCard = Card("Providers", ProvidersSummary(), "", manage);
+        AutomationProperties.SetAutomationId(providersCard, "ProvidersCard");
+        Body.Children.Add(providersCard);
         Body.Children.Add(Card("Priority page", "First in the sidebar: what needs you across every connected service.", "",
             Toggle("PrioritySwitch", s.ShowPriority, on => Update(x => x with { ShowPriority = on }))));
 
@@ -312,33 +294,14 @@ public sealed class SettingsPage : PageBase
 
     private void Update(Func<AppSettings, AppSettings> change) => State.Settings.Update(change);
 
-    private void BuildSidebar()
+    /// <summary>Settings → Providers' summary: how many pages are on and how many accounts are connected.</summary>
+    private string ProvidersSummary()
     {
-        sidebarRows.Clear();
-        var enabled = State.EnabledProviders;
-        var order = State.SidebarCandidates;
-        for (var index = 0; index < order.Count; index++)
-        {
-            var provider = order[index];
-            var entry = State[provider];
-            var toggle = new ToggleSwitch { IsOn = enabled.Contains(provider), OnContent = "", OffContent = "", MinWidth = 0 };
-            AutomationProperties.SetAutomationId(toggle, "ProviderToggle_" + provider.Id);
-            AutomationProperties.SetName(toggle, "Show " + provider.DisplayName);
-            toggle.IsEnabled = !(toggle.IsOn && enabled.Count == 1);
-            toggle.Toggled += (_, _) => State.SetEnabled(provider, toggle.IsOn);
-            var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            controls.Children.Add(MoveButton("", $"Move {provider.DisplayName} up", index > 0, () => State.Move(provider, -1)));
-            controls.Children.Add(MoveButton("", $"Move {provider.DisplayName} down", index < order.Count - 1, () => State.Move(provider, 1)));
-            controls.Children.Add(toggle);
-            sidebarRows.Add(new SettingsCard
-            {
-                Header = provider.DisplayName,
-                Description = entry.SignedIn ? $"Connected · {provider.Meters}" : $"Not connected · {provider.Meters}",
-                HeaderIcon = ProviderIcons.Create(provider.Id, 20),
-                Content = controls,
-            });
-        }
+        var connected = State.SignedIn.Count;
+        return $"{State.EnabledProviders.Count} on · " + (connected == 0 ? "none signed in" : $"{connected} signed in");
     }
+
+    private void BuildSidebar() => providersCard.Description = ProvidersSummary();
 
     private void BuildLiveApps()
     {
@@ -473,15 +436,6 @@ public sealed class SettingsPage : PageBase
         AutomationProperties.SetAutomationId(button, id);
         ToolTipService.SetToolTip(button, name);
         button.Click += (_, _) => click();
-        return button;
-    }
-
-    private static Button MoveButton(string glyph, string name, bool enabled, Action move)
-    {
-        var button = new Button { Content = new FontIcon { Glyph = glyph, FontSize = 12 }, IsEnabled = enabled, Padding = new Thickness(8) };
-        AutomationProperties.SetName(button, name);
-        ToolTipService.SetToolTip(button, name);
-        button.Click += (_, _) => move();
         return button;
     }
 

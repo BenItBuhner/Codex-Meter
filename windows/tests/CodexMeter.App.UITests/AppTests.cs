@@ -100,7 +100,7 @@ public class AppTests
     public void SigningOutMovesTheAccountAndHidesItsPage()
     {
         using var app = new AppSession("--page", "accounts");
-        Assert.Equal("Accounts", app.TextOf("AccountsTitle"));
+        Assert.Equal("Providers", app.TextOf("AccountsTitle"));
         app.Find("SignOut_cursor").AsButton().Invoke();
         app.Find("PrimaryButton").AsButton().Invoke();
         app.WaitUntil(() => app.TryFind("Account_cursor", TimeSpan.FromMilliseconds(300)) is null, "Cursor stayed connected.");
@@ -124,6 +124,8 @@ public class AppTests
         Assert.Equal("Settings", app.TextOf("SettingsTitle"));
         var display = app.Find("DisplayBox").AsComboBox();
         display.Select("Used");
+        app.Find("ManageAccountsButton").AsButton().Invoke();
+        app.WaitUntil(() => app.TextOf("AccountsTitle") == "Providers", "Providers did not open.");
         var hide = app.Find("ProviderToggle_claude_code").AsToggleButton();
         Assert.Equal(ToggleState.On, hide.ToggleState);
         hide.Toggle();

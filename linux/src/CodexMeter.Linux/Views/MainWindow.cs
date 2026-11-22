@@ -8,7 +8,7 @@ using CodexMeter.Linux.Widgets;
 namespace CodexMeter.Linux.Views;
 
 /// <summary>
-/// The main window: an adaptive split view with providers, Accounts and Settings in the sidebar,
+/// The main window: an adaptive split view with providers, Providers (accounts) and Settings in the sidebar,
 /// following the GNOME HIG. Below 640 px it collapses to a single pane with a back button.
 /// </summary>
 public sealed class MainWindow
@@ -187,7 +187,7 @@ public sealed class MainWindow
         var add = Gtk.Image.NewFromIconName("list-add-symbolic");
         appList.Append(Row(AddTag, add, "Add Account", false, out _));
         var accounts = Gtk.Image.NewFromIconName("system-users-symbolic");
-        appList.Append(Row("accounts", accounts, "Accounts", false, out _));
+        appList.Append(Row("accounts", accounts, "Providers", false, out _));
         var settings = Gtk.Image.NewFromIconName("emblem-system-symbolic");
         appList.Append(Row("settings", settings, "Settings", false, out _));
     }
