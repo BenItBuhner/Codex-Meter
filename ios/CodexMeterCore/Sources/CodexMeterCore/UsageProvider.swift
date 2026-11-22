@@ -9,7 +9,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
     case codex = "codex"
     case claudeCode = "claude_code"
     case cursor = "cursor"
-    // Added through Settings → Accounts → Add account; same ids as Android.
+    // Added through Settings → Providers → Add account; same ids as Android.
     case copilot = "copilot"
     case kimi = "kimi"
     case factory = "factory"

@@ -1,7 +1,7 @@
 import CodexMeterCore
 import Foundation
 
-/// Sign-in storage and usage refresh for one provider added through Settings → Accounts.
+/// Sign-in storage and usage refresh for one provider added through Settings → Providers.
 /// Mirrors Android's `ProviderUsageApi`: each provider keeps its own Keychain item and cache
 /// file, so signing one out never touches another.
 actor ProviderUsageService {
@@ -130,7 +130,7 @@ actor ProviderUsageService {
                 fetched = try await client.fetch(tokens, http: session)
             } catch let ProviderClientError.unauthorized(message) {
                 guard client.canRefresh(tokens) else {
-                    throw ProviderClientError.unauthorized("\(message) Sign in again from Settings → Accounts.")
+                    throw ProviderClientError.unauthorized("\(message) Sign in again from Settings → Providers.")
                 }
                 tokens = try await refreshTokens(tokens)
                 fetched = try await client.fetch(tokens, http: session)
@@ -173,7 +173,7 @@ actor ProviderUsageService {
         let refreshed = try await client.refresh(previous, http: session)
         guard refreshed.isUsable else {
             throw ProviderClientError.unauthorized(
-                "Your \(provider.displayName) sign-in expired. Sign in again from Settings → Accounts."
+                "Your \(provider.displayName) sign-in expired. Sign in again from Settings → Providers."
             )
         }
         try await tokenStore.save(refreshed)

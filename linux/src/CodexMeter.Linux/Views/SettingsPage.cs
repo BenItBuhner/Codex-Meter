@@ -10,7 +10,7 @@ namespace CodexMeter.Linux.Views;
 
 /// <summary>
 /// Settings as libadwaita preference groups, with the same options and names as the Windows app
-/// and the phone apps: Usage (Accounts, Providers, Dashboard, Reset credits), Alerts &amp; live usage
+/// and the phone apps: Usage (Providers, Dashboard, Reset credits), Alerts &amp; live usage
 /// (Notifications, Live usage), App (Appearance, Updates, Privacy &amp; data) and About.
 /// </summary>
 public sealed class SettingsPage : IPage
@@ -21,7 +21,7 @@ public sealed class SettingsPage : IPage
     private readonly AppState state;
     private readonly Adw.PreferencesPage preferences;
     private readonly Adw.PreferencesGroup providersGroup;
-    private readonly List<Gtk.Widget> providerRows = [];
+    private readonly Adw.ActionRow providersRow;
     private readonly Action onProvidersChanged;
     private readonly Action<UsageProvider> onProviderChanged;
     private bool providersDirty;
@@ -45,24 +45,16 @@ public sealed class SettingsPage : IPage
         loading = true;
         var s = state.Settings.Current;
 
-        // Usage: accounts, the services in the sidebar, each dashboard, reset credits.
+        // Usage: providers and their accounts, each dashboard, reset credits.
         Heading("Usage");
-        var accountsGroup = Group("Accounts");
-        var accounts = Adw.ActionRow.New();
-        accounts.SetTitle("Accounts");
-        accounts.SetSubtitle(state.SignedIn.Count switch
-        {
-            0 => "No accounts connected",
-            1 => "1 account connected",
-            var n => $"{n} accounts connected",
-        });
-        accounts.SetActivatable(true);
-        accounts.SetName("AccountsRow");
-        accounts.AddSuffix(Gtk.Image.NewFromIconName("go-next-symbolic"));
-        accounts.OnActivated += (_, _) => window.Navigate("accounts");
-        accountsGroup.Add(accounts);
-
-        providersGroup = Group("Providers", "Choose which services get a page in the sidebar, and their order.");
+        providersGroup = Group("Providers");
+        providersRow = Adw.ActionRow.New();
+        providersRow.SetTitle("Providers");
+        providersRow.SetActivatable(true);
+        providersRow.SetName("ProvidersRow");
+        providersRow.AddSuffix(Gtk.Image.NewFromIconName("go-next-symbolic"));
+        providersRow.OnActivated += (_, _) => window.Navigate("accounts");
+        providersGroup.Add(providersRow);
         providersGroup.Add(Switch("Priority page", "First in the sidebar: what needs you across every connected service.",
             s.ShowPriority, on => state.Settings.Update(x => x with { ShowPriority = on }), "PrioritySwitch"));
         BuildProviders();
@@ -672,55 +664,11 @@ public sealed class SettingsPage : IPage
         return row;
     }
 
+    /// <summary>Settings → Providers' summary: how many pages are on and how many accounts are connected.</summary>
     private void BuildProviders()
     {
-        foreach (var row in providerRows) providersGroup.Remove(row);
-        providerRows.Clear();
-        var enabled = state.EnabledProviders;
-        var order = state.SidebarCandidates;
-        for (var index = 0; index < order.Count; index++)
-        {
-            var provider = order[index];
-            var entry = state[provider];
-            var row = Adw.ActionRow.New();
-            row.SetTitle(provider.DisplayName);
-            row.SetSubtitle(entry.SignedIn ? $"Connected · {provider.Meters}" : $"Not connected · {provider.Meters}");
-            row.SetName("ProviderRow_" + provider.Id);
-            var mark = ProviderIcons.Create(provider.Id, 20);
-            mark.SetMarginEnd(4);
-            row.AddPrefix(mark);
-
-            var up = Gtk.Button.NewFromIconName("go-up-symbolic");
-            up.AddCssClass("flat");
-            up.SetValign(Gtk.Align.Center);
-            up.SetSensitive(index > 0);
-            up.SetTooltipText($"Move {provider.DisplayName} up");
-            up.OnClicked += (_, _) => state.Move(provider, -1);
-            var down = Gtk.Button.NewFromIconName("go-down-symbolic");
-            down.AddCssClass("flat");
-            down.SetValign(Gtk.Align.Center);
-            down.SetSensitive(index < order.Count - 1);
-            down.SetTooltipText($"Move {provider.DisplayName} down");
-            down.OnClicked += (_, _) => state.Move(provider, 1);
-            var toggle = Gtk.Switch.New();
-            toggle.SetValign(Gtk.Align.Center);
-            toggle.SetActive(enabled.Contains(provider));
-            toggle.SetSensitive(!(toggle.GetActive() && enabled.Count == 1));
-            toggle.SetName("ProviderToggle_" + provider.Id);
-            toggle.SetTooltipText("Show " + provider.DisplayName);
-            toggle.OnStateSet += (_, args) =>
-            {
-                // Rebuilding the sidebar happens through ProvidersChanged; defer so the switch finishes its own update.
-                var on = args.State;
-                GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () => { state.SetEnabled(provider, on); return false; });
-                return false;
-            };
-            row.AddSuffix(up);
-            row.AddSuffix(down);
-            row.AddSuffix(toggle);
-            providersGroup.Add(row);
-            providerRows.Add(row);
-        }
+        var connected = state.SignedIn.Count;
+        providersRow.SetSubtitle($"{state.EnabledProviders.Count} on · " + (connected == 0 ? "none signed in" : $"{connected} signed in"));
     }
 
     private void BuildLiveApps()

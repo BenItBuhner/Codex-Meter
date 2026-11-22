@@ -103,7 +103,7 @@ final class MacGalleryTests: XCTestCase {
         }
 
         MacUITestSupport.openSettings(in: app)
-        if MacUITestSupport.text("Accounts", in: app).waitForExistence(timeout: 8) {
+        if MacUITestSupport.text("Providers", in: app).waitForExistence(timeout: 8) {
             MacUITestSupport.settle(1.0)
             capture("\(prefix)-06-settings", app)
             if MacUITestSupport.click(app.buttons["Menu Bar"], timeout: 4) {

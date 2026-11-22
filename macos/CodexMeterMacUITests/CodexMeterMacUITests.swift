@@ -62,15 +62,15 @@ final class CodexMeterMacUITests: XCTestCase {
         let app = MacUITestSupport.launch(MacUITestSupport.demo)
         XCTAssertTrue(MacUITestSupport.text("5-hour", in: app).waitForExistence(timeout: 10))
 
-        // The Accounts row is a navigation link whose title and summary read as one element.
+        // The Providers row is a navigation link whose title and summary read as one element.
         // ⌘, can arrive before the window is key on a cold runner, so press it again once.
-        let accounts = app.descendants(matching: .any).matching(identifier: "settings-accounts").firstMatch
+        let accounts = app.descendants(matching: .any).matching(identifier: "settings-providers").firstMatch
         MacUITestSupport.openSettings(in: app)
         if !accounts.waitForExistence(timeout: 6) {
             app.activate()
             MacUITestSupport.openSettings(in: app)
         }
-        XCTAssertTrue(accounts.waitForExistence(timeout: 8), "Accounts row in Settings")
+        XCTAssertTrue(accounts.waitForExistence(timeout: 8), "Providers row in Settings")
         XCTAssertTrue(
             app.buttons["Leave Demo"].exists
                 || app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Leave Demo' OR value == 'Demo'")).firstMatch.exists
