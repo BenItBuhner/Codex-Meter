@@ -22,10 +22,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Settings → Providers: which providers get a dashboard tab and in what order. Same One UI
- * edit list as {@link DashboardReorderActivity}: drag the handle (or long-press a row) to
- * reorder, and use the switch to show or hide a provider's tab. Changes save immediately and
- * the dashboard picks them up on return.
+ * Settings → Providers: every connected provider with its account, which ones get a dashboard tab
+ * and in what order, and Add account (Accounts and Providers are one page). Same One UI edit list
+ * as {@link DashboardReorderActivity}: drag the handle (or long-press a row) to reorder, use the
+ * switch to show or hide a provider's tab, and tap a provider for its account. Changes save
+ * immediately and the dashboard picks them up on return.
  */
 public final class ProvidersActivity extends AppCompatActivity {
     @Override
@@ -35,6 +36,7 @@ public final class ProvidersActivity extends AppCompatActivity {
 
     private final List<UsageProvider> items = new ArrayList<>();
     private RecyclerView recycler;
+    private ProviderAdapter adapter;
     private boolean dark;
 
     @Override
@@ -52,25 +54,19 @@ public final class ProvidersActivity extends AppCompatActivity {
         refresh.setEnabled(false);
 
         TextView hint = Ui.text(this,
-                "Drag to reorder. Switch off to hide a tab.",
+                "Tap a provider for its account. Drag to reorder, switch off to hide a tab.",
                 14.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));
         content.addView(hint, hintParams);
 
-        // Connected accounts and tabs that are on; the rest live in Add account.
-        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
-        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
-            if (enabled.contains(provider) || ProviderAccounts.isSignedIn(this, provider)) {
-                items.add(provider);
-            }
-        }
+        loadItems();
 
         RoundedLinearLayout listCard = Ui.cardGroup(this, dark);
         recycler = new RecyclerView(this);
         recycler.setLayoutManager(new LinearLayoutManager(this));
         recycler.setNestedScrollingEnabled(false);
-        ProviderAdapter adapter = new ProviderAdapter();
+        adapter = new ProviderAdapter();
         recycler.setAdapter(adapter);
         ItemTouchHelper touchHelper = new ItemTouchHelper(new ReorderCallback());
         touchHelper.attachToRecyclerView(recycler);
@@ -84,6 +80,79 @@ public final class ProvidersActivity extends AppCompatActivity {
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
         content.addView(note, noteParams);
+
+        RoundedLinearLayout addCard = Ui.cardGroup(this, dark);
+        addCard.addView(Ui.actionRow(this, "Add account", "Codex, Claude Code, Cursor, Copilot, Gemini and more",
+                R.drawable.ic_oui_add, v -> {
+                    DiagnosticLog.info(this, "user", "add_account_opened");
+                    Ui.startSecondaryActivity(this, AddAccountActivity.class);
+                }));
+        LinearLayout.LayoutParams addParams = new LinearLayout.LayoutParams(-1, -2);
+        addParams.setMargins(0, Ui.dp(this, 24), 0, 0);
+        content.addView(addCard, addParams);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // A sign-in or sign-out on another screen changes the list and its account lines.
+        if (adapter != null) {
+            reload();
+        }
+    }
+
+    /** Lists the providers again, as a sign-in or sign-out may have added or removed rows. */
+    private void reload() {
+        int before = items.size();
+        loadItems();
+        adapter.notifyItemRangeRemoved(0, before);
+        adapter.notifyItemRangeInserted(0, items.size());
+    }
+
+    /** Connected accounts and tabs that are on; the rest live in Add account. */
+    private void loadItems() {
+        items.clear();
+        List<UsageProvider> enabled = ProviderPreferences.getEnabled(this);
+        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+            if (enabled.contains(provider) || ProviderAccounts.isSignedIn(this, provider)) {
+                items.add(provider);
+            }
+        }
+    }
+
+    /** A provider's account: who is signed in, and Sign out, Arrange cards or Sign in. */
+    private void showProvider(UsageProvider provider) {
+        boolean signedIn = ProviderAccounts.isSignedIn(this, provider);
+        AppDialog dialog = new AppDialog(this)
+                .setTitle(provider.displayName)
+                .setMessage(ProviderAccounts.summary(this, provider));
+        if (signedIn) {
+            dialog.setPositiveButton("Sign out", (d, which) -> confirmSignOut(provider))
+                    .setNeutralButton("Arrange cards", (d, which) -> startActivity(
+                            new android.content.Intent(this, DashboardReorderActivity.class)
+                                    .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, provider.id)))
+                    .setNegativeButton("Close", null);
+        } else {
+            dialog.setPositiveButton("Sign in", (d, which) ->
+                            startActivity(SignInActivity.intent(this, provider)))
+                    .setNegativeButton("Close", null);
+        }
+        dialog.create().show();
+    }
+
+    private void confirmSignOut(UsageProvider provider) {
+        new AppDialog(this)
+                .setTitle("Sign out of " + provider.accountName + "?")
+                .setMessage("This removes encrypted " + provider.accountName + " tokens and cached "
+                        + provider.displayName + " usage from this device. Other accounts stay signed in.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Sign out", (d, which) -> {
+                    ProviderAccounts.signOut(this, provider);
+                    Toast.makeText(this, "Signed out of " + provider.accountName + ".", Toast.LENGTH_SHORT).show();
+                    reload();
+                })
+                .create()
+                .show();
     }
 
     @Override
@@ -220,10 +289,8 @@ public final class ProvidersActivity extends AppCompatActivity {
             UsageProvider provider = items.get(position);
             holder.icon.setImageResource(iconRes(provider));
             holder.title.setText(provider.displayName);
-            // Accounts already shows who is signed in; here only say when a tab has no account.
-            boolean signedIn = ProviderAccounts.isSignedIn(ProvidersActivity.this, provider);
-            holder.summary.setText(signedIn ? "" : "Not signed in");
-            holder.summary.setVisibility(signedIn ? View.GONE : View.VISIBLE);
+            holder.summary.setText(ProviderAccounts.summary(ProvidersActivity.this, provider));
+            holder.itemView.setOnClickListener(v -> showProvider(provider));
             holder.toggle.setContentDescription("Show " + provider.displayName + " tab");
             holder.toggle.setOnCheckedChangeListener(null);
             boolean on = ProviderPreferences.getEnabled(ProvidersActivity.this)

@@ -49,7 +49,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     private static final int MENU_REORDER = 8102;
     /** {@link UsageProvider#id} of the tab to open, e.g. from a Claude Code widget. */
     public static final String EXTRA_PROVIDER = "provider";
-    /** With {@code start_sign_in}: which provider to sign in to (Settings → Accounts). */
+    /** With {@code start_sign_in}: which provider to sign in to (Settings → Providers). */
     public static final String EXTRA_SIGN_IN_PROVIDER = "sign_in_provider";
     private String appliedTheme;
     private boolean appliedMaterialYou;
@@ -2066,7 +2066,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
     /** One UI's demo banner: says the tab is sample data and offers Leave demo. */
     private void addDemoNotice() {
-        TextView note = Ui.text(this, "Demo data. Sign in from Settings, Accounts to see your "
+        TextView note = Ui.text(this, "Demo data. Sign in from Settings, Providers to see your "
                 + "own usage.", 14.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
         noteParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 8));

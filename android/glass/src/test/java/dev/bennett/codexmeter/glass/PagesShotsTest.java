@@ -32,7 +32,9 @@ public class PagesShotsTest {
         shoot(out, scheme, "x:history", "history", false);
         shoot(out, scheme, "x:add_account", "add-account", false);
         shoot(out, scheme, "x:signin", "signin", false);
-        shoot(out, scheme, "x:tabs", "tabs", false);
+        shoot(out, scheme, "x:tabs", "providers", false);
+        shoot(out, scheme, "x:provider", "provider", false);
+        shoot(out, scheme, "root", "settings", false);
         shoot(out, scheme, "x:widget", "widget", false);
         shoot(out, scheme, "x:widget", "reminder", true);
     }

@@ -292,7 +292,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void buildProviders() {
         addIntro("Choose your providers",
                 "Pick every service you want to track. Each one gets a tab on the dashboard, "
-                        + "and you can add more later in Settings → Accounts.",
+                        + "and you can add more later in Settings → Providers.",
                 R.drawable.ic_oui_samsung_account);
 
         Button next = Ui.nativePrimaryButton(this, "Continue");
@@ -388,7 +388,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         }
         addIntro(any ? "You’re all set" : "Setup complete",
                 any ? "Codex Meter will load your latest usage as the app opens."
-                        : "You can sign in any time from Settings → Accounts.",
+                        : "You can sign in any time from Settings → Providers.",
                 any ? R.drawable.ic_oui_samsung_account : R.drawable.ic_oui_info_outline);
 
         this.content.addView(Ui.separator(this, "Accounts"));
@@ -589,7 +589,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private GlassModel.Page expressiveProviders() {
         GlassModel.Page page = expressiveSkeleton("Choose your providers",
                 "Pick every service you want to track. Each one gets a tab on the dashboard, and "
-                        + "you can add more later in Settings, Accounts.");
+                        + "you can add more later in Settings, Providers.");
         if (!this.picked.isEmpty()) {
             page.actions.add(new GlassModel.Action("Continue", null, true,
                     this::saveProvidersAndContinue));
@@ -675,7 +675,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                 ? "Continue sign-in with " + provider.accountName
                 : provider.signInLabel(), () -> startSignIn(provider)));
         GlassModel.Row later = GlassScreens.row(GlassModel.Row.Kind.ACTION, "skip",
-                "Skip for now", "Sign in any time from Settings, Accounts");
+                "Skip for now", "Sign in any time from Settings, Providers");
         later.onPress = () -> {
             cancelPendingSignIn();
             goNext();
@@ -692,7 +692,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         }
         GlassModel.Page page = expressiveSkeleton(any ? "You’re all set" : "Setup complete",
                 any ? "Codex Meter will load your latest usage as the app opens."
-                        : "You can sign in any time from Settings, Accounts.");
+                        : "You can sign in any time from Settings, Providers.");
         GlassModel.Section accounts = GlassScreens.section("Accounts");
         for (UsageProvider provider : this.chosen) {
             GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.INFO, provider.id,

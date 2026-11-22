@@ -208,6 +208,8 @@ final class GlassScreens {
         switch (parts[0]) {
             case "tabs":
                 return new Tabs(this);
+            case "provider":
+                return new Provider(this, UsageProvider.fromId(arg));
             case "lock_widgets":
                 return new LockWidgets(this);
             case "about":
@@ -373,14 +375,13 @@ final class GlassScreens {
         GlassModel.Page page() {
             Context c = activity();
             GlassModel.Page page = new GlassModel.Page(PREFIX + "tabs", "Providers");
-            page.intro = "Tap Edit to reorder, or touch and hold a tab. Switch off to hide one.";
-            Section list = section(null);
-            list.footer = "With five or more on, the first three get tabs and the rest go under More.";
+            Section list = section("On your dashboard");
+            list.footer = "Switch one off to hide its tab. Tap a provider for its account. With five or more "
+                    + "on, the first three get tabs and the rest go under More.";
             List<UsageProvider> enabled = ProviderPreferences.getEnabled(c);
             for (UsageProvider provider : items()) {
-                boolean signedIn = ProviderAccounts.isSignedIn(c, provider);
-                Row r = row(Row.Kind.SWITCH, provider.id, provider.displayName,
-                        signedIn ? null : "Not signed in");
+                Row r = row(Row.Kind.SWITCH_LINK, provider.id, provider.displayName,
+                        ProviderAccounts.summary(c, provider));
                 r.icon = "provider_" + provider.id;
                 r.plainIcon = true;
                 r.checked = enabled.contains(provider);
@@ -392,18 +393,119 @@ final class GlassScreens {
                     }
                     changed();
                 };
+                r.onPress = () -> screens.app.openPage(PREFIX + "provider:" + provider.id, null);
                 list.rows.add(r);
             }
             list.onMove = (from, to) -> {
                 List<UsageProvider> order = items();
                 order.add(to, order.remove(from));
                 ProviderPreferences.setOrder(c, order);
-                android.util.Log.i("CodexGlass", "reorder tabs " + from + " to " + to);
                 DiagnosticLog.info(c, "user", "provider_order_changed");
                 changed();
             };
             page.sections.add(list);
+            Section add = section(null);
+            Row addRow = row(Row.Kind.ACTION, "account_add", "Add account", null);
+            addRow.icon = "plus";
+            addRow.color = "#34c759";
+            addRow.onPress = () -> {
+                DiagnosticLog.info(c, "user", "add_account_opened");
+                screens.app.start(new Intent(c, AddAccountActivity.class));
+            };
+            add.rows.add(addRow);
+            add.footer = "Codex, Claude Code, Cursor, Copilot, Gemini and more.";
+            page.sections.add(add);
             return page;
+        }
+    }
+
+    // ------------------------------------------------------------------ One provider
+
+    /** Settings › Providers › a provider: its account, its tab, its cards and saved resets, and Sign out. */
+    static final class Provider extends Screen {
+        private final UsageProvider provider;
+
+        Provider(GlassScreens screens, UsageProvider provider) {
+            super(screens);
+            this.provider = provider;
+        }
+
+        @Override
+        GlassModel.Page page() {
+            Context c = activity();
+            GlassModel.Page page = new GlassModel.Page(PREFIX + "provider:" + provider.id, provider.displayName);
+            boolean signedIn = ProviderAccounts.isSignedIn(c, provider);
+            Section account = section("Account");
+            if (signedIn) {
+                String email = ProviderAccounts.email(c, provider);
+                Row who = row(Row.Kind.INFO, "who", "Signed in as", null);
+                who.value = email.isEmpty() ? ProviderAccounts.identifier(c, provider) : email;
+                account.rows.add(who);
+                String plan = ProviderAccounts.plan(c, provider);
+                if (!plan.isEmpty()) {
+                    Row planRow = row(Row.Kind.INFO, "plan", "Plan", null);
+                    planRow.value = plan;
+                    account.rows.add(planRow);
+                }
+            } else {
+                Row signIn = row(Row.Kind.BUTTON, "sign_in", "Sign in to " + provider.displayName, null);
+                signIn.onPress = () -> screens.app.start(SignInActivity.intent(c, provider));
+                account.rows.add(signIn);
+                account.footer = ProviderAccounts.summary(c, provider) + ".";
+            }
+            page.sections.add(account);
+
+            Section dashboard = section("Dashboard");
+            Row show = row(Row.Kind.SWITCH, "show", "Show on dashboard", null);
+            show.checked = ProviderPreferences.getEnabled(c).contains(provider);
+            show.onToggle = on -> {
+                if (!ProviderPreferences.setEnabled(c, provider, on)) {
+                    Toast.makeText(c, "Keep at least one provider on.", Toast.LENGTH_SHORT).show();
+                }
+                changed();
+            };
+            dashboard.rows.add(show);
+            Row cards = row(Row.Kind.LINK, "cards", "Arrange cards", null);
+            cards.onPress = () -> screens.app.openPage(PREFIX + "reorder:" + provider.id, null);
+            dashboard.rows.add(cards);
+            page.sections.add(dashboard);
+
+            if (signedIn && (provider == UsageProvider.CODEX || provider == UsageProvider.CLAUDE_CODE)) {
+                Section resets = section("Reset credits");
+                Row saved = row(Row.Kind.LINK, "saved_resets", "Saved resets", null);
+                saved.onPress = () -> screens.app.openPage(PREFIX + "reset:" + provider.id, null);
+                resets.rows.add(saved);
+                page.sections.add(resets);
+            }
+
+            if (signedIn) {
+                Section out = section(null);
+                Row signOut = row(Row.Kind.ACTION, "sign_out", "Sign out", null);
+                signOut.destructive = true;
+                signOut.onPress = this::confirmSignOut;
+                out.rows.add(signOut);
+                out.footer = "Removes this account's tokens and cached usage from this device. Other "
+                        + "accounts stay signed in.";
+                page.sections.add(out);
+            }
+            return page;
+        }
+
+        private void confirmSignOut() {
+            Context c = activity();
+            new AppDialog(c)
+                    .setTitle("Sign out of " + provider.accountName + "?")
+                    .setMessage("This removes encrypted " + provider.accountName + " tokens and cached "
+                            + provider.displayName + " usage from this device. Other accounts stay signed in.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Sign out", (dialog, which) -> {
+                        ProviderAccounts.signOut(c, provider);
+                        Toast.makeText(c, "Signed out of " + provider.accountName + ".", Toast.LENGTH_SHORT).show();
+                        changed();
+                        screens.app.pop();
+                    })
+                    .create()
+                    .show();
         }
     }
 

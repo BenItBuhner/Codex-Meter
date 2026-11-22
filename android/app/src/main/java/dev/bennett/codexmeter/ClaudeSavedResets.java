@@ -825,7 +825,7 @@ public final class ClaudeSavedResets {
         }
         if (needsClaudeCodeSignIn(grantedScope)) {
             out.append("\nThis sign-in lacks Claude Code access. Sign out of Claude Code in "
-                    + "Settings > Accounts and sign in again.\n");
+                    + "Settings > Providers and sign in again.\n");
         }
         String raw = block == null ? "(none)" : block.toString();
         if (raw.length() > 2000) raw = raw.substring(0, 2000) + "...";

@@ -28,7 +28,6 @@ final class GlassSettings {
     private static final Map<String, String[]> ICONS = new HashMap<>();
 
     static {
-        ICONS.put("settings_accounts", new String[] {"person2", "#007aff"});
         ICONS.put("settings_providers", new String[] {"tabs", "#5856d6"});
         ICONS.put("settings_now_bar", new String[] {"waveform", "#ff9500"});
         ICONS.put("settings_notifications", new String[] {"bell", "#ff3b30"});

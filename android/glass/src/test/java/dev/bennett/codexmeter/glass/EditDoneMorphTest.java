@@ -10,7 +10,7 @@ import org.jetbrains.skia.Bitmap;
 import org.junit.Test;
 
 /**
- * Edit → Done → Edit on Dashboard tabs blurs one label into the other on a button that never leaves
+ * Edit → Done → Edit on Providers blurs one label into the other on a button that never leaves
  * the screen. Before Glassé's fix the button faded to nothing as it turned blue and Done popped in about
  * a second later. Every 60 Hz frame of both taps must still show the button. With
  * {@code -Dcap.frames=<dir>} the frames are saved as PNGs too.

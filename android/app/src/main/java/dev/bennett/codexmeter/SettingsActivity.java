@@ -329,7 +329,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 Ui.startSecondaryActivity(requireActivity(), ProvidersActivity.class);
                 return true;
             });
-            bindPageLink("settings_accounts", PAGE_ACCOUNTS);
             bindPageLink("settings_appearance", PAGE_APPEARANCE);
             bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
             bindPageLink("settings_reset_credits", PAGE_RESET_CREDITS);
@@ -450,26 +449,20 @@ public final class SettingsActivity extends AppCompatActivity {
             }
         }
 
-        private void updateRootSummaries() {
-            if (!PAGE_ROOT.equals(page) || getContext() == null) return;
-            Context context = requireContext();
+        /** Settings › Providers' summary: how many tabs are on and how many accounts are connected. */
+        static String providersSummary(Context context) {
             int connected = 0;
             for (UsageProvider provider : UsageProvider.values()) {
                 if (ProviderAccounts.isSignedIn(context, provider)) connected++;
             }
-            findPreference("settings_accounts").setSummary(connected == 0 ? "None connected"
-                    : connected == 1 ? "1 connected" : connected + " connected");
-            List<UsageProvider> enabled = ProviderPreferences.getEnabled(context);
-            StringBuilder providers = new StringBuilder();
-            int named = enabled.size() > 3 ? 2 : enabled.size();
-            for (int i = 0; i < named; i++) {
-                if (providers.length() > 0) providers.append(", ");
-                providers.append(enabled.get(i).displayName);
-            }
-            if (enabled.size() > named) {
-                providers.append(" + ").append(enabled.size() - named).append(" more");
-            }
-            findPreference("settings_providers").setSummary(providers.toString());
+            int on = ProviderPreferences.getEnabled(context).size();
+            return on + " on · " + (connected == 0 ? "none signed in" : connected + " signed in");
+        }
+
+        private void updateRootSummaries() {
+            if (!PAGE_ROOT.equals(page) || getContext() == null) return;
+            Context context = requireContext();
+            findPreference("settings_providers").setSummary(providersSummary(context));
             String theme = AppPreferences.getAppTheme(context);
             String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
                     ? "System default"

@@ -6,10 +6,6 @@
 
     <PreferenceCategory android:title="Usage">
         <Preference
-            android:key="settings_accounts"
-            android:title="Accounts"
-            app:iconSpaceReserved="false" />
-        <Preference
             android:key="settings_providers"
             android:title="Providers"
             app:iconSpaceReserved="false" />
