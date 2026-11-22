@@ -24,6 +24,11 @@
 - **Slider thumbs stay inside their card** at both ends, even while pressed. Android.
 - **The Filter menu's switches** no longer get stuck off, since the menu is gone. Android.
 
+### Known gaps
+
+- **Antigravity sign-in and usage don't work in this alpha.** Sign-in is switched off in these builds, and its usage reading is being fixed for a later alpha. All platforms.
+- Providers with accounts is Android-only so far; iPhone, Mac, Windows and Linux still have a separate Accounts page.
+
 ## 2.9.0-alpha.31 — 2026-11-19
 
 ### Added
