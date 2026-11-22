@@ -447,6 +447,9 @@ nonisolated struct CopilotClient: StandardDeviceClient {
             .header("Editor-Plugin-Version", "copilot-chat/0.26.7")
             .header("User-Agent", "GitHubCopilotChat/0.26.7")
             .header("X-Github-Api-Version", "2025-04-01"), session: http), "usage")
+        if response.json.string("access_type_sku") == "subscription_ended" {
+            throw ProviderClientError.message("Your GitHub Copilot subscription has ended.")
+        }
         return try nonEmpty(ProviderUsageParsers.copilot(response.body, now: Date()))
     }
 }
@@ -1083,22 +1086,44 @@ nonisolated struct AntigravityClient: ProviderClient {
     }
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        // Same order as CodexBar (and Android): plan and project from loadCodeAssist, then the quota
+        // summary from the daily host (prod answers with stale Gemini numbers), then the older
+        // per-model quota calls.
+        let metadata = ["ideType": "ANTIGRAVITY", "platform": "PLATFORM_UNSPECIFIED", "pluginType": "GEMINI"]
+        let assist = try await post("antigravity_plan", AntigravityOAuth.prod + "/v1internal:loadCodeAssist", tokens,
+                                    ["metadata": metadata], http: http)
+        if assist.status == 401 { _ = try check(assist, "plan") }
+        var plan = ""
+        var project = ""
+        if assist.ok {
+            if ProviderUsageParsers.antigravityClientRejected(assist.body) {
+                throw ProviderClientError.unauthorized("This Google sign-in can't read Antigravity limits. Sign in to Antigravity again.")
+            }
+            plan = ProviderUsageParsers.antigravityPlan(assist.body)
+            project = ProviderUsageParsers.antigravityProject(assist.body)
+            let tier = project.isEmpty ? ProviderUsageParsers.antigravityOnboardTier(assist.body) : ""
+            if !tier.isEmpty, let onboard = try? await post("antigravity_onboard", AntigravityOAuth.prod + "/v1internal:onboardUser",
+                                                           tokens, ["tierId": tier, "metadata": metadata], http: http),
+               onboard.ok {
+                project = ProviderUsageParsers.antigravityProject(onboard.body)
+            }
+        }
+        let body: [String: Any] = project.isEmpty ? [:] : ["project": project]
         var last: Error?
-        for host in AntigravityOAuth.hosts {
+        let calls = [AntigravityOAuth.daily + "/v1internal:retrieveUserQuotaSummary",
+                     AntigravityOAuth.prod + "/v1internal:retrieveUserQuotaSummary",
+                     AntigravityOAuth.prod + "/v1internal:fetchAvailableModels",
+                     AntigravityOAuth.prod + "/v1internal:retrieveUserQuota"]
+        for url in calls {
             do {
-                var plan = ""
-                let assist = try await ProviderHTTP.send("antigravity_plan", ProviderRequest.post(host + "/v1internal:loadCodeAssist")
-                    .bearer(tokens.accessToken)
-                    .header("User-Agent", "antigravity/2.24.0 (aidev_client; os_type=darwin; arch=arm64)")
-                    .json(["metadata": ["ideType": "ANTIGRAVITY", "platform": "PLATFORM_UNSPECIFIED", "pluginType": "GEMINI"]]),
-                    session: http)
-                if assist.status == 401 { _ = try check(assist, "plan") }
-                if assist.ok { plan = ProviderUsageParsers.antigravityPlan(assist.body) }
-                let quota = try check(try await ProviderHTTP.send("antigravity_usage",
-                    ProviderRequest.post(host + "/v1internal:retrieveUserQuotaSummary")
-                        .bearer(tokens.accessToken).header("User-Agent", "antigravity").json([:]),
-                    session: http), "usage")
-                return try nonEmpty(ProviderUsageParsers.antigravity(quota.body, plan: plan, now: Date()))
+                let quota = try await post("antigravity_usage", url, tokens, body, http: http)
+                if quota.status == 401 { _ = try check(quota, "usage") }
+                guard quota.ok else {
+                    last = ProviderClientError.message("Antigravity usage failed (HTTP \(quota.status)).")
+                    continue
+                }
+                let snapshot = ProviderUsageParsers.antigravity(quota.body, plan: plan, now: Date())
+                if snapshot.hasDisplayableData { return ProviderFetch(snapshot: snapshot) }
             } catch let error as ProviderClientError {
                 if case .unauthorized = error { throw error }
                 last = error
@@ -1106,7 +1131,15 @@ nonisolated struct AntigravityClient: ProviderClient {
                 last = error
             }
         }
-        throw last ?? ProviderClientError.message("Antigravity usage is unavailable.")
+        if let last { throw last }
+        return try nonEmpty(ProviderUsageParsers.antigravity("{}", plan: plan, now: Date()))
+    }
+
+    /// Cloud Code only serves quota to the Antigravity Hub client family.
+    private func post(_ operation: String, _ url: String, _ tokens: AuthTokens, _ body: [String: Any],
+                      http: URLSession) async throws -> ProviderResponse {
+        try await ProviderHTTP.send(operation, ProviderRequest.post(url).bearer(tokens.accessToken)
+            .header("User-Agent", "antigravity/hub/2.9.1 darwin/arm64").json(body), session: http)
     }
 }
 
@@ -1138,6 +1171,20 @@ nonisolated struct KiloClient: ProviderClient {
     }
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        // The web app's tRPC batch has the credit blocks and the Kilo Pass month; the older
+        // balance route is the fallback.
+        let input = ProviderHTTP.query([("batch", "1"), ("input", #"{"0":{"json":null},"1":{"json":null}}"#)])
+        if let trpc = try? await ProviderHTTP.send("kilo_trpc",
+            .get("https://app.kilo.ai/api/trpc/user.getCreditBlocks,kiloPass.getState?" + input)
+                .bearer(tokens.accessToken), session: http) {
+            if trpc.status == 401 || (!trpc.ok && ProviderUsageParsers.kiloUnauthorized(trpc.body)) {
+                throw ProviderClientError.unauthorized("Kilo rejected the saved sign-in.")
+            }
+            if trpc.ok {
+                let snapshot = ProviderUsageParsers.kiloTrpc(trpc.body, now: Date())
+                if snapshot.hasDisplayableData { return ProviderFetch(snapshot: snapshot) }
+            }
+        }
         let response = try check(try await ProviderHTTP.send("kilo_usage",
             .get("https://api.kilo.ai/api/profile/balance").bearer(tokens.accessToken), session: http), "balance")
         return try nonEmpty(ProviderUsageParsers.kilo(response.body, now: Date()))
@@ -1196,7 +1243,13 @@ nonisolated struct CodebuffClient: ProviderClient {
             .post(Self.base + "v1/usage").bearer(tokens.accessToken).json([
                 "fingerprintId": tokens.accountID, "authToken": tokens.accessToken
             ]), session: http), "usage")
-        return try nonEmpty(ProviderUsageParsers.codebuff(response.body, now: Date()))
+        var snapshot = ProviderUsageParsers.codebuff(response.body, now: Date())
+        // The subscription route adds the weekly limit and tier; it's optional.
+        if let subscription = try? await ProviderHTTP.send("codebuff_subscription",
+            .get(Self.base + "user/subscription").bearer(tokens.accessToken), session: http), subscription.ok {
+            snapshot = ProviderUsageParsers.codebuffSubscription(snapshot, subscription.body, now: Date())
+        }
+        return try nonEmpty(snapshot)
     }
 }
 

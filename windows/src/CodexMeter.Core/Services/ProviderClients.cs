@@ -346,6 +346,8 @@ public sealed class CopilotClient() : StandardDeviceClient(UsageProvider.Copilot
             .Header("Editor-Plugin-Version", "copilot-chat/0.26.7")
             .Header("User-Agent", "GitHubCopilotChat/0.26.7")
             .Header("X-Github-Api-Version", "2025-04-01"), cancellationToken).ConfigureAwait(false), "usage");
+        if (BodyString(response, "access_type_sku") == "subscription_ended")
+            throw new ProviderException("Your GitHub Copilot subscription has ended.");
         return NonEmpty(ProviderUsageParsers.Copilot(response.Body, context.Now()));
     }
 }
@@ -945,7 +947,11 @@ public static class AntigravityOAuth
 
 public sealed class AntigravityClient() : ProviderClient(UsageProvider.Antigravity)
 {
-    private static readonly string[] Hosts = ["https://cloudcode-pa.googleapis.com", "https://daily-cloudcode-pa.googleapis.com"];
+    private const string Prod = "https://cloudcode-pa.googleapis.com";
+    private const string Daily = "https://daily-cloudcode-pa.googleapis.com";
+    private static readonly string UserAgent = "antigravity/hub/2.9.1 "
+        + (OperatingSystem.IsMacOS() ? "darwin" : "linux") + "/"
+        + (System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "arm64" : "amd64");
 
     public override string? LoopbackAuthUrl(string redirectUri, SignInAttempt attempt)
     {
@@ -1002,30 +1008,63 @@ public sealed class AntigravityClient() : ProviderClient(UsageProvider.Antigravi
 
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
+        // Same order as CodexBar (and Android): plan and project from loadCodeAssist, then the quota
+        // summary from the daily host (prod answers with stale Gemini numbers), then the older
+        // per-model quota calls.
+        JsonObject Metadata() => new() { ["ideType"] = "ANTIGRAVITY", ["platform"] = "PLATFORM_UNSPECIFIED", ["pluginType"] = "GEMINI" };
+        var assist = await PostAsync(context, "antigravity_plan", Prod + "/v1internal:loadCodeAssist", tokens,
+            new JsonObject { ["metadata"] = Metadata() }, cancellationToken).ConfigureAwait(false);
+        if (assist.Status == 401) Check(assist, "plan");
+        var plan = "";
+        var project = "";
+        if (assist.Ok)
+        {
+            if (ProviderUsageParsers.AntigravityClientRejected(assist.Body))
+                throw new ProviderUnauthorizedException("This Google sign-in can't read Antigravity limits. Sign in to Antigravity again.");
+            plan = ProviderUsageParsers.AntigravityPlan(assist.Body);
+            project = ProviderUsageParsers.AntigravityProject(assist.Body);
+            var tier = project.Length == 0 ? ProviderUsageParsers.AntigravityOnboardTier(assist.Body) : "";
+            if (tier.Length > 0)
+            {
+                try
+                {
+                    var onboard = await PostAsync(context, "antigravity_onboard", Prod + "/v1internal:onboardUser", tokens,
+                        new JsonObject { ["tierId"] = tier, ["metadata"] = Metadata() }, cancellationToken).ConfigureAwait(false);
+                    if (onboard.Ok) project = ProviderUsageParsers.AntigravityProject(onboard.Body);
+                }
+                catch (ProviderException) { /* Quota calls still answer without a project. */ }
+            }
+        }
         ProviderException? last = null;
-        foreach (var host in Hosts)
+        string[] calls = [Daily + "/v1internal:retrieveUserQuotaSummary", Prod + "/v1internal:retrieveUserQuotaSummary",
+            Prod + "/v1internal:fetchAvailableModels", Prod + "/v1internal:retrieveUserQuota"];
+        foreach (var url in calls)
         {
             try
             {
-                var plan = "";
-                var assist = await SendAsync(context, "antigravity_plan", ProviderRequest.Post(host + "/v1internal:loadCodeAssist")
-                    .Bearer(tokens.AccessToken)
-                    .Header("User-Agent", "antigravity/2.24.0 (aidev_client; os_type=darwin; arch=arm64)")
-                    .Json(new JsonObject
-                    {
-                        ["metadata"] = new JsonObject { ["ideType"] = "ANTIGRAVITY", ["platform"] = "PLATFORM_UNSPECIFIED", ["pluginType"] = "GEMINI" },
-                    }), cancellationToken).ConfigureAwait(false);
-                if (assist.Status == 401) Check(assist, "plan");
-                if (assist.Ok) plan = ProviderUsageParsers.AntigravityPlan(assist.Body);
-                var quota = Check(await SendAsync(context, "antigravity_usage", ProviderRequest.Post(host + "/v1internal:retrieveUserQuotaSummary")
-                    .Bearer(tokens.AccessToken).Header("User-Agent", "antigravity").Json([]), cancellationToken).ConfigureAwait(false), "usage");
-                return NonEmpty(ProviderUsageParsers.Antigravity(quota.Body, plan, context.Now()));
+                var body = project.Length == 0 ? new JsonObject() : new JsonObject { ["project"] = project };
+                var quota = await PostAsync(context, "antigravity_usage", url, tokens, body, cancellationToken).ConfigureAwait(false);
+                if (quota.Status == 401) Check(quota, "usage");
+                if (!quota.Ok)
+                {
+                    last = new ProviderException($"Antigravity usage failed (HTTP {quota.Status}).");
+                    continue;
+                }
+                var snapshot = ProviderUsageParsers.Antigravity(quota.Body, plan, context.Now());
+                if (snapshot.HasDisplayableData) return new ProviderFetch(snapshot);
             }
             catch (ProviderUnauthorizedException) { throw; }
             catch (ProviderException error) { last = error; }
         }
-        throw last ?? new ProviderException("Antigravity usage is unavailable.");
+        if (last is not null) throw last;
+        return NonEmpty(ProviderUsageParsers.Antigravity("{}", plan, context.Now()));
     }
+
+    // Cloud Code only serves quota to the Antigravity Hub client family.
+    private static Task<HttpPayload> PostAsync(ProviderContext context, string operation, string url, AuthTokens tokens,
+        JsonObject body, CancellationToken cancellationToken) =>
+        SendAsync(context, operation, ProviderRequest.Post(url).Bearer(tokens.AccessToken).Header("User-Agent", UserAgent).Json(body),
+            cancellationToken);
 }
 
 // ---------------------------------------------------------------------- Kilo
@@ -1057,7 +1096,16 @@ public sealed class KiloClient() : ProviderClient(UsageProvider.Kilo)
 
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
-        var response = Check(await SendAsync(context, "kilo_usage",
+        // The web app's tRPC batch has the balance and Kilo Pass; the older profile balance route
+        // stays as a fallback. Mirrors Android.
+        var batch = await TrySendAsync(context, "kilo_usage", ProviderRequest.Get("https://app.kilo.ai/api/trpc/user.getCreditBlocks,kiloPass.getState?"
+            + ProviderRequest.Query(("batch", "1"), ("input", """{"0":{"json":null},"1":{"json":null}}"""))).Bearer(tokens.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        var snapshot = batch is { Ok: true } ? ProviderUsageParsers.KiloTrpc(batch.Body, context.Now()) : null;
+        if (snapshot is { HasDisplayableData: true }) return new ProviderFetch(snapshot);
+        if (batch is { Status: 401 } || (snapshot is not null && ProviderUsageParsers.KiloUnauthorized(batch!.Body)))
+            throw new ProviderUnauthorizedException("Kilo rejected the saved sign-in.");
+        var response = Check(await SendAsync(context, "kilo_balance",
             ProviderRequest.Get("https://api.kilo.ai/api/profile/balance").Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "balance");
         return NonEmpty(ProviderUsageParsers.Kilo(response.Body, context.Now()));
     }
@@ -1112,7 +1160,12 @@ public sealed class CodebuffClient() : ProviderClient(UsageProvider.Codebuff)
     {
         var response = Check(await SendAsync(context, "codebuff_usage", ProviderRequest.Post(Base + "v1/usage").Bearer(tokens.AccessToken)
             .Json(new JsonObject { ["fingerprintId"] = tokens.AccountId, ["authToken"] = tokens.AccessToken }), cancellationToken).ConfigureAwait(false), "usage");
-        return NonEmpty(ProviderUsageParsers.Codebuff(response.Body, context.Now()));
+        var usage = ProviderUsageParsers.Codebuff(response.Body, context.Now());
+        // The weekly limit and tier are optional.
+        var subscription = await TrySendAsync(context, "codebuff_subscription", ProviderRequest.Get(Base + "user/subscription").Bearer(tokens.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        if (subscription is { Ok: true }) usage = ProviderUsageParsers.CodebuffSubscription(usage, subscription.Body, context.Now());
+        return NonEmpty(usage);
     }
 }
 

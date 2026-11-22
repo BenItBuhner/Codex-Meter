@@ -269,6 +269,15 @@ public final class ProviderUsageParsers {
                 out.extra(copilotName(key), copilotQuota(quotas.optJSONObject(key), reset, now));
             }
         }
+        // Token-based billing (Copilot Business since 2026) and unlimited seats have no metered
+        // window; show the plan as unlimited instead of failing the refresh.
+        boolean unlimited = root.optBoolean("token_based_billing", false);
+        if (quotas != null && !unlimited) {
+            for (String key : new String[] {"premium_interactions", "chat"}) {
+                JSONObject quota = quotas.optJSONObject(key);
+                if (quota != null && quota.optBoolean("unlimited", false)) unlimited = true;
+            }
+        }
         // Free accounts report counts instead of snapshots.
         JSONObject monthly = root.optJSONObject("monthly_quotas");
         JSONObject left = root.optJSONObject("limited_user_quotas");
@@ -286,6 +295,7 @@ public final class ProviderUsageParsers {
                 }
             }
         }
+        if (unlimited && out.isEmpty()) out.credits = new UsageCredits(false, true, "");
         return out.build();
     }
 
@@ -527,6 +537,14 @@ public final class ProviderUsageParsers {
                 && !config.has("creditUsagePercent")) {
             percent *= 100.0;
         }
+        if (Double.isNaN(percent)) {
+            // Pay-as-you-go accounts report spend against their on-demand cap instead.
+            double cap = number(config, "onDemandCap");
+            double used = number(config, "onDemandUsed");
+            if (!Double.isNaN(cap) && cap > 0 && !Double.isNaN(used)) {
+                percent = used / cap * 100.0;
+            }
+        }
         out.add("Credits", window(percent, seconds, reset, now));
         JSONArray products = config.optJSONArray("productUsage");
         if (products != null) {
@@ -558,44 +576,101 @@ public final class ProviderUsageParsers {
     // ---------------------------------------------------------------- Antigravity (Google)
 
     /**
-     * {@code v1internal:retrieveUserQuotaSummary}: buckets per model family. Gemini is the
-     * main pair of windows; Claude and other third-party models become an additional limit.
+     * Antigravity usage from any of Cloud Code's three quota replies:
+     * {@code retrieveUserQuotaSummary} ({@code groups[].buckets[]} with {@code remaining}),
+     * {@code fetchAvailableModels} ({@code models.<id>.quotaInfo}) or {@code retrieveUserQuota}
+     * ({@code buckets[]} per model). Gemini is the main pair of windows; Claude and GPT
+     * become one additional limit. A bucket with no fraction, or a disabled one, is unknown.
      */
     public static UsageSnapshot antigravity(String body, String plan, long now) {
         JSONObject root = object(body);
+        JSONObject wrapped = root.optJSONObject("response");
+        if (wrapped == null) wrapped = root.optJSONObject("summary");
+        if (wrapped != null && wrapped.has("groups")) root = wrapped;
         Builder out = new Builder(now);
         out.plan = plan == null ? "" : plan;
-        List<JSONObject> buckets = new ArrayList<>();
-        collectBuckets(root, buckets);
         UsageWindow thirdShort = null;
         UsageWindow thirdWeekly = null;
-        for (JSONObject bucket : buckets) {
-            String id = string(bucket, "bucketId", "id", "name").toLowerCase(Locale.ROOT);
-            double fraction = number(bucket, "remainingFraction", "remaining_fraction");
-            if (Double.isNaN(fraction) && (bucket.has("resetTime") || bucket.has("reset_time"))) {
-                // proto3 omits zero: a bucket with a reset but no fraction is used up.
-                fraction = 0.0;
+        JSONArray groups = root.optJSONArray("groups");
+        if (groups != null) {
+            for (int g = 0; g < groups.length(); g++) {
+                JSONObject group = groups.optJSONObject(g);
+                if (group == null) continue;
+                String groupName = string(group, "displayName", "name");
+                String family = antigravityFamily(groupName);
+                JSONArray buckets = group.optJSONArray("buckets");
+                if (buckets == null) continue;
+                for (int b = 0; b < buckets.length(); b++) {
+                    JSONObject bucket = buckets.optJSONObject(b);
+                    if (bucket == null || bucket.optBoolean("disabled", false)) continue;
+                    String id = string(bucket, "bucketId", "id", "name");
+                    double fraction = antigravityFraction(bucket);
+                    if (Double.isNaN(fraction)) continue;
+                    boolean weekly = antigravityWeekly(string(bucket, "window") + " " + id + " "
+                            + string(bucket, "displayName"));
+                    UsageWindow window = window((1.0 - fraction) * 100.0, weekly ? WEEK : 5 * HOUR,
+                            epochSeconds(first(bucket, "resetTime", "reset_time")), now);
+                    String bucketFamily = family.isEmpty() ? antigravityFamily(id) : family;
+                    if ("gemini".equals(bucketFamily)) {
+                        if (weekly && out.weekly == null) out.weekly = window;
+                        else if (!weekly && out.shortWindow == null) out.shortWindow = window;
+                    } else if ("third".equals(bucketFamily)) {
+                        if (weekly && thirdWeekly == null) thirdWeekly = window;
+                        else if (!weekly && thirdShort == null) thirdShort = window;
+                    } else {
+                        String label = groupName.isEmpty() ? titleCase(id) : groupName;
+                        out.extra(label + (weekly ? " weekly" : " 5-hour"), window);
+                    }
+                }
             }
-            if (Double.isNaN(fraction)) continue;
-            boolean weekly = id.contains("week") || id.contains("7d");
-            long seconds = weekly ? WEEK : 5 * HOUR;
-            UsageWindow window = window((1.0 - fraction) * 100.0, seconds,
-                    epochSeconds(first(bucket, "resetTime", "reset_time")), now);
-            if (id.startsWith("gemini") && !id.contains("argon")) {
-                if (weekly && out.weekly == null) {
-                    out.weekly = window;
-                } else if (!weekly && out.shortWindow == null) {
-                    out.shortWindow = window;
+        } else {
+            // Per-model quotas: each family shows its most used model.
+            List<String[]> rows = new ArrayList<>();
+            JSONObject models = root.optJSONObject("models");
+            if (models != null) {
+                Iterator<String> keys = models.keys();
+                while (keys.hasNext()) {
+                    String id = keys.next();
+                    JSONObject model = models.optJSONObject(id);
+                    JSONObject quota = model == null ? null : model.optJSONObject("quotaInfo");
+                    if (quota == null) continue;
+                    rows.add(new String[] {id, string(model, "displayName", "label"),
+                            String.valueOf(number(quota, "remainingFraction")),
+                            string(quota, "resetTime")});
                 }
-            } else if (id.startsWith("3p") || id.contains("third")) {
-                if (weekly) {
-                    thirdWeekly = window;
-                } else {
-                    thirdShort = window;
+            }
+            JSONArray buckets = root.optJSONArray("buckets");
+            if (buckets != null) {
+                for (int i = 0; i < buckets.length(); i++) {
+                    JSONObject bucket = buckets.optJSONObject(i);
+                    if (bucket == null) continue;
+                    rows.add(new String[] {string(bucket, "modelId", "bucketId"), "",
+                            String.valueOf(number(bucket, "remainingFraction")),
+                            string(bucket, "resetTime")});
                 }
-            } else {
-                String label = string(bucket, "displayName", "label");
-                out.extra(label.isEmpty() ? titleCase(id) : label, window);
+            }
+            double gemini = Double.NaN;
+            double third = Double.NaN;
+            String geminiReset = "";
+            String thirdReset = "";
+            for (String[] row : rows) {
+                double fraction = Double.parseDouble(row[2]);
+                if (Double.isNaN(fraction)) continue;
+                String family = antigravityFamily(row[0] + " " + row[1]);
+                if ("gemini".equals(family) && (Double.isNaN(gemini) || fraction < gemini)) {
+                    gemini = fraction;
+                    geminiReset = row[3];
+                } else if ("third".equals(family) && (Double.isNaN(third) || fraction < third)) {
+                    third = fraction;
+                    thirdReset = row[3];
+                }
+            }
+            if (!Double.isNaN(gemini)) {
+                out.shortWindow = window((1.0 - gemini) * 100.0, 5 * HOUR,
+                        epochSeconds(geminiReset), now);
+            }
+            if (!Double.isNaN(third)) {
+                thirdShort = window((1.0 - third) * 100.0, 5 * HOUR, epochSeconds(thirdReset), now);
             }
         }
         if (thirdShort != null || thirdWeekly != null) {
@@ -603,25 +678,75 @@ public final class ProviderUsageParsers {
             UsageWindow secondary = thirdShort != null ? thirdWeekly : null;
             boolean reached = primary.usedPercent >= 100
                     || (secondary != null && secondary.usedPercent >= 100);
-            out.extras.add(0, new UsageLimit("third_party", "Claude and other models", "",
+            out.extras.add(0, new UsageLimit("third_party", "Claude and GPT models", "",
                     !reached, reached, primary, secondary));
         }
         return out.build();
     }
 
-    private static void collectBuckets(Object node, List<JSONObject> into) {
-        if (node instanceof JSONObject) {
-            JSONObject object = (JSONObject) node;
-            if (object.has("bucketId") || object.has("remainingFraction")) {
-                into.add(object);
-                return;
-            }
-            Iterator<String> keys = object.keys();
-            while (keys.hasNext()) collectBuckets(object.opt(keys.next()), into);
-        } else if (node instanceof JSONArray) {
-            JSONArray array = (JSONArray) node;
-            for (int i = 0; i < array.length(); i++) collectBuckets(array.opt(i), into);
+    /** "gemini", "third" (Claude, GPT and other partner models) or "" for anything else. */
+    private static String antigravityFamily(String name) {
+        String value = name == null ? "" : name.toLowerCase(Locale.ROOT);
+        if (value.contains("claude") || value.contains("gpt") || value.startsWith("3p")
+                || value.contains("third")) {
+            return "third";
         }
+        // A versioned family such as "Gemini 4 Argon" is a separate quota with its own name.
+        if (value.contains("gemini") && !value.contains("argon")) return "gemini";
+        return "";
+    }
+
+    private static boolean antigravityWeekly(String text) {
+        String value = text.toLowerCase(Locale.ROOT);
+        return value.contains("week") || value.contains("7d") || value.contains("7-day");
+    }
+
+    /** {@code remaining} is {@code {remainingFraction}} or a oneof {@code {case, value}}. */
+    private static double antigravityFraction(JSONObject bucket) {
+        double fraction = number(bucket, "remainingFraction", "remaining_fraction");
+        if (!Double.isNaN(fraction)) return fraction;
+        JSONObject remaining = bucket.optJSONObject("remaining");
+        if (remaining == null) return Double.NaN;
+        fraction = number(remaining, "remainingFraction", "remaining_fraction");
+        if (!Double.isNaN(fraction)) return fraction;
+        return "remainingFraction".equals(remaining.optString("case"))
+                ? number(remaining, "value") : Double.NaN;
+    }
+
+    /** True when the account's OAuth client can't read consumer quota (sign in again). */
+    public static boolean antigravityClientRejected(String body) {
+        JSONObject root = object(body);
+        if (root.has("currentTier") || !antigravityProject(body).isEmpty()) return false;
+        JSONArray ineligible = root.optJSONArray("ineligibleTiers");
+        if (ineligible == null) return false;
+        for (int i = 0; i < ineligible.length(); i++) {
+            JSONObject tier = ineligible.optJSONObject(i);
+            if (tier != null && "GOOGLE_TOS_NOT_SUPPORTED_BY_CLIENT".equals(
+                    tier.optString("reasonCode"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The tier to onboard an account that has no Code Assist project yet. */
+    public static String antigravityOnboardTier(String body) {
+        JSONObject root = object(body);
+        JSONArray allowed = root.optJSONArray("allowedTiers");
+        if (allowed != null) {
+            for (int i = 0; i < allowed.length(); i++) {
+                JSONObject tier = allowed.optJSONObject(i);
+                if (tier != null && tier.optBoolean("isDefault") && !string(tier, "id").isEmpty()) {
+                    return string(tier, "id");
+                }
+            }
+            for (int i = 0; i < allowed.length(); i++) {
+                String id = string(allowed.optJSONObject(i), "id");
+                if (!id.isEmpty()) return id;
+            }
+        }
+        String paid = string(root.optJSONObject("paidTier"), "id");
+        return paid.isEmpty() ? string(root.optJSONObject("currentTier"), "id") : paid;
     }
 
     /** Plan from {@code v1internal:loadCodeAssist}. */
@@ -640,8 +765,14 @@ public final class ProviderUsageParsers {
     /** Google Cloud project the account's Code Assist quota is billed to, when given. */
     public static String antigravityProject(String body) {
         JSONObject root = object(body);
+        // onboardUser wraps its answer in "response".
+        if (!root.has("cloudaicompanionProject") && root.optJSONObject("response") != null) {
+            root = root.optJSONObject("response");
+        }
         Object project = root.opt("cloudaicompanionProject");
-        if (project instanceof JSONObject) return string((JSONObject) project, "id", "name");
+        if (project instanceof JSONObject) {
+            return string((JSONObject) project, "id", "projectId", "name");
+        }
         return project == null || project == JSONObject.NULL ? "" : String.valueOf(project);
     }
 
@@ -796,7 +927,10 @@ public final class ProviderUsageParsers {
         if (base != null && base.optInt("status_code", 0) != 0) {
             return out.build();
         }
-        out.plan = string(root, "plan_name", "current_plan");
+        // The token plan API wraps its answer in "data"; the coding plan one doesn't.
+        JSONObject data = root.optJSONObject("data");
+        if (data != null && !root.has("model_remains")) root = data;
+        out.plan = minimaxPlan(root);
         JSONArray models = root.optJSONArray("model_remains");
         if (models == null) return out.build();
         for (int i = 0; i < models.length(); i++) {
@@ -814,9 +948,11 @@ public final class ProviderUsageParsers {
                 if (!Double.isNaN(remainsMillis)) reset = (now + (long) remainsMillis) / 1000L;
             }
             UsageWindow interval = window(used, seconds, reset, now);
-            double weeklyTotal = number(model, "current_weekly_total_count");
-            UsageWindow weekly = window(percentUsed(weeklyTotal, Double.NaN,
-                    number(model, "current_weekly_usage_count")), WEEK,
+            double weeklyLeft = number(model, "current_weekly_remaining_percent");
+            double weeklyUsed = !Double.isNaN(weeklyLeft) ? 100.0 - weeklyLeft
+                    : percentUsed(number(model, "current_weekly_total_count"), Double.NaN,
+                            number(model, "current_weekly_usage_count"));
+            UsageWindow weekly = window(weeklyUsed, WEEK,
                     epochSeconds(model.opt("weekly_end_time")), now);
             if (i == 0) {
                 out.add("Prompts", interval);
@@ -829,6 +965,16 @@ public final class ProviderUsageParsers {
     }
 
     // ---------------------------------------------------------------- Z.ai
+
+    static String minimaxPlan(JSONObject root) {
+        String plan = string(root, "current_subscribe_title", "plan_name", "combo_title",
+                "current_plan_title", "current_plan");
+        if (plan.isEmpty()) {
+            plan = string(root.optJSONObject("current_subscribe"), "current_subscribe_title");
+        }
+        if (plan.isEmpty()) plan = string(root.optJSONObject("current_combo_card"), "title");
+        return plan;
+    }
 
     /** {@code api.z.ai/api/monitor/usage/quota/limit}: token windows plus the web-tool quota. */
     public static UsageSnapshot zai(String body, long now) {
@@ -1071,6 +1217,67 @@ public final class ProviderUsageParsers {
 
     // ---------------------------------------------------------------- balance-only providers
 
+    /**
+     * Kilo's tRPC batch, as the web app and CodexBar read it: {@code user.getCreditBlocks} gives
+     * the credit balance, {@code kiloPass.getState} the Kilo Pass month (base plus bonus credits).
+     */
+    public static UsageSnapshot kiloTrpc(String body, long now) {
+        Builder out = new Builder(now);
+        JSONArray entries;
+        try {
+            entries = new JSONArray(body == null ? "" : body);
+        } catch (Exception notArray) {
+            entries = new JSONArray().put(object(body));
+        }
+        JSONObject blocks = kiloPayload(entries.optJSONObject(0));
+        JSONObject pass = kiloPayload(entries.optJSONObject(1));
+        if (blocks != null) {
+            JSONArray list = blocks.optJSONArray("creditBlocks");
+            double micros = Double.NaN;
+            if (list != null && list.length() > 0) {
+                micros = 0;
+                for (int i = 0; i < list.length(); i++) {
+                    double value = number(list.optJSONObject(i), "balance_mUsd");
+                    if (!Double.isNaN(value)) micros += value;
+                }
+            }
+            if (Double.isNaN(micros)) micros = number(blocks, "totalBalance_mUsd");
+            if (!Double.isNaN(micros)) out.credits = balance(Math.max(0, micros) / 1_000_000.0);
+        }
+        JSONObject subscription = pass == null ? null : pass.optJSONObject("subscription");
+        if (subscription != null) {
+            String tier = string(subscription, "tier");
+            out.plan = "tier_19".equals(tier) ? "Starter" : "tier_49".equals(tier) ? "Pro"
+                    : "tier_199".equals(tier) ? "Expert" : tier.isEmpty() ? "Kilo Pass" : tier;
+            double used = number(subscription, "currentPeriodUsageUsd");
+            double base = number(subscription, "currentPeriodBaseCreditsUsd");
+            double bonus = number(subscription, "currentPeriodBonusCreditsUsd");
+            double total = Double.isNaN(base) ? Double.NaN
+                    : base + (Double.isNaN(bonus) ? 0 : Math.max(0, bonus));
+            out.monthly = window(percentUsed(total, used, Double.NaN), MONTH, epochSeconds(
+                    first(subscription, "nextBillingAt", "nextRenewalAt", "renewsAt", "renewAt")),
+                    now);
+        }
+        return out.build();
+    }
+
+    /** True when a Kilo tRPC entry is an auth error. */
+    public static boolean kiloUnauthorized(String body) {
+        String text = body == null ? "" : body.toLowerCase(Locale.ROOT);
+        return text.contains("\"unauthorized\"") || text.contains("\"forbidden\"");
+    }
+
+    private static JSONObject kiloPayload(JSONObject entry) {
+        JSONObject result = entry == null ? null : entry.optJSONObject("result");
+        if (result == null) return null;
+        JSONObject data = result.optJSONObject("data");
+        if (data != null) {
+            JSONObject json = data.optJSONObject("json");
+            return json != null ? json : data.has("json") ? null : data;
+        }
+        return result.optJSONObject("json");
+    }
+
     /** Kilo {@code /api/profile/balance}: a dollar balance. */
     public static UsageSnapshot kilo(String body, long now) {
         JSONObject root = object(body);
@@ -1101,6 +1308,28 @@ public final class ProviderUsageParsers {
                     BigDecimal.valueOf(balance).setScale(0, RoundingMode.DOWN).toPlainString()
                             + " credits");
         }
+        return out.build();
+    }
+
+    /** {@code /api/user/subscription}: the weekly rate limit and tier, added to the usage. */
+    public static UsageSnapshot codebuffSubscription(UsageSnapshot usage, String body, long now) {
+        JSONObject root = object(body);
+        JSONObject subscription = root.optJSONObject("subscription");
+        JSONObject limit = root.optJSONObject("rateLimit");
+        String plan = string(subscription, "displayName");
+        if (plan.isEmpty()) plan = string(root, "displayName");
+        if (plan.isEmpty()) plan = titleCase(string(subscription, "tier"));
+        UsageWindow weekly = window(percentUsed(number(limit, "weeklyLimit", "limit"),
+                number(limit, "weeklyUsed", "used"), Double.NaN), WEEK,
+                epochSeconds(first(limit, "weeklyResetsAt")), now);
+        if (weekly == null && plan.isEmpty()) return usage;
+        Builder out = new Builder(now);
+        out.plan = plan.isEmpty() || plan.matches("\\d+") ? usage.planType : plan;
+        out.shortWindow = usage.fiveHour;
+        out.weekly = weekly != null ? weekly : usage.weekly;
+        out.monthly = usage.monthly;
+        out.extras.addAll(usage.additionalLimits);
+        out.credits = usage.usageCredits;
         return out.build();
     }
 

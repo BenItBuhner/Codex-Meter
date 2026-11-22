@@ -29,6 +29,11 @@
 
 - **Antigravity sign-in and usage don't work in this alpha.** Sign-in is switched off in these builds, and its usage reading is being fixed for a later alpha. All platforms.
 
+### Fixed
+
+- **Antigravity usage reads again.** It now asks Google's Cloud Code service the way the current Antigravity app does (load the account and project first, then the daily quota summary), so the Gemini and the Claude and GPT model limits show for 5 hours and the week. A sign-in from the wrong Google client now asks you to sign in again instead of failing quietly. Android, iOS, macOS, Windows, Linux.
+- **MiniMax, Copilot, Grok, Kilo and Codebuff read their newer replies.** MiniMax token plans (wrapped replies, weekly percent and plan names), Copilot plans with token billing or unlimited seats, Grok pay-as-you-go spend, Kilo credit blocks and the Kilo Pass month, and Codebuff's weekly limit and tier. An ended Copilot subscription now says so. Android, iOS, macOS, Windows, Linux.
+
 ## 2.9.0-alpha.31 — 2026-11-19
 
 ### Added
