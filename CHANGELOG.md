@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Edit and Done in Liquid Glass lists animate.** In Providers and other reorderable lists, the drag handles slide in and fade up while the toggles glide aside to make room, and they slide back out on Done. Before, they appeared and disappeared in a single frame. Android.
+- **A dragged row's shadow fades out as the row drops into place** instead of vanishing at the end. Android.
+- **Newest Glassé (Liquid Glass kit)**: menus and pickers share the menu glass, pickers support press-and-drag, the glass strength setting reaches every menu, and the tab bar no longer turns too bright. Android.
+
 ## 2.9.0-alpha.31 — 2026-11-19
 
 ### Added
