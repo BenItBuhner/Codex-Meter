@@ -336,8 +336,8 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.settle(0.8)
         capture("22-onboarding-connect")
 
-        // Settings → Accounts opens its own page: connected accounts, then Add account
-        // (nothing is connected on a signed-out install).
+        // Settings → Providers: each provider with its account line and tab switch, then Add
+        // account (nothing is connected on a signed-out install).
         app.terminate()
         app.launchArguments = [
             "-ui-testing-signed-out",
@@ -348,12 +348,20 @@ final class DemoGalleryTests: XCTestCase {
         UITestSupport.tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("23-settings-accounts-row")
-        UITestSupport.tap(app.buttons["settings-accounts"])
-        XCTAssertTrue(app.navigationBars["Accounts"].waitForExistence(timeout: 5))
+        capture("23-settings-providers-row")
+        UITestSupport.tap(app.buttons["settings-providers"])
+        XCTAssertTrue(app.navigationBars["Providers"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["account-add"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.8)
-        capture("23b-accounts-page")
+        capture("23b-providers-page")
+
+        // A provider's own page: not signed in here, so it offers Sign in.
+        UITestSupport.tap(app.buttons["provider-codex"])
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["provider-sign-in"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("23c-provider-page")
+        tapBack(in: app, from: "Codex", to: "Providers")
 
         // Add account: the searchable picker of every provider, then each sign-in style.
         UITestSupport.tap(app.buttons["account-add"])

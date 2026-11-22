@@ -125,7 +125,7 @@ struct OnboardingView: View {
             OnboardingHeader(
                 systemImage: "square.grid.2x2",
                 title: "Choose your providers",
-                message: "Pick every service you want to track. Each one gets a tab on the dashboard, and you can add more later in Settings → Accounts."
+                message: "Pick every service you want to track. Each one gets a tab on the dashboard, and you can add more later in Settings → Providers."
             )
 
             HStack(spacing: 8) {

@@ -19,7 +19,7 @@ KDE Plasma, Cinnamon, Xfce and other desktops.
 - **Edit dashboard**: hide cards and change their order, per service.
 - **Codex reset credits**: see how many resets you have and when they expire, use one, or let the app
   use them automatically before they expire or when a limit runs low.
-- **Accounts**: Add Account lists every service with search. Sign-in follows each service: browser
+- **Providers**: one page for accounts and sidebar pages (switch, order, Sign Out). Add Account lists every service with search. Sign-in follows each service: browser
   login, a code to approve on the service's site, a token to paste back, or an API key.
 - **Settings**: style, which services appear and their order, used vs. remaining, reset format,
   24-hour clock, pace, chart highlights, reset auto-use, refresh interval, reset and low-allowance

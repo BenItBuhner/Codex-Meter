@@ -19,7 +19,7 @@ namespace CodexMeter.App;
 
 /// <summary>
 /// The main window: the standard WinUI title bar over Mica, and a NavigationView with a page per
-/// service (with a dot when one is low or failing), Accounts, Add account and Settings.
+/// service (with a dot when one is low or failing), Providers (accounts), Add account and Settings.
 /// </summary>
 public sealed class MainWindow : Window
 {
@@ -78,7 +78,7 @@ public sealed class MainWindow : Window
 
         var addItem = new NavigationViewItem { Content = "Add account", Tag = AddTag, Icon = new FontIcon { Glyph = "" }, SelectsOnInvoked = false };
         AutomationProperties.SetAutomationId(addItem, "Nav_add");
-        accountsItem = new NavigationViewItem { Content = "Accounts", Tag = "accounts", Icon = new FontIcon { Glyph = "" } };
+        accountsItem = new NavigationViewItem { Content = "Providers", Tag = "accounts", Icon = new FontIcon { Glyph = "" } };
         AutomationProperties.SetAutomationId(accountsItem, "Nav_accounts");
         nav.FooterMenuItems.Add(addItem);
         nav.FooterMenuItems.Add(accountsItem);

@@ -514,7 +514,7 @@ private struct BrowserPage: Identifiable {
 
 // MARK: Add account
 
-/// Settings → Accounts → Add account: a searchable list of every provider not yet connected.
+/// Settings → Providers → Add account: a searchable list of every provider not yet connected.
 /// Port of Android's `AddAccountActivity` / `ProviderPicker`.
 struct AddAccountView: View {
     @Environment(AppModel.self) private var model

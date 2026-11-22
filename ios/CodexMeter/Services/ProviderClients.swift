@@ -1,7 +1,7 @@
 import CodexMeterCore
 import Foundation
 
-// Sign-in and usage routes for every provider added through Settings → Accounts → Add account.
+// Sign-in and usage routes for every provider added through Settings → Providers → Add account.
 // A port of Android's `ProviderClient` / `ProviderClients`: client ids, endpoints and headers are
 // the ones each provider's own CLI or editor sends. Synthetic and v0 document their usage routes;
 // the rest are confirmed against the providers' open-source clients and trackers. Codex,
@@ -135,7 +135,7 @@ nonisolated enum ProviderClientError: Error, Sendable, Equatable {
 extension ProviderClientError: LocalizedError {
     var errorDescription: String? {
         switch self {
-        case .signedOut: "Sign in first from Settings → Accounts."
+        case .signedOut: "Sign in first from Settings → Providers."
         case let .unauthorized(message), let .message(message): message
         }
     }
@@ -406,7 +406,7 @@ extension StandardDeviceClient {
         let parsed = DeviceAuth.parseTokens(response.body)
         if response.status == 400 || response.status == 401 {
             throw ProviderClientError.unauthorized(
-                "Your \(provider.displayName) sign-in expired. Sign in again from Settings → Accounts."
+                "Your \(provider.displayName) sign-in expired. Sign in again from Settings → Providers."
             )
         }
         guard response.ok, !parsed.accessToken.isEmpty else {
@@ -703,7 +703,7 @@ nonisolated struct AugmentClient: ProviderClient {
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
         let tenant = tokens.accountID
         guard tenant.hasPrefix("https://") else {
-            throw ProviderClientError.unauthorized("Sign in to Augment again from Settings → Accounts.")
+            throw ProviderClientError.unauthorized("Sign in to Augment again from Settings → Providers.")
         }
         let response = try check(try await ProviderHTTP.send("augment_usage",
             .post(tenant + "get-billing-summary").bearer(tokens.accessToken).json([:]), session: http), "usage")
@@ -1070,7 +1070,7 @@ nonisolated struct AntigravityClient: ProviderClient {
         ]), session: http)
         if response.status == 400 || response.status == 401 {
             throw ProviderClientError.unauthorized(
-                "Your Google sign-in for Antigravity expired. Sign in again from Settings → Accounts.")
+                "Your Google sign-in for Antigravity expired. Sign in again from Settings → Providers.")
         }
         let parsed = DeviceAuth.parseTokens(response.body)
         guard response.ok, !parsed.accessToken.isEmpty else {
@@ -1319,14 +1319,14 @@ nonisolated struct DevinClient: ProviderClient {
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
         let org = tokens.accountID
         guard !org.isEmpty, org != providerAPIKeyAccount else {
-            throw ProviderClientError.unauthorized("Connect Devin again from Settings → Accounts.")
+            throw ProviderClientError.unauthorized("Connect Devin again from Settings → Providers.")
         }
         let response = try await ProviderHTTP.send("devin_usage",
             .get("https://app.devin.ai/api/\(org)/billing/quota/usage")
                 .bearer(tokens.accessToken)
                 .header("x-cog-org-id", org), session: http)
         if response.status == 401 || response.status == 403 {
-            throw ProviderClientError.unauthorized("Your Devin session expired. Paste a new request from Settings → Accounts.")
+            throw ProviderClientError.unauthorized("Your Devin session expired. Paste a new request from Settings → Providers.")
         }
         _ = try check(response, "usage")
         return try nonEmpty(ProviderUsageParsers.devin(response.body, now: Date()))
