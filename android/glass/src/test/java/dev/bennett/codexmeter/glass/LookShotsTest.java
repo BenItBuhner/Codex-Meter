@@ -12,9 +12,8 @@ import org.junit.After;
 import org.junit.Test;
 
 /**
- * Liquid Glass's one look (iOS 27-inspired): its tint runs from ultra clear to fully tinted, and the
- * accessibility switches win over it. With {@code -Dcap.out=<dir>} it also renders the dashboard at
- * the tint's ends and with Reduce Transparency.
+ * Liquid Glass's one look (iOS 27-inspired): its tint runs from ultra clear to fully tinted. With
+ * {@code -Dcap.out=<dir>} it also renders the dashboard at the tint's ends.
  */
 public class LookShotsTest {
     private static final double W = 393;
@@ -22,30 +21,21 @@ public class LookShotsTest {
 
     @After
     public void reset() {
-        GlassLook.apply(new GlassLook.Options(GlassLook.DEFAULT_TINT, false, false));
+        GlassLook.apply(new GlassLook.Options(GlassLook.DEFAULT_TINT));
     }
 
     @Test
     public void theLookSetsMaterialDefaults() {
-        assertNotNull(GlassLook.style(new GlassLook.Options(GlassLook.DEFAULT_TINT, false, false)));
+        assertNotNull(GlassLook.style(new GlassLook.Options(GlassLook.DEFAULT_TINT)));
     }
 
     @Test
     public void tintRunsFromUltraClearToFullyTinted() {
-        GlassStyle clear = GlassLook.style(new GlassLook.Options(0.0, false, false));
-        GlassStyle tinted = GlassLook.style(new GlassLook.Options(1.0, false, false));
+        GlassStyle clear = GlassLook.style(new GlassLook.Options(0.0));
+        GlassStyle tinted = GlassLook.style(new GlassLook.Options(1.0));
         assertEquals(GlassLook.CLEAREST_TINT_ALPHA, clear.tintAlpha, 1e-9);
         assertEquals(GlassLook.FULL_TINT_ALPHA, tinted.tintAlpha, 1e-9);
         assertTrue(tinted.blur > clear.blur);
-    }
-
-    @Test
-    public void accessibilityWinsOverTheLook() {
-        GlassStyle reduced = GlassLook.style(new GlassLook.Options(0.0, true, false));
-        assertTrue(reduced.tintAlpha > 0.9);
-        assertEquals(0.0, reduced.aberration, 1e-9);
-        GlassStyle contrast = GlassLook.style(new GlassLook.Options(0.0, false, true));
-        assertTrue(contrast.tintAlpha >= 0.45);
     }
 
     @Test
@@ -56,10 +46,9 @@ public class LookShotsTest {
         }
         String scheme = System.getProperty("cap.scheme", "light");
         Object[][] looks = {
-                {"default", new GlassLook.Options(GlassLook.DEFAULT_TINT, false, false)},
-                {"clear", new GlassLook.Options(0.0, false, false)},
-                {"tinted", new GlassLook.Options(1.0, false, false)},
-                {"reduce-transparency", new GlassLook.Options(GlassLook.DEFAULT_TINT, true, false)},
+                {"default", new GlassLook.Options(GlassLook.DEFAULT_TINT)},
+                {"clear", new GlassLook.Options(0.0)},
+                {"tinted", new GlassLook.Options(1.0)},
         };
         for (Object[] look : looks) {
             GlassLook.apply((GlassLook.Options) look[1]);

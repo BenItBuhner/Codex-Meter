@@ -659,10 +659,12 @@ public final class SettingsActivity extends AppCompatActivity {
             });
             system.setOnPreferenceChangeListener((preference, value) -> {
                 boolean enabled = (Boolean) value;
-                AppPreferences.setAppTheme(requireContext(), enabled
-                        ? WidgetOptions.THEME_SYSTEM
-                        : (Ui.isDark(requireContext())
-                                ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT));
+                String current = Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT;
+                AppPreferences.setAppTheme(requireContext(), enabled ? WidgetOptions.THEME_SYSTEM : current);
+                // Liquid Glass redraws in place instead of recreating the activity, so this page is
+                // not built again: unlock Light and Dark here, or they stay greyed out.
+                theme.setValue(current);
+                theme.setEnabled(!enabled);
                 requireActivity().recreate();
                 return true;
             });
@@ -705,7 +707,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         /**
-         * Liquid Glass's own settings: its tint and the accessibility switches. Hidden in the
+         * Liquid Glass's own settings: its tint, haptics and Duo layout. Hidden in the
          * other designs.
          */
         private void bindGlassLook() {
@@ -717,28 +719,9 @@ public final class SettingsActivity extends AppCompatActivity {
             boolean glass = AppPreferences.isLiquidGlassDesign(context);
             category.setVisible(glass);
             SeekBarPreference tint = findPreference(AppPreferences.KEY_GLASS_TINT);
-            SwitchPreferenceCompat reduce = findPreference(AppPreferences.KEY_GLASS_REDUCE_TRANSPARENCY);
-            SwitchPreferenceCompat contrast = findPreference(AppPreferences.KEY_GLASS_INCREASE_CONTRAST);
             tint.setVisible(glass);
             tint.setSummary("From ultra clear to fully tinted");
             tint.setValue(AppPreferences.getGlassTintLevel(context));
-            boolean reduced = AppPreferences.isGlassReduceTransparency(context);
-            tint.setEnabled(!reduced);
-            reduce.setPersistent(false);
-            reduce.setChecked(reduced);
-            reduce.setOnPreferenceChangeListener((preference, value) -> {
-                boolean on = (Boolean) value;
-                AppPreferences.setGlassReduceTransparency(requireContext(), on);
-                tint.setEnabled(!on);
-                return true;
-            });
-            // Starts on when the system asks for high contrast, until the person sets it here.
-            contrast.setPersistent(false);
-            contrast.setChecked(AppPreferences.isGlassIncreaseContrast(context));
-            contrast.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setGlassIncreaseContrast(requireContext(), (Boolean) value);
-                return true;
-            });
             ListPreference haptics = findPreference(AppPreferences.KEY_HAPTICS);
             if (haptics != null) {
                 haptics.setValue(AppPreferences.getHaptics(context));

@@ -46,16 +46,6 @@
             app:min="0"
             app:showSeekBarValue="false"
             app:updatesContinuously="true" />
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="glass_reduce_transparency"
-            android:summary="Draws the glass as a nearly solid fill"
-            android:title="Reduce transparency" />
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="glass_increase_contrast"
-            android:summary="Darker edges and a stronger tint behind text and controls"
-            android:title="Increase contrast" />
         <ListPreference
             android:defaultValue="wide"
             android:entries="@array/glass_duo_entries"

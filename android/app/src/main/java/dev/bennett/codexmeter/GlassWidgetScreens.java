@@ -350,11 +350,14 @@ final class GlassWidgetScreens {
             GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "widget:" + appWidgetId,
                     "Customize widget");
             page.actions.add(new GlassModel.Action("Save", null, true, this::save));
+            page.editButton = false;
             if (preview == null) {
                 preview = renderPreview();
             }
             Section top = GlassScreens.section(null);
-            top.rows.add(preview(preview, 200));
+            Row picture = preview(preview, 200);
+            picture.imageFill = true;
+            top.rows.add(picture);
             page.sections.add(top);
 
             Section providerSection = GlassScreens.section("Providers");
@@ -397,7 +400,7 @@ final class GlassWidgetScreens {
             page.sections.add(appearance);
 
             Section meters = GlassScreens.section("Meters");
-            meters.footer = metersHint() + " Tap Edit or touch and hold a meter to choose which fill slots first. Empty "
+            meters.footer = metersHint() + " Touch and hold a meter and drag it to choose which fill slots first. Empty "
                     + "selected meters keep a blank dash on the widget.";
             for (String key : meterOrder) {
                 meters.rows.add(toggle(key, WidgetMeters.configLabel(key, snapshot), selected.contains(key), on -> {
@@ -530,7 +533,10 @@ final class GlassWidgetScreens {
         private byte[] renderPreview() {
             Context c = activity();
             float density = c.getResources().getDisplayMetrics().density;
-            int boxW = Math.round(360 * density);
+            // The picture fills its card edge to edge, centre-cropped: twice a phone card's width so a
+            // wide window's card is filled too, with the widget laid out in the middle 360 dp.
+            int areaW = Math.round(360 * density);
+            int boxW = 2 * areaW;
             int boxH = Math.round(200 * density);
             try {
                 WidgetOptions options = options();
@@ -539,7 +545,7 @@ final class GlassWidgetScreens {
                 boolean dark = WidgetOptions.THEME_DARK.equals(options.theme)
                         || (!WidgetOptions.THEME_LIGHT.equals(options.theme) && Ui.isDark(c));
                 int inset = Math.round(14 * density);
-                int maxW = boxW - 2 * inset;
+                int maxW = areaW - 2 * inset;
                 int maxH = boxH - 2 * inset;
                 int columns = size.getInt("semAppWidgetColumnSpan", 0);
                 int w = columns > 0 ? Math.max(1, Math.round(maxW * (Math.min(4, columns) / 4.0f))) : maxW;
