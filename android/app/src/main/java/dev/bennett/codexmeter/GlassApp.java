@@ -101,12 +101,9 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
         }
     }
 
-    /** Sets the glass material: the saved tint, then the accessibility switches. */
+    /** Sets the glass material from the saved tint. */
     static void applyLook(Context context) {
-        GlassLook.apply(new GlassLook.Options(
-                AppPreferences.getGlassTintLevel(context) / 100.0,
-                AppPreferences.isGlassReduceTransparency(context),
-                AppPreferences.isGlassIncreaseContrast(context)));
+        GlassLook.apply(new GlassLook.Options(AppPreferences.getGlassTintLevel(context) / 100.0));
         CodexGlass.setDuoMode(AppPreferences.getGlassDuoMode(context));
         AppHaptics.apply(context);
     }

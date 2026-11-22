@@ -112,7 +112,11 @@ final class GlassUpdateScreen extends GlassScreens.Screen {
     GlassModel.Page page() {
         Context c = activity();
         GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "update", "App update");
-        if (flow.phase() == UpdateFlow.Phase.CHECKING) {
+        boolean checking = flow.phase() == UpdateFlow.Phase.CHECKING;
+        // pull down to check again; not while a download or install is running
+        page.onRefresh = flow.phase() != UpdateFlow.Phase.INSTALLING ? this::check : null;
+        page.refreshing = checking;
+        if (checking && release == null) {
             Card wait = new Card(Card.Kind.MESSAGE);
             wait.title = "Checking for updates…";
             page.sections.add(GlassScreens.cards(wait));
