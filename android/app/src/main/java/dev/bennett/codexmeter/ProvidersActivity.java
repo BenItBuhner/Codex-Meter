@@ -97,9 +97,16 @@ public final class ProvidersActivity extends AppCompatActivity {
         super.onResume();
         // A sign-in or sign-out on another screen changes the list and its account lines.
         if (adapter != null) {
-            loadItems();
-            adapter.notifyDataSetChanged();
+            reload();
         }
+    }
+
+    /** Lists the providers again, as a sign-in or sign-out may have added or removed rows. */
+    private void reload() {
+        int before = items.size();
+        loadItems();
+        adapter.notifyItemRangeRemoved(0, before);
+        adapter.notifyItemRangeInserted(0, items.size());
     }
 
     /** Connected accounts and tabs that are on; the rest live in Add account. */
@@ -142,8 +149,7 @@ public final class ProvidersActivity extends AppCompatActivity {
                 .setPositiveButton("Sign out", (d, which) -> {
                     ProviderAccounts.signOut(this, provider);
                     Toast.makeText(this, "Signed out of " + provider.accountName + ".", Toast.LENGTH_SHORT).show();
-                    loadItems();
-                    adapter.notifyDataSetChanged();
+                    reload();
                 })
                 .create()
                 .show();
