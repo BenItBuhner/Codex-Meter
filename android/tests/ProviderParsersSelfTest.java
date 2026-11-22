@@ -42,6 +42,7 @@ public final class ProviderParsersSelfTest {
         testV0();
         testWarp();
         testDevin();
+        testRecordedReplies();
         testAppSessionRules();
         testAppSessionTransitions();
         System.out.println("Provider catalog, tabs, device sign-in, and 25 usage parsers verified.");
@@ -278,26 +279,112 @@ public final class ProviderParsersSelfTest {
     }
 
     private static void testAntigravity() {
-        String body = "{\"groups\":[{\"name\":\"Gemini\",\"buckets\":["
-                + "{\"bucketId\":\"gemini-5h\",\"remainingFraction\":0.75,\"resetTime\":"
-                + "\"2026-09-21T16:00:00Z\"},"
-                + "{\"bucketId\":\"gemini-weekly\",\"remainingFraction\":0.5}]},"
-                + "{\"name\":\"Third party\",\"buckets\":["
-                + "{\"bucketId\":\"3p-5h\",\"resetTime\":\"2026-09-21T15:00:00Z\"},"
-                + "{\"bucketId\":\"3p-weekly\",\"remainingFraction\":0.9}]}]}";
+        // retrieveUserQuotaSummary, as CodexBar's fixtures record it.
+        String body = "{\"response\":{\"groups\":[{\"displayName\":\"Gemini Models\","
+                + "\"buckets\":[{\"bucketId\":\"gemini-weekly\",\"displayName\":"
+                + "\"Weekly Limit\",\"remaining\":{\"remainingFraction\":0.5},"
+                + "\"resetTime\":\"2026-09-25T16:00:00Z\"},{\"bucketId\":\"gemini-5h\","
+                + "\"displayName\":\"Five Hour Limit\",\"remaining\":{\"remainingFraction\":"
+                + "0.75},\"resetTime\":\"2026-09-21T16:00:00Z\"}]},{\"displayName\":"
+                + "\"Claude and GPT models\",\"buckets\":[{\"bucketId\":\"3p-weekly\","
+                + "\"remaining\":{\"case\":\"remainingFraction\",\"value\":0.9}},"
+                + "{\"bucketId\":\"3p-5h\",\"remaining\":{\"remainingFraction\":0},"
+                + "\"resetTime\":\"2026-09-21T15:00:00Z\"}]}]}}";
         UsageSnapshot snapshot = ProviderUsageParsers.antigravity(body, "Pro", NOW);
-        check(snapshot.fiveHour.usedPercent == 25 && snapshot.weekly.usedPercent == 50,
-                "Antigravity Gemini windows");
+        check(snapshot.fiveHour.usedPercent == 25 && snapshot.weekly.usedPercent == 50
+                        && snapshot.fiveHour.windowSeconds == 5 * 3600L,
+                "Antigravity Gemini windows from the nested remaining fraction");
         UsageLimit third = snapshot.additionalLimits.get(0);
-        check("Claude and other models".equals(third.name) && third.primary.usedPercent == 100
+        check("Claude and GPT models".equals(third.name) && third.primary.usedPercent == 100
                         && third.secondary.usedPercent == 10 && third.limitReached,
-                "Antigravity third-party bucket, with a missing fraction meaning used up");
+                "Antigravity Claude and GPT limit, including the oneof value shape");
+        UsageSnapshot unknown = ProviderUsageParsers.antigravity("{\"groups\":[{"
+                + "\"displayName\":\"Gemini Models\",\"buckets\":[{\"bucketId\":"
+                + "\"gemini-weekly\",\"resetTime\":\"2026-09-25T16:00:00Z\"},{\"bucketId\":"
+                + "\"gemini-5h\",\"disabled\":true,\"remaining\":{\"remainingFraction\":1}}]}]}",
+                "", NOW);
+        check(!unknown.hasDisplayableData(),
+                "a bucket with no fraction or a disabled one is unknown, not used up");
+        UsageSnapshot models = ProviderUsageParsers.antigravity("{\"models\":{"
+                + "\"gemini-3-pro-high\":{\"displayName\":\"Gemini 3 Pro\",\"quotaInfo\":{"
+                + "\"remainingFraction\":0.4,\"resetTime\":\"2026-09-21T16:00:00Z\"}},"
+                + "\"gemini-3-flash\":{\"quotaInfo\":{\"remainingFraction\":0.8}},"
+                + "\"claude-sonnet-4-6\":{\"quotaInfo\":{\"remainingFraction\":1}}}}", "", NOW);
+        check(models.fiveHour.usedPercent == 60
+                        && models.additionalLimits.get(0).primary.usedPercent == 0,
+                "Antigravity per-model quotas: each family shows its most used model");
+        UsageSnapshot buckets = ProviderUsageParsers.antigravity("{\"buckets\":[{\"modelId\":"
+                + "\"gemini-2.5-pro\",\"remainingFraction\":0.3}]}", "", NOW);
+        check(buckets.fiveHour.usedPercent == 70, "Antigravity retrieveUserQuota buckets");
+        check(ProviderUsageParsers.antigravityClientRejected("{\"ineligibleTiers\":[{"
+                        + "\"reasonCode\":\"GOOGLE_TOS_NOT_SUPPORTED_BY_CLIENT\"}]}")
+                        && !ProviderUsageParsers.antigravityClientRejected("{\"currentTier\":{"
+                        + "\"id\":\"free-tier\"},\"cloudaicompanionProject\":\"p-1\"}"),
+                "Antigravity spots a sign-in from the wrong OAuth client");
+        check("p-1".equals(ProviderUsageParsers.antigravityProject("{\"response\":{"
+                        + "\"cloudaicompanionProject\":{\"id\":\"p-1\"}}}"))
+                        && "standard-tier".equals(ProviderUsageParsers.antigravityOnboardTier(
+                        "{\"allowedTiers\":[{\"id\":\"free-tier\"},{\"id\":\"standard-tier\","
+                        + "\"isDefault\":true}]}")),
+                "Antigravity project from onboardUser and the default onboarding tier");
         check("Ultra".equals(ProviderUsageParsers.antigravityPlan("{\"paidTier\":{\"id\":"
                 + "\"g1-ultra-tier\"}}"))
                 && "Ultra Lite".equals(ProviderUsageParsers.antigravityPlan("{\"paidTier\":{"
                 + "\"id\":\"g1-ultra-lite-tier\"}}"))
                 && "Free".equals(ProviderUsageParsers.antigravityPlan("{\"currentTier\":{"
                 + "\"name\":\"Free\"}}")), "Antigravity plans");
+    }
+
+    /** Replies as CodexBar's tests record them, which these parsers used to miss. */
+    private static void testRecordedReplies() {
+        UsageSnapshot minimax = ProviderUsageParsers.minimax("{\"base_resp\":{\"status_code\":"
+                + "\"0\"},\"data\":{\"current_subscribe_title\":\"Max\",\"model_remains\":[{"
+                + "\"current_interval_total_count\":\"15000\",\"current_interval_usage_count\":"
+                + "\"14989\",\"start_time\":0,\"end_time\":0,\"remains_time\":8941292}]}}", NOW);
+        check("Max".equals(minimax.planType) && minimax.fiveHour != null
+                        && minimax.fiveHour.usedPercent == 0,
+                "MiniMax token plan reply wrapped in data, usage count meaning remaining");
+        UsageSnapshot tokenPlan = ProviderUsageParsers.minimax("{\"model_remains\":[{"
+                + "\"model_name\":\"general\",\"current_interval_total_count\":0,"
+                + "\"current_interval_usage_count\":0,\"current_interval_remaining_percent\":100,"
+                + "\"current_weekly_total_count\":0,\"current_weekly_usage_count\":0,"
+                + "\"current_weekly_remaining_percent\":70}],\"base_resp\":{\"status_code\":0}}",
+                NOW);
+        check(tokenPlan.fiveHour.usedPercent == 0 && tokenPlan.weekly.usedPercent == 30,
+                "MiniMax token plan weekly limit from its remaining percent");
+        UsageSnapshot copilot = ProviderUsageParsers.copilot("{\"copilot_plan\":\"business\","
+                + "\"token_based_billing\":true,\"quota_snapshots\":{\"premium_interactions\":{"
+                + "\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"credits_used\":31}}}",
+                NOW);
+        check(copilot.hasDisplayableData() && copilot.usageCredits.unlimited
+                        && "Business".equals(copilot.planType),
+                "Copilot Business token-based billing shows as unlimited, not an error");
+        UsageSnapshot kilo = ProviderUsageParsers.kiloTrpc("[{\"result\":{\"data\":{"
+                + "\"creditBlocks\":[{\"balance_mUsd\":19000000,\"amount_mUsd\":19000000}],"
+                + "\"totalBalance_mUsd\":19000000}}},{\"result\":{\"data\":{\"subscription\":{"
+                + "\"tier\":\"tier_19\",\"currentPeriodUsageUsd\":7.125,"
+                + "\"currentPeriodBaseCreditsUsd\":19.0,\"currentPeriodBonusCreditsUsd\":9.5,"
+                + "\"nextBillingAt\":\"2026-10-28T04:00:00.000Z\"}}}}]", NOW);
+        check("$19.00".equals(kilo.usageCredits.balance) && "Starter".equals(kilo.planType)
+                        && kilo.monthly.usedPercent == 25,
+                "Kilo tRPC batch: credit blocks and the Kilo Pass month");
+        check("$0.00".equals(ProviderUsageParsers.kiloTrpc("[{\"result\":{\"data\":{"
+                        + "\"creditBlocks\":[],\"totalBalance_mUsd\":0}}},{\"result\":{\"data\":{"
+                        + "\"subscription\":null}}}]", NOW).usageCredits.balance)
+                        && ProviderUsageParsers.kiloUnauthorized("[{\"error\":{\"json\":{"
+                        + "\"data\":{\"code\":\"UNAUTHORIZED\"}}}}]"),
+                "Kilo zero balance shows $0.00, and a tRPC auth error is spotted");
+        UsageSnapshot codebuff = ProviderUsageParsers.codebuffSubscription(
+                ProviderUsageParsers.codebuff("{\"usage\":1250,\"quota\":5000}", NOW),
+                "{\"subscription\":{\"status\":\"active\",\"tier\":\"pro\"},\"rateLimit\":{"
+                        + "\"weeklyUsed\":2100,\"weeklyLimit\":7000,\"weeklyResetsAt\":"
+                        + "\"2026-09-25T00:00:00Z\"}}", NOW);
+        check("Pro".equals(codebuff.planType) && codebuff.weekly.usedPercent == 30
+                        && codebuff.monthly.usedPercent == 25,
+                "Codebuff weekly limit and tier from the subscription call");
+        UsageSnapshot grok = ProviderUsageParsers.grok("{\"config\":{\"onDemandCap\":{\"val\":"
+                + "1000.0},\"onDemandUsed\":{\"val\":250.5}}}", NOW);
+        check(grok.hasDisplayableData(), "Grok pay-as-you-go spend against the on-demand cap");
     }
 
     private static void testCodeium() {

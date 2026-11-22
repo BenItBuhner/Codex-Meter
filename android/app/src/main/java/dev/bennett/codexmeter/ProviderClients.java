@@ -200,6 +200,9 @@ public final class ProviderClients {
                             .header("Editor-Plugin-Version", "copilot-chat/0.26.7")
                             .header("User-Agent", "GitHubCopilotChat/0.26.7")
                             .header("X-Github-Api-Version", "2025-04-01")), "usage");
+            if ("subscription_ended".equals(response.json().optString("access_type_sku"))) {
+                throw new Exception("Your GitHub Copilot subscription has ended.");
+            }
             return nonEmpty(ProviderUsageParsers.copilot(response.body, now()));
         }
     }
@@ -398,8 +401,9 @@ public final class ProviderClients {
             return !CLIENT_ID.isEmpty() && !CLIENT_SECRET.isEmpty();
         }
         static final String TOKEN_URL = "https://oauth2.googleapis.com/token";
-        static final String[] HOSTS = {"https://cloudcode-pa.googleapis.com",
-                "https://daily-cloudcode-pa.googleapis.com"};
+        static final String PROD = "https://cloudcode-pa.googleapis.com";
+        static final String DAILY = "https://daily-cloudcode-pa.googleapis.com";
+        static final String USER_AGENT = "antigravity/hub/2.9.1 linux/arm64";
 
         Antigravity() {
             super(UsageProvider.ANTIGRAVITY);
@@ -483,35 +487,74 @@ public final class ProviderClients {
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
+            // Same order as CodexBar: plan and project from loadCodeAssist, then the quota
+            // summary from the daily host (prod answers with stale Gemini numbers), then the
+            // older per-model quota calls.
+            JSONObject metadata = new JSONObject().put("ideType", "ANTIGRAVITY")
+                    .put("platform", "PLATFORM_UNSPECIFIED").put("pluginType", "GEMINI");
+            ProviderHttp.Response assist = send(context, "antigravity_plan",
+                    PROD + "/v1internal:loadCodeAssist", tokens,
+                    new JSONObject().put("metadata", metadata));
+            if (assist.status == 401) check(assist, "plan");
             String plan = "";
+            String project = "";
+            if (assist.ok()) {
+                if (ProviderUsageParsers.antigravityClientRejected(assist.body)) {
+                    throw new Unauthorized("This Google sign-in can't read Antigravity limits. "
+                            + "Sign in to Antigravity again.");
+                }
+                plan = ProviderUsageParsers.antigravityPlan(assist.body);
+                project = ProviderUsageParsers.antigravityProject(assist.body);
+                String tier = project.isEmpty()
+                        ? ProviderUsageParsers.antigravityOnboardTier(assist.body) : "";
+                if (!tier.isEmpty()) {
+                    try {
+                        ProviderHttp.Response onboard = send(context, "antigravity_onboard",
+                                PROD + "/v1internal:onboardUser", tokens,
+                                new JSONObject().put("tierId", tier).put("metadata", metadata));
+                        if (onboard.ok()) {
+                            project = ProviderUsageParsers.antigravityProject(onboard.body);
+                        }
+                    } catch (Exception ignored) {
+                        // Quota calls still answer without a project.
+                    }
+                }
+            }
+            JSONObject body = project.isEmpty() ? new JSONObject()
+                    : new JSONObject().put("project", project);
             Exception last = null;
-            for (String host : HOSTS) {
+            String[] calls = {DAILY + "/v1internal:retrieveUserQuotaSummary",
+                    PROD + "/v1internal:retrieveUserQuotaSummary",
+                    PROD + "/v1internal:fetchAvailableModels",
+                    PROD + "/v1internal:retrieveUserQuota"};
+            for (String url : calls) {
                 try {
-                    ProviderHttp.Response assist = ProviderHttp.send(context,
-                            "antigravity_plan", ProviderHttp.post(host
-                                    + "/v1internal:loadCodeAssist").bearer(tokens.accessToken)
-                                    .header("User-Agent", "antigravity/2.24.0 (aidev_client; "
-                                            + "os_type=darwin; arch=arm64)")
-                                    .json(new JSONObject().put("metadata", new JSONObject()
-                                            .put("ideType", "ANTIGRAVITY")
-                                            .put("platform", "PLATFORM_UNSPECIFIED")
-                                            .put("pluginType", "GEMINI"))));
-                    if (assist.status == 401) check(assist, "plan");
-                    if (assist.ok()) plan = ProviderUsageParsers.antigravityPlan(assist.body);
-                    ProviderHttp.Response quota = check(ProviderHttp.send(context,
-                            "antigravity_usage", ProviderHttp.post(host
-                                    + "/v1internal:retrieveUserQuotaSummary")
-                                    .bearer(tokens.accessToken)
-                                    .header("User-Agent", "antigravity")
-                                    .json(new JSONObject())), "usage");
-                    return nonEmpty(ProviderUsageParsers.antigravity(quota.body, plan, now()));
+                    ProviderHttp.Response quota = send(context, "antigravity_usage", url, tokens,
+                            body);
+                    if (quota.status == 401) check(quota, "usage");
+                    if (!quota.ok()) {
+                        last = new Exception("Antigravity usage failed (HTTP " + quota.status
+                                + ").");
+                        continue;
+                    }
+                    UsageSnapshot snapshot = ProviderUsageParsers.antigravity(quota.body, plan,
+                            now());
+                    if (snapshot.hasDisplayableData()) return snapshot;
                 } catch (Unauthorized unauthorized) {
                     throw unauthorized;
                 } catch (Exception exception) {
                     last = exception;
                 }
             }
-            throw last == null ? new Exception("Antigravity usage is unavailable.") : last;
+            if (last != null) throw last;
+            return nonEmpty(ProviderUsageParsers.antigravity("{}", plan, now()));
+        }
+
+        private static ProviderHttp.Response send(Context context, String what, String url,
+                AuthTokens tokens, JSONObject body) throws Exception {
+            // Cloud Code only serves quota to the Antigravity Hub client family.
+            return ProviderHttp.send(context, what, ProviderHttp.post(url)
+                    .bearer(tokens.accessToken).header("User-Agent", USER_AGENT).json(body));
         }
     }
 
@@ -1053,7 +1096,27 @@ public final class ProviderClients {
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
-            ProviderHttp.Response response = check(ProviderHttp.send(context, "kilo_usage",
+            // The web app's tRPC batch has the balance and Kilo Pass; the older profile
+            // balance route stays as a fallback.
+            try {
+                ProviderHttp.Response batch = ProviderHttp.send(context, "kilo_usage",
+                        ProviderHttp.get("https://app.kilo.ai/api/trpc/user.getCreditBlocks,"
+                                + "kiloPass.getState?" + ProviderHttp.query("batch", "1",
+                                "input", "{\"0\":{\"json\":null},\"1\":{\"json\":null}}"))
+                                .bearer(tokens.accessToken));
+                UsageSnapshot snapshot = batch.ok()
+                        ? ProviderUsageParsers.kiloTrpc(batch.body, now()) : null;
+                if (snapshot != null && snapshot.hasDisplayableData()) return snapshot;
+                if (batch.status == 401 || (snapshot != null
+                        && ProviderUsageParsers.kiloUnauthorized(batch.body))) {
+                    throw new Unauthorized("Kilo rejected the saved sign-in.");
+                }
+            } catch (Unauthorized unauthorized) {
+                throw unauthorized;
+            } catch (Exception ignored) {
+                // Try the profile balance.
+            }
+            ProviderHttp.Response response = check(ProviderHttp.send(context, "kilo_balance",
                     ProviderHttp.get("https://api.kilo.ai/api/profile/balance")
                             .bearer(tokens.accessToken)), "balance");
             return nonEmpty(ProviderUsageParsers.kilo(response.body, now()));
@@ -1120,7 +1183,19 @@ public final class ProviderClients {
                             .json(new JSONObject()
                                     .put("fingerprintId", tokens.accountId)
                                     .put("authToken", tokens.accessToken))), "usage");
-            return nonEmpty(ProviderUsageParsers.codebuff(response.body, now()));
+            UsageSnapshot usage = ProviderUsageParsers.codebuff(response.body, now());
+            try {
+                ProviderHttp.Response subscription = ProviderHttp.send(context,
+                        "codebuff_subscription", ProviderHttp.get(BASE + "user/subscription")
+                                .bearer(tokens.accessToken));
+                if (subscription.ok()) {
+                    usage = ProviderUsageParsers.codebuffSubscription(usage, subscription.body,
+                            now());
+                }
+            } catch (Exception ignored) {
+                // The weekly limit and tier are optional.
+            }
+            return nonEmpty(usage);
         }
     }
 
