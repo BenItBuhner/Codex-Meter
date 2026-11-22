@@ -8,6 +8,11 @@
 - **A dragged row's shadow fades out as the row drops into place** instead of vanishing at the end. Android.
 - **Newest Glassé (Liquid Glass kit)**: menus and pickers share the menu glass, pickers support press-and-drag, the glass strength setting reaches every menu, and the tab bar no longer turns too bright. Android.
 
+### Fixed
+
+- **Antigravity usage reads again.** It now asks Google's Cloud Code service the way the current Antigravity app does (load the account and project first, then the daily quota summary), so the Gemini and the Claude and GPT model limits show for 5 hours and the week. A sign-in from the wrong Google client now asks you to sign in again instead of failing quietly. Android, iOS, macOS, Windows, Linux.
+- **MiniMax, Copilot, Grok, Kilo and Codebuff read their newer replies.** MiniMax token plans (wrapped replies, weekly percent and plan names), Copilot plans with token billing or unlimited seats, Grok pay-as-you-go spend, Kilo credit blocks and the Kilo Pass month, and Codebuff's weekly limit and tier. An ended Copilot subscription now says so. Android, iOS, macOS, Windows, Linux.
+
 ## 2.9.0-alpha.31 — 2026-11-19
 
 ### Added

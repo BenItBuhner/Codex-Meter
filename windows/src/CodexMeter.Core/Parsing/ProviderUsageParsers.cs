@@ -233,6 +233,11 @@ public static class ProviderUsageParsers
             foreach (var key in quotas.Select(p => p.Key).Where(k => !CopilotMain.Contains(k)).ToList())
                 output.Extra(CopilotName(key), CopilotQuota(ProviderJson.Obj(quotas, key), reset, now));
         }
+        // Token-based billing (Copilot Business since 2026) and unlimited seats have no metered
+        // window; show the plan as unlimited instead of failing the refresh.
+        var quotaRows = ProviderJson.Obj(root, "quota_snapshots");
+        var unlimited = ProviderJson.Bool(root, "token_based_billing", false)
+            || new[] { "premium_interactions", "chat" }.Any(k => ProviderJson.Bool(ProviderJson.Obj(quotaRows, k), "unlimited", false));
         // Free accounts report counts instead of snapshots.
         if (ProviderJson.Obj(root, "monthly_quotas") is { } monthly && ProviderJson.Obj(root, "limited_user_quotas") is { } left)
         {
@@ -243,6 +248,7 @@ public static class ProviderUsageParsers
                 else output.Extra(CopilotName(key), window);
             }
         }
+        if (unlimited && output.IsEmpty) output.Credits = new UsageCredits(false, true, "");
         return output.Build();
     }
 
@@ -447,6 +453,13 @@ public static class ProviderUsageParsers
         var reset = EpochSeconds(end);
         var percent = Number(config, "creditUsagePercent", "usagePercent");
         if (!double.IsNaN(percent) && percent <= 1 && percent > 0 && !ProviderJson.Has(config, "creditUsagePercent")) percent *= 100;
+        if (double.IsNaN(percent))
+        {
+            // Pay-as-you-go accounts report spend against their on-demand cap instead.
+            var cap = Number(config, "onDemandCap");
+            var spent = Number(config, "onDemandUsed");
+            if (!double.IsNaN(cap) && cap > 0 && !double.IsNaN(spent)) percent = spent / cap * 100;
+        }
         output.Add("Credits", MakeWindow(percent, seconds, reset, now));
         if (ProviderJson.Arr(config, "productUsage") is { } products)
         {
@@ -751,12 +764,22 @@ public static class ProviderUsageParsers
     /// <c>api.minimax.io/v1/token_plan/remains</c>: prompts left in the current interval for each
     /// coding-plan model. MiniMax names the remaining count <c>usage_count</c>.
     /// </summary>
+    private static string MiniMaxPlan(JsonObject root)
+    {
+        var plan = Str(root, "current_subscribe_title", "plan_name", "combo_title", "current_plan_title", "current_plan");
+        if (plan.Length == 0) plan = Str(ProviderJson.Obj(root, "current_subscribe"), "current_subscribe_title");
+        if (plan.Length == 0) plan = Str(ProviderJson.Obj(root, "current_combo_card"), "title");
+        return plan;
+    }
+
     public static UsageSnapshot MiniMax(string body, DateTimeOffset now)
     {
         var root = ProviderJson.Object(body);
         var output = new Builder(now);
         if (ProviderJson.Obj(root, "base_resp") is { } baseResp && ProviderJson.Int(baseResp, "status_code", 0) != 0) return output.Build();
-        output.Plan = Str(root, "plan_name", "current_plan");
+        // The token plan API wraps its answer in "data"; the coding plan one doesn't.
+        if (ProviderJson.Obj(root, "data") is { } data && !ProviderJson.Has(root, "model_remains")) root = data;
+        output.Plan = MiniMaxPlan(root);
         if (ProviderJson.Arr(root, "model_remains") is not { } models) return output.Build();
         for (var index = 0; index < models.Count; index++)
         {
@@ -773,8 +796,10 @@ public static class ProviderUsageParsers
                 if (!double.IsNaN(remainsMillis)) reset = (long)((now.ToUnixTimeMilliseconds() + remainsMillis) / 1_000);
             }
             var interval = MakeWindow(used, seconds, reset, now);
-            var weekly = MakeWindow(PercentUsed(Number(model, "current_weekly_total_count"), double.NaN, Number(model, "current_weekly_usage_count")),
-                Week, EpochSeconds(ProviderJson.Get(model, "weekly_end_time")), now);
+            var weeklyLeft = Number(model, "current_weekly_remaining_percent");
+            var weeklyUsed = !double.IsNaN(weeklyLeft) ? 100 - weeklyLeft
+                : PercentUsed(Number(model, "current_weekly_total_count"), double.NaN, Number(model, "current_weekly_usage_count"));
+            var weekly = MakeWindow(weeklyUsed, Week, EpochSeconds(ProviderJson.Get(model, "weekly_end_time")), now);
             if (index == 0)
             {
                 output.Add("Prompts", interval);
@@ -997,6 +1022,62 @@ public static class ProviderUsageParsers
     // ------------------------------------------------------------------ Balance-only providers
 
     /// <summary>Kilo <c>/api/profile/balance</c>: a dollar balance.</summary>
+    /// <summary>
+    /// Kilo's tRPC batch, as the web app and CodexBar read it: <c>user.getCreditBlocks</c> gives the
+    /// credit balance, <c>kiloPass.getState</c> the Kilo Pass month (base plus bonus credits). Mirrors Android.
+    /// </summary>
+    public static UsageSnapshot KiloTrpc(string body, DateTimeOffset now)
+    {
+        var output = new Builder(now);
+        JsonArray entries;
+        try { entries = JsonNode.Parse(body) as JsonArray ?? [ProviderJson.Object(body)]; }
+        catch (JsonException) { entries = []; }
+        var blocks = KiloPayload(entries.Count > 0 ? entries[0] as JsonObject : null);
+        var pass = KiloPayload(entries.Count > 1 ? entries[1] as JsonObject : null);
+        if (blocks is not null)
+        {
+            var micros = double.NaN;
+            if (ProviderJson.Arr(blocks, "creditBlocks") is { Count: > 0 } list)
+            {
+                micros = 0;
+                foreach (var block in list.OfType<JsonObject>())
+                {
+                    var value = Number(block, "balance_mUsd");
+                    if (!double.IsNaN(value)) micros += value;
+                }
+            }
+            if (double.IsNaN(micros)) micros = Number(blocks, "totalBalance_mUsd");
+            if (!double.IsNaN(micros)) output.Credits = Balance(Math.Max(0, micros) / 1_000_000);
+        }
+        if (ProviderJson.Obj(pass, "subscription") is { } subscription)
+        {
+            var tier = Str(subscription, "tier");
+            output.Plan = tier switch { "tier_19" => "Starter", "tier_49" => "Pro", "tier_199" => "Expert", "" => "Kilo Pass", _ => tier };
+            var used = Number(subscription, "currentPeriodUsageUsd");
+            var baseCredits = Number(subscription, "currentPeriodBaseCreditsUsd");
+            var bonus = Number(subscription, "currentPeriodBonusCreditsUsd");
+            var total = double.IsNaN(baseCredits) ? double.NaN : baseCredits + (double.IsNaN(bonus) ? 0 : Math.Max(0, bonus));
+            output.Monthly = MakeWindow(PercentUsed(total, used, double.NaN), Month,
+                EpochSeconds(First(subscription, "nextBillingAt", "nextRenewalAt", "renewsAt", "renewAt")), now);
+        }
+        return output.Build();
+    }
+
+    /// <summary>True when a Kilo tRPC entry is an auth error.</summary>
+    public static bool KiloUnauthorized(string body)
+    {
+        var text = body.ToLowerInvariant();
+        return text.Contains("\"unauthorized\"") || text.Contains("\"forbidden\"");
+    }
+
+    private static JsonObject? KiloPayload(JsonObject? entry)
+    {
+        if (ProviderJson.Obj(entry, "result") is not { } result) return null;
+        if (ProviderJson.Obj(result, "data") is { } data)
+            return ProviderJson.Obj(data, "json") ?? (ProviderJson.Has(data, "json") ? null : data);
+        return ProviderJson.Obj(result, "json");
+    }
+
     public static UsageSnapshot Kilo(string body, DateTimeOffset now)
     {
         var root = ProviderJson.Object(body);
@@ -1024,6 +1105,30 @@ public static class ProviderUsageParsers
         var remaining = Number(root, "remainingBalance", "balance");
         if (!double.IsNaN(remaining) && output.Monthly is null)
             output.Credits = new UsageCredits(true, false, WholeCount(remaining) + " credits");
+        return output.Build();
+    }
+
+    /// <summary>Codebuff <c>/api/user/subscription</c>: the weekly rate limit and tier, added to the usage.</summary>
+    public static UsageSnapshot CodebuffSubscription(UsageSnapshot usage, string body, DateTimeOffset now)
+    {
+        var root = ProviderJson.Object(body);
+        var subscription = ProviderJson.Obj(root, "subscription");
+        var limit = ProviderJson.Obj(root, "rateLimit");
+        var plan = Str(subscription, "displayName");
+        if (plan.Length == 0) plan = Str(root, "displayName");
+        if (plan.Length == 0) plan = TitleCase(Str(subscription, "tier"));
+        var weekly = MakeWindow(PercentUsed(Number(limit, "weeklyLimit", "limit"), Number(limit, "weeklyUsed", "used"), double.NaN), Week,
+            EpochSeconds(First(limit, "weeklyResetsAt")), now);
+        if (weekly is null && plan.Length == 0) return usage;
+        var output = new Builder(now)
+        {
+            Plan = plan.Length == 0 || plan.All(char.IsDigit) ? usage.PlanType : plan,
+            ShortWindow = usage.FiveHour,
+            Weekly = weekly ?? usage.Weekly,
+            Monthly = usage.Monthly,
+            Credits = usage.UsageCredits,
+        };
+        output.Extras.AddRange(usage.AdditionalLimits);
         return output.Build();
     }
 

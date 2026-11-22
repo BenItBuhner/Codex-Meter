@@ -266,6 +266,14 @@ public enum ProviderUsageParsers {
                 out.extra(copilotName(key), copilotQuota(quotas.object(key), reset, now))
             }
         }
+        // Token-based billing (Copilot Business since 2026) and unlimited seats have no metered
+        // window; show the plan as unlimited instead of failing the refresh.
+        var unlimited = root.bool("token_based_billing", default: false)
+        if let quotas = root.object("quota_snapshots"), !unlimited {
+            unlimited = ["premium_interactions", "chat"].contains {
+                quotas.object($0)?.bool("unlimited", default: false) == true
+            }
+        }
         // Free accounts report counts instead of snapshots.
         if let monthly = root.object("monthly_quotas"), let left = root.object("limited_user_quotas") {
             for key in ["chat", "completions"] {
@@ -279,6 +287,7 @@ public enum ProviderUsageParsers {
                 }
             }
         }
+        if unlimited, out.isEmpty { out.credits = UsageCredits(hasCredits: false, unlimited: true, balance: "") }
         return out.build()
     }
 
@@ -490,6 +499,12 @@ public enum ProviderUsageParsers {
         var percent = number(config, "creditUsagePercent", "usagePercent")
         if !percent.isNaN, percent <= 1, percent > 0, !config.has("creditUsagePercent") {
             percent *= 100
+        }
+        if percent.isNaN {
+            // Pay-as-you-go accounts report spend against their on-demand cap instead.
+            let cap = number(config, "onDemandCap")
+            let used = number(config, "onDemandUsed")
+            if !cap.isNaN, cap > 0, !used.isNaN { percent = used / cap * 100 }
         }
         out.add("Credits", makeWindow(percent, seconds, reset, now))
         if let products = config.array("productUsage") {
@@ -794,12 +809,14 @@ public enum ProviderUsageParsers {
     /// `api.minimax.io/v1/token_plan/remains`: prompts left in the current interval for each
     /// coding-plan model. MiniMax names the remaining count `usage_count`.
     public static func minimax(_ body: String, now: Date) -> UsageSnapshot {
-        let root = object(body)
+        var root = object(body)
         let out = Builder(now: now)
         if let base = root.object("base_resp"), base.int("status_code", default: 0) != 0 {
             return out.build()
         }
-        out.plan = string(root, "plan_name", "current_plan")
+        // The token plan API wraps its answer in "data"; the coding plan one doesn't.
+        if let data = root.object("data"), !root.has("model_remains") { root = data }
+        out.plan = minimaxPlan(root)
         guard let models = root.array("model_remains") else { return out.build() }
         for (index, element) in models.enumerated() {
             guard let model = element.objectValue else { continue }
@@ -816,8 +833,10 @@ public enum ProviderUsageParsers {
                 }
             }
             let interval = makeWindow(used, seconds, reset, now)
+            let weeklyLeft = number(model, "current_weekly_remaining_percent")
             let weekly = makeWindow(
-                percentUsed(number(model, "current_weekly_total_count"), .nan, number(model, "current_weekly_usage_count")),
+                !weeklyLeft.isNaN ? 100 - weeklyLeft
+                    : percentUsed(number(model, "current_weekly_total_count"), .nan, number(model, "current_weekly_usage_count")),
                 Self.week, epochSeconds(model["weekly_end_time"]), now
             )
             if index == 0 {
@@ -828,6 +847,13 @@ public enum ProviderUsageParsers {
             }
         }
         return out.build()
+    }
+
+    static func minimaxPlan(_ root: Object) -> String {
+        var plan = string(root, "current_subscribe_title", "plan_name", "combo_title", "current_plan_title", "current_plan")
+        if plan.isEmpty { plan = string(root.object("current_subscribe"), "current_subscribe_title") }
+        if plan.isEmpty { plan = string(root.object("current_combo_card"), "title") }
+        return plan
     }
 
     // MARK: Z.ai
@@ -1059,6 +1085,60 @@ public enum ProviderUsageParsers {
 
     // MARK: Balance-only providers
 
+    /// Kilo's tRPC batch, as the web app and CodexBar read it: `user.getCreditBlocks` gives the
+    /// credit balance, `kiloPass.getState` the Kilo Pass month (base plus bonus credits).
+    public static func kiloTrpc(_ body: String, now: Date) -> UsageSnapshot {
+        let out = Builder(now: now)
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let entries: [ProviderJSON] = ProviderJSON.parse(trimmed)?.arrayValue ?? [.object(object(body))]
+        let blocks = kiloPayload(entries.first?.objectValue)
+        let pass = kiloPayload(entries.count > 1 ? entries[1].objectValue : nil)
+        if let blocks {
+            var micros = Double.nan
+            if let list = blocks.array("creditBlocks"), !list.isEmpty {
+                micros = 0
+                for item in list {
+                    let value = number(item.objectValue, "balance_mUsd")
+                    if !value.isNaN { micros += value }
+                }
+            }
+            if micros.isNaN { micros = number(blocks, "totalBalance_mUsd") }
+            if !micros.isNaN { out.credits = balance(max(0, micros) / 1_000_000) }
+        }
+        if let subscription = pass?.object("subscription") {
+            let tier = string(subscription, "tier")
+            out.plan = switch tier {
+            case "tier_19": "Starter"
+            case "tier_49": "Pro"
+            case "tier_199": "Expert"
+            case "": "Kilo Pass"
+            default: tier
+            }
+            let used = number(subscription, "currentPeriodUsageUsd")
+            let base = number(subscription, "currentPeriodBaseCreditsUsd")
+            let bonus = number(subscription, "currentPeriodBonusCreditsUsd")
+            let total = base.isNaN ? Double.nan : base + (bonus.isNaN ? 0 : max(0, bonus))
+            out.monthly = makeWindow(percentUsed(total, used, .nan), Self.month, epochSeconds(
+                first(subscription, "nextBillingAt", "nextRenewalAt", "renewsAt", "renewAt")), now)
+        }
+        return out.build()
+    }
+
+    /// True when a Kilo tRPC entry is an auth error.
+    public static func kiloUnauthorized(_ body: String) -> Bool {
+        let text = body.lowercased()
+        return text.contains("\"unauthorized\"") || text.contains("\"forbidden\"")
+    }
+
+    private static func kiloPayload(_ entry: Object?) -> Object? {
+        guard let result = entry?.object("result") else { return nil }
+        if let data = result.object("data") {
+            if let json = data.object("json") { return json }
+            return data.has("json") ? nil : data
+        }
+        return result.object("json")
+    }
+
     /// Kilo `/api/profile/balance`: a dollar balance.
     public static func kilo(_ body: String, now: Date) -> UsageSnapshot {
         let root = object(body)
@@ -1086,6 +1166,28 @@ public enum ProviderUsageParsers {
         if !remaining.isNaN, out.monthly == nil {
             out.credits = UsageCredits(hasCredits: true, unlimited: false, balance: wholeCount(remaining) + " credits")
         }
+        return out.build()
+    }
+
+    /// Codebuff `/api/user/subscription`: the weekly rate limit and tier, added to the usage.
+    public static func codebuffSubscription(_ usage: UsageSnapshot, _ body: String, now: Date) -> UsageSnapshot {
+        let root = object(body)
+        let subscription = root.object("subscription")
+        let limit = root.object("rateLimit")
+        var plan = string(subscription, "displayName")
+        if plan.isEmpty { plan = string(root, "displayName") }
+        if plan.isEmpty { plan = titleCase(string(subscription, "tier")) }
+        let weekly = makeWindow(percentUsed(number(limit, "weeklyLimit", "limit"), number(limit, "weeklyUsed", "used"), .nan),
+                                Self.week, epochSeconds(first(limit, "weeklyResetsAt")), now)
+        if weekly == nil, plan.isEmpty { return usage }
+        let out = Builder(now: now)
+        let numeric = !plan.isEmpty && plan.allSatisfy(\.isNumber)
+        out.plan = plan.isEmpty || numeric ? usage.planType : plan
+        out.shortWindow = usage.fiveHour
+        out.weekly = weekly ?? usage.weekly
+        out.monthly = usage.monthly
+        out.extras.append(contentsOf: usage.additionalLimits)
+        out.credits = usage.usageCredits
         return out.build()
     }
 

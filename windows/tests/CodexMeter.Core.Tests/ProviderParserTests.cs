@@ -226,6 +226,33 @@ public class ProviderParserTests
     }
 
     [Fact]
+    public void RecordedRepliesFromCodexBar()
+    {
+        // Replies as CodexBar's tests record them, which these parsers used to miss (same cases as Android).
+        var minimax = P.MiniMax("""{"base_resp":{"status_code":"0"},"data":{"current_subscribe_title":"Max","model_remains":[{"current_interval_total_count":"15000","current_interval_usage_count":"14989","start_time":0,"end_time":0,"remains_time":8941292}]}}""", Now);
+        Assert.Equal("Max", minimax.PlanType);
+        Assert.Equal(0, minimax.FiveHour?.UsedPercent);
+        var tokenPlan = P.MiniMax("""{"model_remains":[{"model_name":"general","current_interval_total_count":0,"current_interval_usage_count":0,"current_interval_remaining_percent":100,"current_weekly_total_count":0,"current_weekly_usage_count":0,"current_weekly_remaining_percent":70}],"base_resp":{"status_code":0}}""", Now);
+        Assert.Equal(30, tokenPlan.Weekly?.UsedPercent);
+        var copilot = P.Copilot("""{"copilot_plan":"business","token_based_billing":true,"quota_snapshots":{"premium_interactions":{"entitlement":0,"remaining":0,"percent_remaining":100,"credits_used":31}}}""", Now);
+        Assert.True(copilot.HasDisplayableData);
+        Assert.True(copilot.UsageCredits?.Unlimited);
+        Assert.Equal("Business", copilot.PlanType);
+        var kilo = P.KiloTrpc("""[{"result":{"data":{"creditBlocks":[{"balance_mUsd":19000000,"amount_mUsd":19000000}],"totalBalance_mUsd":19000000}}},{"result":{"data":{"subscription":{"tier":"tier_19","currentPeriodUsageUsd":7.125,"currentPeriodBaseCreditsUsd":19.0,"currentPeriodBonusCreditsUsd":9.5,"nextBillingAt":"2026-10-28T04:00:00.000Z"}}}}]""", Now);
+        Assert.Equal("$19.00", kilo.UsageCredits?.Balance);
+        Assert.Equal("Starter", kilo.PlanType);
+        Assert.Equal(25, kilo.Monthly?.UsedPercent);
+        Assert.Equal("$0.00", P.KiloTrpc("""[{"result":{"data":{"creditBlocks":[],"totalBalance_mUsd":0}}},{"result":{"data":{"subscription":null}}}]""", Now).UsageCredits?.Balance);
+        Assert.True(P.KiloUnauthorized("""[{"error":{"json":{"data":{"code":"UNAUTHORIZED"}}}}]"""));
+        var codebuff = P.CodebuffSubscription(P.Codebuff("""{"usage":1250,"quota":5000}""", Now),
+            """{"subscription":{"status":"active","tier":"pro"},"rateLimit":{"weeklyUsed":2100,"weeklyLimit":7000,"weeklyResetsAt":"2026-09-25T00:00:00Z"}}""", Now);
+        Assert.Equal("Pro", codebuff.PlanType);
+        Assert.Equal(30, codebuff.Weekly?.UsedPercent);
+        Assert.Equal(25, codebuff.Monthly?.UsedPercent);
+        Assert.True(P.Grok("""{"config":{"onDemandCap":{"val":1000.0},"onDemandUsed":{"val":250.5}}}""", Now).HasDisplayableData);
+    }
+
+    [Fact]
     public void Antigravity()
     {
         // retrieveUserQuotaSummary, as CodexBar's fixtures record it (same cases as Android).

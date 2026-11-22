@@ -42,6 +42,7 @@ public final class ProviderParsersSelfTest {
         testV0();
         testWarp();
         testDevin();
+        testRecordedReplies();
         testAppSessionRules();
         testAppSessionTransitions();
         System.out.println("Provider catalog, tabs, device sign-in, and 25 usage parsers verified.");
@@ -332,6 +333,58 @@ public final class ProviderParsersSelfTest {
                 + "\"id\":\"g1-ultra-lite-tier\"}}"))
                 && "Free".equals(ProviderUsageParsers.antigravityPlan("{\"currentTier\":{"
                 + "\"name\":\"Free\"}}")), "Antigravity plans");
+    }
+
+    /** Replies as CodexBar's tests record them, which these parsers used to miss. */
+    private static void testRecordedReplies() {
+        UsageSnapshot minimax = ProviderUsageParsers.minimax("{\"base_resp\":{\"status_code\":"
+                + "\"0\"},\"data\":{\"current_subscribe_title\":\"Max\",\"model_remains\":[{"
+                + "\"current_interval_total_count\":\"15000\",\"current_interval_usage_count\":"
+                + "\"14989\",\"start_time\":0,\"end_time\":0,\"remains_time\":8941292}]}}", NOW);
+        check("Max".equals(minimax.planType) && minimax.fiveHour != null
+                        && minimax.fiveHour.usedPercent == 0,
+                "MiniMax token plan reply wrapped in data, usage count meaning remaining");
+        UsageSnapshot tokenPlan = ProviderUsageParsers.minimax("{\"model_remains\":[{"
+                + "\"model_name\":\"general\",\"current_interval_total_count\":0,"
+                + "\"current_interval_usage_count\":0,\"current_interval_remaining_percent\":100,"
+                + "\"current_weekly_total_count\":0,\"current_weekly_usage_count\":0,"
+                + "\"current_weekly_remaining_percent\":70}],\"base_resp\":{\"status_code\":0}}",
+                NOW);
+        check(tokenPlan.fiveHour.usedPercent == 0 && tokenPlan.weekly.usedPercent == 30,
+                "MiniMax token plan weekly limit from its remaining percent");
+        UsageSnapshot copilot = ProviderUsageParsers.copilot("{\"copilot_plan\":\"business\","
+                + "\"token_based_billing\":true,\"quota_snapshots\":{\"premium_interactions\":{"
+                + "\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"credits_used\":31}}}",
+                NOW);
+        check(copilot.hasDisplayableData() && copilot.usageCredits.unlimited
+                        && "Business".equals(copilot.planType),
+                "Copilot Business token-based billing shows as unlimited, not an error");
+        UsageSnapshot kilo = ProviderUsageParsers.kiloTrpc("[{\"result\":{\"data\":{"
+                + "\"creditBlocks\":[{\"balance_mUsd\":19000000,\"amount_mUsd\":19000000}],"
+                + "\"totalBalance_mUsd\":19000000}}},{\"result\":{\"data\":{\"subscription\":{"
+                + "\"tier\":\"tier_19\",\"currentPeriodUsageUsd\":7.125,"
+                + "\"currentPeriodBaseCreditsUsd\":19.0,\"currentPeriodBonusCreditsUsd\":9.5,"
+                + "\"nextBillingAt\":\"2026-10-28T04:00:00.000Z\"}}}}]", NOW);
+        check("$19.00".equals(kilo.usageCredits.balance) && "Starter".equals(kilo.planType)
+                        && kilo.monthly.usedPercent == 25,
+                "Kilo tRPC batch: credit blocks and the Kilo Pass month");
+        check("$0.00".equals(ProviderUsageParsers.kiloTrpc("[{\"result\":{\"data\":{"
+                        + "\"creditBlocks\":[],\"totalBalance_mUsd\":0}}},{\"result\":{\"data\":{"
+                        + "\"subscription\":null}}}]", NOW).usageCredits.balance)
+                        && ProviderUsageParsers.kiloUnauthorized("[{\"error\":{\"json\":{"
+                        + "\"data\":{\"code\":\"UNAUTHORIZED\"}}}}]"),
+                "Kilo zero balance shows $0.00, and a tRPC auth error is spotted");
+        UsageSnapshot codebuff = ProviderUsageParsers.codebuffSubscription(
+                ProviderUsageParsers.codebuff("{\"usage\":1250,\"quota\":5000}", NOW),
+                "{\"subscription\":{\"status\":\"active\",\"tier\":\"pro\"},\"rateLimit\":{"
+                        + "\"weeklyUsed\":2100,\"weeklyLimit\":7000,\"weeklyResetsAt\":"
+                        + "\"2026-09-25T00:00:00Z\"}}", NOW);
+        check("Pro".equals(codebuff.planType) && codebuff.weekly.usedPercent == 30
+                        && codebuff.monthly.usedPercent == 25,
+                "Codebuff weekly limit and tier from the subscription call");
+        UsageSnapshot grok = ProviderUsageParsers.grok("{\"config\":{\"onDemandCap\":{\"val\":"
+                + "1000.0},\"onDemandUsed\":{\"val\":250.5}}}", NOW);
+        check(grok.hasDisplayableData(), "Grok pay-as-you-go spend against the on-demand cap");
     }
 
     private static void testCodeium() {

@@ -346,6 +346,8 @@ public sealed class CopilotClient() : StandardDeviceClient(UsageProvider.Copilot
             .Header("Editor-Plugin-Version", "copilot-chat/0.26.7")
             .Header("User-Agent", "GitHubCopilotChat/0.26.7")
             .Header("X-Github-Api-Version", "2025-04-01"), cancellationToken).ConfigureAwait(false), "usage");
+        if (BodyString(response, "access_type_sku") == "subscription_ended")
+            throw new ProviderException("Your GitHub Copilot subscription has ended.");
         return NonEmpty(ProviderUsageParsers.Copilot(response.Body, context.Now()));
     }
 }
@@ -1094,7 +1096,16 @@ public sealed class KiloClient() : ProviderClient(UsageProvider.Kilo)
 
     public override async Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken)
     {
-        var response = Check(await SendAsync(context, "kilo_usage",
+        // The web app's tRPC batch has the balance and Kilo Pass; the older profile balance route
+        // stays as a fallback. Mirrors Android.
+        var batch = await TrySendAsync(context, "kilo_usage", ProviderRequest.Get("https://app.kilo.ai/api/trpc/user.getCreditBlocks,kiloPass.getState?"
+            + ProviderRequest.Query(("batch", "1"), ("input", """{"0":{"json":null},"1":{"json":null}}"""))).Bearer(tokens.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        var snapshot = batch is { Ok: true } ? ProviderUsageParsers.KiloTrpc(batch.Body, context.Now()) : null;
+        if (snapshot is { HasDisplayableData: true }) return new ProviderFetch(snapshot);
+        if (batch is { Status: 401 } || (snapshot is not null && ProviderUsageParsers.KiloUnauthorized(batch!.Body)))
+            throw new ProviderUnauthorizedException("Kilo rejected the saved sign-in.");
+        var response = Check(await SendAsync(context, "kilo_balance",
             ProviderRequest.Get("https://api.kilo.ai/api/profile/balance").Bearer(tokens.AccessToken), cancellationToken).ConfigureAwait(false), "balance");
         return NonEmpty(ProviderUsageParsers.Kilo(response.Body, context.Now()));
     }
@@ -1149,7 +1160,12 @@ public sealed class CodebuffClient() : ProviderClient(UsageProvider.Codebuff)
     {
         var response = Check(await SendAsync(context, "codebuff_usage", ProviderRequest.Post(Base + "v1/usage").Bearer(tokens.AccessToken)
             .Json(new JsonObject { ["fingerprintId"] = tokens.AccountId, ["authToken"] = tokens.AccessToken }), cancellationToken).ConfigureAwait(false), "usage");
-        return NonEmpty(ProviderUsageParsers.Codebuff(response.Body, context.Now()));
+        var usage = ProviderUsageParsers.Codebuff(response.Body, context.Now());
+        // The weekly limit and tier are optional.
+        var subscription = await TrySendAsync(context, "codebuff_subscription", ProviderRequest.Get(Base + "user/subscription").Bearer(tokens.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        if (subscription is { Ok: true }) usage = ProviderUsageParsers.CodebuffSubscription(usage, subscription.Body, context.Now());
+        return NonEmpty(usage);
     }
 }
 

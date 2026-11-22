@@ -447,6 +447,9 @@ nonisolated struct CopilotClient: StandardDeviceClient {
             .header("Editor-Plugin-Version", "copilot-chat/0.26.7")
             .header("User-Agent", "GitHubCopilotChat/0.26.7")
             .header("X-Github-Api-Version", "2025-04-01"), session: http), "usage")
+        if response.json.string("access_type_sku") == "subscription_ended" {
+            throw ProviderClientError.message("Your GitHub Copilot subscription has ended.")
+        }
         return try nonEmpty(ProviderUsageParsers.copilot(response.body, now: Date()))
     }
 }
@@ -1168,6 +1171,20 @@ nonisolated struct KiloClient: ProviderClient {
     }
 
     func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        // The web app's tRPC batch has the credit blocks and the Kilo Pass month; the older
+        // balance route is the fallback.
+        let input = ProviderHTTP.query([("batch", "1"), ("input", #"{"0":{"json":null},"1":{"json":null}}"#)])
+        if let trpc = try? await ProviderHTTP.send("kilo_trpc",
+            .get("https://app.kilo.ai/api/trpc/user.getCreditBlocks,kiloPass.getState?" + input)
+                .bearer(tokens.accessToken), session: http) {
+            if trpc.status == 401 || (!trpc.ok && ProviderUsageParsers.kiloUnauthorized(trpc.body)) {
+                throw ProviderClientError.unauthorized("Kilo rejected the saved sign-in.")
+            }
+            if trpc.ok {
+                let snapshot = ProviderUsageParsers.kiloTrpc(trpc.body, now: Date())
+                if snapshot.hasDisplayableData { return ProviderFetch(snapshot: snapshot) }
+            }
+        }
         let response = try check(try await ProviderHTTP.send("kilo_usage",
             .get("https://api.kilo.ai/api/profile/balance").bearer(tokens.accessToken), session: http), "balance")
         return try nonEmpty(ProviderUsageParsers.kilo(response.body, now: Date()))
@@ -1226,7 +1243,13 @@ nonisolated struct CodebuffClient: ProviderClient {
             .post(Self.base + "v1/usage").bearer(tokens.accessToken).json([
                 "fingerprintId": tokens.accountID, "authToken": tokens.accessToken
             ]), session: http), "usage")
-        return try nonEmpty(ProviderUsageParsers.codebuff(response.body, now: Date()))
+        var snapshot = ProviderUsageParsers.codebuff(response.body, now: Date())
+        // The subscription route adds the weekly limit and tier; it's optional.
+        if let subscription = try? await ProviderHTTP.send("codebuff_subscription",
+            .get(Self.base + "user/subscription").bearer(tokens.accessToken), session: http), subscription.ok {
+            snapshot = ProviderUsageParsers.codebuffSubscription(snapshot, subscription.body, now: Date())
+        }
+        return try nonEmpty(snapshot)
     }
 }
 

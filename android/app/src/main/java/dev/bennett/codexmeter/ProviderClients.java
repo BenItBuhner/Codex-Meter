@@ -200,6 +200,9 @@ public final class ProviderClients {
                             .header("Editor-Plugin-Version", "copilot-chat/0.26.7")
                             .header("User-Agent", "GitHubCopilotChat/0.26.7")
                             .header("X-Github-Api-Version", "2025-04-01")), "usage");
+            if ("subscription_ended".equals(response.json().optString("access_type_sku"))) {
+                throw new Exception("Your GitHub Copilot subscription has ended.");
+            }
             return nonEmpty(ProviderUsageParsers.copilot(response.body, now()));
         }
     }
@@ -1093,7 +1096,27 @@ public final class ProviderClients {
 
         @Override
         public UsageSnapshot fetch(Context context, AuthTokens tokens) throws Exception {
-            ProviderHttp.Response response = check(ProviderHttp.send(context, "kilo_usage",
+            // The web app's tRPC batch has the balance and Kilo Pass; the older profile
+            // balance route stays as a fallback.
+            try {
+                ProviderHttp.Response batch = ProviderHttp.send(context, "kilo_usage",
+                        ProviderHttp.get("https://app.kilo.ai/api/trpc/user.getCreditBlocks,"
+                                + "kiloPass.getState?" + ProviderHttp.query("batch", "1",
+                                "input", "{\"0\":{\"json\":null},\"1\":{\"json\":null}}"))
+                                .bearer(tokens.accessToken));
+                UsageSnapshot snapshot = batch.ok()
+                        ? ProviderUsageParsers.kiloTrpc(batch.body, now()) : null;
+                if (snapshot != null && snapshot.hasDisplayableData()) return snapshot;
+                if (batch.status == 401 || (snapshot != null
+                        && ProviderUsageParsers.kiloUnauthorized(batch.body))) {
+                    throw new Unauthorized("Kilo rejected the saved sign-in.");
+                }
+            } catch (Unauthorized unauthorized) {
+                throw unauthorized;
+            } catch (Exception ignored) {
+                // Try the profile balance.
+            }
+            ProviderHttp.Response response = check(ProviderHttp.send(context, "kilo_balance",
                     ProviderHttp.get("https://api.kilo.ai/api/profile/balance")
                             .bearer(tokens.accessToken)), "balance");
             return nonEmpty(ProviderUsageParsers.kilo(response.body, now()));
@@ -1160,7 +1183,19 @@ public final class ProviderClients {
                             .json(new JSONObject()
                                     .put("fingerprintId", tokens.accountId)
                                     .put("authToken", tokens.accessToken))), "usage");
-            return nonEmpty(ProviderUsageParsers.codebuff(response.body, now()));
+            UsageSnapshot usage = ProviderUsageParsers.codebuff(response.body, now());
+            try {
+                ProviderHttp.Response subscription = ProviderHttp.send(context,
+                        "codebuff_subscription", ProviderHttp.get(BASE + "user/subscription")
+                                .bearer(tokens.accessToken));
+                if (subscription.ok()) {
+                    usage = ProviderUsageParsers.codebuffSubscription(usage, subscription.body,
+                            now());
+                }
+            } catch (Exception ignored) {
+                // The weekly limit and tier are optional.
+            }
+            return nonEmpty(usage);
         }
     }
 
