@@ -39,15 +39,18 @@ extension View {
         modifier(ProviderSignInSheetModifier(provider: provider))
     }
 
-    /// The sign-in sheet and sign-out confirmation behind `AccountsView`. Attach it
-    /// to the Form rather than to rows inside the list.
+    /// The sign-in sheet and sign-out confirmation behind Settings → Providers, and with
+    /// `addsAccounts` the Add account sheet. Attach it to the Form rather than to rows inside
+    /// the list, and give only one page in a navigation stack `addsAccounts`.
     func providerAccountPresentations(
         signingIn: Binding<UsageProvider?>,
-        confirmingSignOut: Binding<UsageProvider?>
+        confirmingSignOut: Binding<UsageProvider?>,
+        addsAccounts: Bool = true
     ) -> some View {
         modifier(ProviderAccountPresentations(
             signingIn: signingIn,
-            confirmingSignOut: confirmingSignOut
+            confirmingSignOut: confirmingSignOut,
+            addsAccounts: addsAccounts
         ))
     }
 }
@@ -97,12 +100,13 @@ private struct ProviderAccountPresentations: ViewModifier {
     @Environment(AppModel.self) private var model
     @Binding var signingIn: UsageProvider?
     @Binding var confirmingSignOut: UsageProvider?
+    let addsAccounts: Bool
 
     func body(content: Content) -> some View {
         @Bindable var model = model
         content
             .providerSignInSheet($signingIn)
-            .sheet(isPresented: $model.isAddingAccount) {
+            .sheet(isPresented: addsAccounts ? $model.isAddingAccount : .constant(false)) {
                 AddAccountFlow()
             }
             .confirmationDialog(
@@ -124,15 +128,15 @@ private struct ProviderAccountPresentations: ViewModifier {
     }
 }
 
-/// The top of Settings: demo controls while in demo, then one Accounts row that lists the
-/// connected services and opens the Accounts page. Mirrors Android.
-struct SettingsAccountsSection: View {
+/// The top of Settings while in demo: the mode and Leave Demo. Accounts are part of
+/// Settings → Providers.
+struct SettingsDemoSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        Section {
-            if model.mode == .demo {
+        if model.mode == .demo {
+            Section {
                 LabeledContent("Mode", value: "Demo")
                 Button("Leave Demo", role: .destructive) {
                     Task {
@@ -141,109 +145,7 @@ struct SettingsAccountsSection: View {
                     }
                 }
             }
-            NavigationLink {
-                AccountsView()
-            } label: {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Accounts")
-                        Text(model.connectedAccountsSummary)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
-                } icon: {
-                    Image(systemName: "person.crop.circle")
-                }
-            }
-            .accessibilityIdentifier("settings-accounts")
-        } header: {
-            Text("General")
         }
-    }
-}
-
-/// Settings → Accounts: the connected accounts in tab order (tap one to sign out), then a
-/// separate Add account row that opens the searchable provider picker. Mirrors Android.
-struct AccountsView: View {
-    @Environment(AppModel.self) private var model
-    @State private var signingIn: UsageProvider?
-    @State private var confirmingSignOut: UsageProvider?
-
-    var body: some View {
-        Form {
-            if !model.connectedProviders.isEmpty {
-                Section("Connected") {
-                    ForEach(model.connectedProviders) { provider in
-                        accountRow(provider)
-                    }
-                }
-            }
-            Section {
-                addAccountRow
-            }
-        }
-        .navigationTitle("Accounts")
-        .navigationBarTitleDisplayMode(.inline)
-        .providerAccountPresentations(
-            signingIn: $signingIn,
-            confirmingSignOut: $confirmingSignOut
-        )
-    }
-
-    private var addAccountRow: some View {
-        Button {
-            DiagnosticLog.info("user", "add_account_opened")
-            model.isAddingAccount = true
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 22, height: 22)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Add account")
-                        .foregroundStyle(Color.primary)
-                    Text(model.connectedProviders.isEmpty
-                        ? "Codex, Claude Code, Cursor, Copilot and more"
-                        : "Connect another service")
-                        .font(.footnote)
-                        .foregroundStyle(Color.secondary)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color(.tertiaryLabel))
-            }
-        }
-        .accessibilityIdentifier("account-add")
-    }
-
-    private func accountRow(_ provider: UsageProvider) -> some View {
-        Button {
-            confirmingSignOut = provider
-        } label: {
-            HStack(spacing: 12) {
-                ProviderMark(provider: provider)
-                    .frame(width: 22, height: 22)
-                    .foregroundStyle(Color.primary)
-                VStack(alignment: .leading, spacing: 2) {
-                    // Concrete colors: a List button tints hierarchical styles with the accent.
-                    Text(provider.displayName)
-                        .foregroundStyle(Color.primary)
-                    Text(model.accountSummary(for: provider))
-                        .font(.footnote)
-                        .foregroundStyle(Color.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                Spacer(minLength: 8)
-                Text("Sign out")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.red)
-            }
-        }
-        .accessibilityIdentifier("account-\(provider.rawValue)")
     }
 }
 

@@ -111,7 +111,7 @@ final class AppModel {
     let claude: ClaudeUsageModel
     /// Cursor tab state. Independent of the Codex and Claude sessions.
     let cursor: CursorUsageModel
-    /// Tab and sign-in state for every provider added through Settings → Accounts → Add account
+    /// Tab and sign-in state for every provider added through Settings → Providers → Add account
     /// (Copilot, Kimi, Z.ai and the rest), keyed by provider. Each is independent.
     let addedProviders: [UsageProvider: ProviderUsageModel]
     /// The dashboard tab. Codex stays the default; the choice is remembered.
@@ -144,7 +144,7 @@ final class AppModel {
     var isShowingSettings = false
     var isShowingReset = false
     var isShowingSignIn = false
-    /// Settings → Accounts → Add account.
+    /// Settings → Providers → Add account.
     var isAddingAccount = false
     /// First-run setup, shown once on a fresh install.
     var isShowingOnboarding = false
@@ -849,17 +849,7 @@ final class AppModel {
         return plan.isEmpty ? identity : "\(identity) · \(plan)"
     }
 
-    /// The Settings → Accounts row summary: up to three names, then "A, B + N more".
-    var connectedAccountsSummary: String {
-        let names = connectedProviders.map(\.displayName)
-        switch names.count {
-        case 0: return "None connected"
-        case 1 ... 3: return names.joined(separator: ", ")
-        default: return names.prefix(2).joined(separator: ", ") + " + \(names.count - 2) more"
-        }
-    }
-
-    /// Accounts in Settings: providers with a real session, in tab order.
+    /// Providers with a real session, in tab order.
     var connectedProviders: [UsageProvider] {
         providerOrder.filter { isSignedIn($0) }
     }

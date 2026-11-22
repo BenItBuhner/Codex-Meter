@@ -2,7 +2,7 @@ import CodexMeterCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings, in four groups: Usage (accounts, providers, dashboard, reset credits), Alerts &
+/// Settings, in four groups: Usage (providers and their accounts, dashboard, reset credits), Alerts &
 /// live usage, App, and About. The same groups and names as Android and Windows.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
@@ -12,14 +12,14 @@ struct SettingsView: View {
         @Bindable var model = model
 
         Form {
-            SettingsAccountsSection()
+            SettingsDemoSection()
 
             Section {
                 NavigationLink {
                     ProvidersSettingsView()
                 } label: {
                     LabeledContent {
-                        Text(model.enabledProviders.map(\.displayName).joined(separator: ", "))
+                        Text(providersSummary)
                     } label: {
                         Label("Providers", systemImage: "square.grid.2x2")
                     }
@@ -108,6 +108,13 @@ struct SettingsView: View {
             }
         }
         .savesSettings()
+    }
+
+    /// Settings → Providers' summary: how many tabs are on and how many accounts are connected.
+    private var providersSummary: String {
+        let connected = model.connectedProviders.count
+        return "\(model.enabledProviders.count) on · "
+            + (connected == 0 ? "none signed in" : "\(connected) signed in")
     }
 }
 
