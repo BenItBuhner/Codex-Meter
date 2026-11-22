@@ -545,11 +545,22 @@ public final class CodexGlass {
                                 largeTitle(title, 6.0, past),
                                 Text(P.of("size", 15, "lh", 20, "lines", 4, "ml", 4, "mr", 4, "mb", 22,
                                         "color", t.pal.label2), sections.header),
-                                ReorderList(P.of("key", "edit-sections", "footer", sections.footer,
-                                        "items", items, "editing", true, "rowH", EDIT_ROW_H, "inset", 52,
+                                R.h(EditList, P.of("key", "edit-sections", "footer", sections.footer,
+                                        "items", items, "rowH", EDIT_ROW_H, "inset", 52,
                                         "onMove", mover == null ? null : (KitLists.OnMove) mover::move,
                                         "renderRow", (KitLists.RenderRow) (k, i) -> editRow(byKey.get(k), t))))));
     }
+
+    /**
+     * Edit mode's list: it mounts with its handles away and turns editing on a frame later, so the ≡
+     * handles slide in from the trailing edge while the page fades in (Glassé's Edit ↔ Done motion)
+     * instead of standing there from the first frame.
+     */
+    private static final Comp EditList = p -> {
+        State<Boolean> armed = R.useState(false);
+        R.useEffectRun(R.deps(), () -> armed.set(true));
+        return ReorderList(p.with("editing", armed.get()));
+    };
 
     static final double EDIT_ROW_H = 60;
 
