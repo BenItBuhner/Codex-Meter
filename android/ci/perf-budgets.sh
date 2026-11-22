@@ -64,8 +64,9 @@ median="$(sed -n "$(( (LAUNCHES + 1) / 2 ))p" <<< "$sorted")"
 adb shell am force-stop "$PACKAGE"
 adb shell am start -W -n "$ACTIVITY" >/dev/null
 sleep 5
+# awk reads to the end (no early exit): stopping early can kill tr with SIGPIPE, which pipefail turns into exit 141
 pss_kb="$(adb shell dumpsys meminfo "$PACKAGE" | tr -d '\r' \
-  | awk '$1 == "TOTAL" && $2 ~ /^[0-9]+$/ { print $2; exit }')"
+  | awk '$1 == "TOTAL" && $2 ~ /^[0-9]+$/ && !found { print $2; found = 1 }')"
 [[ "$pss_kb" =~ ^[0-9]+$ ]] || { echo "::error::dumpsys meminfo printed no TOTAL" >&2; exit 1; }
 
 apk_mb="$(awk -v b="$apk_bytes" 'BEGIN { printf "%.1f", b / 1048576 }')"
