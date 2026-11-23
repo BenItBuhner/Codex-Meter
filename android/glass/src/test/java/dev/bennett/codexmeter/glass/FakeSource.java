@@ -54,7 +54,7 @@ final class FakeSource implements GlassSource {
         }
     }
 
-    private void changed() {
+    void changed() {
         for (Runnable r : new ArrayList<>(subs)) {
             r.run();
         }
@@ -275,13 +275,25 @@ final class FakeSource implements GlassSource {
         if (noEdit) {
             return Arrays.asList(new MenuEntry("Settings", "gearshape", false, null));
         }
-        return Arrays.asList(
-                new MenuEntry("Settings", "gearshape", false, () -> {
-                    if (onSettings != null) {
-                        onSettings.run();
-                    }
-                }));
+        List<MenuEntry> menu = new ArrayList<>();
+        if (!priority) {
+            // a provider tab's ⋯ (GlassApp.menu)
+            menu.add(new MenuEntry("Provider", "ellipsis", Arrays.asList(
+                    new MenuEntry("Usage history", "history", false, () -> menuPicks.add("history")),
+                    new MenuEntry("Refresh now", "refresh", false, () -> menuPicks.add("refresh")),
+                    null,
+                    new MenuEntry("Codex account", "person2", false, () -> menuPicks.add("account")))));
+        }
+        menu.add(new MenuEntry("Settings", "gearshape", false, () -> {
+            if (onSettings != null) {
+                onSettings.run();
+            }
+        }));
+        return menu;
     }
+
+    /** rows picked from a provider tab's ⋯ menu */
+    final List<String> menuPicks = new ArrayList<>();
 
     /** Edit mode's order of each tab's sections, by label */
     final List<String> priorityOrder = new ArrayList<>(Arrays.asList("Outages and slowdowns", "Recent activity",

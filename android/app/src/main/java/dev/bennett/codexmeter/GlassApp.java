@@ -441,7 +441,27 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
     @Override
     public List<MenuEntry> menu() {
         List<MenuEntry> menu = new ArrayList<>();
-        // Edit comes first in the bar, from editSections(); Settings after it
+        // Edit comes first in the bar, from editSections(); then a provider tab's ⋯ menu; Settings last.
+        // Priority has no ⋯, so switching between it and a provider morphs the bar (⋯ splits out of
+        // Settings and merges back) instead of the bar standing still.
+        if (!main().onPriorityTab()) {
+            UsageProvider provider = main().glassProvider();
+            List<MenuEntry> items = new ArrayList<>();
+            items.add(new MenuEntry("Usage history", "history", false, () -> {
+                DiagnosticLog.info(activity, "user", "provider_menu history " + provider.id);
+                openPage(GlassScreens.PREFIX + "history:" + provider.id, null);
+            }));
+            items.add(new MenuEntry("Refresh now", "refresh", false, () -> {
+                DiagnosticLog.info(activity, "user", "provider_menu refresh " + provider.id);
+                refresh();
+            }));
+            items.add(null);
+            items.add(new MenuEntry(provider.displayName + " account", "person2", false, () -> {
+                DiagnosticLog.info(activity, "user", "provider_menu account " + provider.id);
+                openPage(GlassScreens.PREFIX + "provider:" + provider.id, null);
+            }));
+            menu.add(new MenuEntry(provider.displayName, "ellipsis", items));
+        }
         menu.add(new MenuEntry("Settings", "gearshape", false, () -> {
             DiagnosticLog.info(activity, "user", "settings_opened");
             openSettings("root", false);
