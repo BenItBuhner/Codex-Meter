@@ -68,6 +68,7 @@ final class RailOverlay implements Screen {
                         "tabs", tabs > 0 && shift < tabsH + t.B + 23 ? dash.tabs : null,
                         "value", dash != null ? dash.value : null,
                         "onChange", dash != null ? dash.onChange : null,
+                        "onReselect", dash != null ? dash.onReselect : null,
                         "tabsShift", shift)));
     }
 

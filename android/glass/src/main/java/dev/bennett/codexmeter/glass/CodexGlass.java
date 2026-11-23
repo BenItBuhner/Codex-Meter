@@ -196,12 +196,18 @@ public final class CodexGlass {
         final List<TopTab> tabs;
         final String value;
         final OnStr onChange;
+        final OnStr onReselect;
 
         RailState(List<RailButton> buttons, List<TopTab> tabs, String value, OnStr onChange) {
+            this(buttons, tabs, value, onChange, null);
+        }
+
+        RailState(List<RailButton> buttons, List<TopTab> tabs, String value, OnStr onChange, OnStr onReselect) {
             this.buttons = buttons;
             this.tabs = tabs;
             this.value = value;
             this.onChange = onChange;
+            this.onReselect = onReselect;
         }
     }
 
@@ -441,6 +447,12 @@ public final class CodexGlass {
                 src.selectTab(id);
             }
         };
+        // a tap on the tab already showing: More (showing a provider picked from it) opens its list again
+        OnStr reselect = id -> {
+            if (MORE.equals(id)) {
+                more.set(true);
+            }
+        };
         if (rail > 0) {
             // Duo: the page beside the right-edge column, which holds the bar's buttons and the tabs
             List<TopTab> railTabs = new ArrayList<>();
@@ -462,7 +474,7 @@ public final class CodexGlass {
                 }
             }
             if (shared) {
-                dashboardRail = new RailState(railButtons, railTabs.size() >= 2 ? railTabs : null, value, pickTab);
+                dashboardRail = new RailState(railButtons, railTabs.size() >= 2 ? railTabs : null, value, pickTab, reselect);
                 RailOverlay.changed();
             }
             return Box(P.of("fill", true, "bg", t.pal.grouped),
@@ -480,7 +492,7 @@ public final class CodexGlass {
                     shared ? null : duoColumn(t, rail, railButtons.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
                             P.of("buttons", railButtons,
                             "tabs", railTabs.size() >= 2 ? railTabs : null,
-                            "value", value, "onChange", pickTab)),
+                            "value", value, "onChange", pickTab, "onReselect", reselect)),
                     showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
                             "title", "More", "detents", new double[] {sheetDetent(t, tabs.size() - own, 0, false)}),
                             moreList(tabs.subList(own, tabs.size()), selected, t, id -> {
@@ -506,6 +518,7 @@ public final class CodexGlass {
                         "tabs", kitTabs,
                         "value", value,
                         "onChange", pickTab,
+                        "onReselect", reselect,
                         "minimized", min.get(),
                         "onExpand", (Runnable) () -> min.set(false))) : null,
                 showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),

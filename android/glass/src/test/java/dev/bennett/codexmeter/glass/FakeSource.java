@@ -68,12 +68,21 @@ final class FakeSource implements GlassSource {
 
     @Override
     public List<GlassModel.Tab> tabs() {
-        return Arrays.asList(
+        List<GlassModel.Tab> out = new ArrayList<>(Arrays.asList(
                 new GlassModel.Tab("codex", "Codex", "provider_codex"),
                 new GlassModel.Tab("claude_code", "Claude", "provider_claude_code"),
                 new GlassModel.Tab("cursor", "Cursor", "provider_cursor"),
-                new GlassModel.Tab("copilot", "Copilot", "provider_copilot"));
+                new GlassModel.Tab("copilot", "Copilot", "provider_copilot")));
+        if (moreTabs) {
+            // five or more: the bar shows the first three and More (iOS's rule)
+            out.add(new GlassModel.Tab("antigravity", "Antigravity", "provider_antigravity"));
+            out.add(new GlassModel.Tab("grok", "Grok", "provider_grok"));
+        }
+        return out;
     }
+
+    /** six providers on, so the last three go under More */
+    boolean moreTabs;
 
     @Override
     public String selectedTab() {
