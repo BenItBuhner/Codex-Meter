@@ -376,12 +376,10 @@ final class GlassScreens {
             Context c = activity();
             GlassModel.Page page = new GlassModel.Page(PREFIX + "tabs", "Providers");
             Section list = section("On your dashboard");
-            list.footer = "Switch one off to hide its tab. Tap a provider for its account. With five or more "
-                    + "on, the first three get tabs and the rest go under More.";
             List<UsageProvider> enabled = ProviderPreferences.getEnabled(c);
             for (UsageProvider provider : items()) {
                 Row r = row(Row.Kind.SWITCH_LINK, provider.id, provider.displayName,
-                        ProviderAccounts.summary(c, provider));
+                        ProviderAccounts.rowStatus(c, provider));
                 r.icon = "provider_" + provider.id;
                 r.plainIcon = true;
                 r.checked = enabled.contains(provider);
@@ -407,13 +405,13 @@ final class GlassScreens {
             Section add = section(null);
             Row addRow = row(Row.Kind.ACTION, "account_add", "Add account", null);
             addRow.icon = "plus";
+            addRow.plainIcon = true;
             addRow.color = "#34c759";
             addRow.onPress = () -> {
                 DiagnosticLog.info(c, "user", "add_account_opened");
                 screens.app.start(new Intent(c, AddAccountActivity.class));
             };
             add.rows.add(addRow);
-            add.footer = "Codex, Claude Code, Cursor, Copilot, Gemini and more.";
             page.sections.add(add);
             return page;
         }

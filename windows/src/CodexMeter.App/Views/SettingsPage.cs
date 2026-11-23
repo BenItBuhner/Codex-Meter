@@ -26,8 +26,6 @@ public sealed class SettingsPage : PageBase
     private static readonly LowUsageAutoUseMetric[] AlertFor = [LowUsageAutoUseMetric.Both, LowUsageAutoUseMetric.FiveHour, LowUsageAutoUseMetric.Weekly];
     private const string SlowdownNote = "On the Priority page only when a Codex, Claude Code or Grok model runs much slower than usual, from public OpenRouter figures for each maker's newest models. Not your subscription's own speed.";
     private const string NewModelsNote = "When OpenRouter lists a new model from a maker you're signed in to (OpenAI for Codex, Anthropic for Claude Code, ...). Tools that offer many makers' models, like Cursor or Copilot, add none.";
-    private readonly SettingsCard providersCard;
-    private bool sidebarDirty;
     private readonly UpdatesSection? updates;
     /// <summary>"While using AI apps": one card per app, then Add an app. Plain cards so UI tests reach them.</summary>
     private readonly StackPanel liveApps = new() { Spacing = 4, Margin = new Thickness(32, 0, 0, 0) };
@@ -43,7 +41,7 @@ public sealed class SettingsPage : PageBase
         var manage = new Button { Content = "Manage providers" };
         AutomationProperties.SetAutomationId(manage, "ManageAccountsButton");
         manage.Click += (_, _) => App.Current?.Window?.Navigate("accounts");
-        providersCard = Card("Providers", ProvidersSummary(), "", manage);
+        var providersCard = Card("Providers", null, "", manage);
         AutomationProperties.SetAutomationId(providersCard, "ProvidersCard");
         Body.Children.Add(providersCard);
         Body.Children.Add(Card("Priority page", "First in the sidebar: what needs you across every connected service.", "",
@@ -264,44 +262,14 @@ public sealed class SettingsPage : PageBase
     protected override void Attach()
     {
         updates?.Attach();
-        State.ProvidersChanged += OnProvidersChanged;
-        State.ProviderChanged += OnProviderChanged;
-        BuildSidebar();
     }
 
     protected override void Detach()
     {
         updates?.Detach();
-        State.ProvidersChanged -= OnProvidersChanged;
-        State.ProviderChanged -= OnProviderChanged;
-    }
-
-    private void OnProvidersChanged() => QueueSidebar();
-
-    private void OnProviderChanged(UsageProvider _) => QueueSidebar();
-
-    /// <summary>Rebuilds once after a burst of changes, not inside the toggle that caused them.</summary>
-    private void QueueSidebar()
-    {
-        if (sidebarDirty) return;
-        sidebarDirty = true;
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            sidebarDirty = false;
-            BuildSidebar();
-        });
     }
 
     private void Update(Func<AppSettings, AppSettings> change) => State.Settings.Update(change);
-
-    /// <summary>Settings → Providers' summary: how many pages are on and how many accounts are connected.</summary>
-    private string ProvidersSummary()
-    {
-        var connected = State.SignedIn.Count;
-        return $"{State.EnabledProviders.Count} on · " + (connected == 0 ? "none signed in" : $"{connected} signed in");
-    }
-
-    private void BuildSidebar() => providersCard.Description = ProvidersSummary();
 
     private void BuildLiveApps()
     {

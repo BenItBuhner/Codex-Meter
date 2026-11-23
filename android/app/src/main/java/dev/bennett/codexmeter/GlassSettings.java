@@ -176,7 +176,8 @@ final class GlassSettings {
                     || pref.getFragment() != null;
             if (!clickable) {
                 r = new Row(Row.Kind.INFO, key);
-            } else if (isAction(pref)) {
+            } else if (linkOf(key) == null && isAction(pref)) {
+                // A row that opens a page is a link even when its title reads like a verb ("Reset credits").
                 r = new Row(Row.Kind.ACTION, key);
                 r.destructive = isDestructive(pref);
             } else {
@@ -205,8 +206,11 @@ final class GlassSettings {
             r.icon = icon[0];
             r.color = icon[1];
             if (r.summary != null && "root".equals(page)) {
-                // iOS Settings keeps the first page to one line a row; a short state goes on the right.
-                r.value = r.summary.length() <= 18 ? r.summary : null;
+                // iOS Settings keeps the first page to one line a row with no state beside it ("3 on",
+                // "Both limits at 25%" were clutter), except a waiting update: "v3.0.0 available".
+                int dot = r.summary.indexOf(" · ");
+                String first = dot > 0 ? r.summary.substring(0, dot) : r.summary;
+                r.value = "settings_updates".equals(key) && first.endsWith(" available") ? first : null;
                 r.summary = null;
             }
         }

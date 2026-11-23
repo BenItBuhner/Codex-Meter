@@ -78,7 +78,6 @@ public sealed class AccountsPage : IPage
 
         var connected = Adw.PreferencesGroup.New();
         connected.SetTitle("On Your Dashboard");
-        connected.SetDescription("Switch one off to hide its page. Each service keeps its own sign-in; signing out of one never touches the others.");
         var add = Gtk.Button.New();
         var addContent = Adw.ButtonContent.New();
         addContent.SetIconName("list-add-symbolic");
@@ -122,11 +121,12 @@ public sealed class AccountsPage : IPage
                     ? (provider == UsageProvider.Codex ? UsageFormat.PlanLabel(usage.PlanType) : usage.PlanType)
                     : "";
                 var who = entry.Account!.Email.Length > 0 ? entry.Account.Email : $"Signed in with {provider.AccountName}";
-                row.SetSubtitle(plan.Length > 0 ? $"{who} · {plan}" : who);
+                // A connected row is just the name; hovering it shows the account and plan.
+                row.SetTooltipText(plan.Length > 0 ? $"{who} · {plan}" : who);
             }
             else
             {
-                row.SetSubtitle($"Not connected · {provider.Meters}");
+                row.SetSubtitle("Not signed in");
             }
             var position = order.IndexOf(provider);
             var up = Gtk.Button.NewFromIconName("go-up-symbolic");

@@ -18,11 +18,7 @@ struct SettingsView: View {
                 NavigationLink {
                     ProvidersSettingsView()
                 } label: {
-                    LabeledContent {
-                        Text(providersSummary)
-                    } label: {
-                        Label("Providers", systemImage: "square.grid.2x2")
-                    }
+                    Label("Providers", systemImage: "square.grid.2x2")
                 }
                 .accessibilityIdentifier("settings-providers")
                 NavigationLink {
@@ -45,11 +41,7 @@ struct SettingsView: View {
                 NavigationLink {
                     NotificationsSettingsView()
                 } label: {
-                    LabeledContent {
-                        Text(model.settings.notificationsEnabled ? "On" : "Off")
-                    } label: {
-                        Label("Notifications", systemImage: "bell.badge")
-                    }
+                    Label("Notifications", systemImage: "bell.badge")
                 }
                 .accessibilityIdentifier("settings-notifications")
                 #if os(iOS)
@@ -110,12 +102,6 @@ struct SettingsView: View {
         .savesSettings()
     }
 
-    /// Settings → Providers' summary: how many tabs are on and how many accounts are connected.
-    private var providersSummary: String {
-        let connected = model.connectedProviders.count
-        return "\(model.enabledProviders.count) on · "
-            + (connected == 0 ? "none signed in" : "\(connected) signed in")
-    }
 }
 
 private struct SavesSettings: ViewModifier {
