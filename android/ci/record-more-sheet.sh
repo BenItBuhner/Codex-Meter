@@ -44,29 +44,30 @@ MORE_Y=$(python3 -c "print(round(($HD - 69) * $DENS / 160))")
 
 open_more() { adb shell input tap "$MORE_X" "$MORE_Y"; shot "$1" 1.5; }
 
+# More's close button on this profile (pixel_7, 1080x2400 at 420 dpi), measured from a screenshot
+XX=945; XY=1708
+t0=$(date +%s.%N)
+mark() { echo "$(python3 -c "print(round($(date +%s.%N) - $t0, 2))")s $*" | tee -a "$OUT/timeline.txt"; }
+open_app
+adb shell screenrecord --time-limit 150 /sdcard/more.mp4 & REC=$!
+t0=$(date +%s.%N); sleep 1
 i=0
-for how in tap drift slow slide; do
+for how in tap drift slow slide tap2; do
   i=$((i + 1))
-  open_app
-  shot "$i-$how-0-page" 0.5
-  open_more "$i-$how-1-open"
-  python3 "$(dirname "$0")/more-sheet-x.py" "$OUT/$i-$how-1-open.png" > "$OUT/x.txt" || true
-  read -r XX XY < "$OUT/x.txt" || { XX=$((W - $(px 46))); XY=0; }
-  echo "$how: X at $XX,$XY"
-  adb shell screenrecord --time-limit 6 /sdcard/$how.mp4 & REC=$!
-  sleep 0.8
+  mark "$how: tap More"; adb shell input tap "$MORE_X" "$MORE_Y"
+  sleep 3; mark "$how: shot open"; adb exec-out screencap -p > "$OUT/$i-$how-1-open.png"
+  mark "$how: X"
   case $how in
-    tap) adb shell input tap "$XX" "$XY" ;;
+    tap|tap2) adb shell input tap "$XX" "$XY" ;;
     drift) adb shell input swipe "$XX" "$XY" $((XX - $(px 4))) $((XY + $(px 5))) 120 ;;
     slow) adb shell input swipe "$XX" "$XY" "$XX" "$XY" 600 ;;
     slide) adb shell input swipe "$XX" "$XY" $((XX - $(px 18))) $((XY + $(px 22))) 260 ;;
   esac
-  shot "$i-$how-2-after-x" 1.5
-  # a second tap, as Bennett kept tapping
-  adb shell input tap "$XX" "$XY"
-  shot "$i-$how-3-after-second" 1.5
-  wait $REC || true
-  adb pull /sdcard/$how.mp4 "$OUT/$how.mp4" >/dev/null || true
+  sleep 3; mark "$how: shot after X"; adb exec-out screencap -p > "$OUT/$i-$how-2-after-x.png"
+  # if it is still open, close it from the scrim so the next round starts clean
+  adb shell input tap $((W / 2)) $((H / 5)); sleep 2
 done
+kill -INT $REC 2>/dev/null || true; sleep 3
+adb pull /sdcard/more.mp4 "$OUT/more.mp4" >/dev/null || true
 adb logcat -d > "$OUT/logcat.txt" || true
 grep -E "FATAL|AndroidRuntime" "$OUT/logcat.txt" && exit 1 || true
