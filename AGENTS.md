@@ -44,6 +44,7 @@ A stable release (3.0.0 first) ships only when every item below holds on the com
 - No `force_try` or `force_cast`, no swallowed exception without a comment saying why, and `async void` only for UI event handlers that catch their own failures.
 
 **Parity and providers**
+- Headers and labels keep the case they are written in on every platform and design ("Appearance", never "APPEARANCE"): never upper-case them in code, and SwiftUI app roots keep `.textCase(nil)`. `header-case.sh` checks this in CI.
 - Settings use the shared layout and names on Android, iOS, macOS, Windows and Linux (Providers, Notifications, Live usage, Appearance, Updates, Privacy & data, About; each provider page has Account, Meters, Plan and, where the provider has them, Reset credits). A feature missing on a platform is listed in its PR with the reason.
 - Every provider works on every platform where it can: no artificial gates, no `inferred` routes, no heuristic parsers. Parsers change together in Java, Swift and C#, with shared fixtures.
 - Value estimates use dated, sourced figures and show Unknown rather than a guess.

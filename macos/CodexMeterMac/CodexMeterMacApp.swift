@@ -136,6 +136,8 @@ struct CodexMeterMacApp: App {
             } else {
                 MacRootView()
                     .environment(model)
+                    // Headers keep the case they are written in; header-case.sh checks it.
+                    .textCase(nil)
                     .onAppear { PerfBudgetProbe.firstScreenAppeared() }
             }
         }
@@ -147,6 +149,7 @@ struct CodexMeterMacApp: App {
         MenuBarExtra(isInserted: menuBarExtraInserted) {
             MenuBarPanel()
                 .environment(model)
+                .textCase(nil)
         } label: {
             MenuBarLabel()
                 .environment(model)
@@ -156,6 +159,7 @@ struct CodexMeterMacApp: App {
         Settings {
             MacSettingsView()
                 .environment(model)
+                .textCase(nil)
         }
 
         // A plain window that shows the menu bar panel, opened only by the UI-test gallery so
@@ -163,6 +167,7 @@ struct CodexMeterMacApp: App {
         Window("Menu Bar Preview", id: MacSceneID.menuBarPreview) {
             MenuBarPanel()
                 .environment(model)
+                .textCase(nil)
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
