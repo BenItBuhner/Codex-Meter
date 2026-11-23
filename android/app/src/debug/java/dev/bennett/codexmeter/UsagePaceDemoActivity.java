@@ -498,8 +498,16 @@ public final class UsagePaceDemoActivity extends Activity {
                 + "\"fetched_at\":" + (now - 900000) + "}";
         seedProvider(UsageProvider.CLAUDE_CODE, claude);
         seedProvider(UsageProvider.CURSOR, cursor);
-        ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CODEX,
-                UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR));
+        if (getIntent().getBooleanExtra("demo_more_tabs", false)) {
+            // Five providers: the tab bar shows the first three and More (Antigravity, Grok).
+            seedProvider(UsageProvider.ANTIGRAVITY, cursor);
+            seedProvider(UsageProvider.GROK, cursor);
+            ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CLAUDE_CODE,
+                    UsageProvider.CURSOR, UsageProvider.CODEX, UsageProvider.ANTIGRAVITY, UsageProvider.GROK));
+        } else {
+            ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CODEX,
+                    UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR));
+        }
         ProviderPreferences.setSelected(this, UsageProvider.CODEX);
     }
 
