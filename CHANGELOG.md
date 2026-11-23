@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- **The ⋯ menu on provider tabs is gone.** Usage history, Refresh now and the account each already have their own place, so provider tabs show Edit and Settings again, like Priority. Liquid Glass, Android.
+
 ## 2.9.0-alpha.33 — 2026-11-23
 
 ### Added

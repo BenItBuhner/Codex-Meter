@@ -416,9 +416,7 @@ public final class CodexGlass {
             }
             if (!edit) {
                 for (GlassSource.MenuEntry entry : src.menu()) {
-                    if (entry != null && entry.items != null) {
-                        out.add(barMenu(entry));
-                    } else if (entry != null) {
+                    if (entry != null) {
                         out.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
                                 "icon", entry.icon, "onPress", entry.onSelect)));
                     }
@@ -467,8 +465,7 @@ public final class CodexGlass {
                 railButtons.add(new RailButton("edit", edit ? "check" : "squarePencil", toggleEdit, edit));
             }
             for (GlassSource.MenuEntry entry : src.menu()) {
-                // the column has room for plain buttons only; a menu's rows are reachable from the page itself
-                if (entry != null && entry.items == null && !edit) {
+                if (entry != null && !edit) {
                     // the same buttons, icons and order as the dashboard's bar; Settings is the glass
                     // Settings' Back takes over (LEAD), so opening Settings merges Edit into it the way
                     // the bar merges Edit into Settings, and its symbol swaps to Back
@@ -607,24 +604,10 @@ public final class CodexGlass {
                                 "color", t.pal.label2), r.summary)));
     }
 
-    /**
-     * A bar button that opens a menu (a provider tab's ⋯): Glassé's GlassMenu, which grows out of
-     * the button with the iOS menu motion and drains back into it.
-     */
-    private static El barMenu(GlassSource.MenuEntry entry) {
-        List<com.benitbuhner.glasse.ui.MenuItem> rows = new ArrayList<>();
-        for (GlassSource.MenuEntry item : entry.items) {
-            rows.add(item == null ? null
-                    : new com.benitbuhner.glasse.ui.MenuItem(item.label, item.icon, item.destructive, item.onSelect));
-        }
-        return GlassMenu(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon, "icon", entry.icon,
-                "width", 250, "items", rows));
-    }
-
     private static int buttons(List<GlassSource.MenuEntry> menu) {
         int n = 0;
         for (GlassSource.MenuEntry entry : menu) {
-            if (entry != null && entry.items == null) {
+            if (entry != null) {
                 n++;
             }
         }
