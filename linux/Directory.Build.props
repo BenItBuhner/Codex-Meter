@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- Release builds pass -p:Version from android/app/build.gradle.kts (see packaging/version.sh). -->
-    <Version>2.9.0-alpha.32</Version>
+    <Version>2.9.0-alpha.33</Version>
     <Company>Codex Meter</Company>
     <Product>Codex Meter</Product>
     <Copyright>Codex Meter contributors</Copyright>
