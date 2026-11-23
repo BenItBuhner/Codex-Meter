@@ -31,8 +31,6 @@ struct ProvidersSettingsView: View {
                 }
             } header: {
                 Text("On your dashboard")
-            } footer: {
-                Text("Switch one off to hide its tab. Tap a provider for its account. With two or more on, tabs at the bottom of the dashboard switch between them; at least one stays on.")
             }
 
             Section {
@@ -44,13 +42,11 @@ struct ProvidersSettingsView: View {
                         Text("Add account")
                             .foregroundStyle(Color.primary)
                     } icon: {
-                        Image(systemName: "plus.circle.fill")
+                        Image(systemName: "plus")
                             .foregroundStyle(Color.green)
                     }
                 }
                 .accessibilityIdentifier("account-add")
-            } footer: {
-                Text("Codex, Claude Code, Cursor, Copilot, Gemini and more.")
             }
         }
         .environment(\.editMode, $editMode)
@@ -66,13 +62,15 @@ struct ProvidersSettingsView: View {
         HStack(spacing: 12) {
             ProviderMark(provider: provider)
                 .frame(width: 22, height: 22)
+            // Connected rows are just the name; the provider's page has the email and plan.
             VStack(alignment: .leading, spacing: 2) {
                 Text(provider.displayName)
-                Text(model.isSignedIn(provider) ? model.accountSummary(for: provider) : "Not signed in")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                if !model.isSignedIn(provider) {
+                    Text("Not signed in")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
             Spacer(minLength: 8)
             Toggle("Show \(provider.displayName) tab", isOn: binding(for: provider))
