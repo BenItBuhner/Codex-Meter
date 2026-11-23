@@ -44,24 +44,12 @@ public interface GlassSource {
         public final String icon;
         public final boolean destructive;
         public final Runnable onSelect;
-        /** a menu button instead (it opens with Glassé's menu motion): its rows, in order; null for a plain button */
-        public final List<MenuEntry> items;
 
         public MenuEntry(String label, String icon, boolean destructive, Runnable onSelect) {
             this.label = label;
             this.icon = icon;
             this.destructive = destructive;
             this.onSelect = onSelect;
-            this.items = null;
-        }
-
-        /** A bar button that opens a menu of {@code items}. */
-        public MenuEntry(String label, String icon, List<MenuEntry> items) {
-            this.label = label;
-            this.icon = icon;
-            this.destructive = false;
-            this.onSelect = null;
-            this.items = items;
         }
     }
 

@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.34 — 2026-11-23
 
 ### Fixed
 
 - **Section headers are no longer in all capitals.** Settings → Appearance reads "Theme" and "Design", the way iOS writes them, instead of "THEME" and "DESIGN". This covers every Liquid Glass list and card header, the onboarding step label ("Step 1 of 3"), and the iPhone, iPad, Mac and Apple Watch apps, whose section headers SwiftUI used to upper-case. A CI check keeps new headers from going back to capitals. All platforms.
+
+### Removed
+
+- **The ⋯ menu on provider tabs is gone.** Usage history, Refresh now and the account each already have their own place, so provider tabs show Edit and Settings again, like Priority. Liquid Glass, Android.
 
 ## 2.9.0-alpha.33 — 2026-11-23
 
