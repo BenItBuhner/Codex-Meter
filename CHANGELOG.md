@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.33 — 2026-11-23
 
 ### Added
 
@@ -11,7 +11,11 @@
 - **Closing a touch-and-hold menu no longer flashes the page grey.** The tap outside the menu lit the whole blurred page like a pressed glass button; the page now un-blurs and brightens straight back to its own colours. Android.
 - **A swipe that stops at Dismiss shows the label at full strength.** It rested half faded until the row was dragged further. Android.
 - **More opens again after you pick a provider from it.** Tapping More while it already shows a provider used to do nothing. Android.
-- **More's close button is no longer cut off** by the first row while it's pressed. Android.
+- **More's close button is no longer cut off** by the first row while it's pressed, and it closes More on a real phone (checked on an emulator: a tap, a drifting tap, a slow press and a slide). Android.
+
+### Changed
+
+- **Providers rows are terse.** Connected accounts show just the name (email and plan are on the provider's page), the Providers footer and Add account description are gone, and Settings shows no state values except a waiting update. Reset credits gets its chevron in Liquid Glass. Android, iOS, macOS, Windows, Linux.
 
 ## 2.9.0-alpha.32 — 2026-11-22
 
