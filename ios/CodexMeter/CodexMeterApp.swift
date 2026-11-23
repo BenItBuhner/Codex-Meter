@@ -61,6 +61,8 @@ struct CodexMeterApp: App {
         WindowGroup {
             ContentView()
                 .environment(model)
+                // Headers keep the case they are written in ("Theme", not "THEME"); header-case.sh checks it.
+                .textCase(nil)
                 .onAppear { PerfBudgetProbe.firstScreenAppeared() }
                 .onReceive(NotificationCenter.default.publisher(for: .codexMeterOpenRoute)) { note in
                     if let route = note.userInfo?["route"] as? String {

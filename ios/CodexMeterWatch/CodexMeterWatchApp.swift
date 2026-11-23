@@ -8,6 +8,8 @@ struct CodexMeterWatchApp: App {
         WindowGroup {
             WatchRootView()
                 .environment(model)
+                // Headers keep the case they are written in; header-case.sh checks it.
+                .textCase(nil)
                 .task { model.start() }
         }
     }
