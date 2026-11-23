@@ -227,10 +227,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         int planned = this.step <= OnboardingFlow.STEP_PROVIDERS
                 ? Math.max(1, this.picked.size()) : this.chosen.size();
         int total = OnboardingFlow.stepCount(planned);
-        TextView label = Ui.text(this, "STEP " + (this.step + 1) + " OF " + total, 12.0f,
+        TextView label = Ui.text(this, "Step " + (this.step + 1) + " of " + total, 12.0f,
                 Ui.accent(this, this.dark));
         label.setTypeface(Ui.mediumTypeface(this));
-        label.setLetterSpacing(0.08f);
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
         labelParams.setMargins(Ui.dp(this, 14), Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 10));
         this.content.addView(label, labelParams);

@@ -56,7 +56,7 @@ jobs:
           android=false; desktop=false; apple=false
           while IFS= read -r f; do
             case "$f" in
-              .github/*|release-invariants.sh|run-tests.sh|lint.sh|build.sh|.editorconfig|.swiftlint.yml|android/tests/fixtures/*)
+              .github/*|release-invariants.sh|header-case.sh|run-tests.sh|lint.sh|build.sh|.editorconfig|.swiftlint.yml|android/tests/fixtures/*)
                 everything "shared file $f" ;;
               android/*|CHANGELOG.md) android=true ;;
               windows/*|linux/*) desktop=true ;;
@@ -66,6 +66,8 @@ jobs:
             esac
           done <<< "$files"
           printf 'android=%s\ndesktop=%s\napple=%s\n' "$android" "$desktop" "$apple" | tee -a "$GITHUB_OUTPUT"
+      - name: Headers keep their case (no forced capitals)
+        run: ./header-case.sh
 
   android:
     name: Android
