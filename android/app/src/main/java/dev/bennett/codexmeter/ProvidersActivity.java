@@ -74,15 +74,8 @@ public final class ProvidersActivity extends AppCompatActivity {
         listCard.addView(recycler, new LinearLayout.LayoutParams(-1, -2));
         content.addView(listCard);
 
-        TextView note = Ui.text(this,
-                "With five or more on, the first three get tabs and the rest go under More.",
-                12.0f, Ui.secondaryText(dark));
-        LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
-        noteParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6), 0);
-        content.addView(note, noteParams);
-
         RoundedLinearLayout addCard = Ui.cardGroup(this, dark);
-        addCard.addView(Ui.actionRow(this, "Add account", "Codex, Claude Code, Cursor, Copilot, Gemini and more",
+        addCard.addView(Ui.actionRow(this, "Add account", null,
                 R.drawable.ic_oui_add, v -> {
                     DiagnosticLog.info(this, "user", "add_account_opened");
                     Ui.startSecondaryActivity(this, AddAccountActivity.class);
@@ -289,7 +282,9 @@ public final class ProvidersActivity extends AppCompatActivity {
             UsageProvider provider = items.get(position);
             holder.icon.setImageResource(iconRes(provider));
             holder.title.setText(provider.displayName);
-            holder.summary.setText(ProviderAccounts.summary(ProvidersActivity.this, provider));
+            String status = ProviderAccounts.rowStatus(ProvidersActivity.this, provider);
+            holder.summary.setText(status);
+            holder.summary.setVisibility(status == null ? View.GONE : View.VISIBLE);
             holder.itemView.setOnClickListener(v -> showProvider(provider));
             holder.toggle.setContentDescription("Show " + provider.displayName + " tab");
             holder.toggle.setOnCheckedChangeListener(null);

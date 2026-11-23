@@ -22,9 +22,6 @@ public sealed class SettingsPage : IPage
     private readonly Adw.PreferencesPage preferences;
     private readonly Adw.PreferencesGroup providersGroup;
     private readonly Adw.ActionRow providersRow;
-    private readonly Action onProvidersChanged;
-    private readonly Action<UsageProvider> onProviderChanged;
-    private bool providersDirty;
     private readonly Adw.SwitchRow closeToTray;
     private readonly MainWindow window;
     private readonly Adw.PreferencesGroup appsGroup = Adw.PreferencesGroup.New();
@@ -57,7 +54,6 @@ public sealed class SettingsPage : IPage
         providersGroup.Add(providersRow);
         providersGroup.Add(Switch("Priority page", "First in the sidebar: what needs you across every connected service.",
             s.ShowPriority, on => state.Settings.Update(x => x with { ShowPriority = on }), "PrioritySwitch"));
-        BuildProviders();
 
         var dashboard = Group("Dashboard");
         dashboard.Add(Combo("Check usage every", "While Codex Meter runs. Some services allow fewer checks.",
@@ -297,10 +293,6 @@ public sealed class SettingsPage : IPage
         about.Add(source);
 
         scroller = AccountsPage.FindScroller(preferences) ?? Gtk.ScrolledWindow.New();
-        onProvidersChanged = QueueProviders;
-        onProviderChanged = _ => QueueProviders();
-        state.ProvidersChanged += onProvidersChanged;
-        state.ProviderChanged += onProviderChanged;
         loading = false;
     }
 
@@ -313,21 +305,6 @@ public sealed class SettingsPage : IPage
     public void Detach()
     {
         if (state.Updater is { } updater && renderUpdates is not null) updater.Changed -= renderUpdates;
-        state.ProvidersChanged -= onProvidersChanged;
-        state.ProviderChanged -= onProviderChanged;
-    }
-
-    /// <summary>Rebuilds once after a burst of changes, not inside the switch that caused them.</summary>
-    private void QueueProviders()
-    {
-        if (providersDirty) return;
-        providersDirty = true;
-        GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
-        {
-            providersDirty = false;
-            BuildProviders();
-            return false;
-        });
     }
 
     private Action? renderUpdates;
@@ -662,13 +639,6 @@ public sealed class SettingsPage : IPage
             changed(row.GetActive());
         };
         return row;
-    }
-
-    /// <summary>Settings → Providers' summary: how many pages are on and how many accounts are connected.</summary>
-    private void BuildProviders()
-    {
-        var connected = state.SignedIn.Count;
-        providersRow.SetSubtitle($"{state.EnabledProviders.Count} on · " + (connected == 0 ? "none signed in" : $"{connected} signed in"));
     }
 
     private void BuildLiveApps()

@@ -1454,8 +1454,9 @@ public final class CodexGlass {
             return Img(P.of("src", GlassImages.of(r.image), "w", s, "h", s, "r", r.roundImage ? s / 2 : s * 0.225));
         }
         if (r.plainIcon && r.icon != null) {
+            // A bare mark (no tile): provider logos in the text color, or an action's own tint (Add account's plus).
             return Box(P.of("w", 30, "h", 30, "align", "center", "justify", "center"),
-                    Icon(P.of("name", r.icon, "size", 22, "color", t.pal.label)));
+                    Icon(P.of("name", r.icon, "size", 22, "color", r.color != null ? r.color : t.pal.label)));
         }
         return null;
     }

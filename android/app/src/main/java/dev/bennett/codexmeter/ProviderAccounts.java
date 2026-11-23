@@ -46,6 +46,14 @@ public final class ProviderAccounts {
         return plan.isEmpty() ? who : who + " · " + plan;
     }
 
+    /**
+     * A provider row's second line in Settings → Providers: nothing for a connected account (its
+     * page has the email and plan), or why it has no usage yet.
+     */
+    public static String rowStatus(Context context, UsageProvider provider) {
+        return isSignedIn(context, provider) ? null : summary(context, provider);
+    }
+
     /** The best label when a provider shares no email: how the account is connected. */
     static String identifier(Context context, UsageProvider provider) {
         AuthTokens tokens = provider == UsageProvider.CODEX

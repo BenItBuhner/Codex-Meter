@@ -335,7 +335,6 @@ final class FakeSource implements GlassSource {
                 GlassModel.Page p = new GlassModel.Page("root", "Settings");
                 GlassModel.Section accounts = new GlassModel.Section(null);
                 GlassModel.Row providers = link("settings_providers", "Providers", "tabs", "#5856d6", "x:tabs");
-                providers.value = "3 on";
                 accounts.rows.add(providers);
                 p.sections.add(accounts);
                 GlassModel.Section live = new GlassModel.Section(null);
@@ -350,7 +349,7 @@ final class FakeSource implements GlassSource {
                 p.sections.add(usage);
                 GlassModel.Section app = new GlassModel.Section(null);
                 GlassModel.Row upd = link("settings_updates", "Updates", "download", "#8e8e93", "updates");
-                upd.value = "Alpha";
+                upd.value = "v3.0.0 available";
                 app.rows.add(upd);
                 app.rows.add(link("settings_transfer", "Backup & transfer", "arrows", "#34c759", "transfer"));
                 app.rows.add(link("settings_privacy", "Privacy", "hand", "#007aff", "privacy"));
@@ -653,10 +652,8 @@ final class FakeSource implements GlassSource {
     private GlassModel.Page tabsPage() {
         GlassModel.Page p = new GlassModel.Page("x:tabs", "Providers");
         GlassModel.Section list = new GlassModel.Section("On your dashboard");
-        list.footer = "Switch one off to hide its tab. Tap a provider for its account. With five or more "
-                + "on, the first three get tabs and the rest go under More.";
         String[] ids = {"codex", "claude_code", "cursor", "copilot"};
-        String[] accounts = {"you@example.com · Pro", "Max 5x", "Pro", "Not signed in"};
+        String[] accounts = {null, null, null, "Not signed in"};
         List<String> names = Arrays.asList("Codex", "Claude Code", "Cursor", "Copilot");
         for (String name : tabOrder) {
             int i = names.indexOf(name);
@@ -679,10 +676,10 @@ final class FakeSource implements GlassSource {
         GlassModel.Row a = new GlassModel.Row(GlassModel.Row.Kind.ACTION, "account_add");
         a.title = "Add account";
         a.icon = "plus";
+        a.plainIcon = true;
         a.color = "#34c759";
         a.onPress = () -> { };
         add.rows.add(a);
-        add.footer = "Codex, Claude Code, Cursor, Copilot, Gemini and more.";
         p.sections.add(add);
         return p;
     }

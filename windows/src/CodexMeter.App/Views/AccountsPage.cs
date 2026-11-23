@@ -23,9 +23,6 @@ public sealed class AccountsPage : PageBase
     public AccountsPage() : base(1000)
     {
         Body.Children.Add(PageTitle("Providers", "AccountsTitle"));
-        var intro = Cards.Text("Each service keeps its own sign-in, and each switch gives it a page in the sidebar. Credentials are encrypted with your Windows account and stay on this PC.", "SecondaryTextStyle");
-        intro.Margin = new Thickness(0, 0, 0, 16);
-        Body.Children.Add(intro);
         Body.Children.Add(status);
 
         var header = new Grid { Margin = new Thickness(1, 8, 0, 8) };
@@ -101,17 +98,18 @@ public sealed class AccountsPage : PageBase
                 connected.Children.Add(card);
                 continue;
             }
+            // A connected row is just the name; hovering it shows the account and plan.
             if (entry.SignedIn)
             {
                 var plan = entry.Usage is { } usage
                     ? (provider == UsageProvider.Codex ? UsageFormat.PlanLabel(usage.PlanType) : usage.PlanType)
                     : "";
                 var who = entry.Account!.Email.Length > 0 ? entry.Account.Email : $"Signed in with {provider.AccountName}";
-                card.Description = plan.Length > 0 ? $"{who} · {plan}" : who;
+                ToolTipService.SetToolTip(card, plan.Length > 0 ? $"{who} · {plan}" : who);
             }
             else
             {
-                card.Description = $"Not connected · {provider.Meters}";
+                card.Description = "Not signed in";
             }
             var position = order.IndexOf(provider);
             var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
