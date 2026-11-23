@@ -54,7 +54,7 @@ final class FakeSource implements GlassSource {
         }
     }
 
-    private void changed() {
+    void changed() {
         for (Runnable r : new ArrayList<>(subs)) {
             r.run();
         }
@@ -68,12 +68,21 @@ final class FakeSource implements GlassSource {
 
     @Override
     public List<GlassModel.Tab> tabs() {
-        return Arrays.asList(
+        List<GlassModel.Tab> out = new ArrayList<>(Arrays.asList(
                 new GlassModel.Tab("codex", "Codex", "provider_codex"),
                 new GlassModel.Tab("claude_code", "Claude", "provider_claude_code"),
                 new GlassModel.Tab("cursor", "Cursor", "provider_cursor"),
-                new GlassModel.Tab("copilot", "Copilot", "provider_copilot"));
+                new GlassModel.Tab("copilot", "Copilot", "provider_copilot")));
+        if (moreTabs) {
+            // five or more: the bar shows the first three and More (iOS's rule)
+            out.add(new GlassModel.Tab("antigravity", "Antigravity", "provider_antigravity"));
+            out.add(new GlassModel.Tab("grok", "Grok", "provider_grok"));
+        }
+        return out;
     }
+
+    /** six providers on, so the last three go under More */
+    boolean moreTabs;
 
     @Override
     public String selectedTab() {
@@ -266,13 +275,25 @@ final class FakeSource implements GlassSource {
         if (noEdit) {
             return Arrays.asList(new MenuEntry("Settings", "gearshape", false, null));
         }
-        return Arrays.asList(
-                new MenuEntry("Settings", "gearshape", false, () -> {
-                    if (onSettings != null) {
-                        onSettings.run();
-                    }
-                }));
+        List<MenuEntry> menu = new ArrayList<>();
+        if (!priority) {
+            // a provider tab's ⋯ (GlassApp.menu)
+            menu.add(new MenuEntry("Provider", "ellipsis", Arrays.asList(
+                    new MenuEntry("Usage history", "history", false, () -> menuPicks.add("history")),
+                    new MenuEntry("Refresh now", "refresh", false, () -> menuPicks.add("refresh")),
+                    null,
+                    new MenuEntry("Codex account", "person2", false, () -> menuPicks.add("account")))));
+        }
+        menu.add(new MenuEntry("Settings", "gearshape", false, () -> {
+            if (onSettings != null) {
+                onSettings.run();
+            }
+        }));
+        return menu;
     }
+
+    /** rows picked from a provider tab's ⋯ menu */
+    final List<String> menuPicks = new ArrayList<>();
 
     /** Edit mode's order of each tab's sections, by label */
     final List<String> priorityOrder = new ArrayList<>(Arrays.asList("Outages and slowdowns", "Recent activity",

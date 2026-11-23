@@ -75,4 +75,53 @@ public class DismissRowTest {
         c.run(1500);
         Assert.assertTrue("cancelling keeps every row: " + src.dismissedModels, src.dismissedModels.isEmpty());
     }
+
+    @Test
+    public void aSwipeThatStopsAtDismissShowsItsLabelInFull() throws java.io.IOException {
+        open();
+        c.host.down(W - 40, ROW_Y);
+        for (int i = 1; i <= 14; i++) {
+            c.host.move(W - 40 - 130.0 * i / 14, ROW_Y);
+            c.run(1000.0 / 60);
+        }
+        c.host.up(W - 170, ROW_Y);
+        c.run(1200);
+        // the open capsule at rest: its label is white, not the half-faded pink it used to rest at
+        java.io.File f = java.io.File.createTempFile("swipe-open", ".png");
+        c.shot(f.getPath());
+        java.awt.image.BufferedImage im = javax.imageio.ImageIO.read(f);
+        f.delete();
+        int whitest = 0;
+        for (int y = (int) ROW_Y - 10; y <= ROW_Y + 10; y++) {
+            for (int x = (int) W - 90; x < W - 10; x++) {
+                whitest = Math.max(whitest, (im.getRGB(x, y) >> 8) & 0xff);
+            }
+        }
+        Assert.assertTrue("the open Dismiss label is at full strength (green " + whitest + ")", whitest > 235);
+        Assert.assertTrue("stopping at the action dismisses nothing", src.dismissedModels.isEmpty());
+    }
+
+    @Test
+    public void closingTheMenuNeverLightsThePage() throws java.io.IOException {
+        open();
+        c.host.down(W / 2, ROW_Y);
+        c.run(750);
+        c.host.up(W / 2, ROW_Y);
+        c.run(800);
+        // a tap outside the menu closes it; the black above the page stays black every frame of the close (the
+        // backdrop used to take the tap as a glass press and light the whole screen grey)
+        c.host.down(W / 2, 120);
+        c.run(1000.0 / 60);
+        c.host.up(W / 2, 120);
+        int worst = 0;
+        java.io.File f = java.io.File.createTempFile("menu-close", ".png");
+        for (int i = 0; i < 30; i++) {
+            c.run(1000.0 / 60);
+            c.shot(f.getPath());
+            java.awt.image.BufferedImage im = javax.imageio.ImageIO.read(f);
+            worst = Math.max(worst, (im.getRGB(196, 20) >> 8) & 0xff);
+        }
+        f.delete();
+        Assert.assertTrue("the status bar's black stays black while the menu closes (green " + worst + ")", worst < 6);
+    }
 }

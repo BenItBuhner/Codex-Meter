@@ -196,12 +196,18 @@ public final class CodexGlass {
         final List<TopTab> tabs;
         final String value;
         final OnStr onChange;
+        final OnStr onReselect;
 
         RailState(List<RailButton> buttons, List<TopTab> tabs, String value, OnStr onChange) {
+            this(buttons, tabs, value, onChange, null);
+        }
+
+        RailState(List<RailButton> buttons, List<TopTab> tabs, String value, OnStr onChange, OnStr onReselect) {
             this.buttons = buttons;
             this.tabs = tabs;
             this.value = value;
             this.onChange = onChange;
+            this.onReselect = onReselect;
         }
     }
 
@@ -410,7 +416,9 @@ public final class CodexGlass {
             }
             if (!edit) {
                 for (GlassSource.MenuEntry entry : src.menu()) {
-                    if (entry != null) {
+                    if (entry != null && entry.items != null) {
+                        out.add(barMenu(entry));
+                    } else if (entry != null) {
                         out.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
                                 "icon", entry.icon, "onPress", entry.onSelect)));
                     }
@@ -441,6 +449,12 @@ public final class CodexGlass {
                 src.selectTab(id);
             }
         };
+        // a tap on the tab already showing: More (showing a provider picked from it) opens its list again
+        OnStr reselect = id -> {
+            if (MORE.equals(id)) {
+                more.set(true);
+            }
+        };
         if (rail > 0) {
             // Duo: the page beside the right-edge column, which holds the bar's buttons and the tabs
             List<TopTab> railTabs = new ArrayList<>();
@@ -453,7 +467,8 @@ public final class CodexGlass {
                 railButtons.add(new RailButton("edit", edit ? "check" : "squarePencil", toggleEdit, edit));
             }
             for (GlassSource.MenuEntry entry : src.menu()) {
-                if (entry != null && !edit) {
+                // the column has room for plain buttons only; a menu's rows are reachable from the page itself
+                if (entry != null && entry.items == null && !edit) {
                     // the same buttons, icons and order as the dashboard's bar; Settings is the glass
                     // Settings' Back takes over (LEAD), so opening Settings merges Edit into it the way
                     // the bar merges Edit into Settings, and its symbol swaps to Back
@@ -462,7 +477,7 @@ public final class CodexGlass {
                 }
             }
             if (shared) {
-                dashboardRail = new RailState(railButtons, railTabs.size() >= 2 ? railTabs : null, value, pickTab);
+                dashboardRail = new RailState(railButtons, railTabs.size() >= 2 ? railTabs : null, value, pickTab, reselect);
                 RailOverlay.changed();
             }
             return Box(P.of("fill", true, "bg", t.pal.grouped),
@@ -480,7 +495,7 @@ public final class CodexGlass {
                     shared ? null : duoColumn(t, rail, railButtons.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
                             P.of("buttons", railButtons,
                             "tabs", railTabs.size() >= 2 ? railTabs : null,
-                            "value", value, "onChange", pickTab)),
+                            "value", value, "onChange", pickTab, "onReselect", reselect)),
                     showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
                             "title", "More", "detents", new double[] {sheetDetent(t, tabs.size() - own, 0, false)}),
                             moreList(tabs.subList(own, tabs.size()), selected, t, id -> {
@@ -506,6 +521,7 @@ public final class CodexGlass {
                         "tabs", kitTabs,
                         "value", value,
                         "onChange", pickTab,
+                        "onReselect", reselect,
                         "minimized", min.get(),
                         "onExpand", (Runnable) () -> min.set(false))) : null,
                 showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
@@ -591,10 +607,24 @@ public final class CodexGlass {
                                 "color", t.pal.label2), r.summary)));
     }
 
+    /**
+     * A bar button that opens a menu (a provider tab's ⋯): Glassé's GlassMenu, which grows out of
+     * the button with the iOS menu motion and drains back into it.
+     */
+    private static El barMenu(GlassSource.MenuEntry entry) {
+        List<com.benitbuhner.glasse.ui.MenuItem> rows = new ArrayList<>();
+        for (GlassSource.MenuEntry item : entry.items) {
+            rows.add(item == null ? null
+                    : new com.benitbuhner.glasse.ui.MenuItem(item.label, item.icon, item.destructive, item.onSelect));
+        }
+        return GlassMenu(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon, "icon", entry.icon,
+                "width", 250, "items", rows));
+    }
+
     private static int buttons(List<GlassSource.MenuEntry> menu) {
         int n = 0;
         for (GlassSource.MenuEntry entry : menu) {
-            if (entry != null) {
+            if (entry != null && entry.items == null) {
                 n++;
             }
         }

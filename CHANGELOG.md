@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Provider tabs get a ⋯ menu** next to Edit, so they no longer look the same as Priority. It opens with the menu animation and has Usage history, Refresh now and the provider's account. Liquid Glass, Android.
+
+### Fixed
+
+- **Closing a touch-and-hold menu no longer flashes the page grey.** The tap outside the menu lit the whole blurred page like a pressed glass button; the page now un-blurs and brightens straight back to its own colours. Android.
+- **A swipe that stops at Dismiss shows the label at full strength.** It rested half faded until the row was dragged further. Android.
+- **More opens again after you pick a provider from it.** Tapping More while it already shows a provider used to do nothing. Android.
+- **More's close button is no longer cut off** by the first row while it's pressed. Android.
+
 ## 2.9.0-alpha.32 — 2026-11-22
 
 ### Added
