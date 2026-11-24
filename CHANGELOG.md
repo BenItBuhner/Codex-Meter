@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A limit that resets a minute or two early is no longer a "surprise refill".** A 5-hour, weekly, monthly or model limit that refills within 5 minutes of its reset time is its normal reset, so it sends no surprise notification and adds nothing to Priority. Android, iOS, macOS (Windows and Linux already allowed 30 minutes).
+- **One-off false refills are checked before they count.** When a provider suddenly reports a limit full again (or a used-up limit back) well before its reset time, the app keeps the last reading and asks again 45 seconds later. Only a second answer that still shows the refill is saved, notified and recorded; one that goes back to the real numbers is taken as a server mistake and nothing is announced. Antigravity did this now and then. This covers every provider, and a reset you spend yourself still shows at once. All platforms.
+
 ## 2.9.0-alpha.34 — 2026-11-23
 
 ### Fixed

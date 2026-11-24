@@ -16,6 +16,10 @@ public sealed class ProviderEntry(UsageProvider provider)
     public bool Refreshing { get; set; }
     public bool SigningIn { get; set; }
     public DateTimeOffset? RateLimitedAt { get; set; }
+    /// <summary>When a reading that showed an early refill was first held (<see cref="RefillGuard"/>), or null.</summary>
+    public DateTimeOffset? RefillHeldSince { get; set; }
+    /// <summary>After the user spends a reset, its refill is expected and shows at once.</summary>
+    public DateTimeOffset? SkipRefillHoldUntil { get; set; }
     public bool SignedIn => Account is { IsUsable: true };
     public UsageSnapshot? Usage => Cache?.Usage;
 
@@ -202,10 +206,23 @@ public sealed class AppState
         var previous = entry.Usage;
         var previousCredits = entry.Cache?.Credits;
         var service = Hub[provider];
+        var held = false;
         try
         {
             var snapshot = await service.RefreshAsync();
             entry.RateLimitedAt = null;
+            var now = DateTimeOffset.UtcNow;
+            var verdict = entry.SkipRefillHoldUntil > now
+                ? new RefillGuard.Verdict(false, null)
+                : RefillGuard.Check(previous, snapshot, entry.RefillHeldSince, now);
+            entry.RefillHeldSince = verdict.HeldSince;
+            if (verdict.Hold)
+            {
+                // Looks refilled early: keep showing the last reading, and ask again shortly.
+                held = true;
+                _ = RecheckRefillAsync(provider);
+                return;
+            }
             entry.History = await HistoryStore.RecordAsync(provider.Id, snapshot);
             var alerts = RefreshAlerts.AfterRefresh(Settings, provider, previous, snapshot, DateTimeOffset.UtcNow)
                 .Where(a => announced.Add(a.Key + ":" + snapshot.FetchedAt.ToUnixTimeSeconds() / 3600))
@@ -225,10 +242,25 @@ public sealed class AppState
             entry.Refreshing = false;
             entry.Account = await service.AccountAsync();
             entry.Cache = await service.CachedAsync();
+            if (held && entry.Cache is { } cache) entry.Cache = cache with { Usage = previous };
             ProviderChanged?.Invoke(provider);
         }
+        if (held) return;
         if (provider == UsageProvider.Codex) await AutoUseResetsAsync();
         if (provider == UsageProvider.ClaudeCode) await AutoUseClaudeResetsAsync();
+    }
+
+    /// <summary>The second look at a held refill: it confirms the refill or drops the odd reading.</summary>
+    private async Task RecheckRefillAsync(UsageProvider provider)
+    {
+        await Task.Delay(RefillGuard.ConfirmDelay);
+        if (this[provider].RefillHeldSince is null) return;
+        if (this[provider].Refreshing)
+        {
+            // A refresh already running will decide; try once more after it if it could not.
+            await Task.Delay(TimeSpan.FromSeconds(10));
+        }
+        if (this[provider].RefillHeldSince is not null) await RefreshAsync(provider, force: true);
     }
 
     public Task RefreshAllAsync(bool force) =>
@@ -356,6 +388,8 @@ public sealed class AppState
     {
         var result = await Hub.ConsumeResetAsync(provider, creditId);
         var entry = this[provider];
+        entry.SkipRefillHoldUntil = DateTimeOffset.UtcNow.AddMinutes(15);
+        entry.RefillHeldSince = null;
         entry.Cache = await Hub[provider].CachedAsync();
         if (entry.Usage is { } usage) entry.History = await HistoryStore.RecordAsync(provider.Id, usage);
         ProviderChanged?.Invoke(provider);

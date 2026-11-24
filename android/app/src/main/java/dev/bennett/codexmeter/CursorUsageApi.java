@@ -93,6 +93,11 @@ public final class CursorUsageApi {
                         && snapshot.additionalLimits.isEmpty()) {
                     throw new Exception("Cursor returned no recognizable usage data.");
                 }
+                UsageSnapshot saved = ProviderPreferences.loadSnapshot(context, PROVIDER);
+                if (RefillHold.shouldHold(context, PROVIDER, saved, snapshot)) {
+                    // Looks refilled early: keep the last reading until a second one agrees.
+                    return saved;
+                }
                 if (!ProviderPreferences.saveSnapshot(context, PROVIDER, snapshot)) {
                     throw new Exception("Usage was received, but it could not be saved on this device.");
                 }

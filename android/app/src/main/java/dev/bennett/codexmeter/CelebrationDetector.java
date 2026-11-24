@@ -5,13 +5,19 @@ public final class CelebrationDetector {
     public static final int FIVE_HOUR = 1;
     public static final int WEEKLY = 1 << 1;
     public static final int MONTHLY = 1 << 2;
+    /**
+     * A limit that refills this close to its reset time, or later, is its normal reset arriving a
+     * little early, not a surprise. Providers often reset a minute or two ahead of the time they
+     * gave.
+     */
+    public static final long ON_TIME_TOLERANCE_MS = 5L * 60L * 1000L;
 
     private CelebrationDetector() {
     }
 
     /**
      * Returns a bit mask for windows that became completely available before their previously
-     * advertised reset deadline. A missing deadline is deliberately ignored because a natural
+     * advertised reset deadline, by more than {@link #ON_TIME_TOLERANCE_MS}. A missing deadline is deliberately ignored because a natural
      * reset cannot be distinguished from an external refill in that case.
      */
     public static int detectUnexpectedRefills(UsageSnapshot previous, UsageSnapshot current) {
@@ -74,7 +80,14 @@ public final class CelebrationDetector {
                 || oldWindow.usedPercent <= 0 || newWindow.usedPercent != 0) {
             return false;
         }
-        long expectedReset = expectedResetMillis(previous, oldWindow);
-        return expectedReset > observedAtMillis;
+        return wellBeforeReset(expectedResetMillis(previous, oldWindow), observedAtMillis);
+    }
+
+    /**
+     * True when {@code observedAtMillis} is more than {@link #ON_TIME_TOLERANCE_MS} before a known
+     * reset time ({@code expectedReset} above 0).
+     */
+    static boolean wellBeforeReset(long expectedReset, long observedAtMillis) {
+        return expectedReset > 0L && expectedReset - ON_TIME_TOLERANCE_MS > observedAtMillis;
     }
 }

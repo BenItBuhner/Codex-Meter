@@ -18,7 +18,8 @@ nonisolated public enum CelebrationDetector {
 
     public static let unknownUserResetSuppression: TimeInterval = 15 * 60
 
-    /// Windows that became completely available before their previously advertised reset deadline.
+    /// Windows that became completely available before their previously advertised reset deadline,
+    /// by more than `RefillGuard.onTimeTolerance`.
     public static func detectUnexpectedRefills(
         previous: UsageSnapshot?,
         current: UsageSnapshot
@@ -108,6 +109,7 @@ nonisolated public enum CelebrationDetector {
         guard let expectedReset = expectedResetDate(snapshot: previous, window: oldWindow) else {
             return false
         }
-        return expectedReset > observedAt
+        // A reset a few minutes early is the scheduled one, not a surprise.
+        return RefillGuard.wellBeforeReset(expectedReset, observedAt: observedAt)
     }
 }
