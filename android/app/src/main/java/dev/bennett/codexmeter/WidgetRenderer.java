@@ -306,7 +306,13 @@ public final class WidgetRenderer {
     }
 
     private static void applyRootAndHeader(Context context, RemoteViews remoteViews, int widgetId, WidgetOptions widgetOptions, boolean dark, WidgetState widgetState) {
-        if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
+        if (WidgetMaterial.applies(context)) {
+            // Material 3 Expressive: Material You's widget surface (the plain Material one before 12)
+            if (!WidgetMaterial.applyBackground(context, remoteViews, dark, widgetOptions.opacity)) {
+                remoteViews.setInt(android.R.id.background, "setBackgroundResource",
+                        backgroundResource(context, dark, widgetOptions.opacity, WidgetOptions.SURFACE_MATERIAL));
+            }
+        } else if (WidgetOptions.SURFACE_ONE_UI.equals(widgetOptions.surfaceStyle) && isSamsung(context)) {
             int alpha = Math.round(Math.max(0, Math.min(100, widgetOptions.opacity)) * 2.55f);
             remoteViews.setInt(android.R.id.background, "setBackgroundColor",
                     dark ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));
@@ -493,7 +499,7 @@ public final class WidgetRenderer {
         int muted = mutedColor(dark);
         int faint = faintColor(dark);
         int accentColor = WidgetGraphics.accentColor(context, widgetOptions.accent, dark);
-        int trackColor = WidgetGraphics.trackColor(dark);
+        int trackColor = WidgetGraphics.trackColor(context, dark);
         String usageWord = WidgetOptions.DISPLAY_USED.equals(widgetOptions.displayMode) ? WidgetOptions.DISPLAY_USED : "left";
         if (tier == GRAPHIC_MAX) {
             scale = 1.36f;
@@ -557,7 +563,7 @@ public final class WidgetRenderer {
     private static void renderFourDials(Context context, RemoteViews remoteViews,
             WidgetOptions options, boolean dark, List<MeterSlot> slots) {
         int accent = WidgetGraphics.accentColor(context, options.accent, dark);
-        int track = WidgetGraphics.trackColor(dark);
+        int track = WidgetGraphics.trackColor(context, dark);
         int text = WidgetGraphics.mainTextColor(dark);
         int[] graphicIds = {
                 R.id.primary_four_graphic, R.id.secondary_four_graphic,
@@ -589,7 +595,7 @@ public final class WidgetRenderer {
             WidgetOptions options, boolean dark, List<MeterSlot> slots) {
         int textColor = WidgetGraphics.mainTextColor(dark);
         int accent = WidgetGraphics.accentColor(context, options.accent, dark);
-        int track = WidgetGraphics.trackColor(dark);
+        int track = WidgetGraphics.trackColor(context, dark);
         int[] sectionIds = {
                 R.id.primary_section, R.id.secondary_section,
                 R.id.reset_time_section, R.id.reset_count_section
@@ -915,7 +921,7 @@ public final class WidgetRenderer {
         if (!WidgetOptions.ACCENT_APP.equals(accent)) {
             return;
         }
-        int color = Ui.accent(context, Ui.isDark(context));
+        int color = WidgetGraphics.accentColor(context, accent, Ui.isDark(context));
         for (int viewId : viewIds) {
             views.setInt(viewId, "setColorFilter", color);
         }

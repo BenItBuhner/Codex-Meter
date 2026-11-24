@@ -575,7 +575,8 @@ final class GlassWidgetScreens {
                         rerender);
                 if (glass != null) {
                     canvas.drawBitmap(glass, x, y, null);
-                } else {
+                } else if (!WidgetMaterial.applies(c)) {
+                    // (Material 3 Expressive's widget draws its own surface.)
                     GradientDrawable bg = new GradientDrawable();
                     int alpha = Math.round(options.opacity * 2.55f);
                     bg.setColor(dark ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));

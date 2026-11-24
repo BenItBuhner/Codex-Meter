@@ -477,7 +477,7 @@ drag_first_handle() {
 
 # Material 3 Expressive's own pass: Edit mode on a provider tab and on Priority (a card dragged by
 # its handle, back and Done to leave), Providers with its switches and handles (a provider
-# dragged), and a recording of pages opening and closing along the shared axis.
+# dragged), the Material widget's preview, and a recording of pages opening and closing along the shared axis.
 expressive_scenes() {
   for THEME in light dark; do
     demo
@@ -502,6 +502,8 @@ expressive_scenes() {
     demo --es open_activity ProvidersActivity
     shot "$THEME-57-providers" 5
     drag_first_handle "$THEME-58-providers"
+    demo --es open_widget_metric five_hour
+    shot "$THEME-59-widget-settings" 8
   done
   THEME=light
   demo
