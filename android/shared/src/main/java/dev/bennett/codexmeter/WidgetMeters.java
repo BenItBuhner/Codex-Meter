@@ -144,6 +144,45 @@ public final class WidgetMeters {
     }
 
     /**
+     * Meters a widget's settings offer for the providers it shows: 5 hours only when one of them has
+     * a five-hour window (or has no data yet), weekly and next reset always, and reset credits only when
+     * one of them banks resets. Offering a meter no chosen provider can fill made its switch look broken.
+     */
+    public static List<String> offeredKeys(boolean anyFiveHour, boolean anyResets) {
+        List<String> keys = new ArrayList<>();
+        if (anyFiveHour) keys.add(FIVE_HOUR);
+        keys.add(WEEKLY);
+        keys.add(NEXT_RESET);
+        if (anyResets) keys.add(RESET_CREDITS);
+        return keys;
+    }
+
+    /** Whether a provider with this snapshot has a five-hour window, or no data yet to say. */
+    public static boolean mayHaveFiveHour(UsageSnapshot snapshot) {
+        return snapshot == null || snapshot.fiveHour != null || snapshot.longWindow() == null;
+    }
+
+    /**
+     * Config-row title for a meter key on a widget showing several providers' {@code snapshots}. The
+     * long-window meter is "Weekly" unless every provider with data reports a monthly window.
+     */
+    public static String configLabel(String key, List<UsageSnapshot> snapshots) {
+        if (WEEKLY.equals(key)) {
+            boolean anyLong = false;
+            boolean allMonthly = true;
+            if (snapshots != null) {
+                for (UsageSnapshot snapshot : snapshots) {
+                    if (snapshot == null || snapshot.longWindow() == null) continue;
+                    anyLong = true;
+                    allMonthly &= snapshot.longWindowIsMonthly();
+                }
+            }
+            return anyLong && allMonthly ? "Monthly" : "Weekly";
+        }
+        return configLabel(key, snapshots == null || snapshots.isEmpty() ? null : snapshots.get(0));
+    }
+
+    /**
      * Applies a saved ordered visible list to currently available keys. Unknown/stale keys are
      * dropped; order of surviving keys is preserved.
      */

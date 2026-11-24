@@ -150,7 +150,7 @@ public final class LockWidgetConfigActivity extends AppCompatActivity
         providersHint.setPadding(0, 0, 0, Ui.dp(this, 8));
         providersCard.addView(providersHint);
         boolean firstProvider = true;
-        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+        for (UsageProvider provider : GlassWidgetScreens.providerChoices(this, this.providers)) {
             SwitchCompat toggle = new SwitchCompat(this);
             toggle.setChecked(this.providers.contains(provider));
             this.providerSwitches.put(provider, toggle);
@@ -191,7 +191,8 @@ public final class LockWidgetConfigActivity extends AppCompatActivity
         for (String key : ordered) {
             SwitchCompat toggle = new SwitchCompat(this);
             toggle.setChecked(this.selectedMeters.contains(key));
-            metersCard.addView(buildSwitchRow(WidgetMeters.configLabel(key, snapshot), toggle,
+            metersCard.addView(buildSwitchRow(WidgetMeters.configLabel(key,
+                    GlassWidgetScreens.snapshots(this, this.providers)), toggle,
                     !first));
             first = false;
             toggle.setOnCheckedChangeListener((button, checked) -> {

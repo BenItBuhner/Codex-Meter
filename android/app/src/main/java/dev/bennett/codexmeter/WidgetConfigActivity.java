@@ -235,7 +235,7 @@ public final class WidgetConfigActivity extends AppCompatActivity
         this.metersList = new RecyclerView(this);
         this.metersList.setLayoutManager(new LinearLayoutManager(this));
         this.metersList.setNestedScrollingEnabled(false);
-        this.meterAdapter = new MeterAdapter(snapshot);
+        this.meterAdapter = new MeterAdapter();
         this.metersList.setAdapter(this.meterAdapter);
         ItemTouchHelper touchHelper = new ItemTouchHelper(new MeterReorderCallback());
         touchHelper.attachToRecyclerView(this.metersList);
@@ -311,7 +311,7 @@ public final class WidgetConfigActivity extends AppCompatActivity
     private RoundedLinearLayout buildProvidersCard() {
         RoundedLinearLayout card = Ui.seslRowCard(this, this.dark);
         boolean first = true;
-        for (UsageProvider provider : ProviderPreferences.getOrder(this)) {
+        for (UsageProvider provider : GlassWidgetScreens.providerChoices(this, this.widgetProviders)) {
             SwitchCompat toggle = new SwitchCompat(this);
             toggle.setChecked(this.widgetProviders.contains(provider));
             this.providerSwitches.put(provider, toggle);
@@ -327,6 +327,10 @@ public final class WidgetConfigActivity extends AppCompatActivity
                     return;
                 }
                 this.widgetProviders = updated;
+                if (this.meterAdapter != null) {
+                    // "Weekly" or "Monthly" follows the providers shown.
+                    this.meterAdapter.notifyItemRangeChanged(0, this.meterOrder.size());
+                }
                 renderPreview();
             });
         }
@@ -509,11 +513,6 @@ public final class WidgetConfigActivity extends AppCompatActivity
 
     private final class MeterAdapter extends RecyclerView.Adapter<MeterHolder> {
         ItemTouchHelper touchHelper;
-        private final UsageSnapshot snapshot;
-
-        MeterAdapter(UsageSnapshot snapshot) {
-            this.snapshot = snapshot;
-        }
 
         @Override
         public MeterHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -567,7 +566,8 @@ public final class WidgetConfigActivity extends AppCompatActivity
         @Override
         public void onBindViewHolder(MeterHolder holder, int position) {
             String key = meterOrder.get(position);
-            holder.title.setText(WidgetMeters.configLabel(key, snapshot));
+            holder.title.setText(WidgetMeters.configLabel(key,
+                    GlassWidgetScreens.snapshots(WidgetConfigActivity.this, widgetProviders)));
             holder.toggle.setOnCheckedChangeListener(null);
             boolean visible = selectedMeters.contains(key);
             holder.toggle.setChecked(visible);
