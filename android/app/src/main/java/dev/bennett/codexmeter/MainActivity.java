@@ -444,12 +444,6 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         refreshFromPull();
     }
 
-    void glassEditDashboard() {
-        DiagnosticLog.info(this, "user", "dashboard_editor_opened");
-        Ui.startSecondaryActivity(this, new Intent(this, DashboardReorderActivity.class)
-                .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, this.provider.id));
-    }
-
     /** Shows the spinner exactly while the selected tab's provider has a refresh running. */
     private void showRefreshing() {
         long now = System.currentTimeMillis();

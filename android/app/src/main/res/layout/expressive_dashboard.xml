@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material 3 Expressive dashboard: a large flexible header, cards and a floating toolbar of
-     provider tabs, all Material Components views (ExpressiveDashboard fills it). -->
+<!-- Material 3 Expressive dashboard: a large header with Edit and Settings, cards (or Edit mode's
+     list) and a floating toolbar of provider tabs, all Material Components views (ExpressiveDashboard
+     fills it). Pull down to refresh. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/expressive_root"
@@ -39,16 +40,18 @@
                     style="@style/Widget.Material3Expressive.Button.IconButton.Standard"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:contentDescription="Edit dashboard"
+                    android:contentDescription="@string/expressive_edit"
                     app:icon="@drawable/ic_m3_edit" />
 
+                <!-- Edit mode's Done: a filled button in place of Edit and Settings. -->
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/expressive_refresh"
-                    style="@style/Widget.Material3Expressive.Button.IconButton.Standard"
+                    android:id="@+id/expressive_done"
+                    style="@style/Widget.Material3Expressive.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:contentDescription="Refresh"
-                    app:icon="@drawable/ic_m3_refresh" />
+                    android:text="@string/expressive_done"
+                    android:visibility="gone"
+                    app:icon="@drawable/ic_m3_check" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/expressive_settings"
@@ -74,6 +77,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
+
+            <!-- Edit mode: the tab's cards or sections, each with a switch and a drag handle. -->
+            <LinearLayout
+                android:id="@+id/expressive_edit_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

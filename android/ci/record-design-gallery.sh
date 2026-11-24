@@ -11,7 +11,8 @@
 # the Notifications toggle and the Refresh note, priority for only the Priority tab (top to bottom,
 # then a provider tab and back), perf for the Liquid Glass navigation pass, wide for foldable and
 # tablet screen sizes (the emulator's display resized), or duo for Liquid Glass's Duo layout on a
-# Galaxy Z Fold 8's inner screen, next to the standard layout, and on the phone with Duo set to Always.
+# Galaxy Z Fold 8's inner screen, next to the standard layout, and on the phone with Duo set to Always,
+# or expressive for Material 3 Expressive's Edit mode, drag handles and page motion (use with that design).
 set -euo pipefail
 
 APK="${1:?debug APK required}"
@@ -455,6 +456,78 @@ duo_scenes() {
   done
   demo --es duo_layout wide
 }
+
+# Drags the first row with a drag handle ("Reorder") down two rows in Material 3 Expressive (shots
+# while held and after letting go). Prints REORDER OK or FAILED from the app's log.
+drag_first_handle() {
+  local d n0 n1 x y
+  d="$(adb shell wm density | grep -oE '[0-9]+' | tail -1)"
+  read -r x y _ _ <<<"$(center_of "Reorder")"
+  [[ -n "${y:-}" ]] || { echo "REORDER FAILED: $1 (no handle)"; return 0; }
+  n0="$(adb logcat -d -s CodexGlass:I | grep -c 'reorder rows' || true)"
+  adb shell input motionevent DOWN "$x" "$y"
+  sleep 0.4
+  for k in 1 2 3 4 5 6 7 8 9 10 11 12; do adb shell input motionevent MOVE "$x" $(( y + 150 * d / 160 * k / 12 )); done
+  shot "$1-dragging" 0
+  adb shell input motionevent UP "$x" $(( y + 150 * d / 160 ))
+  shot "$1-dropped" 1.5
+  n1="$(adb logcat -d -s CodexGlass:I | grep -c 'reorder rows' || true)"
+  if (( n1 > n0 )); then echo "REORDER OK: $1"; else echo "REORDER FAILED: $1"; fi
+}
+
+# Material 3 Expressive's own pass: Edit mode on a provider tab and on Priority (a card dragged by
+# its handle, back and Done to leave), Providers with its switches and handles (a provider
+# dragged), and a recording of pages opening and closing along the shared axis.
+expressive_scenes() {
+  for THEME in light dark; do
+    demo
+    shot "$THEME-50-dashboard" 6
+    if tap_desc "Edit"; then
+      shot "$THEME-51-edit" 2
+      drag_first_handle "$THEME-52-edit"
+      adb shell input keyevent KEYCODE_BACK
+      shot "$THEME-53-back-from-edit" 2
+    else
+      echo "no Edit button: $THEME"
+    fi
+    demo --ez open_priority true
+    shot "$THEME-54-priority" 6
+    if tap_desc "Edit"; then
+      shot "$THEME-55-priority-edit" 2
+      adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 500
+      shot "$THEME-55-priority-edit-scrolled" 2
+      tap_desc "Done" || true
+      shot "$THEME-56-priority-done" 2
+    fi
+    demo --es open_activity ProvidersActivity
+    shot "$THEME-57-providers" 5
+    drag_first_handle "$THEME-58-providers"
+  done
+  THEME=light
+  demo
+  sleep 5
+  adb shell screenrecord --time-limit 45 /sdcard/motion.mp4 &
+  local rec=$!
+  sleep 2
+  tap_desc "Settings" || true; sleep 2.5
+  tap_desc "Appearance" || true; sleep 2.5
+  adb shell input keyevent KEYCODE_BACK; sleep 2
+  adb shell input keyevent KEYCODE_BACK; sleep 2
+  tap_desc "Edit" || true; sleep 2
+  tap_desc "Done" || true; sleep 2
+  { tap_desc "Claude Code" || tap_desc "Cursor"; } || true; sleep 2.5
+  { tap_desc "Codex" || true; } ; sleep 2.5
+  adb shell pkill -INT screenrecord || true
+  wait "$rec" 2>/dev/null || true
+  sleep 2
+  adb pull /sdcard/motion.mp4 "$OUT/motion-light.mp4" >/dev/null && echo "Saved motion-light.mp4"
+}
+
+if [[ "$SCENES" == expressive ]]; then
+  expressive_scenes
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
 
 if [[ "$SCENES" == duo ]]; then
   duo_scenes
