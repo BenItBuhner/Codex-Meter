@@ -182,6 +182,7 @@ public final class ResetNotificationManager {
         markUserResetWindow(editor, KEY_USER_RESET_MONTHLY_UNTIL,
                 snapshot, snapshot.monthly, now);
         editor.apply();
+        RefillHold.skipForUserReset(context, UsageProvider.CODEX);
     }
 
     public static void showResetNotification(Context context, String metric) {

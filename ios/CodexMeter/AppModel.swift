@@ -139,6 +139,11 @@ final class AppModel {
     var notificationPermissionState: NotificationPermissionState = .notDetermined
     var isUsingCachedData = false
     var isRefreshing = false
+    /// When a reading that showed an early refill was first held (`RefillGuard`), or nil.
+    @ObservationIgnored private var refillHeldSince: Date?
+    /// After a reset is spent, its refill is expected and shows at once.
+    @ObservationIgnored private var skipRefillHoldUntil: Date?
+    @ObservationIgnored private var refillRecheck: Task<Void, Never>?
     var isAuthenticating = false
     var isRedeemingReset = false
     var isShowingSettings = false
@@ -575,6 +580,7 @@ final class AppModel {
             resetResultIsSuccess = result.applied
             if result.applied, let priorUsage {
                 await notificationCoordinator.markUserReset(usage: priorUsage)
+                skipRefillHoldUntil = Date().addingTimeInterval(15 * 60)
             }
             if let cached = try? await cache.load() {
                 apply(cache: cached)
@@ -1033,6 +1039,25 @@ final class AppModel {
 
     private func apply(refresh: CodexRefreshSnapshot) async {
         let previousUsage = usage
+        let now = Date()
+        if mode == .live, (skipRefillHoldUntil.map { $0 <= now } ?? true) {
+            let verdict = RefillGuard.check(
+                previous: previousUsage,
+                current: refresh.usage,
+                heldSince: refillHeldSince,
+                now: now
+            )
+            refillHeldSince = verdict.heldSince
+            if verdict.hold {
+                // Looks refilled early: keep the last reading, and ask again shortly.
+                DiagnosticLog.info("refresh", "refill_held")
+                scheduleRefillRecheck()
+                scheduleBackgroundRefresh()
+                return
+            }
+        } else {
+            refillHeldSince = nil
+        }
         usage = refresh.usage
         credits = refresh.credits
         accountPlan = UsageFormat.planLabel(refresh.usage.planType)
@@ -1056,6 +1081,18 @@ final class AppModel {
         await autoApplyExpiringCreditsIfNeeded()
         await autoUseCreditOnLowUsageIfNeeded()
         await syncLiveActivity()
+    }
+
+    /// The second look at a held refill: it confirms the refill or drops the odd reading.
+    private func scheduleRefillRecheck() {
+        guard refillRecheck == nil else { return }
+        refillRecheck = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(RefillGuard.confirmDelay))
+            guard let self else { return }
+            self.refillRecheck = nil
+            guard self.refillHeldSince != nil else { return }
+            await self.refresh()
+        }
     }
 
     private static let handledExpiryTokensKey = "codexMeter.autoUse.handledExpiryTokens"
@@ -1088,6 +1125,7 @@ final class AppModel {
                 defaults.set(Self.prunedTokens(handled), forKey: Self.handledExpiryTokensKey)
                 if result.applied, let priorUsage {
                     await notificationCoordinator.markUserReset(usage: priorUsage)
+                    skipRefillHoldUntil = Date().addingTimeInterval(15 * 60)
                 }
                 if settings.notificationsEnabled {
                     await notificationCoordinator.notifyExpiryAutoApply(
@@ -1140,6 +1178,7 @@ final class AppModel {
             defaults.set(decision.windowToken, forKey: Self.lowUsageWindowTokenKey)
             if result.applied, let priorUsage {
                 await notificationCoordinator.markUserReset(usage: priorUsage)
+                skipRefillHoldUntil = Date().addingTimeInterval(15 * 60)
             }
             if settings.notificationsEnabled {
                 await notificationCoordinator.notifyLowUsageAutoUse(

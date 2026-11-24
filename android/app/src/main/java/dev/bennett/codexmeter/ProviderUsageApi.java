@@ -86,6 +86,11 @@ public final class ProviderUsageApi {
                         && ProviderPreferences.getEmail(context, provider).isEmpty()) {
                     ProviderPreferences.setEmail(context, provider, tokens.email);
                 }
+                UsageSnapshot saved = ProviderPreferences.loadSnapshot(context, provider);
+                if (RefillHold.shouldHold(context, provider, saved, snapshot)) {
+                    // Looks refilled early: keep the last reading until a second one agrees.
+                    return saved;
+                }
                 if (!ProviderPreferences.saveSnapshot(context, provider, snapshot)) {
                     throw new Exception("Usage was received, but it could not be saved on this "
                             + "device.");

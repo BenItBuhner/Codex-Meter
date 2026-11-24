@@ -57,6 +57,11 @@ public final class UsageApi {
                     throw new Exception("OpenAI returned no recognizable Codex usage data.");
                 }
                 UsageSnapshot previousSnapshot = AppPreferences.loadSnapshot(context);
+                if (RefillHold.shouldHold(context, UsageProvider.CODEX, previousSnapshot,
+                        usageSnapshot)) {
+                    // Looks refilled early: keep the last reading until a second one agrees.
+                    return previousSnapshot;
+                }
                 if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
                     throw new Exception("Usage was received, but it could not be saved on this device.");
                 }

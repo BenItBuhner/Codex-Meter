@@ -134,7 +134,8 @@ final class ProviderEvents {
     }
 
     /**
-     * The limits that went back to nothing used before the reset time the previous refresh gave:
+     * The limits that went back to nothing used well before the reset time the previous refresh
+     * gave (see {@link CelebrationDetector#ON_TIME_TOLERANCE_MS}):
      * "5-hour", "Weekly", "Monthly" and any extra limit by its name ("Fable only"). A limit with
      * no known reset time is left out, because its ordinary reset would look the same.
      */
@@ -152,8 +153,9 @@ final class ProviderEvents {
             for (UsageLimit before : previous.additionalLimits) {
                 if (before == null || !now.id.equals(before.id) || before.primary == null) continue;
                 if (before.primary.usedPercent > 0 && now.primary.usedPercent == 0
-                        && CelebrationDetector.expectedResetMillis(previous, before.primary)
-                                > current.fetchedAtMillis) {
+                        && CelebrationDetector.wellBeforeReset(
+                                CelebrationDetector.expectedResetMillis(previous, before.primary),
+                                current.fetchedAtMillis)) {
                     out.add(now.displayName());
                 }
             }

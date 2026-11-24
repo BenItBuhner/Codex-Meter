@@ -90,10 +90,15 @@ public final class UsageRefreshJobService extends JobService {
                 try {
                     Context app = UsageRefreshJobService.this.getApplicationContext();
                     // Claude never throws here; it paces itself to avoid its rate limit.
-                    ClaudeUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
-                    CursorUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
-                    ProviderUsageApi.refreshAllInBackgroundIfDue(app,
-                            "immediate".equals(this.reason));
+                    if (RefreshScheduler.REASON_REFILL_CHECK.equals(this.reason)) {
+                        // Only the providers holding a reading that showed an early refill.
+                        RefillHold.recheckHeld(app);
+                    } else {
+                        ClaudeUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
+                        CursorUsageApi.refreshInBackgroundIfDue(app, "immediate".equals(this.reason));
+                        ProviderUsageApi.refreshAllInBackgroundIfDue(app,
+                                "immediate".equals(this.reason));
+                    }
                     if (SecureTokenStore.isSignedIn(app)) {
                         RefreshScheduler.scheduleAtNextReset(app, UsageApi.refreshAndCache(app));
                         AppPreferences.recordRefreshSuccess(app);

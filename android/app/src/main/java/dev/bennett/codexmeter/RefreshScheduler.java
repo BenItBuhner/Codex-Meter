@@ -16,6 +16,9 @@ public final class RefreshScheduler {
     private static final int RESET_JOB_ID = 73102;
     private static final int SHORT_JOB_ID_A = 73103;
     private static final int SHORT_JOB_ID_B = 73104;
+    private static final int REFILL_CHECK_JOB_ID = 73105;
+    /** A second look at a reading that showed a limit refilled early (see {@link RefillGuard}). */
+    static final String REASON_REFILL_CHECK = "refill_check";
 
     private RefreshScheduler() {
     }
@@ -156,6 +159,24 @@ public final class RefreshScheduler {
         }
     }
 
+    /**
+     * Asks every provider again in {@link RefillGuard#CONFIRM_DELAY_MS}, to confirm or drop a held
+     * refill. A check already waiting is kept, so repeated refreshes do not push it back.
+     */
+    static boolean scheduleRefillCheck(Context context) {
+        Context app = appContext(context);
+        if (app == null) return false;
+        try {
+            JobScheduler jobs = scheduler(app);
+            if (jobs != null && jobs.getPendingJob(REFILL_CHECK_JOB_ID) != null) return true;
+            long delay = RefillGuard.CONFIRM_DELAY_MS;
+            return submit(app, base(app, REFILL_CHECK_JOB_ID, REASON_REFILL_CHECK)
+                    .setMinimumLatency(delay).setOverrideDeadline(delay + 60_000L).build());
+        } catch (RuntimeException e) {
+            return failed(app, e);
+        }
+    }
+
     public static boolean scheduleAtNextReset(Context context, UsageSnapshot usageSnapshot) {
         Context contextAppContext = appContext(context);
         if (contextAppContext == null || usageSnapshot == null) {
@@ -188,6 +209,7 @@ public final class RefreshScheduler {
                     jobSchedulerScheduler.cancel(RESET_JOB_ID);
                     jobSchedulerScheduler.cancel(SHORT_JOB_ID_A);
                     jobSchedulerScheduler.cancel(SHORT_JOB_ID_B);
+                    jobSchedulerScheduler.cancel(REFILL_CHECK_JOB_ID);
                     AppPreferences.setSchedulerError(contextAppContext, "");
                     DiagnosticLog.info(contextAppContext, "scheduler",
                             "all_refresh_jobs_cancelled");

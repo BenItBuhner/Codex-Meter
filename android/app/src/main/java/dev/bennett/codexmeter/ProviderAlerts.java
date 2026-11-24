@@ -160,6 +160,8 @@ final class ProviderAlerts {
             s.edit().putString(provider.id + SUFFIX_USES, array.toString())
                     .putString(KEY_EVENTS, ProviderEvents.toJson(ProviderEvents.recent(events, now))).apply();
         }
+        // The refill this reset causes is expected, so the next reading shows it at once.
+        RefillHold.skipForUserReset(app, provider);
         DiagnosticLog.info(app, "notifications", "provider_reset_used", "provider", provider.id, "count", used.size());
     }
 
@@ -235,6 +237,7 @@ final class ProviderAlerts {
         if (context == null || provider == null) return;
         state(app(context)).edit().putLong(provider.id + SUFFIX_USER_RESET_UNTIL,
                 System.currentTimeMillis() + USER_RESET_QUIET_MS).apply();
+        RefillHold.skipForUserReset(context, provider);
     }
 
     /** The last day's events, newest first. */
