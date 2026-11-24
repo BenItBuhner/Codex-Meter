@@ -241,8 +241,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     public boolean onPrepareOptionsMenu(Menu menu) {
         MenuItem edit = menu.findItem(MENU_REORDER);
         if (edit != null) {
-            // The Priority page has no layout of its own to edit.
-            edit.setVisible(!this.onPriority);
+            // Priority's Edit chooses and orders its sections, like Liquid Glass's Edit mode
+            edit.setTitle(this.onPriority ? "Edit Priority" : "Edit dashboard");
         }
         return super.onPrepareOptionsMenu(menu);
     }
@@ -255,6 +255,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             return true;
         }
         if (item.getItemId() == MENU_REORDER) {
+            if (this.onPriority) {
+                DiagnosticLog.info(this, "user", "priority_editor_opened");
+                Ui.startSecondaryActivity(this, DashboardReorderActivity.priority(this, PriorityPage.build(this)));
+                return true;
+            }
             DiagnosticLog.info(this, "user", "dashboard_editor_opened");
             Ui.startSecondaryActivity(this, new Intent(this, DashboardReorderActivity.class)
                     .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, this.provider.id));
