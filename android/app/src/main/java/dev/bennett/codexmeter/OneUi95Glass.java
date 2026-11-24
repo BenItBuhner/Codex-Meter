@@ -61,7 +61,7 @@ final class OneUi95Glass {
      * background is dropped and a {@link Lens} draws the glass; older phones keep SESL's bar and
      * only get the rim.
      */
-    static Lens dressBar(OneUi9Page page, View bar) {
+    static View dressBar(OneUi9Page page, View bar) {
         Context context = page.activity;
         if (Build.VERSION.SDK_INT < 31) {
             Rim rim = new Rim(context);
@@ -81,6 +81,13 @@ final class OneUi95Glass {
         return lens;
     }
 
+    /** Redraws a lens from {@link #dressBar} after the content under it moved. */
+    static void refresh(View lens) {
+        if (lens != null && Build.VERSION.SDK_INT >= 31) {
+            ((Lens) lens).refresh();
+        }
+    }
+
     /**
      * Gives SESL9's floating header button pills the One UI 9.5 rim. SESL creates and moves those
      * pills itself (its projection background views), so this looks them up after each layout and
@@ -90,6 +97,8 @@ final class OneUi95Glass {
         floating.getViewTreeObserver().addOnGlobalLayoutListener(() -> dressPillsIn(floating));
     }
 
+    // BlurSupportable is SESL-internal, but only its type is checked, against the pinned SESL9.
+    @SuppressLint("RestrictedApi")
     private static void dressPillsIn(ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
@@ -236,6 +245,7 @@ final class OneUi95Glass {
      * rounded shape, and it never takes touches.
      */
     @RequiresApi(31)
+    @SuppressLint("ViewConstructor") // built in code only, never inflated
     static final class Lens extends View {
         private final View target;
         private final List<View> sources = new ArrayList<>();
@@ -254,7 +264,6 @@ final class OneUi95Glass {
         private int effectH = -1;
         private boolean capturing;
 
-        @SuppressLint("ViewConstructor")
         Lens(Context context, View target, int baseColor) {
             super(context);
             this.target = target;
