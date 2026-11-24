@@ -56,11 +56,6 @@ final class OneUi95Glass {
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
 
-    /** Whether this phone can draw the refracting lens (blur alone needs 12, the bend needs 13). */
-    static boolean canRefract() {
-        return Build.VERSION.SDK_INT >= 33;
-    }
-
     /**
      * Puts the glass behind a floating bar on the page. On Android 12+ the bar's own SESL
      * background is dropped and a {@link Lens} draws the glass; older phones keep SESL's bar and
@@ -266,12 +261,12 @@ final class OneUi95Glass {
             this.baseColor = baseColor;
             boolean dark = isDark(context);
             // Clearer than One UI 9's tinted bar, but enough body to keep the labels readable.
-            this.tint = canRefract() ? (dark ? 0x8C1E1E21 : 0x99FAFAFC)
+            this.shader = Build.VERSION.SDK_INT >= 33 ? lensShader() : null;
+            this.tint = shader != null ? (dark ? 0x8C1E1E21 : 0x99FAFAFC)
                     : (dark ? 0xB31E1E21 : 0xB3FAFAFC);
             this.pad = Ui.dp(context, 18f);
-            this.blur = Ui.dp(context, canRefract() ? 7f : 14f);
+            this.blur = Ui.dp(context, shader != null ? 7f : 14f);
             this.rim = new Rim(context);
-            this.shader = canRefract() ? new RuntimeShader(LENS_SHADER) : null;
             fill.setColor(tint);
             setWillNotDraw(false);
             setClickable(false);
@@ -290,6 +285,16 @@ final class OneUi95Glass {
                 }
             });
             target.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> refresh());
+        }
+
+        /** The lens shader, or null if this phone's GPU driver can't build it (frosted glass then). */
+        @RequiresApi(33)
+        private static Object lensShader() {
+            try {
+                return new RuntimeShader(LENS_SHADER);
+            } catch (RuntimeException e) {
+                return null;
+            }
         }
 
         void addSource(View source) {
