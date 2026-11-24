@@ -19,6 +19,12 @@ public final class DesignIdsSelfTest {
         check(DesignIds.label("liquid_glass_ios_26").equals("Liquid Glass")
                 && DesignIds.label("liquid_glass_ios_27").equals("Liquid Glass"), "former looks label as Liquid Glass");
         check(DesignIds.label("classic").equals("One UI 8.5"), "label classic");
+        // One UI 9.5 is its own saved design, and part of the One UI 9 family (same page shell).
+        check(DesignIds.normalize("one_ui_9_5", false).equals(DesignIds.ONE_UI_9_5), "One UI 9.5 kept");
+        check(DesignIds.normalize("one_ui_9_5", true).equals(DesignIds.ONE_UI_9_5), "One UI 9.5 beats the old switch");
+        check(DesignIds.label("one_ui_9_5").equals("One UI 9.5"), "label One UI 9.5");
+        check(DesignIds.isOneUi9Family("one_ui_9") && DesignIds.isOneUi9Family("one_ui_9_5")
+                && !DesignIds.isOneUi9Family("classic") && !DesignIds.isOneUi9Family("liquid_glass"), "One UI 9 family");
         check(DesignIds.normalize("material_3_expressive", true).equals(DesignIds.MATERIAL_3_EXPRESSIVE), "expressive kept");
         check(DesignIds.isMaterialExpressive("material_3_expressive") && !DesignIds.isMaterialExpressive("classic"), "expressive id");
         check(DesignIds.label("material_3_expressive").equals("Material 3 Expressive"), "label expressive");
@@ -27,6 +33,8 @@ public final class DesignIdsSelfTest {
         check(DesignIds.MATERIAL_3_EXPRESSIVE.equals(DesignIds.suggestFor("Google", null, 0)), "Google maker");
         check(DesignIds.ONE_UI_9.equals(DesignIds.suggestFor("samsung", "samsung", 90000)), "One UI 9 reported");
         check(DesignIds.ONE_UI_9.equals(DesignIds.suggestFor("samsung", "samsung", 90100)), "One UI 9.1 reported");
+        check(DesignIds.ONE_UI_9_5.equals(DesignIds.suggestFor("samsung", "samsung", 90500)), "One UI 9.5 reported");
+        check(DesignIds.ONE_UI_9_5.equals(DesignIds.suggestFor("samsung", "samsung", 100000)), "later One UI gets 9.5");
         check(DesignIds.CLASSIC.equals(DesignIds.suggestFor("samsung", "samsung", 80500)), "One UI 8.5 reported");
         check(DesignIds.CLASSIC.equals(DesignIds.suggestFor("samsung", "samsung", 0)), "One UI unknown stays default");
         check(DesignIds.MATERIAL_3_EXPRESSIVE.equals(DesignIds.suggestFor("OnePlus", "OnePlus", 0)), "OnePlus");

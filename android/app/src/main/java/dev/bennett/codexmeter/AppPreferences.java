@@ -27,6 +27,7 @@ public final class AppPreferences {
     /** Settings → Appearance → Design choices. */
     public static final String DESIGN_CLASSIC = "classic";
     public static final String DESIGN_ONE_UI_9 = "one_ui_9";
+    public static final String DESIGN_ONE_UI_9_5 = DesignIds.ONE_UI_9_5;
     /** Either Liquid Glass look; saved by installs from before the two looks, read as iOS 26. */
     public static final String DESIGN_LIQUID_GLASS = DesignIds.LIQUID_GLASS;
     public static final String DESIGN_MATERIAL_3_EXPRESSIVE = DesignIds.MATERIAL_3_EXPRESSIVE;
@@ -501,13 +502,21 @@ public final class AppPreferences {
         design = DesignIds.forSave(design);
         prefs(context).edit()
                 .putString(KEY_APP_DESIGN, design)
-                .putBoolean(KEY_ONE_UI_9_DESIGN, DESIGN_ONE_UI_9.equals(design))
+                .putBoolean(KEY_ONE_UI_9_DESIGN, DesignIds.isOneUi9Family(design))
                 .commit();
     }
 
-    /** When enabled, pages use the One UI 9 chrome (floating toolbar and tab bar). */
+    /**
+     * When enabled, pages use the One UI 9 chrome (floating toolbar and tab bar). True for One UI 9.5
+     * too, which is the same design with glass touches ({@link #isOneUi95Design}).
+     */
     public static boolean isOneUi9Design(Context context) {
-        return DESIGN_ONE_UI_9.equals(getDesign(context));
+        return DesignIds.isOneUi9Family(getDesign(context));
+    }
+
+    /** One UI 9.5: the One UI 9 design with a refracting glass tab bar and rim-lit header buttons. */
+    public static boolean isOneUi95Design(Context context) {
+        return DESIGN_ONE_UI_9_5.equals(getDesign(context));
     }
 
     public static void setOneUi9Design(Context context, boolean enabled) {

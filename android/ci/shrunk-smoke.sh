@@ -46,7 +46,7 @@ check() { # name, then demo extras
   fi
 }
 
-for design in classic one_ui_9 liquid_glass material_3_expressive; do
+for design in classic one_ui_9 one_ui_9_5 liquid_glass material_3_expressive; do
   for theme in light dark; do
     check "$design-$theme-dashboard" --es design "$design" --es theme "$theme"
   done

@@ -3,12 +3,14 @@
     <string-array name="app_design_entries">
         <item>One UI 8.5</item>
         <item>One UI 9</item>
+        <item>One UI 9.5</item>
         <item>Liquid Glass</item>
         <item>Material 3 Expressive</item>
     </string-array>
     <string-array name="app_design_values">
         <item>classic</item>
         <item>one_ui_9</item>
+        <item>one_ui_9_5</item>
         <item>liquid_glass</item>
         <item>material_3_expressive</item>
     </string-array>

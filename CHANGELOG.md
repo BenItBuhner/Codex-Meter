@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **One UI 9.5 design.** Settings → Appearance → Design has a One UI 9.5 choice, built on One UI 9: the same pages, settings and behavior, with the glass touches from the leaked One UI 9.5 builds. The floating tab bar is clearer glass that bends the content behind it at its edges, with a bright rim and a soft shadow, and the header buttons get the same shiny rim. The bend needs Android 13 or later; Android 12 gets frosted glass, and older phones keep One UI 9's bar with the rim. Samsung phones that report One UI 9.5 start in it. Android.
+
 ### Fixed
 
 - **A limit that resets a minute or two early is no longer a "surprise refill".** A 5-hour, weekly, monthly or model limit that refills within 5 minutes of its reset time is its normal reset, so it sends no surprise notification and adds nothing to Priority. Android, iOS, macOS (Windows and Linux already allowed 30 minutes).

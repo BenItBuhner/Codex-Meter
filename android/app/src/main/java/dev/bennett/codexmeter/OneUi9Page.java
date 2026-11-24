@@ -144,6 +144,9 @@ final class OneUi9Page implements Ui.Header {
         // A floating toolbar stays on screen; SESL9 decides when its buttons get pill backgrounds.
         floating.enableScrollTransition(false, true);
         floating.enableToolbarItemBackgroundTransition(true);
+        if (OneUi95Glass.isOn(activity)) {
+            OneUi95Glass.dressHeaderPills(floating);
+        }
         appBar.addOnOffsetChangedListener((bar, offset) ->
                 topScrim.setAlpha(scrimAlpha(offset, bar.getTotalScrollRange())));
         if (expandable) {
@@ -277,7 +280,7 @@ final class OneUi9Page implements Ui.Header {
      * it normally covers with page-colored gaps between the cards. Erasing the gaps showed that
      * grey as a band behind the floating back button.
      */
-    private int pageColor() {
+    int pageColor() {
         return activity.getColor(R.color.oui_des_round_and_bgcolor);
     }
 
