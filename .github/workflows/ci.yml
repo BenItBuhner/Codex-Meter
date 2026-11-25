@@ -190,7 +190,20 @@ jobs:
           [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
-      # Booting the emulator (image install, AVD, cold boot: 1-2 minutes) overlaps the Gradle build.
+      # A snapshot of a booted emulator whose packages are already compiled, cached per runner
+      # image (see android/ci/emulator.sh). It resumes in seconds while Gradle builds.
+      - name: Key the emulator snapshot to the runner image
+        id: avd-key
+        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v1" >> "$GITHUB_OUTPUT"
+      - name: Restore the emulator snapshot
+        id: avd
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+          key: ${{ steps.avd-key.outputs.key }}
       - name: Start the emulator in the background
         run: android/ci/emulator.sh start
       - uses: actions/setup-java@v6
@@ -201,14 +214,6 @@ jobs:
           cache-dependency-path: |
             android/**/*.gradle*
             android/**/gradle-wrapper.properties
-      # Right after boot the system compiles packages in the background, which competes with every
-      # launch; perf-budgets.sh waits that out with bg-dexopt-job. Doing it as soon as the emulator
-      # is up, while Gradle is still building, takes it off the critical path.
-      - name: Compile the emulator's packages once it is up (background)
-        run: |
-          nohup bash -c 'android/ci/emulator.sh wait \
-            && timeout 300 "$ANDROID_SDK_ROOT/platform-tools/adb" -s emulator-5554 shell cmd package bg-dexopt-job; touch "$RUNNER_TEMP/dexopt.done"' \
-            > "$RUNNER_TEMP/dexopt.log" 2>&1 &
       # The release build users install, signed with a throwaway key through the same
       # localRelease signing config a local release build uses.
       - name: Build the release phone app
@@ -226,17 +231,22 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release.apk"
           ./gradlew --console=plain :app:assembleRelease -x lintVitalRelease -PreleaseAbis=x86_64
           cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release-x86_64.apk"
+      - name: Snapshot the emulator (first run on this runner image)
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh snapshot
+      - name: Cache the emulator snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        # Six jobs miss at once on a new runner image; the first to finish stores it.
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+          key: ${{ steps.avd-key.outputs.key }}
       - name: Wait for the emulator
-        run: |
-          set -euo pipefail
-          android/ci/emulator.sh wait
-          SECONDS=0
-          until [[ -e "$RUNNER_TEMP/dexopt.done" ]]; do
-            (( SECONDS < 330 )) || { echo "::warning::Background dexopt still running"; break; }
-            sleep 2
-          done
-          echo "Waited ${SECONDS}s for the background dexopt"
-          cat "$RUNNER_TEMP/dexopt.log" || true
+        run: android/ci/emulator.sh wait
       - name: Measure start-up, memory and size
         run: ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release-x86_64.apk" "$RUNNER_TEMP/app-release.apk"
 
@@ -262,7 +272,20 @@ jobs:
           [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
-      # Booting the emulator (image install, AVD, cold boot: 1-2 minutes) overlaps the Gradle build.
+      # A snapshot of a booted emulator whose packages are already compiled, cached per runner
+      # image (see android/ci/emulator.sh). It resumes in seconds while Gradle builds.
+      - name: Key the emulator snapshot to the runner image
+        id: avd-key
+        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v1" >> "$GITHUB_OUTPUT"
+      - name: Restore the emulator snapshot
+        id: avd
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+          key: ${{ steps.avd-key.outputs.key }}
       - name: Start the emulator in the background
         run: android/ci/emulator.sh start
       - uses: actions/setup-java@v6
@@ -278,6 +301,20 @@ jobs:
         run: |
           ./gradlew --console=plain :app:assembleDebug -PshrinkDebug=true
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/app-debug-shrunk.apk"
+      - name: Snapshot the emulator (first run on this runner image)
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh snapshot
+      - name: Cache the emulator snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        # Six jobs miss at once on a new runner image; the first to finish stores it.
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+          key: ${{ steps.avd-key.outputs.key }}
       - name: Wait for the emulator
         run: android/ci/emulator.sh wait
       - name: Open every screen
@@ -341,8 +378,9 @@ jobs:
         run: dotnet build src/CodexMeter.App/CodexMeter.App.csproj -c Release -r win-x64 -p:Platform=x64 -warnaserror
 
   # Three macOS jobs side by side: lint, package tests and the Mac budgets; the iOS unit tests;
-  # the iPhone budgets. Each simulator job boots its simulator while it builds (a cold boot took
-  # 3-5 minutes on a fresh runner), and every build is for the runner's own architecture only.
+  # the iPhone budgets. Every build is for the runner's own architecture only. The simulator boots
+  # after the build: on these 3-core runners a boot running alongside it made the build 2-2.5x
+  # slower, more than the boot itself costs.
   apple-core:
     name: Apple lint, core tests and Mac performance budgets
     needs: changes
@@ -379,31 +417,29 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - name: Boot an iPhone simulator in the background
-        id: simulator
-        run: macos/ci/boot-simulator.sh
       # Warnings are errors through the project's own build settings. Passing them on the
       # command line would also reach the CodexMeterCore package, which Xcode builds with
       # -suppress-warnings, and the two flags conflict. swift test (above) covers the package.
       - name: Build the iOS unit tests with warnings as errors
         working-directory: ios
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -euo pipefail
-          # A generic destination: naming the booting simulator here made xcodebuild wait about
-          # 4 minutes for CoreSimulator before it compiled anything. arm64 is the runner's arch.
+          # A generic destination, so the build never waits on CoreSimulator; arm64 is the
+          # runner's architecture.
           xcodebuild build-for-testing -project CodexMeter.xcodeproj -scheme CodexMeter \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
+      - name: Boot an iPhone simulator
+        id: simulator
+        run: macos/ci/boot-simulator.sh
       - name: Wait for the simulator
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           SECONDS=0
           xcrun simctl bootstatus "$UDID" -b
-          echo "Waited ${SECONDS}s after the build"
+          echo "Booted in ${SECONDS}s"
       - name: Run the iOS unit tests
         working-directory: ios
         env:
@@ -423,9 +459,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - name: Boot an iPhone simulator in the background
-        id: simulator
-        run: macos/ci/boot-simulator.sh
       - name: Build the Release iPhone app
         run: |
           set -euo pipefail
@@ -433,6 +466,9 @@ jobs:
           xcodebuild build -project ios/CodexMeter.xcodeproj -scheme CodexMeter -configuration Release \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/ios" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
+      - name: Boot an iPhone simulator
+        id: simulator
+        run: macos/ci/boot-simulator.sh
       - name: Measure iPhone start-up and memory
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
@@ -440,7 +476,7 @@ jobs:
           set -euo pipefail
           SECONDS=0
           xcrun simctl bootstatus "$UDID" -b >/dev/null
-          echo "Waited ${SECONDS}s for the simulator after the build"
+          echo "Booted in ${SECONDS}s"
           APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
           macos/ci/perf-budgets.sh ios "$APP" "$UDID"
       - name: Upload screenshots of a launch that printed no first frame
