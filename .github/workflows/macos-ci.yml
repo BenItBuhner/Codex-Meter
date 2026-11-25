@@ -161,6 +161,32 @@ jobs:
           cd "DerivedDataRelease/Build/Products/Release"
           ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
 
+      - name: Build the disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A standard drag-to-Applications .dmg.
+          stage="$RUNNER_TEMP/dmg"
+          rm -rf "$stage" && mkdir -p "$stage"
+          ditto "DerivedDataRelease/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname "Codex Meter" -srcfolder "$stage" -fs HFS+ -format UDZO -ov \
+            "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          # Check it mounts and holds a runnable app.
+          mnt="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          test -x "$mnt/Codex Meter.app/Contents/MacOS/Codex Meter"
+          test -L "$mnt/Applications"
+          hdiutil detach "$mnt"
+          ls -la "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          # The UI tests and gallery launch the Debug app by its bundle ID; take the Release copies
+          # (same ID) off disk and out of Launch Services first, so they can't open the wrong one.
+          lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+          for app in "DerivedDataRelease/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"; do
+            "$lsregister" -u "$app" 2>/dev/null || true
+          done
+          rm -rf "$stage" "DerivedDataRelease/Build/Products/Release/Codex Meter.app"
+
       - name: Run unit and UI tests
         shell: bash
         run: |
@@ -207,25 +233,6 @@ jobs:
           path: macos/ci-gallery/
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Build the disk image
-        shell: bash
-        run: |
-          set -euo pipefail
-          # A standard drag-to-Applications .dmg.
-          stage="$RUNNER_TEMP/dmg"
-          rm -rf "$stage" && mkdir -p "$stage"
-          ditto "DerivedDataRelease/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"
-          ln -s /Applications "$stage/Applications"
-          hdiutil create -volname "Codex Meter" -srcfolder "$stage" -fs HFS+ -format UDZO -ov \
-            "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
-          # Check it mounts and holds a runnable app.
-          mnt="$(mktemp -d)"
-          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
-          test -x "$mnt/Codex Meter.app/Contents/MacOS/Codex Meter"
-          test -L "$mnt/Applications"
-          hdiutil detach "$mnt"
-          ls -la "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
 
       - name: Upload Release app
         uses: actions/upload-artifact@v7
