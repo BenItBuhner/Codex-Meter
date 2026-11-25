@@ -1599,8 +1599,14 @@ public final class CodexGlass {
                         sheetBody(shown, t)) : null);
     };
 
+    /** The kit sheet's head (title and close button) on this screen. */
+    private static double sheetHead(KTheme t) {
+        return com.benitbuhner.glasse.kit.KitMore.sheetHead(
+                com.benitbuhner.glasse.ui.Look.concentricR(34.0, 8.0, t.W, t.H));
+    }
+
     private static double sheetDetent(KTheme t, int rows, int messageChars, boolean buttons) {
-        double h = 52 + 24 + rows * 52.5 + 8;
+        double h = sheetHead(t) + 24 + rows * 52.5 + 8;
         if (messageChars > 0) {
             h += 20 * (1 + messageChars / 46) + 14;
         }
@@ -1643,7 +1649,7 @@ public final class CodexGlass {
                     "onPress", b.onPress)));
         }
         El list = d.amount != null ? amountPicker(d.amount, t) : ListSection(P.of("mb", 0, "r", 26), rows);
-        double maxList = t.H * 0.92 - 52 - 24 - (buttons.isEmpty() ? 0 : 64) - t.B;
+        double maxList = t.H * 0.92 - sheetHead(t) - 24 - (buttons.isEmpty() ? 0 : 64) - t.B;
         return Box(P.of(),
                 d.message != null ? Text(P.of("size", 15, "ls", -0.15, "lh", 20, "lines", 8, "mb", 14,
                         "ml", 4, "mr", 4, "color", t.pal.label2), d.message) : null,

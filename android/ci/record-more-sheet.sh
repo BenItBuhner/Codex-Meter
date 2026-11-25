@@ -45,7 +45,7 @@ MORE_Y=$(python3 -c "print(round(($HD - 69) * $DENS / 160))")
 open_more() { adb shell input tap "$MORE_X" "$MORE_Y"; shot "$1" 1.5; }
 
 # More's close button on this profile (pixel_7, 1080x2400 at 420 dpi), measured from a screenshot
-XX=945; XY=1708
+XX=955; XY=1700
 t0=$(date +%s.%N)
 mark() { echo "$(python3 -c "print(round($(date +%s.%N) - $t0, 2))")s $*" | tee -a "$OUT/timeline.txt"; }
 open_app

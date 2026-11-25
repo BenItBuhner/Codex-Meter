@@ -203,12 +203,6 @@ public final class UsageBurnChartView extends View {
         paint.setColor(Ui.mainText(dark));
         canvas.drawText(label, left, 20f * density, paint);
 
-        paint.setTypeface(regularTypeface);
-        paint.setTextSize(10f * density);
-        paint.setColor(Ui.secondaryText(dark));
-        String sampleLabel = samples.size() < 2 ? "Building history"
-                : samples.size() + " samples";
-        canvas.drawText(sampleLabel, right - paint.measureText(sampleLabel), 20f * density, paint);
 
         paint.setStrokeWidth(1f * density);
         paint.setColor(Color.argb(dark ? 52 : 38, 128, 128, 128));

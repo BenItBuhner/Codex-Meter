@@ -56,7 +56,7 @@ final class ExpressiveChartView extends View {
     void setChart(GlassModel.Chart chart, OnReadout readout) {
         this.chart = chart;
         this.readout = readout;
-        String label = chart == null ? "" : chart.label;
+        String label = chart == null ? "" : chart.description;
         setContentDescription("Usage burn chart. " + label
                 + (chart != null && chart.emptyText != null ? ". " + chart.emptyText : ""));
         invalidate();

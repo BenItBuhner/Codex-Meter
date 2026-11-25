@@ -125,10 +125,11 @@ final class GlassChart {
         List<Object> kids = new ArrayList<>();
         kids.add(Box(P.of("h", H),
                 plot,
-                Row(P.of("abs", true, "left", SIDE, "right", SIDE, "top", 8, "pointerEvents", "none"),
-                        Text(P.of("flex", 1, "size", 15, "weight", 600, "lines", 1, "color", t.pal.label),
-                                chart.label),
-                        Text(P.of("size", 12, "lines", 1, "color", t.pal.label2), chart.sampleLabel)),
+                // only while a finger is on the chart: the moment under it
+                readout != null
+                        ? Text(P.of("abs", true, "left", SIDE, "right", SIDE, "top", 8, "size", 15, "weight", 600,
+                                "lines", 1, "color", t.pal.label, "pointerEvents", "none"), readout)
+                        : null,
                 chart.emptyText != null
                         ? Text(P.of("abs", true, "left", SIDE, "right", SIDE, "top", TOP + 16, "size", 13,
                                 "lines", 2, "color", t.pal.label2, "pointerEvents", "none"), chart.emptyText)
@@ -136,9 +137,6 @@ final class GlassChart {
                 Row(P.of("abs", true, "left", SIDE, "right", SIDE, "bottom", 4, "pointerEvents", "none"),
                         Text(P.of("flex", 1, "size", 11, "lines", 1, "color", t.pal.label2), "0%"),
                         Text(P.of("size", 11, "lines", 1, "color", t.pal.label2), "reset"))));
-        kids.add(Text(P.of("size", 13, "lines", 1, "ml", SIDE, "mr", SIDE, "mt", 2, "mb", 10,
-                "color", readout != null ? t.pal.label : t.pal.label2),
-                readout != null ? readout : chart.hint == null ? "" : chart.hint));
         if (chart.legend) {
             // what each line is, in place of a paragraph explaining it
             kids.add(Row(P.of("ml", SIDE, "mr", SIDE, "gap", 18),
