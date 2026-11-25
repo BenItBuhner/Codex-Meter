@@ -64,7 +64,7 @@ final class ExpressiveCards {
                 chartCard(body, c);
                 break;
             case STATS:
-                header(body, c.title, null);
+                // its title is drawn above the card by headingAbove, like the other designs
                 for (int i = 0; i < c.stats.size(); i++) {
                     String[] row = c.stats.get(i);
                     Runnable dismiss = i < c.statDismiss.size() ? c.statDismiss.get(i) : null;
@@ -130,10 +130,8 @@ final class ExpressiveCards {
                 }
                 break;
             case NOTE:
-                // An overline ("Priority", "Service status") above the message, like M3 cards.
-                line(body, c.detail, R.attr.textAppearanceLabelLargeEmphasized, R.attr.colorPrimary, 0);
-                weight(line(body, c.title, R.attr.textAppearanceTitleMedium, R.attr.colorOnSurface,
-                        c.detail == null ? 0 : 6), 560);
+                // its kind ("Official incident") is drawn above the card by headingAbove
+                weight(line(body, c.title, R.attr.textAppearanceTitleMedium, R.attr.colorOnSurface, 0), 560);
                 line(body, c.summary, R.attr.textAppearanceBodyMedium,
                         R.attr.colorOnSurfaceVariant, 8);
                 if (c.onPress != null) {
@@ -362,6 +360,17 @@ final class ExpressiveCards {
     }
 
     /** A section label over the cards that follow it (the Priority page's groups). */
+    /**
+     * The header a card's list carries above it, as in every other design: a grouped list's title
+     * (Used up, New models, Insights) or a note's kind (Official incident). Null for cards that
+     * name themselves inside (meters, charts, balances).
+     */
+    static String headingAbove(GlassModel.Card c) {
+        String text = c.kind == GlassModel.Card.Kind.STATS ? (c.title != null ? c.title : c.detail)
+                : c.kind == GlassModel.Card.Kind.NOTE ? c.detail : null;
+        return text == null || text.isEmpty() ? null : text;
+    }
+
     View heading(String text) {
         TextView view = text(text, R.attr.textAppearanceTitleSmallEmphasized, R.attr.colorPrimary);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
