@@ -28,9 +28,14 @@ public abstract class PageBase : UserControl
             Padding = new Thickness(36, 20, 36, 36),
             Spacing = 4,
         };
+        // The scroller's content is a full-width frame and the column is centred inside it. Content
+        // narrower than the scroller and centred by the scroller itself kept its old place on screen
+        // after the window was resized (the layout moved, the picture didn't).
+        var frame = new Grid();
+        frame.Children.Add(Body);
         Scroller = new ScrollViewer
         {
-            Content = Body,
+            Content = frame,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             HorizontalScrollMode = ScrollMode.Disabled,

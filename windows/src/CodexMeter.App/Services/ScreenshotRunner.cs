@@ -111,13 +111,20 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 }
             }
             // And the same page after the window shrinks under it (wide, then narrower without navigating).
-            window.Navigate("accounts");
-            FitWindow(1920, 820);
-            await Task.Delay(900);
-            FitWindow(1300, 820);
-            await Task.Delay(900);
-            LogLayout("accounts shrunk from 1920 to 1300");
-            failures += await CaptureAsync(File("accounts-shrunk")) ? 0 : 1;
+            foreach (var page in new[] { "accounts", "settings" })
+            {
+                window.Navigate(page);
+                FitWindow(1920, 820);
+                await Task.Delay(900);
+                FitWindow(1300, 820);
+                await Task.Delay(900);
+                LogLayout($"{page} shrunk from 1920 to 1300");
+                failures += await CaptureAsync(File($"{page}-shrunk")) ? 0 : 1;
+                FitWindow(1920, 820);
+                await Task.Delay(900);
+                LogLayout($"{page} grown from 1300 to 1920");
+                failures += await CaptureAsync(File($"{page}-grown")) ? 0 : 1;
+            }
 
             // Narrow window: the pane collapses behind the title bar's menu button and cards stack.
             FitWindow(560, 820);
@@ -137,7 +144,7 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
     /// </summary>
     private void LogLayout(string label)
     {
-        if (window.CurrentScrollViewer is not { Content: FrameworkElement body } scroller) return;
+        if (window.CurrentScrollViewer is not { Content: Panel { Children: [FrameworkElement body, ..] } } scroller) return;
         var left = body.TransformToVisual(scroller).TransformPoint(new Windows.Foundation.Point(0, 0)).X;
         var right = scroller.ActualWidth - left - body.ActualWidth;
         // And the column's right edge against the window's, in case the whole page is laid out too wide.
