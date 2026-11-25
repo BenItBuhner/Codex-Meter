@@ -245,6 +245,9 @@ jobs:
             ~/.android/avd/ci.ini
             /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
           key: ${{ steps.avd-key.outputs.key }}
+      - name: Resume the emulator from its new snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh start
       - name: Wait for the emulator
         run: android/ci/emulator.sh wait
       - name: Measure start-up, memory and size
@@ -315,6 +318,9 @@ jobs:
             ~/.android/avd/ci.ini
             /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
           key: ${{ steps.avd-key.outputs.key }}
+      - name: Resume the emulator from its new snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh start
       - name: Wait for the emulator
         run: android/ci/emulator.sh wait
       - name: Open every screen
@@ -438,7 +444,7 @@ jobs:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           SECONDS=0
-          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl bootstatus "$UDID"
           echo "Booted in ${SECONDS}s"
       - name: Run the iOS unit tests
         working-directory: ios
@@ -475,7 +481,7 @@ jobs:
         run: |
           set -euo pipefail
           SECONDS=0
-          xcrun simctl bootstatus "$UDID" -b >/dev/null
+          xcrun simctl bootstatus "$UDID" >/dev/null
           echo "Booted in ${SECONDS}s"
           APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
           macos/ci/perf-budgets.sh ios "$APP" "$UDID"

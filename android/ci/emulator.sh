@@ -8,8 +8,8 @@
 # A cold boot costs about 3 minutes of CPU and the post-boot package compile (bg-dexopt-job) about
 # 2.5 more, both competing with the Gradle build on a 4-core runner. So CI keeps a quick-boot
 # snapshot of a booted, compiled emulator in the Actions cache (keyed on the runner image), and
-# `start` resumes it in seconds. On a cache miss `start` cold-boots, and `snapshot` compiles the
-# packages, saves the snapshot on shutdown and resumes from it, so the workflow can cache it.
+# `start` resumes it in seconds. On a cache miss `start` cold-boots, `snapshot` compiles the
+# packages and saves the snapshot on shutdown, the workflow caches it, and `start` resumes it.
 #
 # The install and boot log goes to $RUNNER_TEMP/emulator.log, printed if the boot fails.
 set -euo pipefail
@@ -104,9 +104,9 @@ case "${1:-}" in
       sleep 1
     done
     echo "Saved the snapshot in ${SECONDS}s ($(du -sh "$ANDROID_AVD_HOME" | cut -f1))"
-    [[ -e "$SNAPSHOT/ram.bin" ]] || { echo "::warning::No snapshot was written; continuing with a cold boot"; launch -no-snapshot-load; wait_boot; exit 0; }
-    launch -no-snapshot-save
-    wait_boot
+    # Left shut down so the workflow can cache the files while nothing writes them; `start` then
+    # resumes the snapshot (or cold-boots if none was written).
+    [[ -e "$SNAPSHOT/ram.bin" ]] || echo "::warning::No snapshot was written; the next start cold-boots"
     ;;
   *)
     echo "usage: $0 start|wait|snapshot" >&2

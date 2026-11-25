@@ -36,7 +36,8 @@ case "$PLATFORM" in
     MAX_FOOTPRINT_MB="${MAX_FOOTPRINT_MB:-70}"
     TITLE="iPhone (simulator)"
     xcrun simctl boot "$DEVICE" 2>/dev/null || true
-    xcrun simctl bootstatus "$DEVICE" -b >/dev/null
+    # -b boots it if needed, but fails on a device CI already booted; then just wait for it.
+    xcrun simctl bootstatus "$DEVICE" -b >/dev/null 2>&1 || xcrun simctl bootstatus "$DEVICE" >/dev/null
     xcrun simctl install "$DEVICE" "$APP"
     xcrun simctl spawn "$DEVICE" defaults write "$BUNDLE_ID" "$MODE_KEY" demo
     MARKER_FILE="$(xcrun simctl get_app_container "$DEVICE" "$BUNDLE_ID" data)/tmp/codexmeter-first-frame.txt"
