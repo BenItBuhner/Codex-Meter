@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- **One UI 9.5's tab bar on Samsung phones.** The bar showed up as a large blurred rectangle instead of the glass pill. Samsung's own blur was still on under the new glass and had lost its rounded shape. The glass now draws the bar by itself, and nothing can spread past the pill. Android.
 - **Usage history charts lost their filler text.** The card on each provider page and the charts on the history page no longer say "63% used so far", "110 samples", "Building history" or "Drag to inspect". Touch the chart and the moment under your finger still shows. All Android designs, iOS.
 - **Sheet close buttons sit evenly in the corner.** In every Liquid Glass sheet (usage history's Customize, choice lists, Add reminder time, More) the X sat 6 pt under the top edge but 16 pt in from the side. It now sits as far down as in, concentric with the sheet's rounded corner, with the title centred on it, and a sheet with nothing to drag shows no grabber. The fix is in Glassé's own sheet, so its demo matches. Liquid Glass, Android.
 

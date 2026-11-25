@@ -57,6 +57,15 @@ final class OneUi95Glass {
     }
 
     /**
+     * Whether {@link #dressBar} replaces the tab bar's background with a {@link Lens} (Android 12+
+     * in One UI 9.5). The bar is then inflated without Samsung's own view blur: on Samsung phones
+     * that blur fills the bar's whole view, clipped only by its outline.
+     */
+    static boolean drawsBarGlass(Context context) {
+        return Build.VERSION.SDK_INT >= 31 && isOn(context);
+    }
+
+    /**
      * Puts the glass behind a floating bar on the page. On Android 12+ the bar's own SESL
      * background is dropped and a {@link Lens} draws the glass; older phones keep SESL's bar and
      * only get the rim.
@@ -75,7 +84,18 @@ final class OneUi95Glass {
         root.addView(lens, root.indexOfChild(bar), new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         bar.setBackground(null);
-        bar.setOutlineProvider(null);
+        bar.setBackgroundTintList(null);
+        // The lens casts the shadow. The bar keeps an invisible pill outline that it clips to, so
+        // nothing it draws (a pressed tab, or a platform blur) can spill past the glass.
+        bar.setOutlineProvider(new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(),
+                        view.getHeight() / 2f);
+                outline.setAlpha(0f);
+            }
+        });
+        bar.setClipToOutline(true);
         // Keep the bar drawn above its lens, which has its own elevation for the drop shadow.
         bar.setElevation(lens.getElevation() + Ui.dp(context, 1f));
         return lens;
@@ -308,7 +328,7 @@ final class OneUi95Glass {
                         return;
                     }
                     outline.setRoundRect(area, area.height() / 2f);
-                    outline.setAlpha(dark ? 0.5f : 0.35f);
+                    outline.setAlpha(dark ? 0.3f : 0.35f);
                 }
             });
             target.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> refresh());

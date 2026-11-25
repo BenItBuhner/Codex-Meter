@@ -10,7 +10,8 @@
 # new_models for only the New models card (with a relevant model, then with only irrelevant ones),
 # the Notifications toggle and the Refresh note, priority for only the Priority tab (top to bottom,
 # then a provider tab and back), perf for the Liquid Glass navigation pass, wide for foldable and
-# tablet screen sizes (the emulator's display resized), or duo for Liquid Glass's Duo layout on a
+# tablet screen sizes (the emulator's display resized), phones for a large and a compact phone plus
+# those sizes, or duo for Liquid Glass's Duo layout on a
 # Galaxy Z Fold 8's inner screen, next to the standard layout, and on the phone with Duo set to Always,
 # or expressive for Material 3 Expressive's Edit mode, drag handles and page motion (use with that design).
 set -euo pipefail
@@ -299,7 +300,7 @@ perf_scenes() {
 # with each size's main-thread stalls in perf-summary.txt and one recording per size.
 wide_scenes() {
   local spec name px dpi
-  for spec in "foldable:1856x2160:420" "tablet-portrait:1600x2560:320" "tablet-landscape:2560x1600:320"; do
+  for spec in ${SIZE_SPECS:-"foldable:1856x2160:420" "tablet-portrait:1600x2560:320" "tablet-landscape:2560x1600:320"}; do
     IFS=: read -r name px dpi <<<"$spec"
     adb shell wm size "$px"
     adb shell wm density "$dpi"
@@ -550,6 +551,14 @@ fi
 if [[ "$SCENES" == duo ]]; then
   duo_scenes
   adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
+
+if [[ "$SCENES" == phones ]]; then
+  # A large and a compact phone (a Galaxy S Ultra's 1440x3088 at 560 dpi, a 1080x2340 phone at
+  # 450 dpi), then the foldable and tablet sizes, through the same scenes as wide.
+  SIZE_SPECS="phone-large:1440x3088:560 phone-compact:1080x2340:450 foldable:1856x2160:420 tablet-portrait:1600x2560:320"
+  wide_scenes
   exit 0
 fi
 
