@@ -1,0 +1,68 @@
+name: Glass widget corners on a phone emulator
+
+on:
+  pull_request:
+    branches: [alpha]
+    paths:
+      - 'android/ci/record-widget-corners.sh'
+      - '.github/workflows/widget-corner-check.yml'
+      - 'android/glass/src/main/java/dev/bennett/codexmeter/glass/GlassWidgetArt.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/WidgetGlass.java'
+      - 'android/app/src/main/res/layout/widget_glass_frame.xml'
+      - 'android/app/src/debug/java/dev/bennett/codexmeter/WidgetHostDemoActivity.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  widget-corners:
+    name: Liquid Glass widget corners, light and dark, on Android 16
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_USERNAME: ${{ github.actor }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+      - name: Install Android platforms
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+      - name: Build debug phone app
+        working-directory: android
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Host the widgets and zoom into their corners
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: ./android/ci/record-widget-corners.sh android/app/build/outputs/apk/debug/app-debug.apk widget-corners
+      - uses: actions/upload-artifact@v7
+        if: success() || failure()
+        with:
+          name: widget-corners
+          path: widget-corners/
+          retention-days: 14
