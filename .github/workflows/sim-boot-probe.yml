@@ -23,14 +23,14 @@ jobs:
             SECONDS=0
             xcrun simctl boot "$udid"
             t_boot=$SECONDS
-            timeout 600 xcrun simctl bootstatus "$udid" > "$RUNNER_TEMP/bs-$udid.log" 2>&1
+            xcrun simctl bootstatus "$udid" > "$RUNNER_TEMP/bs-$udid.log" 2>&1
             t_ready=$SECONDS
             slow="$(grep -o 'Running plugin [^ ]*' "$RUNNER_TEMP/bs-$udid.log" | sort | uniq -c | sort -rn | head -3 | tr '\n' ';')"
             echo "RESULT $rt $name: booted ${t_boot}s, ready ${t_ready}s; $slow"
             # Same device again: a second boot of an already-migrated device.
             xcrun simctl shutdown "$udid"
             SECONDS=0
-            xcrun simctl boot "$udid"; timeout 600 xcrun simctl bootstatus "$udid" >/dev/null 2>&1
+            xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" >/dev/null 2>&1
             echo "RESULT $rt $name: second boot ready ${SECONDS}s"
             xcrun simctl shutdown "$udid"
           done
