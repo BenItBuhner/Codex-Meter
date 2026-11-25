@@ -106,6 +106,7 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 {
                     window.Navigate(page);
                     await Task.Delay(900);
+                    LogLayout($"{page} at {width}");
                     failures += await CaptureAsync(File($"{page}-w{width}")) ? 0 : 1;
                 }
             }
@@ -115,6 +116,7 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             await Task.Delay(900);
             FitWindow(1300, 820);
             await Task.Delay(900);
+            LogLayout("accounts shrunk from 1920 to 1300");
             failures += await CaptureAsync(File("accounts-shrunk")) ? 0 : 1;
 
             // Narrow window: the pane collapses behind the title bar's menu button and cards stack.
@@ -125,8 +127,28 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             failures += await CaptureFlyoutAsync(File("tray-flyout"));
         }
         SaveTrayIcons();
-        return failures == 0 ? 0 : 4;
+        if (layoutFailures > 0) App.Log($"{layoutFailures} page layouts didn't fit or centre in the window.");
+        return failures == 0 && layoutFailures == 0 ? 0 : 4;
     }
+
+    /// <summary>
+    /// Fails the run when the page's column is wider than its scroller or not centred in it, the way
+    /// Providers was when the window was wider than the column's maximum width.
+    /// </summary>
+    private void LogLayout(string label)
+    {
+        if (window.CurrentScrollViewer is not { Content: FrameworkElement body } scroller) return;
+        var left = body.TransformToVisual(scroller).TransformPoint(new Windows.Foundation.Point(0, 0)).X;
+        var right = scroller.ActualWidth - left - body.ActualWidth;
+        // And the column's right edge against the window's, in case the whole page is laid out too wide.
+        var root = (FrameworkElement)window.Content;
+        var windowRight = root.ActualWidth - body.TransformToVisual(root).TransformPoint(new Windows.Foundation.Point(body.ActualWidth, 0)).X;
+        App.Log($"Layout {label}: window {root.ActualWidth:0}, scroller {scroller.ActualWidth:0}, viewport {scroller.ViewportWidth:0}, extent {scroller.ExtentWidth:0}, column {body.ActualWidth:0} at {left:0} (right gap {right:0}, to window edge {windowRight:0})");
+        if (left < -0.5 || right < -0.5 || windowRight < -0.5 || Math.Abs(left - right) > 2 || scroller.ExtentWidth > scroller.ViewportWidth + 0.5)
+            layoutFailures++;
+    }
+
+    private int layoutFailures;
 
     private async Task<int> CaptureCaptionHoverAsync(string file)
     {
