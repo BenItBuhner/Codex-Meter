@@ -88,6 +88,14 @@ public static class AppMappings
     }
 
     /// <summary>
+    /// The rows Settings lists: apps the user added or re-pointed, plus built-in apps whose service
+    /// is signed in. A built-in app for a service the user never connected stays out of the list
+    /// (it still matches nothing useful), so the list isn't a wall of apps they don't use.
+    /// </summary>
+    public static IReadOnlyList<AppRule> Shown(IEnumerable<AppRule> rules, IReadOnlyCollection<UsageProvider> signedIn) =>
+        rules.Where(r => !r.BuiltIn || r.Edited || signedIn.Contains(r.Provider)).ToList();
+
+    /// <summary>
     /// Adds an app, or changes one: <paramref name="replacing"/> is the row being edited, when the
     /// user renamed it. The app is switched on, as on Android.
     /// </summary>

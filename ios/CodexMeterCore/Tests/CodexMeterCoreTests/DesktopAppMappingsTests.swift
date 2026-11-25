@@ -36,6 +36,15 @@ final class DesktopAppMappingsTests: XCTestCase {
         XCTAssertEqual(rules.last?.isBuiltIn, false)
     }
 
+    func testSettingsListsOnlySignedInProvidersAndTheUsersOwnApps() {
+        var list = DesktopAppList()
+        list.set("Zed", to: .kimi)
+        list.set("Grok Bot", to: .cursor)
+        XCTAssertEqual(list.shownRules(signedIn: [.claudeCode]).map(\.app), ["Claude", "Grok Bot", "Zed"])
+        XCTAssertEqual(list.shownRules(signedIn: []).map(\.app), ["Grok Bot", "Zed"])
+        XCTAssertEqual(list.shownRules(signedIn: Set(UsageProvider.allCases)).count, list.rules.count)
+    }
+
     func testBuiltInAppsCanBeRemovedRenamedAndRestored() {
         var list = DesktopAppList()
         list.remove("Claude")

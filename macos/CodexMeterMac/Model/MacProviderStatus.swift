@@ -127,6 +127,17 @@ extension AppModel {
         )
     }
 
+    /// Whether a provider has an account (or demo data) here, so Settings lists it.
+    func macIsConnected(_ provider: UsageProvider) -> Bool {
+        let status = macStatus(for: provider)
+        return status.isSignedIn || status.isDemo
+    }
+
+    /// Providers with an account or demo data, for Settings lists and pickers.
+    var macConnectedProviders: Set<UsageProvider> {
+        Set(UsageProvider.allCases.filter(macIsConnected))
+    }
+
     /// Refreshes one provider the way its dashboard's Refresh button does.
     func macRefresh(_ provider: UsageProvider) async {
         if provider == .codex {

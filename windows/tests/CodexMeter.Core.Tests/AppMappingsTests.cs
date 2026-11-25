@@ -120,6 +120,21 @@ public class AppMappingsTests
     }
 
     [Fact]
+    public void SettingsListsOnlySignedInServicesAndTheUsersOwnApps()
+    {
+        var settings = AppMappings.Set(new AppSettings(), "Zed", UsageProvider.Kimi);
+        settings = AppMappings.Set(settings, "Grok Bot", Cursor);
+        var rules = AppMappings.Resolve(settings);
+
+        var shown = AppMappings.Shown(rules, [Claude]).Select(r => r.App).ToList();
+        // Claude is signed in; Grok Bot was re-pointed and Zed was added, so they stay whatever is signed in.
+        Assert.Equal(["Claude", "Grok Bot", "Zed"], shown);
+
+        Assert.Equal(["Grok Bot", "Zed"], AppMappings.Shown(rules, []).Select(r => r.App).ToList());
+        Assert.Equal(rules.Count, AppMappings.Shown(rules, UsageProvider.All.ToList()).Count);
+    }
+
+    [Fact]
     public void BlankNamesAreIgnored()
     {
         var settings = AppMappings.Set(new AppSettings(), "  ", Cursor);
