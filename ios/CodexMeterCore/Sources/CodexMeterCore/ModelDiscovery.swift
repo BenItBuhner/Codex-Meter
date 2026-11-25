@@ -25,8 +25,21 @@ public struct ModelDiscoveryState: Codable, Sendable, Equatable {
     public var baseline = false
     public var lastFetch: Date?
     public var models: [String: SeenModel] = [:]
+    /// Models the person dismissed from Priority, by id. They never come back.
+    public var dismissed: Set<String> = []
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey { case baseline, lastFetch, models, dismissed }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        baseline = try container.decodeIfPresent(Bool.self, forKey: .baseline) ?? false
+        lastFetch = try container.decodeIfPresent(Date.self, forKey: .lastFetch)
+        models = try container.decodeIfPresent([String: SeenModel].self, forKey: .models) ?? [:]
+        // Saved before Priority could dismiss models.
+        dismissed = try container.decodeIfPresent(Set<String>.self, forKey: .dismissed) ?? []
+    }
 }
 
 /// One entry of OpenRouter's `/api/v1/models` list.
@@ -148,13 +161,29 @@ public enum ModelDiscovery {
     /// Recently confirmed models for the user's providers, newest first, as Priority rows.
     public static func items(_ state: ModelDiscoveryState, signedIn: [UsageProvider], now: Date) -> [PriorityItem] {
         state.models.values
-            .filter { model in model.confirmedAt.map { now.timeIntervalSince($0) <= showFor } ?? false }
+            .filter { model in
+                !state.dismissed.contains(model.id)
+                    && (model.confirmedAt.map { now.timeIntervalSince($0) <= showFor } ?? false)
+            }
             .sorted { ($0.confirmedAt ?? .distantPast) > ($1.confirmedAt ?? .distantPast) }
             .compactMap { model in
                 guard let provider = matchedBy(model.id, signedIn: signedIn) else { return nil }
-                return PriorityItem(provider: provider, title: "New on OpenRouter: \(model.name)",
-                                    detail: reason(provider), at: model.confirmedAt)
+                // Android's row: the model's name, then who it was matched for.
+                return PriorityItem(provider: provider, title: model.name, detail: "For \(provider.displayName)",
+                                    at: model.confirmedAt, dismissKey: dismissPrefix + model.id)
             }
+    }
+
+    /// The `PriorityItem.dismissKey` prefix of a new-model row.
+    public static let dismissPrefix = "model:"
+
+    /// `state` with the models behind these dismiss keys dismissed for good.
+    public static func dismiss(_ state: ModelDiscoveryState, keys: [String]) -> ModelDiscoveryState {
+        var next = state
+        for key in keys where key.hasPrefix(dismissPrefix) {
+            next.dismissed.insert(String(key.dropFirst(dismissPrefix.count)))
+        }
+        return next
     }
 
     /// The note under the list, naming the providers it is shown for.

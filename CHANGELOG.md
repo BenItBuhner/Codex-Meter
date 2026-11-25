@@ -4,6 +4,8 @@
 
 ### Added
 
+- **Priority on iPhone, iPad and Mac matches Android.** It has the same seven sections in the same order: Outages and slowdowns, Recent activity, Limits to watch, Used up, Saved resets you can use, Coming up and New models. Edit turns sections on or off and drags them into order. Recent activity and new models can be dismissed with a swipe, the context menu or Dismiss all. Official status pages for OpenAI, Anthropic and xAI show outages here. iOS, macOS.
+- **Refill and "usage is back" alerts for every provider.** Claude Code, Cursor and the added providers now notify on a surprise refill, on newly saved resets, and when a used-up limit is back. Before, only Codex did. iOS, macOS.
 - **One UI 9.5 design.** Settings → Appearance → Design has a One UI 9.5 choice, built on One UI 9: the same pages, settings and behavior, with the glass touches from the leaked One UI 9.5 builds. The floating tab bar is clearer glass that bends the content behind it at its edges, with a bright rim and a soft shadow, and the header buttons get the same shiny rim. The bend needs Android 13 or later; Android 12 gets frosted glass, and older phones keep One UI 9's bar with the rim. Samsung phones that report One UI 9.5 start in it. Android.
 
 ### Fixed
@@ -18,6 +20,9 @@
 
 ### Changed
 
+- **About credits match Android:** BenIt Buhner, That Josh Guy, Robertg761 and Filip Bukovina. The description now covers every provider. iOS, macOS.
+- **What's new closes with a swipe down**, the same as Continue. iOS.
+- **Widgets start on a connected provider** and list only connected ones. The Allowance option now reads "Weekly only". iOS.
 - **About credits Robertg761**, who built the live usage notification and Now Bar support, and **Dependencies lists the libraries the app is built on** (Glassé, the One UI Design Library and Material Components) instead of the OpenAI API. Android.
 
 ## 2.9.0-alpha.34 — 2026-11-23

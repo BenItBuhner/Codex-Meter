@@ -144,6 +144,12 @@ final class AppModel {
     /// After a reset is spent, its refill is expected and shows at once.
     @ObservationIgnored private var skipRefillHoldUntil: Date?
     @ObservationIgnored private var refillRecheck: Task<Void, Never>?
+    /// Priority's Recent activity: surprise refills and saved resets, every provider, one day.
+    var providerEvents: [ProviderEvents.Event] = []
+    /// The official status feeds' latest readings, for Priority's Outages and slowdowns.
+    var providerStatuses: [UsageProvider: ProviderStatus] = [:]
+    /// Rows dismissed in demo mode or UI tests, which keep nothing on disk.
+    var dismissedDemoKeys: Set<String> = []
     var isAuthenticating = false
     var isRedeemingReset = false
     var isShowingSettings = false
@@ -275,6 +281,7 @@ final class AppModel {
                 self?.providerConnected(provider)
             }
         }
+        wireProviderActivity()
 
         if preview {
             let now = Date()
@@ -580,6 +587,7 @@ final class AppModel {
             resetResultIsSuccess = result.applied
             if result.applied, let priorUsage {
                 await notificationCoordinator.markUserReset(usage: priorUsage)
+                ProviderActivityStore.shared.markUserReset(.codex)
                 skipRefillHoldUntil = Date().addingTimeInterval(15 * 60)
             }
             if let cached = try? await cache.load() {
@@ -836,7 +844,9 @@ final class AppModel {
     /// away with its account (unless it is the last tab), as on Android.
     func signOut(provider: UsageProvider) async {
         switch provider {
-        case .codex: await signOut()
+        case .codex:
+            await signOut()
+            forgetActivity(.codex)
         case .claudeCode: await claude.signOut()
         case .cursor: await cursor.signOut()
         default:
@@ -943,9 +953,11 @@ final class AppModel {
     }
 
     /// Closes What's new and keeps it from opening on its own again for this release.
+    /// Continue, or the sheet swiped away. Safe to call twice (Continue, then the sheet's dismiss).
     func finishWhatsNew() {
-        defaults.set(WhatsNew.release, forKey: Self.whatsNewSeenDefaultsKey)
         isShowingWhatsNew = false
+        guard defaults.string(forKey: Self.whatsNewSeenDefaultsKey) != WhatsNew.release else { return }
+        defaults.set(WhatsNew.release, forKey: Self.whatsNewSeenDefaultsKey)
         DiagnosticLog.info("process", "whats_new_finished")
     }
 
@@ -1061,6 +1073,9 @@ final class AppModel {
         usage = refresh.usage
         credits = refresh.credits
         accountPlan = UsageFormat.planLabel(refresh.usage.planType)
+        if mode == .live {
+            recordCodexActivity(previous: previousUsage, current: refresh.usage, credits: refresh.credits)
+        }
         visibleError = nil
         isUsingCachedData = false
         await recordUsageHistory(refresh.usage)
@@ -1125,6 +1140,7 @@ final class AppModel {
                 defaults.set(Self.prunedTokens(handled), forKey: Self.handledExpiryTokensKey)
                 if result.applied, let priorUsage {
                     await notificationCoordinator.markUserReset(usage: priorUsage)
+                ProviderActivityStore.shared.markUserReset(.codex)
                     skipRefillHoldUntil = Date().addingTimeInterval(15 * 60)
                 }
                 if settings.notificationsEnabled {
@@ -1178,6 +1194,7 @@ final class AppModel {
             defaults.set(decision.windowToken, forKey: Self.lowUsageWindowTokenKey)
             if result.applied, let priorUsage {
                 await notificationCoordinator.markUserReset(usage: priorUsage)
+                ProviderActivityStore.shared.markUserReset(.codex)
                 skipRefillHoldUntil = Date().addingTimeInterval(15 * 60)
             }
             if settings.notificationsEnabled {

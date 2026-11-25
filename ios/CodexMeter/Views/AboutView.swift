@@ -1,3 +1,4 @@
+import CodexMeterCore
 import SwiftUI
 
 struct AboutView: View {
@@ -8,6 +9,26 @@ struct AboutView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 52
 
     private static let diagnosticTaps = 7
+
+    static let tagline = "An unofficial native app for keeping an eye on your AI coding limits: Codex, Claude Code, Cursor and more, all in one place."
+    static let disclaimer = "Codex Meter is not affiliated with or endorsed by OpenAI, Anthropic, Cursor or any other provider it shows. Product names are trademarks of their owners. Account routes used by this app may change without notice."
+
+    struct Credit: Identifiable {
+        let id: String
+        let name: String
+        let role: String
+        let url: URL
+    }
+
+    /// The same people as Android's About page, plus the iPhone app's developer.
+    static let credits = [
+        Credit(id: "benit", name: "BenIt Buhner", role: "App creator and AI geek",
+               url: URL(string: "https://github.com/BenItBuhner")!),
+        Credit(id: "josh", name: "That Josh Guy", role: "App and Icon designer", url: URL(string: "https://tjg.gg")!),
+        Credit(id: "robert", name: "Robertg761", role: "Live usage notifications and the Now Bar",
+               url: URL(string: "https://github.com/Robertg761")!),
+        Credit(id: "filip", name: "Filip Bukovina", role: "iPhone and iPad app", url: URL(string: "https://github.com/FBukovina")!)
+    ]
 
     private var version: String {
         AppVersion.display
@@ -26,7 +47,7 @@ struct AboutView: View {
                         .font(.title2.bold())
                     Text("Version \(version)")
                         .foregroundStyle(.secondary)
-                    Text("An unofficial native iPhone and iPad client for checking and monitoring Codex usage.")
+                    Text(Self.tagline)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -44,21 +65,48 @@ struct AboutView: View {
                 .accessibilityHint("Tap repeatedly to unlock diagnostics.")
             }
 
-            Section("Source and credits") {
+            Section {
+                NavigationLink("What's new in \(WhatsNew.release)") {
+                    WhatsNewView()
+                }
+                .accessibilityIdentifier("about-whats-new")
+            }
+
+            Section {
+                ForEach(Self.credits) { person in
+                    Link(destination: person.url) {
+                        LabeledContent {
+                            Image(systemName: "arrow.up.right")
+                                .font(.footnote)
+                                .foregroundStyle(.tertiary)
+                        } label: {
+                            Text(person.name)
+                                .foregroundStyle(.primary)
+                            Text(person.role)
+                        }
+                    }
+                    .accessibilityIdentifier("about-credit-" + person.id)
+                }
+            } header: {
+                Text("Credits").textCase(nil)
+            }
+
+            Section {
                 Link("BenItBuhner/Codex-Meter", destination: URL(string: "https://github.com/BenItBuhner/Codex-Meter")!)
-                LabeledContent("Original project", value: "Bennett")
-                Link("iOS development — Filip Bukovina", destination: URL(string: "https://github.com/FBukovina")!)
                 LabeledContent("License", value: "MIT")
                 NavigationLink("Open-source notices") {
                     OpenSourceNoticesView()
                 }
-                Link("OpenAI", destination: URL(string: "https://openai.com")!)
+            } header: {
+                Text("Source").textCase(nil)
             }
 
-            Section("Important") {
-                Text("Codex Meter is not affiliated with or endorsed by OpenAI. ChatGPT and Codex are trademarks of their respective owner. Account routes used by this app may change without notice.")
+            Section {
+                Text(Self.disclaimer)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+            } header: {
+                Text("Important").textCase(nil)
             }
         }
         .navigationTitle("About")
@@ -115,7 +163,10 @@ struct PrivacyPolicyView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Privacy policy")
                     .font(.largeTitle.bold())
-                Text("Codex Meter has no analytics, advertising, account system, or relay server. Authentication and Codex account requests go directly to OpenAI only when needed for the feature you selected.")
+                Text("Codex Meter has no analytics, advertising, account system, or relay server. Sign-in and usage requests go directly to each provider you connect (such as OpenAI, Anthropic or Cursor), only when needed for the feature you selected.")
+                Text("Public data")
+                    .font(.title3.bold())
+                Text("Priority reads the providers' official status pages and OpenRouter's public model list without any account data, so it can show outages, slowdowns and new models.")
                 Text("Credentials")
                     .font(.title3.bold())
                 Text("OAuth tokens are stored in Apple Keychain on this device. Widgets never receive tokens or account identifiers.")
@@ -125,8 +176,8 @@ struct PrivacyPolicyView: View {
                 Text("Settings exports contain preferences and dashboard choices, never credentials or usage samples.")
                 Text("Demo mode")
                     .font(.title3.bold())
-                Text("Demo mode is entirely local and does not contact OpenAI.")
-                Text("Last updated August 14, 2026")
+                Text("Demo mode is entirely local and contacts no provider.")
+                Text("Last updated November 25, 2026")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -81,7 +81,8 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $model.isShowingOnboarding) {
             OnboardingView()
         }
-        .fullScreenCover(isPresented: $model.isShowingWhatsNew) {
+        // A sheet, like Apple's own welcome screens: swiping it down counts as Continue.
+        .sheet(isPresented: $model.isShowingWhatsNew, onDismiss: model.finishWhatsNew) {
             WhatsNewView()
         }
         .preferredColorScheme(model.settings.appearance.colorScheme)

@@ -33,8 +33,9 @@ struct WidgetProviderQuery: EntityQuery, Sendable {
         WidgetSnapshotStore().availableProviders().map { WidgetProviderEntity(id: $0.rawValue) }
     }
 
+    /// The first connected provider, so a new widget never opens on a signed-out Codex.
     func defaultResult() async -> WidgetProviderEntity? {
-        .codex
+        WidgetSnapshotStore().availableProviders().first.map { WidgetProviderEntity(id: $0.rawValue) } ?? .codex
     }
 }
 
@@ -138,7 +139,7 @@ enum WidgetAllowance: String, AppEnum, Sendable {
     static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
         .both: "Both windows",
         .fiveHour: "Short window only",
-        .weekly: "Weekly / Monthly only"
+        .weekly: "Weekly only"
     ]
 
     var isSingleMetric: Bool {

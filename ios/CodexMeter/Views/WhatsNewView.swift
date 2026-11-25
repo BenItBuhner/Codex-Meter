@@ -6,7 +6,8 @@ import AppKit
 
 /// The full-screen "What's new" page after a big update, laid out like Apple's own welcome screens:
 /// the app icon and a large title, each new feature beside its symbol, and a prominent Continue
-/// button that stays at the bottom. A full-screen cover on iPhone and iPad, a sheet on the Mac.
+/// button that stays at the bottom. A sheet everywhere: swiping it down (or Escape on the Mac)
+/// closes it the same as Continue.
 struct WhatsNewView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -72,7 +73,6 @@ struct WhatsNewView: View {
             // The list scrolls out of sight behind the button, as on Apple's welcome screens.
             .background(.background)
         }
-        .interactiveDismissDisabled()
     }
 
     @ViewBuilder
