@@ -54,6 +54,7 @@ import java.util.Collections;
 public final class WhatsNewActivity extends AppCompatActivity {
     private GlasseHost glasse;
     private GlassLoop loop;
+    private GlassSnapshot snapshot;
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -126,6 +127,7 @@ public final class WhatsNewActivity extends AppCompatActivity {
                 Collections.emptyMap(), ev -> super.dispatchTouchEvent(ev));
         this.glasse.start(true);
         this.loop = GlassLoop.of();
+        this.snapshot = new GlassSnapshot(this.glasse.getView());
         this.glasse.setThemeMode(AppPreferences.getAppTheme(this));
     }
 
@@ -157,12 +159,16 @@ public final class WhatsNewActivity extends AppCompatActivity {
         if (this.glasse != null) {
             this.loop.claim();
             this.glasse.onResume();
+            this.snapshot.resumed();
         }
     }
 
     @Override
     protected void onPause() {
-        if (this.glasse != null) this.glasse.onPause();
+        if (this.glasse != null) {
+            this.snapshot.paused();
+            this.glasse.onPause();
+        }
         super.onPause();
     }
 
@@ -171,6 +177,7 @@ public final class WhatsNewActivity extends AppCompatActivity {
         if (this.glasse != null) {
             this.glasse.onDestroy();
             this.loop.release();
+            this.snapshot.destroyed();
         }
         super.onDestroy();
     }

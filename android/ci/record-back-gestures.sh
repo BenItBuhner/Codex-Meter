@@ -48,14 +48,29 @@ back_swipe() {
   adb shell input motionevent UP $((W / 2)) "$y"
 }
 
-# The page in front still draws: a scroll must change what is on screen.
+# The page in front still draws (the old freeze): a back swipe that is started and then taken back to
+# the edge must move it. Providers is too short to scroll, so the swipe's own preview is the test.
 alive() {
-  local name="$1"
+  local name="$1" y=$((H / 2)) x
   adb exec-out screencap -p > "$OUT/$name-a.png"
-  adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 3)) 300; sleep 1.5
+  adb shell input motionevent DOWN 2 "$y"
+  for x in $((W / 20)) $((W / 10)) $((W / 6)) $((W / 4)); do
+    adb shell input motionevent MOVE "$x" "$y"; sleep 0.05
+  done
+  sleep 0.4
   adb exec-out screencap -p > "$OUT/$name-b.png"
-  adb shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 3 / 4)) 300; sleep 1
-  if ! cmp -s "$OUT/$name-a.png" "$OUT/$name-b.png"; then check "PASS $name: Providers scrolls after back"; else check "FAIL $name: Providers did not change on scroll (frozen?)"; FAIL=1; fi
+  for x in $((W / 10)) $((W / 40)) 2; do adb shell input motionevent MOVE "$x" "$y"; sleep 0.05; done
+  adb shell input motionevent UP 2 "$y"; sleep 1.5
+  if python3 - "$OUT/$name-a.png" "$OUT/$name-b.png" <<'PY'
+import sys
+from PIL import Image, ImageChops
+a, b = (Image.open(p).convert('L').resize((108, 240)) for p in sys.argv[1:3])
+diff = ImageChops.difference(a, b).point(lambda v: 255 if v > 24 else 0)
+share = sum(1 for v in diff.getdata() if v) / (108 * 240)
+print(f"moved share {share:.2f}")
+sys.exit(0 if share > 0.05 else 1)
+PY
+  then check "PASS $name: the page under it still moves"; else check "FAIL $name: the page did not move (frozen?)"; FAIL=1; fi
 }
 
 # A mid-swipe frame that is almost all black is the "background turns black" bug. With "info" the
@@ -65,11 +80,14 @@ not_black() {
   if python3 - "$f" <<'PY'
 import sys
 from PIL import Image
-im = Image.open(sys.argv[1]).convert('L').resize((54, 120))
-px = list(im.getdata())
-dark = sum(1 for v in px if v < 6) / len(px)
-print(f"black share {dark:.2f}")
-sys.exit(1 if dark > 0.6 else 0)
+# the page underneath shows in the strip the shrinking page uncovers at the left, below the status bar
+im = Image.open(sys.argv[1]).convert('L')
+w, h = im.size
+strip = im.crop((0, int(h * 0.08), int(w * 0.04), int(h * 0.92))).resize((8, 200))
+px = list(strip.getdata())
+dark = sum(1 for v in px if v < 8) / len(px)
+print(f"black share behind {dark:.2f}")
+sys.exit(1 if dark > 0.5 else 0)
 PY
   then check "PASS $1: predictive back preview is not black"
   elif [[ -n "$soft" ]]; then check "NOTE $1: predictive back preview is black"
@@ -97,7 +115,7 @@ for design in $DESIGNS; do
 
     demo --es top_activity signin:openrouter; shot "$tag-06-signin" 3
     back_swipe "$tag-07-signin-back"; shot "$tag-08-after-signin-back" 2
-    not_black "$tag-07-signin-back" info
+    not_black "$tag-07-signin-back"
     f=$(front); check "front after sign-in back: $f"
     [[ "$f" == *SignInActivity* ]] && { check "FAIL $tag: still on sign-in after back"; FAIL=1; }
     alive "$tag-09-providers-after-signin"
@@ -107,7 +125,7 @@ for design in $DESIGNS; do
 
     demo --es top_activity WhatsNewActivity; shot "$tag-10-whats-new" 3
     back_swipe "$tag-11-whats-new-back"; shot "$tag-12-after-whats-new-back" 2
-    not_black "$tag-11-whats-new-back" info
+    not_black "$tag-11-whats-new-back"
     f=$(front); check "front after What's new back: $f"
     [[ "$f" == *WhatsNewActivity* ]] && { check "FAIL $tag: What's new did not close on a back swipe"; FAIL=1; }
   done
