@@ -282,11 +282,16 @@ struct PriorityEditSheet: View {
                 Section {
                     ForEach(order) { key in
                         Toggle(isOn: binding(key)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Label(key.label, systemImage: key.systemImage)
-                                Text(Self.countLine(sizes[key] ?? 0))
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(key.label)
+                                    Text(Self.countLine(sizes[key] ?? 0))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: key.systemImage)
+                                    .foregroundStyle(key.tint)
                             }
                         }
                         .accessibilityIdentifier("priority-edit-" + key.rawValue)

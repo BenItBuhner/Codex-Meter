@@ -224,7 +224,7 @@ public struct PriorityReport: Sendable, Equatable {
                 if left > 0, fast {
                     var detail = "\(left)% left · at this pace, runs out in \(duration(pace.estimatedRemaining))"
                     if let resetAt { detail += " · " + resetClock(resetAt, now: now, calendar: calendar, locale: locale,
-                                                                 uses24HourClock: uses24HourClock).lowercased() }
+                                                                 uses24HourClock: uses24HourClock).lowercasingFirst() }
                     watch.append(PriorityItem(provider: provider, title: title, detail: detail, remainingPercent: left,
                                               at: pace.estimatedExhaustionAt))
                 } else if left <= 0 {
@@ -347,5 +347,13 @@ public struct PriorityReport: Sendable, Equatable {
         if days > 0 { return "\(days)d \(hours)h" }
         if hours > 0 { return "\(hours)h \(minutes % 60)m" }
         return "\(max(1, minutes))m"
+    }
+}
+
+private extension String {
+    /// "Resets Sat 9:05 AM" → "resets Sat 9:05 AM", for the middle of a line.
+    func lowercasingFirst() -> String {
+        guard let first else { return self }
+        return first.lowercased() + dropFirst()
     }
 }

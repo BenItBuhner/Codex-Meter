@@ -55,8 +55,14 @@ final class PriorityParityUITests: XCTestCase {
         let toggle = app.switches["priority-edit-alerts"].firstMatch
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "1")
-        // The switch's frame is the whole row; its knob is at the trailing edge.
-        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.5)).tap()
+        // The switch's frame is the whole row; in Edit the reorder handle sits at the trailing
+        // edge, so tap the inner switch when the system exposes one, else just left of the handle.
+        let inner = toggle.switches.firstMatch
+        if inner.exists, inner.frame.width < toggle.frame.width {
+            inner.tap()
+        } else {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.5)).tap()
+        }
         let off = expectation(for: NSPredicate(format: "value == '0'"), evaluatedWith: toggle)
         wait(for: [off], timeout: 5)
         UITestSupport.tap(app.buttons["priority-edit-done"])

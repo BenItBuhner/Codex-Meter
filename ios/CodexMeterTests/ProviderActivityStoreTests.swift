@@ -149,7 +149,10 @@ final class ProviderActivityStoreTests: XCTestCase {
         let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(custom))
         XCTAssertEqual(decoded.priorityOrder, ["models", "watch"])
         XCTAssertEqual(decoded.priorityHiddenSections, ["alerts"])
-        XCTAssertEqual(decoded.prioritySectionOrder.first, .models)
+        // Sections missing from a saved order slot back in at their default places (Android's
+        // rule), so only the saved two keep their relative order.
+        let order = decoded.prioritySectionOrder
+        XCTAssertLessThan(try XCTUnwrap(order.firstIndex(of: .models)), try XCTUnwrap(order.firstIndex(of: .watch)))
         XCTAssertEqual(Set(decoded.prioritySectionOrder), Set(PrioritySectionKey.allCases))
         XCTAssertEqual(decoded.priorityHidden, [.alerts])
     }
