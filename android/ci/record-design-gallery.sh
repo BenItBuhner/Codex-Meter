@@ -41,6 +41,7 @@ adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || t
 
 shot() {
   sleep "${2:-3}"
+  [[ "${2:-3}" =~ ^0 ]] || dismiss_anr  # quick shots are timed
   adb exec-out screencap -p > "$OUT/$1.png"
   echo "Saved $1.png"
 }
@@ -74,7 +75,21 @@ for node in re.findall(r"<node [^>]*>", xml):
 ' "$1"
 }
 
+# Some emulator images ignore hide_error_dialogs: when "<app> isn't responding" covers the
+# screen (usually the launcher), answer Wait so it stops hiding the app.
+dismiss_anr() {
+  local x y
+  for _ in 1 2 3; do
+    read -r x y _ _ <<<"$(center_of "Wait")"
+    [[ -n "${x:-}" ]] || return 0
+    echo "dismissed an isn't-responding dialog"
+    adb shell input tap "$x" "$y"
+    sleep 1
+  done
+}
+
 tap_desc() {
+  dismiss_anr
   read -r x y _ _ <<<"$(center_of "$1")"
   [[ -n "${x:-}" ]] || { echo "no view for $1" >&2; return 1; }
   adb shell input tap "$x" "$y"
@@ -462,6 +477,7 @@ duo_scenes() {
 drag_first_handle() {
   local d n0 n1 x y
   d="$(adb shell wm density | grep -oE '[0-9]+' | tail -1)"
+  dismiss_anr
   read -r x y _ _ <<<"$(center_of "Reorder")"
   [[ -n "${y:-}" ]] || { echo "REORDER FAILED: $1 (no handle)"; return 0; }
   n0="$(adb logcat -d -s CodexGlass:I | grep -c 'reorder rows' || true)"
