@@ -11,7 +11,11 @@ set -euo pipefail
 IMAGE="system-images;android-35;google_apis;x86_64"
 SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:?no Android SDK}}"
 LOG="${RUNNER_TEMP:-/tmp}/emulator.log"
+PIDFILE="${RUNNER_TEMP:-/tmp}/emulator.pid"
 export PATH="$SDK/platform-tools:$PATH"
+# avdmanager and the emulator disagree on the default AVD folder on the runner image; pin it.
+export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+mkdir -p "$ANDROID_AVD_HOME"
 
 boot() {
   echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -32,14 +36,21 @@ case "${1:-}" in
     # Later steps (perf-budgets.sh, shrunk-smoke.sh) call adb by name.
     [[ -n "${GITHUB_PATH:-}" ]] && echo "$SDK/platform-tools" >> "$GITHUB_PATH"
     export -f boot
-    export SDK IMAGE
+    export SDK IMAGE ANDROID_AVD_HOME
     nohup bash -c boot > "$LOG" 2>&1 &
+    echo $! > "$PIDFILE"
     echo "Emulator install and boot started in the background (log: $LOG)"
     ;;
   wait)
     SECONDS=0
     booted() { [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; }
     until booted; do
+      if ! kill -0 "$(cat "$PIDFILE" 2>/dev/null || echo 0)" 2>/dev/null \
+          && ! pgrep -f -- '-avd ci' >/dev/null; then
+        echo "::error::The emulator exited before it booted"
+        tail -n 80 "$LOG" || true
+        exit 1
+      fi
       if (( SECONDS > 600 )); then
         echo "::error::The emulator did not boot in 10 minutes"
         tail -n 80 "$LOG" || true
