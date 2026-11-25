@@ -373,10 +373,8 @@ final class ExpressiveRows {
         switch (r.kind) {
             case SWITCH:
             case SWITCH_LINK: {
-                MaterialSwitch sw = new MaterialSwitch(this.ctx);
-                // One UI's SwitchCompat (this build's appcompat) sizes a switch from its thumb alone,
-                // which squeezed Material's 52 dp track; hold it at the spec's width.
-                sw.setSwitchMinWidth(dp(52));
+                // Material's 52 dp switch, not One UI's narrower fixed width (ExpressiveSwitch)
+                MaterialSwitch sw = new ExpressiveSwitch(this.ctx);
                 sw.setChecked(r.checked);
                 sw.setEnabled(r.enabled);
                 sw.setOnCheckedChangeListener((b, on) -> {
