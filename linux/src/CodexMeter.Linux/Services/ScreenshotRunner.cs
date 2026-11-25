@@ -76,6 +76,17 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             }
             failures += await ExtrasAsync(name, pages, shot);
             shot += 4;
+            // Providers and Settings at several window widths, so a column that stops fitting shows up.
+            foreach (var width in new[] { 1600, 1300, 900, 700 })
+            {
+                await Resize(width, 780);
+                foreach (var page in new[] { "accounts", "settings" })
+                {
+                    window.Navigate(page);
+                    await Delay(700);
+                    failures += Capture($"{name}-{page}-w{width}.png") ? 0 : 1;
+                }
+            }
             // Narrow window: the split view collapses into one pane with a back button.
             await Resize(400, 760);
             window.ShowContent(false);
