@@ -204,7 +204,7 @@ public sealed class SettingsPage : PageBase
             }));
         AutomationProperties.SetAutomationId(live, "LiveUsageCard");
         Body.Children.Add(live);
-        var liveProviders = State.EnabledProviders.ToList();
+        var liveProviders = State.EnabledProviders.Where(p => State[p].SignedIn || p.Id == s.LiveProvider).ToList();
         Body.Children.Add(Card("Service", "Automatic shows the first connected service in your sidebar.", "",
             Combo("LiveProviderBox", ["Automatic", .. liveProviders.Select(p => p.DisplayName)],
                 liveProviders.FindIndex(p => p.Id == s.LiveProvider) + 1,
@@ -275,7 +275,7 @@ public sealed class SettingsPage : PageBase
     {
         liveApps.Children.Clear();
         var settings = State.Settings.Current;
-        foreach (var rule in AppMappings.Resolve(settings))
+        foreach (var rule in AppMappings.Shown(AppMappings.Resolve(settings), State.SignedIn))
         {
             var id = rule.Key;
             var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
@@ -334,7 +334,9 @@ public sealed class SettingsPage : PageBase
     private async Task EditLiveAppAsync(AppRule? rule)
     {
         if (XamlRoot is not { } root) return;
-        var providers = UsageProvider.All.Where(p => p.IsAvailable || p == rule?.Provider).ToList();
+        // Only services you're signed in to, plus the one this app already shows.
+        var signedIn = State.SignedIn;
+        var providers = UsageProvider.All.Where(p => (p.IsAvailable && signedIn.Contains(p)) || p == rule?.Provider).ToList();
         var name = new AutoSuggestBox
         {
             Header = "App or process name",
@@ -353,7 +355,7 @@ public sealed class SettingsPage : PageBase
         var service = new ComboBox { Header = "Shows usage for", HorizontalAlignment = HorizontalAlignment.Stretch };
         foreach (var provider in providers) service.Items.Add(new ComboBoxItem { Content = provider.DisplayName });
         var selected = rule is null ? -1 : providers.IndexOf(rule.Provider);
-        service.SelectedIndex = selected >= 0 ? selected : 0;
+        service.SelectedIndex = providers.Count == 0 ? -1 : selected >= 0 ? selected : 0;
         AutomationProperties.SetAutomationId(service, "LiveAppServiceBox");
         var body = new StackPanel { Spacing = 12, Width = 380 };
         body.Children.Add(new TextBlock

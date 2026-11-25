@@ -157,6 +157,13 @@ public struct DesktopAppList: Codable, Equatable, Sendable {
     }
 
     public var matcher: DesktopAppMatcher { DesktopAppMatcher(rules: rules) }
+
+    /// The rows Settings lists: apps the user added or pointed elsewhere, plus built-in apps whose
+    /// provider is signed in. Built-in apps for providers the user never connected stay out of the
+    /// list, as on Windows, Linux and Android.
+    public func shownRules(signedIn: Set<UsageProvider>) -> [DesktopAppRule] {
+        rules.filter { !$0.isBuiltIn || $0.originalProvider != nil || signedIn.contains($0.provider) }
+    }
 }
 
 /// Finds the provider of the app in front. A name matches a rule when, without case, spaces or

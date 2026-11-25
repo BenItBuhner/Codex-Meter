@@ -1906,6 +1906,7 @@ public final class SettingsActivity extends AppCompatActivity {
             apps.removeAll();
             boolean dark = Ui.isDark(context);
             List<UsageProvider> signedIn = new ArrayList<>();
+            java.util.Map<String, String> added = AppSessionPreferences.getAdded(context);
             for (UsageProvider provider : ProviderPreferences.getOrder(context)) {
                 if (!ProviderAccounts.isSignedIn(context, provider)) continue;
                 signedIn.add(provider);
@@ -1913,12 +1914,16 @@ public final class SettingsActivity extends AppCompatActivity {
                 boolean nothingToShow = snapshot != null && snapshot.fiveHour == null
                         && snapshot.longWindow() == null;
                 for (String packageName : appsFor(context, provider)) {
+                    // Official apps that aren't on this phone stay out of the list; apps the user
+                    // added stay in it (marked Not installed) so they can still be removed.
+                    boolean installed = isInstalled(context, packageName);
+                    if (!installed && !added.containsKey(packageName)) continue;
                     SwitchPreferenceCompat row = new SwitchPreferenceCompat(context);
                     row.setKey("app_sessions_app_" + packageName);
                     row.setPersistent(false);
                     row.setTitle(appLabel(context, packageName));
                     StringBuilder summary = new StringBuilder(provider.displayName);
-                    if (!isInstalled(context, packageName)) summary.append(" · Not installed");
+                    if (!installed) summary.append(" · Not installed");
                     if (nothingToShow) summary.append(" · No limits to show yet");
                     row.setSummary(summary.toString());
                     row.setIcon(appIcon(context, packageName, provider, dark));

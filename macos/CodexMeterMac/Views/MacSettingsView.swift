@@ -62,7 +62,7 @@ struct MacMenuBarSettingsView: View {
                 .accessibilityIdentifier("settings-menu-bar-style")
                 Picker("Provider", selection: $providerID) {
                     Text("Automatic").tag("")
-                    ForEach(model.enabledProviders) { provider in
+                    ForEach(model.enabledProviders.filter { model.macIsConnected($0) || $0.rawValue == providerID }) { provider in
                         Text(provider.displayName).tag(provider.rawValue)
                     }
                 }
@@ -125,6 +125,7 @@ struct MacMenuBarSettingsView: View {
 /// front, as on Android. Add any app, point a built-in one at another provider, remove it, or
 /// switch it off.
 struct MacAIAppsSection: View {
+    @Environment(AppModel.self) private var model
     @AppStorage(MacPreferences.menuBarAppsKey) private var storedApps = ""
     @State private var editing: MacAppEdit?
 
@@ -132,7 +133,7 @@ struct MacAIAppsSection: View {
 
     var body: some View {
         Section {
-            ForEach(list.rules) { rule in
+            ForEach(list.shownRules(signedIn: model.macConnectedProviders)) { rule in
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(rule.app)
@@ -175,7 +176,9 @@ struct MacAIAppsSection: View {
                 .accessibilityIdentifier("settings-apps-restore")
                 Spacer()
                 Button("Add App…") {
-                    editing = MacAppEdit(original: nil, name: "", provider: .cursor)
+                    let connected = model.macConnectedProviders
+                    editing = MacAppEdit(original: nil, name: "",
+                                         provider: UsageProvider.allCases.first(where: connected.contains) ?? .cursor)
                 }
                 .accessibilityIdentifier("settings-apps-add")
             }
@@ -185,7 +188,9 @@ struct MacAIAppsSection: View {
             Text("While one of these apps is active, the menu bar shows its provider. Apps are matched by name, like Grok Bot for Cursor.")
         }
         .sheet(item: $editing) { edit in
-            MacAppEditSheet(edit: edit) { name, provider in
+            MacAppEditSheet(edit: edit, choices: UsageProvider.allCases.filter {
+                model.macConnectedProviders.contains($0) || $0 == edit.provider
+            }) { name, provider in
                 change { $0.set(name, to: provider, replacing: edit.original) }
             }
         }
@@ -218,9 +223,12 @@ struct MacAppEditSheet: View {
     @State private var name: String
     @State private var provider: UsageProvider
     private let isNew: Bool
+    /// Signed-in providers, plus the one this app already shows.
+    private let choices: [UsageProvider]
     private let save: (String, UsageProvider) -> Void
 
-    init(edit: MacAppEdit, save: @escaping (String, UsageProvider) -> Void) {
+    init(edit: MacAppEdit, choices: [UsageProvider], save: @escaping (String, UsageProvider) -> Void) {
+        self.choices = choices
         _name = State(initialValue: edit.name)
         _provider = State(initialValue: edit.provider)
         isNew = edit.original == nil
@@ -248,7 +256,7 @@ struct MacAppEditSheet: View {
                     .fixedSize()
                 }
                 Picker("Shows usage for", selection: $provider) {
-                    ForEach(UsageProvider.allCases, id: \.self) { provider in
+                    ForEach(choices, id: \.self) { provider in
                         Text(provider.displayName).tag(provider)
                     }
                 }

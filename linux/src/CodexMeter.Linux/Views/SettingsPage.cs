@@ -212,7 +212,7 @@ public sealed class SettingsPage : IPage
                 state.Settings.Update(x => x with { ShowTrayIcon = on });
                 closeToTray.SetSensitive(on);
             }, "TraySwitch"));
-        var liveProviders = state.EnabledProviders.ToList();
+        var liveProviders = state.EnabledProviders.Where(p => state[p].SignedIn || p.Id == s.LiveProvider).ToList();
         live.Add(Combo("Service", "Automatic shows the first connected service in the sidebar.",
             ["Automatic", .. liveProviders.Select(p => p.DisplayName)], (uint)(liveProviders.FindIndex(p => p.Id == s.LiveProvider) + 1),
             i => state.Settings.Update(x => x with { LiveProvider = i == 0 ? LiveUsage.AutomaticProvider : liveProviders[i - 1].Id }), "LiveProviderBox"));
@@ -646,7 +646,7 @@ public sealed class SettingsPage : IPage
         foreach (var row in appRows) appsGroup.Remove(row);
         appRows.Clear();
         var settings = state.Settings.Current;
-        foreach (var rule in AppMappings.Resolve(settings))
+        foreach (var rule in AppMappings.Shown(AppMappings.Resolve(settings), state.SignedIn))
         {
             var row = Adw.ActionRow.New();
             row.SetTitle(GLib.Markup.EscapeText(rule.App));
@@ -722,7 +722,10 @@ public sealed class SettingsPage : IPage
     /// <summary>Add an app, or edit <paramref name="rule"/>: its name and the service it shows.</summary>
     internal Adw.AlertDialog EditLiveApp(AppRule? rule, string? presetName = null, UsageProvider? presetProvider = null)
     {
-        var providers = UsageProvider.All.Where(p => p.IsAvailable || p == rule?.Provider).ToList();
+        // Only services you're signed in to, plus the one this app already shows.
+        var signedIn = state.SignedIn;
+        var providers = UsageProvider.All
+            .Where(p => (p.IsAvailable && signedIn.Contains(p)) || p == rule?.Provider || p == presetProvider).ToList();
         var dialog = Adw.AlertDialog.New(rule is null ? "Add an App" : "Edit App",
             "While this app is in front, the tray shows this service's usage.");
         var list = Gtk.ListBox.New();
@@ -736,7 +739,7 @@ public sealed class SettingsPage : IPage
         var service = Adw.ComboRow.New();
         service.SetTitle("Shows usage for");
         service.SetModel(Gtk.StringList.New(providers.Select(p => p.DisplayName).ToArray()));
-        var selected = providers.IndexOf(presetProvider ?? rule?.Provider ?? providers[0]);
+        var selected = (presetProvider ?? rule?.Provider) is { } current ? providers.IndexOf(current) : 0;
         service.SetSelected((uint)Math.Max(0, selected));
         service.SetName("LiveAppServiceBox");
         list.Append(service);
@@ -746,7 +749,7 @@ public sealed class SettingsPage : IPage
         dialog.SetResponseAppearance("save", Adw.ResponseAppearance.Suggested);
         dialog.SetDefaultResponse("save");
         dialog.SetCloseResponse("cancel");
-        void Validate() => dialog.SetResponseEnabled("save", AppMappings.Key(name.GetText()).Length > 0);
+        void Validate() => dialog.SetResponseEnabled("save", providers.Count > 0 && AppMappings.Key(name.GetText()).Length > 0);
         Validate();
         name.OnChanged += (_, _) => Validate();
         dialog.OnResponse += (_, args) =>

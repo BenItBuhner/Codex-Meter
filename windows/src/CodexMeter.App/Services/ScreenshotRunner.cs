@@ -79,7 +79,8 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
             // Settings → While using AI apps, with Grok Bot pointed at Cursor as a user would, scrolled so
             // that row and Add an app are in view.
             state.Settings.Update(s => AppMappings.Set(s, "Grok Bot", UsageProvider.Cursor));
-            failures += await CaptureScrolledAsync("settings", "LiveApp_windsurf", File("ai-apps"));
+            // Only apps for signed-in services are listed, so scroll to Grok Bot (now Cursor) itself.
+            failures += await CaptureScrolledAsync("settings", "LiveApp_grokbot", File("ai-apps"));
             // Edit dashboard below needs a dashboard in front again.
             window.Navigate(firstProvider);
             await Task.Delay(1000);
