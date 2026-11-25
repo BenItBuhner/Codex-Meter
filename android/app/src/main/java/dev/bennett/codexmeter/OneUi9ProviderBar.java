@@ -39,6 +39,8 @@ final class OneUi9ProviderBar implements ProviderBar {
     private final Consumer<UsageProvider> onSelected;
     private final Runnable onPriority;
     private final int gap;
+    /** One UI 9.5's refracting glass behind the bar, or null (One UI 9, or before Android 12). */
+    private final View lens;
     /** The bar's entries in order; {@code null} is the Priority tab. */
     private List<UsageProvider> providers = new ArrayList<>();
     private UsageProvider selected;
@@ -54,6 +56,7 @@ final class OneUi9ProviderBar implements ProviderBar {
         this.nav = (BottomNavigationView) LayoutInflater.from(page.activity)
                 .inflate(R.layout.oneui9_provider_bar, page.root, false);
         page.root.addView(nav);
+        this.lens = OneUi95Glass.isOn(page.activity) ? OneUi95Glass.dressBar(page, nav) : null;
         nav.setOnItemSelectedListener(this::onItemSelected);
         nav.setOnItemReselectedListener(item -> {
             if (item.getItemId() == MORE_ID) {
@@ -111,6 +114,7 @@ final class OneUi9ProviderBar implements ProviderBar {
         if (nav.getVisibility() == View.VISIBLE) {
             nav.invalidate();
         }
+        OneUi95Glass.refresh(lens);
     }
 
     /**
@@ -144,6 +148,7 @@ final class OneUi9ProviderBar implements ProviderBar {
             }
             menu.setGroupCheckable(Menu.NONE, true, true);
             nav.setVisibility(ProviderTabs.showsBar(entries.size()) ? View.VISIBLE : View.GONE);
+            OneUi95Glass.refresh(lens);
             selectedSet = false;
         }
         select(withPriority && onPriority ? null : current);

@@ -6,7 +6,7 @@
 #
 #   android/ci/record-design-gallery.sh <debug APK> <output dir> [design] [scenes]
 #
-# design: liquid_glass (default), material_3_expressive, one_ui_9 or classic. scenes: all (default),
+# design: liquid_glass (default), material_3_expressive, one_ui_9, one_ui_9_5 or classic. scenes: all (default),
 # new_models for only the New models card (with a relevant model, then with only irrelevant ones),
 # the Notifications toggle and the Refresh note, priority for only the Priority tab (top to bottom,
 # then a provider tab and back), perf for the Liquid Glass navigation pass, wide for foldable and
