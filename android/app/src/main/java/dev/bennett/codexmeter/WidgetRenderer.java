@@ -690,13 +690,10 @@ public final class WidgetRenderer {
         if (!ResetAlertPreferences.hasResets(provider)) {
             available.remove(WidgetMeters.RESET_CREDITS);
         }
-        if (provider != UsageProvider.CODEX) {
-            // Plans without a 5-hour limit (Claude Ultra, Cursor) show the long window instead
-            // of an empty 5-hour meter.
-            noShortWindow = snapshot != null && snapshot.fiveHour == null
-                    && snapshot.longWindow() != null;
-            if (noShortWindow) available.remove(WidgetMeters.FIVE_HOUR);
-        }
+        // Plans without a 5-hour limit (Claude Ultra, Cursor, Codex Free) show the long window
+        // instead of an empty 5-hour meter.
+        noShortWindow = !WidgetMeters.mayHaveFiveHour(snapshot);
+        if (noShortWindow) available.remove(WidgetMeters.FIVE_HOUR);
         List<String> resolvedVisible = new ArrayList<>(
                 WidgetMeters.resolveVisibleForWidget(options.effectiveVisibleMeters(),
                         available, options.metricMode));
@@ -735,13 +732,20 @@ public final class WidgetRenderer {
             UsageSnapshot snapshot = SecureTokenStore.isSignedIn(context, provider)
                     ? ProviderPreferences.loadSnapshot(context, provider) : null;
             WidgetState state = WidgetState.from(context, options, provider);
-            List<String> keys = WidgetProviders.metersFor(visible,
+            List<String> keys = WidgetProviders.homeMetersFor(visible,
                     snapshot != null && snapshot.fiveHour != null,
-                    snapshot != null && snapshot.longWindow() != null, perProvider);
+                    snapshot != null && snapshot.longWindow() != null,
+                    ResetAlertPreferences.hasResets(provider), perProvider);
+            ResetCreditsSnapshot credits = ResetAlertPreferences.hasResets(provider)
+                    ? ProviderPreferences.loadResetCredits(context, provider, System.currentTimeMillis())
+                    : null;
+            int resetCount = credits == null ? 0 : credits.availableCount;
             for (String key : keys) {
-                MeterSlot slot = buildSlot(key, snapshot, state, options, 0);
+                MeterSlot slot = buildSlot(key, snapshot, state, options, resetCount);
                 if (slot == null) slot = blankSlot(key, snapshot);
-                String value = perProvider > 1
+                // Battery-list rows name the meter when a provider has two, or when it is not a usage window.
+                boolean named = STYLE_BATTERY_LIST.equals(visualStyle) && (perProvider > 1 || !slot.usage);
+                String value = named
                         ? WidgetMeters.shortLabel(key, snapshot) + "  " + slot.valueText
                         : slot.valueText;
                 slots.add(new MeterSlot(key, provider.displayName,
@@ -788,7 +792,7 @@ public final class WidgetRenderer {
             int progress = Math.min(100, Math.round((Math.min(4, resetCount) / 4.0f) * 100));
             String text = String.valueOf(resetCount);
             return new MeterSlot(key, "Credits", R.drawable.ic_oui_refresh, progress, text, text,
-                    Math.max(4, resetCount), false);
+                    100, false);
         }
         UsageLimit limit = WidgetMeters.findLimit(key, snapshot);
         if (limit != null) {

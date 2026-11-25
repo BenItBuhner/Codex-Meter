@@ -1,6 +1,7 @@
 package dev.bennett.codexmeter;
 
 import android.content.Context;
+import android.content.Intent;
 import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
@@ -35,6 +36,26 @@ public final class DashboardReorderActivity extends AppCompatActivity {
 
     /** Provider id whose dashboard is being edited; Codex when missing. */
     public static final String EXTRA_PROVIDER = "provider";
+    /** Edits the Priority tab's sections instead of a provider's cards (see {@link #priority}). */
+    static final String EXTRA_PRIORITY = "priority";
+    /** With {@link #EXTRA_PRIORITY}: "key=count" for each section, counted before hiding. */
+    static final String EXTRA_PRIORITY_SIZES = "priority_sizes";
+
+    /**
+     * Priority's Edit in the One UI designs: the same sections, switches and order as Liquid
+     * Glass's Edit mode, each with how many items it has now.
+     */
+    static Intent priority(Context context, PriorityPage page) {
+        ArrayList<String> sizes = new ArrayList<>();
+        for (java.util.Map.Entry<String, Integer> e : page.sizes.entrySet()) {
+            sizes.add(e.getKey() + "=" + e.getValue());
+        }
+        return new Intent(context, DashboardReorderActivity.class)
+                .putExtra(EXTRA_PRIORITY, true)
+                .putStringArrayListExtra(EXTRA_PRIORITY_SIZES, sizes);
+    }
+
+    private boolean priority;
     private final List<SectionItem> items = new ArrayList<>();
     private UsageProvider provider = UsageProvider.CODEX;
     private RecyclerView recycler;
@@ -61,13 +82,16 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         }
         this.dark = Ui.isDark(this);
         this.provider = UsageProvider.fromId(getIntent().getStringExtra(EXTRA_PROVIDER));
-        LinearLayout content = Ui.installPage(this, "Edit dashboard", true).content;
+        this.priority = getIntent().getBooleanExtra(EXTRA_PRIORITY, false);
+        LinearLayout content = Ui.installPage(this, priority ? "Edit Priority" : "Edit dashboard", true).content;
         // Pull-to-refresh would swallow downward drag gestures while rearranging rows.
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =
                 findViewById(R.id.dashboard_refresh);
         refresh.setEnabled(false);
 
-        TextView hint = Ui.text(this, provider == UsageProvider.CODEX
+        TextView hint = Ui.text(this, priority
+                ? "Choose what Priority shows, and drag the handles to change the order."
+                : provider == UsageProvider.CODEX
                 ? "Drag the handles to arrange your Codex cards and use the switches to hide the "
                         + "ones you don't need. Model-specific limits such as GPT-5.3-Codex-Spark "
                         + "appear here automatically once OpenAI reports them for your account."
@@ -93,7 +117,9 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         listCard.addView(recycler, new LinearLayout.LayoutParams(-1, -2));
         content.addView(listCard);
 
-        TextView note = Ui.text(this, provider == UsageProvider.CODEX
+        TextView note = Ui.text(this, priority
+                ? "Changes are saved instantly. A section shows only while it has something in it."
+                : provider == UsageProvider.CODEX
                 ? "Changes are saved instantly. Usage-credit balance and reset credits stay hidden "
                         + "when they have nothing to show (zero or below); 5-hour, weekly, "
                         + "monthly, and usage-history cards appear only while OpenAI reports data "
@@ -115,6 +141,10 @@ public final class DashboardReorderActivity extends AppCompatActivity {
     }
 
     private void buildItems() {
+        if (priority) {
+            buildPriorityItems();
+            return;
+        }
         if (provider != UsageProvider.CODEX) {
             buildProviderItems();
             return;
@@ -150,6 +180,33 @@ public final class DashboardReorderActivity extends AppCompatActivity {
                         "Model-specific limit · detected automatically"));
             }
         }
+    }
+
+    /** Priority's sections in the order the tab shows them, with how many items each has now. */
+    private void buildPriorityItems() {
+        java.util.Map<String, Integer> sizes = new java.util.HashMap<>();
+        List<String> pairs = getIntent().getStringArrayListExtra(EXTRA_PRIORITY_SIZES);
+        if (pairs != null) {
+            for (String pair : pairs) {
+                int eq = pair.lastIndexOf('=');
+                if (eq > 0) {
+                    try {
+                        sizes.put(pair.substring(0, eq), Integer.parseInt(pair.substring(eq + 1)));
+                    } catch (NumberFormatException ignored) {
+                        // a malformed extra only loses that section's count
+                    }
+                }
+            }
+        }
+        for (String key : PriorityPrefs.sectionOrder(this)) {
+            items.add(new SectionItem(key, PriorityPage.label(key), itemCount(sizes.get(key))));
+        }
+    }
+
+    /** "Nothing right now", "1 item now", "3 items now": the same words as Liquid Glass's Edit. */
+    static String itemCount(Integer size) {
+        int n = size == null ? 0 : size;
+        return n == 0 ? "Nothing right now" : n == 1 ? "1 item now" : n + " items now";
     }
 
     /** Claude Code, Cursor, and future providers: only the cards that provider reports. */
@@ -215,14 +272,26 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         for (SectionItem item : items) {
             order.add(item.key);
         }
+        if (priority) {
+            PriorityPrefs.setSectionOrder(this, order);
+            return;
+        }
         ProviderPreferences.setDashboardOrder(this, provider, order);
     }
 
     private boolean isSectionVisible(String key) {
+        if (priority) {
+            return PriorityPrefs.isSectionShown(this, key);
+        }
         return ProviderPreferences.isDashboardSectionVisible(this, provider, key);
     }
 
     private void setSectionVisible(String key, boolean visible) {
+        if (priority) {
+            DiagnosticLog.info(this, "user", "priority_section " + key + " " + visible);
+            PriorityPrefs.setSectionShown(this, key, visible);
+            return;
+        }
         ProviderPreferences.setDashboardSectionVisible(this, provider, key, visible);
     }
 
@@ -253,7 +322,7 @@ public final class DashboardReorderActivity extends AppCompatActivity {
             row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
             SwitchCompat toggle = new SwitchCompat(DashboardReorderActivity.this);
-            toggle.setContentDescription("Show on dashboard");
+            toggle.setContentDescription(priority ? "Show on Priority" : "Show on dashboard");
             LinearLayout.LayoutParams toggleParams = new LinearLayout.LayoutParams(-2, -2);
             toggleParams.setMargins(Ui.dp(DashboardReorderActivity.this, 8), 0,
                     Ui.dp(DashboardReorderActivity.this, 4), 0);
