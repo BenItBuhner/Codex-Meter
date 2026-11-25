@@ -2,7 +2,8 @@ name: CI
 
 # The merge gate for main and alpha. Every job here fails on a warning. "CI gate" is the one
 # required check: it passes only when every job below passed or was skipped because its area
-# didn't change. Galleries, emulator scenarios, installers and release uploads live in the other
+# didn't change. Jobs run side by side and each one boots its emulator or simulator while it
+# builds, so the gate takes about as long as its slowest job. Galleries, emulator scenarios, installers and release uploads live in the other
 # workflows and stay optional.
 on:
   pull_request:
@@ -170,14 +171,25 @@ jobs:
             if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
             else await github.rest.issues.createComment({ owner, repo, issue_number, body });
 
+  # The emulator half of the Android checks, split three ways so they run side by side. Each job
+  # boots its own emulator while it builds (no hand-off between jobs). The full Android lint runs
+  # in the Android job above, so these builds skip lintVital.
   performance:
     name: Android performance budgets
     needs: changes
     if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+      # Before the emulator install starts: two sdkmanager runs at once can trip over each other.
+      - name: Install Android platforms
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -186,16 +198,10 @@ jobs:
           cache-dependency-path: |
             android/**/*.gradle*
             android/**/gradle-wrapper.properties
-      - name: Install Android platforms
-        run: |
-          set -euo pipefail
-          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
       # The release build users install, signed with a throwaway key through the same
-      # localRelease signing config a local release build uses.
-      - name: Build the release phone app
+      # localRelease signing config a local release build uses. It runs in the background so the
+      # emulator snapshot restore (about a minute) happens alongside it.
+      - name: Start the release phone app build (background)
         working-directory: android
         run: |
           set -euo pipefail
@@ -205,39 +211,141 @@ jobs:
             -storepass perfbudget -keypass perfbudget -alias codexmeter -keyalg RSA -keysize 2048 \
             -validity 1 -dname CN=perf >/dev/null
           # The APK users install (arm64) is measured for size; the emulator is x86_64, so the
-          # same release build for x86_64 is the one that launches.
-          ./gradlew --console=plain :app:assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release.apk"
-          ./gradlew --console=plain :app:assembleRelease -PreleaseAbis=x86_64
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release-x86_64.apk"
-          # The debug build with its demo entry points, shrunk by the same R8 rules, for the smoke
-          # test that opens every design and screen.
-          ./gradlew --console=plain :app:assembleDebug -PshrinkDebug=true
-          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/app-debug-shrunk.apk"
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: Measure start-up, memory and size
-        uses: reactivecircus/android-emulator-runner@v2
+          # same release build for x86_64 is the one that launches. R8 runs once for both.
+          ../android/ci/bg.sh start build bash -c '
+            set -euo pipefail
+            ./gradlew --console=plain :app:assembleRelease -x lintVitalRelease
+            cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release.apk"
+            ./gradlew --console=plain :app:assembleRelease -x lintVitalRelease -PreleaseAbis=x86_64
+            cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release-x86_64.apk"'
+      # A snapshot of a booted emulator whose packages are already compiled, cached per runner
+      # image (see android/ci/emulator.sh). It resumes in seconds while Gradle builds.
+      - name: Key the emulator snapshot to the runner image
+        id: avd-key
+        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v2" >> "$GITHUB_OUTPUT"
+      - name: Restore the emulator snapshot
+        id: avd
+        uses: actions/cache/restore@v4
         with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_7
-          force-avd-creation: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          disable-animations: true
-          script: |
-            ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release-x86_64.apk" "$RUNNER_TEMP/app-release.apk"
-            ./android/ci/shrunk-smoke.sh "$RUNNER_TEMP/app-debug-shrunk.apk" shrunk-smoke
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
+          key: ${{ steps.avd-key.outputs.key }}
+      - name: Start the emulator in the background
+        run: android/ci/emulator.sh start
+      - name: Finish the release phone app build
+        run: android/ci/bg.sh wait build
+      - name: Snapshot the emulator (first run on this runner image)
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh snapshot
+      - name: Cache the emulator snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        # Six jobs miss at once on a new runner image; the first to finish stores it.
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
+          key: ${{ steps.avd-key.outputs.key }}
+      - name: Resume the emulator from its new snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh start
+      - name: Wait for the emulator
+        run: android/ci/emulator.sh wait
+      - name: Measure start-up, memory and size
+        run: ./android/ci/perf-budgets.sh "$RUNNER_TEMP/app-release-x86_64.apk" "$RUNNER_TEMP/app-release.apk"
+
+  # Opens every design and screen of a debug build shrunk by the release R8 rules
+  # (android/ci/shrunk-smoke.sh), one design per emulator.
+  shrunk-smoke:
+    name: Android R8 smoke test (${{ matrix.designs }})
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        designs: [classic, one_ui_9, one_ui_9_5, liquid_glass, material_3_expressive]
+    steps:
+      - uses: actions/checkout@v7
+      # Before the emulator install starts: two sdkmanager runs at once can trip over each other.
+      - name: Install Android platforms
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+      # In the background, so the emulator snapshot restore happens alongside it.
+      - name: Start the shrunk debug app build (background)
+        working-directory: android
+        run: |
+          ../android/ci/bg.sh start build bash -c '
+            set -euo pipefail
+            ./gradlew --console=plain :app:assembleDebug -PshrinkDebug=true
+            cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/app-debug-shrunk.apk"'
+      # A snapshot of a booted emulator whose packages are already compiled, cached per runner
+      # image (see android/ci/emulator.sh). It resumes in seconds while Gradle builds.
+      - name: Key the emulator snapshot to the runner image
+        id: avd-key
+        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v2" >> "$GITHUB_OUTPUT"
+      - name: Restore the emulator snapshot
+        id: avd
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
+          key: ${{ steps.avd-key.outputs.key }}
+      - name: Start the emulator in the background
+        run: android/ci/emulator.sh start
+      - name: Finish the shrunk debug app build
+        run: android/ci/bg.sh wait build
+      - name: Snapshot the emulator (first run on this runner image)
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh snapshot
+      - name: Cache the emulator snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        # Six jobs miss at once on a new runner image; the first to finish stores it.
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/ci.avd
+            ~/.android/avd/ci.ini
+            /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
+          key: ${{ steps.avd-key.outputs.key }}
+      - name: Resume the emulator from its new snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: android/ci/emulator.sh start
+      - name: Wait for the emulator
+        run: android/ci/emulator.sh wait
+      - name: Open every screen
+        env:
+          DESIGNS: ${{ matrix.designs }}
+        run: ./android/ci/shrunk-smoke.sh "$RUNNER_TEMP/app-debug-shrunk.apk" shrunk-smoke
       - name: Upload the R8 smoke screenshots
         if: success() || failure()
         uses: actions/upload-artifact@v7
         with:
-          name: shrunk-smoke
+          name: shrunk-smoke-${{ matrix.designs }}
           path: shrunk-smoke/
           if-no-files-found: warn
 
@@ -289,12 +397,18 @@ jobs:
       - name: Build with warnings as errors
         run: dotnet build src/CodexMeter.App/CodexMeter.App.csproj -c Release -r win-x64 -p:Platform=x64 -warnaserror
 
-  apple:
-    name: Apple
+  # Three macOS jobs side by side: lint, package tests and the Mac budgets; the iOS unit tests;
+  # the iPhone budgets. Every build is for the runner's own architecture only. The simulator boots
+  # after the build: on these 3-core runners a boot running alongside it made the build 2-2.5x
+  # slower, more than the boot itself costs.
+  apple-core:
+    name: Apple lint, core tests and Mac performance budgets
     needs: changes
     if: needs.changes.outputs.apple == 'true'
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 30
+    env:
+      SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
     steps:
       - uses: actions/checkout@v7
       - name: SwiftLint (strict; force_try is an error)
@@ -306,32 +420,95 @@ jobs:
           "$RUNNER_TEMP/swiftlint/swiftlint" lint --strict --reporter github-actions-logging
       - name: CodexMeterCore tests with warnings as errors
         run: swift test --package-path ios/CodexMeterCore -Xswiftc -warnings-as-errors
-      - name: Pick an iPhone simulator
-        id: simulator
+      - name: Build the Release Mac app
         run: |
           set -euo pipefail
-          DEVICE="$(xcrun simctl list devices available \
-            | sed -nE 's/^[[:space:]]+(iPhone [A-Za-z0-9 ]*[A-Za-z0-9]) \(.*/\1/p' | head -n 1)"
-          [[ -n "$DEVICE" ]] || { echo "::error::No iPhone simulator on this runner"; exit 1; }
-          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+          xcodebuild build -project macos/CodexMeterMac.xcodeproj -scheme CodexMeterMac -configuration Release \
+            -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/mac" $SIGNING_ARGS \
+            ONLY_ACTIVE_ARCH=YES COMPILER_INDEX_STORE_ENABLE=NO -quiet
+      - name: Measure Mac start-up and memory
+        run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
+
+  apple:
+    name: iOS unit tests
+    needs: changes
+    if: needs.changes.outputs.apple == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
       # Warnings are errors through the project's own build settings. Passing them on the
       # command line would also reach the CodexMeterCore package, which Xcode builds with
-      # -suppress-warnings, and the two flags conflict. swift test above covers the package.
-      - name: iOS unit tests with warnings as errors
+      # -suppress-warnings, and the two flags conflict. swift test (above) covers the package.
+      - name: Build the iOS unit tests with warnings as errors
         working-directory: ios
-        env:
-          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
         run: |
           set -euo pipefail
-          xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
-            -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
-            -derivedDataPath DerivedData \
+          # A generic destination, so the build never waits on CoreSimulator; arm64 is the
+          # runner's architecture.
+          xcodebuild build-for-testing -project CodexMeter.xcodeproj -scheme CodexMeter \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
-            CODE_SIGNING_ALLOWED=NO \
-            test
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
+      - name: Boot an iPhone simulator
+        id: simulator
+        run: macos/ci/boot-simulator.sh
+      - name: Wait for the simulator
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          SECONDS=0
+          xcrun simctl bootstatus "$UDID"
+          echo "Booted in ${SECONDS}s"
+      - name: Run the iOS unit tests
+        working-directory: ios
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          xcodebuild test-without-building -project CodexMeter.xcodeproj -scheme CodexMeter \
+            -destination "id=$UDID" -derivedDataPath DerivedData \
+            -only-testing:CodexMeterTests \
+            CODE_SIGNING_ALLOWED=NO
 
-  # Start-up time and memory for the desktop and Apple apps, as the Android job above measures the
-  # phone app. Each app, launched with -perf-budget / --perf-budget, reports its own first frame;
+  apple-performance:
+    name: iPhone performance budgets
+    needs: changes
+    if: needs.changes.outputs.apple == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the Release iPhone app
+        run: |
+          set -euo pipefail
+          # Generic destination (see the iOS unit tests job), built for arm64, the runner's arch.
+          xcodebuild build -project ios/CodexMeter.xcodeproj -scheme CodexMeter -configuration Release \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/ios" \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
+      - name: Boot an iPhone simulator
+        id: simulator
+        run: macos/ci/boot-simulator.sh
+      - name: Measure iPhone start-up and memory
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          SECONDS=0
+          xcrun simctl bootstatus "$UDID" >/dev/null
+          echo "Booted in ${SECONDS}s"
+          APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
+          macos/ci/perf-budgets.sh ios "$APP" "$UDID"
+      - name: Upload screenshots of a launch that printed no first frame
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apple-perf-budget-screens
+          path: ${{ runner.temp }}/perf-budget-*.png
+          if-no-files-found: ignore
+
+  # Start-up time and memory for the desktop apps, as the jobs above measure the phone and Apple
+  # apps. Each app, launched with -perf-budget / --perf-budget, reports its own first frame;
   # the scripts hold the ceilings and why they are where they are.
   linux-performance:
     name: Linux performance budgets
@@ -389,62 +566,11 @@ jobs:
           $log = Join-Path $env:LOCALAPPDATA 'CodexMeter/codexmeter.log'
           if (Test-Path $log) { Get-Content $log } else { 'No log written.' }
 
-  apple-performance:
-    name: Apple performance budgets
-    needs: changes
-    if: needs.changes.outputs.apple == 'true'
-    runs-on: macos-26
-    timeout-minutes: 60
-    env:
-      SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
-    steps:
-      - uses: actions/checkout@v7
-      - name: Pick an iPhone simulator
-        id: simulator
-        run: |
-          set -euo pipefail
-          DEVICE="$(xcrun simctl list devices available \
-            | sed -nE 's/^[[:space:]]+(iPhone [A-Za-z0-9 ]*[A-Za-z0-9]) \(.*/\1/p' | head -n 1)"
-          [[ -n "$DEVICE" ]] || { echo "::error::No iPhone simulator on this runner"; exit 1; }
-          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
-      - name: Build the Release iPhone app
-        env:
-          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
-        run: |
-          set -euo pipefail
-          xcodebuild build -project ios/CodexMeter.xcodeproj -scheme CodexMeter -configuration Release \
-            -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
-            -derivedDataPath "$RUNNER_TEMP/ios" CODE_SIGNING_ALLOWED=NO -quiet
-      - name: Build the Release Mac app
-        run: |
-          set -euo pipefail
-          xcodebuild build -project macos/CodexMeterMac.xcodeproj -scheme CodexMeterMac -configuration Release \
-            -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/mac" $SIGNING_ARGS -quiet
-      # The Mac goes first: a simulator that is booting, or a vmmap stalled on one, made Mac
-      # launches 4-5x slower (3.1 s medians against 0.6-0.7 s on a quiet runner).
-      - name: Measure Mac start-up and memory
-        run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
-      - name: Measure iPhone start-up and memory
-        if: success() || failure()
-        env:
-          DEVICE_NAME: ${{ steps.simulator.outputs.device }}
-        run: |
-          set -euo pipefail
-          APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
-          macos/ci/perf-budgets.sh ios "$APP" "$DEVICE_NAME"
-      - name: Upload screenshots of a launch that printed no first frame
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: apple-perf-budget-screens
-          path: ${{ runner.temp }}/perf-budget-*.png
-          if-no-files-found: ignore
-
   gate:
     name: CI gate
     if: always()
-    needs: [changes, android, performance, payload, desktop, windows-app, apple,
-            linux-performance, windows-performance, apple-performance]
+    needs: [changes, android, performance, shrunk-smoke, payload, desktop, windows-app, apple-core,
+            apple, linux-performance, windows-performance, apple-performance]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
