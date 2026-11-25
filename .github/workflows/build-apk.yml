@@ -1,9 +1,14 @@
 name: Build Codex Meter APK
 
 on:
+  # Pull requests build the APK only when Android files change; pushes and tags always do.
   pull_request:
     branches: [main, alpha]
     types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'android/**'
+      - 'CHANGELOG.md'
+      - '.github/workflows/build-apk.yml'
   push:
     branches: [main, alpha]
     tags: ['v*']
