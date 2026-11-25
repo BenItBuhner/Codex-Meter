@@ -30,43 +30,40 @@ jobs:
     timeout-minutes: 5
     outputs:
       android: ${{ steps.areas.outputs.android }}
-      desktop: ${{ steps.areas.outputs.desktop }}
       apple: ${{ steps.areas.outputs.apple }}
+      windows: ${{ steps.areas.outputs.windows }}
+      linux: ${{ steps.areas.outputs.linux }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # A pull request runs only the stacks its files touch (.github/scripts/ci-areas.sh). Pushes
+      # to main and alpha, manual runs, a "full CI" label and "[full ci]" in the head commit's
+      # message run everything.
       - name: Work out which areas changed
         id: areas
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full CI') }}
         shell: bash
         run: |
           set -uo pipefail
-          # Fails open: on a push, a failed diff, an empty diff, a shared file or any path this
-          # script doesn't know, every area runs. Only a diff it fully understands skips anything.
-          everything() {
-            echo "Running every area: $1"
-            printf 'android=true\ndesktop=true\napple=true\n' >> "$GITHUB_OUTPUT"
-            exit 0
-          }
-          [[ "$GITHUB_EVENT_NAME" == "pull_request" ]] || everything "not a pull request"
-          files="$(git diff --name-only "$BASE...$HEAD")" || everything "git diff failed"
-          [[ -n "$files" ]] || everything "empty diff"
-          android=false; desktop=false; apple=false
-          while IFS= read -r f; do
-            case "$f" in
-              .github/*|release-invariants.sh|header-case.sh|run-tests.sh|lint.sh|build.sh|.editorconfig|.swiftlint.yml|android/tests/fixtures/*)
-                everything "shared file $f" ;;
-              android/*|CHANGELOG.md) android=true ;;
-              windows/*|linux/*) desktop=true ;;
-              ios/*|macos/*) apple=true ;;
-              *.md|LICENSE|.gitignore|.gitattributes) ;;
-              *) everything "unclassified path $f" ;;
-            esac
-          done <<< "$files"
-          printf 'android=%s\ndesktop=%s\napple=%s\n' "$android" "$desktop" "$apple" | tee -a "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
+            .github/scripts/ci-areas.sh gate --all
+          elif [[ "$FULL_LABEL" == true ]]; then
+            echo 'The "full CI" label is on this pull request.'
+            .github/scripts/ci-areas.sh gate --all
+          elif git log -1 --format=%B "$HEAD" | grep -qiF '[full ci]'; then
+            echo 'The head commit asks for [full ci].'
+            .github/scripts/ci-areas.sh gate --all
+          else
+            # A failed diff lists nothing, which runs everything.
+            git diff --name-only "$BASE...$HEAD" | tee changed-files.txt
+            .github/scripts/ci-areas.sh gate < changed-files.txt
+          fi
+      - name: Check the area rules
+        run: .github/scripts/ci-areas-test.sh
       - name: Headers keep their case (no forced capitals)
         run: ./header-case.sh
 
@@ -364,7 +361,7 @@ jobs:
   desktop:
     name: Desktop core and Linux
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: needs.changes.outputs.windows == 'true' || needs.changes.outputs.linux == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -394,7 +391,7 @@ jobs:
   windows-app:
     name: Windows app build
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: needs.changes.outputs.windows == 'true'
     runs-on: windows-2025
     timeout-minutes: 30
     defaults:
@@ -528,7 +525,7 @@ jobs:
   linux-performance:
     name: Linux performance budgets
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: needs.changes.outputs.linux == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -559,7 +556,7 @@ jobs:
   windows-performance:
     name: Windows performance budgets
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: needs.changes.outputs.windows == 'true'
     runs-on: windows-2025
     timeout-minutes: 30
     defaults:
@@ -589,12 +586,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every job passed or was skipped for an unchanged area
+      - name: Every job passed, or was skipped because its area didn't change
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
+          set -euo pipefail
           echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           if echo "$RESULTS" | jq -e '.changes.result != "success" or ([.[].result] | any(. == "failure" or . == "cancelled"))' >/dev/null; then
             echo "::error::A required CI job failed or was cancelled."
+            exit 1
+          fi
+          # A job may be skipped only when none of its areas changed.
+          echo "$RESULTS" | jq -r '.changes.outputs | to_entries[] | "area \(.key): \(.value)"'
+          for job in $(echo "$RESULTS" | jq -r '
+              .changes.outputs as $on
+              | {android: ["android"], performance: ["android"], "shrunk-smoke": ["android"],
+                 desktop: ["windows", "linux"], "windows-app": ["windows"], "windows-performance": ["windows"],
+                 "linux-performance": ["linux"], "apple-core": ["apple"], apple: ["apple"],
+                 "apple-performance": ["apple"]} as $areas
+              | to_entries[] | .key as $job
+              | select($areas[$job] != null)
+              | select(([$areas[$job][] | $on[.]] | any(. == "true")) and .value.result != "success")
+              | $job'); do
+            echo "::error::$job was skipped although its area changed."
+            exit 1
+          done
+          # Every job the gate waits for must be in the area map above.
+          unmapped="$(echo "$RESULTS" | jq -r '
+              ["changes", "payload", "android", "performance", "shrunk-smoke", "desktop", "windows-app",
+               "windows-performance", "linux-performance", "apple-core", "apple", "apple-performance"] as $known
+              | keys[] | select(. as $k | $known | index($k) | not)')"
+          if [[ -n "$unmapped" ]]; then
+            echo "::error::Add these jobs to the gate's area map: $unmapped"
             exit 1
           fi

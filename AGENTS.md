@@ -19,6 +19,8 @@ CI's `CI gate` job is the required check, and every job behind it treats warning
 - Desktop: `dotnet test windows/tests/CodexMeter.Core.Tests` and `dotnet test linux/tests/CodexMeter.Linux.Tests` (any OS), plus `dotnet format <project> --verify-no-changes`.
 - Apple: `swiftlint lint --strict` and `swift test --package-path ios/CodexMeterCore`. Xcode builds need macOS.
 
+On a pull request, CI runs only the stacks its files touch (Android, Apple, Windows, Linux), and iOS CI runs only its affected jobs. The rules are in `.github/scripts/ci-areas.sh`, with cases in `ci-areas-test.sh`. Shared files, such as the shared fixtures, the desktop core and the CI scripts, run every stack that reads them, and any path the rules don't know runs everything. Pushes to `main` and `alpha` always run everything. To run everything on a pull request, add the `full CI` label and push, put `[full ci]` in the head commit's message, or use "Run workflow" on the branch. When you add a job to the gate, add it to the gate's area map too, or the gate fails.
+
 Write tests that exercise behavior. Don't add checks that grep source for a string; a rule that matters belongs in a linter, `android/ci/resource-checks.py` (manifest and resource constraints) or `release-invariants.sh`. Tests wait on signals, never on sleeps.
 
 ## Release bar

@@ -6,6 +6,7 @@ on:
     paths:
       - 'ios/**'
       - '.github/workflows/ios-ci.yml'
+      - '.github/scripts/ci-areas.sh'
   workflow_dispatch:
 
 permissions:
@@ -35,11 +36,45 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: .github/scripts/wait-for-gate-macos.sh
 
+  # Which iOS jobs this change needs (.github/scripts/ci-areas.sh ios): a watch-only change runs
+  # only the watch job, an app change skips the watch. Manual runs, a "full CI" label and
+  # "[full ci]" in the head commit's message run everything.
+  changes:
+    name: Changed iOS areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.areas.outputs.core }}
+      app: ${{ steps.areas.outputs.app }}
+      gallery: ${{ steps.areas.outputs.gallery }}
+      ipad: ${{ steps.areas.outputs.ipad }}
+      watch: ${{ steps.areas.outputs.watch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Work out which areas changed
+        id: areas
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full CI') }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != pull_request || "$FULL_LABEL" == true ]]; then
+            .github/scripts/ci-areas.sh ios --all
+          elif git log -1 --format=%B "$HEAD" | grep -qiF '[full ci]'; then
+            .github/scripts/ci-areas.sh ios --all
+          else
+            git diff --name-only "$BASE...$HEAD" | .github/scripts/ci-areas.sh ios
+          fi
+
   core-tests:
     name: CodexMeterCore package tests
-    needs: gate-first
-    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
-    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
+    needs: [gate-first, changes]
+    # Runs after the wait, or straight away on manual runs (no wait job), when its area changed.
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' && needs.changes.outputs.core == 'true' }}
     runs-on: macos-26
     timeout-minutes: 20
     defaults:
@@ -60,13 +95,24 @@ jobs:
           swift test --package-path CodexMeterCore
 
   # The UI suite and the demo gallery each take about 20 minutes, so they run side by side.
+  # The UI tests in two halves on two simulators; new test classes land in the main half.
   app-build-and-test:
-    name: App build and simulator tests
-    needs: gate-first
-    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
-    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
+    name: App simulator tests (${{ matrix.shard }})
+    needs: [gate-first, changes]
+    # Runs after the wait, or straight away on manual runs (no wait job), when its area changed.
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' && needs.changes.outputs.app == 'true' }}
     runs-on: macos-26
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: unit tests and main UI suite
+            key: main
+            tests: -skip-testing:CodexMeterUITests/DemoGalleryTests -skip-testing:CodexMeterUITests/PriorityParityUITests
+          - shard: Priority UI tests
+            key: priority
+            tests: -only-testing:CodexMeterUITests/PriorityParityUITests
     defaults:
       run:
         working-directory: ios
@@ -111,6 +157,7 @@ jobs:
         shell: bash
         env:
           DEVICE_NAME: ${{ steps.simulator.outputs.device }}
+          TESTS: ${{ matrix.tests }}
         run: |
           set -euo pipefail
           # -retry-tests-on-failure absorbs shared-runner simulator jank in the
@@ -122,7 +169,7 @@ jobs:
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
               -parallel-testing-enabled NO \
-              -skip-testing:CodexMeterUITests/DemoGalleryTests \
+              $TESTS \
               -retry-tests-on-failure -test-iterations 3 \
               | xcbeautify --renderer github-actions
           else
@@ -131,7 +178,7 @@ jobs:
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
               -parallel-testing-enabled NO \
-              -skip-testing:CodexMeterUITests/DemoGalleryTests \
+              $TESTS \
               -retry-tests-on-failure -test-iterations 3
           fi
 
@@ -139,16 +186,16 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: ios-test-results
+          name: ios-test-results-${{ matrix.key }}
           path: ios/TestResults.xcresult
           if-no-files-found: ignore
           retention-days: 3
 
   demo-gallery:
     name: Demo gallery
-    needs: gate-first
-    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
-    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
+    needs: [gate-first, changes]
+    # Runs after the wait, or straight away on manual runs (no wait job), when its area changed.
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' && needs.changes.outputs.gallery == 'true' }}
     runs-on: macos-26
     timeout-minutes: 60
     defaults:
@@ -235,9 +282,9 @@ jobs:
   # One job per iPad (each gallery takes 8-15 minutes), so they run side by side.
   ipad-layout:
     name: iPad ${{ matrix.title }}
-    needs: gate-first
-    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
-    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
+    needs: [gate-first, changes]
+    # Runs after the wait, or straight away on manual runs (no wait job), when its area changed.
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' && needs.changes.outputs.ipad == 'true' }}
     runs-on: macos-26
     timeout-minutes: 60
     strategy:
@@ -370,9 +417,9 @@ jobs:
 
   watch-build-and-gallery:
     name: Apple Watch build and gallery
-    needs: gate-first
-    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
-    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
+    needs: [gate-first, changes]
+    # Runs after the wait, or straight away on manual runs (no wait job), when its area changed.
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' && needs.changes.outputs.watch == 'true' }}
     runs-on: macos-26
     timeout-minutes: 60
     defaults:

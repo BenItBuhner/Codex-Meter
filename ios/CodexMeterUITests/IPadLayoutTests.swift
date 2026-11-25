@@ -44,14 +44,16 @@ final class IPadLayoutTests: XCTestCase {
         capture("01-landscape-sidebar-codex")
         assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Codex 5-hour and Weekly share a row in landscape")
 
-        // Landscape opens with the sidebar showing. Its button switches to the floating tab bar
-        // (and back); either way the dashboard keeps at least two columns.
+        // Landscape opens with the sidebar or the floating tab bar. Its button switches between them;
+        // either way the dashboard keeps at least two columns.
         if openSidebar(in: app) {
             UITestSupport.settle(1.0)
             capture("02-landscape-tab-bar")
-            XCTAssertTrue(app.buttons["Copilot"].firstMatch.exists, "The sidebar lists the added providers too")
+            // The sidebar's rows are cells and the floating tab bar's are buttons, and the app can
+            // open in either, so find the tabs by label whatever their element type.
+            XCTAssertTrue(tab("Copilot", in: app).exists, "The sidebar lists the added providers too")
             assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Columns survive the sidebar")
-            UITestSupport.tap(app.buttons["Claude Code"])
+            UITestSupport.tap(tab("Claude Code", in: app))
             XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Sidebar rows switch tabs")
             UITestSupport.settle(0.8)
             capture("03-landscape-claude-from-sidebar")
@@ -176,6 +178,17 @@ final class IPadLayoutTests: XCTestCase {
         button.tap()
         return app.buttons["sidebar-settings"].waitForExistence(timeout: 4)
             || app.buttons["Copilot"].firstMatch.waitForExistence(timeout: 2)
+    }
+
+    /// The tab with this label that is on screen: a sidebar row (a cell) or a tab bar button. A
+    /// hidden sidebar can keep its rows in the hierarchy, so prefer one that is hittable.
+    private func tab(_ label: String, in app: XCUIApplication) -> XCUIElement {
+        let matches = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label))
+        guard matches.firstMatch.waitForExistence(timeout: 5) else { return matches.firstMatch }
+        for index in 0..<min(matches.count, 8) where matches.element(boundBy: index).isHittable {
+            return matches.element(boundBy: index)
+        }
+        return matches.firstMatch
     }
 
     private func closeSidebar(in app: XCUIApplication) {
