@@ -4,10 +4,14 @@ import com.benitbuhner.glasse.core.DefaultGlass;
 import com.benitbuhner.glasse.outside.OutsideGlass;
 import com.benitbuhner.glasse.port.Sk;
 import com.benitbuhner.glasse.port.Smooth;
-import com.benitbuhner.glasse.ui.Widgets;
 import org.jetbrains.skia.Canvas;
+import org.jetbrains.skia.ClipMode;
+import org.jetbrains.skia.FilterBlurMode;
 import org.jetbrains.skia.Image;
+import org.jetbrains.skia.MaskFilter;
 import org.jetbrains.skia.Paint;
+import org.jetbrains.skia.Path;
+import org.jetbrains.skia.RRect;
 import org.jetbrains.skia.Surface;
 
 /**
@@ -80,8 +84,7 @@ public final class GlassWidgetArt {
         Canvas c = surface.getCanvas();
         c.save();
         c.scale((float) density, (float) density);
-        Widgets.INSTANCE.shadow(c, MARGIN, MARGIN, w, h, r, 0, SHADOW_DY, SHADOW_BLUR, 0,
-                Sk.col(0, 0, 0, dark ? 0.30 : 0.14));
+        shadow(c, w, h, r, Sk.col(0, 0, 0, dark ? 0.30 : 0.14));
         if (backdrop == null) {
             // No backdrop: a frosted fill in the glass's outline, then the glass (rim, highlights) over it.
             Paint p = dark ? Sk.paint(Sk.col(28, 28, 30, fill(opacity, dark)))
@@ -91,5 +94,26 @@ public final class GlassWidgetArt {
         c.restore();
         c.drawImage(glass, 0, 0);
         return surface.makeImageSnapshot();
+    }
+
+    /**
+     * The contact shadow around the glass, in the glass's own continuous corners. Glassé draws a
+     * blurred shadow as a circular rounded rect (cheap on the GPU for live glass), which at a
+     * widget's corners stood out past the continuous corner of the rim. A widget's glass is baked
+     * once, so the shadow can blur the real outline.
+     */
+    private static void shadow(Canvas c, double w, double h, double r, float[] color) {
+        Paint p = Sk.paint(color);
+        p.setMaskFilter(MaskFilter.Companion.makeBlur(FilterBlurMode.NORMAL, (float) (SHADOW_BLUR / 2), false));
+        RRect outline = Sk.rrect(MARGIN, MARGIN, w, h, r);
+        c.save();
+        Smooth.clipRRect(c, outline, ClipMode.DIFFERENCE, true);
+        Path path = Smooth.path(MARGIN, MARGIN + SHADOW_DY, w, h, r);
+        if (path != null) {
+            c.drawPath(path, p);
+        } else {
+            c.drawRRect(Sk.rrect(MARGIN, MARGIN + SHADOW_DY, w, h, r), p);
+        }
+        c.restore();
     }
 }

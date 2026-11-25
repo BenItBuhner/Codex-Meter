@@ -62,6 +62,62 @@ public class WidgetGlassTest {
     }
 
     @Test
+    public void shadowFollowsTheContinuousCorner() {
+        // The contact shadow (a few device px wide) hugs the glass's continuous ("squircle") corner as evenly as its straight
+        // edges. A circular shadow stood out past the rim's shoulders and read as the fill bleeding.
+        double d = 2.625;
+        int w = 900;
+        int h = 480;
+        Image img = GlassWidgetArt.render(null, 0, 0, w, h, d, true, 100);
+        Bitmap b = new Bitmap();
+        b.allocN32Pixels(w, h, false);
+        img.readPixels(b, 0, 0);
+        double m = GlassWidgetArt.MARGIN * d;
+        double r = GlassWidgetArt.RADIUS * d;
+        org.jetbrains.skia.Path outline = com.benitbuhner.glasse.port.Smooth.path(m, m, w - 2 * m, h - 2 * m, r);
+        int n = (int) Math.ceil(m + 1.6 * r);
+        boolean[][] in = new boolean[n][n];
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                in[y][x] = outline.contains(x + 0.5f, y + 0.5f);
+            }
+        }
+        java.util.List<int[]> rim = new java.util.ArrayList<>();
+        for (int y = 1; y < n - 1; y++) {
+            for (int x = 1; x < n - 1; x++) {
+                if (in[y][x] && (!in[y - 1][x] || !in[y + 1][x] || !in[y][x - 1] || !in[y][x + 1])) {
+                    rim.add(new int[] {x, y});
+                }
+            }
+        }
+        double corner = 0;
+        double edge = 0;
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                if (in[y][x]) {
+                    continue;
+                }
+                double best = Double.MAX_VALUE;
+                for (int[] q : rim) {
+                    best = Math.min(best, Math.hypot(q[0] - x, q[1] - y));
+                }
+                if (best < 1.5 || best > 3.0) {
+                    continue;
+                }
+                double a = Color.INSTANCE.getA(b.getColor(x, y));
+                boolean shoulder = x > m + 0.2 * r && y > m + 0.2 * r;
+                if (shoulder) {
+                    corner = Math.max(corner, a);
+                } else if (x > m + 1.6 * r - 2 || y > m + 1.6 * r - 2) {
+                    edge = Math.max(edge, a);
+                }
+            }
+        }
+        assertTrue("shadow at the corner " + corner + " vs along the edge " + edge,
+                edge > 0 && corner <= edge * 1.25 + 2);
+    }
+
+    @Test
     public void shots() throws Exception {
         String out = System.getProperty("cap.out");
         if (out == null) {
