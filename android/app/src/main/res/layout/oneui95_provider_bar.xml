@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One UI 9.5 provider tab bar: the One UI 9 bar without Samsung's blur, which OneUi95Glass replaces. -->
+<com.google.android.material.bottomnavigation.BottomNavigationView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/oneui9_provider_bar"
+    style="@style/OneUi95FloatingNavigation"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom|center_horizontal"
+    app:itemBackground="@drawable/oneui9_nav_item_background"
+    app:itemHorizontalTranslationEnabled="false"
+    app:labelVisibilityMode="labeled" />

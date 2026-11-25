@@ -54,7 +54,9 @@ final class OneUi9ProviderBar implements ProviderBar {
         this.onPriority = onPriority;
         this.gap = Ui.dp(page.activity, 16.0f);
         this.nav = (BottomNavigationView) LayoutInflater.from(page.activity)
-                .inflate(R.layout.oneui9_provider_bar, page.root, false);
+                .inflate(OneUi95Glass.drawsBarGlass(page.activity)
+                        ? R.layout.oneui95_provider_bar : R.layout.oneui9_provider_bar,
+                        page.root, false);
         page.root.addView(nav);
         this.lens = OneUi95Glass.isOn(page.activity) ? OneUi95Glass.dressBar(page, nav) : null;
         nav.setOnItemSelectedListener(this::onItemSelected);

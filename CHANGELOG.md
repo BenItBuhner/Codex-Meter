@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **One UI 9.5's tab bar on Samsung phones.** The bar showed up as a large blurred rectangle instead of the glass pill. Samsung's own blur was still on under the new glass and had lost its rounded shape. The glass now draws the bar by itself, and nothing can spread past the pill. Android.
+
 ## 2.9.0-alpha.35 — 2026-11-25
 
 ### Added
