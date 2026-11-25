@@ -62,17 +62,19 @@ while IFS= read -r f; do
       # The desktop core and the provider icons are shared by the Windows and Linux apps.
       windows/src/CodexMeter.Core/*|windows/tests/CodexMeter.Core.Tests/*|windows/src/CodexMeter.App/Assets/ProviderIcons.g.cs)
         turn_on windows linux ;;
-      android/*|CHANGELOG.md) turn_on android ;;
+      # The release job reads CHANGELOG.md; no build or test reads any other Markdown file.
+      CHANGELOG.md) turn_on android ;;
+      *.md|LICENSE|.gitignore|.gitattributes|docs/*) ;;
+      android/*) turn_on android ;;
       windows/*) turn_on windows ;;
       linux/*) turn_on linux ;;
       ios/*|macos/*) turn_on apple ;;
-      *.md|LICENSE|.gitignore|.gitattributes|docs/*) ;;
       *) everything "unclassified path $f" ;;
     esac
   else
     case "$f" in
       .github/workflows/ios-ci.yml|.github/scripts/ci-areas*.sh) everything "iOS CI definition $f" ;;
-      ios/*.md|ios/LICENSE) ;;
+      *.md|ios/LICENSE) ;;
       ios/CodexMeterWatch/*|ios/CodexMeterWatchWidgets/*|ios/ci/record-watch-gallery.sh) turn_on watch ;;
       ios/ci/record-demo-gallery.sh) turn_on gallery ;;
       ios/ci/record-ipad-gallery.sh) turn_on ipad ;;
