@@ -54,7 +54,7 @@ final class FakeSource implements GlassSource {
         }
     }
 
-    private void changed() {
+    void changed() {
         for (Runnable r : new ArrayList<>(subs)) {
             r.run();
         }
@@ -219,12 +219,9 @@ final class FakeSource implements GlassSource {
         GlassModel.Card history = new GlassModel.Card(GlassModel.Card.Kind.HISTORY);
         history.title = "Usage history";
         GlassModel.Chart hc = new GlassModel.Chart();
-        hc.label = "38% used so far";
-        hc.sampleLabel = "42 samples";
         hc.current = new double[] {0, 0, 0.1, 6, 0.2, 14, 0.3, 19, 0.42, 31, 0.55, 38};
         hc.previous.add(new double[] {0, 0, 0.2, 10, 0.5, 40, 0.8, 70, 1, 82});
         hc.projection = new double[] {0.55, 38, 1, 71};
-        hc.hint = "Drag to inspect";
         hc.scrub = new GlassModel.Scrub() {
             @Override
             public String at(int window, double ratio) {
@@ -633,14 +630,11 @@ final class FakeSource implements GlassSource {
         GlassModel.Card chart = new GlassModel.Card(GlassModel.Card.Kind.CHART);
         chart.title = "Weekly window";
         GlassModel.Chart c = new GlassModel.Chart();
-        c.label = "38% used so far";
         c.legend = true;
-        c.sampleLabel = "42 samples";
         c.current = new double[] {0, 0, 0.1, 6, 0.2, 14, 0.3, 19, 0.42, 31, 0.55, 38};
         c.previous.add(new double[] {0, 0, 0.2, 10, 0.5, 40, 0.8, 70, 1, 82});
         c.previous.add(new double[] {0, 0, 0.3, 22, 0.6, 51, 1, 96});
         c.projection = new double[] {0.55, 38, 1, 71};
-        c.hint = "Drag to inspect · tap a window to compare";
         c.windows.add(new Object[] {"Current window", "38% used · avg 0.4%/h", -1});
         c.windows.add(new Object[] {"Oct 20 – Oct 27", "96% used · avg 0.6%/h", 1});
         c.windows.add(new Object[] {"Oct 13 – Oct 20", "82% used · avg 0.5%/h", 0});

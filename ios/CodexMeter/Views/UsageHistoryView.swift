@@ -113,7 +113,7 @@ struct UsageHistoryView: View {
                     VStack(alignment: .leading, spacing: 9) {
                         Text("How to read the charts")
                             .font(.title3.bold())
-                        Text("The solid line is this window's usage, faint lines are previous windows, the dotted diagonal is a sustainable pace, and the dashed line is the projection. Drag a chart to inspect any moment. Samples are recorded after each successful refresh and stay on this device.")
+                        Text("The solid line is this window's usage, faint lines are previous windows, the dotted diagonal is a sustainable pace, and the dashed line is the projection. Samples are recorded after each successful refresh and stay on this device.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -310,15 +310,11 @@ private struct HistoryDetailCard: View {
                 onScrubEnd: { scrubText = nil }
             )
 
-            Text(scrubText ?? defaultDetail)
+            // Blank until a finger is on the chart, then the moment under it (no instructions).
+            Text(scrubText ?? " ")
                 .font(.caption)
-                .foregroundStyle(scrubText == nil ? .secondary : .primary)
-
-            Text(
-                "\(history.samples.count) samples · \(history.completedWindowCount) completed \(history.completedWindowCount == 1 ? "window" : "windows")"
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
+                .opacity(scrubText == nil ? 0 : 1)
 
             if showWindowList, breakdown.count > 1 {
                 VStack(alignment: .leading, spacing: 10) {
@@ -348,12 +344,6 @@ private struct HistoryDetailCard: View {
         }
         .padding(AppChrome.cardPadding)
         .cardSurface()
-    }
-
-    private var defaultDetail: String {
-        showWindowList && breakdown.count > 1
-            ? "Drag to inspect · tap a window to compare"
-            : "Drag to inspect"
     }
 
     private func handleScrub(date: Date, usedPercent: Double, historical: Bool) {
@@ -594,9 +584,6 @@ private struct UsageBurnChart: View {
                 if !dynamicTypeSize.isAccessibilitySize {
                     Spacer(minLength: 8)
                 }
-                Text(currentPoints.count < 2 ? "Building history" : "\(currentPoints.count) samples")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Chart {

@@ -20,8 +20,8 @@ public class MoreTabTest {
     /** More's list: its rows (Copilot, Antigravity, Grok) and its close button */
     static final double FIRST_ROW_Y = 656;
     static final double ROW_H = 52;
-    static final double CLOSE_X = 347;
-    static final double CLOSE_Y = 603;
+    static final double CLOSE_X = 351;
+    static final double CLOSE_Y = 600;
 
     private FakeSource src;
     private Capture c;
@@ -89,7 +89,7 @@ public class MoreTabTest {
         // the swollen button reaches down over the first row: its glass shows there, not the row's grey
         java.io.File f = java.io.File.createTempFile("more-press", ".png");
         c.shot(f.getPath());
-        int rgb = javax.imageio.ImageIO.read(f).getRGB(340, 640);
+        int rgb = javax.imageio.ImageIO.read(f).getRGB(340, 634);
         f.delete();
         int g = (rgb >> 8) & 0xff;
         Assert.assertTrue("the pressed close button draws over the list (green " + g + ")", g > 60);

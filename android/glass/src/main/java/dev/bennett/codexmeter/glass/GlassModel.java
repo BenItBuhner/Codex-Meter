@@ -88,8 +88,8 @@ public final class GlassModel {
      * the even-pace diagonal and the projection. x runs 0 to 1 across the window, y is % used.
      */
     public static final class Chart {
-        public String label = "";
-        public String sampleLabel = "";
+        /** spoken by screen readers only; the chart draws no caption ("63% used so far") */
+        public String description = "";
         /** this window: x, y pairs */
         public double[] current = new double[0];
         /** earlier windows, oldest first: x, y pairs each */
@@ -101,7 +101,6 @@ public final class GlassModel {
         public Scrub scrub;
         /** rows under the chart that pick a window: title, subtitle, window index (-1 current) */
         public final List<Object[]> windows = new ArrayList<>();
-        public String hint;
         public String emptyText;
         /** Show a legend of the lines under the chart. */
         public boolean legend;

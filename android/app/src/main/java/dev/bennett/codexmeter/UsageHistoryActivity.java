@@ -123,7 +123,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
             guide.addView(Ui.text(this,
                     "The solid line is this window's usage, faint lines are previous windows, "
                             + "the dotted diagonal is a sustainable pace, and the dashed line is "
-                            + "the projection. Drag a chart to inspect any moment. Samples are "
+                            + "the projection. Samples are "
                             + "recorded after each successful refresh and stay on this device.",
                     13, Ui.secondaryText(dark)));
             content.addView(guide);
@@ -221,9 +221,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                 UsageStats.windowBreakdown(history, MAX_BREAKDOWN_WINDOWS);
         boolean showWindowRows = visible(HistorySections.WINDOW_LIST) && breakdown.size() > 1;
 
-        String defaultDetail = showWindowRows
-                ? "Drag to inspect · tap a window to compare" : "Drag to inspect";
-        TextView scrubDetail = Ui.text(this, defaultDetail, 12, Ui.secondaryText(dark));
+        // Blank until a finger is on the chart, then the moment under it (no instructions).
+        TextView scrubDetail = Ui.text(this, "", 12, Ui.secondaryText(dark));
+        scrubDetail.setVisibility(View.INVISIBLE);
         LinearLayout.LayoutParams scrubParams = new LinearLayout.LayoutParams(-1, -2);
         scrubParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 2), Ui.dp(this, 12), Ui.dp(this, 6));
         card.addView(scrubDetail, scrubParams);
@@ -239,12 +239,13 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                 }
                 scrubDetail.setTextColor(Ui.mainText(dark));
                 scrubDetail.setText(text);
+                scrubDetail.setVisibility(View.VISIBLE);
             }
 
             @Override
             public void onScrubEnd() {
-                scrubDetail.setTextColor(Ui.secondaryText(dark));
-                scrubDetail.setText(defaultDetail);
+                scrubDetail.setText("");
+                scrubDetail.setVisibility(View.INVISIBLE);
             }
         });
 
