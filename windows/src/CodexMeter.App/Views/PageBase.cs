@@ -17,16 +17,40 @@ public abstract class PageBase : UserControl
 
     protected PageBase(double maxWidth)
     {
-        Body = new StackPanel { MaxWidth = maxWidth, Padding = new Thickness(36, 20, 36, 36), Spacing = 4 };
-        Scroller = new ScrollViewer { Content = Body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        // The column gets an explicit width (the viewport, up to maxWidth) and is centred in it, and
+        // the scroller never scrolls sideways. Left to MaxWidth and stretch alone, Providers and
+        // Priority were laid out wider than the window once it passed maxWidth: the column started
+        // mid-window and its right side (Add account, Sign out) was cut off.
+        Body = new StackPanel
+        {
+            MaxWidth = maxWidth,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Padding = new Thickness(36, 20, 36, 36),
+            Spacing = 4,
+        };
+        // The scroller's content is a full-width frame and the column is centred inside it. Content
+        // narrower than the scroller and centred by the scroller itself kept its old place on screen
+        // after the window was resized (the layout moved, the picture didn't).
+        var frame = new Grid();
+        frame.Children.Add(Body);
+        Scroller = new ScrollViewer
+        {
+            Content = frame,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            HorizontalScrollMode = ScrollMode.Disabled,
+        };
         AutomationProperties.SetAutomationId(Scroller, "PageScroller");
         Content = Scroller;
         Loaded += (_, _) => Attach();
         Unloaded += (_, _) => Detach();
-        SizeChanged += (_, args) =>
+        Scroller.SizeChanged += (_, args) =>
         {
-            var narrow = args.NewSize.Width < 640;
+            var width = args.NewSize.Width;
+            if (width <= 0) return;
+            var narrow = width < 640;
             Body.Padding = narrow ? new Thickness(16, 12, 16, 24) : new Thickness(36, 20, 36, 36);
+            Body.Width = Math.Min(maxWidth, width);
         };
     }
 
