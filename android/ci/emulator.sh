@@ -40,11 +40,14 @@ cold_boot() {
   if [[ ! -e "$SNAPSHOT/ram.bin" ]]; then
     local sdkmanager="$SDK/cmdline-tools/latest/bin/sdkmanager"
     [[ -x "$sdkmanager" ]] || sdkmanager="$(command -v sdkmanager)"
-    "$sdkmanager" --install "$IMAGE" > /dev/null
+    "$sdkmanager" --install emulator "$IMAGE" > /dev/null
     echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd --force -n ci -k "$IMAGE" -d pixel_7
     # A full boot that saves a snapshot when `snapshot` shuts it down.
     launch -no-snapshot-load
   else
+    # The snapshot only loads in the emulator build that wrote it, so the cache carries the
+    # emulator too; the runner image doesn't always ship one.
+    [[ -x "$SDK/emulator/emulator" ]] || { echo "::warning::No emulator binary in the cache"; exit 1; }
     # Resume the cached snapshot and never write it back.
     launch -no-snapshot-save
   fi

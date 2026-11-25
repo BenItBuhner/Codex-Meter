@@ -222,7 +222,7 @@ jobs:
       # image (see android/ci/emulator.sh). It resumes in seconds while Gradle builds.
       - name: Key the emulator snapshot to the runner image
         id: avd-key
-        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v1" >> "$GITHUB_OUTPUT"
+        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v2" >> "$GITHUB_OUTPUT"
       - name: Restore the emulator snapshot
         id: avd
         uses: actions/cache/restore@v4
@@ -231,6 +231,7 @@ jobs:
             ~/.android/avd/ci.avd
             ~/.android/avd/ci.ini
             /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
           key: ${{ steps.avd-key.outputs.key }}
       - name: Start the emulator in the background
         run: android/ci/emulator.sh start
@@ -249,6 +250,7 @@ jobs:
             ~/.android/avd/ci.avd
             ~/.android/avd/ci.ini
             /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
           key: ${{ steps.avd-key.outputs.key }}
       - name: Resume the emulator from its new snapshot
         if: steps.avd.outputs.cache-hit != 'true'
@@ -300,7 +302,7 @@ jobs:
       # image (see android/ci/emulator.sh). It resumes in seconds while Gradle builds.
       - name: Key the emulator snapshot to the runner image
         id: avd-key
-        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v1" >> "$GITHUB_OUTPUT"
+        run: echo "key=avd-35-google_apis-x86_64-pixel_7-$ImageOS-$ImageVersion-v2" >> "$GITHUB_OUTPUT"
       - name: Restore the emulator snapshot
         id: avd
         uses: actions/cache/restore@v4
@@ -309,6 +311,7 @@ jobs:
             ~/.android/avd/ci.avd
             ~/.android/avd/ci.ini
             /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
           key: ${{ steps.avd-key.outputs.key }}
       - name: Start the emulator in the background
         run: android/ci/emulator.sh start
@@ -327,6 +330,7 @@ jobs:
             ~/.android/avd/ci.avd
             ~/.android/avd/ci.ini
             /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64
+            /usr/local/lib/android/sdk/emulator
           key: ${{ steps.avd-key.outputs.key }}
       - name: Resume the emulator from its new snapshot
         if: steps.avd.outputs.cache-hit != 'true'
