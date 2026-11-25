@@ -103,34 +103,6 @@ jobs:
           codesign --verify --deep --strict "$APP"
           echo "Bundle OK"
 
-      # In the background while the smoke launches (which mostly wait), in its own DerivedData so
-      # it never shares a build database with the Debug steps; finished before the UI tests.
-      - name: Start the Release app build (background)
-        shell: bash
-        env:
-          # Antigravity's Google client, as for the Android build; Xcode reads these into
-          # Info.plist. Without them the Mac app simply doesn't offer Antigravity.
-          ANTIGRAVITY_CLIENT_ID: ${{ secrets.ANTIGRAVITY_CLIENT_ID }}
-          ANTIGRAVITY_CLIENT_SECRET: ${{ secrets.ANTIGRAVITY_CLIENT_SECRET }}
-        run: |
-          set -euo pipefail
-          # Release builds show the tag's version (v2.9.0-alpha.14 -> 2.9.0; the bundle's short
-          # version must be numbers only).
-          # (A plain string, not an array: macOS bash 3.2 treats an empty array as unset under set -u.)
-          version_args=""
-          if [[ -n "$RELEASE_TAG" ]]; then
-            short="${RELEASE_TAG#v}"
-            # The full version (with -alpha.N) goes in CodexMeterReleaseVersion for the updater.
-            version_args="MARKETING_VERSION=${short%%-*} CODEX_METER_RELEASE_VERSION=${short}"
-          fi
-          # shellcheck disable=SC2086
-          ../android/ci/bg.sh start release xcodebuild build \
-            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
-            -configuration Release \
-            -destination 'generic/platform=macOS' \
-            -derivedDataPath DerivedDataRelease -quiet \
-            $SIGNING_ARGS $version_args
-
       - name: Smoke-launch the app
         id: smoke
         shell: bash
@@ -152,40 +124,6 @@ jobs:
           cat smoke/summary.txt
           echo "::error::The app did not settle after launch; see the smoke summary above"
           exit 1
-
-      - name: Finish the Release app build
-        shell: bash
-        run: |
-          set -euo pipefail
-          ../android/ci/bg.sh wait release
-          cd "DerivedDataRelease/Build/Products/Release"
-          ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
-
-      - name: Build the disk image
-        shell: bash
-        run: |
-          set -euo pipefail
-          # A standard drag-to-Applications .dmg.
-          stage="$RUNNER_TEMP/dmg"
-          rm -rf "$stage" && mkdir -p "$stage"
-          ditto "DerivedDataRelease/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"
-          ln -s /Applications "$stage/Applications"
-          hdiutil create -volname "Codex Meter" -srcfolder "$stage" -fs HFS+ -format UDZO -ov \
-            "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
-          # Check it mounts and holds a runnable app.
-          mnt="$(mktemp -d)"
-          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
-          test -x "$mnt/Codex Meter.app/Contents/MacOS/Codex Meter"
-          test -L "$mnt/Applications"
-          hdiutil detach "$mnt"
-          ls -la "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
-          # The UI tests and gallery launch the Debug app by its bundle ID; take the Release copies
-          # (same ID) off disk and out of Launch Services first, so they can't open the wrong one.
-          lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-          for app in "DerivedDataRelease/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"; do
-            "$lsregister" -u "$app" 2>/dev/null || true
-          done
-          rm -rf "$stage" "DerivedDataRelease/Build/Products/Release/Codex Meter.app"
 
       - name: Run unit and UI tests
         shell: bash
@@ -233,6 +171,53 @@ jobs:
           path: macos/ci-gallery/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Build Release app
+        shell: bash
+        env:
+          # Antigravity's Google client, as for the Android build; Xcode reads these into
+          # Info.plist. Without them the Mac app simply doesn't offer Antigravity.
+          ANTIGRAVITY_CLIENT_ID: ${{ secrets.ANTIGRAVITY_CLIENT_ID }}
+          ANTIGRAVITY_CLIENT_SECRET: ${{ secrets.ANTIGRAVITY_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          # Release builds show the tag's version (v2.9.0-alpha.14 -> 2.9.0; the bundle's short
+          # version must be numbers only).
+          # (A plain string, not an array: macOS bash 3.2 treats an empty array as unset under set -u.)
+          version_args=""
+          if [[ -n "$RELEASE_TAG" ]]; then
+            short="${RELEASE_TAG#v}"
+            # The full version (with -alpha.N) goes in CodexMeterReleaseVersion for the updater.
+            version_args="MARKETING_VERSION=${short%%-*} CODEX_METER_RELEASE_VERSION=${short}"
+          fi
+          # shellcheck disable=SC2086
+          xcodebuild build \
+            -project CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath DerivedData \
+            $SIGNING_ARGS $version_args
+          cd "DerivedData/Build/Products/Release"
+          ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
+
+      - name: Build the disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A standard drag-to-Applications .dmg.
+          stage="$RUNNER_TEMP/dmg"
+          rm -rf "$stage" && mkdir -p "$stage"
+          ditto "DerivedData/Build/Products/Release/Codex Meter.app" "$stage/Codex Meter.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname "Codex Meter" -srcfolder "$stage" -fs HFS+ -format UDZO -ov \
+            "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          # Check it mounts and holds a runnable app.
+          mnt="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
+          test -x "$mnt/Codex Meter.app/Contents/MacOS/Codex Meter"
+          test -L "$mnt/Applications"
+          hdiutil detach "$mnt"
+          ls -la "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.dmg"
 
       - name: Upload Release app
         uses: actions/upload-artifact@v7
