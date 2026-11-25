@@ -263,7 +263,7 @@ jobs:
   # Opens every design and screen of a debug build shrunk by the release R8 rules
   # (android/ci/shrunk-smoke.sh), one design per emulator.
   shrunk-smoke:
-    name: Android R8 smoke test (${{ matrix.designs }})
+    name: Android R8 smoke test (${{ matrix.designs }}${{ matrix.part != '1/1' && format(' {0}', matrix.part) || '' }})
     needs: changes
     if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
@@ -272,6 +272,17 @@ jobs:
       fail-fast: false
       matrix:
         designs: [classic, one_ui_9, one_ui_9_5, liquid_glass, material_3_expressive]
+        part: ['1/1']
+        # Liquid Glass draws its first frame slowly on a software GPU, so its screens are split over
+        # two emulators to finish with the other designs.
+        exclude:
+          - designs: liquid_glass
+            part: '1/1'
+        include:
+          - designs: liquid_glass
+            part: '1/2'
+          - designs: liquid_glass
+            part: '2/2'
     steps:
       - uses: actions/checkout@v7
       # Before the emulator install starts: two sdkmanager runs at once can trip over each other.
@@ -340,12 +351,13 @@ jobs:
       - name: Open every screen
         env:
           DESIGNS: ${{ matrix.designs }}
+          PART: ${{ matrix.part }}
         run: ./android/ci/shrunk-smoke.sh "$RUNNER_TEMP/app-debug-shrunk.apk" shrunk-smoke
       - name: Upload the R8 smoke screenshots
         if: success() || failure()
         uses: actions/upload-artifact@v7
         with:
-          name: shrunk-smoke-${{ matrix.designs }}
+          name: shrunk-smoke-${{ matrix.designs }}-${{ matrix.part == '1/1' && 'all' || (matrix.part == '1/2' && '1' || '2') }}
           path: shrunk-smoke/
           if-no-files-found: warn
 
@@ -450,9 +462,19 @@ jobs:
             -destination 'generic/platform=iOS Simulator' -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
-      - name: Boot an iPhone simulator
+      - name: Pick an iPhone simulator
         id: simulator
-        run: macos/ci/boot-simulator.sh
+        run: macos/ci/boot-simulator.sh pick
+      # The simulator's data folder after one boot, cached per runner image, so later runs skip
+      # the first boot's data migration (2-6 minutes). See macos/ci/boot-simulator.sh.
+      - name: Restore the booted simulator
+        id: simulator-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.simulator.outputs.data }}
+          key: ${{ steps.simulator.outputs.key }}-unit-tests
+      - name: Boot the simulator
+        run: macos/ci/boot-simulator.sh boot "${{ steps.simulator.outputs.udid }}"
       - name: Wait for the simulator
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
@@ -470,6 +492,16 @@ jobs:
             -destination "id=$UDID" -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
             CODE_SIGNING_ALLOWED=NO
+      - name: Shut down the simulator for caching (first run on this runner image)
+        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
+        run: macos/ci/boot-simulator.sh stop "${{ steps.simulator.outputs.udid }}"
+      - name: Cache the booted simulator
+        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.simulator.outputs.data }}
+          key: ${{ steps.simulator.outputs.key }}-unit-tests
 
   apple-performance:
     name: iPhone performance budgets
@@ -486,9 +518,19 @@ jobs:
           xcodebuild build -project ios/CodexMeter.xcodeproj -scheme CodexMeter -configuration Release \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/ios" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
-      - name: Boot an iPhone simulator
+      - name: Pick an iPhone simulator
         id: simulator
-        run: macos/ci/boot-simulator.sh
+        run: macos/ci/boot-simulator.sh pick
+      # The simulator's data folder after one boot, cached per runner image, so later runs skip
+      # the first boot's data migration (2-6 minutes). See macos/ci/boot-simulator.sh.
+      - name: Restore the booted simulator
+        id: simulator-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.simulator.outputs.data }}
+          key: ${{ steps.simulator.outputs.key }}-performance
+      - name: Boot the simulator
+        run: macos/ci/boot-simulator.sh boot "${{ steps.simulator.outputs.udid }}"
       - name: Measure iPhone start-up and memory
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
@@ -499,6 +541,16 @@ jobs:
           echo "Booted in ${SECONDS}s"
           APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
           macos/ci/perf-budgets.sh ios "$APP" "$UDID"
+      - name: Shut down the simulator for caching (first run on this runner image)
+        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
+        run: macos/ci/boot-simulator.sh stop "${{ steps.simulator.outputs.udid }}"
+      - name: Cache the booted simulator
+        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.simulator.outputs.data }}
+          key: ${{ steps.simulator.outputs.key }}-performance
       - name: Upload screenshots of a launch that printed no first frame
         if: failure()
         uses: actions/upload-artifact@v7
