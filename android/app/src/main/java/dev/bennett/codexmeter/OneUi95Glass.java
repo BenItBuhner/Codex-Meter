@@ -328,7 +328,7 @@ final class OneUi95Glass {
                         return;
                     }
                     outline.setRoundRect(area, area.height() / 2f);
-                    outline.setAlpha(dark ? 0.5f : 0.35f);
+                    outline.setAlpha(dark ? 0.3f : 0.35f);
                 }
             });
             target.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> refresh());
