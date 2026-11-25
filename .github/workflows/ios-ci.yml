@@ -80,13 +80,13 @@ jobs:
             xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
               -destination 'generic/platform=iOS Simulator' \
               -derivedDataPath DerivedData \
-              CODE_SIGNING_ALLOWED=NO build \
+              ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO build \
               | xcbeautify --renderer github-actions
           else
             xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
               -destination 'generic/platform=iOS Simulator' \
               -derivedDataPath DerivedData \
-              CODE_SIGNING_ALLOWED=NO build
+              ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO build
           fi
 
       - name: Run unit and UI tests on simulator
@@ -212,7 +212,7 @@ jobs:
           xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath DerivedData \
-            CODE_SIGNING_ALLOWED=NO build-for-testing
+            ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO build-for-testing
 
       - name: iPad Pro 13-inch (light)
         if: steps.ipads.outputs.pro != ''
