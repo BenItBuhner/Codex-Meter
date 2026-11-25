@@ -38,7 +38,9 @@ case "${1:-}" in
   stop)
     SECONDS=0
     xcrun simctl shutdown "${2:?UDID required}" || true
-    echo "Shut down in ${SECONDS}s; data folder $(du -sh "$HOME/Library/Developer/CoreSimulator/Devices/$2/data" | cut -f1)"
+    data="$HOME/Library/Developer/CoreSimulator/Devices/$2/data"
+    echo "Shut down in ${SECONDS}s; data folder $(du -sh "$data" | cut -f1); largest parts:"
+    du -sk "$data"/* "$data"/Library/* "$data"/Containers/* 2>/dev/null | sort -n | tail -n 8
     ;;
   "") boot "$(pick)" ;;
   *) echo "usage: $0 [pick | boot UDID | stop UDID]" >&2; exit 2 ;;

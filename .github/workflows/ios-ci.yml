@@ -98,11 +98,12 @@ jobs:
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
       # The simulators' data after one boot, cached per runner image, so later runs skip the
-      # first boot's data migration (2-6 minutes each). See macos/ci/simulator-data.sh.
+      # first boot's data migration (2-6 minutes each). Keyed by device, so jobs on the same
+      # simulator share it. See macos/ci/simulator-data.sh.
       - name: Key the simulator data to the runner image
         id: simdata
         shell: bash
-        run: ../macos/ci/simulator-data.sh app-tests "${{ steps.simulator.outputs.device }}"
+        run: ../macos/ci/simulator-data.sh devices "${{ steps.simulator.outputs.device }}"
       - name: Restore the booted simulators
         id: simcache
         uses: actions/cache/restore@v4
@@ -203,11 +204,12 @@ jobs:
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
       # The simulators' data after one boot, cached per runner image, so later runs skip the
-      # first boot's data migration (2-6 minutes each). See macos/ci/simulator-data.sh.
+      # first boot's data migration (2-6 minutes each). Keyed by device, so jobs on the same
+      # simulator share it. See macos/ci/simulator-data.sh.
       - name: Key the simulator data to the runner image
         id: simdata
         shell: bash
-        run: ../macos/ci/simulator-data.sh demo-gallery "${{ steps.simulator.outputs.device }}"
+        run: ../macos/ci/simulator-data.sh devices "${{ steps.simulator.outputs.device }}"
       - name: Restore the booted simulators
         id: simcache
         uses: actions/cache/restore@v4
@@ -342,12 +344,13 @@ jobs:
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
       # The simulators' data after one boot, cached per runner image, so later runs skip the
-      # first boot's data migration (2-6 minutes each). See macos/ci/simulator-data.sh.
+      # first boot's data migration (2-6 minutes each). Keyed by device, so jobs on the same
+      # simulator share it. See macos/ci/simulator-data.sh.
       - name: Key the simulator data to the runner image
         id: simdata
         if: steps.ipad.outputs.device != ''
         shell: bash
-        run: ../macos/ci/simulator-data.sh ipad-${{ matrix.slot }} "${{ steps.ipad.outputs.device }}"
+        run: ../macos/ci/simulator-data.sh devices "${{ steps.ipad.outputs.device }}"
       - name: Restore the booted simulators
         id: simcache
         if: steps.ipad.outputs.device != ''
