@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material 3 Expressive dashboard: a large flexible header, cards and a floating toolbar of
-     provider tabs, all Material Components views (ExpressiveDashboard fills it). -->
+<!-- Material 3 Expressive dashboard: a large header with Edit and Settings, cards (or Edit mode's
+     list) and a floating toolbar of provider tabs, all Material Components views (ExpressiveDashboard
+     fills it). Edit and Settings stay at the top while the page scrolls. Pull down to refresh. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/expressive_root"
@@ -11,7 +12,8 @@
     <dev.bennett.codexmeter.ExpressivePull
         android:id="@+id/expressive_pull"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:layout_marginTop="64dp">
 
     <androidx.core.widget.NestedScrollView
         android:id="@+id/expressive_scroll"
@@ -28,37 +30,6 @@
             android:paddingEnd="16dp"
             android:paddingBottom="128dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:gravity="center_vertical|end"
-                android:orientation="horizontal">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/expressive_edit"
-                    style="@style/Widget.Material3Expressive.Button.IconButton.Standard"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="Edit dashboard"
-                    app:icon="@drawable/ic_m3_edit" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/expressive_refresh"
-                    style="@style/Widget.Material3Expressive.Button.IconButton.Standard"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="Refresh"
-                    app:icon="@drawable/ic_m3_refresh" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/expressive_settings"
-                    style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="Settings"
-                    app:icon="@drawable/ic_m3_settings" />
-            </LinearLayout>
-
             <TextView
                 android:id="@+id/expressive_title"
                 android:layout_width="match_parent"
@@ -74,6 +45,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
+
+            <!-- Edit mode: the tab's cards or sections, each with a switch and a drag handle. -->
+            <LinearLayout
+                android:id="@+id/expressive_edit_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
@@ -87,6 +66,45 @@
             android:contentDescription="Refreshing"
             android:visibility="invisible" />
     </dev.bennett.codexmeter.ExpressivePull>
+
+    <!-- Edit and Settings (Done in Edit mode) stay put above the scrolling page, so Done is
+         always in reach. -->
+    <LinearLayout
+        android:id="@+id/expressive_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_gravity="top"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:gravity="center_vertical|end"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/expressive_edit"
+            style="@style/Widget.Material3Expressive.Button.IconButton.Standard"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/expressive_edit"
+            app:icon="@drawable/ic_m3_edit" />
+
+        <!-- Edit mode's Done: a filled button in place of Edit and Settings. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/expressive_done"
+            style="@style/Widget.Material3Expressive.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/expressive_done"
+            android:visibility="gone"
+            app:icon="@drawable/ic_m3_check" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/expressive_settings"
+            style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="Settings"
+            app:icon="@drawable/ic_m3_settings" />
+    </LinearLayout>
 
     <com.google.android.material.floatingtoolbar.FloatingToolbarLayout
         android:id="@+id/expressive_toolbar"

@@ -107,6 +107,9 @@ final class GlassScreens {
         if (name.equals(ProvidersActivity.class.getName())) {
             return PREFIX + "tabs";
         }
+        if (name.equals(AddAccountActivity.class.getName())) {
+            return PREFIX + "add_account";
+        }
         if (name.equals(LockWidgetsActivity.class.getName())) {
             return PREFIX + "lock_widgets";
         }
@@ -148,6 +151,8 @@ final class GlassScreens {
         switch (parts[0]) {
             case "tabs":
                 return new Intent(context, ProvidersActivity.class);
+            case "add_account":
+                return new Intent(context, AddAccountActivity.class);
             case "lock_widgets":
                 return new Intent(context, LockWidgetsActivity.class);
             case "about":
@@ -234,7 +239,7 @@ final class GlassScreens {
                     GlassModel.Page page() {
                         return ((AddAccountActivity) activity()).glassPage();
                     }
-                } : null;
+                } : new AddAccount(this);
             case "onboarding":
                 return activity instanceof OnboardingActivity ? new Hosted(this) {
                     @Override
@@ -258,6 +263,57 @@ final class GlassScreens {
     private abstract static class Hosted extends Screen {
         Hosted(GlassScreens screens) {
             super(screens);
+        }
+    }
+
+    /** About › Credits: who helped build the app beyond its creator and designer. */
+    static final String ABOUT_ROBERT = "Robertg761";
+    static final String ABOUT_ROBERT_ROLE = "Live usage notifications and the Now Bar";
+    /** About › Dependencies: the libraries the app is built on. */
+    static final String URL_GLASSE = "https://github.com/BenItBuhner/Glasse";
+    static final String URL_ONE_UI = "https://github.com/tribalfs/oneui-design";
+    static final String URL_MATERIAL = "https://github.com/material-components/material-components-android";
+
+    /**
+     * Settings › Providers › Add account in Liquid Glass: a page of the Settings stack, so it pushes
+     * in and swipes back like Providers itself. Picking a provider opens sign-in; once that provider
+     * connects, the page closes back to Providers.
+     */
+    static final class AddAccount extends Screen {
+        private String query = "";
+        private UsageProvider picked;
+
+        AddAccount(GlassScreens screens) {
+            super(screens);
+        }
+
+        @Override
+        void opened(Intent intent) {
+            query = "";
+            picked = null;
+        }
+
+        @Override
+        GlassModel.Page page() {
+            return AddAccountActivity.glassPage(activity(), query, text -> {
+                query = text;
+                changed();
+            }, provider -> {
+                DiagnosticLog.info(activity(), "user", "add_account_picked", "provider", provider.id);
+                picked = provider;
+                activity().startActivity(SignInActivity.intent(activity(), provider));
+            });
+        }
+
+        @Override
+        void resumed() {
+            UsageProvider provider = picked;
+            if (provider != null && ProviderAccounts.isSignedIn(activity(), provider)) {
+                picked = null;
+                query = "";
+                screens.app.pop();
+            }
+            changed();
         }
     }
 
@@ -553,6 +609,7 @@ final class GlassScreens {
         private byte[] icon;
         private byte[] benit;
         private byte[] josh;
+        private byte[] robert;
 
         About(GlassScreens screens) {
             super(screens);
@@ -566,6 +623,7 @@ final class GlassScreens {
                 icon = png(c, R.mipmap.ic_launcher, px);
                 benit = png(c, R.drawable.benit_github_avatar, px);
                 josh = png(c, R.drawable.codex_profile_avatar, px);
+                robert = png(c, R.drawable.robertg761_github_avatar, px);
             }
             GlassModel.Page page = new GlassModel.Page(PREFIX + "about", "About");
             page.actions.add(new GlassModel.Action("GitHub", "github", false,
@@ -593,29 +651,29 @@ final class GlassScreens {
                     "https://github.com/BenItBuhner"));
             credits.rows.add(person("josh", "That Josh Guy", "App and Icon designer", josh,
                     "https://tjg.gg"));
+            credits.rows.add(person("robertg761", ABOUT_ROBERT, ABOUT_ROBERT_ROLE, robert,
+                    "https://github.com/Robertg761"));
             page.sections.add(credits);
 
+            // The libraries the app is built on; the services it reads usage from are its providers.
             Section dependencies = section("Dependencies");
+            Row glasse = row(Row.Kind.LINK, "glasse", "Glassé", "The Liquid Glass you're looking at.");
+            glasse.icon = "sparkles";
+            glasse.color = "#007aff";
+            glasse.onPress = () -> screens.openUrl(URL_GLASSE, "No browser can open the link.");
+            dependencies.rows.add(glasse);
             Row oneUi = row(Row.Kind.LINK, "oneui", "One UI Design Library",
                     "The library that makes this app so pretty.");
             oneUi.icon = "paintbrush";
             oneUi.color = "#5856d6";
-            oneUi.onPress = () -> screens.openUrl("https://github.com/tribalfs/oneui-design",
-                    "No browser can open the link.");
+            oneUi.onPress = () -> screens.openUrl(URL_ONE_UI, "No browser can open the link.");
             dependencies.rows.add(oneUi);
-            Row glasse = row(Row.Kind.LINK, "glasse", "Glassé",
-                    "The Liquid Glass you're looking at.");
-            glasse.icon = "sparkles";
-            glasse.color = "#007aff";
-            glasse.onPress = () -> screens.openUrl("https://github.com/BenItBuhner/Glasse",
-                    "No browser can open the link.");
-            dependencies.rows.add(glasse);
-            Row openAi = row(Row.Kind.LINK, "openai", "OpenAI API",
-                    "This app would be pretty useless without it.");
-            openAi.icon = "provider_codex";
-            openAi.plainIcon = true;
-            openAi.onPress = () -> screens.openUrl("https://openai.com", "No browser can open the link.");
-            dependencies.rows.add(openAi);
+            Row material = row(Row.Kind.LINK, "material", "Material Components",
+                    "Google's components behind Material 3 Expressive.");
+            material.icon = "widget";
+            material.color = "#34c759";
+            material.onPress = () -> screens.openUrl(URL_MATERIAL, "No browser can open the link.");
+            dependencies.rows.add(material);
             page.sections.add(dependencies);
             return page;
         }

@@ -13,6 +13,11 @@ final class DesignIds {
 
     static final String CLASSIC = "classic";
     static final String ONE_UI_9 = "one_ui_9";
+    /**
+     * One UI 9.5: the One UI 9 design (same shell, pages and behavior) with One UI 9.5's glass
+     * touches: a refracting, rim-lit floating tab bar and shinier header buttons.
+     */
+    static final String ONE_UI_9_5 = "one_ui_9_5";
     static final String LIQUID_GLASS = "liquid_glass";
     /** Saved while Liquid Glass had two looks. Both read as {@link #LIQUID_GLASS}. */
     static final String LIQUID_GLASS_IOS_26 = "liquid_glass_ios_26";
@@ -21,6 +26,7 @@ final class DesignIds {
     static final String MATERIAL_3_EXPRESSIVE = "material_3_expressive";
     /** One UI 9 reports ro.build.version.oneui as 90000 (major * 10000 + minor * 100). */
     static final int ONE_UI_9_VERSION = 90000;
+    static final int ONE_UI_9_5_VERSION = 90500;
 
     /**
      * The design to use for a saved value. {@code legacyOneUi9} is the switch installs stored before
@@ -31,6 +37,7 @@ final class DesignIds {
             switch (saved) {
                 case CLASSIC:
                 case ONE_UI_9:
+                case ONE_UI_9_5:
                 case LIQUID_GLASS:
                 case MATERIAL_3_EXPRESSIVE:
                     return saved;
@@ -54,6 +61,11 @@ final class DesignIds {
                 || LIQUID_GLASS_IOS_27.equals(id);
     }
 
+    /** One UI 9 or One UI 9.5: both run on the One UI 9 page shell. */
+    static boolean isOneUi9Family(String id) {
+        return ONE_UI_9.equals(id) || ONE_UI_9_5.equals(id);
+    }
+
     static boolean isMaterialExpressive(String id) {
         return MATERIAL_3_EXPRESSIVE.equals(id);
     }
@@ -64,7 +76,7 @@ final class DesignIds {
      * Settings can change it any time.
      *
      * <p>Samsung phones get the One UI design closest to their own: One UI 9 when the One UI
-     * version itself ({@code ro.build.version.oneui}) says 9 or later, else One UI 8.5 (classic).
+     * version itself ({@code ro.build.version.oneui}) says 9 or later (One UI 9.5 from 9.5), else One UI 8.5 (classic).
      * The Android version is not the One UI version, so a Samsung phone that doesn't report it gets
      * One UI 8.5. Every other phone (Pixels, OnePlus, Motorola, Nothing…) runs Google's Material
      * look, so it gets Material 3 Expressive. Only a device that names no maker keeps the default.
@@ -73,6 +85,9 @@ final class DesignIds {
      */
     static String suggestFor(String manufacturer, String brand, int oneUiVersion) {
         if (is("samsung", manufacturer) || is("samsung", brand)) {
+            if (oneUiVersion >= ONE_UI_9_5_VERSION) {
+                return ONE_UI_9_5;
+            }
             return oneUiVersion >= ONE_UI_9_VERSION ? ONE_UI_9 : CLASSIC;
         }
         if (known(manufacturer) || known(brand)) {
@@ -94,6 +109,8 @@ final class DesignIds {
         switch (normalize(id, false)) {
             case ONE_UI_9:
                 return "One UI 9";
+            case ONE_UI_9_5:
+                return "One UI 9.5";
             case LIQUID_GLASS:
                 return "Liquid Glass";
             case MATERIAL_3_EXPRESSIVE:

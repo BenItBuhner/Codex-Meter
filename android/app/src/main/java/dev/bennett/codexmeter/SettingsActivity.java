@@ -684,6 +684,8 @@ public final class SettingsActivity extends AppCompatActivity {
                     return false;
                 }
                 AppPreferences.setDesign(requireContext(), choice);
+                // Widgets take the design's look (Material 3 Expressive's surface, Liquid Glass's glass).
+                WidgetRenderer.updateAll(requireContext());
                 design.setValue(choice);
                 design.setSummary(designLabel(requireContext()));
                 // Restart the whole app so every page is built fresh with the new design. setDesign

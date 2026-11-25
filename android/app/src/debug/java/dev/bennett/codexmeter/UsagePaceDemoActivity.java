@@ -11,7 +11,7 @@ public final class UsagePaceDemoActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        // Optional: pick the design ("classic", "one_ui_9", "liquid_glass", "material_3_expressive";
+        // Optional: pick the design ("classic", "one_ui_9", "one_ui_9_5", "liquid_glass", "material_3_expressive";
         // the former "liquid_glass_ios_26" and "liquid_glass_ios_27" read as "liquid_glass") and theme
         // ("light", "dark", "system") before any page is built.
         String design = getIntent().getStringExtra("design");
@@ -26,6 +26,21 @@ public final class UsagePaceDemoActivity extends Activity {
         String duoMode = getIntent().getStringExtra("duo_layout");
         if (duoMode != null && !duoMode.isEmpty()) {
             AppPreferences.setGlassDuoMode(this, duoMode);
+        }
+        // Optional: open one activity on top of the app as it stands ("top_activity": a class name,
+        // or "signin:<provider id>"), without clearing its task, so back returns to the page under it
+        // (the back-gesture device check opens Add account and sign-in over Providers this way).
+        String top = getIntent().getStringExtra("top_activity");
+        if (top != null && !top.isEmpty()) {
+            try {
+                startActivity(top.startsWith("signin:")
+                        ? SignInActivity.intent(this, UsageProvider.fromId(top.substring(7)))
+                        : new Intent(this, Class.forName("dev.bennett.codexmeter." + top)));
+            } catch (ClassNotFoundException missing) {
+                android.util.Log.w("UsagePaceDemo", "No screen " + top);
+            }
+            finish();
+            return;
         }
         // Optional: the user-facing demo mode, as "Explore demo" and "Leave demo" do it, for
         // designs whose buttons a gallery script can't find in the view tree.

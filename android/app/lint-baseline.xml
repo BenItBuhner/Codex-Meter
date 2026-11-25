@@ -2505,28 +2505,6 @@
 
     <issue
         id="HardcodedText"
-        message="Hardcoded string &quot;Edit dashboard&quot;, should use `@string` resource"
-        errorLine1="                    android:contentDescription=&quot;Edit dashboard&quot;"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/expressive_dashboard.xml"
-            line="42"
-            column="21"/>
-    </issue>
-
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;Refresh&quot;, should use `@string` resource"
-        errorLine1="                    android:contentDescription=&quot;Refresh&quot;"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/expressive_dashboard.xml"
-            line="50"
-            column="21"/>
-    </issue>
-
-    <issue
-        id="HardcodedText"
         message="Hardcoded string &quot;Settings&quot;, should use `@string` resource"
         errorLine1="                    android:contentDescription=&quot;Settings&quot;"
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">

@@ -152,6 +152,59 @@ public final class WidgetProviders {
     }
 
     /**
+     * Meters to show for one provider of a multi-provider home widget: the widget's visible meters, in
+     * their order, that this provider can fill. Next reset shows for any provider with a window, and reset
+     * credits only for providers that bank resets. A provider that can fill none of them gets its usage
+     * meter from {@link #metersFor(List, boolean, boolean, int)} so its row still shows something.
+     */
+    public static List<String> homeMetersFor(List<String> visible, boolean hasFiveHour,
+            boolean hasLongWindow, boolean hasResets, int max) {
+        List<String> shown = new ArrayList<>();
+        if (visible != null) {
+            for (String key : visible) {
+                boolean fits;
+                if (WidgetMeters.FIVE_HOUR.equals(key)) {
+                    fits = hasFiveHour;
+                } else if (WidgetMeters.WEEKLY.equals(key)) {
+                    fits = hasLongWindow;
+                } else if (WidgetMeters.NEXT_RESET.equals(key)) {
+                    fits = hasFiveHour || hasLongWindow;
+                } else if (WidgetMeters.RESET_CREDITS.equals(key)) {
+                    fits = hasResets;
+                } else {
+                    fits = false;
+                }
+                if (fits && !shown.contains(key)) shown.add(key);
+            }
+        }
+        if (shown.isEmpty()) {
+            return metersFor(visible, hasFiveHour, hasLongWindow, max);
+        }
+        return WidgetMeters.cap(shown, Math.max(1, max));
+    }
+
+    /**
+     * Providers offered in a widget's settings: the signed-in ones in {@code order}, plus any the widget
+     * already shows (so they can be turned off). With nobody signed in, the widget's current providers,
+     * or the first in {@code order}, so the list is never empty.
+     */
+    public static List<UsageProvider> choices(List<UsageProvider> order,
+            Collection<UsageProvider> signedIn, Collection<UsageProvider> current) {
+        List<UsageProvider> sequence = order == null || order.isEmpty()
+                ? UsageProvider.orderFromIds(null) : order;
+        List<UsageProvider> result = new ArrayList<>();
+        for (UsageProvider provider : sequence) {
+            boolean shown = (signedIn != null && signedIn.contains(provider))
+                    || (current != null && current.contains(provider));
+            if (shown && !result.contains(provider)) result.add(provider);
+        }
+        if (result.isEmpty()) {
+            result.add(sequence.get(0));
+        }
+        return result;
+    }
+
+    /**
      * Meters per provider when {@code providers} share {@code slots} rows: two each when every
      * provider fits twice, otherwise one.
      */

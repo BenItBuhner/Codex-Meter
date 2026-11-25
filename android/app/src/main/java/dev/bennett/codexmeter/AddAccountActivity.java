@@ -17,17 +17,10 @@ import java.util.List;
  * Picking one opens {@link SignInActivity}; once it connects, this page closes too and the
  * provider gets a dashboard tab.
  */
-public final class AddAccountActivity extends AppCompatActivity implements GlassApp.Host {
-    /** Liquid Glass: this page drawn by Glassé's kit ({@link #glassPage}), or null for One UI. */
-    private GlassApp glass;
+public final class AddAccountActivity extends AppCompatActivity {
     /** Material 3 Expressive: the same page drawn with Material views, or null. */
     private ExpressivePages expressive;
     private String query = "";
-
-    @Override
-    public GlassApp glass() {
-        return glass;
-    }
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -47,9 +40,9 @@ public final class AddAccountActivity extends AppCompatActivity implements Glass
                         finish();
                     }
                 });
-        if (AppPreferences.isLiquidGlassDesign(this)) {
-            glass = new GlassApp(this, super::dispatchTouchEvent, GlassScreens.PREFIX + "add_account");
-            glass.start(state);
+        // Liquid Glass shows Add account as a page of Settings in MainActivity, so it slides in
+        // and swipes back like the pages around it (no second activity, transition or glass host).
+        if (AppPreferences.isLiquidGlassDesign(this) && GlassApp.redirect(this)) {
             return;
         }
         if (AppPreferences.isMaterialExpressiveDesign(this)) {
@@ -61,79 +54,50 @@ public final class AddAccountActivity extends AppCompatActivity implements Glass
         render();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (glass != null) {
-            glass.onResume();
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        if (glass != null) {
-            glass.onPause();
-        }
-        super.onPause();
-    }
-
-    @Override
-    protected void onDestroy() {
-        if (glass != null) {
-            glass.onDestroy();
-        }
-        super.onDestroy();
-    }
-
-    @Override
-    public void onConfigurationChanged(android.content.res.Configuration config) {
-        super.onConfigurationChanged(config);
-        if (glass != null) {
-            glass.onConfigurationChanged(config);
-        }
-    }
-
-    @Override
-    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
-        return glass != null ? glass.dispatchTouchEvent(ev) : super.dispatchTouchEvent(ev);
-    }
-
     private void pick(UsageProvider provider) {
         DiagnosticLog.info(this, "user", "add_account_picked", "provider", provider.id);
         signIn.launch(SignInActivity.intent(this, provider));
     }
 
-    /** This page for the Liquid Glass design: a search field over the providers not yet connected. */
+    /** This page for Material 3 Expressive, shown in this activity. */
     GlassModel.Page glassPage() {
+        return glassPage(this, query, text -> {
+            query = text;
+            if (expressive != null) {
+                expressive.changed();
+            }
+        }, this::pick);
+    }
+
+    /** What picking a provider on the page does. */
+    interface Pick {
+        void pick(UsageProvider provider);
+    }
+
+    /**
+     * The Add account page for Liquid Glass and Material 3 Expressive: a search field over the
+     * providers not yet connected. Liquid Glass shows it as a page of its own Settings stack
+     * ({@link GlassScreens}), so it slides in and swipes back like every other page.
+     */
+    static GlassModel.Page glassPage(Context context, String query, GlassModel.OnText onQuery, Pick onPick) {
         GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "add_account", "Add account");
         page.intro = "Choose a service to connect. Each one gets its own tab on the dashboard.";
         GlassModel.Section search = GlassScreens.section(null);
         GlassModel.Row field = GlassScreens.row(GlassModel.Row.Kind.FIELD, "search", "", null);
         field.hint = "Search providers";
         field.value = query;
-        field.onText = text -> {
-            query = text;
-            if (glass != null) {
-                glass.changed();
-            } else if (expressive != null) {
-                expressive.changed();
-            }
-        };
+        field.onText = onQuery;
         search.rows.add(field);
         page.sections.add(search);
-        List<UsageProvider> connected = new ArrayList<>();
-        for (UsageProvider provider : UsageProvider.values()) {
-            if (ProviderAccounts.isSignedIn(this, provider)) connected.add(provider);
-        }
         GlassModel.Section list = GlassScreens.section(null);
-        for (UsageProvider provider : ProviderCatalog.pickerProviders(connected, query)) {
+        for (UsageProvider provider : ProviderCatalog.pickerProviders(connected(context), query)) {
             ProviderCatalog.Entry entry = ProviderCatalog.get(provider);
             GlassModel.Row row = GlassScreens.row(GlassModel.Row.Kind.LINK, provider.id,
                     provider.displayName, entry.pickerSummary());
             row.icon = "provider_" + provider.id;
             row.plainIcon = true;
             row.tag = entry.inferred ? "Experimental" : null;
-            row.onPress = () -> pick(provider);
+            row.onPress = () -> onPick.pick(provider);
             list.rows.add(row);
         }
         if (list.rows.isEmpty()) {
@@ -141,6 +105,14 @@ public final class AddAccountActivity extends AppCompatActivity implements Glass
         }
         page.sections.add(list);
         return page;
+    }
+
+    static List<UsageProvider> connected(Context context) {
+        List<UsageProvider> connected = new ArrayList<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            if (ProviderAccounts.isSignedIn(context, provider)) connected.add(provider);
+        }
+        return connected;
     }
 
     private void render() {
@@ -152,11 +124,7 @@ public final class AddAccountActivity extends AppCompatActivity implements Glass
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));
         content.addView(hint, hintParams);
-        List<UsageProvider> connected = new ArrayList<>();
-        for (UsageProvider provider : UsageProvider.values()) {
-            if (ProviderAccounts.isSignedIn(this, provider)) connected.add(provider);
-        }
-        ProviderPicker picker = new ProviderPicker(this, dark, connected, null, this::pick);
+        ProviderPicker picker = new ProviderPicker(this, dark, connected(this), null, this::pick);
         content.addView(picker.view());
         Ui.addSpacer(content, 24);
     }

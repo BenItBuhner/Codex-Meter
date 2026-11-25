@@ -139,9 +139,14 @@ public final class WidgetGraphics {
 
     public static int accentColor(Context context, String accent, boolean dark) {
         if (WidgetOptions.ACCENT_APP.equals(accent)) {
-            return Ui.accent(context, dark);
+            return WidgetMaterial.applies(context) ? WidgetMaterial.primary(context, dark) : Ui.accent(context, dark);
         }
         return accentColor(accent, dark);
+    }
+
+    /** A meter's track: Material 3 Expressive's secondary container, else a faint tint. */
+    public static int trackColor(Context context, boolean dark) {
+        return WidgetMaterial.applies(context) ? WidgetMaterial.track(context, dark) : trackColor(dark);
     }
 
     public static int accentColor(String accent, boolean dark) {

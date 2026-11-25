@@ -45,6 +45,23 @@ public class WidgetGlassTest {
     }
 
     @Test
+    public void bottomEdgeMatchesTopEdge() {
+        // The glass ends as close to the widget's bottom as to its top: nothing extra hangs under it.
+        int w = 820;
+        int h = 400;
+        Image img = GlassWidgetArt.render(null, 0, 0, w, h, 2.8125, false, 88);
+        Bitmap b = new Bitmap();
+        b.allocN32Pixels(w, h, false);
+        img.readPixels(b, 0, 0);
+        int x = w / 2;
+        int top = 0;
+        while (top < h && Color.INSTANCE.getA(b.getColor(x, top)) == 0) top++;
+        int bottom = 0;
+        while (bottom < h && Color.INSTANCE.getA(b.getColor(x, h - 1 - bottom)) == 0) bottom++;
+        assertTrue("clear margin above " + top + " and below " + bottom, Math.abs(top - bottom) <= 1);
+    }
+
+    @Test
     public void shots() throws Exception {
         String out = System.getProperty("cap.out");
         if (out == null) {
