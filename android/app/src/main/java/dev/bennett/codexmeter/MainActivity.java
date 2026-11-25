@@ -241,8 +241,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     public boolean onPrepareOptionsMenu(Menu menu) {
         MenuItem edit = menu.findItem(MENU_REORDER);
         if (edit != null) {
-            // The Priority page has no layout of its own to edit.
-            edit.setVisible(!this.onPriority);
+            // Priority's Edit chooses and orders its sections, like Liquid Glass's Edit mode
+            edit.setTitle(this.onPriority ? "Edit Priority" : "Edit dashboard");
         }
         return super.onPrepareOptionsMenu(menu);
     }
@@ -255,6 +255,11 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             return true;
         }
         if (item.getItemId() == MENU_REORDER) {
+            if (this.onPriority) {
+                DiagnosticLog.info(this, "user", "priority_editor_opened");
+                Ui.startSecondaryActivity(this, DashboardReorderActivity.priority(this, PriorityPage.build(this)));
+                return true;
+            }
             DiagnosticLog.info(this, "user", "dashboard_editor_opened");
             Ui.startSecondaryActivity(this, new Intent(this, DashboardReorderActivity.class)
                     .putExtra(DashboardReorderActivity.EXTRA_PROVIDER, this.provider.id));
@@ -1021,18 +1026,19 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         for (String key : PriorityPrefs.sectionOrder(this)) {
             switch (key) {
                 case "alerts":
+                    // like Liquid Glass: what kind of alert over the card, then the alert itself
                     for (PriorityView.Item alert : page.alerts) {
+                        this.content.addView(sectionLabel(alert.kind == PriorityView.Kind.DOWNTIME
+                                ? "Official incident" : "Performance warning", 10));
                         LinearLayout card = Ui.card(this, this.dark);
-                        card.addView(sectionLabel(alert.kind == PriorityView.Kind.DOWNTIME
-                                ? "Official incident" : "Performance warning", 0));
                         TextView title = Ui.text(this, alert.title, 16, alert.kind == PriorityView.Kind.DOWNTIME
                                 ? Ui.danger(this.dark) : Ui.warning(this.dark));
                         title.setTypeface(Ui.mediumTypeface(this));
-                        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-1, -2);
-                        ap.setMargins(0, Ui.dp(this, 6), 0, 0);
-                        card.addView(title, ap);
+                        card.addView(title);
                         if (!alert.detail.isEmpty()) {
-                            card.addView(Ui.text(this, alert.detail, 13, Ui.secondaryText(this.dark)));
+                            LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(-1, -2);
+                            dp.setMargins(0, Ui.dp(this, 4), 0, 0);
+                            card.addView(Ui.text(this, alert.detail, 13, Ui.secondaryText(this.dark)), dp);
                         }
                         this.content.addView(card);
                         Ui.addSpacer(this.content, 20);
@@ -1072,37 +1078,24 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     }
 
     /**
-     * The used-up limits on Priority, in one card: each limit and when it resets, soonest first,
-     * with a note that the "usage is back" notification follows. Nothing when none is used up.
+     * The used-up limits on Priority: the Used up header, then one grouped list of each limit and
+     * when it resets, soonest first. Nothing when none is used up.
      */
     private void addUsedUpCard(PriorityPage page) {
         if (page.usedUp.isEmpty()) {
             return;
         }
         long now = System.currentTimeMillis();
-        LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, PriorityPage.USED_UP, 17, Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
+        LinearLayout group = priorityGroup(PriorityPage.USED_UP);
         for (PriorityPage.Limit l : page.usedUp) {
-            LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
-            row.addView(Ui.text(this, l.title(), 14, Ui.mainText(this.dark)),
-                    new LinearLayout.LayoutParams(0, -2, 1.0f));
-            TextView when = Ui.text(this, l.resetText(this, now), 14, Ui.secondaryText(this.dark));
-            when.setGravity(Gravity.END);
-            LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(-2, -2);
-            wp.setMargins(Ui.dp(this, 12), 0, 0, 0);
-            row.addView(when, wp);
-            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-            rp.setMargins(0, Ui.dp(this, 10), 0, 0);
-            card.addView(row, rp);
+            addPriorityRow(group, valueRow(l.title(), l.resetText(this, now)));
         }
-        this.content.addView(card);
-        Ui.addSpacer(this.content, 20);
+        finishPriorityGroup(group);
     }
 
     /**
-     * A titled list on Priority, drawn like the used-up card. Nothing when the list is empty.
+     * A titled list on Priority, drawn like Liquid Glass's grouped lists: the header over the card,
+     * the rows inside it with a divider between each. Nothing when the list is empty.
      * Dismissible rows (Recent activity, New models) work the same in every list and every design:
      * swipe a row away or touch and hold it for Dismiss, and Dismiss all when the list has more
      * than one; see {@link PriorityPage#dismiss}.
@@ -1111,23 +1104,21 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         if (notes.isEmpty()) {
             return;
         }
-        LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, heading, 17, Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
+        LinearLayout group = priorityGroup(heading);
         int dismissible = PriorityNote.dismissible(notes);
         for (PriorityNote n : notes) {
-            View row;
             if (n.dismissible()) {
                 // two lines, like Liquid Glass and Material 3 Expressive: what it is, then its fact
                 String[] lines = n.lines();
                 LinearLayout two = new LinearLayout(this);
                 two.setOrientation(LinearLayout.VERTICAL);
-                two.addView(Ui.text(this, lines[0], 15, Ui.mainText(this.dark)));
-                two.addView(Ui.text(this, lines[1], 13, Ui.secondaryText(this.dark)));
-                // a taller touch target, so the swipe and the hold are easy to start
-                two.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
-                two.setMinimumHeight(Ui.dp(this, 48));
+                two.setGravity(Gravity.CENTER_VERTICAL);
+                two.addView(Ui.text(this, lines[0], 16, Ui.mainText(this.dark)));
+                LinearLayout.LayoutParams second = new LinearLayout.LayoutParams(-1, -2);
+                second.setMargins(0, Ui.dp(this, 2), 0, 0);
+                two.addView(Ui.text(this, lines[1], 13, Ui.secondaryText(this.dark)), second);
+                // a tall touch target, so the swipe and the hold are easy to start
+                two.setMinimumHeight(Ui.dp(this, 66));
                 two.setBackgroundColor(Ui.cardColor(this, this.dark));
                 SwipeDismiss.attach(two, () -> {
                     PriorityPage.dismiss(this, n);
@@ -1136,24 +1127,49 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                     PriorityPage.dismissAll(this, notes);
                     rebuild();
                 } : null);
-                row = two;
+                addPriorityRow(group, two);
             } else {
-                LinearLayout one = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
-                one.addView(Ui.text(this, n.title, 14, Ui.mainText(this.dark)),
-                        new LinearLayout.LayoutParams(0, -2, 1.0f));
-                TextView value = Ui.text(this, n.value, 14, Ui.secondaryText(this.dark));
-                value.setGravity(Gravity.END);
-                LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, -2);
-                vp.setMargins(Ui.dp(this, 12), 0, 0, 0);
-                one.addView(value, vp);
-                row = one;
+                addPriorityRow(group, valueRow(n.title, n.value));
             }
-            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-            rp.setMargins(0, Ui.dp(this, n.dismissible() ? 2 : 10), 0, 0);
-            card.addView(row, rp);
         }
-        this.content.addView(card);
+        finishPriorityGroup(group);
+    }
+
+    /** A Priority list's header, then the card its rows go in; see {@link #finishPriorityGroup}. */
+    private LinearLayout priorityGroup(String heading) {
+        this.content.addView(sectionLabel(heading, 10));
+        return Ui.cardGroup(this, this.dark);
+    }
+
+    private void finishPriorityGroup(LinearLayout group) {
+        this.content.addView(group);
         Ui.addSpacer(this.content, 20);
+    }
+
+    /** One row of a Priority list, with a divider above it unless it is the first. */
+    private void addPriorityRow(LinearLayout group, View row) {
+        if (group.getChildCount() > 0) {
+            View line = new View(this);
+            line.setBackgroundColor(Ui.divider(this.dark));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, Ui.dp(this, 0.5f)));
+            lp.setMargins(Ui.dp(this, 22), 0, Ui.dp(this, 22), 0);
+            group.addView(line, lp);
+        }
+        row.setPadding(Ui.dp(this, 22), Ui.dp(this, 10), Ui.dp(this, 22), Ui.dp(this, 10));
+        group.addView(row, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    /** A label and its value on one line ("Cursor · Monthly", "Resets Dec 1"). */
+    private LinearLayout valueRow(String title, String value) {
+        LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Ui.dp(this, 54));
+        row.addView(Ui.text(this, title, 16, Ui.mainText(this.dark)), new LinearLayout.LayoutParams(0, -2, 1.0f));
+        TextView when = Ui.text(this, value, 14, Ui.secondaryText(this.dark));
+        when.setGravity(Gravity.END);
+        LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(-2, -2);
+        wp.setMargins(Ui.dp(this, 12), 0, 0, 0);
+        row.addView(when, wp);
+        return row;
     }
 
     /** A small label over a group of cards, or at the top of a card. */
