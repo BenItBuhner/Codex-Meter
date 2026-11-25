@@ -98,6 +98,25 @@ public sealed class ScreenshotRunner(MainWindow window, AppState state, string d
                 await signIn;
             }
 
+            // Settings pages at several window widths, so a column that stops fitting or centring shows up.
+            foreach (var width in new[] { 1920, 1600, 1440, 1180, 900, 700 })
+            {
+                FitWindow(width, 820);
+                foreach (var page in new[] { "accounts", "settings", "priority" })
+                {
+                    window.Navigate(page);
+                    await Task.Delay(900);
+                    failures += await CaptureAsync(File($"{page}-w{width}")) ? 0 : 1;
+                }
+            }
+            // And the same page after the window shrinks under it (wide, then narrower without navigating).
+            window.Navigate("accounts");
+            FitWindow(1920, 820);
+            await Task.Delay(900);
+            FitWindow(1300, 820);
+            await Task.Delay(900);
+            failures += await CaptureAsync(File("accounts-shrunk")) ? 0 : 1;
+
             // Narrow window: the pane collapses behind the title bar's menu button and cards stack.
             FitWindow(560, 820);
             window.Navigate(firstProvider);
