@@ -86,4 +86,6 @@
     <string name="provider_claude_code">Claude Code</string>
     <string name="provider_cursor">Cursor</string>
     <string name="oneui9_more_providers">More</string>
+    <string name="expressive_edit">Edit</string>
+    <string name="expressive_done">Done</string>
 </resources>
