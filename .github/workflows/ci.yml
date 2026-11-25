@@ -391,10 +391,12 @@ jobs:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -euo pipefail
+          # A generic destination: naming the booting simulator here made xcodebuild wait about
+          # 4 minutes for CoreSimulator before it compiled anything. arm64 is the runner's arch.
           xcodebuild build-for-testing -project CodexMeter.xcodeproj -scheme CodexMeter \
-            -destination "id=$UDID" -derivedDataPath DerivedData \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
-            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
       - name: Wait for the simulator
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
@@ -425,13 +427,12 @@ jobs:
         id: simulator
         run: macos/ci/boot-simulator.sh
       - name: Build the Release iPhone app
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -euo pipefail
+          # Generic destination (see the iOS unit tests job), built for arm64, the runner's arch.
           xcodebuild build -project ios/CodexMeter.xcodeproj -scheme CodexMeter -configuration Release \
-            -destination "id=$UDID" -derivedDataPath "$RUNNER_TEMP/ios" CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=YES COMPILER_INDEX_STORE_ENABLE=NO -quiet
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/ios" \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
       - name: Measure iPhone start-up and memory
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
