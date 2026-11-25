@@ -31,7 +31,9 @@ python3 -m pip install --quiet --user pillow >/dev/null 2>&1 || true
 FAIL=0
 check() { echo "$*" | tee -a "$OUT/checks.txt"; }
 shot() { sleep "${2:-1.5}"; adb exec-out screencap -p > "$OUT/$1.png"; }
-demo() { adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" "$@" >/dev/null; }
+# Each start carries its own data URI: an identical intent would only bring the app's task (whose
+# root is this same demo intent) to the front without running it again.
+demo() { adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" -d "codexmeter-check://$(date +%s%N)" "$@" >/dev/null; }
 front() { adb shell dumpsys activity activities | grep -m1 -E "topResumedActivity|mResumedActivity" | grep -o "$PKG/[.A-Za-z0-9]*" || true; }
 
 # A back swipe from the left edge, held half way for a screenshot of the predictive back preview.
