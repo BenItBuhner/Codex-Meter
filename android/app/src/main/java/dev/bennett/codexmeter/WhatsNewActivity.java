@@ -20,7 +20,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -48,10 +47,14 @@ import java.util.Collections;
  * is drawn by Glassé like iOS's welcome screens ({@link CodexGlass#whatsNew}).
  *
  * <p>It opens on its own once per {@link WhatsNew#RELEASE} ({@link #showOnce}); About opens it again.
- * Continue or Back marks it seen.
+ * Showing it marks it seen. Continue closes it, and so does Back: the page takes no back callback of
+ * its own, so the system back gesture closes it with Android's predictive back animation, like any
+ * other page.
  */
 public final class WhatsNewActivity extends AppCompatActivity {
     private GlasseHost glasse;
+    private GlassLoop loop;
+    private GlassSnapshot snapshot;
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -84,12 +87,8 @@ public final class WhatsNewActivity extends AppCompatActivity {
             Ui.applySelectedTheme(this);
         }
         super.onCreate(bundle);
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                done();
-            }
-        });
+        // Seen once it is on screen, so Back (or leaving the app) never brings it back next launch.
+        AppPreferences.markWhatsNewSeen(this);
         if (AppPreferences.isLiquidGlassDesign(this)) {
             showGlass();
         } else if (expressive) {
@@ -101,7 +100,6 @@ public final class WhatsNewActivity extends AppCompatActivity {
     }
 
     private void done() {
-        AppPreferences.markWhatsNewSeen(this);
         finish();
     }
 
@@ -128,6 +126,8 @@ public final class WhatsNewActivity extends AppCompatActivity {
         this.glasse = new GlasseHost(this, env -> CodexGlass.whatsNew(env, intro),
                 Collections.emptyMap(), ev -> super.dispatchTouchEvent(ev));
         this.glasse.start(true);
+        this.loop = GlassLoop.of();
+        this.snapshot = new GlassSnapshot(this.glasse.getView());
         this.glasse.setThemeMode(AppPreferences.getAppTheme(this));
     }
 
@@ -156,18 +156,29 @@ public final class WhatsNewActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (this.glasse != null) this.glasse.onResume();
+        if (this.glasse != null) {
+            this.loop.claim();
+            this.glasse.onResume();
+            this.snapshot.resumed();
+        }
     }
 
     @Override
     protected void onPause() {
-        if (this.glasse != null) this.glasse.onPause();
+        if (this.glasse != null) {
+            this.snapshot.paused();
+            this.glasse.onPause();
+        }
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
-        if (this.glasse != null) this.glasse.onDestroy();
+        if (this.glasse != null) {
+            this.glasse.onDestroy();
+            this.loop.release();
+            this.snapshot.destroyed();
+        }
         super.onDestroy();
     }
 

@@ -108,18 +108,24 @@ public final class AboutActivity extends AppCompatActivity {
                 "https://github.com/BenItBuhner"));
         credits.addView(personRow("That Josh Guy", "App and Icon designer", R.drawable.codex_profile_avatar, true,
                 "https://tjg.gg"));
+        credits.addView(personRow(GlassScreens.ABOUT_ROBERT, GlassScreens.ABOUT_ROBERT_ROLE,
+                R.drawable.robertg761_github_avatar, true, "https://github.com/Robertg761"));
         content.addView(credits);
 
         content.addView(sectionTitle("Dependencies"));
         RoundedLinearLayout dependencies = Ui.cardGroup(this, dark);
-        CardItemView oneUi = Ui.actionRow(this, "One UI Design Library", "The library that makes this app so pretty.", R.drawable.ic_oui_theme,
-                view -> openUrl("https://github.com/tribalfs/oneui-design"));
+        CardItemView glasse = Ui.actionRow(this, "Glassé", "The Liquid Glass design's library.",
+                R.drawable.ic_oui_palette, view -> openUrl(GlassScreens.URL_GLASSE));
+        dependencies.addView(glasse);
+        CardItemView oneUi = Ui.actionRow(this, "One UI Design Library", "The library that makes this app so pretty.",
+                R.drawable.ic_oui_theme, view -> openUrl(GlassScreens.URL_ONE_UI));
+        oneUi.setShowTopDivider(true);
         dependencies.addView(oneUi);
-        CardItemView openAi = Ui.actionRow(this, "OpenAI API", "This app would be pretty useless without it.", R.drawable.ic_openai_figma,
-                view -> openUrl("https://openai.com"));
-        openAi.setIconSize(Ui.dp(this, 24));
-        openAi.setShowTopDivider(true);
-        dependencies.addView(openAi);
+        CardItemView material = Ui.actionRow(this, "Material Components",
+                "Google's components behind Material 3 Expressive.", R.drawable.ic_oui_widget_outline,
+                view -> openUrl(GlassScreens.URL_MATERIAL));
+        material.setShowTopDivider(true);
+        dependencies.addView(material);
         content.addView(dependencies);
     }
 
