@@ -97,20 +97,6 @@ jobs:
           echo "Using simulator: $DEVICE"
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
-      # The simulators' data after one boot, cached per runner image, so later runs skip the
-      # first boot's data migration (2-6 minutes each). Keyed by device, so jobs on the same
-      # simulator share it. See macos/ci/simulator-data.sh.
-      - name: Key the simulator data to the runner image
-        id: simdata
-        shell: bash
-        run: ../macos/ci/simulator-data.sh devices "${{ steps.simulator.outputs.device }}"
-      - name: Restore the booted simulators
-        id: simcache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.simdata.outputs.paths }}
-          key: ${{ steps.simdata.outputs.key }}
-
       - name: Build for testing
         id: build
         shell: bash
@@ -148,18 +134,6 @@ jobs:
               -skip-testing:CodexMeterUITests/DemoGalleryTests \
               -retry-tests-on-failure -test-iterations 3
           fi
-
-      - name: Shut the simulators down for caching (first run on this runner image)
-        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
-        shell: bash
-        run: xcrun simctl shutdown all || true
-      - name: Cache the booted simulators
-        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ steps.simdata.outputs.paths }}
-          key: ${{ steps.simdata.outputs.key }}
 
       - name: Upload test results on failure
         if: failure()
@@ -202,20 +176,6 @@ jobs:
           fi
           echo "Using simulator: $DEVICE"
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
-
-      # The simulators' data after one boot, cached per runner image, so later runs skip the
-      # first boot's data migration (2-6 minutes each). Keyed by device, so jobs on the same
-      # simulator share it. See macos/ci/simulator-data.sh.
-      - name: Key the simulator data to the runner image
-        id: simdata
-        shell: bash
-        run: ../macos/ci/simulator-data.sh devices "${{ steps.simulator.outputs.device }}"
-      - name: Restore the booted simulators
-        id: simcache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.simdata.outputs.paths }}
-          key: ${{ steps.simdata.outputs.key }}
 
       - name: Build for testing
         id: build
@@ -262,18 +222,6 @@ jobs:
           path: ios/ci-gallery/
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Shut the simulators down for caching (first run on this runner image)
-        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
-        shell: bash
-        run: xcrun simctl shutdown all || true
-      - name: Cache the booted simulators
-        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ steps.simdata.outputs.paths }}
-          key: ${{ steps.simdata.outputs.key }}
 
       - name: Upload gallery test results on failure
         if: steps.gallery.outcome == 'failure'
@@ -343,22 +291,6 @@ jobs:
           echo "Using: ${DEVICE:-none}"
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
-      # The simulators' data after one boot, cached per runner image, so later runs skip the
-      # first boot's data migration (2-6 minutes each). Keyed by device, so jobs on the same
-      # simulator share it. See macos/ci/simulator-data.sh.
-      - name: Key the simulator data to the runner image
-        id: simdata
-        if: steps.ipad.outputs.device != ''
-        shell: bash
-        run: ../macos/ci/simulator-data.sh devices "${{ steps.ipad.outputs.device }}"
-      - name: Restore the booted simulators
-        id: simcache
-        if: steps.ipad.outputs.device != ''
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.simdata.outputs.paths }}
-          key: ${{ steps.simdata.outputs.key }}
-
       - name: Build for testing
         id: build
         if: steps.ipad.outputs.device != ''
@@ -426,18 +358,6 @@ jobs:
           path: ios/ci-ipad-gallery/
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Shut the simulators down for caching (first run on this runner image)
-        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
-        shell: bash
-        run: xcrun simctl shutdown all || true
-      - name: Cache the booted simulators
-        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ steps.simdata.outputs.paths }}
-          key: ${{ steps.simdata.outputs.key }}
 
       - name: Upload iPad test results on failure
         if: failure()

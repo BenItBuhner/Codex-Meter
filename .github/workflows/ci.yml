@@ -465,15 +465,6 @@ jobs:
       - name: Pick an iPhone simulator
         id: simulator
         run: macos/ci/boot-simulator.sh pick
-      # The simulator's data folder after one boot, cached per runner image, so later runs skip
-      # the first boot's data migration (2-6 minutes). Shared with the other job that uses this
-      # iPhone; whichever finishes first stores it. See macos/ci/boot-simulator.sh.
-      - name: Restore the booted simulator
-        id: simulator-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.simulator.outputs.data }}
-          key: ${{ steps.simulator.outputs.key }}
       - name: Boot the simulator
         run: macos/ci/boot-simulator.sh boot "${{ steps.simulator.outputs.udid }}"
       - name: Wait for the simulator
@@ -493,17 +484,6 @@ jobs:
             -destination "id=$UDID" -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
             CODE_SIGNING_ALLOWED=NO
-      - name: Shut down the simulator for caching (first run on this runner image)
-        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
-        run: macos/ci/boot-simulator.sh stop "${{ steps.simulator.outputs.udid }}"
-      - name: Cache the booted simulator
-        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ steps.simulator.outputs.data }}
-          key: ${{ steps.simulator.outputs.key }}
-
   apple-performance:
     name: iPhone performance budgets
     needs: changes
@@ -522,15 +502,6 @@ jobs:
       - name: Pick an iPhone simulator
         id: simulator
         run: macos/ci/boot-simulator.sh pick
-      # The simulator's data folder after one boot, cached per runner image, so later runs skip
-      # the first boot's data migration (2-6 minutes). Shared with the other job that uses this
-      # iPhone; whichever finishes first stores it. See macos/ci/boot-simulator.sh.
-      - name: Restore the booted simulator
-        id: simulator-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.simulator.outputs.data }}
-          key: ${{ steps.simulator.outputs.key }}
       - name: Boot the simulator
         run: macos/ci/boot-simulator.sh boot "${{ steps.simulator.outputs.udid }}"
       - name: Measure iPhone start-up and memory
@@ -543,16 +514,6 @@ jobs:
           echo "Booted in ${SECONDS}s"
           APP="$(find "$RUNNER_TEMP/ios/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' | head -n 1)"
           macos/ci/perf-budgets.sh ios "$APP" "$UDID"
-      - name: Shut down the simulator for caching (first run on this runner image)
-        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
-        run: macos/ci/boot-simulator.sh stop "${{ steps.simulator.outputs.udid }}"
-      - name: Cache the booted simulator
-        if: success() && steps.simulator-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ steps.simulator.outputs.data }}
-          key: ${{ steps.simulator.outputs.key }}
       - name: Upload screenshots of a launch that printed no first frame
         if: failure()
         uses: actions/upload-artifact@v7
