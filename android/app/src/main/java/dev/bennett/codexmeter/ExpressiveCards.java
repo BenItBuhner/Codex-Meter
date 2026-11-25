@@ -170,20 +170,19 @@ final class ExpressiveCards {
         header(body, c.title, dashboard ? c.value : null);
         GlassModel.Chart data = c.chart;
         if (data != null) {
-            LinearLayout top = new LinearLayout(this.ctx);
-            top.setGravity(Gravity.CENTER_VERTICAL);
-            top.addView(text(data.label, R.attr.textAppearanceLabelLarge, R.attr.colorOnSurfaceVariant),
-                    new LinearLayout.LayoutParams(0, -2, 1f));
-            top.addView(text(data.sampleLabel, R.attr.textAppearanceLabelMedium, R.attr.colorOnSurfaceVariant));
-            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
-            tp.topMargin = Ui.dp(this.ctx, 4);
-            body.addView(top, tp);
             ExpressiveChartView chart = new ExpressiveChartView(this.ctx,
                     color(R.attr.colorPrimary), color(R.attr.colorError),
                     color(R.attr.colorOutline), cardColor());
-            String rest = data.emptyText != null ? data.emptyText : data.hint == null ? "" : data.hint;
+            // No caption or instructions: the line under the chart holds only the moment under the finger
+            // (or why there's no window yet), and stays blank otherwise so the card doesn't jump.
+            String rest = data.emptyText != null ? data.emptyText : "";
             TextView readout = text(rest, R.attr.textAppearanceBodySmall, R.attr.colorOnSurfaceVariant);
-            chart.setChart(data, value -> readout.setText(value != null ? value : rest));
+            readout.setVisibility(rest.isEmpty() ? View.INVISIBLE : View.VISIBLE);
+            chart.setChart(data, value -> {
+                String shown = value != null ? value : rest;
+                readout.setText(shown);
+                readout.setVisibility(shown.isEmpty() ? View.INVISIBLE : View.VISIBLE);
+            });
             LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, Ui.dp(this.ctx, dashboard ? 140 : 180));
             cp.topMargin = Ui.dp(this.ctx, 8);
             body.addView(chart, cp);

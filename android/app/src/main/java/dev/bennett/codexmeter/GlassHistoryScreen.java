@@ -179,9 +179,8 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         card.title = label + " window";
         GlassModel.Chart chart = new GlassModel.Chart();
         card.chart = chart;
-        chart.label = Math.round(window.usedPercent) + "% used so far";
+        chart.description = label + ", " + Math.round(window.usedPercent) + "% used";
         chart.legend = legend;
-        chart.sampleLabel = samples.size() < 2 ? "Building history" : samples.size() + " samples";
         long resetAt = window.effectiveResetAtMillis(observedAt);
         long startAt = resetAt - window.windowSeconds * 1000L;
         boolean liveAxis = window.windowSeconds > 0L && resetAt > observedAt;
@@ -191,7 +190,6 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
             chart.emptyText = window.resetAtMillis() <= 0L && window.resetAfterSeconds <= 0L
                     ? "No window running. It starts with your next request."
                     : "Window reset. Waiting for the next refresh.";
-            chart.sampleLabel = "";
         }
         chart.current = liveAxis ? points(samples, startAt, resetAt) : new double[0];
         for (int i = 0; i < windows.size() - 1; i++) {
@@ -264,7 +262,6 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
 
         List<UsageStats.WindowStats> breakdown = UsageStats.windowBreakdown(history, MAX_BREAKDOWN_WINDOWS);
         boolean rows = windowRows && breakdown.size() > 1;
-        chart.hint = rows ? "Drag to inspect · tap a window to compare" : "Drag to inspect";
         if (rows) {
             boolean days = UsageHistory.WEEKLY.equals(history.kind) || UsageHistory.MONTHLY.equals(history.kind);
             for (int index = breakdown.size() - 1; index >= 0; index--) {
