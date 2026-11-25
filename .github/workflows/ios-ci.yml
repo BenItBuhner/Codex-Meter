@@ -59,13 +59,14 @@ jobs:
           set -euo pipefail
           swift test --package-path CodexMeterCore
 
+  # The UI suite and the demo gallery each take about 20 minutes, so they run side by side.
   app-build-and-test:
     name: App build and simulator tests
     needs: gate-first
     # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
     if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
-    timeout-minutes: 70
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: ios
@@ -96,23 +97,28 @@ jobs:
           echo "Using simulator: $DEVICE"
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
-      - name: Build app for generic iOS Simulator
+      # The simulators' data after one boot, cached per runner image, so later runs skip the
+      # first boot's data migration (2-6 minutes each). See macos/ci/simulator-data.sh.
+      - name: Key the simulator data to the runner image
+        id: simdata
+        shell: bash
+        run: ../macos/ci/simulator-data.sh app-tests "${{ steps.simulator.outputs.device }}"
+      - name: Restore the booted simulators
+        id: simcache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.simdata.outputs.paths }}
+          key: ${{ steps.simdata.outputs.key }}
+
+      - name: Build for testing
         id: build
         shell: bash
         run: |
           set -euo pipefail
-          if command -v xcbeautify >/dev/null 2>&1; then
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
-              -destination 'generic/platform=iOS Simulator' \
-              -derivedDataPath DerivedData \
-              ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO build \
-              | xcbeautify --renderer github-actions
-          else
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
-              -destination 'generic/platform=iOS Simulator' \
-              -derivedDataPath DerivedData \
-              ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO build
-          fi
+          xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO -quiet build-for-testing
 
       - name: Run unit and UI tests on simulator
         shell: bash
@@ -124,27 +130,103 @@ jobs:
           # UI tests; deterministic failures still fail after 3 iterations, and
           # pass-on-retry results stay visible in the xcresult bundle.
           if command -v xcbeautify >/dev/null 2>&1; then
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            xcodebuild test-without-building -project CodexMeter.xcodeproj -scheme CodexMeter \
               -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
               -parallel-testing-enabled NO \
               -skip-testing:CodexMeterUITests/DemoGalleryTests \
-              -retry-tests-on-failure -test-iterations 3 test \
+              -retry-tests-on-failure -test-iterations 3 \
               | xcbeautify --renderer github-actions
           else
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            xcodebuild test-without-building -project CodexMeter.xcodeproj -scheme CodexMeter \
               -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
               -parallel-testing-enabled NO \
               -skip-testing:CodexMeterUITests/DemoGalleryTests \
-              -retry-tests-on-failure -test-iterations 3 test
+              -retry-tests-on-failure -test-iterations 3
           fi
+
+      - name: Shut the simulators down for caching (first run on this runner image)
+        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
+        shell: bash
+        run: xcrun simctl shutdown all || true
+      - name: Cache the booted simulators
+        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.simdata.outputs.paths }}
+          key: ${{ steps.simdata.outputs.key }}
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-test-results
+          path: ios/TestResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 3
+
+  demo-gallery:
+    name: Demo gallery
+    needs: gate-first
+    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Select iPhone simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available
+          DEVICE="iPhone 17e"
+          if ! xcrun simctl list devices available | grep -Fq "$DEVICE ("; then
+            DEVICE="$(xcrun simctl list devices available \
+              | sed -nE 's/^[[:space:]]+(iPhone [A-Za-z0-9 ]*[A-Za-z0-9]) \(.*/\1/p' \
+              | head -n 1)"
+          fi
+          if [[ -z "$DEVICE" ]]; then
+            echo "::error::No available iPhone simulator on this runner image"
+            exit 1
+          fi
+          echo "Using simulator: $DEVICE"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      # The simulators' data after one boot, cached per runner image, so later runs skip the
+      # first boot's data migration (2-6 minutes each). See macos/ci/simulator-data.sh.
+      - name: Key the simulator data to the runner image
+        id: simdata
+        shell: bash
+        run: ../macos/ci/simulator-data.sh demo-gallery "${{ steps.simulator.outputs.device }}"
+      - name: Restore the booted simulators
+        id: simcache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.simdata.outputs.paths }}
+          key: ${{ steps.simdata.outputs.key }}
+
+      - name: Build for testing
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO -quiet build-for-testing
 
       - name: Record demo gallery
         id: gallery
-        if: (success() || failure()) && steps.simulator.outcome == 'success' && steps.build.outcome == 'success'
         continue-on-error: true
         shell: bash
         env:
@@ -179,24 +261,55 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload test results on failure
-        if: failure() || steps.gallery.outcome == 'failure'
+      - name: Shut the simulators down for caching (first run on this runner image)
+        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
+        shell: bash
+        run: xcrun simctl shutdown all || true
+      - name: Cache the booted simulators
+        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.simdata.outputs.paths }}
+          key: ${{ steps.simdata.outputs.key }}
+
+      - name: Upload gallery test results on failure
+        if: steps.gallery.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
-          name: ios-test-results
-          path: |
-            ios/TestResults.xcresult
-            ios/GalleryResults.xcresult
+          name: ios-gallery-results
+          path: ios/GalleryResults.xcresult
           if-no-files-found: ignore
           retention-days: 3
 
+  # One job per iPad (each gallery takes 8-15 minutes), so they run side by side.
   ipad-layout:
-    name: iPad layout tests and screenshots
+    name: iPad ${{ matrix.title }}
     needs: gate-first
     # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
     if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
-    timeout-minutes: 75
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slot: pro
+            title: Pro 13-inch gallery (light and dark)
+            pattern: '^iPad Pro 13;^iPad Pro'
+            appearances: light dark
+          - slot: air
+            title: Air 11-inch gallery
+            pattern: '^iPad Air 11;^iPad( \(|$)'
+            appearances: light
+          - slot: mini
+            title: mini gallery
+            pattern: '^iPad mini'
+            appearances: light
+          - slot: suite
+            title: Pro 13-inch iPhone UI tests
+            pattern: '^iPad Pro 13;^iPad Pro'
+            appearances: ''
     defaults:
       run:
         working-directory: ios
@@ -204,69 +317,75 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Pick iPad simulators
-        id: ipads
+      - name: Pick the iPad simulator
+        id: ipad
         shell: bash
+        env:
+          PATTERN: ${{ matrix.pattern }}
         run: |
           set -euo pipefail
           xcrun simctl list devices available | grep -i ipad || true
-          # Smallest, mid-size and largest iPad screens the runner image offers.
-          pick() {
-            xcrun simctl list devices available \
-              | sed -nE 's/^[[:space:]]+(iPad[^()]*(\([^)]*\))?) \([0-9A-F-]{36}\).*/\1/p' \
-              | sed -E 's/[[:space:]]+$//' \
-              | grep -E "$1" | head -n 1 || true
-          }
-          MINI="$(pick '^iPad mini')"
-          AIR="$(pick '^iPad Air 11')"
-          [[ -n "$AIR" ]] || AIR="$(pick '^iPad( \(|$)')"
-          PRO="$(pick '^iPad Pro 13')"
-          [[ -n "$PRO" ]] || PRO="$(pick '^iPad Pro')"
-          if [[ -z "$PRO$AIR$MINI" ]]; then
-            echo "::error::No iPad simulators on this runner image"
-            exit 1
+          names="$(xcrun simctl list devices available \
+            | sed -nE 's/^[[:space:]]+(iPad[^()]*(\([^)]*\))?) \([0-9A-F-]{36}\).*/\1/p' \
+            | sed -E 's/[[:space:]]+$//')"
+          # Alternatives are split by ';'; the first that matches wins (for example iPad Pro 13-inch before any iPad Pro).
+          DEVICE=""
+          IFS=';' read -ra alternatives <<< "$PATTERN"
+          for alternative in "${alternatives[@]}"; do
+            DEVICE="$(grep -E "$alternative" <<< "$names" | head -n 1 || true)"
+            [[ -n "$DEVICE" ]] && break
+          done
+          if [[ -z "$DEVICE" ]]; then
+            echo "::warning::No iPad matching $PATTERN on this runner image"
           fi
-          echo "Using: ${PRO:-none} / ${AIR:-none} / ${MINI:-none}"
-          {
-            echo "pro=$PRO"
-            echo "air=$AIR"
-            echo "mini=$MINI"
-          } >> "$GITHUB_OUTPUT"
+          echo "Using: ${DEVICE:-none}"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      # The simulators' data after one boot, cached per runner image, so later runs skip the
+      # first boot's data migration (2-6 minutes each). See macos/ci/simulator-data.sh.
+      - name: Key the simulator data to the runner image
+        id: simdata
+        if: steps.ipad.outputs.device != ''
+        shell: bash
+        run: ../macos/ci/simulator-data.sh ipad-${{ matrix.slot }} "${{ steps.ipad.outputs.device }}"
+      - name: Restore the booted simulators
+        id: simcache
+        if: steps.ipad.outputs.device != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.simdata.outputs.paths }}
+          key: ${{ steps.simdata.outputs.key }}
 
       - name: Build for testing
+        id: build
+        if: steps.ipad.outputs.device != ''
         shell: bash
         run: |
           set -euo pipefail
           xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath DerivedData \
-            ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO build-for-testing
+            ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO -quiet build-for-testing
 
-      - name: iPad Pro 13-inch (light)
-        if: steps.ipads.outputs.pro != ''
-        shell: bash
-        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.pro }}" "$PWD/ci-ipad-gallery" light DerivedData
-
-      - name: iPad Pro 13-inch (dark)
-        if: (success() || failure()) && steps.ipads.outputs.pro != ''
-        shell: bash
-        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.pro }}" "$PWD/ci-ipad-gallery" dark DerivedData
-
-      - name: iPad Air 11-inch (light)
-        if: (success() || failure()) && steps.ipads.outputs.air != ''
-        shell: bash
-        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.air }}" "$PWD/ci-ipad-gallery" light DerivedData
-
-      - name: iPad mini (light)
-        if: (success() || failure()) && steps.ipads.outputs.mini != ''
-        shell: bash
-        run: ./ci/record-ipad-gallery.sh "${{ steps.ipads.outputs.mini }}" "$PWD/ci-ipad-gallery" light DerivedData
-
-      - name: iPhone UI tests on iPad Pro
-        if: (success() || failure()) && steps.ipads.outputs.pro != ''
+      - name: Record the iPad gallery
+        if: matrix.appearances != '' && steps.ipad.outputs.device != ''
         shell: bash
         env:
-          DEVICE_NAME: ${{ steps.ipads.outputs.pro }}
+          DEVICE_NAME: ${{ steps.ipad.outputs.device }}
+          APPEARANCES: ${{ matrix.appearances }}
+        run: |
+          set -uo pipefail
+          status=0
+          for appearance in $APPEARANCES; do
+            ./ci/record-ipad-gallery.sh "$DEVICE_NAME" "$PWD/ci-ipad-gallery" "$appearance" DerivedData || status=1
+          done
+          exit "$status"
+
+      - name: iPhone UI tests on iPad Pro
+        if: matrix.slot == 'suite' && steps.ipad.outputs.device != ''
+        shell: bash
+        env:
+          DEVICE_NAME: ${{ steps.ipad.outputs.device }}
         run: |
           set -euo pipefail
           # The main UI suite also runs on iPad, so the sidebar never breaks a flow that
@@ -280,14 +399,14 @@ jobs:
             -retry-tests-on-failure -test-iterations 3
 
       - name: Summarize iPad gallery
-        if: success() || failure()
+        if: (success() || failure()) && matrix.appearances != ''
         shell: bash
         run: |
           set -euo pipefail
           {
-            echo "## iPad gallery"
+            echo "## iPad gallery (${{ steps.ipad.outputs.device }})"
             echo
-            echo "Download the **ipad-gallery** artifact: one folder per simulator and appearance."
+            echo "Download the **ipad-gallery-${{ matrix.slot }}** artifact: one folder per appearance."
             echo
             if [[ -d ci-ipad-gallery ]]; then
               echo '```'
@@ -297,19 +416,31 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload iPad gallery
-        if: success() || failure()
+        if: (success() || failure()) && matrix.appearances != ''
         uses: actions/upload-artifact@v7
         with:
-          name: ipad-gallery
+          name: ipad-gallery-${{ matrix.slot }}
           path: ios/ci-ipad-gallery/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Shut the simulators down for caching (first run on this runner image)
+        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
+        shell: bash
+        run: xcrun simctl shutdown all || true
+      - name: Cache the booted simulators
+        if: (success() || failure()) && steps.simcache.outputs.cache-hit != 'true' && steps.simdata.outcome == 'success'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.simdata.outputs.paths }}
+          key: ${{ steps.simdata.outputs.key }}
 
       - name: Upload iPad test results on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: ipad-test-results
+          name: ipad-test-results-${{ matrix.slot }}
           path: ios/iPad*.xcresult
           if-no-files-found: ignore
           retention-days: 3
