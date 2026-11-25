@@ -109,9 +109,14 @@
             android:exported="false"
             android:launchMode="singleTop"
             android:excludeFromRecents="true"/>
+        <!-- A launcher opens a widget's settings in a task of their own, so leaving them unsaved (Home,
+             Recents, closing the app) never leaves them on top of the app's task, where the next widget
+             tap would bring them back instead of the app. -->
         <activity
             android:theme="@style/AppTheme"
             android:name="dev.bennett.codexmeter.WidgetConfigActivity"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/>
@@ -120,6 +125,8 @@
         <activity
             android:theme="@style/AppTheme"
             android:name="dev.bennett.codexmeter.LockWidgetConfigActivity"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/>

@@ -29,8 +29,12 @@ public final class GlassWidgetArt {
      * was cut off at the widget's edge and showed as a dark band under it.
      */
     public static final double MARGIN = 4;
-    /** The contact shadow: offset and blur (dp), small enough to fade out inside {@link #MARGIN}. */
-    static final double SHADOW_DY = 1;
+    /**
+     * The contact shadow: offset and blur (dp), small enough to fade out inside {@link #MARGIN}. It sits
+     * evenly around the glass: dropped 1 dp, it showed as a dark band under the bottom rim only, so the
+     * bottom edge's refraction read as a few pixels above the widget's edge.
+     */
+    static final double SHADOW_DY = 0;
     static final double SHADOW_BLUR = 2.5;
     /** Corner radius of the glass (dp), close to Android 12+'s widget corners. */
     public static final double RADIUS = 24;

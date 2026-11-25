@@ -2865,6 +2865,45 @@ public final class ParserSelfTest {
         check(WidgetProviders.metersFor(java.util.Arrays.asList(WidgetMeters.FIVE_HOUR),
                 false, true, 1).equals(java.util.Arrays.asList(WidgetMeters.WEEKLY)),
                 "Cursor lock gauges show the long window instead of an empty 5-hour dial");
+        java.util.List<String> all = WidgetMeters.defaultVisible();
+        check(WidgetProviders.homeMetersFor(all, true, true, true, 4).equals(all),
+                "a stacked Codex row can show next reset and reset credits too");
+        check(WidgetProviders.homeMetersFor(java.util.Arrays.asList(WidgetMeters.NEXT_RESET,
+                WidgetMeters.WEEKLY), true, true, false, 1).equals(java.util.Arrays.asList(
+                WidgetMeters.NEXT_RESET)), "stacked rows keep the user's meter order");
+        check(WidgetProviders.homeMetersFor(java.util.Arrays.asList(WidgetMeters.RESET_CREDITS,
+                WidgetMeters.FIVE_HOUR), false, true, false, 1).equals(java.util.Arrays.asList(
+                WidgetMeters.WEEKLY)), "providers without resets or a 5-hour window fall back to weekly");
+        java.util.List<UsageProvider> picked = WidgetProviders.choices(order,
+                java.util.Arrays.asList(UsageProvider.CLAUDE_CODE), java.util.Arrays.asList(UsageProvider.CODEX));
+        check(picked.size() == 2 && picked.contains(UsageProvider.CODEX)
+                && picked.contains(UsageProvider.CLAUDE_CODE)
+                && order.indexOf(picked.get(0)) < order.indexOf(picked.get(1)),
+                "widget settings list signed-in providers plus the ones the widget shows");
+        check(WidgetProviders.choices(order, java.util.Collections.emptyList(),
+                java.util.Collections.emptyList()).equals(java.util.Arrays.asList(order.get(0))),
+                "widget settings never list zero providers");
+        check(WidgetProviders.choices(order, java.util.Collections.emptyList(),
+                java.util.Collections.emptyList()).size() == 1
+                && WidgetProviders.choices(order, java.util.Arrays.asList(UsageProvider.CURSOR),
+                java.util.Collections.emptyList()).equals(java.util.Arrays.asList(UsageProvider.CURSOR)),
+                "providers nobody signed in to stay out of widget settings");
+        check(WidgetMeters.offeredKeys(true, true).equals(all)
+                && WidgetMeters.offeredKeys(false, false).equals(java.util.Arrays.asList(
+                WidgetMeters.WEEKLY, WidgetMeters.NEXT_RESET)),
+                "widget settings offer only meters the providers can fill");
+        UsageWindow week = new UsageWindow(10, 604800L, 0L, 0L);
+        UsageWindow month = new UsageWindow(10, 2592000L, 0L, 0L);
+        UsageSnapshot weekly = new UsageSnapshot("plus", true, false, null, week, 0L);
+        UsageSnapshot monthly = new UsageSnapshot("free", true, false, null, null, month, null, null, -1, 0L);
+        check("Weekly".equals(WidgetMeters.configLabel(WidgetMeters.WEEKLY,
+                java.util.Arrays.asList(monthly, weekly))), "one weekly provider makes the row Weekly");
+        check("Monthly".equals(WidgetMeters.configLabel(WidgetMeters.WEEKLY,
+                java.util.Arrays.asList(monthly, null))), "only monthly providers make the row Monthly");
+        check("Weekly".equals(WidgetMeters.configLabel(WidgetMeters.WEEKLY,
+                java.util.Collections.<UsageSnapshot>emptyList())), "no data yet reads Weekly");
+        check(!WidgetMeters.mayHaveFiveHour(weekly) && WidgetMeters.mayHaveFiveHour(null),
+                "a plan without a 5-hour window hides the 5-hour meter");
     }
 
     private static void testUsageProviders() {
