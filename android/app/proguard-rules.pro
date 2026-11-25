@@ -21,4 +21,3 @@
 # ExpressiveSwitch sets One UI SwitchCompat's fixed switch width (sesl_switch_width) to Material's
 # 52 dp track by name, so the field keeps its name.
 -keepclassmembers class androidx.appcompat.widget.SwitchCompat { int mSwitchWidth; }
-# CI path test (Android only); this pull request is never merged.

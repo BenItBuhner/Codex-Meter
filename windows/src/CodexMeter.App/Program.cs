@@ -72,3 +72,4 @@ public sealed record LaunchOptions(bool Demo, string? ScreenshotDirectory, bool 
         };
     }
 }
+// CI path test (Windows only); this pull request is never merged.
