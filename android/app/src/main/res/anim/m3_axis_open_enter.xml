@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material 3 Expressive page motion (ExpressiveMotion): a page comes in along the X axis with a fade,
+     over the page underneath, which holds still. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shareInterpolator="false">
+    <translate
+        android:duration="350"
+        android:fromXDelta="10%"
+        android:interpolator="@android:interpolator/linear_out_slow_in"
+        android:toXDelta="0%" />
+    <alpha
+        android:duration="150"
+        android:fromAlpha="0"
+        android:interpolator="@android:interpolator/linear"
+        android:toAlpha="1" />
+</set>

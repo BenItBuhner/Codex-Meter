@@ -48,6 +48,33 @@ final class GlassWidgetScreens {
         return r;
     }
 
+    /** Providers a widget's settings list: the signed-in ones, plus any the widget already shows. */
+    static List<UsageProvider> providerChoices(Context c, List<UsageProvider> current) {
+        List<UsageProvider> signedIn = new ArrayList<>();
+        for (UsageProvider provider : UsageProvider.values()) {
+            if (SecureTokenStore.isSignedIn(c, provider)) signedIn.add(provider);
+        }
+        return WidgetProviders.choices(ProviderPreferences.getOrder(c), signedIn, current);
+    }
+
+    /** The latest usage of each of {@code providers} that is signed in (null for the others). */
+    static List<UsageSnapshot> snapshots(Context c, List<UsageProvider> providers) {
+        List<UsageSnapshot> result = new ArrayList<>();
+        for (UsageProvider provider : providers) {
+            result.add(SecureTokenStore.isSignedIn(c, provider)
+                    ? ProviderPreferences.loadSnapshot(c, provider) : null);
+        }
+        return result;
+    }
+
+    /** Whether any of {@code snapshots} has (or may have) a five-hour window. */
+    static boolean anyFiveHour(List<UsageSnapshot> snapshots) {
+        for (UsageSnapshot snapshot : snapshots) {
+            if (WidgetMeters.mayHaveFiveHour(snapshot)) return true;
+        }
+        return snapshots.isEmpty();
+    }
+
     private static Row preview(byte[] png, double height) {
         Row r = GlassScreens.row(Row.Kind.IMAGE, "preview", "", null);
         r.image = png;
@@ -119,7 +146,7 @@ final class GlassWidgetScreens {
             providerSection.footer = slots > 1
                     ? "Pick one provider for two of its meters, or two providers for one meter each."
                     : "This widget shows one provider.";
-            for (UsageProvider provider : ProviderPreferences.getOrder(c)) {
+            for (UsageProvider provider : providerChoices(c, providers)) {
                 providerSection.rows.add(providerRow(provider, providers.contains(provider),
                         on -> toggleProvider(provider, on)));
             }
@@ -127,13 +154,8 @@ final class GlassWidgetScreens {
 
             Section meterSection = GlassScreens.section("Meters");
             meterSection.footer = metersHint();
-            UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(c, providers.get(0));
-            List<String> available = new ArrayList<>();
-            for (String key : WidgetMeters.availableKeys(snapshot)) {
-                if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)) {
-                    available.add(key);
-                }
-            }
+            List<UsageSnapshot> snapshots = snapshots(c, providers);
+            List<String> available = lockAvailable(snapshots);
             List<String> ordered = new ArrayList<>();
             for (String key : meters) {
                 if (available.contains(key) && !ordered.contains(key)) {
@@ -146,11 +168,11 @@ final class GlassWidgetScreens {
                 }
             }
             for (String key : ordered) {
-                meterSection.rows.add(toggle(key, WidgetMeters.configLabel(key, snapshot), meters.contains(key),
+                meterSection.rows.add(toggle(key, WidgetMeters.configLabel(key, snapshots), meters.contains(key),
                         on -> {
                             if (on) {
                                 meters.add(key);
-                            } else if (meters.size() > 1) {
+                            } else if (selectedCount(available) > 1) {
                                 meters.remove(key);
                             }
                             redraw();
@@ -177,6 +199,22 @@ final class GlassWidgetScreens {
             return page;
         }
 
+        /** The lock widget's meters these providers can fill: 5 hours (when one has it) and weekly. */
+        private static List<String> lockAvailable(List<UsageSnapshot> snapshots) {
+            List<String> available = new ArrayList<>();
+            if (anyFiveHour(snapshots)) available.add(WidgetMeters.FIVE_HOUR);
+            available.add(WidgetMeters.WEEKLY);
+            return available;
+        }
+
+        private int selectedCount(List<String> available) {
+            int count = 0;
+            for (String key : meters) {
+                if (available.contains(key)) count++;
+            }
+            return count;
+        }
+
         private void redraw() {
             // The switch or slider moves now; the preview (a widget drawn to a PNG on the UI thread, tens of
             // milliseconds) is redrawn once the changes settle, so toggles and slider drags stay smooth.
@@ -196,7 +234,7 @@ final class GlassWidgetScreens {
                     ? "With two providers, each shows the first meter it reports."
                     : slots > 1 ? "Lock widgets show up to " + capacity + " meters."
                     : "The gauge shows the first meter it can.";
-            int selected = meters.size();
+            int selected = selectedCount(lockAvailable(snapshots(activity(), providers)));
             if (selected > capacity && slots > 1 && providers.size() <= 1) {
                 message += " " + (selected - capacity) + " extra selection"
                         + (selected - capacity == 1 ? " is" : "s are") + " ignored until you deselect others.";
@@ -222,18 +260,22 @@ final class GlassWidgetScreens {
         }
 
         private LockWidgetOptions options() {
+            List<String> available = lockAvailable(snapshots(activity(), providers));
             List<String> ordered = new ArrayList<>();
             for (String key : meters) {
-                if (WidgetMeters.FIVE_HOUR.equals(key) || WidgetMeters.WEEKLY.equals(key)) {
+                if (available.contains(key)) {
                     ordered.add(key);
                 }
             }
-            boolean five = meters.contains(WidgetMeters.FIVE_HOUR);
-            boolean weekly = meters.contains(WidgetMeters.WEEKLY);
+            if (ordered.isEmpty()) {
+                ordered.add(WidgetMeters.WEEKLY);
+            }
+            boolean five = ordered.contains(WidgetMeters.FIVE_HOUR);
+            boolean weekly = ordered.contains(WidgetMeters.WEEKLY);
             String metricMode = WidgetOptions.METRIC_BOTH;
-            if (five && !weekly && meters.size() == 1) {
+            if (five && !weekly) {
                 metricMode = WidgetOptions.METRIC_FIVE_HOUR;
-            } else if (weekly && !five && meters.size() == 1) {
+            } else if (weekly && !five) {
                 metricMode = WidgetOptions.METRIC_WEEKLY;
             }
             return new LockWidgetOptions(metricMode, resetCredits, resetAction, countdown,
@@ -274,7 +316,6 @@ final class GlassWidgetScreens {
         private int accent;
         private int display;
         private boolean percentSymbol;
-        private UsageSnapshot snapshot;
         private byte[] preview;
 
         Home(GlassScreens screens, int appWidgetId, Runnable done) {
@@ -292,7 +333,6 @@ final class GlassWidgetScreens {
             WidgetOptions saved = AppPreferences.loadWidgetOptions(c, appWidgetId);
             tapAction = AppPreferences.getWidgetTapAction(c, appWidgetId);
             providers = new ArrayList<>(ProviderPreferences.getWidgetProviders(c, appWidgetId));
-            snapshot = AppPreferences.loadSnapshot(c);
             background = saved.opacity > 0;
             opacityIndex = WidgetOptions.opacityIndex(saved.opacity);
             style = indexOf(WidgetOptionCatalog.STYLE_VALUES, saved.layoutPreference());
@@ -300,7 +340,7 @@ final class GlassWidgetScreens {
             accent = indexOf(WidgetOptionCatalog.ACCENT_VALUES, saved.accent);
             display = indexOf(WidgetOptionCatalog.DISPLAY_VALUES, saved.displayMode);
             percentSymbol = saved.showPercentSymbol;
-            List<String> available = WidgetMeters.availableKeys(snapshot);
+            List<String> available = WidgetMeters.availableKeys(null);
             List<String> chosen = WidgetMeters.resolveVisibleForWidget(saved.effectiveVisibleMeters(), available,
                     saved.metricMode);
             meterOrder.clear();
@@ -363,7 +403,7 @@ final class GlassWidgetScreens {
             Section providerSection = GlassScreens.section("Providers");
             providerSection.footer = "Turn on more than one to stack them, one row per provider. Small sizes "
                     + "show the first one or two.";
-            for (UsageProvider provider : ProviderPreferences.getOrder(c)) {
+            for (UsageProvider provider : providerChoices(c, providers)) {
                 providerSection.rows.add(providerRow(provider, providers.contains(provider), on -> {
                     List<UsageProvider> updated = WidgetProviders.toggled(providers, provider, on,
                             ProviderPreferences.getOrder(c), WidgetProviders.MAX_HOME);
@@ -402,18 +442,26 @@ final class GlassWidgetScreens {
             Section meters = GlassScreens.section("Meters");
             meters.footer = metersHint() + " Touch and hold a meter and drag it to choose which fill slots first. Empty "
                     + "selected meters keep a blank dash on the widget.";
-            for (String key : meterOrder) {
-                meters.rows.add(toggle(key, WidgetMeters.configLabel(key, snapshot), selected.contains(key), on -> {
+            List<UsageSnapshot> snapshots = snapshots(c, providers);
+            List<String> shown = shownMeters(snapshots);
+            for (String key : shown) {
+                meters.rows.add(toggle(key, WidgetMeters.configLabel(key, snapshots), selected.contains(key), on -> {
                     if (on) {
                         selected.add(key);
-                    } else if (selected.size() > 1) {
+                    } else if (chosenMeters().size() > 1) {
                         selected.remove(key);
                     }
                     redraw();
                 }));
             }
             meters.onMove = (from, to) -> {
-                meterOrder.add(to, meterOrder.remove(from));
+                // from and to are rows of the meters shown; meterOrder also keeps the hidden ones.
+                if (from < 0 || to < 0 || from >= shown.size() || to >= shown.size() || from == to) return;
+                String moving = shown.get(from);
+                String target = shown.get(to);
+                meterOrder.remove(moving);
+                int at = meterOrder.indexOf(target);
+                meterOrder.add(from < to ? at + 1 : at, moving);
                 redraw();
             };
             page.sections.add(meters);
@@ -466,15 +514,42 @@ final class GlassWidgetScreens {
             changed();
         };
 
-        private WidgetOptions options() {
-            int opacity = background ? WidgetOptionCatalog.OPACITY_VALUES[Math.max(0, Math.min(
-                    WidgetOptionCatalog.OPACITY_VALUES.length - 1, opacityIndex))] : 0;
-            List<String> ordered = new ArrayList<>();
+        /**
+         * The meters these providers can fill, in the user's order: no 5 hours when none of them has a
+         * five-hour window, no reset credits when none of them banks resets.
+         */
+        private List<String> shownMeters(List<UsageSnapshot> snapshots) {
+            boolean resets = false;
+            for (UsageProvider provider : providers) {
+                resets |= ResetAlertPreferences.hasResets(provider);
+            }
+            List<String> offered = WidgetMeters.offeredKeys(anyFiveHour(snapshots), resets);
+            List<String> shown = new ArrayList<>();
             for (String key : meterOrder) {
+                if (offered.contains(key)) shown.add(key);
+            }
+            return shown;
+        }
+
+        /** The switched-on meters among those shown, in order; never empty. */
+        private List<String> chosenMeters() {
+            List<String> shown = shownMeters(snapshots(activity(), providers));
+            List<String> ordered = new ArrayList<>();
+            for (String key : shown) {
                 if (selected.contains(key)) {
                     ordered.add(key);
                 }
             }
+            if (ordered.isEmpty() && !shown.isEmpty()) {
+                ordered.add(shown.contains(WidgetMeters.WEEKLY) ? WidgetMeters.WEEKLY : shown.get(0));
+            }
+            return ordered;
+        }
+
+        private WidgetOptions options() {
+            int opacity = background ? WidgetOptionCatalog.OPACITY_VALUES[Math.max(0, Math.min(
+                    WidgetOptionCatalog.OPACITY_VALUES.length - 1, opacityIndex))] : 0;
+            List<String> ordered = chosenMeters();
             return new WidgetOptions(WidgetOptionCatalog.STYLE_VALUES[style],
                     WidgetOptions.DENSITY_AUTO, WidgetOptions.SURFACE_ONE_UI, WidgetOptions.GRAPHIC_AUTO,
                     WidgetOptionCatalog.THEME_VALUES[theme], WidgetOptionCatalog.ACCENT_VALUES[accent], opacity,
@@ -502,7 +577,7 @@ final class GlassWidgetScreens {
                     rows, columns, height, width);
             int capacity = WidgetMeters.slotCapacity(visual, height);
             String message = "This size shows up to " + capacity + " meter" + (capacity == 1 ? "" : "s") + ".";
-            int count = selected.size();
+            int count = chosenMeters().size();
             if (count > capacity) {
                 message += " " + (count - capacity) + " extra selection" + (count - capacity == 1 ? " is" : "s are")
                         + " saved and appear when the widget is larger.";
@@ -575,7 +650,8 @@ final class GlassWidgetScreens {
                         rerender);
                 if (glass != null) {
                     canvas.drawBitmap(glass, x, y, null);
-                } else {
+                } else if (!WidgetMaterial.applies(c)) {
+                    // (Material 3 Expressive's widget draws its own surface.)
                     GradientDrawable bg = new GradientDrawable();
                     int alpha = Math.round(options.opacity * 2.55f);
                     bg.setColor(dark ? Color.argb(alpha, 0, 0, 0) : Color.argb(alpha, 255, 255, 255));

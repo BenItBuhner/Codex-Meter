@@ -10,7 +10,8 @@ import android.widget.FrameLayout;
 /**
  * Pull to refresh for the Material 3 Expressive dashboard: pulling down at the top brings in the
  * contained loading indicator ({@code expressive_pull_indicator}), which follows the finger,
- * grows into place and starts a refresh when let go far enough. It stays while refreshing.
+ * grows into place and starts a refresh when let go far enough. It stays while refreshing. A tick
+ * marks the point where letting go refreshes, and a confirmation the refresh starting.
  */
 public final class ExpressivePull extends FrameLayout {
     interface Listener {
@@ -27,6 +28,8 @@ public final class ExpressivePull extends FrameLayout {
     private boolean dragging;
     private boolean refreshing;
     private float offset;
+    /** Pulled past the point where letting go refreshes (ticked once on the way there). */
+    private boolean armed;
 
     public ExpressivePull(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -95,11 +98,21 @@ public final class ExpressivePull extends FrameLayout {
                 float raw = Math.max(0f, ev.getY() - this.downY);
                 this.offset = this.max * (1f - (float) Math.exp(-raw / this.max));
                 place(this.offset, Math.min(1f, this.offset / this.trigger));
+                boolean past = this.offset >= this.trigger * 0.8f;
+                if (past != this.armed) {
+                    this.armed = past;
+                    // a tick where letting go starts a refresh, and none on the way back down
+                    if (past) {
+                        AppHaptics.tick(this);
+                    }
+                }
                 return true;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 this.dragging = false;
+                this.armed = false;
                 if (ev.getActionMasked() == MotionEvent.ACTION_UP && this.offset >= this.trigger * 0.8f) {
+                    AppHaptics.confirm(this);
                     android.util.Log.i("CodexGlass", "pull to refresh");
                     this.refreshing = true;
                     settle(this.trigger * 0.75f, 1f);

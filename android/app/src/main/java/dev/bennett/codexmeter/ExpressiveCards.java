@@ -43,7 +43,7 @@ final class ExpressiveCards {
                 this.parent, false);
         card.setCardBackgroundColor(cardColor());
         float big = Ui.dp(this.ctx, 28);
-        float small = Ui.dp(this.ctx, 8);
+        float small = Ui.dp(this.ctx, ExpressiveRows.INNER);
         card.setShapeAppearanceModel(ShapeAppearanceModel.builder()
                 .setTopLeftCornerSize(joinsPrev ? small : big).setTopRightCornerSize(joinsPrev ? small : big)
                 .setBottomLeftCornerSize(joinsNext ? small : big)
@@ -52,7 +52,7 @@ final class ExpressiveCards {
         if (margins == null) {
             margins = new ViewGroup.MarginLayoutParams(-1, -2);
         }
-        margins.bottomMargin = Ui.dp(this.ctx, joinsNext ? 3 : 14);
+        margins.bottomMargin = Ui.dp(this.ctx, joinsNext ? ExpressiveRows.GAP : 14);
         card.setLayoutParams(margins);
         LinearLayout body = card.findViewById(R.id.expressive_card_body);
         switch (c.kind) {

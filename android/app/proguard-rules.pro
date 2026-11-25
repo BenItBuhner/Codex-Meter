@@ -17,3 +17,7 @@
 # ComponentDiscovery, which builds each registrar named in the manifest by reflection. ML Kit
 # ships no rule for it, and without one R8 drops their constructors (seen in ci/shrunk-smoke.sh).
 -keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }
+
+# ExpressiveSwitch sets One UI SwitchCompat's fixed switch width (sesl_switch_width) to Material's
+# 52 dp track by name, so the field keeps its name.
+-keepclassmembers class androidx.appcompat.widget.SwitchCompat { int mSwitchWidth; }

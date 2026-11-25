@@ -64,10 +64,17 @@ public class AppOpenActivity extends Activity {
         return false;
     }
 
-    /** Skips leftover tasks from earlier widget taps, which only ever hold this activity. */
+    /**
+     * Skips leftover tasks from earlier widget taps, which only ever hold this activity, and a widget's
+     * settings left open without saving: a widget tap opens the app, never those settings.
+     */
     private boolean isOwnTask(ActivityManager.RecentTaskInfo info) {
         ComponentName base = info.baseIntent == null ? null : info.baseIntent.getComponent();
-        return base != null && AppOpenActivity.class.getName().equals(base.getClassName());
+        if (base == null) return false;
+        String name = base.getClassName();
+        return AppOpenActivity.class.getName().equals(name)
+                || WidgetConfigActivity.class.getName().equals(name)
+                || LockWidgetConfigActivity.class.getName().equals(name);
     }
 
     @SuppressWarnings("deprecation")
