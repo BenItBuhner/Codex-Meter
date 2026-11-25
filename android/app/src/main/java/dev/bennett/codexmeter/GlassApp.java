@@ -70,6 +70,7 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
     private GlassModel.Dialog model;
     private String dialogScreen;
     private boolean pending;
+    private GlassLoop loop;
 
     interface Touch {
         boolean dispatch(MotionEvent ev);
@@ -146,6 +147,7 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
 
     void start(Bundle state) {
         glasse.start(true);
+        loop = GlassLoop.of();
         CodexGlass.attach(glasse.getHost());
         // The settings pages' own fragments live here, out of sight: their preferences are the model.
         FrameLayout fragments = new FrameLayout(activity);
@@ -199,6 +201,7 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
     }
 
     void onResume() {
+        if (loop != null) loop.claim();
         glasse.onResume();
         GlassScreens.Screen screen = screens.screen(shownPage);
         if (screen != null) {
@@ -217,6 +220,7 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
         ui.removeCallbacksAndMessages(null);
         screens.dispose();
         glasse.onDestroy();
+        if (loop != null) loop.release();
     }
 
     void onConfigurationChanged(android.content.res.Configuration config) {

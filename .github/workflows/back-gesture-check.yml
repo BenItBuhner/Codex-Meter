@@ -1,0 +1,68 @@
+name: Back gestures on a phone emulator
+
+on:
+  pull_request:
+    branches: [alpha]
+    paths:
+      - 'android/ci/record-back-gestures.sh'
+      - '.github/workflows/back-gesture-check.yml'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/GlassApp.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/GlassLoop.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/AddAccountActivity.java'
+      - 'android/app/src/main/java/dev/bennett/codexmeter/WhatsNewActivity.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  back-gestures:
+    name: Providers, Add account, sign-in and What's new swipe back on Android 16
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_USERNAME: ${{ github.actor }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/**/gradle-wrapper.properties
+      - name: Install Android platforms
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+      - name: Build debug phone app
+        working-directory: android
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Swipe back from Add account, sign-in and What's new
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: ./android/ci/record-back-gestures.sh android/app/build/outputs/apk/debug/app-debug.apk back-gestures
+      - uses: actions/upload-artifact@v7
+        if: success() || failure()
+        with:
+          name: back-gestures
+          path: back-gestures/
+          retention-days: 14

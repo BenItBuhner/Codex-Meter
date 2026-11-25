@@ -6,6 +6,13 @@
 
 - **A limit that resets a minute or two early is no longer a "surprise refill".** A 5-hour, weekly, monthly or model limit that refills within 5 minutes of its reset time is its normal reset, so it sends no surprise notification and adds nothing to Priority. Android, iOS, macOS (Windows and Linux already allowed 30 minutes).
 - **One-off false refills are checked before they count.** When a provider suddenly reports a limit full again (or a used-up limit back) well before its reset time, the app keeps the last reading and asks again 45 seconds later. Only a second answer that still shows the refill is saved, notified and recorded; one that goes back to the real numbers is taken as a server mistake and nothing is announced. Antigravity did this now and then. This covers every provider, and a reset you spend yourself still shows at once. All platforms.
+- **Settings → Providers no longer freezes after Add account or sign-in.** Glassé has one animation loop for the app, and closing a second Liquid Glass screen (sign-in, What's new, widget settings) left it pointing at the screen that was gone, so the page underneath stopped drawing until the app was reopened. The page in front now always keeps the loop. Liquid Glass, Android.
+- **Add account slides in and swipes back like every other page.** In Liquid Glass it is a page of Settings now, not a separate screen with its own abrupt transition, so the back swipe and its predictive back preview work on it. Liquid Glass, Android.
+- **What's new in 3.0 closes with a back swipe.** It no longer needs Continue; Android's predictive back shows the page underneath as you swipe. All Android designs.
+
+### Changed
+
+- **About credits Robertg761**, who built the live usage notification and Now Bar support, and **Dependencies lists the libraries the app is built on** (Glassé, the One UI Design Library and Material Components) instead of the OpenAI API. Android.
 
 ## 2.9.0-alpha.34 — 2026-11-23
 
