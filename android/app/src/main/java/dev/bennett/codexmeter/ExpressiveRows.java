@@ -79,10 +79,17 @@ final class ExpressiveRows {
                 list.addView(look.heading(c.title));
                 continue;
             }
-            // A section's cards and rows are one group: a card joins its neighbours in the section.
-            boolean prev = i > 0 && section.cards.get(i - 1).kind != GlassModel.Card.Kind.HEADING;
+            String above = ExpressiveCards.headingAbove(c);
+            if (above != null) {
+                list.addView(look.heading(above));
+            }
+            // A section's cards and rows are one group: a card joins its neighbours in the section,
+            // unless a header sits between them.
+            boolean prev = above == null && i > 0
+                    && section.cards.get(i - 1).kind != GlassModel.Card.Kind.HEADING;
             boolean next = i + 1 < cards
                     ? section.cards.get(i + 1).kind != GlassModel.Card.Kind.HEADING
+                            && ExpressiveCards.headingAbove(section.cards.get(i + 1)) == null
                     : n > 0;
             list.addView(look.card(c, prev, next));
         }

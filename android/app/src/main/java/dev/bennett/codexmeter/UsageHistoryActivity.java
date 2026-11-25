@@ -159,8 +159,13 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         }
 
         if (plan != null && hasCharts) {
-            content.addView(Ui.separator(this, "Estimated value"));
+            // the plan's name over its value rows, and the basis under the card, as Liquid Glass does
+            content.addView(Ui.separator(this, plan.title()));
             content.addView(buildValueCard(snapshot, plan));
+            TextView basis = Ui.text(this, plan.basis, 12, Ui.secondaryText(dark));
+            LinearLayout.LayoutParams basisParams = new LinearLayout.LayoutParams(-1, -2);
+            basisParams.setMargins(Ui.dp(this, 22), Ui.dp(this, 8), Ui.dp(this, 22), 0);
+            content.addView(basis, basisParams);
             Ui.addSpacer(content, 20);
         }
 
@@ -190,6 +195,8 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         Ui.addSpacer(content, 12);
         LinearLayout insights = buildInsightsCard(window, snapshot, history, pricing);
         if (insights != null) {
+            // the list's header above it, like every grouped list in the app
+            content.addView(Ui.separator(this, "Insights"));
             content.addView(insights);
             Ui.addSpacer(content, 12);
         }
@@ -314,9 +321,6 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         long observedAt = snapshot == null ? now : snapshot.fetchedAtMillis;
         LinearLayout card = Ui.card(this, dark);
-        TextView title = Ui.text(this, "Insights", 16, Ui.mainText(dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
         int rows = 0;
 
         // Current position against the typical pace of completed windows.
@@ -385,23 +389,16 @@ public final class UsageHistoryActivity extends AppCompatActivity {
 
     private LinearLayout buildValueCard(UsageSnapshot snapshot, PlanPricing pricing) {
         LinearLayout card = Ui.card(this, dark);
-        TextView title = Ui.text(this, pricing.title(), 16, Ui.mainText(dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
         for (String[] row : pricing.summaryRows(snapshot)) {
             addStatRow(card, row[0], row[1]);
         }
-        TextView disclaimer = Ui.text(this, pricing.basis, 12, Ui.secondaryText(dark));
-        LinearLayout.LayoutParams disclaimerParams = new LinearLayout.LayoutParams(-1, -2);
-        disclaimerParams.setMargins(0, Ui.dp(this, 10), 0, 0);
-        card.addView(disclaimer, disclaimerParams);
         return card;
     }
 
     private void addStatRow(LinearLayout card, String label, String value) {
         LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
-        rowParams.setMargins(0, Ui.dp(this, 8), 0, 0);
+        rowParams.setMargins(0, card.getChildCount() == 0 ? 0 : Ui.dp(this, 8), 0, 0);
         TextView labelView = Ui.text(this, label, 13, Ui.secondaryText(dark));
         row.addView(labelView, new LinearLayout.LayoutParams(0, -2, 1f));
         TextView valueView = Ui.text(this, value, 13, Ui.mainText(dark));

@@ -189,6 +189,10 @@ final class ExpressiveDashboard {
                 this.cards.addView(this.look.heading(c.title));
                 continue;
             }
+            String above = ExpressiveCards.headingAbove(c);
+            if (above != null) {
+                this.cards.addView(this.look.heading(above));
+            }
             // Meters in a row form one segmented group: large outer corners, small inner ones.
             boolean joinsPrev = i > 0 && grouped(c) && grouped(list.get(i - 1));
             boolean joinsNext = i + 1 < list.size() && grouped(c) && grouped(list.get(i + 1));
