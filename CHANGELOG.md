@@ -1,12 +1,14 @@
 # Changelog
 
-## Unreleased
+## 2.9.0-alpha.35 — 2026-11-25
 
 ### Added
 
 - **Priority on iPhone, iPad and Mac matches Android.** It has the same seven sections in the same order: Outages and slowdowns, Recent activity, Limits to watch, Used up, Saved resets you can use, Coming up and New models. Edit turns sections on or off and drags them into order. Recent activity and new models can be dismissed with a swipe, the context menu or Dismiss all. Official status pages for OpenAI, Anthropic and xAI show outages here. iOS, macOS.
 - **Refill and "usage is back" alerts for every provider.** Claude Code, Cursor and the added providers now notify on a surprise refill, on newly saved resets, and when a used-up limit is back. Before, only Codex did. iOS, macOS.
 - **One UI 9.5 design.** Settings → Appearance → Design has a One UI 9.5 choice, built on One UI 9: the same pages, settings and behavior, with the glass touches from the leaked One UI 9.5 builds. The floating tab bar is clearer glass that bends the content behind it at its edges, with a bright rim and a soft shadow, and the header buttons get the same shiny rim. The bend needs Android 13 or later; Android 12 gets frosted glass, and older phones keep One UI 9's bar with the rim. Samsung phones that report One UI 9.5 start in it. Android.
+- **Material 3 Expressive overhaul.** Edit opens an in-place Edit mode on every tab, Priority included, with switches and drag handles; Done (or back) returns, and Edit, Settings and Done stay at the top while the page scrolls. Providers, a tab's cards and Priority's sections reorder by dragging instead of up and down arrows, with Move up and Move down for TalkBack. Pages open and close along a shared axis, and pull to refresh, tab taps and drags give haptic ticks. The Refresh button is gone (pull down to refresh). Widgets in this design use Material You's surface and colors. Android.
+- **One UI Priority has Edit.** The pencil turns Priority's sections on or off and orders them, like Liquid Glass. Android.
 
 ### Fixed
 
@@ -17,6 +19,10 @@
 - **Back swipes from the screen edge stay in the app in Liquid Glass.** On Settings › Providers and the other glass pages, a back swipe started at the very edge briefly showed the page underneath, then Android took over the gesture and shrank the app to black or closed it. The swipe now stays the app's for its whole length. Liquid Glass, Android.
 - **Add account slides in and swipes back like every other page.** In Liquid Glass it is a page of Settings now, not a separate screen with its own abrupt transition, so the back swipe and its predictive back preview work on it. Liquid Glass, Android.
 - **What's new in 3.0 closes with a back swipe.** It no longer needs Continue; Android's predictive back shows the page underneath as you swipe. All Android designs.
+- **Widget settings list only the providers you are signed in to**, and only meters those providers can fill. The long-window row reads Weekly unless every chosen provider is monthly. Stacked widgets now show next reset and reset credits when switched on, Codex plans without a five-hour window show the long window, and the Liquid Glass widget's shadow sits evenly around the glass. Leaving widget settings unsaved no longer makes the next widget tap reopen them. Android.
+- **Settings lists show only what you use.** AI app lists and provider pickers show signed-in providers and the apps you added; Android hides official apps that aren't installed unless you added them. Windows, Linux, macOS, Android.
+- **List headers sit above their cards.** Every Priority section, usage history's Insights and Estimated value, and the other grouped lists put their title above the card instead of inside it. One UI, Material 3 Expressive, Android.
+- **Providers and Priority stay inside the window at any width.** On a wide window the column started mid-window and cut off Add account and Sign out. Windows.
 
 ### Changed
 
