@@ -6,7 +6,8 @@
 #   android/ci/shrunk-smoke.sh <shrunk debug APK> <output dir>
 #
 # DESIGNS (space separated, default all five) picks the designs to open, so CI can run one design
-# per emulator in parallel.
+# per emulator in parallel. PART=i/n (default 1/1) opens only every n-th screen starting at the i-th,
+# so a slow design can be split over several emulators; the dismiss timing runs in part 1.
 set -euo pipefail
 
 APK="${1:?shrunk debug APK required}"
@@ -27,9 +28,15 @@ adb logcat -v time > "$OUT/logcat.txt" 2>/dev/null &
 LOGCAT=$!
 trap 'kill "$LOGCAT" 2>/dev/null || true' EXIT
 
+PART="${PART:-1/1}"
+PART_INDEX="${PART%/*}"
+PART_COUNT="${PART#*/}"
+check_index=0
 failed=0
 check() { # name, then demo extras
   local name="$1"; shift
+  check_index=$((check_index + 1))
+  (( (check_index - 1) % PART_COUNT == PART_INDEX - 1 )) || return 0
   adb shell am force-stop "$PKG"
   # -W returns once the activity reports its first frame.
   adb shell am start -W -n "$DEMO" --ez demo_providers true "$@" >/dev/null 2>&1 || true
@@ -78,7 +85,7 @@ done
 read -r W H < <(adb shell wm size | tr -d '\r' | awk -F'[ x]' '/Physical/ { print $3, $4 }')
 touch "$OUT/dismiss-summary.txt"
 for design in liquid_glass one_ui_9; do
-  [[ " $DESIGNS " == *" $design "* ]] || continue
+  [[ " $DESIGNS " == *" $design "* && "$PART_INDEX" == 1 ]] || continue
   adb shell am force-stop "$PKG"
   adb shell am start -W -n "$DEMO" --ez demo_providers true --es design "$design" --ez open_priority true \
     --es demo_new_models relevant --ez demo_cursor_used_up true --ez demo_refill_notification true >/dev/null 2>&1

@@ -37,7 +37,8 @@ The app is universal and adapts to the window it gets rather than to the device:
 - The app keeps one window (`UIApplicationSupportsMultipleScenes` is off): sheets and
   the selected tab live on the shared `AppModel`, so a second window would mirror them.
 - `IPadLayoutTests` (skipped on iPhone) checks the columns, sidebar and shortcuts. CI runs
-  it with `ci/record-ipad-gallery.sh` on several iPad sizes and uploads `ipad-gallery`.
+  it with `ci/record-ipad-gallery.sh` on several iPad sizes, one job per iPad, and uploads
+  `ipad-gallery-pro`, `ipad-gallery-air` and `ipad-gallery-mini`.
 
 ## Claude Code tab
 
