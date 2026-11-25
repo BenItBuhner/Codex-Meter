@@ -42,6 +42,17 @@ xcrun simctl status_bar "$UDID" override \
   --batteryState charged \
   --batteryLevel 100
 
+# A freshly booted simulator is still indexing apps, so the first launch through
+# XCUITest can time out. Install and launch the app once here, waiting until
+# simctl reports it running, so the tests start on a warm simulator.
+APP_PATH="$DERIVED_DATA/Build/Products/Debug-iphonesimulator/CodexMeter.app"
+BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")"
+if xcrun simctl install "$UDID" "$APP_PATH" && xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null; then
+  xcrun simctl terminate "$UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+else
+  echo "::warning::Warm-up launch on $DEVICE_NAME failed; the tests will launch the app cold"
+fi
+
 set +e
 xcodebuild test-without-building \
   -project CodexMeter.xcodeproj -scheme CodexMeter \
