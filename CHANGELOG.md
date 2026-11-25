@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- **Priority on iPhone, iPad and Mac matches Android.** It has the same seven sections in the same order: Outages and slowdowns, Recent activity, Limits to watch, Used up, Saved resets you can use, Coming up and New models. Edit turns sections on or off and drags them into order. Recent activity and new models can be dismissed with a swipe, the context menu or Dismiss all. Official status pages for OpenAI, Anthropic and xAI show outages here. iOS, macOS.
+- **Refill and "usage is back" alerts for every provider.** Claude Code, Cursor and the added providers now notify on a surprise refill, on newly saved resets, and when a used-up limit is back. Before, only Codex did. iOS, macOS.
+
+### Changed
+
+- **About credits match Android:** BenIt Buhner, That Josh Guy, Robertg761 and Filip Bukovina. The description now covers every provider. iOS, macOS.
+- **What's new closes with a swipe down**, the same as Continue. iOS.
+- **Widgets start on a connected provider** and list only connected ones. The Allowance option now reads "Weekly only". iOS.
+
 ### Fixed
 
 - **A limit that resets a minute or two early is no longer a "surprise refill".** A 5-hour, weekly, monthly or model limit that refills within 5 minutes of its reset time is its normal reset, so it sends no surprise notification and adds nothing to Priority. Android, iOS, macOS (Windows and Linux already allowed 30 minutes).
