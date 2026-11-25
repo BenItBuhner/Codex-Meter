@@ -115,3 +115,5 @@ Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.
 The ChatGPT usage and reset-credit routes and Samsung's lock-screen metadata are implementation details rather than stable third-party Android SDK contracts. OpenAI or Samsung may change eligibility, routing, response fields, host behavior, or private metadata.
 
 OpenAI, ChatGPT, Codex, Samsung, Galaxy, One UI, and related marks belong to their respective owners. This project is not affiliated with or endorsed by OpenAI or Samsung.
+
+<!-- CI path test (docs only); this pull request is never merged. -->

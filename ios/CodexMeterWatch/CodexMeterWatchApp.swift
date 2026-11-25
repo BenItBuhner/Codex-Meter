@@ -14,4 +14,3 @@ struct CodexMeterWatchApp: App {
         }
     }
 }
-// CI path test (Apple Watch only); this pull request is never merged.
