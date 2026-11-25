@@ -49,7 +49,7 @@ final class IPadLayoutTests: XCTestCase {
         if openSidebar(in: app) {
             UITestSupport.settle(1.0)
             capture("02-landscape-tab-bar")
-            XCTAssertTrue(app.buttons["Copilot"].firstMatch.exists, "The sidebar lists the added providers too")
+            XCTAssertTrue(app.buttons["Copilot"].firstMatch.waitForExistence(timeout: 5), "The sidebar lists the added providers too")
             assertSideBySide(app.staticTexts["5-hour"], app.staticTexts["Weekly"], "Columns survive the sidebar")
             UITestSupport.tap(app.buttons["Claude Code"])
             XCTAssertTrue(app.navigationBars["Claude Code"].waitForExistence(timeout: 5), "Sidebar rows switch tabs")
@@ -173,6 +173,10 @@ final class IPadLayoutTests: XCTestCase {
     private func openSidebar(in app: XCUIApplication) -> Bool {
         let button = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'sidebar'")).firstMatch
         guard button.waitForExistence(timeout: 3) else { return false }
+        // Landscape can open with the sidebar already showing; the toggle would then hide it, and
+        // the check below would still see its rows while they slide out.
+        let settings = app.buttons["sidebar-settings"]
+        if settings.exists, settings.isHittable { return true }
         button.tap()
         return app.buttons["sidebar-settings"].waitForExistence(timeout: 4)
             || app.buttons["Copilot"].firstMatch.waitForExistence(timeout: 2)
