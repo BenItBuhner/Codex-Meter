@@ -4,6 +4,9 @@
 # rule shows up in CI instead of on a phone. Saves a screenshot of each screen and the device log.
 #
 #   android/ci/shrunk-smoke.sh <shrunk debug APK> <output dir>
+#
+# DESIGNS (space separated, default all five) picks the designs to open, so CI can run one design
+# per emulator in parallel.
 set -euo pipefail
 
 APK="${1:?shrunk debug APK required}"
@@ -28,16 +31,20 @@ failed=0
 check() { # name, then demo extras
   local name="$1"; shift
   adb shell am force-stop "$PKG"
+  # -W returns once the activity reports its first frame.
   adb shell am start -W -n "$DEMO" --ez demo_providers true "$@" >/dev/null 2>&1 || true
-  sleep 4
   # Liquid Glass's first frame can take several seconds in a debuggable build on a software-GPU
-  # emulator; a nearly black screen compresses to under 40 KB, so look again a few times.
+  # emulator; a nearly black screen compresses to under 40 KB, so wait (up to 13 s, as before)
+  # until the screen has drawn content.
   local k
-  for k in 1 2 3 4; do
+  for k in $(seq 13); do
     adb exec-out screencap -p > "$OUT/$name.png" || true
     (( $(stat -c %s "$OUT/$name.png" 2>/dev/null || echo 0) > 40000 )) && break
-    sleep 3
+    sleep 1
   done
+  # Keep the screen up a moment so work that follows the first frame (and a crash it causes) runs
+  # before the check. The log check at the end also catches a crash of ours on any screen.
+  sleep 2
   if [[ -z "$(adb shell pidof "$PKG" | tr -d '\r')" ]]; then
     echo "::error::$name: the app is not running (crashed?)"
     failed=1
@@ -46,7 +53,8 @@ check() { # name, then demo extras
   fi
 }
 
-for design in classic one_ui_9 one_ui_9_5 liquid_glass material_3_expressive; do
+DESIGNS="${DESIGNS:-classic one_ui_9 one_ui_9_5 liquid_glass material_3_expressive}"
+for design in $DESIGNS; do
   for theme in light dark; do
     check "$design-$theme-dashboard" --es design "$design" --es theme "$theme"
   done
@@ -68,7 +76,9 @@ done
 # Priority after a dismiss: swipe rows off the Priority page and log how long each page rebuild
 # took (GlassBuild, Liquid Glass) and any main-thread stall (MainThreadWatch, debug builds).
 read -r W H < <(adb shell wm size | tr -d '\r' | awk -F'[ x]' '/Physical/ { print $3, $4 }')
+touch "$OUT/dismiss-summary.txt"
 for design in liquid_glass one_ui_9; do
+  [[ " $DESIGNS " == *" $design "* ]] || continue
   adb shell am force-stop "$PKG"
   adb shell am start -W -n "$DEMO" --ez demo_providers true --es design "$design" --ez open_priority true \
     --es demo_new_models relevant --ez demo_cursor_used_up true --ez demo_refill_notification true >/dev/null 2>&1
@@ -90,7 +100,7 @@ stalls = [int(m) for m in re.findall(r"stall (\d+)ms", text)]
 print(f"{sys.argv[2]}: {len(builds)} Priority rebuilds {builds} ms; {len(stalls)} main-thread stalls {stalls} ms")
 PY
 done
-[[ -n "${GITHUB_STEP_SUMMARY:-}" ]] && { echo "### Priority after a dismiss"; sed 's/^/- /' "$OUT/dismiss-summary.txt"; } >> "$GITHUB_STEP_SUMMARY"
+[[ -n "${GITHUB_STEP_SUMMARY:-}" && -s "$OUT/dismiss-summary.txt" ]] && { echo "### Priority after a dismiss"; sed 's/^/- /' "$OUT/dismiss-summary.txt"; } >> "$GITHUB_STEP_SUMMARY"
 
 sleep 1
 # Any crash of ours in the log fails the run, including one in a screen that recovered.
