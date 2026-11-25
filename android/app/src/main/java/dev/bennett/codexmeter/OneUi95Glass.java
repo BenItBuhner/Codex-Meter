@@ -204,7 +204,8 @@ final class OneUi95Glass {
     }
 
     /**
-     * AGSL lens: inside a rounded rectangle of half size {@code halfSize} (centered in the capture,
+     * AGSL lens, which also cuts the glass to its shape: inside a rounded rectangle of half size
+     * {@code halfSize} (centered in the capture,
      * which reaches {@code pad} past it on every side), content near the rim is sampled further out
      * along the edge normal, so it looks bent into the glass, with red and blue split slightly.
      */
@@ -223,7 +224,8 @@ final class OneUi95Glass {
             + "half4 main(float2 xy) {\n"
             + "  float2 p = xy - size * 0.5;\n"
             + "  float d = box(p);\n"
-            + "  if (d > 0.0) { return content.eval(xy); }\n"
+            + "  if (d > 1.0) { return half4(0.0); }\n"
+            + "  half cover = half(clamp(0.5 - d, 0.0, 1.0));\n"
             + "  float e = 1.0;\n"
             + "  float2 g = float2(box(p + float2(e, 0.0)) - box(p - float2(e, 0.0)),\n"
             + "                    box(p + float2(0.0, e)) - box(p - float2(0.0, e)));\n"
@@ -231,12 +233,14 @@ final class OneUi95Glass {
             + "  float2 n = len > 0.0001 ? g / len : float2(0.0);\n"
             + "  float t = clamp(1.0 + d / band, 0.0, 1.0);\n"
             + "  float bend = depth * t * t * t;\n"
-            + "  float2 s = xy + n * bend;\n"
+            + "  float2 lo = float2(2.0);\n"
+            + "  float2 hi = size - 2.0;\n"
+            + "  float2 s = clamp(xy + n * bend, lo, hi);\n"
             + "  float split = chroma * t * t;\n"
             + "  half4 mid = content.eval(s);\n"
-            + "  half red = content.eval(s + n * split).r;\n"
-            + "  half blue = content.eval(s - n * split).b;\n"
-            + "  return half4(red, mid.g, blue, mid.a);\n"
+            + "  half red = content.eval(clamp(s + n * split, lo, hi)).r;\n"
+            + "  half blue = content.eval(clamp(s - n * split, lo, hi)).b;\n"
+            + "  return half4(red, mid.g, blue, mid.a) * cover;\n"
             + "}\n";
 
     /**
@@ -336,11 +340,13 @@ final class OneUi95Glass {
             shape.set(area);
             clip.reset();
             clip.addRoundRect(shape, radius, radius, Path.Direction.CW);
-            canvas.save();
-            canvas.clipPath(clip);
+            // Drawn unclipped: the lens shader cuts the shape itself. A clip here would let the GPU
+            // render only the shape, and the lens samples the margin around it.
             if (canvas.isHardwareAccelerated()) {
                 drawBackdrop(canvas, radius);
             }
+            canvas.save();
+            canvas.clipPath(clip);
             canvas.drawRect(shape, fill);
             canvas.restore();
             rim.setBounds(area);
@@ -377,6 +383,9 @@ final class OneUi95Glass {
                 capture.setRenderEffect(effect(w, h, radius));
             }
             canvas.save();
+            if (shader == null) {
+                canvas.clipPath(clip);
+            }
             canvas.translate(area.left - pad, area.top - pad);
             canvas.drawRenderNode(capture);
             canvas.restore();
@@ -400,9 +409,9 @@ final class OneUi95Glass {
             shader.setFloatUniform("size", w, h);
             shader.setFloatUniform("halfSize", halfW, halfH);
             shader.setFloatUniform("radius", radius);
-            shader.setFloatUniform("band", Math.min(radius, 20f * density));
-            shader.setFloatUniform("depth", 14f * density);
-            shader.setFloatUniform("chroma", 1.5f * density);
+            shader.setFloatUniform("band", Math.min(radius, 16f * density));
+            shader.setFloatUniform("depth", 10f * density);
+            shader.setFloatUniform("chroma", 1f * density);
             return RenderEffect.createChainEffect(
                     RenderEffect.createRuntimeShaderEffect(shader, "content"), soften);
         }
