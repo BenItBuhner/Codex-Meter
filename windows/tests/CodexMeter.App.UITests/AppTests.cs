@@ -159,7 +159,10 @@ public class AppTests
     public void AddedAiAppCanBeSwitchedOffAndRemoved()
     {
         using var app = new AppSession("--page", "settings");
-        Assert.NotNull(app.Find("LiveApp_grokbot"));
+        // The demo signs in Cursor but not Windsurf or Grok: only signed-in services' apps are listed.
+        Assert.NotNull(app.Find("LiveApp_cursor"));
+        Assert.Null(app.TryFind("LiveApp_windsurf", TimeSpan.FromMilliseconds(300)));
+        Assert.Null(app.TryFind("LiveApp_grokbot", TimeSpan.FromMilliseconds(300)));
         app.Find("LiveAppAddButton").AsButton().Invoke();
         var name = app.Find("LiveAppNameBox");
         var text = name.ControlType == ControlType.Edit ? name : name.FindFirstDescendant(cf => cf.ByControlType(ControlType.Edit))
