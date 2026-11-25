@@ -118,11 +118,11 @@ final class OneUi95Glass {
             return;
         }
         Rim rim = new Rim(pill.getContext());
+        // SESL resizes its pills by setting their edges directly, without a layout pass, so the
+        // rim takes the pill's size whenever it draws instead of from layout callbacks.
+        rim.followSizeOf(pill);
         pill.setTag(R.id.oneui95_rim, rim);
         pill.getOverlay().add(rim);
-        rim.setBounds(0, 0, pill.getWidth(), pill.getHeight());
-        pill.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
-                rim.setBounds(0, 0, r - l, b - t));
     }
 
     /**
@@ -139,6 +139,7 @@ final class OneUi95Glass {
         private final boolean dark;
         private float radius = -1f;
         private int shaderHeight = -1;
+        private View sizeSource;
 
         Rim(Context context) {
             this.stroke = Ui.dp(context, 1f);
@@ -151,6 +152,11 @@ final class OneUi95Glass {
             hairline.setColor(dark ? 0x33000000 : 0x14000000);
         }
 
+        /** Draws over all of {@code view}, whatever size it has when the rim draws. */
+        void followSizeOf(View view) {
+            sizeSource = view;
+        }
+
         void setRadius(float radius) {
             this.radius = radius;
             invalidateSelf();
@@ -158,6 +164,14 @@ final class OneUi95Glass {
 
         @Override
         public void draw(@NonNull Canvas canvas) {
+            View source = sizeSource;
+            if (source != null) {
+                Rect now = getBounds();
+                if (now.left != 0 || now.top != 0 || now.right != source.getWidth()
+                        || now.bottom != source.getHeight()) {
+                    setBounds(0, 0, source.getWidth(), source.getHeight());
+                }
+            }
             Rect b = getBounds();
             if (b.isEmpty()) {
                 return;
