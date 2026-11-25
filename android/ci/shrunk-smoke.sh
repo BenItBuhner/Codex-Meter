@@ -31,12 +31,12 @@ trap 'kill "$LOGCAT" 2>/dev/null || true' EXIT
 PART="${PART:-1/1}"
 PART_INDEX="${PART%/*}"
 PART_COUNT="${PART#*/}"
-screen=0
+check_index=0
 failed=0
 check() { # name, then demo extras
   local name="$1"; shift
-  screen=$((screen + 1))
-  (( (screen - 1) % PART_COUNT == PART_INDEX - 1 )) || return 0
+  check_index=$((check_index + 1))
+  (( (check_index - 1) % PART_COUNT == PART_INDEX - 1 )) || return 0
   adb shell am force-stop "$PKG"
   # -W returns once the activity reports its first frame.
   adb shell am start -W -n "$DEMO" --ez demo_providers true "$@" >/dev/null 2>&1 || true
