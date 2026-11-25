@@ -38,18 +38,35 @@ extension AppModel {
     func priorityReport(now: Date = .now) -> PriorityReport {
         let inputs = priorityProviders.map { provider in
             PriorityInput(provider: provider, usage: usageSnapshot(for: provider),
-                          credits: priorityCredits(for: provider))
+                          credits: priorityCredits(for: provider),
+                          savedResets: provider == .claudeCode && claude.phase != .signedOut ? claude.savedResets : nil,
+                          status: providerStatuses[provider])
         }
-        let newModels = mode == .demo
+        let demo = mode == .demo
+        let newModels = demo
             ? Self.demoNewModels(now: now)
             : ModelDiscovery.items(modelDiscoveryState, signedIn: modelInsightProviders, now: now)
-        return PriorityReport.build(
+        let events = demo ? Self.demoEvents(now: now) : providerEvents
+        let report = PriorityReport.build(
             inputs,
+            events: events,
             slowdowns: settings.slowdownWarningsEnabled ? modelSlowdowns : [],
-            newModels: newModels,
+            newModels: newModels.filter { !dismissedDemoKeys.contains($0.dismissKey ?? "") },
+            order: settings.prioritySectionOrder,
+            hidden: settings.priorityHidden,
             now: now,
             sensitivity: settings.usagePaceEnabled ? settings.usagePaceSensitivity : .off
         )
+        guard !dismissedDemoKeys.isEmpty else { return report }
+        return report.without(dismissedDemoKeys)
+    }
+
+    /// Saves Priority's section order and switches from Edit.
+    func setPriorityLayout(order: [PrioritySectionKey], hidden: Set<PrioritySectionKey>) {
+        var next = settings
+        next.priorityOrder = order.map(\.rawValue)
+        next.priorityHiddenSections = PrioritySectionKey.allCases.filter { hidden.contains($0) }.map(\.rawValue)
+        save(settings: next)
     }
 
     /// Checks OpenRouter's public catalog for new models (every 12 hours) and the followed
@@ -87,16 +104,28 @@ extension AppModel {
     /// that refreshed recently), then the model checks when due.
     func refreshAllForPriority() async {
         await refreshForWatch()
+        await refreshProviderStatus()
         await refreshModelInsights()
     }
 
-    private var isUITestingOrPreview: Bool {
+    var isUITestingOrPreview: Bool {
         ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("-ui-testing") } || isPreview
     }
 
     static func demoNewModels(now: Date) -> [PriorityItem] {
-        [PriorityItem(provider: .claudeCode, title: "New on OpenRouter: Anthropic: Claude Sonnet 6 (Demo)",
-                      detail: ModelDiscovery.reason(.claudeCode), at: now.addingTimeInterval(-6 * 3_600))]
+        [PriorityItem(provider: .claudeCode, title: "Claude Sonnet 6 (Demo)", detail: "For Claude Code",
+                      at: now.addingTimeInterval(-6 * 3_600), dismissKey: ModelDiscovery.dismissPrefix + "demo-sonnet-6")]
+    }
+
+    /// Sample Recent activity for demo mode and the screenshot gallery.
+    static func demoEvents(now: Date) -> [ProviderEvents.Event] {
+        [ProviderEvents.Event(kind: ProviderEvents.surpriseRefillKind, provider: UsageProvider.cursor.rawValue, line: "Monthly refilled early",
+                              title: "Cursor: Monthly refilled early",
+                              detail: "Your monthly limit is full again before its reset.",
+                              at: now.addingTimeInterval(-32 * 60)),
+         ProviderEvents.Event(kind: ProviderEvents.newResetsKind, provider: UsageProvider.claudeCode.rawValue,
+                              line: "1 Full reset added", title: "Claude Code: 1 Full reset added",
+                              detail: "You now have 2 saved resets.", at: now.addingTimeInterval(-3 * 3_600))]
     }
 
     static func demoSlowdowns() -> [PriorityItem] {

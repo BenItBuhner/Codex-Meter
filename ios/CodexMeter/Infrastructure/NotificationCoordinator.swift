@@ -254,6 +254,58 @@ public actor NotificationCoordinator {
         ))
     }
 
+    /// A surprise refill or new saved resets on a provider other than Codex (Codex has its own).
+    /// Opens Priority, where the event is listed under Recent activity.
+    func notifyAccountActivity(_ event: ProviderEvents.Event) async {
+        let content = UNMutableNotificationContent()
+        content.title = event.title
+        content.body = event.detail
+        content.sound = .default
+        content.userInfo = [NotificationDeduplication.routeUserInfoKey: "priority"]
+        try? await center.add(UNNotificationRequest(
+            identifier: "\(NotificationDeduplication.identifierPrefix)activity.\(event.key)",
+            content: content,
+            trigger: nil
+        ))
+    }
+
+    /// Carries out what `ProviderActivityStore.usageBack` decided for each limit. A scheduled
+    /// request fires at the reset time even while the app is closed.
+    func applyUsageBack(_ actions: [UsageBackAction], now: Date = Date()) async {
+        for action in actions {
+            switch action {
+            case .cancel(let id):
+                center.removePendingNotificationRequests(withIdentifiers: [id])
+            case .postNow(let id, let title, let body):
+                center.removePendingNotificationRequests(withIdentifiers: [id])
+                try? await center.add(UNNotificationRequest(
+                    identifier: id, content: usageBackContent(title, body), trigger: nil
+                ))
+            case .schedule(let id, let title, let body, let at):
+                center.removePendingNotificationRequests(withIdentifiers: [id])
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, at.timeIntervalSince(now)),
+                                                                repeats: false)
+                try? await center.add(UNNotificationRequest(
+                    identifier: id, content: usageBackContent(title, body), trigger: trigger
+                ))
+            }
+        }
+    }
+
+    /// Drops waiting "usage is back" requests, for sign-out.
+    func cancelRequests(_ identifiers: [String]) {
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    private func usageBackContent(_ title: String, _ body: String) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = [NotificationDeduplication.routeUserInfoKey: "priority"]
+        return content
+    }
+
     private func post(_ content: UNMutableNotificationContent, identifier: String) async {
         content.sound = .default
         content.userInfo = [NotificationDeduplication.routeUserInfoKey: "reset"]

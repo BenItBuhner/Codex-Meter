@@ -84,8 +84,12 @@ actor ModelInsightsStore {
             DiagnosticLog.warn("models", "catalog_failed")
             return []
         }
-        let (next, confirmed) = ModelDiscovery.observe(snapshot.discovery, catalog: ModelDiscovery.parseCatalog(body), now: now)
+        let observed = ModelDiscovery.observe(snapshot.discovery, catalog: ModelDiscovery.parseCatalog(body), now: now)
+        let confirmed = observed.confirmed
+        var next = observed.state
         snapshot = load()
+        // Keep dismissals made while the fetch ran.
+        next.dismissed.formUnion(snapshot.discovery.dismissed)
         snapshot.discovery = next
         // The speed check's model lists come from the same download.
         for provider in [UsageProvider.codex, .claudeCode, .grok] {
@@ -172,6 +176,14 @@ actor ModelInsightsStore {
 
     func discoveryState() -> ModelDiscoveryState {
         load().discovery
+    }
+
+    /// Dismisses new-model rows from Priority for good (their `PriorityItem.dismissKey`s).
+    func dismissModels(keys: [String]) -> ModelDiscoveryState {
+        var snapshot = load()
+        snapshot.discovery = ModelDiscovery.dismiss(snapshot.discovery, keys: keys)
+        save(snapshot)
+        return snapshot.discovery
     }
 
     /// An anonymous GET to openrouter.ai: no key, cookie or account header is ever attached.

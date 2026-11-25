@@ -27,6 +27,12 @@ final class CursorUsageModel {
     var authenticationError: String?
     var isWaitingForBrowser = false
 
+    /// Called after a fresh reading is shown, with the one it replaced, for refill alerts.
+    @ObservationIgnored var onUsageSaved: (@MainActor (UsageProvider, UsageSnapshot?, UsageSnapshot) -> Void)?
+    /// Called when a live account is signed out, so its alerts and activity are forgotten.
+    @ObservationIgnored var onSignedOut: (@MainActor () -> Void)?
+    @ObservationIgnored private let refillHold = RefillHoldState()
+
     private let service: CursorService
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var signInTask: Task<Void, Never>?
@@ -108,8 +114,16 @@ final class CursorUsageModel {
         DiagnosticLog.info("refresh", "cursor_usage_refresh_started")
         do {
             let snapshot = try await service.refreshUsage()
+            let previous = usage
+            if refillHold.shouldHold(previous: previous, current: snapshot, again: { [weak self] in
+                await self?.refresh()
+            }) {
+                // Looks refilled early: keep the last reading until the second look.
+                return
+            }
             usage = snapshot
             ProviderWidgetPublisher.publish(.cursor, demo: false, usage: snapshot)
+            onUsageSaved?(.cursor, previous, snapshot)
             visibleError = nil
             isUsingCachedData = false
             if let tokens = try? await service.currentTokens() {
@@ -217,6 +231,8 @@ final class CursorUsageModel {
 
     private func clearState() {
         cancelSignIn()
+        refillHold.reset()
+        if phase == .live { onSignedOut?() }
         phase = .signedOut
         usage = nil
         accountEmail = ""

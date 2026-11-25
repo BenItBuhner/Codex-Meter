@@ -44,6 +44,11 @@ final class ProviderUsageModel {
 
     /// Called on the main actor after a sign-in succeeds, so the app can turn the tab on.
     @ObservationIgnored var onSignedIn: (@MainActor (UsageProvider) -> Void)?
+    /// Called after a fresh reading is shown, with the one it replaced, for refill alerts.
+    @ObservationIgnored var onUsageSaved: (@MainActor (UsageProvider, UsageSnapshot?, UsageSnapshot) -> Void)?
+    /// Called when a live account is signed out, so its alerts and activity are forgotten.
+    @ObservationIgnored var onSignedOut: (@MainActor (UsageProvider) -> Void)?
+    @ObservationIgnored private let refillHold = RefillHoldState()
 
     private let service: ProviderUsageService?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
@@ -147,8 +152,16 @@ final class ProviderUsageModel {
         DiagnosticLog.info("refresh", "provider_usage_refresh_started", details: ["provider": provider.rawValue])
         do {
             let snapshot = try await service.refreshUsage()
+            let previous = usage
+            if refillHold.shouldHold(previous: previous, current: snapshot, again: { [weak self] in
+                await self?.refresh()
+            }) {
+                // Looks refilled early: keep the last reading until the second look.
+                return
+            }
             usage = snapshot
             ProviderWidgetPublisher.publish(provider, demo: false, usage: snapshot)
+            onUsageSaved?(provider, previous, snapshot)
             visibleError = nil
             isUsingCachedData = false
             if let tokens = try? await service.currentTokens() {
@@ -392,6 +405,8 @@ final class ProviderUsageModel {
 
     private func clearState() {
         cancelSignIn()
+        refillHold.reset()
+        if phase == .live { onSignedOut?(provider) }
         phase = .signedOut
         usage = nil
         accountEmail = ""

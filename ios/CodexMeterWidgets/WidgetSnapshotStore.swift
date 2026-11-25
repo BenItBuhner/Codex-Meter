@@ -165,12 +165,14 @@ struct WidgetSnapshotStore: Sendable {
     }
 
     /// Codex, then every other provider the app has published live or demo data for.
+    /// Providers with an account (or demo data) in the app, in catalog order, as on Android's
+    /// widget settings. Codex alone when nothing is signed in yet, so the picker is never empty.
     func availableProviders() -> [UsageProvider] {
-        let others = UsageProvider.allCases.filter { provider in
-            guard provider != .codex, let shared = decoded(provider) else { return false }
+        let signedIn = UsageProvider.allCases.filter { provider in
+            guard let shared = decoded(provider) else { return false }
             return shared.mode != .signedOut
         }
-        return [.codex] + others
+        return signedIn.isEmpty ? [.codex] : signedIn
     }
 
     private func decoded(_ provider: UsageProvider) -> SharedWidgetSnapshot? {

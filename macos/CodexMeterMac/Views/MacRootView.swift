@@ -62,7 +62,7 @@ struct MacRootView: View {
             OnboardingView()
                 .frame(minWidth: 580, idealWidth: 640, minHeight: 640, idealHeight: 720)
         }
-        .sheet(isPresented: $model.isShowingWhatsNew) {
+        .sheet(isPresented: $model.isShowingWhatsNew, onDismiss: model.finishWhatsNew) {
             WhatsNewView()
                 // Fits a small window: the list scrolls and Continue stays inside the sheet.
                 .frame(minWidth: 520, idealWidth: 600, minHeight: 460, idealHeight: 680)

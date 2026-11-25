@@ -19,7 +19,7 @@ final class DemoGalleryTests: XCTestCase {
         defer { gallery.mark("tour-finished") }
 
         // What's new after a big update comes first: the whole tour runs close to its time cap.
-        // Full screen; Continue closes it for good.
+        // A sheet; Continue (or swiping it down) closes it for good.
         let app = UITestSupport.launch(arguments: ["-ui-testing-whats-new"])
         XCTAssertTrue(app.buttons["whats-new-continue"].waitForExistence(timeout: 8))
         UITestSupport.settle(1.0)
@@ -88,6 +88,12 @@ final class DemoGalleryTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["New models"].waitForExistence(timeout: 5))
         UITestSupport.settle(1.0)
         capture("03d-priority-demo")
+        UITestSupport.tap(app.buttons["priority-edit"])
+        XCTAssertTrue(app.navigationBars["Edit Priority"].waitForExistence(timeout: 5))
+        UITestSupport.settle(0.8)
+        capture("03e-priority-edit")
+        UITestSupport.tap(app.buttons["priority-edit-done"])
+        XCTAssertTrue(app.navigationBars["Edit Priority"].waitForNonExistence(timeout: 5))
         UITestSupport.tap(app.buttons["Codex"])
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         UITestSupport.settle(0.6)

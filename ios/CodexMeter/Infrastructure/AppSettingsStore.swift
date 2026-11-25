@@ -111,6 +111,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     /// level from Notifications, or when it is being used fast. Both off by default.
     public var liveActivityWhenLow: Bool
     public var liveActivityWhenFast: Bool
+    /// Priority's section order from Edit (`PrioritySectionKey` raw values). Empty is the default
+    /// order; sections added later slot in where Android puts them.
+    public var priorityOrder: [String]
+    /// Priority sections switched off in Edit.
+    public var priorityHiddenSections: [String]
 
     public init(
         appearance: AppAppearance = .system,
@@ -153,7 +158,9 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         claudeResetLowUsageThreshold: Int = LowUsageAutoUse.defaultThreshold,
         haptics: HapticsLevel = .light,
         liveActivityWhenLow: Bool = false,
-        liveActivityWhenFast: Bool = false
+        liveActivityWhenFast: Bool = false,
+        priorityOrder: [String] = [],
+        priorityHiddenSections: [String] = []
     ) {
         self.appearance = appearance
         self.refreshOnLaunch = refreshOnLaunch
@@ -201,6 +208,23 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.haptics = haptics
         self.liveActivityWhenLow = liveActivityWhenLow
         self.liveActivityWhenFast = liveActivityWhenFast
+        self.priorityOrder = Self.sanitizedPriorityKeys(priorityOrder)
+        self.priorityHiddenSections = Self.sanitizedPriorityKeys(priorityHiddenSections)
+    }
+
+    /// Known section keys, each once, in the order given.
+    static func sanitizedPriorityKeys(_ keys: [String]) -> [String] {
+        var seen = Set<String>()
+        return keys.filter { PrioritySectionKey(rawValue: $0) != nil && seen.insert($0).inserted }
+    }
+
+    /// Priority's sections in the order Edit saved.
+    public var prioritySectionOrder: [PrioritySectionKey] {
+        PrioritySectionKey.order(saved: priorityOrder)
+    }
+
+    public var priorityHidden: Set<PrioritySectionKey> {
+        Set(priorityHiddenSections.compactMap(PrioritySectionKey.init(rawValue:)))
     }
 
     public var effectiveCreditExpiryLeadMinutes: [Int] {
@@ -394,6 +418,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case haptics
         case liveActivityWhenLow
         case liveActivityWhenFast
+        case priorityOrder
+        case priorityHiddenSections
     }
 
     public init(from decoder: any Decoder) throws {
@@ -454,7 +480,9 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
                 ?? LowUsageAutoUse.defaultThreshold,
             haptics: (try? container.decodeIfPresent(HapticsLevel.self, forKey: .haptics)) ?? .light,
             liveActivityWhenLow: try container.decodeIfPresent(Bool.self, forKey: .liveActivityWhenLow) ?? false,
-            liveActivityWhenFast: try container.decodeIfPresent(Bool.self, forKey: .liveActivityWhenFast) ?? false
+            liveActivityWhenFast: try container.decodeIfPresent(Bool.self, forKey: .liveActivityWhenFast) ?? false,
+            priorityOrder: (try? container.decodeIfPresent([String].self, forKey: .priorityOrder)) ?? [],
+            priorityHiddenSections: (try? container.decodeIfPresent([String].self, forKey: .priorityHiddenSections)) ?? []
         )
     }
 }

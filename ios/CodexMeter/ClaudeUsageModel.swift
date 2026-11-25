@@ -31,6 +31,15 @@ final class ClaudeUsageModel {
 
     /// Reads the current settings for the automatic reset rules; set by `AppModel`.
     @ObservationIgnored var settingsProvider: (@MainActor () -> AppSettings)?
+    /// Called after a fresh reading is shown, with the one it replaced, for refill alerts.
+    @ObservationIgnored var onUsageSaved: (@MainActor (UsageProvider, UsageSnapshot?, UsageSnapshot) -> Void)?
+    /// Called when Anthropic sends its saved-reset list, with the list shown before it.
+    @ObservationIgnored var onSavedResetsChanging: (@MainActor (ClaudeSavedResets?, ClaudeSavedResets) -> Void)?
+    /// Called when the person spends a saved reset in the app.
+    @ObservationIgnored var onUserReset: (@MainActor () -> Void)?
+    /// Called when a live account is signed out, so its alerts and activity are forgotten.
+    @ObservationIgnored var onSignedOut: (@MainActor () -> Void)?
+    @ObservationIgnored private let refillHold = RefillHoldState()
 
     // Sign-in sheet state.
     var authorization: ClaudeAuthorizationRequest?
@@ -119,9 +128,21 @@ final class ClaudeUsageModel {
         DiagnosticLog.info("refresh", "claude_usage_refresh_started")
         do {
             let snapshot = try await service.refreshUsage()
+            let previous = usage
+            let storedResets = savedResets
+            let sentResets = await service.cachedSavedResets()
+            if let sentResets { onSavedResetsChanging?(storedResets, sentResets) }
+            if refillHold.shouldHold(previous: previous, current: snapshot, again: { [weak self] in
+                await self?.refresh()
+            }) {
+                // Looks refilled early: keep the last reading until the second look.
+                savedResets = sentResets ?? savedResets
+                return
+            }
             usage = snapshot
-            savedResets = await service.cachedSavedResets()
+            savedResets = sentResets
             ProviderWidgetPublisher.publish(.claudeCode, demo: false, usage: snapshot)
+            onUsageSaved?(.claudeCode, previous, snapshot)
             visibleError = nil
             isUsingCachedData = false
             if let tokens = try? await service.currentTokens() {
@@ -214,8 +235,12 @@ final class ClaudeUsageModel {
             DiagnosticLog.info("reset", "claude_saved_reset_claim_finished", details: ["result": result.result.rawValue])
             resetMessage = result.userMessage
             if result.applied, let snapshot = await service.cachedSnapshot() {
+                refillHold.skipForUserReset()
+                onUserReset?()
+                let storedResets = savedResets
                 usage = snapshot.usage ?? usage
                 savedResets = snapshot.claudeSavedResets ?? savedResets?.afterUse(grantID)
+                if let savedResets { onSavedResetsChanging?(storedResets, savedResets) }
             } else {
                 savedResets = await service.cachedSavedResets() ?? savedResets
             }
@@ -307,6 +332,8 @@ final class ClaudeUsageModel {
     }
 
     private func clearState() {
+        refillHold.reset()
+        if phase == .live { onSignedOut?() }
         phase = .signedOut
         usage = nil
         savedResets = nil
