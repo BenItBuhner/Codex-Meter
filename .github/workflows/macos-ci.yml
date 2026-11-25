@@ -36,8 +36,30 @@ env:
   SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
 
 jobs:
+  # Lets the required gate's macOS jobs take runners first (see the script).
+  gate-first:
+    name: Let the CI gate's macOS jobs start first
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - name: Wait until the gate's macOS jobs have runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/wait-for-gate-macos.sh
+
   mac-app:
     name: Mac app build, tests, and gallery
+    needs: gate-first
+    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
     timeout-minutes: 75
     defaults:

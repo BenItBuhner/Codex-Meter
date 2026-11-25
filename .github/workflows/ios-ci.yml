@@ -16,8 +16,30 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Lets the required gate's macOS jobs take runners first (see the script).
+  gate-first:
+    name: Let the CI gate's macOS jobs start first
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - name: Wait until the gate's macOS jobs have runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/wait-for-gate-macos.sh
+
   core-tests:
     name: CodexMeterCore package tests
+    needs: gate-first
+    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
     timeout-minutes: 20
     defaults:
@@ -39,6 +61,9 @@ jobs:
 
   app-build-and-test:
     name: App build and simulator tests
+    needs: gate-first
+    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
     timeout-minutes: 70
     defaults:
@@ -167,6 +192,9 @@ jobs:
 
   ipad-layout:
     name: iPad layout tests and screenshots
+    needs: gate-first
+    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
     timeout-minutes: 75
     defaults:
@@ -288,6 +316,9 @@ jobs:
 
   watch-build-and-gallery:
     name: Apple Watch build and gallery
+    needs: gate-first
+    # Runs after the wait, or straight away on pushes, tags and manual runs (no wait job).
+    if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
     timeout-minutes: 60
     defaults:
