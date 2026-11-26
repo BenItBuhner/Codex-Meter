@@ -42,7 +42,7 @@ final class ProviderParsersTests: XCTestCase {
     func testRawValuesMatchAndroid() {
         XCTAssertEqual(UsageProvider.allCases.map(\.rawValue), [
             "codex", "claude_code", "cursor", "copilot", "kimi", "factory", "grok", "antigravity",
-            "devin", "windsurf", "augment", "cline", "opencode_go", "minimax", "zai", "kiro", "amp",
+            "devin", "windsurf", "augment", "cline", "opencode_go", "opencode_free", "minimax", "zai", "kiro", "amp",
             "openrouter", "kilo", "codebuff", "synthetic", "chutes", "v0", "warp"
         ])
         XCTAssertTrue(UsageProvider.copilot.isBuiltIn == false && UsageProvider.cursor.isBuiltIn)
