@@ -245,6 +245,23 @@ public sealed class DashboardPage : PageBase
                     break;
             }
         }
+        if (provider == UsageProvider.OpencodeFree) cards.Children.Add(OpenCodeFreeCard(settings.ResetDisplay, settings.Use24HourClock));
+    }
+
+    /// <summary>OpenCode Free has no meter: only when its daily limit resets (<see cref="OpenCodeFree"/>).</summary>
+    private static Border OpenCodeFreeCard(ResetDisplayMode mode, bool use24Hour)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var panel = new StackPanel { Spacing = 6 };
+        panel.Children.Add(Cards.Header("\uE823", OpenCodeFree.CardTitle));
+        var figure = Cards.Text(UsageFormat.ResetText(OpenCodeFree.NextReset(now),
+            mode == ResetDisplayMode.Relative ? ResetDisplayMode.Both : mode, now, use24Hour), "SubtitleTextBlockStyle");
+        figure.Margin = new Thickness(0, 4, 0, 0);
+        panel.Children.Add(figure);
+        panel.Children.Add(Cards.Text(OpenCodeFree.Explanation, "SecondaryTextStyle"));
+        var card = Cards.Card(panel, "OpenCodeFreeCard");
+        AutomationProperties.SetName(card, OpenCodeFree.CardTitle);
+        return card;
     }
 
     /// <summary>The chart keeps its selected window and hover while nothing it shows has changed.</summary>

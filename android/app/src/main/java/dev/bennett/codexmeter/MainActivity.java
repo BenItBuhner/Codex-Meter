@@ -84,7 +84,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             R.id.provider_tab_12, R.id.provider_tab_13, R.id.provider_tab_14,
             R.id.provider_tab_15, R.id.provider_tab_16, R.id.provider_tab_17,
             R.id.provider_tab_18, R.id.provider_tab_19, R.id.provider_tab_20,
-            R.id.provider_tab_21, R.id.provider_tab_22, R.id.provider_tab_23};
+            R.id.provider_tab_21, R.id.provider_tab_22, R.id.provider_tab_23,
+            R.id.provider_tab_24};
     /** Providers currently shown in the tab slots, in order. */
     private List<UsageProvider> tabProviders = new ArrayList<>();
     /** Slot 0 holds the Priority tab, ahead of the providers. */
@@ -2202,6 +2203,10 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
                 }
             }
         }
+        if (target == UsageProvider.OPENCODE_FREE && snapshot != null) {
+            addDashboardCard(column, buildOpenCodeFreeCard());
+            anyUsage = true;
+        }
         if (!anyUsage) {
             TextView empty = Ui.text(this, "Pull down to load your " + target.displayName
                     + " usage.", 14.0f, Ui.secondaryText(this.dark));
@@ -2215,6 +2220,19 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
             addDashboardCard(column, buildProviderBalanceCard(target, snapshot.usageCredits));
         }
         this.content.addView(column);
+    }
+
+    /** OpenCode Free has no meter: only when its daily limit resets ({@link OpenCodeFree}). */
+    private LinearLayout buildOpenCodeFreeCard() {
+        long now = System.currentTimeMillis();
+        LinearLayout card = Ui.card(this, this.dark);
+        TextView title = Ui.text(this, OpenCodeFree.CARD_TITLE, 18, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        card.addView(title);
+        card.addView(buildIconDetailRow(R.drawable.ic_oui_calendar_month,
+                UsageFormat.resetAt(this, OpenCodeFree.nextResetMillis(now), "both", now),
+                OpenCodeFree.EXPLANATION));
+        return card;
     }
 
     /** Balance card for providers that report credits or a dollar balance. */

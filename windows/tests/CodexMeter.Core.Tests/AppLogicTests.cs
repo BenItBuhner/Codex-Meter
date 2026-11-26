@@ -17,7 +17,7 @@ public class ProviderSelectionTests
     {
         Assert.Equal([
             "codex", "claude_code", "cursor", "copilot", "kimi", "factory", "grok", "antigravity",
-            "devin", "windsurf", "augment", "cline", "opencode_go", "minimax", "zai", "kiro", "amp",
+            "devin", "windsurf", "augment", "cline", "opencode_go", "opencode_free", "minimax", "zai", "kiro", "amp",
             "openrouter", "kilo", "codebuff", "synthetic", "chutes", "v0", "warp",
         ], UsageProvider.All.Select(p => p.Id));
         Assert.Equal(["codex", "claude_code", "cursor"], UsageProvider.BuiltIns.Select(p => p.Id));

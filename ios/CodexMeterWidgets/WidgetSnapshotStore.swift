@@ -169,7 +169,8 @@ struct WidgetSnapshotStore: Sendable {
     /// widget settings. Codex alone when nothing is signed in yet, so the picker is never empty.
     func availableProviders() -> [UsageProvider] {
         let signedIn = UsageProvider.allCases.filter { provider in
-            guard let shared = decoded(provider) else { return false }
+            // Widgets draw meters; OpenCode Free only knows when it resets.
+            guard provider.hasMeters, let shared = decoded(provider) else { return false }
             return shared.mode != .signedOut
         }
         return signedIn.isEmpty ? [.codex] : signedIn

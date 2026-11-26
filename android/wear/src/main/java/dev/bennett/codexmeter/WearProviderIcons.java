@@ -30,7 +30,8 @@ final class WearProviderIcons {
             case "kimi": return R.drawable.ic_provider_kimi;
             case "kiro": return R.drawable.ic_provider_kiro;
             case "minimax": return R.drawable.ic_provider_minimax;
-            case "opencode_go": return R.drawable.ic_provider_opencode_go;
+            case "opencode_go":
+            case "opencode_free": return R.drawable.ic_provider_opencode_go;
             case "openrouter": return R.drawable.ic_provider_openrouter;
             case "synthetic": return R.drawable.ic_provider_synthetic;
             case "v0": return R.drawable.ic_provider_v0;

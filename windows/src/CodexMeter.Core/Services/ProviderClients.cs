@@ -240,6 +240,7 @@ public static class ProviderClients
         "augment" => new AugmentClient(),
         "cline" => new ClineClient(),
         "opencode_go" => new OpenCodeGoClient(),
+        "opencode_free" => new OpenCodeFreeClient(),
         "minimax" => new MiniMaxClient(),
         "zai" => new ZaiClient(),
         "kiro" => new KiroClient(),
@@ -618,6 +619,23 @@ public sealed class AugmentClient() : ProviderClient(UsageProvider.Augment)
             ProviderRequest.Post(tenant + "get-billing-summary").Bearer(tokens.AccessToken).Json([]), cancellationToken).ConfigureAwait(false), "usage");
         return NonEmpty(ProviderUsageParsers.Augment(response.Body, context.Now()));
     }
+}
+
+// ---------------------------------------------------------------------- OpenCode Free
+
+/// <summary>
+/// No account and no network call: see <see cref="OpenCodeFree"/> for why only the daily reset is
+/// shown. Connecting saves a placeholder so the provider counts as set up everywhere else.
+/// </summary>
+public sealed class OpenCodeFreeClient() : ProviderClient(UsageProvider.OpencodeFree)
+{
+    public const string Placeholder = "opencode-free";
+
+    public override Task<AuthTokens> FromApiKeyAsync(string key, ProviderContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(new AuthTokens(Placeholder, Placeholder, "", AuthTokens.NeverExpires, Placeholder));
+
+    public override Task<ProviderFetch> FetchAsync(AuthTokens tokens, ProviderContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(new ProviderFetch(OpenCodeFree.Snapshot(DateTimeOffset.UtcNow)));
 }
 
 // ---------------------------------------------------------------------- OpenCode Go

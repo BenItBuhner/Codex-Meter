@@ -54,6 +54,9 @@ struct AddedProviderDashboardView: View {
                         if let credits = usage.usageCredits, credits.shouldDisplay {
                             AddedProviderBalanceCard(credits: credits)
                         }
+                        if provider == .opencodeFree {
+                            OpenCodeFreeResetCard()
+                        }
                     } else {
                         AddedProviderEmptyCard(state: state)
                     }
@@ -174,6 +177,39 @@ private struct AddedProviderBalanceCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// OpenCode Free has no meter: only when its daily limit resets (`OpenCodeFree`).
+struct OpenCodeFreeResetCard: View {
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            let reset = OpenCodeFree.nextReset(after: context.date)
+            HStack(alignment: .top, spacing: 16) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.title)
+                    .foregroundStyle(.tint)
+                    .symbolRenderingMode(.hierarchical)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(OpenCodeFree.cardTitle)
+                        .font(.headline.bold())
+                    Text(verbatim: "Resets \(reset.formatted(date: .omitted, time: .shortened)) "
+                        + "(\(reset.formatted(.relative(presentation: .named, unitsStyle: .wide))))")
+                        .font(.title3.bold())
+                    Text(OpenCodeFree.explanation)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(AppChrome.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface()
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("opencode-free-reset")
+        }
     }
 }
 
@@ -312,7 +348,7 @@ struct AddedProviderSignInView: View {
                         .frame(width: 34, height: 34)
                         .foregroundStyle(.tint)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(provider.signInLabel)
+                        Text(entry.signIn == .noAccount ? "Turn on \(provider.displayName)" : provider.signInLabel)
                             .font(.headline)
                         Text(entry.meters)
                             .font(.subheadline)
@@ -346,6 +382,23 @@ struct AddedProviderSignInView: View {
             if entry.signIn == .apiKey || entry.acceptsAPIKey {
                 apiKeySection(state, entry: entry)
             }
+            if entry.signIn == .noAccount {
+                Section {
+                    Button {
+                        state.turnOn()
+                    } label: {
+                        if state.signInStep == .checking {
+                            ProgressView()
+                        } else {
+                            Text("Turn on \(provider.displayName)")
+                        }
+                    }
+                    .disabled(state.signInStep == .checking)
+                    .accessibilityIdentifier("signin-turn-on")
+                } footer: {
+                    Text(OpenCodeFree.howItWorks)
+                }
+            }
 
             if let error = state.signInError {
                 Section {
@@ -356,7 +409,8 @@ struct AddedProviderSignInView: View {
             }
 
             Section {
-                Text("Your \(provider.accountName) password is only entered on \(provider.vendorName)'s own page. The sign-in is kept in Keychain on this device and used only to read usage.")
+                Text(entry.signIn == .noAccount ? OpenCodeFree.privacy
+                     : "Your \(provider.accountName) password is only entered on \(provider.vendorName)'s own page. The sign-in is kept in Keychain on this device and used only to read usage.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

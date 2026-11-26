@@ -229,6 +229,29 @@ public sealed class DashboardPage : IPage
                     break;
             }
         }
+        if (provider == UsageProvider.OpencodeFree) Add(OpenCodeFreeCard(settings.ResetDisplay, settings.Use24HourClock));
+    }
+
+    /// <summary>OpenCode Free has no meter: only when its daily limit resets (<see cref="OpenCodeFree"/>).</summary>
+    private static Gtk.Widget OpenCodeFreeCard(ResetDisplayMode mode, bool use24Hour)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var panel = Gtk.Box.New(Gtk.Orientation.Vertical, 6);
+        var header = Gtk.Box.New(Gtk.Orientation.Horizontal, 8);
+        header.Append(Gtk.Image.NewFromIconName("alarm-symbolic"));
+        header.Append(Cards.Label(OpenCodeFree.CardTitle, "heading"));
+        panel.Append(header);
+        var reset = Cards.Label(UsageFormat.ResetText(OpenCodeFree.NextReset(now),
+            mode == ResetDisplayMode.Relative ? ResetDisplayMode.Both : mode, now, use24Hour), "title-3");
+        reset.SetWrap(true);
+        panel.Append(reset);
+        var note = Cards.Label(OpenCodeFree.Explanation, "dim-label");
+        note.SetWrap(true);
+        panel.Append(note);
+        var card = Cards.Card(panel, "OpenCodeFreeCard");
+        card.RemoveCssClass("meter-card");
+        card.AddCssClass("extra-card");
+        return card;
     }
 
     /// <summary>The chart keeps its selected window while nothing it shows has changed.</summary>

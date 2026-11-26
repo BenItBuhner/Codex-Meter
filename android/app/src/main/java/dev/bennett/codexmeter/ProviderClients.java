@@ -45,6 +45,8 @@ public final class ProviderClients {
                 return new Cline();
             case OPENCODE_GO:
                 return new OpenCodeGo();
+            case OPENCODE_FREE:
+                return new OpenCodeFreeClient();
             case MINIMAX:
                 return new MiniMax();
             case ZAI:
@@ -698,6 +700,30 @@ public final class ProviderClients {
                     ProviderHttp.post(tenant + "get-billing-summary").bearer(tokens.accessToken)
                             .json(new JSONObject())), "usage");
             return nonEmpty(ProviderUsageParsers.augment(response.body, now()));
+        }
+    }
+
+    // ================================================================ OpenCode Free
+
+    /**
+     * No account and no network call: see {@link OpenCodeFree} for why only the daily reset is
+     * shown. "Connecting" saves a placeholder so the provider counts as set up everywhere else.
+     */
+    static final class OpenCodeFreeClient extends ProviderClient {
+        static final String PLACEHOLDER = "opencode-free";
+
+        OpenCodeFreeClient() {
+            super(UsageProvider.OPENCODE_FREE);
+        }
+
+        @Override
+        public AuthTokens connectWithoutAccount(Context context) {
+            return new AuthTokens(PLACEHOLDER, PLACEHOLDER, "", 0L, PLACEHOLDER, "");
+        }
+
+        @Override
+        public UsageSnapshot fetch(Context context, AuthTokens tokens) {
+            return OpenCodeFree.snapshot(now());
         }
     }
 

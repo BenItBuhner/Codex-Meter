@@ -7,10 +7,13 @@ namespace CodexMeter.App.Assets;
 /// <summary>Monochrome provider marks (the same ones the Android tabs use) as XAML icons.</summary>
 internal static partial class ProviderIcons
 {
+    /// <summary>OpenCode Free shares OpenCode Go's mark.</summary>
+    private static string MarkId(string providerId) => providerId == "opencode_free" ? "opencode_go" : providerId;
+
     /// <summary>A fresh icon <paramref name="size"/> pixels square that follows the text color.</summary>
     public static IconElement Create(string providerId, double size = 16)
     {
-        if (!Paths.TryGetValue(providerId, out var mark))
+        if (!Paths.TryGetValue(MarkId(providerId), out var mark))
             return new FontIcon { Glyph = "", FontSize = size };
         var geometry = (Geometry)XamlBindingHelper.ConvertValue(typeof(Geometry), mark.Data);
         var scale = size / Math.Max(mark.Width, mark.Height);
@@ -31,7 +34,7 @@ internal static partial class ProviderIcons
     /// </summary>
     public static Microsoft.UI.Xaml.FrameworkElement CreateShape(string providerId, double size, Brush fill)
     {
-        if (!Paths.TryGetValue(providerId, out var mark))
+        if (!Paths.TryGetValue(MarkId(providerId), out var mark))
             return new FontIcon { Glyph = "\uE774", FontSize = size, Foreground = fill };
         var geometry = (Geometry)XamlBindingHelper.ConvertValue(typeof(Geometry), mark.Data);
         return new Microsoft.UI.Xaml.Controls.Viewbox
@@ -42,5 +45,5 @@ internal static partial class ProviderIcons
         };
     }
 
-    public static bool Has(string providerId) => Paths.ContainsKey(providerId);
+    public static bool Has(string providerId) => Paths.ContainsKey(MarkId(providerId));
 }

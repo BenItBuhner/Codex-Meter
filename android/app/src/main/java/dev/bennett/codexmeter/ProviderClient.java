@@ -101,6 +101,13 @@ public abstract class ProviderClient {
         return tokens;
     }
 
+    // ------------------------------------------------------------ no account
+
+    /** For {@link ProviderCatalog.SignIn#NONE} providers: what to save when turned on. */
+    public AuthTokens connectWithoutAccount(Context context) throws Exception {
+        throw new UnsupportedOperationException(provider.displayName + " needs a sign-in.");
+    }
+
     // ------------------------------------------------------------ refresh and usage
 
     /** Whether {@link #refresh} can renew this credential. */

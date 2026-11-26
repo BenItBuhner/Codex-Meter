@@ -194,7 +194,7 @@ public final class WidgetProviders {
                 ? UsageProvider.orderFromIds(null) : order;
         List<UsageProvider> result = new ArrayList<>();
         for (UsageProvider provider : sequence) {
-            boolean shown = (signedIn != null && signedIn.contains(provider))
+            boolean shown = (signedIn != null && signedIn.contains(provider) && provider.hasMeters())
                     || (current != null && current.contains(provider));
             if (shown && !result.contains(provider)) result.add(provider);
         }

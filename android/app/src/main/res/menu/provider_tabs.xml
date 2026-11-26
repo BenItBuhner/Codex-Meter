@@ -101,4 +101,8 @@
         android:id="@+id/provider_tab_23"
         android:icon="@drawable/ic_provider_codex"
         android:title="@string/provider_codex" />
+    <item
+        android:id="@+id/provider_tab_24"
+        android:icon="@drawable/ic_provider_codex"
+        android:title="@string/provider_codex" />
 </menu>
