@@ -588,7 +588,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter;
 				PRODUCT_MODULE_NAME = CodexMeter;
@@ -620,7 +620,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter;
 				PRODUCT_MODULE_NAME = CodexMeter;
@@ -651,7 +651,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter.Widgets;
 				PRODUCT_NAME = CodexMeterMacWidgets;
@@ -682,7 +682,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeter.Widgets;
 				PRODUCT_NAME = CodexMeterMacWidgets;
@@ -704,7 +704,7 @@
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeterMacTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -722,7 +722,7 @@
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeterMacTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -739,7 +739,7 @@
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeterMacUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -756,7 +756,7 @@
 				DEVELOPMENT_TEAM = C2U9S337H8;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.36;
+				CODEX_METER_RELEASE_VERSION = 2.9.0-alpha.37;
 				MARKETING_VERSION = 2.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bukovinafilip.CodexMeterMacUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
