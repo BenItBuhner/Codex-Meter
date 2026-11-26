@@ -6,6 +6,10 @@
 
 - **OpenCode Free.** Add account lists it right under OpenCode Go. It needs no sign-in: turn it on and its tab shows when OpenCode's daily free limit resets (midnight UTC, shown in your time). OpenCode counts free-model requests per network and doesn't report how many are left to any app but its own, so there's no percentage, and widgets leave it out. All platforms.
 
+### Changed
+
+- **One UI 9.5 is internal for now.** It is off the Settings → Appearance → Design list in alphas and releases while it gets closer to the real thing. If you had it on, the app opens in One UI 9, the design it is built on, and Samsung phones on One UI 9.5 start in One UI 9. Debug builds still have it. Android.
+
 ## 2.9.0-alpha.36 — 2026-11-25
 
 ### Fixed

@@ -23,6 +23,12 @@ public final class DesignIdsSelfTest {
         check(DesignIds.normalize("one_ui_9_5", false).equals(DesignIds.ONE_UI_9_5), "One UI 9.5 kept");
         check(DesignIds.normalize("one_ui_9_5", true).equals(DesignIds.ONE_UI_9_5), "One UI 9.5 beats the old switch");
         check(DesignIds.label("one_ui_9_5").equals("One UI 9.5"), "label One UI 9.5");
+        // Builds without One UI 9.5 (alphas and stable while it is internal) read and save it as One UI 9.
+        check(DesignIds.normalize("one_ui_9_5", false, false).equals(DesignIds.ONE_UI_9), "hidden 9.5 reads as 9");
+        check(DesignIds.normalize("one_ui_9_5", false, true).equals(DesignIds.ONE_UI_9_5), "available 9.5 kept");
+        check(DesignIds.forSave("one_ui_9_5", false).equals(DesignIds.ONE_UI_9), "hidden 9.5 saves as 9");
+        check(DesignIds.normalize("liquid_glass", false, false).equals(DesignIds.LIQUID_GLASS), "others untouched");
+        check(DesignIds.ONE_UI_9.equals(DesignIds.suggestFor("samsung", "samsung", 90500, false)), "9.5 phone gets 9 when hidden");
         check(DesignIds.isOneUi9Family("one_ui_9") && DesignIds.isOneUi9Family("one_ui_9_5")
                 && !DesignIds.isOneUi9Family("classic") && !DesignIds.isOneUi9Family("liquid_glass"), "One UI 9 family");
         check(DesignIds.normalize("material_3_expressive", true).equals(DesignIds.MATERIAL_3_EXPRESSIVE), "expressive kept");

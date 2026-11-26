@@ -676,6 +676,9 @@ public final class SettingsActivity extends AppCompatActivity {
         private void bindDesign() {
             ListPreference design = findPreference("app_design_ui");
             design.setPersistent(false);
+            if (!AppPreferences.isOneUi95Available()) {
+                hideDesign(design, DesignIds.ONE_UI_9_5);
+            }
             design.setValue(AppPreferences.getDesign(requireContext()));
             design.setSummary(designLabel(requireContext()));
             design.setOnPreferenceChangeListener((preference, value) -> {
@@ -694,6 +697,22 @@ public final class SettingsActivity extends AppCompatActivity {
                 getListView().post(() -> restartForDesign(activity));
                 return false;
             });
+        }
+
+        /** Takes one design out of the App design list (One UI 9.5 while it is internal). */
+        private static void hideDesign(ListPreference design, String id) {
+            CharSequence[] entries = design.getEntries();
+            CharSequence[] values = design.getEntryValues();
+            java.util.List<CharSequence> keptEntries = new java.util.ArrayList<>();
+            java.util.List<CharSequence> keptValues = new java.util.ArrayList<>();
+            for (int i = 0; i < values.length; i++) {
+                if (!id.contentEquals(values[i])) {
+                    keptEntries.add(entries[i]);
+                    keptValues.add(values[i]);
+                }
+            }
+            design.setEntries(keptEntries.toArray(new CharSequence[0]));
+            design.setEntryValues(keptValues.toArray(new CharSequence[0]));
         }
 
         /** The name of the current design, as Settings → Appearance lists it. */

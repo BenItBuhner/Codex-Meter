@@ -33,11 +33,22 @@ final class DesignIds {
      * there was a design list.
      */
     static String normalize(String saved, boolean legacyOneUi9) {
+        return normalize(saved, legacyOneUi9, true);
+    }
+
+    /**
+     * As {@link #normalize(String, boolean)}, for a build where One UI 9.5 may be internal only.
+     * When {@code oneUi95Available} is false (alpha and stable release builds, see
+     * {@code BuildConfig.ONE_UI_9_5_AVAILABLE}), a saved One UI 9.5 reads as One UI 9, the design it
+     * is built on. The saved value itself is left alone, so a build that has 9.5 picks it up again.
+     */
+    static String normalize(String saved, boolean legacyOneUi9, boolean oneUi95Available) {
         if (saved != null) {
             switch (saved) {
+                case ONE_UI_9_5:
+                    return oneUi95Available ? ONE_UI_9_5 : ONE_UI_9;
                 case CLASSIC:
                 case ONE_UI_9:
-                case ONE_UI_9_5:
                 case LIQUID_GLASS:
                 case MATERIAL_3_EXPRESSIVE:
                     return saved;
@@ -54,6 +65,11 @@ final class DesignIds {
     /** The id to save for a choice; anything unknown saves as classic. */
     static String forSave(String choice) {
         return normalize(choice, false);
+    }
+
+    /** As {@link #forSave(String)}; One UI 9.5 saves as One UI 9 where it isn't available. */
+    static String forSave(String choice, boolean oneUi95Available) {
+        return normalize(choice, false, oneUi95Available);
     }
 
     static boolean isLiquidGlass(String id) {
@@ -84,8 +100,14 @@ final class DesignIds {
      * @param oneUiVersion {@code ro.build.version.oneui} as a number, or 0 when it can't be read
      */
     static String suggestFor(String manufacturer, String brand, int oneUiVersion) {
+        return suggestFor(manufacturer, brand, oneUiVersion, true);
+    }
+
+    /** As {@link #suggestFor(String, String, int)}; One UI 9.5 phones get One UI 9 where 9.5 isn't available. */
+    static String suggestFor(String manufacturer, String brand, int oneUiVersion,
+            boolean oneUi95Available) {
         if (is("samsung", manufacturer) || is("samsung", brand)) {
-            if (oneUiVersion >= ONE_UI_9_5_VERSION) {
+            if (oneUi95Available && oneUiVersion >= ONE_UI_9_5_VERSION) {
                 return ONE_UI_9_5;
             }
             return oneUiVersion >= ONE_UI_9_VERSION ? ONE_UI_9 : CLASSIC;

@@ -490,7 +490,8 @@ public final class AppPreferences {
     public static String getDesign(Context context) {
         SharedPreferences prefs = prefs(context);
         String saved = prefs.getString(KEY_APP_DESIGN, null);
-        String design = DesignIds.normalize(saved, prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false));
+        String design = DesignIds.normalize(saved, prefs.getBoolean(KEY_ONE_UI_9_DESIGN, false),
+                isOneUi95Available());
         // Either of the two former Liquid Glass looks is saved as the one Liquid Glass design.
         if (saved != null && !saved.equals(design) && DesignIds.isLiquidGlass(saved)) {
             prefs.edit().putString(KEY_APP_DESIGN, design).apply();
@@ -499,7 +500,7 @@ public final class AppPreferences {
     }
 
     public static void setDesign(Context context, String design) {
-        design = DesignIds.forSave(design);
+        design = DesignIds.forSave(design, isOneUi95Available());
         prefs(context).edit()
                 .putString(KEY_APP_DESIGN, design)
                 .putBoolean(KEY_ONE_UI_9_DESIGN, DesignIds.isOneUi9Family(design))
@@ -512,6 +513,15 @@ public final class AppPreferences {
      */
     public static boolean isOneUi9Design(Context context) {
         return DesignIds.isOneUi9Family(getDesign(context));
+    }
+
+    /**
+     * Whether this build offers One UI 9.5. It is internal for now: debug builds have it, alpha and
+     * stable release builds don't (Settings doesn't list it and a saved 9.5 reads as One UI 9).
+     * Set by {@code -PoneUi95=true|false} at build time.
+     */
+    public static boolean isOneUi95Available() {
+        return BuildConfig.ONE_UI_9_5_AVAILABLE;
     }
 
     /** One UI 9.5: the One UI 9 design with a refracting glass tab bar and rim-lit header buttons. */
@@ -547,7 +557,7 @@ public final class AppPreferences {
             return null;
         }
         String suggested = DesignIds.suggestFor(android.os.Build.MANUFACTURER,
-                android.os.Build.BRAND, oneUiVersion());
+                android.os.Build.BRAND, oneUiVersion(), isOneUi95Available());
         prefs.edit().putString(KEY_DESIGN_SUGGESTED, suggested == null ? "" : suggested).commit();
         if (suggested != null && !suggested.equals(getDesign(context))) {
             setDesign(context, suggested);
