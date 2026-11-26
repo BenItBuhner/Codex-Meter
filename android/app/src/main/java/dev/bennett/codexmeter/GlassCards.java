@@ -331,6 +331,15 @@ final class GlassCards {
                 }
             }
         }
+        if (target == UsageProvider.OPENCODE_FREE && snapshot != null) {
+            // No meter to draw: only when the daily free limit resets (OpenCodeFree).
+            Card free = credits(UsageFormat.resetAt(a, OpenCodeFree.nextResetMillis(now), "both", now),
+                    OpenCodeFree.EXPLANATION, OpenCodeFree.CARD_TITLE);
+            free.icon = "clock";
+            free.color = "#0a84ff";
+            out.add(free);
+            anyUsage = true;
+        }
         if (!anyUsage) {
             Card empty = new Card(Card.Kind.MESSAGE);
             empty.title = "Refresh to load your " + target.displayName + " usage.";

@@ -13,6 +13,8 @@ public enum SignInStyle
     CodePaste,
     /// <summary>The user creates a key on the provider's site and pastes it.</summary>
     ApiKey,
+    /// <summary>Nothing to sign in to: connecting just turns the provider on (OpenCode Free).</summary>
+    NoAccount,
 }
 
 /// <summary>
@@ -71,6 +73,9 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     public static readonly UsageProvider OpencodeGo = new("opencode_go", "OpenCode Go", "OpenCode", "OpenCode", SignInStyle.DeviceCode,
         "5-hour, weekly and monthly limits", "OpenCode sign-in")
     { KeyUrl = "https://opencode.ai/auth", AcceptsApiKey = true };
+    /// <summary>OpenCode's free models: no account, counted per network, so only the reset is known.</summary>
+    public static readonly UsageProvider OpencodeFree = new("opencode_free", "OpenCode Free", "OpenCode", "OpenCode",
+        SignInStyle.NoAccount, "Daily free limit reset", "No sign-in");
     public static readonly UsageProvider MiniMax = new("minimax", "MiniMax", "MiniMax", "MiniMax", SignInStyle.DeviceCode,
         "Coding plan prompts per window", "MiniMax sign-in")
     {
@@ -112,7 +117,7 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     public static IReadOnlyList<UsageProvider> All { get; } =
     [
         Codex, ClaudeCode, Cursor, Copilot, Kimi, Factory, Grok, Antigravity, Devin, Windsurf, Augment, Cline,
-        OpencodeGo, MiniMax, Zai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, V0, Warp,
+        OpencodeGo, OpencodeFree, MiniMax, Zai, Kiro, Amp, OpenRouter, Kilo, Codebuff, Synthetic, Chutes, V0, Warp,
     ];
 
     /// <summary>Codex, Claude Code and Cursor: their own services, dashboards and sign-in flows.</summary>
@@ -129,8 +134,15 @@ public sealed record UsageProvider(string Id, string DisplayName, string Account
     public string SignInLabel => SignIn switch
     {
         SignInStyle.ApiKey => "Add API key",
+        SignInStyle.NoAccount => "Turn on " + DisplayName,
         _ => "Sign in with " + AccountName,
     };
+
+    /// <summary>
+    /// Whether this provider reports usage meters. OpenCode Free only knows its reset time, so
+    /// views that draw meters (the tray, widgets) leave it out.
+    /// </summary>
+    public bool HasMeters => Id != "opencode_free";
 
     /// <summary>One line for Add account rows: "Monthly premium requests and chat · GitHub sign-in".</summary>
     public string PickerSummary => $"{Meters} · {SignInSummary}";

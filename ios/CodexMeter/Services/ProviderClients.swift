@@ -333,6 +333,7 @@ nonisolated enum ProviderClients {
         case .augment: AugmentClient()
         case .cline: ClineClient()
         case .opencodeGo: OpenCodeGoClient()
+        case .opencodeFree: OpenCodeFreeClient()
         case .minimax: MiniMaxClient()
         case .zai: ZaiClient()
         case .kiro: KiroClient()
@@ -711,6 +712,24 @@ nonisolated struct AugmentClient: ProviderClient {
         let response = try check(try await ProviderHTTP.send("augment_usage",
             .post(tenant + "get-billing-summary").bearer(tokens.accessToken).json([:]), session: http), "usage")
         return try nonEmpty(ProviderUsageParsers.augment(response.body, now: Date()))
+    }
+}
+
+// MARK: OpenCode Free
+
+/// No account and no network call: see `OpenCodeFree` for why only the daily reset is shown.
+/// Turning it on saves a placeholder so the provider counts as set up everywhere else.
+nonisolated struct OpenCodeFreeClient: ProviderClient {
+    let provider = UsageProvider.opencodeFree
+    static let placeholder = "opencode-free"
+
+    func fromAPIKey(_ key: String, http: URLSession) async throws -> AuthTokens {
+        AuthTokens(accessToken: Self.placeholder, refreshToken: Self.placeholder, idToken: "", expiresAt: providerNeverExpires,
+                   accountID: Self.placeholder)
+    }
+
+    func fetch(_ tokens: AuthTokens, http: URLSession) async throws -> ProviderFetch {
+        ProviderFetch(snapshot: OpenCodeFree.snapshot(at: Date()))
     }
 }
 

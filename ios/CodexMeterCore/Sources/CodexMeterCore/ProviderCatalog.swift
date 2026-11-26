@@ -16,6 +16,8 @@ public enum ProviderCatalog {
         case codePaste
         /// The user creates a key on the provider's site and pastes it.
         case apiKey
+        /// Nothing to sign in to: the sign-in screen just turns the provider on.
+        case noAccount
     }
 
     public struct Entry: Sendable, Equatable {
@@ -73,6 +75,9 @@ public enum ProviderCatalog {
               signInSummary: "Cline sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .opencodeGo, signIn: .deviceCode, meters: "5-hour, weekly and monthly limits",
               signInSummary: "OpenCode sign-in", keyURL: "https://opencode.ai/auth", acceptsAPIKey: true, inferred: false),
+        // Right under OpenCode Go so the two OpenCode choices sit together.
+        Entry(provider: .opencodeFree, signIn: .noAccount, meters: "Daily free limit reset",
+              signInSummary: "No sign-in", keyURL: "", acceptsAPIKey: false, inferred: false),
         Entry(provider: .minimax, signIn: .deviceCode, meters: "Coding plan prompts per window",
               signInSummary: "MiniMax sign-in",
               keyURL: "https://platform.minimax.io/user-center/basic-information/interface-key",

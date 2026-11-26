@@ -31,6 +31,7 @@ public final class ProviderParsersSelfTest {
         testAugment();
         testCline();
         testOpenCodeGo();
+        testOpenCodeFree();
         testMiniMax();
         testZai();
         testKiro();
@@ -45,7 +46,7 @@ public final class ProviderParsersSelfTest {
         testRecordedReplies();
         testAppSessionRules();
         testAppSessionTransitions();
-        System.out.println("Provider catalog, tabs, device sign-in, and 25 usage parsers verified.");
+        System.out.println("Provider catalog, tabs, device sign-in, and 25 usage parsers verified, plus OpenCode Free's reset.");
     }
 
     private static void testCatalog() {
@@ -105,7 +106,7 @@ public final class ProviderParsersSelfTest {
                 "four providers still fit as tabs");
         check(ProviderTabs.ownTabs(5) == 3 && ProviderTabs.inMore(5) == 2,
                 "five providers: three tabs plus More");
-        check(ProviderTabs.ownTabs(24) == 3 && ProviderTabs.inMore(24) == 21,
+        check(ProviderTabs.ownTabs(25) == 3 && ProviderTabs.inMore(25) == 22,
                 "every provider: three tabs, the rest in More");
         check(ProviderTabs.SLOT_COUNT == UsageProvider.values().length,
                 "one menu slot per provider");
@@ -427,6 +428,30 @@ public final class ProviderParsersSelfTest {
                 && snapshot.fiveHour.resetAtEpochSeconds == NOW_S + 600
                 && snapshot.weekly.usedPercent == 12 && snapshot.monthly.usedPercent == 4,
                 "OpenCode Go windows");
+    }
+
+    private static void testOpenCodeFree() {
+        // OpenCode's gateway resets free usage at 00:00 UTC (retry-after = seconds to midnight).
+        long day = 86_400_000L;
+        long midnight = 20_000L * day;
+        check(OpenCodeFree.nextResetMillis(midnight - 1L) == midnight,
+                "OpenCode Free resets at the coming midnight UTC");
+        check(OpenCodeFree.nextResetMillis(midnight) == midnight + day,
+                "at midnight itself the next reset is a day away");
+        check(OpenCodeFree.nextResetMillis(midnight + 4856_000L) == midnight + day,
+                "mid-day resets at the next midnight");
+        UsageSnapshot snapshot = OpenCodeFree.snapshot(NOW);
+        check(snapshot.fiveHour == null && snapshot.weekly == null && snapshot.monthly == null
+                && snapshot.additionalLimits.isEmpty() && "Free".equals(snapshot.planType),
+                "OpenCode Free saves no made-up meters");
+        check(!UsageProvider.OPENCODE_FREE.hasMeters() && UsageProvider.OPENCODE_GO.hasMeters(),
+                "only OpenCode Free lacks meters");
+        java.util.List<UsageProvider> order = ProviderCatalog.recommendedOrder();
+        check(order.indexOf(UsageProvider.OPENCODE_FREE)
+                        == order.indexOf(UsageProvider.OPENCODE_GO) + 1,
+                "OpenCode Free sits right under OpenCode Go");
+        check(ProviderCatalog.get(UsageProvider.OPENCODE_FREE).signIn
+                == ProviderCatalog.SignIn.NONE, "OpenCode Free needs no sign-in");
     }
 
     private static void testMiniMax() {

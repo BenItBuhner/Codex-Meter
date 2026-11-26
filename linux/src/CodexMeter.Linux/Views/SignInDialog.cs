@@ -25,10 +25,25 @@ public static class SignInDialog
         provider.SignIn switch
         {
             SignInStyle.ApiKey => ApiKeyAsync(state, provider, parent, location),
+            SignInStyle.NoAccount => NoAccountAsync(state, provider),
             SignInStyle.DeviceCode => DeviceAsync(state, provider, parent, location),
             SignInStyle.CodePaste => PasteAsync(state, provider, parent, location),
             _ => BrowserAsync(state, provider, parent, location),
         };
+
+    /// <summary>OpenCode Free: nothing to sign in to, so connecting just turns it on.</summary>
+    private static async Task<string?> NoAccountAsync(AppState state, UsageProvider provider)
+    {
+        try
+        {
+            await state.SignInWithApiKeyAsync(provider, "", CancellationToken.None);
+            return null;
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            return Message(failure);
+        }
+    }
 
     private static string Message(Exception failure) =>
         failure is ProviderException ? failure.Message : "Sign-in failed: " + failure.Message;

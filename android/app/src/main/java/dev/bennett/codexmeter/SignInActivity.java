@@ -271,6 +271,9 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             case API_KEY:
                 addApiKey(true);
                 break;
+            case NONE:
+                addTurnOn();
+                break;
             case LOOPBACK:
             case BROWSER:
             default:
@@ -281,6 +284,15 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             addApiKey(false);
         }
         addPrivacy();
+    }
+
+    /** Providers with no account: one button that turns the provider on. */
+    private void addTurnOn() {
+        addStatus();
+        Button turnOn = primary(flow.connecting() ? "Turning on…" : "Turn on " + provider.displayName);
+        turnOn.setEnabled(!flow.connecting());
+        turnOn.setOnClickListener(view -> runConnect(
+                () -> client.connectWithoutAccount(getApplicationContext())));
     }
 
     private void addHero() {
@@ -325,6 +337,8 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             case CODE_PASTE:
                 return "Sign in on " + provider.vendorName + "’s page, then copy what it shows "
                         + "and paste it below.";
+            case NONE:
+                return OpenCodeFree.HOW_IT_WORKS;
             case API_KEY:
                 return "Create a key on " + provider.vendorName + "’s site and paste it below. "
                         + "Codex Meter only uses it to read your usage.";
@@ -333,6 +347,12 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
                         + provider.displayName + ". The browser handles your password; Codex "
                         + "Meter never sees it.";
         }
+    }
+
+    private String privacyNote() {
+        if (entry.signIn == ProviderCatalog.SignIn.NONE) return OpenCodeFree.PRIVACY;
+        return "Sign-in details are encrypted with Android Keystore and only sent to "
+                + provider.vendorName + ". No Codex Meter server is involved.";
     }
 
     private void addExperimentalNote() {
@@ -460,9 +480,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
 
     private void addPrivacy() {
         Ui.addSpacer(content, 24);
-        TextView note = Ui.text(this, "Sign-in details are encrypted with Android Keystore and "
-                        + "only sent to " + provider.vendorName + ". No Codex Meter server is "
-                        + "involved.", 12.0f, Ui.secondaryText(dark));
+        TextView note = Ui.text(this, privacyNote(), 12.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), Ui.dp(this, 12));
         content.addView(note, params);
@@ -557,6 +575,14 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             case API_KEY:
                 glassApiKey(page, true);
                 break;
+            case NONE:
+                glassActions(page, null).rows.add(glassButton("turn_on",
+                        flow.connecting() ? "Turning on…" : "Turn on " + provider.displayName, () -> {
+                            if (!flow.connecting()) {
+                                runConnect(() -> client.connectWithoutAccount(getApplicationContext()));
+                            }
+                        }));
+                break;
             case LOOPBACK:
             case BROWSER:
             default:
@@ -567,8 +593,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             glassApiKey(page, false);
         }
         GlassModel.Section privacy = GlassScreens.section(null);
-        privacy.footer = "Sign-in details are encrypted with Android Keystore and only sent to "
-                + provider.vendorName + ". No Codex Meter server is involved.";
+        privacy.footer = privacyNote();
         page.sections.add(privacy);
         return page;
     }

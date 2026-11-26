@@ -30,6 +30,8 @@ public enum UsageProvider {
     AUGMENT("augment", "Augment", "Augment", "Augment Code"),
     CLINE("cline", "Cline", "Cline", "Cline"),
     OPENCODE_GO("opencode_go", "OpenCode Go", "OpenCode", "OpenCode"),
+    /** OpenCode's free models: no account, counted per network, so only the reset is known. */
+    OPENCODE_FREE("opencode_free", "OpenCode Free", "OpenCode", "OpenCode"),
     MINIMAX("minimax", "MiniMax", "MiniMax", "MiniMax"),
     ZAI("zai", "Z.ai", "Z.ai", "Z.ai"),
     KIRO("kiro", "Kiro", "AWS Builder ID", "AWS"),
@@ -58,6 +60,14 @@ public enum UsageProvider {
         this.displayName = displayName;
         this.accountName = accountName;
         this.vendorName = vendorName;
+    }
+
+    /**
+     * Whether this provider reports usage meters. OpenCode Free only knows its reset time, so
+     * widgets, which draw meters, leave it out.
+     */
+    public boolean hasMeters() {
+        return this != OPENCODE_FREE;
     }
 
     /** Usage cards this provider usually reports, listed in Edit dashboard before any data. */

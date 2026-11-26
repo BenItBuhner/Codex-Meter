@@ -24,6 +24,7 @@ public static class SignInFlow
     public static Task<string?> RunAsync(UsageProvider provider, XamlRoot root) => provider.SignIn switch
     {
         SignInStyle.ApiKey => ApiKeyAsync(provider, root),
+        SignInStyle.NoAccount => NoAccountAsync(provider),
         SignInStyle.DeviceCode => DeviceAsync(provider, root),
         SignInStyle.CodePaste => PasteAsync(provider, root),
         _ => BrowserAsync(provider, root),
@@ -316,6 +317,20 @@ public static class SignInFlow
     }
 
     // ------------------------------------------------------------------ API key
+
+    /// <summary>OpenCode Free: nothing to sign in to, so connecting just turns it on.</summary>
+    private static async Task<string?> NoAccountAsync(UsageProvider provider)
+    {
+        try
+        {
+            await App.Current!.State.SignInWithApiKeyAsync(provider, "", CancellationToken.None);
+            return null;
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            return Message(failure);
+        }
+    }
 
     private static async Task<string?> ApiKeyAsync(UsageProvider provider, XamlRoot root)
     {

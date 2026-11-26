@@ -42,7 +42,7 @@ final class ProviderParsersTests: XCTestCase {
     func testRawValuesMatchAndroid() {
         XCTAssertEqual(UsageProvider.allCases.map(\.rawValue), [
             "codex", "claude_code", "cursor", "copilot", "kimi", "factory", "grok", "antigravity",
-            "devin", "windsurf", "augment", "cline", "opencode_go", "minimax", "zai", "kiro", "amp",
+            "devin", "windsurf", "augment", "cline", "opencode_go", "opencode_free", "minimax", "zai", "kiro", "amp",
             "openrouter", "kilo", "codebuff", "synthetic", "chutes", "v0", "warp"
         ])
         XCTAssertTrue(UsageProvider.copilot.isBuiltIn == false && UsageProvider.cursor.isBuiltIn)
@@ -246,6 +246,23 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(resetSeconds(go.fiveHour), nowSeconds + 600)
         XCTAssertEqual(go.weekly?.usedPercent, 12)
         XCTAssertEqual(go.monthly?.usedPercent, 4)
+    }
+
+    func testOpenCodeFreeResetsAtMidnightUTC() {
+        let midnight = Date(timeIntervalSince1970: 20_000 * 86_400)
+        XCTAssertEqual(OpenCodeFree.nextReset(after: midnight.addingTimeInterval(-1)), midnight)
+        XCTAssertEqual(OpenCodeFree.nextReset(after: midnight), midnight.addingTimeInterval(86_400))
+        XCTAssertEqual(OpenCodeFree.nextReset(after: midnight.addingTimeInterval(4_856)), midnight.addingTimeInterval(86_400))
+        let snapshot = OpenCodeFree.snapshot(at: midnight)
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+        XCTAssertNil(snapshot.monthly)
+        XCTAssertTrue(snapshot.additionalLimits.isEmpty)
+        XCTAssertFalse(UsageProvider.opencodeFree.hasMeters)
+        XCTAssertTrue(UsageProvider.opencodeGo.hasMeters)
+        let order = ProviderCatalog.recommendedOrder
+        XCTAssertEqual(order.firstIndex(of: .opencodeFree), order.firstIndex(of: .opencodeGo).map { $0 + 1 })
+        XCTAssertEqual(ProviderCatalog.entry(for: .opencodeFree).signIn, .noAccount)
     }
 
     func testMiniMax() {

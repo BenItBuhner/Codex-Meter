@@ -180,6 +180,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             case CLINE:
                 return R.drawable.ic_provider_cline;
             case OPENCODE_GO:
+            case OPENCODE_FREE:
                 return R.drawable.ic_provider_opencode_go;
             case MINIMAX:
                 return R.drawable.ic_provider_minimax;

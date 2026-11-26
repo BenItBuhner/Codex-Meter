@@ -20,6 +20,8 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
     case augment = "augment"
     case cline = "cline"
     case opencodeGo = "opencode_go"
+    /// OpenCode's free models: no account, counted per network, so only the reset is known.
+    case opencodeFree = "opencode_free"
     case minimax = "minimax"
     case zai = "zai"
     case kiro = "kiro"
@@ -52,6 +54,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         case .augment: "Augment"
         case .cline: "Cline"
         case .opencodeGo: "OpenCode Go"
+        case .opencodeFree: "OpenCode Free"
         case .minimax: "MiniMax"
         case .zai: "Z.ai"
         case .kiro: "Kiro"
@@ -81,7 +84,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         case .windsurf: "Windsurf"
         case .augment: "Augment"
         case .cline: "Cline"
-        case .opencodeGo: "OpenCode"
+        case .opencodeGo, .opencodeFree: "OpenCode"
         case .minimax: "MiniMax"
         case .zai: "Z.ai"
         case .kiro: "AWS Builder ID"
@@ -111,7 +114,7 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
         case .windsurf: "Cognition"
         case .augment: "Augment Code"
         case .cline: "Cline"
-        case .opencodeGo: "OpenCode"
+        case .opencodeGo, .opencodeFree: "OpenCode"
         case .minimax: "MiniMax"
         case .zai: "Z.ai"
         case .kiro: "AWS"
@@ -131,8 +134,15 @@ public enum UsageProvider: String, CaseIterable, Codable, Sendable, Identifiable
     public var usualDashboardSections: [String] {
         switch self {
         case .cursor: [DashboardSections.weekly]
+        case .opencodeFree: []
         default: [DashboardSections.fiveHour, DashboardSections.weekly]
         }
+    }
+
+    /// Whether this provider reports usage meters. OpenCode Free only knows its reset time, so
+    /// widgets, which draw meters, leave it out.
+    public var hasMeters: Bool {
+        self != .opencodeFree
     }
 
     public var signInLabel: String {

@@ -8,9 +8,12 @@ namespace CodexMeter.App.Assets;
 /// </summary>
 internal static partial class ProviderIcons
 {
+    /// <summary>OpenCode Free shares OpenCode Go's mark.</summary>
+    private static string MarkId(string providerId) => providerId == "opencode_free" ? "opencode_go" : providerId;
+
     private static readonly Dictionary<string, PathData.Parsed> Parsed = new();
 
-    public static bool Has(string providerId) => Paths.ContainsKey(providerId);
+    public static bool Has(string providerId) => Paths.ContainsKey(MarkId(providerId));
 
     /// <summary>Every mark's raw path data, for tests.</summary>
     internal static IReadOnlyDictionary<string, string> AllData => Paths.ToDictionary(p => p.Key, p => p.Value.Data);
@@ -18,7 +21,7 @@ internal static partial class ProviderIcons
     /// <summary>A fresh widget <paramref name="size"/> pixels square that draws the mark.</summary>
     public static Gtk.Widget Create(string providerId, int size = 16)
     {
-        if (!Paths.ContainsKey(providerId))
+        if (!Paths.ContainsKey(MarkId(providerId)))
         {
             var fallback = Gtk.Image.NewFromIconName("applications-system-symbolic");
             fallback.SetPixelSize(size);
@@ -42,7 +45,7 @@ internal static partial class ProviderIcons
     /// <summary>Fills the mark into the square at (x, y) with the current source.</summary>
     public static void Draw(Cairo.Context cr, string providerId, double x, double y, double size)
     {
-        if (!Paths.TryGetValue(providerId, out var mark)) return;
+        if (!Paths.TryGetValue(MarkId(providerId), out var mark)) return;
         PathData.Parsed parsed;
         lock (Parsed)
         {

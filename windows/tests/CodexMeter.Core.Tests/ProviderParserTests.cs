@@ -70,6 +70,29 @@ public class ProviderParserTests
     }
 
     [Fact]
+    public async Task OpenCodeFreeResetsAtMidnightUtcAndNeedsNoAccount()
+    {
+        var midnight = DateTimeOffset.FromUnixTimeSeconds(20_000L * 86_400);
+        Assert.Equal(midnight, OpenCodeFree.NextReset(midnight.AddSeconds(-1)));
+        Assert.Equal(midnight.AddDays(1), OpenCodeFree.NextReset(midnight));
+        Assert.Equal(midnight.AddDays(1), OpenCodeFree.NextReset(midnight.AddSeconds(4_856)));
+        // A local offset doesn't move the reset: it is midnight UTC everywhere.
+        Assert.Equal(midnight.AddDays(1), OpenCodeFree.NextReset(midnight.AddHours(3).ToOffset(TimeSpan.FromHours(-6))));
+        var snapshot = OpenCodeFree.Snapshot(midnight);
+        Assert.Null(snapshot.FiveHour);
+        Assert.Null(snapshot.Weekly);
+        Assert.Null(snapshot.Monthly);
+        Assert.Empty(snapshot.AdditionalLimits);
+        Assert.False(UsageProvider.OpencodeFree.HasMeters);
+        Assert.True(UsageProvider.OpencodeGo.HasMeters);
+        var all = UsageProvider.All.ToList();
+        Assert.Equal(all.IndexOf(UsageProvider.OpencodeGo) + 1, all.IndexOf(UsageProvider.OpencodeFree));
+        Assert.Equal(SignInStyle.NoAccount, UsageProvider.OpencodeFree.SignIn);
+        var tokens = await new Core.Services.OpenCodeFreeClient().FromApiKeyAsync("", null!, CancellationToken.None);
+        Assert.True(tokens.IsUsable);
+    }
+
+    [Fact]
     public void PickerHidesConnectedAndSearches()
     {
         var picker = UsageProvider.PickerProviders([UsageProvider.Codex, UsageProvider.Cursor], "");

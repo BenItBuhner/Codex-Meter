@@ -102,6 +102,7 @@ javac -encoding UTF-8 -Xlint:all -Werror -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorApi.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/CursorUsageParser.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderCatalog.java" \
+  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OpenCodeFree.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppSessionRules.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderTabs.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/ProviderUsageParsers.java" \

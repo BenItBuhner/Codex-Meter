@@ -124,6 +124,7 @@ extension UsageProvider {
         case .codex: "ProviderCodex"
         case .claudeCode: "ProviderClaude"
         case .cursor: "ProviderCursor"
+        case .opencodeFree: "Provider-opencode_go"
         default: "Provider-\(rawValue)"
         }
     }

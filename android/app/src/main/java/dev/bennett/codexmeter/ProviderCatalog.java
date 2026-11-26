@@ -22,7 +22,9 @@ public final class ProviderCatalog {
         /** The provider's site shows a token or code that the user pastes back. */
         CODE_PASTE,
         /** The user creates a key on the provider's site and pastes it. */
-        API_KEY
+        API_KEY,
+        /** Nothing to sign in to: the sign-in screen just turns the provider on. */
+        NONE
     }
 
     /** One provider's catalog entry. */
@@ -97,6 +99,9 @@ public final class ProviderCatalog {
             new Entry(UsageProvider.OPENCODE_GO, SignIn.DEVICE_CODE,
                     "5-hour, weekly and monthly limits", "OpenCode sign-in",
                     "https://opencode.ai/auth", true, false),
+            // Listed right under OpenCode Go so the two OpenCode choices sit together.
+            new Entry(UsageProvider.OPENCODE_FREE, SignIn.NONE,
+                    "Daily free limit reset", "No sign-in", "", false, false),
             new Entry(UsageProvider.MINIMAX, SignIn.DEVICE_CODE,
                     "Coding plan prompts per window", "MiniMax sign-in",
                     "https://platform.minimax.io/user-center/basic-information/interface-key",

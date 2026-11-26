@@ -8,7 +8,7 @@ package dev.bennett.codexmeter;
  */
 public final class ProviderTabs {
     /** Menu slots in {@code res/menu/provider_tabs.xml}; one per provider. */
-    public static final int SLOT_COUNT = 24;
+    public static final int SLOT_COUNT = 25;
     /** One UI shows four tabs side by side, but never five. */
     public static final int MAX_TABS_WITHOUT_MORE = 4;
     /** With an overflow, One UI keeps three tabs and adds "More". */

@@ -321,6 +321,15 @@ final class ProviderUsageModel {
         run { try await service.connect(apiKey: key) }
     }
 
+    /// Providers with no account: saves the placeholder their client returns.
+    func turnOn() {
+        guard let service else { return }
+        cancelSignIn()
+        let attempt = ProviderSignInSession()
+        self.attempt = attempt
+        run { try await service.connect(apiKey: "") }
+    }
+
     private func run(_ operation: @escaping @MainActor () async throws -> AuthTokens) {
         signInTask?.cancel()
         let attempt = attempt

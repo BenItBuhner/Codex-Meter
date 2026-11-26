@@ -12,7 +12,7 @@ struct ProviderMark: View {
 
     var body: some View {
         if WatchProviderAssets.hasMark(providerID) {
-            Image("ProviderMark-\(providerID)")
+            Image("ProviderMark-\(WatchProviderAssets.markID(providerID))")
                 .resizable()
                 .renderingMode(.template)
                 .scaledToFit()
@@ -32,7 +32,10 @@ enum WatchProviderAssets {
         "opencode_go", "openrouter", "synthetic", "v0", "warp", "windsurf", "zai",
     ]
 
-    static func hasMark(_ id: String) -> Bool { marks.contains(id) }
+    static func hasMark(_ id: String) -> Bool { marks.contains(markID(id)) }
+
+    /// OpenCode Free shares OpenCode Go's mark.
+    static func markID(_ id: String) -> String { id == "opencode_free" ? "opencode_go" : id }
 }
 
 /// Tint for a meter by how much is left: the app accent, then orange and red as it runs low.

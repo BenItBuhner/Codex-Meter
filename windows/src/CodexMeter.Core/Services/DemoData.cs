@@ -61,6 +61,7 @@ public static class DemoData
                 [new UsageLimit("chat", "Chat", primary: Window(12, month, TimeSpan.FromDays(17)))]),
             "factory" => Make("Pro", FiveHour(), Weekly(), Monthly()),
             "cline" or "opencode_go" => Make("Pro", FiveHour(), Weekly(), Monthly()),
+            "opencode_free" => Make("Free", null, null, null),
             "grok" => Make("SuperGrok", null, null, Monthly()),
             "devin" or "windsurf" => Make("Pro", Window(18, day, TimeSpan.FromHours(9)), Weekly(), null),
             "augment" or "kiro" or "codebuff" => Make("Pro", null, null, Monthly()),
