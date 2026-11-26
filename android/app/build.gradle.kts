@@ -81,8 +81,12 @@ android {
         }
     }
 
+    // One UI 9.5 is internal until it's ready: debug builds offer it, release builds (alphas and
+    // stable) don't. -PoneUi95=true|false overrides both, for example an internal release build.
+    val oneUi95 = providers.gradleProperty("oneUi95").orNull
     buildTypes {
         debug {
+            buildConfigField("boolean", "ONE_UI_9_5_AVAILABLE", oneUi95 ?: "true")
             // -PshrinkDebug=true shrinks the debug build (with its demo entry points) by the release
             // rules, so CI can open every screen on R8 output (ci/shrunk-smoke.sh).
             if (providers.gradleProperty("shrinkDebug").orNull == "true") {
@@ -92,6 +96,7 @@ android {
             }
         }
         release {
+            buildConfigField("boolean", "ONE_UI_9_5_AVAILABLE", oneUi95 ?: "false")
             // R8 removes unused code and resources: rules in proguard-rules.pro and the libraries'.
             isMinifyEnabled = true
             isShrinkResources = true
