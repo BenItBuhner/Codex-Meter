@@ -523,6 +523,16 @@ public final class UsagePaceDemoActivity extends Activity {
             ProviderPreferences.setEnabledProviders(this, Arrays.asList(UsageProvider.CODEX,
                     UsageProvider.CLAUDE_CODE, UsageProvider.CURSOR));
         }
+        if (getIntent().getBooleanExtra("demo_opencode_free", false)) {
+            // OpenCode Free's no-account sign-in and its local snapshot: the reset card only.
+            SecureTokenStore.save(this, UsageProvider.OPENCODE_FREE, new ProviderClients.OpenCodeFreeClient()
+                    .connectWithoutAccount(this));
+            ProviderPreferences.saveSnapshot(this, UsageProvider.OPENCODE_FREE, OpenCodeFree.snapshot(now));
+            java.util.List<UsageProvider> enabled = new java.util.ArrayList<>(
+                    ProviderPreferences.getEnabled(this));
+            enabled.add(UsageProvider.OPENCODE_FREE);
+            ProviderPreferences.setEnabledProviders(this, enabled);
+        }
         ProviderPreferences.setSelected(this, UsageProvider.CODEX);
     }
 

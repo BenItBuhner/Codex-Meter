@@ -13,7 +13,8 @@
 # tablet screen sizes (the emulator's display resized), phones for a large and a compact phone plus
 # those sizes, or duo for Liquid Glass's Duo layout on a
 # Galaxy Z Fold 8's inner screen, next to the standard layout, and on the phone with Duo set to Always,
-# or expressive for Material 3 Expressive's Edit mode, drag handles and page motion (use with that design).
+# or expressive for Material 3 Expressive's Edit mode, drag handles and page motion (use with that design),
+# or opencode_free for only OpenCode Free's dashboard in light and dark.
 set -euo pipefail
 
 APK="${1:?debug APK required}"
@@ -580,6 +581,18 @@ if [[ "$SCENES" == priority ]]; then
   exit 0
 fi
 
+# OpenCode Free's dashboard: only its "Daily free limit" reset card, which must fit its text.
+opencode_free_scene() {
+  demo --ez demo_opencode_free true --es open_provider opencode_free
+  shot "$THEME-05c-opencode-free" 6
+}
+
+if [[ "$SCENES" == opencode_free ]]; then
+  for THEME in light dark; do opencode_free_scene; done
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  exit 0
+fi
+
 if [[ "$SCENES" == new_models ]]; then
   new_models_scenes
   adb logcat -d -b crash > "$OUT/crash-log.txt" || true
@@ -599,6 +612,7 @@ for THEME in light dark; do
   { tap_tab 2 4 && shot "$THEME-04-claude" 3; } || true
   { tap_tab 3 4 && shot "$THEME-05-cursor" 3; } || true
   pull_refresh "$THEME-05b-pull-short-page"
+  opencode_free_scene
   demo --ez resume_live_settings true
   shot "$THEME-06-settings" 5
   adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 4)) 500

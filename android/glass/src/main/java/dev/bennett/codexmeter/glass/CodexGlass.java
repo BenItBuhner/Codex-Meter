@@ -641,7 +641,7 @@ public final class CodexGlass {
                 return meter(c, t, key);
             case BALANCE:
                 return ListSection(P.of("key", key, "header", c.title, "footer", c.detail),
-                        ListRow(P.of("h", c.summary != null ? 66 : 52, "icon", c.icon, "color", tile(c.color),
+                        ListRow(P.of("h", balanceHeight(c.summary), "icon", c.icon, "color", tile(c.color),
                                 "label", twoLine(c.value, c.summary, t))));
             case LINK:
                 return ListSection(P.of("key", key, "footer", c.summary),
@@ -1499,6 +1499,19 @@ public final class CodexGlass {
         }
         return Box(P.of("flex", 1, "gap", 2), title,
                 Text(P.of("size", 13, "lh", 16.5, "lines", 3, "color", t.pal.label2), r.summary));
+    }
+
+    /**
+     * A balance row: 52pt alone, 66pt with a one-line summary, and 16.5pt more for each further
+     * summary line (up to the three twoLine shows), so a long explanation such as OpenCode Free's
+     * isn't clipped. Lines are estimated like rowHeight's, about 44 characters each.
+     */
+    static double balanceHeight(String summary) {
+        if (summary == null || summary.isEmpty()) {
+            return 52;
+        }
+        int lines = Math.min(3, 1 + summary.length() / 44);
+        return 66 + (lines - 1) * 16.5;
     }
 
     /** One line: 52pt like iOS; a summary adds a line or two of 13pt text. */
